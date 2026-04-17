@@ -42,6 +42,8 @@ interface PropsBuscadorProducto {
   soloLectura?: boolean
   /** Clase CSS extra */
   className?: string
+  /** Foco automático al montar (para líneas recién agregadas) */
+  autoFocus?: boolean
 }
 
 export function BuscadorProducto({
@@ -52,8 +54,9 @@ export function BuscadorProducto({
   placeholder = 'Producto / Servicio',
   soloLectura = false,
   className = '',
+  autoFocus = false,
 }: PropsBuscadorProducto) {
-  const { locale } = useFormato()
+  const { locale, moneda: fmtMoneda } = useFormato()
   const [busqueda, setBusqueda] = useState('')
   const [resultados, setResultados] = useState<ProductoBusqueda[]>([])
   const [abierto, setAbierto] = useState(false)
@@ -176,6 +179,19 @@ export function BuscadorProducto({
     setBusqueda(valor)
   }, [valor])
 
+  // Auto-focus al montar (línea recién agregada)
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      // requestAnimationFrame para esperar que el DOM se estabilice tras agregar la fila
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  // Solo al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Cleanup timeout
   useEffect(() => {
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
@@ -239,7 +255,7 @@ export function BuscadorProducto({
                 {resultados.map((producto, i) => {
                   const color = COLOR_TIPO_PRODUCTO[producto.tipo] || 'neutro'
                   const precioStr = producto.precio_unitario && parseFloat(producto.precio_unitario) > 0
-                    ? `$ ${parseFloat(producto.precio_unitario).toLocaleString(locale, { minimumFractionDigits: 2 })}`
+                    ? fmtMoneda(parseFloat(producto.precio_unitario))
                     : null
 
                   return (

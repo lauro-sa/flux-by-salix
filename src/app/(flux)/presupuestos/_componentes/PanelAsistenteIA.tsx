@@ -237,6 +237,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
               onChange={e => setDescripcion(e.target.value)}
               placeholder="Describí el trabajo a presupuestar...&#10;&#10;Ej: Fui a un edificio en Palermo, portón curvo corredizo grande. Hay que cambiar los rolletes inferiores, reparar el carro superior, ajustar y nivelar. Traslado con andamios."
               rows={5}
+              autoFocus
             />
             {/* Selector de modo */}
             <div className="flex items-center gap-1 p-0.5 rounded-lg bg-superficie-app border border-borde-sutil mt-3">

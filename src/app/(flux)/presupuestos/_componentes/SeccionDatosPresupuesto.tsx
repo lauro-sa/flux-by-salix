@@ -62,6 +62,8 @@ interface PropsSeccionDatosPresupuesto {
   onTogglePredeterminada: (id: string) => Promise<void>
   onAutoguardar: (campos: Record<string, unknown>) => void
   onSetConfig: (config: ConfigPresupuestos | null) => void
+  /** true si el presupuesto difiere de la plantilla cargada */
+  plantillaModificada?: boolean
 }
 
 export default function SeccionDatosPresupuesto({
@@ -101,6 +103,7 @@ export default function SeccionDatosPresupuesto({
   onEliminarPlantilla,
   onTogglePredeterminada,
   onAutoguardar,
+  plantillaModificada = false,
 }: PropsSeccionDatosPresupuesto) {
   const { t } = useTraduccion()
   const formato = useFormato()
@@ -130,6 +133,7 @@ export default function SeccionDatosPresupuesto({
               predeterminadaId={((config?.plantillas_predeterminadas || {}) as Record<string, string>)[usuarioId] || null}
               usuarioId={usuarioId}
               puedeEliminarTodas={esPropietario || esAdmin}
+              tieneModificaciones={plantillaModificada}
               onCargar={onCargarPlantilla}
               onGuardarComo={onGuardarComoPlantilla}
               onGuardarCambios={onGuardarCambiosPlantilla}

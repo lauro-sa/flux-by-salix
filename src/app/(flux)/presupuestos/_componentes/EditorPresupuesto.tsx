@@ -6,11 +6,11 @@
  * Se usa en: presupuestos/nuevo/page.tsx, presupuestos/[id]/page.tsx
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
-import { TablaLineas } from './TablaLineas'
+import { TablaLineas, type OriginalCatalogo } from './TablaLineas'
 import dynamic from 'next/dynamic'
 import type { LineaPropuestaIA } from './PanelAsistenteIA'
 const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.PanelAsistenteIA), { ssr: false })
@@ -79,7 +79,7 @@ export default function EditorPresupuesto({
   const formato = useFormato()
   const { empresa } = useEmpresa()
   const { usuario } = useAuth()
-  const { esPropietario, esAdmin } = useRol()
+  const { esPropietario, esAdmin, tienePermiso } = useRol()
   const { programarEnvio } = useEnvioPendiente()
   const { mostrar: mostrarToast } = useToast()
   const esPantallaAncha = useEsPantallaAncha()
@@ -142,9 +142,13 @@ export default function EditorPresupuesto({
 
   // Líneas
   const [lineas, setLineas] = useState<(LineaPresupuesto | LineaTemporal)[]>([])
+  const [lineaRecienAgregada, setLineaRecienAgregada] = useState<string | null>(null)
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>([
     'producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal',
   ])
+
+  // Originales del catálogo por lineaId — para detectar cambios en nombre/descripción
+  const [originalesCatalogo, setOriginalesCatalogo] = useState<Map<string, OriginalCatalogo>>(new Map())
 
   // Snapshot del último estado guardado — para dirty tracking
   const guardadoRef = useRef<Record<string, unknown>>({})
@@ -500,12 +504,21 @@ export default function EditorPresupuesto({
   // ─── Autoguardado con dirty tracking ────────────────────────────────────
 
   const promesasPendientesRef = useRef<Set<Promise<void>>>(new Set())
+  const debounceLineasRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const registrarPromesa = useCallback((p: Promise<void>) => {
     promesasPendientesRef.current.add(p)
     p.finally(() => promesasPendientesRef.current.delete(p))
   }, [])
-  const esperarGuardados = useCallback(() => {
-    return Promise.all(Array.from(promesasPendientesRef.current))
+  const enviarPatchLineaRef = useRef<(lineaId: string) => void>(() => {})
+  const esperarGuardados = useCallback(async () => {
+    // Forzar envío de líneas con debounce pendiente
+    for (const [lineaId, timeout] of debounceLineasRef.current.entries()) {
+      clearTimeout(timeout)
+      debounceLineasRef.current.delete(lineaId)
+      enviarPatchLineaRef.current(lineaId)
+    }
+    // Esperar a que todas las promesas terminen
+    await Promise.all(Array.from(promesasPendientesRef.current))
   }, [])
 
   const autoguardar = useCallback((campos: Record<string, unknown>) => {
@@ -644,14 +657,17 @@ export default function EditorPresupuesto({
         })
         if (res.ok) {
           const nuevas = await res.json()
-          setLineas(prev => [...prev, ...(Array.isArray(nuevas) ? nuevas : [nuevas])])
-          if (modo === 'editar') recargarTotales()
+          const lista = Array.isArray(nuevas) ? nuevas : [nuevas]
+          setLineas(prev => [...prev, ...lista])
+          if (lista[0]?.id) setLineaRecienAgregada(lista[0].id)
+          if (modo === 'editar') recargarTotalesRef.current()
         }
       } catch { /* silenciar */ }
     } else {
+      const idTemp = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
       const nuevaLinea: LineaTemporal = {
         _temp: true,
-        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: idTemp,
         tipo_linea: tipo, orden: lineas.length, codigo_producto: null,
         descripcion: tipo === 'seccion' ? '' : null, descripcion_detalle: null,
         cantidad: '1', unidad: null, precio_unitario: '0', descuento: '0',
@@ -661,6 +677,7 @@ export default function EditorPresupuesto({
         monto: tipo === 'descuento' ? '0' : null,
       }
       setLineas(prev => [...prev, nuevaLinea])
+      setLineaRecienAgregada(idTemp)
     }
   }, [lineas.length, config, modo])
 
@@ -712,7 +729,7 @@ export default function EditorPresupuesto({
       }
     }
 
-    if (pid && modo === 'editar') recargarTotales()
+    if (pid && modo === 'editar') recargarTotalesRef.current()
   }, [config, lineas.length, modo])
 
   // ─── Asistente IA: crear servicio nuevo en catálogo ───
@@ -739,9 +756,29 @@ export default function EditorPresupuesto({
     return null
   }, [])
 
+  // Debounce por línea para agrupar cambios rápidos (ej. al seleccionar producto del catálogo
+  // que dispara 5-6 onEditar seguidos) en un solo PATCH al backend
+  const lineasRefActual = useRef(lineas)
+  lineasRefActual.current = lineas
+
+  const recargarTotalesRef = useRef<() => Promise<void>>(async () => {})
+  const enviarPatchLinea = useCallback((lineaId: string) => {
+    const pid = presupuestoIdRef.current
+    if (!pid) return
+    const lineaActualizada = lineasRefActual.current.find(l => l.id === lineaId)
+    if (!lineaActualizada) return
+    const p = fetch(`/api/presupuestos/${pid}/lineas`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...lineaActualizada, id: lineaId }),
+    }).then(() => { if (modo === 'editar') recargarTotalesRef.current() }).catch(() => {})
+    registrarPromesa(p)
+  }, [modo, registrarPromesa])
+  enviarPatchLineaRef.current = enviarPatchLinea
+
   const editarLinea = useCallback((lineaId: string, campo: string, valor: string) => {
     setLineas(prev => {
-      const nuevas = prev.map(l => {
+      return prev.map(l => {
         if (l.id !== lineaId) return l
         const act = { ...l, [campo]: valor }
         if (act.tipo_linea === 'producto') {
@@ -756,23 +793,16 @@ export default function EditorPresupuesto({
         }
         return act
       })
-
-      const pid = presupuestoIdRef.current
-      if (pid) {
-        const lineaActualizada = nuevas.find(l => l.id === lineaId)
-        if (lineaActualizada) {
-          const p = fetch(`/api/presupuestos/${pid}/lineas`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...lineaActualizada, id: lineaId }),
-          }).then(() => { if (modo === 'editar') recargarTotales() }).catch(() => {})
-          registrarPromesa(p)
-        }
-      }
-
-      return nuevas
     })
-  }, [modo])
+
+    // Debounce: esperar 150ms para agrupar múltiples ediciones rápidas en un solo PATCH
+    const prevTimeout = debounceLineasRef.current.get(lineaId)
+    if (prevTimeout) clearTimeout(prevTimeout)
+    debounceLineasRef.current.set(lineaId, setTimeout(() => {
+      debounceLineasRef.current.delete(lineaId)
+      enviarPatchLinea(lineaId)
+    }, 150))
+  }, [enviarPatchLinea])
 
   const eliminarLinea = useCallback(async (lineaId: string) => {
     setLineas(prev => prev.filter(l => l.id !== lineaId))
@@ -783,7 +813,7 @@ export default function EditorPresupuesto({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ linea_id: lineaId }),
       })
-      if (modo === 'editar') recargarTotales()
+      if (modo === 'editar') recargarTotalesRef.current()
     }
   }, [modo])
 
@@ -802,6 +832,61 @@ export default function EditorPresupuesto({
     }
   }, [])
 
+  // ─── Catálogo: almacenar originales, actualizar, revertir ───────────────
+
+  const registrarOriginalCatalogo = useCallback((lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => {
+    setOriginalesCatalogo(prev => {
+      const nuevo = new Map(prev)
+      nuevo.set(lineaId, { producto_id: producto.id, nombre: producto.nombre, descripcion_venta: producto.descripcion_venta })
+      return nuevo
+    })
+  }, [])
+
+  const actualizarCatalogo = useCallback(async (lineaId: string) => {
+    const original = originalesCatalogo.get(lineaId)
+    if (!original) return
+    const linea = lineasRefActual.current.find(l => l.id === lineaId)
+    if (!linea) return
+
+    const cambios: Record<string, string | null> = {}
+    if ((linea.descripcion || '') !== original.nombre) cambios.nombre = linea.descripcion || ''
+    if (linea.descripcion_detalle !== undefined) cambios.descripcion_venta = linea.descripcion_detalle
+
+    if (Object.keys(cambios).length === 0) return
+
+    const res = await fetch(`/api/productos/${original.producto_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cambios),
+    })
+    if (res.ok) {
+      // Actualizar originales para que la barra desaparezca
+      setOriginalesCatalogo(prev => {
+        const nuevo = new Map(prev)
+        nuevo.set(lineaId, {
+          ...original,
+          nombre: linea.descripcion || original.nombre,
+          descripcion_venta: linea.descripcion_detalle ?? original.descripcion_venta,
+        })
+        return nuevo
+      })
+      mostrarToast('exito', 'Producto actualizado en el catálogo')
+    } else {
+      mostrarToast('error', 'Error al actualizar el catálogo')
+    }
+  }, [originalesCatalogo, mostrarToast])
+
+  const revertirCatalogo = useCallback((lineaId: string) => {
+    const original = originalesCatalogo.get(lineaId)
+    if (!original) return
+    editarLinea(lineaId, 'descripcion', original.nombre)
+    if (original.descripcion_venta !== null) {
+      editarLinea(lineaId, 'descripcion_detalle', original.descripcion_venta)
+    }
+  }, [originalesCatalogo, editarLinea])
+
+  const puedeEditarProductos = tienePermiso('productos', 'editar')
+
   const recargarTotales = useCallback(async () => {
     if (!presupuestoIdRef.current) return
     try {
@@ -816,6 +901,7 @@ export default function EditorPresupuesto({
       } : null)
     } catch { /* silenciar */ }
   }, [])
+  recargarTotalesRef.current = recargarTotales
 
   // ─── Guardar todo el estado actual (para PDF y acciones críticas) ────────
 
@@ -1113,7 +1199,7 @@ export default function EditorPresupuesto({
       ...(!presupuesto?.fecha_emision_original ? { fecha_emision_original: fechaOriginal } : {}),
     })
 
-    const fmtFecha = (f: string) => new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const fmtFecha = (f: string) => formato.fecha(f)
     const numPresup = presupuestoRef.current?.numero || ''
     try {
       // Adjuntar PDF congelado de la versión anterior al chatter
@@ -1247,6 +1333,21 @@ export default function EditorPresupuesto({
     }
     return { subtotal, impuestos, total: subtotal + impuestos }
   })()
+
+  // Detectar si la plantilla cargada fue modificada
+  const plantillaModificada = useMemo(() => {
+    if (!plantillaId) return false
+    const tpl = ((config?.plantillas || []) as Array<{ id: string; moneda?: string; condicion_pago_id?: string; dias_vencimiento?: number; lineas?: unknown[]; notas_html?: string; condiciones_html?: string }>).find(p => p.id === plantillaId)
+    if (!tpl) return false
+    if (tpl.moneda && tpl.moneda !== moneda) return true
+    if (tpl.condicion_pago_id && tpl.condicion_pago_id !== condicionPagoId) return true
+    if (tpl.dias_vencimiento !== undefined && tpl.dias_vencimiento !== diasVencimiento) return true
+    if ((tpl.notas_html || '') !== (notasHtml || '')) return true
+    if ((tpl.condiciones_html || '') !== (condicionesHtml || '')) return true
+    const tplLineasLen = Array.isArray(tpl.lineas) ? tpl.lineas.length : 0
+    if (tplLineasLen !== lineas.length) return true
+    return false
+  }, [plantillaId, config?.plantillas, moneda, condicionPagoId, diasVencimiento, notasHtml, condicionesHtml, lineas.length])
 
   const simbolo = new Intl.NumberFormat(formato.locale, { style: 'currency', currency: moneda || formato.codigoMoneda, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find(p => p.type === 'currency')?.value || '$'
   const fmt = (v: string | number) => {
@@ -1591,6 +1692,7 @@ export default function EditorPresupuesto({
             }}
             onAutoguardar={autoguardar}
             onSetConfig={setConfig}
+            plantillaModificada={plantillaModificada}
           />
         </div>
 
@@ -1618,6 +1720,7 @@ export default function EditorPresupuesto({
             moneda={moneda}
             simboloMoneda={simbolo}
             soloLectura={!esEditable}
+            lineaRecienAgregada={lineaRecienAgregada}
             onAgregarLinea={agregarLinea}
             onEditarLinea={editarLinea}
             onEliminarLinea={eliminarLinea}
@@ -1627,6 +1730,12 @@ export default function EditorPresupuesto({
               autoguardar({ columnas_lineas: cols })
               try { localStorage.setItem('flux_columnas_presupuesto', JSON.stringify(cols)) } catch {}
             }}
+            originalesCatalogo={originalesCatalogo}
+            onProductoSeleccionado={registrarOriginalCatalogo}
+            onActualizarCatalogo={actualizarCatalogo}
+            onRevertirCatalogo={revertirCatalogo}
+            puedeEditarProductos={puedeEditarProductos}
+            presupuestoGuardado={!!presupuestoIdRef.current}
           />
         </div>
 

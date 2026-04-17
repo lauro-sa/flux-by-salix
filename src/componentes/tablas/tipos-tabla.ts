@@ -143,6 +143,11 @@ export interface PropiedadesTablaDinamica<T> {
   /** Elemento extra a la derecha de la barra de herramientas (ej: botón de config) */
   accionDerecha?: ReactNode
 
+  /** Agrupación en vista tarjetas — función que extrae la clave del grupo desde cada fila */
+  grupoTarjetas?: (fila: T) => string
+  /** Etiqueta legible del grupo (si no se pasa, usa la clave directa) */
+  etiquetaGrupoTarjetas?: (clave: string) => string
+
   className?: string
 }
 

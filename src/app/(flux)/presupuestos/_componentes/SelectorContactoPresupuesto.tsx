@@ -72,6 +72,10 @@ interface PropiedadesSelectorContacto {
   onCambiarDireccion?: (direccionId: string) => void
   soloLectura?: boolean
   error?: boolean
+  /** Foco automático al montar (ej. al crear presupuesto nuevo) */
+  autoFocus?: boolean
+  /** Hay vinculaciones con correo disponibles (para mejorar mensaje de alerta) */
+  hayVinculacionesConCorreo?: boolean
 }
 
 export default function SelectorContactoPresupuesto({
@@ -81,6 +85,8 @@ export default function SelectorContactoPresupuesto({
   onCambiarDireccion,
   soloLectura = false,
   error = false,
+  autoFocus = false,
+  hayVinculacionesConCorreo = false,
 }: PropiedadesSelectorContacto) {
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
@@ -92,6 +98,14 @@ export default function SelectorContactoPresupuesto({
   const refContenedor = useRef<HTMLDivElement>(null)
   const refInput = useRef<HTMLInputElement>(null)
   const [posDropdown, setPosDropdown] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  // Auto-focus al montar (ej. presupuesto nuevo sin contacto)
+  useEffect(() => {
+    if (autoFocus && !contacto && refInput.current) {
+      requestAnimationFrame(() => refInput.current?.focus())
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Cargar recientes al montar (últimos 8 contactos)
   useEffect(() => {
@@ -266,7 +280,10 @@ export default function SelectorContactoPresupuesto({
           <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
             <span className="text-insignia-advertencia text-sm shrink-0 mt-0.5">⚠</span>
             <p className="text-xs text-insignia-advertencia">
-              Este contacto no tiene correo electrónico. No se podrán enviar documentos por email.
+              {hayVinculacionesConCorreo
+                ? 'Este contacto no tiene correo electrónico. Seleccioná un contacto en "Dirigido a" para poder enviar por email.'
+                : 'Este contacto no tiene correo electrónico. No se podrán enviar documentos por email.'
+              }
             </p>
           </div>
         )}

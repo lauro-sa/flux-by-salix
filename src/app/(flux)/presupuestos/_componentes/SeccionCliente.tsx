@@ -50,6 +50,11 @@ export default function SeccionCliente({
   const router = useRouter()
   const { t } = useTraduccion()
 
+  const hayVinculacionesConCorreo = vinculaciones.some(v => v.vinculado.correo)
+  // El contacto no tiene correo si: el seleccionado no tiene, O el snapshot del presupuesto no tiene
+  const correoContacto = contactoSeleccionado?.correo || presupuesto?.contacto_correo
+  const clienteSinCorreo = !correoContacto
+
   return (
     <div className="space-y-3 py-3">
       {/* CLIENTE */}
@@ -60,6 +65,7 @@ export default function SeccionCliente({
         <div className="mt-1.5">
           {modo === 'crear' ? (
             <SelectorContactoPresupuesto
+              autoFocus={!contactoSeleccionado}
               contacto={contactoSeleccionado ? {
                 id: contactoSeleccionado.id,
                 nombre: contactoSeleccionado.nombre,
@@ -80,6 +86,7 @@ export default function SeccionCliente({
                   onLimpiarContacto()
                 }
               }}
+              hayVinculacionesConCorreo={hayVinculacionesConCorreo}
               onSeleccionarConDirigidoA={(padre, hijoId) => {
                 onSeleccionarConDirigidoA(padre, hijoId)
               }}
@@ -111,6 +118,7 @@ export default function SeccionCliente({
               } : null}
               onChange={(c) => onCambiarContactoEditar(c)}
               soloLectura={!esEditable}
+              hayVinculacionesConCorreo={hayVinculacionesConCorreo}
             />
           )}
         </div>
@@ -145,6 +153,7 @@ export default function SeccionCliente({
       {modo === 'editar' && !presupuesto?.atencion_nombre && vinculaciones.length > 0 && esEditable && (
         <DirigidoAEditarLista
           vinculaciones={vinculaciones}
+          clienteSinCorreo={clienteSinCorreo}
           onSeleccionar={(v) => {
             onCambiarAtencionEditar(v.vinculado.id, v.vinculado, {
               atencion_contacto_id: v.vinculado.id,
@@ -293,17 +302,29 @@ function DirigidoAEditarExistente({
 
 function DirigidoAEditarLista({
   vinculaciones,
+  clienteSinCorreo = false,
   onSeleccionar,
 }: {
   vinculaciones: Vinculacion[]
+  clienteSinCorreo?: boolean
   onSeleccionar: (v: Vinculacion) => void
 }) {
+  const tieneConCorreo = vinculaciones.some(v => v.vinculado.correo)
+
   return (
-    <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
+    <div className={`bg-superficie-hover/50 rounded-lg px-3 py-3 -mx-3 ${
+      clienteSinCorreo && tieneConCorreo
+        ? 'border border-insignia-advertencia/30 ring-1 ring-insignia-advertencia/10'
+        : 'border border-borde-sutil/50'
+    }`}>
       <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
         Dirigido a
       </span>
-      <p className="text-xxs text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+      {clienteSinCorreo && tieneConCorreo ? (
+        <p className="text-xxs text-insignia-advertencia mt-0.5 mb-2">Seleccioná un contacto para poder enviar por email</p>
+      ) : (
+        <p className="text-xxs text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+      )}
       <div className="space-y-1">
         {vinculaciones.map(v => (
           <Boton

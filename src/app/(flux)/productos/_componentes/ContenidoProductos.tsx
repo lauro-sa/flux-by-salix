@@ -388,43 +388,44 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
     },
   ]
 
-  // ---- Renderizar tarjeta ----
+  // ---- Renderizar tarjeta (compacta) ----
   const renderizarTarjeta = (fila: FilaProducto) => {
     const color = (COLOR_TIPO_PRODUCTO[fila.tipo] || 'neutro') as ColorInsignia
     const precioStr = formatoMonedaLocal(fila.precio_unitario, fila.moneda, true)
 
     return (
-      <div className="p-4 flex flex-col gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="size-10 rounded-lg flex items-center justify-center shrink-0"
+      <div className="px-2.5 py-2 flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <div className="size-7 rounded-md flex items-center justify-center shrink-0"
             style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
-            {fila.tipo === 'servicio' ? <Wrench size={18} /> : <Package size={18} />}
+            {fila.tipo === 'servicio' ? <Wrench size={13} /> : <Package size={13} />}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-medium text-texto-primario truncate flex items-center gap-1.5">
+            <div className="text-sm font-medium text-texto-primario truncate flex items-center gap-1">
               {fila.nombre}
-              {fila.favorito && <Star size={12} className="text-insignia-advertencia fill-insignia-advertencia shrink-0" />}
+              {fila.favorito && <Star size={10} className="text-insignia-advertencia fill-insignia-advertencia shrink-0" />}
             </div>
-            <div className="text-xs text-texto-terciario font-mono">{fila.codigo}</div>
+            <div className="text-[10px] text-texto-terciario font-mono leading-tight">{fila.codigo}</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Insignia color={color} tamano="sm">{fila.tipo === 'servicio' ? 'Servicio' : 'Producto'}</Insignia>
-          {fila.categoria && (
-            <Insignia color="neutro" tamano="sm">
-              {categoriasDisponibles.find(c => c.valor === fila.categoria)?.etiqueta || fila.categoria}
-            </Insignia>
-          )}
-        </div>
-
-        <div className="border-t border-borde-sutil pt-2.5 flex justify-between items-center">
-          <span className="font-mono font-bold text-texto-primario">{precioStr}</span>
-          <span className="text-xs text-texto-terciario">{fila.unidad}</span>
+        <div className="flex items-center justify-between pt-1 border-t border-borde-sutil">
+          <span className="font-mono text-xs font-bold text-texto-primario">{precioStr}</span>
+          <span className="text-[10px] text-texto-terciario">{fila.unidad}</span>
         </div>
       </div>
     )
   }
+
+  // ---- Agrupación por categoría ----
+  const obtenerGrupoCategoria = useCallback((fila: FilaProducto) => {
+    return fila.categoria || '__sin_categoria__'
+  }, [])
+
+  const obtenerEtiquetaGrupo = useCallback((clave: string) => {
+    if (clave === '__sin_categoria__') return 'Sin categoría'
+    return categoriasDisponibles.find(c => c.valor === clave)?.etiqueta || clave
+  }, [categoriasDisponibles])
 
   return (
     <>
@@ -497,6 +498,8 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
           ]}
           onClickFila={(fila) => abrirEdicion(fila)}
           renderTarjeta={renderizarTarjeta}
+          grupoTarjetas={obtenerGrupoCategoria}
+          etiquetaGrupoTarjetas={obtenerEtiquetaGrupo}
           mostrarResumen
           estadoVacio={
             <EstadoVacio

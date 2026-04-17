@@ -73,6 +73,8 @@ function TablaDinamica<T>({
   chipFiltro,
   opcionesOrden,
   accionDerecha,
+  grupoTarjetas,
+  etiquetaGrupoTarjetas,
   className = '',
 }: PropiedadesTablaDinamica<T>) {
 
@@ -160,6 +162,17 @@ function TablaDinamica<T>({
       setAnchoBuscador(anchoBaseRef.current)
     }
   }, [valorInput, placeholder])
+
+  /* ── Estado de grupos colapsados (vista tarjetas agrupadas) ── */
+  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(new Set())
+  const toggleGrupo = useCallback((clave: string) => {
+    setGruposColapsados(prev => {
+      const next = new Set(prev)
+      if (next.has(clave)) next.delete(clave)
+      else next.add(clave)
+      return next
+    })
+  }, [])
 
   /* ── Estado de selección ── */
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
@@ -1480,69 +1493,132 @@ function TablaDinamica<T>({
             </motion.div>
           )}
 
-          {vistaActual === 'tarjetas' && (
-            <motion.div
-              key="tarjetas"
-              ref={tablaScrollRef}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex-1 min-h-0 overflow-auto px-2 sm:p-4 pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start"
-            >
-              {datosPaginados.length === 0 ? (
-                <div className="col-span-full text-center py-16 text-texto-terciario text-sm">
-                  {t('comun.sin_resultados')}
-                </div>
-              ) : (
-                datosPaginados.map((fila) => {
-                  const id = claveFila(fila)
-                  const estaSeleccionado = seleccionados.has(id)
-
-                  return (
-                    <motion.div
-                      key={id}
-                      layout
-                      className={[
-                        'relative rounded-lg border p-3 transition-all duration-150 cursor-pointer',
-                        estaSeleccionado
-                          ? 'border-texto-marca bg-superficie-seleccionada'
-                          : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte sm:hover:shadow-sm',
-                      ].join(' ')}
-                      onClick={() => onClickFila?.(fila)}
-                    >
-                      {/* Checkbox en tarjeta */}
-                      {seleccionables && (
-                        <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            marcado={estaSeleccionado}
-                            onChange={() => toggleUno(id)}
-                          />
+          {vistaActual === 'tarjetas' && (() => {
+            /* Helper: renderizar una tarjeta individual */
+            const renderizarTarjetaItem = (fila: T) => {
+              const id = claveFila(fila)
+              const estaSeleccionado = seleccionados.has(id)
+              return (
+                <motion.div
+                  key={id}
+                  layout
+                  className={[
+                    'relative rounded-lg border transition-all duration-150 cursor-pointer',
+                    estaSeleccionado
+                      ? 'border-texto-marca bg-superficie-seleccionada'
+                      : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte sm:hover:shadow-sm',
+                  ].join(' ')}
+                  onClick={() => onClickFila?.(fila)}
+                >
+                  {seleccionables && (
+                    <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        marcado={estaSeleccionado}
+                        onChange={() => toggleUno(id)}
+                      />
+                    </div>
+                  )}
+                  {renderTarjeta ? renderTarjeta(fila) : (
+                    <div className="p-3 flex flex-col gap-1.5">
+                      {columnasRenderizar.slice(0, 4).map((col) => (
+                        <div key={col.clave} className="flex items-baseline gap-2">
+                          <span className="text-xs text-texto-terciario shrink-0">{col.etiqueta}:</span>
+                          <span className="text-sm text-texto-primario truncate">
+                            {col.render
+                              ? col.render(fila)
+                              : String((fila as Record<string, unknown>)[col.clave] ?? '')}
+                          </span>
                         </div>
-                      )}
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            }
 
-                      {/* Contenido de la tarjeta */}
-                      {renderTarjeta ? renderTarjeta(fila) : (
-                        <div className="flex flex-col gap-1.5">
-                          {columnasRenderizar.slice(0, 4).map((col) => (
-                            <div key={col.clave} className="flex items-baseline gap-2">
-                              <span className="text-xs text-texto-terciario shrink-0">{col.etiqueta}:</span>
-                              <span className="text-sm text-texto-primario truncate">
-                                {col.render
-                                  ? col.render(fila)
-                                  : String((fila as Record<string, unknown>)[col.clave] ?? '')}
-                              </span>
-                            </div>
-                          ))}
+            /* Agrupar datos si se provee grupoTarjetas */
+            const gruposOrdenados = grupoTarjetas
+              ? (() => {
+                  const mapa = new Map<string, T[]>()
+                  for (const fila of datosPaginados) {
+                    const clave = grupoTarjetas(fila)
+                    if (!mapa.has(clave)) mapa.set(clave, [])
+                    mapa.get(clave)!.push(fila)
+                  }
+                  return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], locale))
+                })()
+              : null
+
+            return (
+              <motion.div
+                key="tarjetas"
+                ref={tablaScrollRef}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 min-h-0 overflow-auto px-2 sm:px-4 pt-2 pb-4"
+              >
+                {datosPaginados.length === 0 ? (
+                  <div className="text-center py-16 text-texto-terciario text-sm">
+                    {t('comun.sin_resultados')}
+                  </div>
+                ) : gruposOrdenados ? (
+                  /* ── Vista agrupada ── */
+                  <div className="space-y-4">
+                    {gruposOrdenados.map(([claveGrupo, filas]) => {
+                      const colapsado = gruposColapsados.has(claveGrupo)
+                      const etiqueta = etiquetaGrupoTarjetas ? etiquetaGrupoTarjetas(claveGrupo) : claveGrupo
+                      return (
+                        <div key={claveGrupo}>
+                          {/* Cabecera del grupo */}
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 w-full text-left mb-2 group"
+                            onClick={() => toggleGrupo(claveGrupo)}
+                          >
+                            <ChevronDown
+                              size={14}
+                              className={`text-texto-terciario transition-transform duration-150 ${colapsado ? '-rotate-90' : ''}`}
+                            />
+                            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
+                              {etiqueta}
+                            </span>
+                            <span className="text-[11px] text-texto-terciario/60 font-mono">
+                              {filas.length}
+                            </span>
+                            <div className="flex-1 border-t border-borde-sutil ml-2 group-hover:border-borde-fuerte transition-colors" />
+                          </button>
+
+                          {/* Grid de tarjetas del grupo */}
+                          <AnimatePresence initial={false}>
+                            {!colapsado && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                                  {filas.map(renderizarTarjetaItem)}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
-                      )}
-
-                    </motion.div>
-                  )
-                })
-              )}
-            </motion.div>
-          )}
+                      )
+                    })}
+                  </div>
+                ) : (
+                  /* ── Vista plana (sin agrupación) ── */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                    {datosPaginados.map(renderizarTarjetaItem)}
+                  </div>
+                )}
+              </motion.div>
+            )
+          })()}
         </AnimatePresence>
 
         </>

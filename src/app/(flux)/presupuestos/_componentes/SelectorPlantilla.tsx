@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Star, Plus, Save, Trash2, Check } from 'lucide-react'
+import { ChevronDown, Star, Plus, Save, Trash2, Check, Info } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 
 /**
  * SelectorPlantilla — Menú para gestionar plantillas de presupuesto.
  * Estilo integrado tipo menú contextual: las plantillas y acciones
  * fluyen como un solo listado.
+ * Incluye: indicador de cambios, toast de feedback, tooltip informativo.
  */
 
 interface Plantilla {
@@ -33,6 +35,8 @@ interface PropiedadesSelectorPlantilla {
   predeterminadaId: string | null
   usuarioId: string
   puedeEliminarTodas?: boolean
+  /** true si el presupuesto actual difiere de la plantilla cargada */
+  tieneModificaciones?: boolean
   onCargar: (plantilla: Plantilla) => void
   onGuardarComo: (nombre: string) => Promise<void>
   onGuardarCambios: () => Promise<void>
@@ -41,12 +45,23 @@ interface PropiedadesSelectorPlantilla {
   onLimpiar: () => void
 }
 
+/** Campos que se guardan en la plantilla — tooltip informativo */
+const CAMPOS_PLANTILLA = [
+  'Moneda del documento',
+  'Condición de pago',
+  'Días de vencimiento',
+  'Líneas de productos/servicios',
+  'Notas del presupuesto',
+  'Condiciones comerciales',
+]
+
 export default function SelectorPlantilla({
   plantillas,
   plantillaActual,
   predeterminadaId,
   usuarioId,
   puedeEliminarTodas = false,
+  tieneModificaciones = false,
   onCargar,
   onGuardarComo,
   onGuardarCambios,
@@ -55,13 +70,16 @@ export default function SelectorPlantilla({
   onLimpiar,
 }: PropiedadesSelectorPlantilla) {
   const { t } = useTraduccion()
+  const { mostrar: mostrarToast } = useToast()
   const [abierto, setAbierto] = useState(false)
   const [creando, setCreando] = useState(false)
   const [nombreNueva, setNombreNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [eliminando, setEliminando] = useState<string | null>(null)
+  const [infoVisible, setInfoVisible] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const infoRef = useRef<HTMLDivElement>(null)
 
   const plantillaCargada = plantillaActual
     ? plantillas.find(p => p.id === plantillaActual)
@@ -88,10 +106,47 @@ export default function SelectorPlantilla({
   const handleGuardarComo = async () => {
     if (!nombreNueva.trim()) return
     setGuardando(true)
-    await onGuardarComo(nombreNueva.trim())
+    try {
+      await onGuardarComo(nombreNueva.trim())
+      mostrarToast('exito', `Plantilla "${nombreNueva.trim()}" creada`)
+    } catch {
+      mostrarToast('error', 'Error al crear la plantilla')
+    }
     setGuardando(false)
     setCreando(false)
     setNombreNueva('')
+  }
+
+  const handleGuardarCambios = async () => {
+    try {
+      await onGuardarCambios()
+      mostrarToast('exito', `Plantilla "${plantillaCargada?.nombre}" actualizada`)
+    } catch {
+      mostrarToast('error', 'Error al actualizar la plantilla')
+    }
+    setAbierto(false)
+  }
+
+  const handleEliminar = async (id: string) => {
+    const nombre = plantillas.find(p => p.id === id)?.nombre
+    try {
+      await onEliminar(id)
+      mostrarToast('exito', `Plantilla "${nombre}" eliminada`)
+    } catch {
+      mostrarToast('error', 'Error al eliminar la plantilla')
+    }
+    setEliminando(null)
+  }
+
+  const handleTogglePredeterminada = async (id: string) => {
+    const esPred = id === predeterminadaId
+    try {
+      await onTogglePredeterminada(id)
+      const nombre = plantillas.find(p => p.id === id)?.nombre
+      mostrarToast('exito', esPred ? 'Predeterminada quitada' : `"${nombre}" fijada como predeterminada`)
+    } catch {
+      mostrarToast('error', 'Error al cambiar predeterminada')
+    }
   }
 
   const itemClase = "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md"
@@ -105,8 +160,12 @@ export default function SelectorPlantilla({
         iconoDerecho={<ChevronDown size={14} className={`text-texto-terciario transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`} />}
         onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
       >
-        <span className="truncate max-w-[160px]">
+        <span className="truncate max-w-[160px] flex items-center gap-1.5">
           {plantillaCargada?.nombre || 'Sin plantilla'}
+          {/* Indicador de modificaciones */}
+          {plantillaCargada && tieneModificaciones && (
+            <span className="size-1.5 rounded-full bg-insignia-advertencia shrink-0 animate-pulse" title="Plantilla modificada" />
+          )}
         </span>
       </Boton>
 
@@ -118,7 +177,7 @@ export default function SelectorPlantilla({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1.5 w-72 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 py-1.5"
+            className="absolute right-0 top-full mt-1.5 w-80 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 py-1.5"
           >
             {/* ── Plantillas guardadas ── */}
             {plantillas.length > 0 && (
@@ -149,7 +208,7 @@ export default function SelectorPlantilla({
 
                       {/* Acciones siempre visibles */}
                       <div className="shrink-0 flex items-center gap-0.5 pr-1.5">
-                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />} onClick={(e) => { e.stopPropagation(); onTogglePredeterminada(p.id) }} titulo={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'} className={esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'} />
+                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />} onClick={(e) => { e.stopPropagation(); handleTogglePredeterminada(p.id) }} titulo={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'} className={esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'} />
                         {(esMia || puedeEliminarTodas) && (
                           <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }} titulo="Eliminar" className="text-texto-terciario/30 hover:text-estado-error" />
                         )}
@@ -166,9 +225,21 @@ export default function SelectorPlantilla({
             <div className="px-1.5">
               {/* Guardar cambios (solo si hay plantilla cargada) */}
               {plantillaCargada && (
-                <OpcionMenu icono={<Save size={14} />} onClick={async () => { await onGuardarCambios(); setAbierto(false) }}>
-                  Actualizar &ldquo;{plantillaCargada.nombre}&rdquo;
-                </OpcionMenu>
+                <button
+                  type="button"
+                  onClick={handleGuardarCambios}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md hover:bg-superficie-app ${tieneModificaciones ? 'text-texto-marca' : 'text-texto-primario'}`}
+                >
+                  <Save size={14} className="shrink-0" />
+                  <span className="flex-1 min-w-0">
+                    <span className="truncate block">Actualizar &ldquo;{plantillaCargada.nombre}&rdquo;</span>
+                    {tieneModificaciones && (
+                      <span className="text-xxs text-insignia-advertencia block mt-0.5">
+                        Hay cambios sin guardar
+                      </span>
+                    )}
+                  </span>
+                </button>
               )}
 
               {/* Guardar como nueva */}
@@ -204,6 +275,46 @@ export default function SelectorPlantilla({
                   Sin plantilla
                 </OpcionMenu>
               )}
+            </div>
+
+            {/* ── Info: qué se guarda en una plantilla ── */}
+            <div className="border-t border-borde-sutil/50 mt-1 pt-1 px-1.5">
+              <div className="relative" ref={infoRef}>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-xxs text-texto-terciario hover:text-texto-secundario transition-colors rounded-md"
+                  onMouseEnter={() => setInfoVisible(true)}
+                  onMouseLeave={() => setInfoVisible(false)}
+                  onClick={() => setInfoVisible(!infoVisible)}
+                >
+                  <Info size={12} className="shrink-0" />
+                  <span>Datos que se guardan en la plantilla</span>
+                </button>
+
+                <AnimatePresence>
+                  {infoVisible && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute bottom-full left-0 right-0 mb-1 bg-superficie-app border border-borde-sutil rounded-lg shadow-lg p-3 z-10"
+                    >
+                      <p className="text-xxs font-medium text-texto-secundario mb-1.5">
+                        Al guardar una plantilla se incluye:
+                      </p>
+                      <ul className="space-y-0.5">
+                        {CAMPOS_PLANTILLA.map((campo) => (
+                          <li key={campo} className="flex items-center gap-1.5 text-xxs text-texto-terciario">
+                            <Check size={10} className="text-estado-exito shrink-0" />
+                            {campo}
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </motion.div>
         )}
@@ -242,7 +353,7 @@ export default function SelectorPlantilla({
                 </div>
                 <div className="flex justify-end gap-2">
                   <Boton variante="secundario" tamano="sm" onClick={() => setEliminando(null)}>{t('comun.cancelar')}</Boton>
-                  <Boton variante="peligro" tamano="sm" onClick={async () => { await onEliminar(eliminando); setEliminando(null) }}>Eliminar</Boton>
+                  <Boton variante="peligro" tamano="sm" onClick={() => handleEliminar(eliminando)}>Eliminar</Boton>
                 </div>
               </motion.div>
             </motion.div>

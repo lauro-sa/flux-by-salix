@@ -456,10 +456,10 @@ export function ModalWhatsAppChatter({
                     style={{ background: '#e5ddd5', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L20 40M0 20L40 20\' stroke=\'%23d5cec5\' stroke-width=\'0.5\'/%3E%3C/svg%3E")' }}
                   >
                     {/* Burbuja */}
-                    <div className="rounded-lg p-3 max-w-full shadow-sm" style={{ background: '#fff' }}>
+                    <div className="rounded-lg p-3 max-w-full shadow-sm" style={{ background: '#fff', color: '#111' }}>
                       {/* Encabezado */}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo === 'TEXT' && encabezadoHtml && (
-                        <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" />
+                        <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" style={{ color: '#111' }} />
                       )}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(plantillaSeleccionada.componentes.encabezado.tipo) && (
                         <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
@@ -469,7 +469,7 @@ export function ModalWhatsAppChatter({
 
                       {/* Cuerpo */}
                       {cuerpoHtml ? (
-                        <HtmlSeguro html={cuerpoHtml} como="p" className="text-sm whitespace-pre-wrap leading-snug" />
+                        <HtmlSeguro html={cuerpoHtml} como="p" className="text-sm whitespace-pre-wrap leading-snug" style={{ color: '#111' }} />
                       ) : (
                         <p className="text-sm" style={{ color: '#999' }}>Cuerpo del mensaje...</p>
                       )}

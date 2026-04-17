@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar visitas' }, { status: 500 })
     }
 
-    // Filtrar solo visitadores:
+    // Filtrar visitadores base:
     // - Propietario: siempre puede ser visitador
     // - Otros: solo si tienen ver_propio o registrar en recorrido en permisos_custom
     const permisosVisitador = ['ver_propio', 'registrar']
@@ -68,16 +68,6 @@ export async function GET(request: NextRequest) {
       const permisos = m.permisos_custom as Record<string, string[]>
       return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
     })
-
-    // Obtener perfiles de los visitadores
-    const usuarioIds = miembrosVisitadores.map(m => m.usuario_id)
-    const { data: perfiles } = usuarioIds.length > 0
-      ? await admin.from('perfiles').select('id, nombre, apellido, avatar_url').in('id', usuarioIds)
-      : { data: [] as { id: string; nombre: string; apellido: string; avatar_url: string | null }[] }
-
-    const perfilesPorId = new Map(
-      (perfiles || []).map(p => [p.id, p])
-    )
 
     // Agrupar visitas por asignado_a
     const visitasPorUsuario = new Map<string, typeof visitas>()
@@ -93,7 +83,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Armar respuesta por visitadores habilitados
+    // Incluir también usuarios que tienen visitas asignadas pero no están en la lista de visitadores
+    const idsVisitadoresBase = new Set(miembrosVisitadores.map(m => m.usuario_id))
+    const idsAsignadosExtra = [...visitasPorUsuario.keys()].filter(id => !idsVisitadoresBase.has(id))
+
+    // Obtener perfiles de todos los usuarios necesarios (visitadores + asignados extra)
+    const todosUsuarioIds = [...idsVisitadoresBase, ...idsAsignadosExtra]
+    const { data: perfiles } = todosUsuarioIds.length > 0
+      ? await admin.from('perfiles').select('id, nombre, apellido, avatar_url').in('id', todosUsuarioIds)
+      : { data: [] as { id: string; nombre: string; apellido: string; avatar_url: string | null }[] }
+
+    const perfilesPorId = new Map(
+      (perfiles || []).map(p => [p.id, p])
+    )
+
+    // Armar respuesta: visitadores habilitados + usuarios con visitas asignadas
     const visitadores = miembrosVisitadores.map(miembro => {
       const usuarioId = miembro.usuario_id
       const perfil = perfilesPorId.get(usuarioId) || null
@@ -109,6 +113,21 @@ export async function GET(request: NextRequest) {
         recorrido: null,
       }
     })
+
+    // Agregar columnas para usuarios con visitas asignadas que no son visitadores base
+    for (const usuarioId of idsAsignadosExtra) {
+      const perfil = perfilesPorId.get(usuarioId) || null
+      const visitasUsuario = visitasPorUsuario.get(usuarioId) || []
+      visitadores.push({
+        usuario_id: usuarioId,
+        nombre: perfil?.nombre || '',
+        apellido: perfil?.apellido || '',
+        avatar_url: perfil?.avatar_url || null,
+        rol: null,
+        visitas: visitasUsuario,
+        recorrido: null,
+      })
+    }
 
     // Ordenar: los que tienen visitas primero, después por nombre
     visitadores.sort((a, b) => {

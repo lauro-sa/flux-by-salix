@@ -5,6 +5,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Trash2, GripVertical, Package, Type,
   StickyNote, Percent, Settings2, Eye, EyeOff,
+  RotateCcw, Upload,
 } from 'lucide-react'
 import type { LineaPresupuesto, TipoLinea, Impuesto, UnidadMedida } from '@/tipos/presupuesto'
 import { COLUMNAS_LINEA_DISPONIBLES } from '@/tipos/presupuesto'
@@ -24,7 +25,30 @@ import { useFormato } from '@/hooks/useFormato'
  * Se usa en: página de nuevo presupuesto y detalle/edición.
  */
 
+/** Convierte HTML (ej. <p>Línea 1</p><p>Línea 2</p>) a texto plano con saltos de línea */
+function htmlATextoPlano(html: string): string {
+  if (!html || !html.includes('<')) return html
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+    .replace(/<\/?[^>]+(>|$)/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .trim()
+}
+
 // ─── Tipos ───
+
+/** Datos originales del catálogo para detectar cambios en nombre/descripción */
+export interface OriginalCatalogo {
+  producto_id: string
+  nombre: string
+  descripcion_venta: string | null
+}
 
 interface PropiedadesTablaLineas {
   lineas: LineaPresupuesto[]
@@ -39,6 +63,20 @@ interface PropiedadesTablaLineas {
   onEliminarLinea: (id: string) => void
   onReordenar: (ids: string[]) => void
   onCambiarColumnas: (columnas: string[]) => void
+  /** ID de la última línea recién agregada para auto-focus */
+  lineaRecienAgregada?: string | null
+  /** Originales del catálogo por lineaId — para detectar cambios en nombre/descripción */
+  originalesCatalogo?: Map<string, OriginalCatalogo>
+  /** Callback para actualizar el catálogo con los datos editados de la línea */
+  onActualizarCatalogo?: (lineaId: string) => Promise<void>
+  /** Callback para revertir la línea a los valores originales del catálogo */
+  onRevertirCatalogo?: (lineaId: string) => void
+  /** Si el usuario tiene permiso de editar productos */
+  puedeEditarProductos?: boolean
+  /** Si el presupuesto ya fue guardado (tiene ID en BD) */
+  presupuestoGuardado?: boolean
+  /** Notificar al padre cuando se selecciona un producto del catálogo (para almacenar originales) */
+  onProductoSeleccionado?: (lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => void
 }
 
 // Iconos por tipo de línea
@@ -93,6 +131,13 @@ function TablaLineas({
   onEliminarLinea,
   onReordenar,
   onCambiarColumnas,
+  lineaRecienAgregada,
+  originalesCatalogo,
+  onActualizarCatalogo,
+  onRevertirCatalogo,
+  puedeEditarProductos = false,
+  presupuestoGuardado = false,
+  onProductoSeleccionado,
 }: PropiedadesTablaLineas) {
   const [menuColumnasAbierto, setMenuColumnasAbierto] = useState(false)
   const [lineaActiva, setLineaActiva] = useState<string | null>(null)
@@ -229,6 +274,7 @@ function TablaLineas({
                   soloLectura={soloLectura}
                   onEditar={onEditarLinea}
                   onEliminar={onEliminarLinea}
+                  autoFocus={linea.id === lineaRecienAgregada}
                 />
               ) : linea.tipo_linea === 'nota' ? (
                 <FilaNota
@@ -236,6 +282,7 @@ function TablaLineas({
                   soloLectura={soloLectura}
                   onEditar={onEditarLinea}
                   onEliminar={onEliminarLinea}
+                  autoFocus={linea.id === lineaRecienAgregada}
                 />
               ) : linea.tipo_linea === 'descuento' ? (
                 <FilaDescuento
@@ -244,6 +291,7 @@ function TablaLineas({
                   simboloMoneda={simboloMoneda}
                   onEditar={onEditarLinea}
                   onEliminar={onEliminarLinea}
+                  autoFocus={linea.id === lineaRecienAgregada}
                 />
               ) : (
                 <FilaProducto
@@ -257,6 +305,13 @@ function TablaLineas({
                   onEliminar={onEliminarLinea}
                   activa={lineaActiva === linea.id}
                   onActivar={() => setLineaActiva(linea.id)}
+                  autoFocus={linea.id === lineaRecienAgregada}
+                  originalCatalogo={originalesCatalogo?.get(linea.id)}
+                  onActualizarCatalogo={onActualizarCatalogo}
+                  onRevertirCatalogo={onRevertirCatalogo}
+                  puedeEditarProductos={puedeEditarProductos}
+                  presupuestoGuardado={presupuestoGuardado}
+                  onProductoSeleccionadoPadre={onProductoSeleccionado}
                 />
               )}
             </Reorder.Item>
@@ -300,6 +355,13 @@ function FilaProducto({
   onEliminar,
   activa,
   onActivar,
+  autoFocus,
+  originalCatalogo,
+  onActualizarCatalogo,
+  onRevertirCatalogo,
+  puedeEditarProductos,
+  presupuestoGuardado,
+  onProductoSeleccionadoPadre,
 }: {
   linea: LineaPresupuesto
   columnasVisibles: string[]
@@ -311,7 +373,22 @@ function FilaProducto({
   onEliminar: (id: string) => void
   activa: boolean
   onActivar: () => void
+  autoFocus?: boolean
+  originalCatalogo?: OriginalCatalogo
+  onActualizarCatalogo?: (lineaId: string) => Promise<void>
+  onRevertirCatalogo?: (lineaId: string) => void
+  puedeEditarProductos?: boolean
+  presupuestoGuardado?: boolean
+  onProductoSeleccionadoPadre?: (lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => void
 }) {
+  const [actualizandoCatalogo, setActualizandoCatalogo] = useState(false)
+
+  // Detectar si nombre o descripción difieren del catálogo
+  const cambiosCatalogo = originalCatalogo ? {
+    nombre: (linea.descripcion || '') !== originalCatalogo.nombre,
+    descripcion: htmlATextoPlano(linea.descripcion_detalle || '') !== htmlATextoPlano(originalCatalogo.descripcion_venta || ''),
+  } : null
+  const tieneCambiosCatalogo = cambiosCatalogo && (cambiosCatalogo.nombre || cambiosCatalogo.descripcion)
   return (
     <div
       className={`transition-colors border-b border-borde-sutil/50 ${activa ? 'bg-superficie-tarjeta/80' : 'hover:bg-superficie-tarjeta/30'}`}
@@ -332,6 +409,7 @@ function FilaProducto({
                 valor={linea.descripcion || ''}
                 codigo={linea.codigo_producto || ''}
                 soloLectura={soloLectura}
+                autoFocus={autoFocus}
                 onChange={(v) => onEditar(linea.id, 'descripcion', v)}
                 onSeleccionar={(producto) => {
                   onEditar(linea.id, 'codigo_producto', producto.codigo)
@@ -346,6 +424,12 @@ function FilaProducto({
                       onEditar(linea.id, 'impuesto_label', imp.label)
                     }
                   }
+                  // Almacenar originales del catálogo para detectar cambios
+                  onProductoSeleccionadoPadre?.(linea.id, {
+                    id: producto.id,
+                    nombre: producto.nombre,
+                    descripcion_venta: producto.descripcion_venta,
+                  })
                 }}
               />
             )}
@@ -416,21 +500,63 @@ function FilaProducto({
         <div className={`pb-2 ${!soloLectura ? 'pl-8' : 'pl-2'} pr-10`}>
           {soloLectura ? (
             linea.descripcion_detalle && (
-              <p className="text-xs text-texto-secundario leading-relaxed whitespace-pre-wrap max-w-lg">
-                {linea.descripcion_detalle}
-              </p>
+              <div
+                className="text-xs text-texto-secundario leading-relaxed max-w-lg [&_p]:mb-1 [&_p:last-child]:mb-0"
+                dangerouslySetInnerHTML={{ __html: linea.descripcion_detalle }}
+              />
             )
           ) : (
             <TextArea
-              value={linea.descripcion_detalle || ''}
+              value={htmlATextoPlano(linea.descripcion_detalle || '')}
               placeholder="Detalle adicional (opcional)"
               onChange={(e) => onEditar(linea.id, 'descripcion_detalle', e.target.value)}
-              rows={linea.descripcion_detalle ? Math.min(Math.ceil((linea.descripcion_detalle.length || 0) / 60), 6) : 1}
+              rows={linea.descripcion_detalle ? Math.min(Math.ceil((htmlATextoPlano(linea.descripcion_detalle).length || 0) / 60), 6) : 1}
               variante="transparente"
               compacto
               className="max-w-lg leading-relaxed"
             />
           )}
+        </div>
+      )}
+
+      {/* ─── Barra de cambios vs catálogo ─── */}
+      {!soloLectura && tieneCambiosCatalogo && puedeEditarProductos && (
+        <div className={`flex items-center gap-2 pb-2 ${!soloLectura ? 'pl-8' : 'pl-2'} pr-10`}>
+          <div className="flex items-center gap-1.5 text-xxs text-texto-terciario bg-superficie-app/80 border border-borde-sutil/50 rounded-lg px-2.5 py-1.5">
+            <span className="text-insignia-advertencia">Editado vs catálogo</span>
+            <span className="text-texto-terciario/40">|</span>
+            {presupuestoGuardado && onActualizarCatalogo && (
+              <button
+                type="button"
+                disabled={actualizandoCatalogo}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  setActualizandoCatalogo(true)
+                  try { await onActualizarCatalogo(linea.id) } finally { setActualizandoCatalogo(false) }
+                }}
+                className="flex items-center gap-1 text-texto-marca hover:text-texto-primario transition-colors disabled:opacity-50"
+              >
+                <Upload size={11} />
+                {actualizandoCatalogo ? 'Guardando...' : 'Actualizar catálogo'}
+              </button>
+            )}
+            {!presupuestoGuardado && (
+              <span className="text-texto-terciario/60 italic">Guardá el presupuesto para actualizar el catálogo</span>
+            )}
+            {onRevertirCatalogo && (
+              <>
+                <span className="text-texto-terciario/40">|</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRevertirCatalogo(linea.id) }}
+                  className="flex items-center gap-1 text-texto-terciario hover:text-texto-primario transition-colors"
+                >
+                  <RotateCcw size={11} />
+                  Revertir
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -444,11 +570,13 @@ function FilaSeccion({
   soloLectura,
   onEditar,
   onEliminar,
+  autoFocus,
 }: {
   linea: LineaPresupuesto
   soloLectura: boolean
   onEditar: (id: string, campo: string, valor: string) => void
   onEliminar: (id: string) => void
+  autoFocus?: boolean
 }) {
   return (
     <div className="flex items-center gap-1 px-1 py-2 bg-superficie-app/50">
@@ -463,6 +591,7 @@ function FilaSeccion({
           valor={linea.descripcion || ''}
           placeholder="Título de sección"
           soloLectura={soloLectura}
+          autoFocus={autoFocus}
           className="font-semibold text-sm text-texto-secundario"
           onChange={(v) => onEditar(linea.id, 'descripcion', v)}
         />
@@ -481,11 +610,13 @@ function FilaNota({
   soloLectura,
   onEditar,
   onEliminar,
+  autoFocus,
 }: {
   linea: LineaPresupuesto
   soloLectura: boolean
   onEditar: (id: string, campo: string, valor: string) => void
   onEliminar: (id: string) => void
+  autoFocus?: boolean
 }) {
   return (
     <div className="flex items-start gap-1 px-1 py-2">
@@ -502,6 +633,7 @@ function FilaNota({
           <CampoTextoNota
             valor={linea.descripcion || ''}
             placeholder="Nota o comentario..."
+            autoFocus={autoFocus}
             onChange={(v) => onEditar(linea.id, 'descripcion', v)}
           />
         )}
@@ -521,12 +653,14 @@ function FilaDescuento({
   simboloMoneda,
   onEditar,
   onEliminar,
+  autoFocus,
 }: {
   linea: LineaPresupuesto
   soloLectura: boolean
   simboloMoneda: string
   onEditar: (id: string, campo: string, valor: string) => void
   onEliminar: (id: string) => void
+  autoFocus?: boolean
 }) {
   return (
     <div className="flex items-center gap-1 px-1 py-2">
@@ -541,6 +675,7 @@ function FilaDescuento({
           valor={linea.descripcion || ''}
           placeholder="Motivo del descuento"
           soloLectura={soloLectura}
+          autoFocus={autoFocus}
           className="text-sm text-estado-error"
           onChange={(v) => onEditar(linea.id, 'descripcion', v)}
         />
@@ -569,12 +704,14 @@ function CampoTexto({
   placeholder,
   soloLectura,
   className = '',
+  autoFocus,
   onChange,
 }: {
   valor: string
   placeholder?: string
   soloLectura: boolean
   className?: string
+  autoFocus?: boolean
   onChange: (valor: string) => void
 }) {
   const [local, setLocal] = useState(valor)
@@ -582,6 +719,17 @@ function CampoTexto({
 
   // Sincronizar con prop
   useEffect(() => { setLocal(valor) }, [valor])
+
+  // Auto-focus al montar
+  useEffect(() => {
+    if (autoFocus && ref.current) {
+      requestAnimationFrame(() => {
+        ref.current?.focus()
+        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (soloLectura) {
     return <span className={`text-sm ${className}`}>{valor || ''}</span>
@@ -603,16 +751,29 @@ function CampoTexto({
 function CampoTextoNota({
   valor,
   placeholder,
+  autoFocus,
   onChange,
 }: {
   valor: string
   placeholder?: string
+  autoFocus?: boolean
   onChange: (valor: string) => void
 }) {
   const [local, setLocal] = useState(valor)
   const ref = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { setLocal(valor) }, [valor])
+
+  // Auto-focus al montar
+  useEffect(() => {
+    if (autoFocus && ref.current) {
+      requestAnimationFrame(() => {
+        ref.current?.focus()
+        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Auto-resize del textarea
   useEffect(() => {
@@ -653,6 +814,7 @@ function CampoNumero({
 }) {
   const [local, setLocal] = useState(valor)
   const [enfocado, setEnfocado] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setLocal(valor) }, [valor])
 
@@ -673,11 +835,18 @@ function CampoNumero({
   return (
     <div className={`flex items-center ${className}`}>
       <input
-        type={enfocado ? 'number' : (esMoneda ? 'text' : 'number')}
+        ref={inputRef}
+        type={enfocado ? 'text' : (esMoneda ? 'text' : 'number')}
+        inputMode="decimal"
         step="any"
         value={valorMostrar}
         onChange={(e) => setLocal(e.target.value)}
-        onFocus={() => setEnfocado(true)}
+        onFocus={() => {
+          setEnfocado(true)
+          requestAnimationFrame(() => {
+            try { inputRef.current?.select() } catch { /* algunos navegadores no soportan select en number */ }
+          })
+        }}
         onBlur={() => {
           setEnfocado(false)
           if (local !== valor) onChange(local)
