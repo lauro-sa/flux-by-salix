@@ -886,7 +886,7 @@ function TablaDinamica<T>({
     <div ref={contenedorRef} className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ TOOLBAR ═══ */}
-      <div className={`flex items-center gap-2 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
+      <div className={`flex items-center gap-2 pt-5 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
 
         {/* Buscador — mobile: 100%, desktop: adaptable (oculto en contenidoCustom) */}
         <div className={`min-w-0 w-full sm:w-auto sm:max-w-[700px] relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''}`} style={esMobil ? undefined : { width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>

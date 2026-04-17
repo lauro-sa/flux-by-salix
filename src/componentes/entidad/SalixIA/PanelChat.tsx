@@ -3,7 +3,7 @@
 /**
  * PanelChat — Panel de conversación con Salix IA.
  * Desktop: panel lateral derecho (400px) con animación slide-in.
- * Mobile: BottomSheet a pantalla completa.
+ * Mobile: pantalla completa con slide-up.
  * Incluye grabación de audio con transcripción via Whisper.
  *
  * Se usa en: BotonFlotante (abre este panel al tocar).
@@ -16,7 +16,6 @@ import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, M
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
 import { useEsMovil } from '@/hooks/useEsMovil'
-import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import { GrabadorAudio } from '@/app/(flux)/inbox/_componentes/GrabadorAudio'
 
 interface PropiedadesPanelChat {
@@ -217,8 +216,8 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             </>
           ) : (
             <>
-              <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                <Sparkles className="size-4 text-white" />
+              <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
+                <Sparkles className="size-4 text-violet-400" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-texto-primario">Salix IA</h3>
@@ -246,14 +245,12 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
               </button>
             </>
           )}
-          {!esMovil && (
-            <button
-              onClick={onCerrar}
-              className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-            >
-              <X className="size-4" />
-            </button>
-          )}
+          <button
+            onClick={onCerrar}
+            className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+          >
+            <X className="size-4" />
+          </button>
         </div>
       </div>
 
@@ -423,17 +420,27 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
     </div>
   )
 
-  // Mobile: BottomSheet
+  // Mobile: pantalla completa (slide-up) para mejor experiencia táctil
   if (esMovil) {
-    return (
-      <BottomSheet
-        abierto={abierto}
-        onCerrar={onCerrar}
-        altura="completo"
-        sinPadding
-      >
-        {contenido}
-      </BottomSheet>
+    return createPortal(
+      <AnimatePresence>
+        {abierto && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
+            className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
+            style={{
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            }}
+          >
+            {contenido}
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
     )
   }
 

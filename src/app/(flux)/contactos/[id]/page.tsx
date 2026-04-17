@@ -85,10 +85,12 @@ function separarNombreApellido(nombreCompleto: string, esPersona: boolean) {
 
 export default function PaginaContacto() {
   const { t } = useTraduccion()
-  const { id } = useParams<{ id: string }>()
-  const esNuevo = id === 'nuevo'
+  const params = useParams<{ id: string }>()
   const router = useRouter()
   const pathname = usePathname()
+  // contactoId: ID real del contacto (null mientras se está creando)
+  const [contactoId, setContactoId] = useState<string | null>(params.id === 'nuevo' ? null : params.id)
+  const esNuevo = contactoId === null
   const searchParams = useSearchParams()
   const { setMigajaDinamica } = useNavegacion()
 
@@ -197,10 +199,12 @@ export default function PaginaContacto() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Cargar contacto existente (solo edición)
+  // Cargar contacto existente (solo edición, no al crear in-place)
   useEffect(() => {
     if (esNuevo) return
-    fetch(`/api/contactos/${id}`)
+    // Si el contacto acaba de crearse in-place, no recargar (ya tenemos los datos locales)
+    if (creadoRef.current) return
+    fetch(`/api/contactos/${contactoId}`)
       .then(r => r.json())
       .then(data => {
         if (!data.id) return
@@ -247,7 +251,7 @@ export default function PaginaContacto() {
       .catch(() => {})
       .finally(() => { setCargando(false); setActualizando(false) })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [contactoId])
 
   // Búsqueda de contactos para vincular (solo creación)
   useEffect(() => {
@@ -275,19 +279,19 @@ export default function PaginaContacto() {
 
   const recargar = useCallback(() => {
     if (esNuevo) return
-    fetch(`/api/contactos/${id}`)
+    fetch(`/api/contactos/${contactoId}`)
       .then(r => r.json())
       .then(data => {
         if (data.vinculaciones) setVinculaciones(data.vinculaciones)
         if (data.vinculaciones_inversas) setVinculacionesInversas(data.vinculaciones_inversas)
       })
       .catch(() => {})
-  }, [id, esNuevo])
+  }, [contactoId, esNuevo])
 
   const aceptarProvisorio = useCallback(async () => {
     setAccionandoProvisorio(true)
     try {
-      const res = await fetch(`/api/contactos/${id}`, {
+      const res = await fetch(`/api/contactos/${contactoId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ es_provisorio: false }),
       })
@@ -298,12 +302,12 @@ export default function PaginaContacto() {
       }
     } catch (err) { console.error('Error aceptando provisorio:', err) }
     finally { setAccionandoProvisorio(false) }
-  }, [id])
+  }, [contactoId])
 
   const descartarProvisorio = useCallback(async () => {
     setAccionandoProvisorio(true)
     try {
-      const res = await fetch(`/api/contactos/${id}`, {
+      const res = await fetch(`/api/contactos/${contactoId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ en_papelera: true }),
       })
@@ -313,7 +317,7 @@ export default function PaginaContacto() {
       }
     } catch (err) { console.error('Error descartando provisorio:', err) }
     finally { setAccionandoProvisorio(false) }
-  }, [id, router])
+  }, [contactoId, router])
 
   // Autoguardado genérico (solo edición)
   const guardar = useCallback(async (payload: Record<string, unknown>) => {
@@ -321,7 +325,7 @@ export default function PaginaContacto() {
     setGuardando(true)
     setErrorGuardado('')
     try {
-      const res = await fetch(`/api/contactos/${id}`, {
+      const res = await fetch(`/api/contactos/${contactoId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -334,7 +338,7 @@ export default function PaginaContacto() {
       setErrorGuardado('Error de conexión')
       setTimeout(() => setErrorGuardado(''), DELAY_NOTIFICACION)
     } finally { setGuardando(false) }
-  }, [id, esNuevo])
+  }, [contactoId, esNuevo])
 
   const guardarNombre = useCallback(() => {
     if (esNuevo) return
@@ -364,14 +368,14 @@ export default function PaginaContacto() {
     if (esNuevo) return
     const supabase = crearClienteNavegador()
     const extension = archivo.name.split('.').pop() || 'jpg'
-    const ruta = `${id}.${extension}`
+    const ruta = `${contactoId}.${extension}`
     const { error: uploadError } = await supabase.storage.from('avatares-contactos').upload(ruta, archivo, { upsert: true })
     if (uploadError) { setErrorGuardado('Error al subir foto'); return }
     const { data } = supabase.storage.from('avatares-contactos').getPublicUrl(ruta)
     const url = data.publicUrl + '?t=' + Date.now()
     setAvatarUrl(url)
     guardar({ avatar_url: url })
-  }, [id, guardar, esNuevo])
+  }, [contactoId, guardar, esNuevo])
 
   const moverAPapelera = async () => {
     await guardar({ en_papelera: true })
@@ -495,7 +499,30 @@ export default function PaginaContacto() {
             )
           )
         }
-        router.replace(`/contactos/${nuevo.id}`)
+        // Transición in-place: actualizar estado sin recargar la página
+        // para preservar datos que el usuario está completando
+        setContactoId(nuevo.id)
+        setCodigo(nuevo.codigo || '')
+        setMigajaDinamica(`/contactos/${nuevo.id}`, nombreCompleto || nuevo.codigo || 'Detalle')
+        window.history.replaceState(null, '', `/contactos/${nuevo.id}`)
+        // Guardar direcciones pendientes si las hay
+        if (direcciones.length > 0) {
+          const dirsValidas = direcciones.filter(d => d.datos.calle || d.datos.ciudad)
+          if (dirsValidas.length > 0) {
+            fetch(`/api/contactos/${nuevo.id}/direcciones`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ direcciones: dirsValidas.map((d, i) => ({
+                tipo: d.tipo,
+                calle: d.datos.calle, barrio: d.datos.barrio,
+                ciudad: d.datos.ciudad, provincia: d.datos.provincia,
+                codigo_postal: d.datos.codigoPostal, pais: d.datos.pais,
+                piso: d.datos.piso, departamento: d.datos.departamento,
+                lat: d.datos.lat, lng: d.datos.lng,
+                texto: d.datos.textoCompleto, es_principal: i === 0,
+              })) }),
+            }).catch(() => {})
+          }
+        }
         return
       }
 
@@ -511,7 +538,7 @@ export default function PaginaContacto() {
     } catch {
       setErrorGuardado('Error de conexión')
     } finally { setGuardando(false) }
-  }, [guardando, nombreCompleto, esPersona, tipoContactoId, campos, datosFiscales, paisContacto, etiquetas, direcciones, vinculacionesPendientes, router])
+  }, [guardando, nombreCompleto, esPersona, tipoContactoId, campos, datosFiscales, paisContacto, etiquetas, direcciones, vinculacionesPendientes, setMigajaDinamica])
 
   // ═══════════════════════════════════════════════════════════════
   // HANDLERS COMPARTIDOS
@@ -548,12 +575,12 @@ export default function PaginaContacto() {
           lat: d.datos.lat, lng: d.datos.lng,
           texto: d.datos.textoCompleto, es_principal: i === 0,
         }))
-      fetch(`/api/contactos/${id}/direcciones`, {
+      fetch(`/api/contactos/${contactoId}/direcciones`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ direcciones: dirsParaGuardar }),
       }).catch(() => {})
     }
-  }, [esNuevo, esEdificio, nombreCompleto, id])
+  }, [esNuevo, esEdificio, nombreCompleto, contactoId])
 
   // Auto-crear edificios/empresas/proveedores cuando se carga la dirección
   useEffect(() => {
@@ -619,7 +646,7 @@ export default function PaginaContacto() {
           </div>
         ) : (
           <div className="px-4 sm:px-6 pb-3">
-            <BarraKPIs contactoId={id} contactoNombre={nombreCompleto || 'Contacto'} />
+            <BarraKPIs contactoId={contactoId!} contactoNombre={nombreCompleto || 'Contacto'} />
           </div>
         )}
       </div>
@@ -883,7 +910,7 @@ export default function PaginaContacto() {
             </section>
           ) : (
             <VinculacionesContacto
-              contactoId={id}
+              contactoId={contactoId!}
               nombreContacto={nombreCompleto}
               vinculaciones={mapearVinculaciones(vinculaciones)}
               vinculacionesInversas={mapearVinculacionesInversas(vinculacionesInversas)}
@@ -899,10 +926,10 @@ export default function PaginaContacto() {
           {!esNuevo && (
             <PanelChatter
               entidadTipo="contacto"
-              entidadId={id}
-              contactoPrincipal={{ id, nombre: nombreCompleto }}
+              entidadId={contactoId!}
+              contactoPrincipal={{ id: contactoId!, nombre: nombreCompleto }}
               contacto={{
-                id,
+                id: contactoId!,
                 nombre: nombreCompleto,
                 correo: campos.correo || undefined,
                 whatsapp: campos.whatsapp || undefined,
@@ -1009,7 +1036,7 @@ export default function PaginaContacto() {
         <ModalAceptarProvisorio
           abierto={modalAceptarProvisorio}
           onCerrar={() => setModalAceptarProvisorio(false)}
-          contactoId={id as string}
+          contactoId={contactoId!}
           nombreContacto={nombreCompleto}
           onAceptarNuevo={(cod) => {
             setEsProvisorio(false)

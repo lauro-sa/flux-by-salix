@@ -3,7 +3,7 @@
 /**
  * PanelNotas — Panel lateral de notas rápidas.
  * Desktop: panel lateral derecho (420px) con animación slide-in.
- * Mobile: BottomSheet a pantalla completa.
+ * Mobile: pantalla completa con slide-up.
  *
  * Features:
  * - 3 pestañas: Todas, Mis notas, Compartidas (default: Todas)
@@ -32,7 +32,6 @@ import { useEsMovil } from '@/hooks/useEsMovil'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
-import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import { GrabadorAudio } from '@/app/(flux)/inbox/_componentes/GrabadorAudio'
 import type { NotaRapida } from '@/hooks/useNotasRapidas'
 
@@ -915,14 +914,12 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               >
                 {creando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               </button>
-              {!esMovil && (
-                <button
-                  onClick={onCerrar}
-                  className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-                >
-                  <X className="size-4" />
-                </button>
-              )}
+              <button
+                onClick={onCerrar}
+                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+              >
+                <X className="size-4" />
+              </button>
             </div>
           </div>
 
@@ -961,17 +958,27 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     </div>
   )
 
-  // Mobile: BottomSheet
+  // Mobile: pantalla completa (slide-up) para mejor experiencia táctil
   if (esMovil) {
-    return (
-      <BottomSheet
-        abierto={abierto}
-        onCerrar={onCerrar}
-        altura="completo"
-        sinPadding
-      >
-        {contenidoPanel}
-      </BottomSheet>
+    return createPortal(
+      <AnimatePresence>
+        {abierto && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
+            className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
+            style={{
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            }}
+          >
+            {contenidoPanel}
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
     )
   }
 

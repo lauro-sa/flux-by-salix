@@ -11,6 +11,7 @@ import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { BotonFlotanteSalixIA } from '@/componentes/entidad/SalixIA/BotonFlotante'
 import { BotonFlotanteNotas } from '@/componentes/entidad/NotasRapidas/BotonFlotanteNotas'
 import IconoSalix from '@/componentes/marca/IconoSalix'
+import { Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from '@/componentes/entidad/NotasRapidas/PanelNotas'
 import { PanelChat } from '@/componentes/entidad/SalixIA/PanelChat'
@@ -453,9 +454,9 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
                 transition={{ delay: 0.06 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setPanelIA(true)}
-                className="size-11 rounded-full flex items-center justify-center text-texto-marca cursor-pointer"
+                className="size-11 rounded-full flex items-center justify-center text-violet-400 cursor-pointer"
                 style={{
-                  backgroundColor: 'color-mix(in srgb, var(--superficie-elevada) 65%, transparent)',
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.2))',
                   backdropFilter: 'blur(16px) saturate(1.4)',
                   WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
                   border: '1px solid var(--borde-sutil)',
@@ -463,7 +464,7 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
                 }}
                 title="Salix IA"
               >
-                <IconoSalix tamano={20} variante="estatico" />
+                <Sparkles className="size-5" />
               </motion.button>
             )}
           </motion.div>

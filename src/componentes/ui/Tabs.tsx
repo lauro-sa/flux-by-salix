@@ -17,16 +17,18 @@ interface PropiedadesTabs {
   className?: string
   /** ID único para animar el indicador cuando hay múltiples Tabs en la misma vista */
   layoutId?: string
+  /** Ocultar la línea divisora inferior (útil cuando el contenedor padre maneja el borde) */
+  sinBorde?: boolean
 }
 
 /**
  * Tabs — Pestañas con indicador animado.
  * Se usa en: vistas de módulos, configuración, dashboard (panel/métricas).
  */
-function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator' }: PropiedadesTabs) {
+function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator', sinBorde = false }: PropiedadesTabs) {
   return (
     <div
-      className={`flex gap-0.5 px-3 border-b border-borde-sutil ${className}`}
+      className={`flex gap-0.5 px-3 ${sinBorde ? '' : 'border-b border-borde-sutil'} ${className}`}
       role="tablist"
     >
       {tabs.map((tab) => {

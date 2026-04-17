@@ -80,8 +80,9 @@ export default function PaginaRecorrido() {
   // Destino final: 'origen' (volver al inicio), 'ninguno', o { lat, lng, texto }
   const [destinoFinal, setDestinoFinal] = useState<'origen' | 'ninguno' | { lat: number; lng: number; texto: string }>('ninguno')
 
-  // Ubicación actual del usuario (para mostrar en el mapa como origen)
+  // Ubicación actual del usuario (para mostrar en el mapa como origen) + heading
   const [ubicacionUsuario, setUbicacionUsuario] = useState<{ lat: number; lng: number } | null>(null)
+  const [headingUsuario, setHeadingUsuario] = useState<number | null>(null)
 
   // Modal de llegada
   const [llegadaAbierta, setLlegadaAbierta] = useState(false)
@@ -111,18 +112,25 @@ export default function PaginaRecorrido() {
     }
   }, [fechaSeleccionada, mostrar])
 
-  // Obtener ubicación del usuario para mostrar en el mapa.
-  // Fallback: dirección de la empresa si no hay permisos de geolocalización.
+  // Tracking en vivo de la ubicación del usuario + heading (dirección de movimiento)
   useEffect(() => {
     if (!navigator.geolocation) {
       if (coordsEmpresa) setUbicacionUsuario(coordsEmpresa)
       return
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUbicacionUsuario({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUbicacionUsuario({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
+          setHeadingUsuario(pos.coords.heading)
+        }
+      },
       () => { if (coordsEmpresa) setUbicacionUsuario(coordsEmpresa) },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
     )
+
+    return () => navigator.geolocation.clearWatch(watchId)
   }, [coordsEmpresa])
 
   useEffect(() => {
@@ -226,8 +234,9 @@ export default function PaginaRecorrido() {
       puntos,
       origen: ubicacionUsuario ? { ...ubicacionUsuario, texto: 'Mi ubicación' } : undefined,
       destino,
+      heading: headingUsuario,
     }
-  }, [paradas, ubicacionUsuario, destinoFinal])
+  }, [paradas, ubicacionUsuario, headingUsuario, destinoFinal])
 
   // Reordenar paradas
   const manejarReordenar = useCallback(async (paradasReordenadas: Parada[]) => {

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Plus, History, Banknote } from 'lucide-react'
+import { Download, Clock, TimerOff, Plus, History, Banknote, Send } from 'lucide-react'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -17,7 +17,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './VistaMatriz'
 import { TarjetaAsistencia } from './TarjetaAsistencia'
 import { ModalCrearFichaje } from './ModalCrearFichaje'
-import { VistaNomina } from './VistaNomina'
+import { VistaNomina, type VistaNominaHandle } from './VistaNomina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
 
@@ -143,6 +143,7 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
   const [matrizKey, setMatrizKey] = useState(0)
   const [seccion, setSeccion] = useState<'fichajes' | 'nomina'>('fichajes')
+  const nominaRef = useRef<VistaNominaHandle>(null)
 
   // Vista persistida por usuario+dispositivo
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
@@ -325,91 +326,81 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     { clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> },
   ]
 
-  if (seccion === 'nomina') {
-    return (
-      <PlantillaListado
-        titulo="Asistencias"
-        icono={<Clock size={20} />}
-        mostrarConfiguracion
-        onConfiguracion={() => router.push('/asistencias/configuracion')}
-      >
-        <div className="px-4 pt-2 md:px-6">
-          <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
-        </div>
-        <VistaNomina />
-      </PlantillaListado>
-    )
-  }
-
   return (
     <PlantillaListado
       titulo="Asistencias"
       icono={<Clock size={20} />}
-      accionPrincipal={{
-        etiqueta: 'Agregar fichaje',
-        icono: <Plus size={14} />,
-        onClick: () => setCreando({}),
-      }}
+      accionPrincipal={seccion === 'fichajes'
+        ? { etiqueta: 'Agregar fichaje', icono: <Plus size={14} />, onClick: () => setCreando({}) }
+        : { etiqueta: 'Enviar recibos', icono: <Send size={14} />, onClick: () => nominaRef.current?.enviarRecibos() }
+      }
       acciones={[
-        { id: 'exportar', etiqueta: 'Exportar Excel', icono: <Download size={14} />, onClick: () => {
-          window.open('/api/asistencias/exportar', '_blank')
+        { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {
+          if (seccion === 'nomina') {
+            nominaRef.current?.exportar()
+          } else {
+            window.open('/api/asistencias/exportar', '_blank')
+          }
         } },
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
-      <div className="px-4 pt-2 md:px-6">
+      {/* ── Tabs debajo del cabezal estándar ── */}
+      <div className="px-4 md:px-6 mb-2">
         <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
       </div>
 
-      <TablaDinamica
-        columnas={columnas}
-        datos={registros}
-        claveFila={(r) => r.id}
-        vistas={['lista', 'tarjetas', 'matriz']}
-        seleccionables
-        busqueda={busqueda}
-        onBusqueda={setBusqueda}
-        placeholder="Buscar empleado..."
-        idModulo="asistencias"
-        totalRegistros={total}
-        registrosPorPagina={50}
-        paginaExterna={pagina}
-        onCambiarPagina={setPagina}
-        onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
-        vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
-        contenidoCustom={vista === 'matriz' ? <VistaMatriz
-          recargarKey={matrizKey}
-          onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
-          onClickAsistencia={async (id) => {
-          // Siempre buscar detalle completo (incluye tiempo activo)
-          const res = await fetch(`/api/asistencias/detalle?id=${id}`)
-          if (res.ok) {
-            const reg = await res.json()
-            if (reg?.id) { setEditando(reg); return }
+      {/* ── Contenido según pestaña ── */}
+      {seccion === 'fichajes' ? (
+        <TablaDinamica
+          columnas={columnas}
+          datos={registros}
+          claveFila={(r) => r.id}
+          vistas={['lista', 'tarjetas', 'matriz']}
+          seleccionables
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+          placeholder="Buscar empleado..."
+          idModulo="asistencias"
+          totalRegistros={total}
+          registrosPorPagina={50}
+          paginaExterna={pagina}
+          onCambiarPagina={setPagina}
+          onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
+          vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
+          contenidoCustom={vista === 'matriz' ? <VistaMatriz
+            recargarKey={matrizKey}
+            onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
+            onClickAsistencia={async (id) => {
+              const res = await fetch(`/api/asistencias/detalle?id=${id}`)
+              if (res.ok) {
+                const reg = await res.json()
+                if (reg?.id) { setEditando(reg); return }
+              }
+              const encontrado = registros.find(r => r.id === id)
+              if (encontrado) setEditando(encontrado)
+            }} /> : undefined}
+          renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
+          onClickFila={async (r) => {
+            const res = await fetch(`/api/asistencias/detalle?id=${r.id}`)
+            if (res.ok) {
+              const detalle = await res.json()
+              if (detalle?.id) { setEditando(detalle); return }
+            }
+            setEditando(r)
+          }}
+          estadoVacio={
+            <EstadoVacio
+              icono={<TimerOff size={52} strokeWidth={1} />}
+              titulo="Nadie fichó todavía"
+              descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
+            />
           }
-          // Fallback: usar registro cargado sin tiempo activo
-          const encontrado = registros.find(r => r.id === id)
-          if (encontrado) setEditando(encontrado)
-        }} /> : undefined}
-        renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
-        onClickFila={async (r) => {
-          // Cargar detalle completo con tiempo activo
-          const res = await fetch(`/api/asistencias/detalle?id=${r.id}`)
-          if (res.ok) {
-            const detalle = await res.json()
-            if (detalle?.id) { setEditando(detalle); return }
-          }
-          setEditando(r)
-        }}
-        estadoVacio={
-          <EstadoVacio
-            icono={<TimerOff size={52} strokeWidth={1} />}
-            titulo="Nadie fichó todavía"
-            descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
-          />
-        }
-      />
+        />
+      ) : (
+        <VistaNomina ref={nominaRef} />
+      )}
 
       <ModalEditarFichaje
         abierto={!!editando}

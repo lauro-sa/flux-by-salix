@@ -6,10 +6,10 @@
  * Se usa en: ContenidoAsistencias.tsx (tab "Nómina")
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ChevronLeft, ChevronRight, Users, Download, Send,
+  ChevronLeft, ChevronRight, Users,
   Loader2, AlertTriangle, Banknote, Calendar,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -126,9 +126,16 @@ const fmtHoras = (h: number) => {
   return min > 0 ? `${hrs}h ${min}m` : `${hrs}h`
 }
 
+// ─── Tipos del handle ───
+
+export interface VistaNominaHandle {
+  exportar: () => void
+  enviarRecibos: () => void
+}
+
 // ─── Componente ───
 
-export function VistaNomina() {
+export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_props, ref) {
   const { locale } = useFormato()
 
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
@@ -140,6 +147,12 @@ export function VistaNomina() {
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<ResultadoNomina | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
+
+  // Exponer acciones al cabezal via ref
+  useImperativeHandle(ref, () => ({
+    exportar: () => window.open(`/api/asistencias/exportar?desde=${periodo.desde}&hasta=${periodo.hasta}`, '_blank'),
+    enviarRecibos: () => setModalEnvio(true),
+  }), [periodo.desde, periodo.hasta])
 
   // Cache de resultados por período
   const cacheRef = useRef<Map<string, { resultados: ResultadoNomina[]; nombreEmpresa: string }>>(new Map())
@@ -241,22 +254,13 @@ export function VistaNomina() {
         </motion.div>
       )}
 
-      {/* ── Acciones ── */}
+      {/* ── Contador empleados ── */}
       {!cargando && resultados.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <p className="text-xs text-texto-terciario">
             <Users size={12} className="inline mr-1" />
             {resultados.length} empleado{resultados.length !== 1 ? 's' : ''}
           </p>
-          <div className="flex items-center gap-2">
-            <Boton variante="secundario" tamano="sm" icono={<Download size={13} />}
-              onClick={() => window.open(`/api/asistencias/exportar?desde=${periodo.desde}&hasta=${periodo.hasta}`, '_blank')}>
-              Exportar
-            </Boton>
-            <Boton tamano="sm" icono={<Send size={13} />} onClick={() => setModalEnvio(true)}>
-              Enviar recibos
-            </Boton>
-          </div>
         </div>
       )}
 
@@ -363,4 +367,4 @@ export function VistaNomina() {
       />
     </div>
   )
-}
+})
