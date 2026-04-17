@@ -15,10 +15,28 @@ import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
- * SeccionActividadesOrden — Actividades vinculadas a una orden de trabajo.
- * Muestra progreso dinámico + lista de actividades con responsables opcionales.
- * Solo los responsables asignados (o cabecilla/admin) pueden marcar como hecha.
+ * SeccionActividadesOrden — Tareas y actividades vinculadas a una orden de trabajo.
+ * Las tareas vienen de tareas_orden (entidad propia), las actividades de la tabla actividades.
+ * Muestra progreso dinámico + lista con responsables opcionales.
  */
+
+// Tipo para tareas de orden de trabajo (tabla tareas_orden)
+interface TareaOrden {
+  id: string
+  orden_trabajo_id: string
+  titulo: string
+  descripcion: string | null
+  estado: 'pendiente' | 'completada' | 'cancelada'
+  prioridad: string
+  fecha_vencimiento: string | null
+  fecha_completada: string | null
+  asignados: { id: string; nombre: string }[]
+  asignados_ids: string[]
+  orden: number
+  creado_por: string
+  creado_por_nombre: string | null
+  creado_en: string
+}
 
 interface PropiedadesSeccion {
   ordenId: string
@@ -34,6 +52,7 @@ export default function SeccionActividadesOrden({
   onProgresoChange,
 }: PropiedadesSeccion) {
   const { t } = useTraduccion()
+  const [tareas, setTareas] = useState<TareaOrden[]>([])
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
   const [estados, setEstados] = useState<EstadoActividad[]>([])
@@ -41,6 +60,7 @@ export default function SeccionActividadesOrden({
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [cancelarId, setCancelarId] = useState<string | null>(null)
+  const [cancelarTipo, setCancelarTipo] = useState<'tarea' | 'actividad'>('tarea')
   const [motivoCancelacion, setMotivoCancelacion] = useState('')
   const [nuevaTarea, setNuevaTarea] = useState(false)
   const [tituloTarea, setTituloTarea] = useState('')
@@ -52,7 +72,8 @@ export default function SeccionActividadesOrden({
 
   const cargar = useCallback(async () => {
     try {
-      const [actRes, configRes, miembrosData] = await Promise.all([
+      const [tareasRes, actRes, configRes, miembrosData] = await Promise.all([
+        fetch(`/api/ordenes/${ordenId}/tareas`).then(r => r.json()),
         fetch(`/api/actividades?orden_trabajo_id=${ordenId}&por_pagina=50`).then(r => r.json()),
         fetch('/api/actividades/config').then(r => r.json()),
         (async () => {
@@ -67,16 +88,22 @@ export default function SeccionActividadesOrden({
           return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
         })(),
       ])
+      const tareasOT = tareasRes.tareas || []
       const acts = actRes.actividades || []
+      setTareas(tareasOT)
       setActividades(acts)
       setTipos(configRes.tipos || [])
       setEstados(configRes.estados || [])
       setMiembros(miembrosData)
 
-      const completadas = acts.filter((a: Actividad) => a.estado_clave === 'completada').length
-      onProgresoChange?.(completadas, acts.length)
+      // Progreso: combinar tareas + actividades
+      const totalTareas = tareasOT.length
+      const tareasCompletadas = tareasOT.filter((t: TareaOrden) => t.estado === 'completada').length
+      const totalActs = acts.length
+      const actsCompletadas = acts.filter((a: Actividad) => a.estado_clave === 'completada').length
+      onProgresoChange?.(tareasCompletadas + actsCompletadas, totalTareas + totalActs)
     } catch {
-      console.error('Error al cargar actividades de la orden')
+      console.error('Error al cargar tareas/actividades de la orden')
     } finally {
       setCargando(false)
     }
@@ -84,6 +111,38 @@ export default function SeccionActividadesOrden({
 
   useEffect(() => { cargar() }, [cargar])
 
+  // Acciones sobre tareas (tabla tareas_orden)
+  const completarTarea = async (id: string) => {
+    await fetch(`/api/ordenes/${ordenId}/tareas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'completar' }),
+    })
+    cargar()
+  }
+
+  const reactivarTarea = async (id: string) => {
+    await fetch(`/api/ordenes/${ordenId}/tareas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'reactivar' }),
+    })
+    cargar()
+  }
+
+  const confirmarCancelarTarea = async () => {
+    if (!cancelarId) return
+    await fetch(`/api/ordenes/${ordenId}/tareas/${cancelarId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'cancelar', notas: motivoCancelacion || undefined }),
+    })
+    setCancelarId(null)
+    setMotivoCancelacion('')
+    cargar()
+  }
+
+  // Acciones sobre actividades (tabla actividades)
   const crearActividad = async (datos: Record<string, unknown>) => {
     const res = await fetch('/api/actividades', {
       method: 'POST',
@@ -94,7 +153,7 @@ export default function SeccionActividadesOrden({
     cargar()
   }
 
-  const completar = async (id: string) => {
+  const completarActividad = async (id: string) => {
     await fetch(`/api/actividades/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -103,7 +162,7 @@ export default function SeccionActividadesOrden({
     cargar()
   }
 
-  const posponer = async (id: string) => {
+  const posponerActividad = async (id: string) => {
     await fetch(`/api/actividades/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -112,7 +171,7 @@ export default function SeccionActividadesOrden({
     cargar()
   }
 
-  const reactivar = async (id: string) => {
+  const reactivarActividad = async (id: string) => {
     await fetch(`/api/actividades/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -121,12 +180,7 @@ export default function SeccionActividadesOrden({
     cargar()
   }
 
-  const abrirCancelar = (id: string) => {
-    setCancelarId(id)
-    setMotivoCancelacion('')
-  }
-
-  const confirmarCancelar = async () => {
+  const confirmarCancelarActividad = async () => {
     if (!cancelarId) return
     await fetch(`/api/actividades/${cancelarId}`, {
       method: 'PUT',
@@ -138,65 +192,56 @@ export default function SeccionActividadesOrden({
     cargar()
   }
 
+  const abrirCancelar = (id: string, tipo: 'tarea' | 'actividad') => {
+    setCancelarId(id)
+    setCancelarTipo(tipo)
+    setMotivoCancelacion('')
+  }
+
   // Responsables de la OT (es_cabecilla = true)
   const responsablesOT = asignadosOT.filter(a => a.es_cabecilla)
   const esResponsableOT = responsablesOT.some(a => a.usuario_id === usuarioActualId)
 
-  // Determinar si el usuario actual puede marcar una actividad/tarea como hecha
-  const puedeMarcar = (actividad: Actividad): boolean => {
-    // Admin siempre puede
+  // Determinar si el usuario actual puede marcar una tarea como hecha
+  const puedeMarcarTarea = (tarea: TareaOrden): boolean => {
+    if (puedeEditarEstado) return true
+    if (!usuarioActualId) return false
+
+    const asignadosTarea = tarea.asignados || []
+    if (asignadosTarea.length > 0) {
+      return asignadosTarea.some(a => a.id === usuarioActualId)
+    }
+    return esResponsableOT
+  }
+
+  // Determinar si puede marcar una actividad
+  const puedeMarcarActividad = (actividad: Actividad): boolean => {
     if (puedeEditarEstado) return true
     if (!usuarioActualId) return false
 
     const asignadosActividad = actividad.asignados || []
-    const esTarea = actividad.es_tarea_ot === true
-
-    if (esTarea) {
-      // Tareas OT: si tiene asignados específicos, solo ellos
-      if (asignadosActividad.length > 0) {
-        return asignadosActividad.some(a => a.id === usuarioActualId)
-      }
-      // Sin asignados → solo los responsables de la OT
-      return esResponsableOT
-    }
-
-    // Actividades: solo su asignado puede completarla
     if (asignadosActividad.length > 0) {
       return asignadosActividad.some(a => a.id === usuarioActualId)
     }
-    // Actividad sin asignado → responsables de la OT
     return esResponsableOT
   }
 
-  // Crear tarea OT rápida con fecha y responsables opcionales
+  // Crear tarea OT rápida
   const crearTareaOT = async () => {
     if (!tituloTarea.trim() || creandoTarea) return
     setCreandoTarea(true)
     try {
-      const tipoTarea = tipos.find(t => t.clave === 'tarea')
-      const estadoPendiente = estados.find(e => e.clave === 'pendiente')
-      if (!tipoTarea || !estadoPendiente) return
-
-      const vinculosNuevaTarea = [
-        { tipo: 'orden', id: ordenId, nombre: `OT #${ordenNumero}` },
-      ]
-
-      // Construir asignados para la tarea
       const asignadosTarea = responsablesTarea.map(uid => {
         const miembro = miembros.find(m => m.usuario_id === uid)
-        return miembro ? { usuario_id: miembro.usuario_id, nombre: miembro.nombre, apellido: miembro.apellido || '' } : null
+        return miembro ? { id: miembro.usuario_id, nombre: `${miembro.nombre} ${miembro.apellido || ''}`.trim() } : null
       }).filter(Boolean)
 
-      await fetch('/api/actividades', {
+      await fetch(`/api/ordenes/${ordenId}/tareas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           titulo: tituloTarea.trim(),
           descripcion: descripcionTarea.trim() || null,
-          tipo_id: tipoTarea.id,
-          estado_id: estadoPendiente.id,
-          vinculos: vinculosNuevaTarea,
-          es_tarea_ot: true,
           asignados: asignadosTarea,
           fecha_vencimiento: fechaTarea || null,
         }),
@@ -214,20 +259,20 @@ export default function SeccionActividadesOrden({
     }
   }
 
+  // Separar tareas y actividades por estado
+  const tareasPendientes = tareas.filter(t => t.estado === 'pendiente')
+  const tareasFinalizadas = tareas.filter(t => t.estado === 'completada' || t.estado === 'cancelada')
   const tiposPorId = Object.fromEntries(tipos.map(t => [t.id, t]))
-  const pendientes = actividades.filter(a => a.estado_clave !== 'completada' && a.estado_clave !== 'cancelada')
-  const completadas = actividades.filter(a => a.estado_clave === 'completada' || a.estado_clave === 'cancelada')
+  const actividadesPendientes = actividades.filter(a => a.estado_clave !== 'completada' && a.estado_clave !== 'cancelada')
+  const actividadesFinalizadas = actividades.filter(a => a.estado_clave === 'completada' || a.estado_clave === 'cancelada')
 
-  const tareasOT = pendientes.filter(a => a.es_tarea_ot === true)
-  const actividadesManuales = pendientes.filter(a => !a.es_tarea_ot)
-
-  const totalActs = actividades.length
-  const completadasCount = actividades.filter(a => a.estado_clave === 'completada').length
-  const porcentaje = totalActs > 0 ? Math.round((completadasCount / totalActs) * 100) : 0
+  const totalItems = tareas.length + actividades.length
+  const completadasCount = tareas.filter(t => t.estado === 'completada').length +
+    actividades.filter(a => a.estado_clave === 'completada').length
+  const porcentaje = totalItems > 0 ? Math.round((completadasCount / totalItems) * 100) : 0
 
   // Miembros que son asignados a la OT (para selector de responsables)
   const miembrosAsignadosOT = miembros.filter(m => asignadosOT.some(a => a.usuario_id === m.usuario_id))
-  // Si no hay asignados OT, mostrar todos los miembros
   const miembrosParaResponsables = miembrosAsignadosOT.length > 0 ? miembrosAsignadosOT : miembros
 
   return (
@@ -238,7 +283,7 @@ export default function SeccionActividadesOrden({
           <h3 className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider shrink-0">
             {t('ordenes.progreso_actividades')}
           </h3>
-          {totalActs > 0 && (
+          {totalItems > 0 && (
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden max-w-[200px]">
                 <motion.div
@@ -250,7 +295,7 @@ export default function SeccionActividadesOrden({
                 />
               </div>
               <span className="text-xs text-texto-terciario shrink-0">
-                {completadasCount}/{totalActs}
+                {completadasCount}/{totalItems}
               </span>
             </div>
           )}
@@ -304,7 +349,6 @@ export default function SeccionActividadesOrden({
 
               {/* Fila: Fecha + Responsables */}
               <div className="flex items-center gap-3 flex-wrap">
-                {/* Fecha */}
                 <div className="flex items-center gap-1.5">
                   <Calendar size={13} className="text-texto-terciario" />
                   <input
@@ -315,7 +359,6 @@ export default function SeccionActividadesOrden({
                   />
                 </div>
 
-                {/* Responsables (hasta 2) */}
                 <SelectorResponsables
                   miembros={miembrosParaResponsables}
                   seleccionados={responsablesTarea}
@@ -340,58 +383,65 @@ export default function SeccionActividadesOrden({
         )}
       </AnimatePresence>
 
-      {/* Lista de actividades */}
+      {/* Lista */}
       {cargando ? (
         <div className="py-4 text-center text-xs text-texto-terciario">Cargando...</div>
-      ) : totalActs === 0 ? (
+      ) : totalItems === 0 ? (
         <div className="py-6 text-center text-xs text-texto-terciario">
           {t('ordenes.sin_actividades')}
         </div>
       ) : (
         <div className="space-y-0.5">
-          {/* Tareas del trabajo */}
-          {tareasOT.map(act => (
-            <FilaActividadCompacta
-              key={act.id}
-              actividad={act}
-              tipo={tiposPorId[act.tipo_id]}
-              esTareaOT
-              puedeMarcar={puedeMarcar(act)}
-              onCompletar={() => completar(act.id)}
-              onCancelar={() => abrirCancelar(act.id)}
+          {/* Tareas de la orden */}
+          {tareasPendientes.map(tarea => (
+            <FilaTareaOrden
+              key={tarea.id}
+              tarea={tarea}
+              puedeMarcar={puedeMarcarTarea(tarea)}
+              onCompletar={() => completarTarea(tarea.id)}
+              onCancelar={() => abrirCancelar(tarea.id, 'tarea')}
             />
           ))}
 
-          {/* Separador */}
-          {tareasOT.length > 0 && actividadesManuales.length > 0 && (
+          {/* Separador entre tareas y actividades */}
+          {tareasPendientes.length > 0 && actividadesPendientes.length > 0 && (
             <div className="pt-3 pb-1 border-t border-white/[0.06] mt-2">
               <p className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">Actividades</p>
             </div>
           )}
 
           {/* Actividades manuales */}
-          {actividadesManuales.map(act => (
+          {actividadesPendientes.map(act => (
             <FilaActividadCompacta
               key={act.id}
               actividad={act}
               tipo={tiposPorId[act.tipo_id]}
-              puedeMarcar={puedeMarcar(act)}
-              onCompletar={() => completar(act.id)}
-              onPosponer={() => posponer(act.id)}
+              puedeMarcar={puedeMarcarActividad(act)}
+              onCompletar={() => completarActividad(act.id)}
+              onPosponer={() => posponerActividad(act.id)}
             />
           ))}
 
-          {/* Completadas/canceladas */}
-          {completadas.length > 0 && (
+          {/* Finalizadas (tareas + actividades) */}
+          {(tareasFinalizadas.length > 0 || actividadesFinalizadas.length > 0) && (
             <div className="mt-3 pt-3 border-t border-white/[0.06] opacity-50 space-y-0.5">
-              {completadas.map(act => (
+              {tareasFinalizadas.map(tarea => (
+                <FilaTareaOrden
+                  key={tarea.id}
+                  tarea={tarea}
+                  completada
+                  puedeMarcar={puedeMarcarTarea(tarea)}
+                  onReactivar={() => reactivarTarea(tarea.id)}
+                />
+              ))}
+              {actividadesFinalizadas.map(act => (
                 <FilaActividadCompacta
                   key={act.id}
                   actividad={act}
                   tipo={tiposPorId[act.tipo_id]}
                   completada
-                  puedeMarcar={puedeMarcar(act)}
-                  onReactivar={() => reactivar(act.id)}
+                  puedeMarcar={puedeMarcarActividad(act)}
+                  onReactivar={() => reactivarActividad(act.id)}
                 />
               ))}
             </div>
@@ -421,7 +471,12 @@ export default function SeccionActividadesOrden({
               <Boton variante="fantasma" tamano="sm" onClick={() => setCancelarId(null)}>
                 Volver
               </Boton>
-              <Boton variante="peligro" tamano="sm" icono={<Ban size={14} />} onClick={confirmarCancelar}>
+              <Boton
+                variante="peligro"
+                tamano="sm"
+                icono={<Ban size={14} />}
+                onClick={cancelarTipo === 'tarea' ? confirmarCancelarTarea : confirmarCancelarActividad}
+              >
                 Cancelar tarea
               </Boton>
             </div>
@@ -548,27 +603,110 @@ function SelectorResponsables({
   )
 }
 
+// ── Fila compacta de tarea de orden ──
+
+function FilaTareaOrden({
+  tarea,
+  completada,
+  puedeMarcar,
+  onCompletar,
+  onCancelar,
+  onReactivar,
+}: {
+  tarea: TareaOrden
+  completada?: boolean
+  puedeMarcar: boolean
+  onCompletar?: () => void
+  onCancelar?: () => void
+  onReactivar?: () => void
+}) {
+  const formato = useFormato()
+  const vencida = tarea.fecha_vencimiento && new Date(tarea.fecha_vencimiento) < new Date() && !completada
+
+  return (
+    <div className={`flex items-start gap-3 px-3 py-3.5 rounded-lg transition-colors border-b border-white/[0.04] last:border-b-0 ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+        style={{ backgroundColor: 'var(--texto-marca)' + '15', color: 'var(--texto-marca)' }}
+      >
+        <CheckCircle size={14} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+          {tarea.titulo}
+        </p>
+        {tarea.descripcion && !completada && (
+          <p className="text-xs text-texto-terciario line-clamp-2 mt-0.5 whitespace-pre-wrap">
+            {tarea.descripcion}
+          </p>
+        )}
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {tarea.fecha_vencimiento && (
+            <span className={`text-xs ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
+              {formato.fecha(tarea.fecha_vencimiento, { corta: true })}
+              {vencida && ' — vencida'}
+            </span>
+          )}
+          {tarea.asignados && tarea.asignados.length > 0 && (
+            <span className="text-xs text-texto-terciario flex items-center gap-1">
+              <User size={10} />
+              {tarea.asignados.map(a => a.nombre).join(', ')}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+        {!completada && puedeMarcar && onCompletar && (
+          <button
+            type="button"
+            onClick={onCompletar}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/5 text-insignia-exito-texto hover:bg-insignia-exito/15 active:scale-95"
+          >
+            <CheckCircle size={14} />
+            <span className="hidden sm:inline">Hecho</span>
+          </button>
+        )}
+        {!completada && puedeMarcar && onCancelar && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-peligro/20 bg-transparent text-texto-terciario hover:text-insignia-peligro-texto hover:bg-insignia-peligro/10 active:scale-95"
+          >
+            <Ban size={13} />
+          </button>
+        )}
+        {completada && puedeMarcar && onReactivar && (
+          <button
+            type="button"
+            onClick={onReactivar}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-white/[0.1] bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.05] active:scale-95"
+          >
+            <RotateCcw size={13} />
+            <span className="hidden sm:inline">Reabrir</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Fila compacta de actividad ──
 
 function FilaActividadCompacta({
   actividad,
   tipo,
   completada,
-  esTareaOT,
   puedeMarcar,
   onCompletar,
   onPosponer,
-  onCancelar,
   onReactivar,
 }: {
   actividad: Actividad
   tipo?: TipoActividad
   completada?: boolean
-  esTareaOT?: boolean
   puedeMarcar: boolean
   onCompletar?: () => void
   onPosponer?: () => void
-  onCancelar?: () => void
   onReactivar?: () => void
 }) {
   const formato = useFormato()
@@ -601,7 +739,6 @@ function FilaActividadCompacta({
               {vencida && ' — vencida'}
             </span>
           )}
-          {/* Mostrar responsables de la actividad */}
           {actividad.asignados && actividad.asignados.length > 0 && (
             <span className="text-xs text-texto-terciario flex items-center gap-1">
               <User size={10} />
@@ -621,22 +758,13 @@ function FilaActividadCompacta({
             <span className="hidden sm:inline">Hecho</span>
           </button>
         )}
-        {!completada && !esTareaOT && puedeMarcar && onPosponer && (
+        {!completada && puedeMarcar && onPosponer && (
           <button
             type="button"
             onClick={onPosponer}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-advertencia/30 bg-transparent text-insignia-advertencia-texto hover:bg-insignia-advertencia/10 active:scale-95"
           >
             <Clock size={14} />
-          </button>
-        )}
-        {!completada && puedeMarcar && onCancelar && (
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-peligro/20 bg-transparent text-texto-terciario hover:text-insignia-peligro-texto hover:bg-insignia-peligro/10 active:scale-95"
-          >
-            <Ban size={13} />
           </button>
         )}
         {completada && puedeMarcar && onReactivar && (

@@ -25,8 +25,8 @@ export async function GET(
 
     const admin = crearClienteAdmin()
 
-    // Orden + lineas + historial + asignados + actividades en paralelo
-    const [ordenRes, lineasRes, historialRes, asignadosRes, actividadesRes] = await Promise.all([
+    // Orden + lineas + historial + asignados + tareas en paralelo
+    const [ordenRes, lineasRes, historialRes, asignadosRes, tareasRes] = await Promise.all([
       admin
         .from('ordenes_trabajo')
         .select('*')
@@ -48,27 +48,26 @@ export async function GET(
         .select('*')
         .eq('orden_trabajo_id', id)
         .order('es_cabecilla', { ascending: false }),
-      // Actividades vinculadas a esta OT (por vinculo_ids)
+      // Tareas de la orden (tabla propia)
       admin
-        .from('actividades')
-        .select('id, estado_clave, fecha_vencimiento')
-        .eq('empresa_id', empresaId)
-        .contains('vinculo_ids', [id])
-        .eq('en_papelera', false),
+        .from('tareas_orden')
+        .select('id, estado, fecha_vencimiento')
+        .eq('orden_trabajo_id', id)
+        .eq('empresa_id', empresaId),
     ])
 
     if (ordenRes.error || !ordenRes.data) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
     }
 
-    // Calcular progreso de actividades
-    const actividades = actividadesRes.data || []
-    const totalActividades = actividades.length
-    const completadas = actividades.filter(a => a.estado_clave === 'completada').length
+    // Calcular progreso de tareas
+    const tareas = tareasRes.data || []
+    const totalActividades = tareas.length
+    const completadas = tareas.filter((t: { estado: string }) => t.estado === 'completada').length
 
-    // Calcular fechas desde actividades con fecha
-    const fechasActividades = actividades
-      .map(a => a.fecha_vencimiento)
+    // Calcular fechas desde tareas con fecha
+    const fechasActividades = tareas
+      .map((t: { fecha_vencimiento: string | null }) => t.fecha_vencimiento)
       .filter(Boolean)
       .sort() as string[]
 

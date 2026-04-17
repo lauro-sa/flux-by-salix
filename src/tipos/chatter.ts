@@ -30,6 +30,8 @@ export type AccionSistema =
   | 'orden_trabajo_generada'
   | 'publicar'
   | 'despublicar'
+  | 'tarea_completada'
+  | 'tarea_cancelada'
   // Correo
   | 'correo_enviado'
   | 'correo_recibido'
@@ -63,6 +65,8 @@ export interface MetadataChatter {
   firma_modo?: string
   // Para actividades
   actividad_id?: string
+  // Para tareas de órdenes de trabajo
+  tarea_id?: string
   // Para órdenes de trabajo
   presupuesto_id?: string
   presupuesto_numero?: string

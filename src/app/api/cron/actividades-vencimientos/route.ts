@@ -176,6 +176,64 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ═══ Tareas de órdenes de trabajo ═══
+    // Notificar tareas OT que vencen hoy o están vencidas
+    const { data: tareasVencenHoy } = await admin
+      .from('tareas_orden')
+      .select('id, titulo, empresa_id, asignados, creado_por, orden_trabajo_id')
+      .gte('fecha_vencimiento', hoyInicio.toISOString())
+      .lt('fecha_vencimiento', hoyFin.toISOString())
+      .eq('estado', 'pendiente')
+
+    for (const tarea of tareasVencenHoy || []) {
+      const destinatarios = (() => {
+        const lista = Array.isArray(tarea.asignados) ? (tarea.asignados as { id: string }[]).map(a => a.id) : []
+        return lista.length > 0 ? lista : [tarea.creado_por].filter(Boolean)
+      })()
+      for (const dest of destinatarios) {
+        notificaciones.push({
+          empresaId: tarea.empresa_id,
+          usuarioId: dest,
+          tipo: 'actividad_pronto_vence',
+          titulo: '⏰ Tarea OT vence hoy',
+          cuerpo: tarea.titulo,
+          icono: 'Clock',
+          color: COLORES_HEX_ESTADO_ACTIVIDAD.pendiente,
+          url: `/ordenes/${tarea.orden_trabajo_id}`,
+          referenciaTipo: 'tarea_orden',
+          referenciaId: tarea.id,
+        })
+      }
+    }
+
+    const { data: tareasVencidas } = await admin
+      .from('tareas_orden')
+      .select('id, titulo, empresa_id, asignados, creado_por, orden_trabajo_id, fecha_vencimiento')
+      .lt('fecha_vencimiento', hoyInicio.toISOString())
+      .eq('estado', 'pendiente')
+
+    for (const tarea of tareasVencidas || []) {
+      const diasVencida = Math.floor((hoyInicio.getTime() - new Date(tarea.fecha_vencimiento).getTime()) / 86400000)
+      const destinatarios = (() => {
+        const lista = Array.isArray(tarea.asignados) ? (tarea.asignados as { id: string }[]).map(a => a.id) : []
+        return lista.length > 0 ? lista : [tarea.creado_por].filter(Boolean)
+      })()
+      for (const dest of destinatarios) {
+        notificaciones.push({
+          empresaId: tarea.empresa_id,
+          usuarioId: dest,
+          tipo: 'actividad_vencida',
+          titulo: `🚨 Tarea OT vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
+          cuerpo: tarea.titulo,
+          icono: 'AlertCircle',
+          color: COLORES_HEX_ESTADO_ACTIVIDAD.vencida,
+          url: `/ordenes/${tarea.orden_trabajo_id}`,
+          referenciaTipo: 'tarea_orden',
+          referenciaId: tarea.id,
+        })
+      }
+    }
+
     // Insertar notificaciones en batch
     await crearNotificacionesBatch(notificaciones)
 
@@ -184,6 +242,8 @@ export async function GET(request: NextRequest) {
       vencieron_ayer: (vencieronAyer || []).length,
       vencidas_recordatorio: (vencidasPendientes || []).length,
       marcadas_vencida: marcadas,
+      tareas_ot_vencen_hoy: (tareasVencenHoy || []).length,
+      tareas_ot_vencidas: (tareasVencidas || []).length,
       notificaciones_enviadas: notificaciones.length,
       timestamp: ahora.toISOString(),
     })

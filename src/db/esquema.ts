@@ -1048,9 +1048,6 @@ export const actividades = pgTable('actividades', {
   // Seguimientos (reclamos/follow-ups del cliente)
   seguimientos: jsonb('seguimientos').default([]),
 
-  // Tarea auto-generada desde orden de trabajo (diferencia tareas OT de actividades manuales)
-  es_tarea_ot: boolean('es_tarea_ot').notNull().default(false),
-
   // Soft delete
   en_papelera: boolean('en_papelera').notNull().default(false),
   papelera_en: timestamp('papelera_en', { withTimezone: true }),
@@ -1062,6 +1059,48 @@ export const actividades = pgTable('actividades', {
   index('actividades_vencimiento_idx').on(tabla.empresa_id, tabla.fecha_vencimiento),
   index('actividades_creado_por_idx').on(tabla.empresa_id, tabla.creado_por),
   index('actividades_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// Tareas de órdenes de trabajo — entidad independiente de actividades
+export const tareas_orden = pgTable('tareas_orden', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  orden_trabajo_id: uuid('orden_trabajo_id').notNull().references(() => ordenes_trabajo.id, { onDelete: 'cascade' }),
+
+  // Contenido
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+
+  // Estado: pendiente, completada, cancelada
+  estado: text('estado').notNull().default('pendiente'),
+  prioridad: text('prioridad').notNull().default('normal'), // 'baja' | 'normal' | 'alta'
+
+  // Fechas
+  fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
+  fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
+
+  // Responsables [{id, nombre}]
+  asignados: jsonb('asignados').notNull().default(sql`'[]'`),
+  asignados_ids: text('asignados_ids').array().notNull().default(sql`'{}'`),
+
+  // Orden de visualización
+  orden: integer('orden').notNull().default(0),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Notas de cancelación
+  notas_cancelacion: text('notas_cancelacion'),
+}, (tabla) => [
+  index('tareas_orden_empresa_idx').on(tabla.empresa_id),
+  index('tareas_orden_ot_idx').on(tabla.orden_trabajo_id),
+  index('tareas_orden_estado_idx').on(tabla.orden_trabajo_id, tabla.estado),
+  index('tareas_orden_asignados_idx').using('gin', tabla.asignados_ids),
 ])
 
 // ═══ CALENDARIO ═══

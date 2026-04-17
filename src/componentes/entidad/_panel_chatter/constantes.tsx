@@ -138,6 +138,16 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     color: 'bg-insignia-advertencia-fondo text-insignia-advertencia-texto',
     etiqueta: 'Despublicada',
   },
+  tarea_completada: {
+    icono: <CheckCircle2 size={14} />,
+    color: 'bg-insignia-exito-fondo text-insignia-exito-texto',
+    etiqueta: 'Tarea completada',
+  },
+  tarea_cancelada: {
+    icono: <Ban size={14} />,
+    color: 'bg-insignia-peligro-fondo text-insignia-peligro-texto',
+    etiqueta: 'Tarea cancelada',
+  },
 }
 
 // Nombres de días para "el martes", "el jueves", etc.

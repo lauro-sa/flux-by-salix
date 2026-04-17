@@ -158,33 +158,10 @@ export async function POST(request: NextRequest) {
         unidad: l.unidad,
       }))
 
-    // Generar actividades automáticas desde las líneas de producto
+    // Generar tareas automáticas desde las líneas de producto
     const lineasProducto = lineas.filter(l => l.tipo_linea === 'producto' && l.descripcion)
 
-    // Obtener tipo "tarea" y estado "pendiente" de la empresa para las actividades auto-generadas
-    let tipoTarea: { id: string; clave: string } | null = null
-    let estadoPendiente: { id: string; clave: string } | null = null
-    if (lineasProducto.length > 0) {
-      const [tipoRes, estadoRes] = await Promise.all([
-        admin.from('tipos_actividad').select('id, clave').eq('empresa_id', empresaId).eq('clave', 'tarea').single(),
-        admin.from('estados_actividad').select('id, clave').eq('empresa_id', empresaId).eq('clave', 'pendiente').single(),
-      ])
-      tipoTarea = tipoRes.data
-      estadoPendiente = estadoRes.data
-    }
-
-    // Vinculos para las actividades: OT + contacto del presupuesto
-    const vinculosActividad = [
-      { tipo: 'orden', id: orden.id as string, nombre: `OT #${orden.numero}` },
-      ...(presupuesto.contacto_id ? [{
-        tipo: 'contacto',
-        id: presupuesto.contacto_id,
-        nombre: nombreContacto || 'Cliente',
-      }] : []),
-    ]
-    const vinculoIds = vinculosActividad.map(v => v.id)
-
-    const actividadesAutoGeneradas = (tipoTarea && estadoPendiente) ? lineasProducto.map(l => {
+    const tareasAutoGeneradas = lineasProducto.map((l, idx) => {
       const cantidadTexto = l.cantidad && l.cantidad !== '1'
         ? `${l.cantidad}${l.unidad ? ' ' + l.unidad : ''}`
         : null
@@ -198,28 +175,23 @@ export async function POST(request: NextRequest) {
         : [l.descripcion_detalle, cantidadTexto].filter(Boolean).join(' — ') || null
       return {
         empresa_id: empresaId,
+        orden_trabajo_id: orden!.id as string,
         titulo,
         descripcion,
-        tipo_id: tipoTarea!.id,
-        tipo_clave: tipoTarea!.clave,
-        estado_id: estadoPendiente!.id,
-        estado_clave: estadoPendiente!.clave,
+        estado: 'pendiente',
         prioridad: 'normal',
-        vinculos: vinculosActividad,
-        vinculo_ids: vinculoIds,
         asignados: [],
         asignados_ids: [],
-        checklist: [],
-        es_tarea_ot: true,
+        orden: idx,
         creado_por: user.id,
         creado_por_nombre: nombreUsuario,
       }
-    }) : []
+    })
 
-    // Insertar líneas + actividades + historial + chatter + asignados en paralelo
+    // Insertar líneas + tareas + historial + chatter + asignados en paralelo
     await Promise.all([
       lineasOT.length > 0 ? admin.from('lineas_orden_trabajo').insert(lineasOT) : Promise.resolve(),
-      actividadesAutoGeneradas.length > 0 ? admin.from('actividades').insert(actividadesAutoGeneradas) : Promise.resolve(),
+      tareasAutoGeneradas.length > 0 ? admin.from('tareas_orden').insert(tareasAutoGeneradas) : Promise.resolve(),
       asignados.length > 0
         ? admin.from('asignados_orden_trabajo').insert(
             asignados.map(a => ({
