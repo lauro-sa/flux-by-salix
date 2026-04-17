@@ -340,22 +340,25 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empleado?.miembro_id, periodoInterno.desde, periodoInterno.hasta, cargarPagosYAdelantos])
 
-  // Guardar compensación + historial
+  // Guardar compensación + historial — optimizado
   const guardarCompensacion = useCallback(async (campo: string, valor: unknown, valorAnterior?: unknown) => {
     if (!empleado) return
-    await supabase.from('miembros').update({ [campo]: valor }).eq('id', empleado.miembro_id)
 
-    // Registrar en historial
-    const { data: user } = await supabase.auth.getUser()
-    const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', user.user?.id || '').single()
-    const { data: miembroData } = await supabase.from('miembros').select('empresa_id').eq('id', empleado.miembro_id).single()
+    // Update + queries de contexto en paralelo
+    const [, { data: user }, { data: miembroData }] = await Promise.all([
+      supabase.from('miembros').update({ [campo]: valor }).eq('id', empleado.miembro_id),
+      supabase.auth.getUser(),
+      supabase.from('miembros').select('empresa_id').eq('id', empleado.miembro_id).single(),
+    ])
 
     if (miembroData && user.user) {
+      const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', user.user.id).single()
       let porcentajeCambio: number | null = null
       if (campo === 'compensacion_monto' && valorAnterior && Number(valorAnterior) > 0) {
         porcentajeCambio = Math.round(((Number(valor) - Number(valorAnterior)) / Number(valorAnterior)) * 10000) / 100
       }
-      await supabase.from('historial_compensacion').insert({
+      // Insert historial en background, no esperar
+      supabase.from('historial_compensacion').insert({
         empresa_id: (miembroData as Record<string, unknown>).empresa_id,
         miembro_id: empleado.miembro_id,
         campo,
@@ -364,24 +367,31 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
         porcentaje_cambio: porcentajeCambio,
         creado_por: user.user.id,
         creado_por_nombre: perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema',
-      })
+      }).then(() => {})
     }
     onActualizado()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empleado?.miembro_id, onActualizado])
 
-  // Confirmar pago
+  // Confirmar pago — optimizado con queries en paralelo
   const handleConfirmarPago = async () => {
     if (!empleado) return
     setPagando(true)
 
-    const { data: user } = await supabase.auth.getUser()
-    const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', user.user?.id || '').single()
-    const nombreCreador = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema'
-    const { data: miembroData } = await supabase.from('miembros').select('empresa_id').eq('id', empleado.miembro_id).single()
-    const empresaId = (miembroData as Record<string, unknown>)?.empresa_id as string
-
     const montoReal = parseFloat(montoAPagar) || emp.monto_neto
+
+    // Queries en paralelo
+    const [{ data: user }, { data: miembroData }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from('miembros').select('empresa_id').eq('id', empleado.miembro_id).single(),
+    ])
+
+    const empresaId = (miembroData as Record<string, unknown>)?.empresa_id as string
+    const userId = user.user?.id || ''
+
+    // Nombre del creador — usar el nombre del empleado actual si no podemos obtener el perfil rápido
+    const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', userId).single()
+    const nombreCreador = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema'
 
     const { data: pagoInsertado } = await supabase.from('pagos_nomina').insert({
       empresa_id: empresaId,
@@ -396,12 +406,13 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
       dias_ausentes: emp.dias_ausentes,
       tardanzas: emp.dias_tardanza,
       notas: notasPago || null,
-      creado_por: user.user?.id,
+      creado_por: userId,
       creado_por_nombre: nombreCreador,
     }).select('id').single()
 
+    // Descontar adelantos en paralelo con recarga de datos
     if (pagoInsertado) {
-      await fetch('/api/adelantos/descontar', {
+      fetch('/api/adelantos/descontar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
