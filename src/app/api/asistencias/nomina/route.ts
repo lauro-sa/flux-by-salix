@@ -179,6 +179,29 @@ export async function GET(request: NextRequest) {
       entry.detalle.push(c)
     }
 
+    // ─── Saldo anterior: pagos del período anterior por miembro ───
+    // Busca si en el período anterior se pagó de más o de menos
+    const { data: pagosAnterioresData } = await admin
+      .from('pagos_nomina')
+      .select('miembro_id, monto_sugerido, monto_abonado, fecha_inicio_periodo, fecha_fin_periodo')
+      .eq('empresa_id', empresaId)
+      .eq('eliminado', false)
+      .lt('fecha_fin_periodo', desde)
+      .order('fecha_fin_periodo', { ascending: false })
+
+    // Para cada miembro, tomar el último pago anterior y calcular diferencia
+    const saldoAnteriorPorMiembro = new Map<string, number>()
+    const miembrosYaProcesados = new Set<string>()
+    for (const p of (pagosAnterioresData || []) as Record<string, unknown>[]) {
+      const mid = p.miembro_id as string
+      if (miembrosYaProcesados.has(mid)) continue
+      miembrosYaProcesados.add(mid)
+      const sugerido = parseFloat(p.monto_sugerido as string) || 0
+      const abonado = parseFloat(p.monto_abonado as string) || 0
+      const diferencia = abonado - sugerido // positivo = pagó de más (a favor), negativo = debe
+      if (diferencia !== 0) saldoAnteriorPorMiembro.set(mid, diferencia)
+    }
+
     // ─── Calcular por cada miembro ───
     const resultados = (miembrosData || []).map((miembro) => {
       const m = miembro as Record<string, unknown>
@@ -330,7 +353,13 @@ export async function GET(request: NextRequest) {
         // Adelantos
         descuento_adelanto: Math.round((cuotasPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
         cuotas_adelanto: cuotasPorMiembro.get(m.id as string)?.cantidad || 0,
-        monto_neto: Math.round((montoPagar - (cuotasPorMiembro.get(m.id as string)?.monto || 0)) * 100) / 100,
+        // Saldo anterior (positivo = a favor del empleado, negativo = le deben descontar)
+        saldo_anterior: Math.round((saldoAnteriorPorMiembro.get(m.id as string) || 0) * 100) / 100,
+        monto_neto: Math.round((
+          montoPagar
+          - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
+          - (saldoAnteriorPorMiembro.get(m.id as string) || 0) // restar si pagó de más antes
+        ) * 100) / 100,
       }
     })
 

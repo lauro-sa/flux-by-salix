@@ -18,7 +18,7 @@ import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
-  Receipt, Send, Landmark, Check,
+  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 // ─── Tipos ───
@@ -51,6 +51,7 @@ interface ResultadoNomina {
   monto_detalle: string
   descuento_adelanto: number
   cuotas_adelanto: number
+  saldo_anterior: number
   monto_neto: number
 }
 
@@ -76,6 +77,11 @@ const fmtHoras = (h: number) => {
 
 export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombreEmpresa, onActualizado }: Props) {
   const supabase = crearClienteNavegador()
+
+  // Período interno (navegable dentro del modal)
+  const [periodoInterno, setPeriodoInterno] = useState(periodo)
+  const [datosEmpleado, setDatosEmpleado] = useState<ResultadoNomina | null>(empleado)
+  const [recalculando, setRecalculando] = useState(false)
 
   // Estado
   const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
@@ -114,9 +120,11 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
   const [editAdelantoNotas, setEditAdelantoNotas] = useState('')
   const [guardandoEditAdelanto, setGuardandoEditAdelanto] = useState(false)
 
-  // Cargar datos al abrir
+  // Sincronizar período y datos al abrir
   useEffect(() => {
     if (!abierto || !empleado) return
+    setPeriodoInterno(periodo)
+    setDatosEmpleado(empleado)
 
     setCompTipo(empleado.compensacion_tipo)
     setCompMonto(String(empleado.compensacion_monto))
@@ -126,21 +134,8 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     setConfirmandoPago(false)
     setEditandoPago(null)
 
-    // Cargar adelantos
-    fetch(`/api/adelantos?miembro_id=${empleado.miembro_id}`)
-      .then(r => r.json())
-      .then(d => setAdelantos((d.adelantos || []).filter((a: Record<string, unknown>) => a.estado === 'activo')))
-      .catch(() => {})
-
-    // Cargar pagos recientes
-    supabase
-      .from('pagos_nomina')
-      .select('id, concepto, monto_sugerido, monto_abonado, fecha_inicio_periodo, fecha_fin_periodo, creado_en, creado_por_nombre, notas')
-      .eq('miembro_id', empleado.miembro_id)
-      .eq('eliminado', false)
-      .order('creado_en', { ascending: false })
-      .limit(10)
-      .then(({ data }) => setPagos(data || []))
+    // Cargar pagos y adelantos filtrados por período
+    cargarPagosYAdelantos(empleado.miembro_id, periodo.desde, periodo.hasta)
 
     // Cargar dias_trabajo
     supabase.from('miembros').select('dias_trabajo').eq('id', empleado.miembro_id).single()
@@ -148,23 +143,129 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, empleado?.miembro_id])
 
-  // Recargar datos internos
-  const recargarDatos = useCallback(async () => {
+  // Navegar a otro período y recalcular nómina
+  const navegarPeriodo = useCallback(async (dir: 'prev' | 'next') => {
     if (!empleado) return
-    const resAdel = await fetch(`/api/adelantos?miembro_id=${empleado.miembro_id}`)
-    const dataAdel = await resAdel.json()
-    setAdelantos((dataAdel.adelantos || []).filter((a: Record<string, unknown>) => a.estado === 'activo'))
+    setRecalculando(true)
 
-    const { data: pagosNuevos } = await supabase
+    // Detectar tipo de período por duración
+    const duracion = (new Date(periodoInterno.hasta + 'T12:00:00').getTime() - new Date(periodoInterno.desde + 'T12:00:00').getTime()) / 86400000
+    const diaInicio = parseInt(periodoInterno.desde.split('-')[2])
+
+    let desde: string, hasta: string, etiqueta: string
+
+    if (duracion <= 8) {
+      // Semana
+      const d = new Date(periodoInterno.desde + 'T12:00:00')
+      d.setDate(d.getDate() + (dir === 'next' ? 7 : -7))
+      const dia = d.getDay()
+      const lunes = new Date(d); lunes.setDate(d.getDate() - (dia === 0 ? 6 : dia - 1))
+      const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6)
+      desde = lunes.toISOString().split('T')[0]
+      hasta = domingo.toISOString().split('T')[0]
+      etiqueta = `Semana ${lunes.getDate()}-${domingo.getDate()} de ${lunes.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
+    } else if (duracion <= 16) {
+      // Quincena — navegar por mitades de mes
+      let mes = parseInt(periodoInterno.desde.split('-')[1]) - 1
+      let anio = parseInt(periodoInterno.desde.split('-')[0])
+      const esQ1 = diaInicio <= 15
+
+      if (dir === 'next') {
+        if (esQ1) {
+          // Q1 → Q2 del mismo mes
+        } else {
+          // Q2 → Q1 del mes siguiente
+          mes++
+          if (mes > 11) { mes = 0; anio++ }
+        }
+      } else {
+        if (esQ1) {
+          // Q1 → Q2 del mes anterior
+          mes--
+          if (mes < 0) { mes = 11; anio-- }
+        }
+        // Q2 → Q1 del mismo mes (no cambia mes)
+      }
+
+      const nuevaQ1 = dir === 'next' ? !esQ1 : !esQ1
+      if (nuevaQ1) {
+        desde = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
+        hasta = `${anio}-${String(mes + 1).padStart(2, '0')}-15`
+        const d = new Date(anio, mes, 1)
+        etiqueta = `Quincena 1-15 de ${d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
+      } else {
+        const ultimo = new Date(anio, mes + 1, 0).getDate()
+        desde = `${anio}-${String(mes + 1).padStart(2, '0')}-16`
+        hasta = `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`
+        const d = new Date(anio, mes, 16)
+        etiqueta = `Quincena 16-${ultimo} de ${d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
+      }
+    } else {
+      // Mes
+      const d = new Date(periodoInterno.desde + 'T12:00:00')
+      d.setMonth(d.getMonth() + (dir === 'next' ? 1 : -1))
+      const mes = d.getMonth()
+      const anio = d.getFullYear()
+      const ultimo = new Date(anio, mes + 1, 0).getDate()
+      desde = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
+      hasta = `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`
+      etiqueta = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
+    }
+
+    const nuevoPeriodo = { desde, hasta, etiqueta }
+    setPeriodoInterno(nuevoPeriodo)
+    setRecalculando(true)
+
+    // Cargar datos en background sin bloquear la UI
+    fetch(`/api/asistencias/nomina?desde=${desde}&hasta=${hasta}&empleados=${empleado.miembro_id}`)
+      .then(r => r.json())
+      .then(data => {
+        const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === empleado.miembro_id)
+        if (resultado) setDatosEmpleado(resultado)
+      })
+      .catch(() => {})
+      .finally(() => setRecalculando(false))
+
+    cargarPagosYAdelantos(empleado.miembro_id, desde, hasta)
+  }, [empleado, periodoInterno])
+
+  // Cargar pagos y adelantos filtrados por período
+  const cargarPagosYAdelantos = useCallback(async (miembroId: string, desde: string, hasta: string) => {
+    // Pagos: solo los que corresponden a este período
+    const { data: pagosData } = await supabase
       .from('pagos_nomina')
       .select('id, concepto, monto_sugerido, monto_abonado, fecha_inicio_periodo, fecha_fin_periodo, creado_en, creado_por_nombre, notas')
-      .eq('miembro_id', empleado.miembro_id)
+      .eq('miembro_id', miembroId)
       .eq('eliminado', false)
+      .lte('fecha_inicio_periodo', hasta)
+      .gte('fecha_fin_periodo', desde)
       .order('creado_en', { ascending: false })
-      .limit(10)
-    setPagos(pagosNuevos || [])
+    setPagos(pagosData || [])
+
+    // Adelantos: solo cuotas que caen en este período
+    const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
+    const dataAdel = await resAdel.json()
+    const todosAdelantos = (dataAdel.adelantos || []) as Record<string, unknown>[]
+
+    // Filtrar: mostrar adelantos que tienen al menos una cuota en este rango
+    const adelantosFiltrados = todosAdelantos.filter((a: Record<string, unknown>) => {
+      if (a.estado === 'cancelado') return false
+      const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+      return cuotas.some(c =>
+        (c.fecha_programada as string) >= desde &&
+        (c.fecha_programada as string) <= hasta
+      )
+    })
+    setAdelantos(adelantosFiltrados)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empleado?.miembro_id])
+  }, [])
+
+  // Recargar datos del período actual
+  const recargarDatos = useCallback(async () => {
+    if (!empleado) return
+    await cargarPagosYAdelantos(empleado.miembro_id, periodoInterno.desde, periodoInterno.hasta)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleado?.miembro_id, periodoInterno.desde, periodoInterno.hasta, cargarPagosYAdelantos])
 
   // Guardar compensación + historial
   const guardarCompensacion = useCallback(async (campo: string, valor: unknown, valorAnterior?: unknown) => {
@@ -207,20 +308,20 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     const { data: miembroData } = await supabase.from('miembros').select('empresa_id').eq('id', empleado.miembro_id).single()
     const empresaId = (miembroData as Record<string, unknown>)?.empresa_id as string
 
-    const montoReal = parseFloat(montoAPagar) || empleado.monto_neto
+    const montoReal = parseFloat(montoAPagar) || emp.monto_neto
 
     const { data: pagoInsertado } = await supabase.from('pagos_nomina').insert({
       empresa_id: empresaId,
       miembro_id: empleado.miembro_id,
-      fecha_inicio_periodo: periodo.desde,
-      fecha_fin_periodo: periodo.hasta,
-      concepto: periodo.etiqueta,
-      monto_sugerido: empleado.monto_neto,
+      fecha_inicio_periodo: periodoInterno.desde,
+      fecha_fin_periodo: periodoInterno.hasta,
+      concepto: periodoInterno.etiqueta,
+      monto_sugerido: emp.monto_neto,
       monto_abonado: montoReal,
-      dias_habiles: empleado.dias_laborales,
-      dias_trabajados: empleado.dias_trabajados,
-      dias_ausentes: empleado.dias_ausentes,
-      tardanzas: empleado.dias_tardanza,
+      dias_habiles: emp.dias_laborales,
+      dias_trabajados: emp.dias_trabajados,
+      dias_ausentes: emp.dias_ausentes,
+      tardanzas: emp.dias_tardanza,
       notas: notasPago || null,
       creado_por: user.user?.id,
       creado_por_nombre: nombreCreador,
@@ -233,7 +334,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
         body: JSON.stringify({
           pago_nomina_id: (pagoInsertado as Record<string, unknown>).id,
           miembro_id: empleado.miembro_id,
-          fecha_fin_periodo: periodo.hasta,
+          fecha_fin_periodo: periodoInterno.hasta,
         }),
       }).catch(() => {})
     }
@@ -318,11 +419,12 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     onActualizado()
   }
 
-  if (!empleado) return null
+  if (!empleado || !datosEmpleado) return null
 
-  const diasAHorario = Math.max(0, empleado.dias_trabajados - empleado.dias_tardanza)
-  const pctAsistencia = empleado.dias_laborales > 0
-    ? Math.round((empleado.dias_trabajados / empleado.dias_laborales) * 100) : 0
+  const emp = datosEmpleado // datos del período actual (puede ser diferente al período externo)
+  const diasAHorario = Math.max(0, emp.dias_trabajados - emp.dias_tardanza)
+  const pctAsistencia = emp.dias_laborales > 0
+    ? Math.round((emp.dias_trabajados / emp.dias_laborales) * 100) : 0
   const proyeccionMensual = compTipo === 'por_dia'
     ? (parseFloat(compMonto) || 0) * compDias * 4.33
     : parseFloat(compMonto) || 0
@@ -332,7 +434,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
       <Modal
         abierto={abierto}
         onCerrar={onCerrar}
-        titulo={`${empleado.nombre} — ${periodo.etiqueta}`}
+        titulo={empleado.nombre}
         tamano="5xl"
         sinPadding
         acciones={
@@ -345,7 +447,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                   Enviar recibo
                 </Boton>
                 <Boton tamano="sm" icono={<Banknote size={14} />}
-                  onClick={() => { setMontoAPagar(String(empleado.monto_neto)); setConfirmandoPago(true) }}>
+                  onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
                   Pagar
                 </Boton>
               </div>
@@ -354,6 +456,38 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
         }
       >
         <div className="divide-y divide-white/[0.07]">
+
+          {/* ── NAVEGACIÓN DE PERÍODO ── */}
+          <div className="flex items-center justify-between px-6 py-3 bg-white/[0.02]">
+            <button
+              onClick={() => navegarPeriodo('prev')}
+              className="size-10 flex items-center justify-center rounded-lg border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
+              title="Período anterior"
+            >
+              <ChevronLeft size={22} className="text-texto-secundario" />
+            </button>
+            <div className="text-center flex-1">
+              <p className="text-sm font-semibold text-texto-primario">{periodoInterno.etiqueta}</p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-xxs text-texto-terciario">{periodoInterno.desde} — {periodoInterno.hasta}</p>
+                {(periodoInterno.desde !== periodo.desde || periodoInterno.hasta !== periodo.hasta) && (
+                  <button
+                    onClick={() => { setPeriodoInterno(periodo); setDatosEmpleado(empleado); cargarPagosYAdelantos(empleado!.miembro_id, periodo.desde, periodo.hasta) }}
+                    className="text-xxs text-texto-marca hover:underline cursor-pointer"
+                  >
+                    Ir a hoy
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => navegarPeriodo('next')}
+              className="size-10 flex items-center justify-center rounded-lg border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
+              title="Período siguiente"
+            >
+              <ChevronRight size={22} className="text-texto-secundario" />
+            </button>
+          </div>
 
           {/* ── PASO DE CONFIRMACIÓN DE PAGO ── */}
           {confirmandoPago && (
@@ -364,12 +498,12 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-texto-terciario">Neto sugerido</span>
-                    <span className="text-texto-primario font-medium">{fmtMonto(empleado.monto_neto)}</span>
+                    <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_neto)}</span>
                   </div>
-                  {empleado.descuento_adelanto > 0 && (
+                  {emp.descuento_adelanto > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-texto-terciario">Incluye descuento adelanto</span>
-                      <span className="text-insignia-advertencia">-{fmtMonto(empleado.descuento_adelanto)}</span>
+                      <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
                     </div>
                   )}
                   <InputMoneda
@@ -378,12 +512,12 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                     onChange={setMontoAPagar}
                     moneda="ARS"
                   />
-                  {parseFloat(montoAPagar) !== empleado.monto_neto && parseFloat(montoAPagar) > 0 && (
+                  {parseFloat(montoAPagar) !== emp.monto_neto && parseFloat(montoAPagar) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-texto-terciario">Diferencia</span>
-                      <span className={parseFloat(montoAPagar) > empleado.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
-                        {parseFloat(montoAPagar) > empleado.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - empleado.monto_neto)}
-                        {parseFloat(montoAPagar) > empleado.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
+                      <span className={parseFloat(montoAPagar) > emp.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
+                        {parseFloat(montoAPagar) > emp.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - emp.monto_neto)}
+                        {parseFloat(montoAPagar) > emp.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
                       </span>
                     </div>
                   )}
@@ -557,11 +691,14 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr]">
             {/* Izquierda: Resumen período */}
             <div className="px-6 py-4 space-y-3">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Período actual</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Período</p>
+                {recalculando && <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />}
+              </div>
 
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
-                  <p className="text-xl font-bold text-texto-primario">{empleado.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{empleado.dias_laborales}</span></p>
+                  <p className="text-xl font-bold text-texto-primario">{emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span></p>
                   <p className="text-xxs text-texto-terciario">Trabajados</p>
                 </div>
                 <div>
@@ -569,37 +706,47 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                   <p className="text-xxs text-texto-terciario">A horario</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-insignia-advertencia">{empleado.dias_tardanza}</p>
+                  <p className="text-xl font-bold text-insignia-advertencia">{emp.dias_tardanza}</p>
                   <p className="text-xxs text-texto-terciario">Tardanzas</p>
                 </div>
               </div>
 
-              {empleado.dias_ausentes > 0 && (
-                <p className="text-xs text-insignia-peligro">{empleado.dias_ausentes} ausencia{empleado.dias_ausentes !== 1 ? 's' : ''}</p>
+              {emp.dias_ausentes > 0 && (
+                <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
               )}
 
               <div className="border-t border-white/[0.07] pt-3 space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-texto-terciario">Horas netas</span>
-                  <span className="text-texto-primario">{fmtHoras(empleado.horas_netas)}</span>
+                  <span className="text-texto-primario">{fmtHoras(emp.horas_netas)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-texto-terciario">Bruto</span>
-                  <span className="text-texto-primario font-medium">{fmtMonto(empleado.monto_pagar)}</span>
+                  <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_pagar)}</span>
                 </div>
-                {empleado.descuento_adelanto > 0 && (
+                {emp.descuento_adelanto > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-insignia-advertencia">Adelanto</span>
-                    <span className="text-insignia-advertencia">-{fmtMonto(empleado.descuento_adelanto)}</span>
+                    <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+                  </div>
+                )}
+                {emp.saldo_anterior !== 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                      {emp.saldo_anterior > 0 ? 'A favor (período ant.)' : 'Debe (período ant.)'}
+                    </span>
+                    <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                      {emp.saldo_anterior > 0 ? '-' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5">
                   <span className="text-texto-primario font-semibold">Neto a pagar</span>
-                  <span className="text-insignia-exito font-bold text-base">{fmtMonto(empleado.monto_neto)}</span>
+                  <span className="text-insignia-exito font-bold text-base">{fmtMonto(emp.monto_neto)}</span>
                 </div>
               </div>
 
-              <p className="text-xxs text-texto-terciario">{empleado.monto_detalle} · {pctAsistencia}% asistencia</p>
+              <p className="text-xxs text-texto-terciario">{emp.monto_detalle} · {pctAsistencia}% asistencia</p>
             </div>
 
             {/* Divisor */}
@@ -704,9 +851,9 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
 
           {/* ── HISTORIAL DE PAGOS (editable) ── */}
           <div className="px-6 py-4">
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Últimos pagos</p>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Pagos del período</p>
             {pagos.length === 0 ? (
-              <p className="text-xs text-texto-terciario">Sin pagos registrados</p>
+              <p className="text-xs text-texto-terciario">Sin pagos registrados en este período</p>
             ) : (
               <div className="space-y-1.5">
                 {pagos.map(p => {
@@ -765,8 +912,8 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
       <ModalEnviarReciboNomina
         abierto={modalEnvio}
         onCerrar={() => setModalEnvio(false)}
-        resultados={empleado ? [empleado] : []}
-        etiquetaPeriodo={periodo.etiqueta}
+        resultados={datosEmpleado ? [datosEmpleado] : []}
+        etiquetaPeriodo={periodoInterno.etiqueta}
         nombreEmpresa={nombreEmpresa}
       />
     </>

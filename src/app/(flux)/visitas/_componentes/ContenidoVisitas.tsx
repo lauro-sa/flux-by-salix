@@ -11,7 +11,7 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, MapPin, MapPinOff,
   CheckCircle, Clock, User, Trash2, History,
-  Navigation, Eye, CalendarClock, AlertTriangle, Route, List, Archive,
+  Navigation, Eye, CalendarClock, AlertTriangle, Route, List,
   RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -93,7 +93,6 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   // Estado UI
   const [modalAbierto, setModalAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
-  const [mostrarArchivadas, setMostrarArchivadas] = useState(false)
   const [visitaArchivedaDetalle, setVisitaArchivedaDetalle] = useState<Visita | null>(null)
 
   // Abrir modal si viene ?crear=true desde el dashboard
@@ -116,7 +115,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   const [filtroVista, setFiltroVista] = useState(vistaDefault)
 
   // Búsqueda con debounce + reset de página automático
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroEstado, filtroPrioridad, filtroVista, mostrarArchivadas])
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroEstado, filtroPrioridad, filtroVista])
 
   // Config de visitas (cache largo)
   const { datos: configData } = useConfig<Record<string, unknown>>(
@@ -130,16 +129,16 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e))
   const sinFiltros = !busquedaDebounced && estadoEsDefault && !filtroPrioridad && filtroVista === vistaDefault && pagina === 1
 
+
   // Datos con React Query
   const { datos: visitas, total, cargando, recargar: recargarVisitas } = useListado<Visita>({
     clave: 'visitas',
     url: '/api/visitas',
     parametros: {
       busqueda: busquedaDebounced,
-      estado: mostrarArchivadas ? 'completada' : (filtroEstado.length > 0 ? filtroEstado.join(',') : undefined),
+      estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
       prioridad: filtroPrioridad || undefined,
       vista: filtroVista || undefined,
-      archivadas: mostrarArchivadas ? 'true' : undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -537,7 +536,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
       mostrarConfiguracion
       onConfiguracion={() => router.push('/visitas/configuracion')}
     >
-      {/* Tabs: Listado / Planificación + toggle archivadas */}
+      {/* Tabs: Listado / Planificación */}
       <div className="flex items-center gap-2 mb-3">
         <Tabs
           tabs={[
@@ -545,25 +544,10 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
             { clave: 'planificacion', etiqueta: t('visitas.planificacion'), icono: <Route size={14} /> },
           ]}
           activo={vistaActiva}
-          onChange={(clave) => { setVistaActiva(clave as 'listado' | 'planificacion'); if (mostrarArchivadas) setMostrarArchivadas(false) }}
+          onChange={(clave) => setVistaActiva(clave as 'listado' | 'planificacion')}
           className="flex-1"
           layoutId="tabs-visitas"
         />
-        <button
-          onClick={() => {
-            setMostrarArchivadas(!mostrarArchivadas)
-            if (!mostrarArchivadas) setVistaActiva('listado')
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            mostrarArchivadas
-              ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/30'
-              : 'bg-superficie-hover text-texto-terciario hover:text-texto-secundario border border-borde-sutil'
-          }`}
-          title="Ver visitas archivadas"
-        >
-          <Archive size={14} />
-          Archivadas
-        </button>
       </div>
 
       {vistaActiva === 'planificacion' ? (
@@ -641,7 +625,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         idModulo="visitas"
         renderTarjeta={renderTarjeta}
         onClickFila={(fila) => {
-          if (mostrarArchivadas) {
+          if (fila.estado === 'completada' || fila.estado === 'cancelada') {
             setVisitaArchivedaDetalle(fila)
           } else {
             setVisitaEditando(fila)
@@ -664,7 +648,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
       />
 
       {/* Sección: finalizadas hoy */}
-      {!mostrarArchivadas && finalizadasHoy.length > 0 && (
+      {finalizadasHoy.length > 0 && (
         <div className="mt-4 border border-borde-sutil rounded-lg overflow-hidden">
           <button
             type="button"

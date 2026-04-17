@@ -49,6 +49,7 @@ interface ResultadoNomina {
   monto_detalle: string
   descuento_adelanto: number
   cuotas_adelanto: number
+  saldo_anterior: number
   monto_neto: number
 }
 
