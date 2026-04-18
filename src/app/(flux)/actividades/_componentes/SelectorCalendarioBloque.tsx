@@ -823,7 +823,7 @@ function SelectorCalendarioBloque({
                 <button
                   type="button"
                   onClick={irSemanaAnterior}
-                  className="p-1 rounded-md hover:bg-superficie-hover text-texto-secundario transition-colors"
+                  className="p-1 rounded-boton hover:bg-superficie-hover text-texto-secundario transition-colors"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -833,14 +833,14 @@ function SelectorCalendarioBloque({
                 <button
                   type="button"
                   onClick={irSemanaSiguiente}
-                  className="p-1 rounded-md hover:bg-superficie-hover text-texto-secundario transition-colors"
+                  className="p-1 rounded-boton hover:bg-superficie-hover text-texto-secundario transition-colors"
                 >
                   <ChevronRight size={16} />
                 </button>
               </div>
 
               {/* Toggle semana/día */}
-              <div className="flex rounded-lg border border-borde-sutil overflow-hidden">
+              <div className="flex rounded-card border border-borde-sutil overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setVista('semana')}
@@ -1071,7 +1071,7 @@ function SelectorCalendarioBloque({
 
                         return (
                           <div
-                            className="absolute left-1 right-1 rounded-md z-20 pointer-events-none flex flex-col justify-between p-1.5"
+                            className="absolute left-1 right-1 rounded-boton z-20 pointer-events-none flex flex-col justify-between p-1.5"
                             style={{
                               top: yMin,
                               height: alturaBloque,
@@ -1129,7 +1129,7 @@ function SelectorCalendarioBloque({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.15 }}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario"
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-boton border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario"
                     >
                       <span
                         className="size-1.5 rounded-full shrink-0"

@@ -83,7 +83,7 @@ export default function PaginaVerificarCorreo() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 p-3 rounded-lg bg-insignia-exito/10 border border-insignia-exito/20 flex items-center justify-center gap-2 text-sm text-insignia-exito"
+          className="mb-4 p-3 rounded-card bg-insignia-exito/10 border border-insignia-exito/20 flex items-center justify-center gap-2 text-sm text-insignia-exito"
         >
           <CheckCircle size={16} />
           <span>{t('auth.email_reenviado')}</span>

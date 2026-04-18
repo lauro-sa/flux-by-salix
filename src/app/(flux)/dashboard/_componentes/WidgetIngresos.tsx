@@ -45,7 +45,7 @@ function TooltipDoble({
   const conversion = emitidos > 0 ? Math.round((ordenes / emitidos) * 100) : 0
 
   return (
-    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-lg px-3 py-2.5 shadow-md min-w-[200px]">
+    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-card px-3 py-2.5 shadow-md min-w-[200px]">
       <p className="text-xs text-texto-terciario mb-2 font-medium">{label}</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
@@ -202,7 +202,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
               <button
                 key={a}
                 onClick={() => setAnioSeleccionado(a)}
-                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                className={`px-2.5 py-1 text-xs rounded-boton transition-colors ${
                   a === anioSeleccionado
                     ? 'bg-texto-marca text-white font-medium'
                     : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'
@@ -215,7 +215,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
           {/* Toggle presupuestados */}
           <button
             onClick={() => setMostrarEmitidos(!mostrarEmitidos)}
-            className={`text-xxs px-2 py-1 rounded-md border transition-colors ${
+            className={`text-xxs px-2 py-1 rounded-boton border transition-colors ${
               mostrarEmitidos
                 ? 'border-texto-marca/30 bg-texto-marca/10 text-texto-marca'
                 : 'border-borde-sutil text-texto-terciario hover:text-texto-secundario'
@@ -227,7 +227,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
       </div>
 
       {/* Mes actual */}
-      <div className="flex items-center justify-between bg-superficie-hover/50 rounded-lg py-2.5 px-3">
+      <div className="flex items-center justify-between bg-superficie-hover/50 rounded-card py-2.5 px-3">
         <div className="text-xs space-x-3">
           <span>
             <span className="text-texto-terciario">{MESES_CORTOS[mesActualIdx]}: </span>
@@ -467,10 +467,10 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
 
         <div className="flex flex-col items-end gap-2">
           {/* Toggle monto/cantidad */}
-          <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-card p-0.5">
             <button
               onClick={() => setVistaInteranual('monto')}
-              className={`px-2 py-1 text-xxs rounded-md transition-colors ${
+              className={`px-2 py-1 text-xxs rounded-boton transition-colors ${
                 vistaInteranual === 'monto'
                   ? 'bg-superficie-tarjeta shadow-sm border border-borde-sutil text-texto-primario font-medium'
                   : 'text-texto-terciario hover:text-texto-secundario'
@@ -480,7 +480,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
             </button>
             <button
               onClick={() => setVistaInteranual('cantidad')}
-              className={`px-2 py-1 text-xxs rounded-md transition-colors ${
+              className={`px-2 py-1 text-xxs rounded-boton transition-colors ${
                 vistaInteranual === 'cantidad'
                   ? 'bg-superficie-tarjeta shadow-sm border border-borde-sutil text-texto-primario font-medium'
                   : 'text-texto-terciario hover:text-texto-secundario'
@@ -546,7 +546,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
                 if (!datos) return null
 
                 return (
-                  <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-lg px-4 py-3 shadow-lg min-w-[240px]">
+                  <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-card px-4 py-3 shadow-lg min-w-[240px]">
                     <p className="text-sm text-texto-primario mb-2 font-semibold">{label}</p>
                     <div className="space-y-3">
                       {aniosInteranual.map((anio, idx) => {
@@ -621,7 +621,7 @@ export function WidgetIngresos({ cerradosPorMes, cerradosPorAnio, emitidosPorMes
                 totalCantidad += cerradosPorMes[clave]?.ordenes_cantidad || 0
               }
               return (
-                <div key={anio} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-md bg-superficie-hover/50">
+                <div key={anio} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-boton bg-superficie-hover/50">
                   <div className="flex items-center gap-1.5">
                     <div className="size-2 rounded-full" style={{ backgroundColor: COLORES_ANIOS[aniosInteranual.indexOf(anio) % COLORES_ANIOS.length] }} />
                     <span className="text-texto-secundario">{anio}</span>

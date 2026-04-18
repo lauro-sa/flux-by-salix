@@ -41,7 +41,7 @@ function PanelFiltros({
       exit={{ opacity: 0, scaleY: 0.95 }}
       transition={{ type: 'spring', duration: 0.35 }}
       style={{ transformOrigin: 'top' }}
-      className="absolute top-full left-0 right-0 mt-2 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
+      className="absolute top-full left-0 right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover rounded-t-none! shadow-lg z-50 overflow-hidden"
     >
       <div className="max-h-[420px] overflow-y-auto p-3 flex flex-col gap-3">
         {/* Sección 1: Pills principales */}

@@ -7,7 +7,7 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalActividad } from '../../actividades/_componentes/ModalActividad'
 import type { Actividad, Miembro } from '../../actividades/_componentes/ModalActividad'
-import type { TipoActividad } from '../../actividades/configuracion/secciones/SeccionTipos'
+import type { TipoActividad } from '../../actividades/configuracion/_tipos'
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
@@ -228,11 +228,11 @@ function FilaActividadCompacta({
   const vencida = actividad.fecha_vencimiento && new Date(actividad.fecha_vencimiento) < new Date() && !completada
 
   return (
-    <div className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
+    <div className={`flex items-center gap-2.5 px-2.5 py-2 rounded-card transition-colors ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
       {/* Icono tipo */}
       {tipo && (
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          className="w-7 h-7 rounded-card flex items-center justify-center shrink-0"
           style={{ backgroundColor: tipo.color + '15', color: tipo.color }}
         >
           {Icono && <Icono size={13} />}

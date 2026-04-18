@@ -13,7 +13,7 @@ interface SkeletonTablaProps {
 
 export function SkeletonTabla({ filas = 8, columnas = 5 }: SkeletonTablaProps) {
   return (
-    <div className="flex flex-col gap-0 rounded-lg overflow-hidden">
+    <div className="flex flex-col gap-0 rounded-card overflow-hidden">
       {/* Solo filas — el header/búsqueda/filtros los renderiza el Client Component */}
       {Array.from({ length: filas }).map((_, fila) => (
         <div
@@ -45,9 +45,9 @@ export function SkeletonLista({ filas = 6 }: { filas?: number }) {
       {Array.from({ length: filas }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 px-4 py-3 rounded-lg bg-superficie-tarjeta border border-borde-sutil"
+          className="flex items-center gap-3 px-4 py-3 rounded-card bg-superficie-tarjeta border border-borde-sutil"
         >
-          <div className="w-9 h-9 rounded-lg bg-superficie-hover animate-pulse shrink-0" />
+          <div className="w-9 h-9 rounded-card bg-superficie-hover animate-pulse shrink-0" />
           <div className="flex-1 space-y-2">
             <div
               className="h-4 rounded bg-superficie-hover animate-pulse"

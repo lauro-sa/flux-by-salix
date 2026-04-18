@@ -114,10 +114,13 @@ function BarraBusqueda({
         animate={{ maxWidth: enfocado ? '100%' : '100%' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={[
-          'flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-superficie-tarjeta transition-all duration-200',
+          'flex items-center gap-1.5 px-3 py-2 rounded-card border bg-superficie-tarjeta transition-all duration-200',
           enfocado
             ? 'border-borde-foco shadow-foco'
             : 'border-borde-sutil hover:border-borde-fuerte',
+          // Al abrir el panel de filtros, las caras inferiores quedan
+          // planas para que busqueda + panel se vean como grupo segmentado.
+          panelAbierto ? 'rounded-b-none!' : '',
         ].join(' ')}
       >
         {/* Icono lupa */}
@@ -150,7 +153,7 @@ function BarraBusqueda({
               type="button"
               whileTap={{ scale: 0.9 }}
               onClick={() => onAplicarPlantilla?.('')}
-              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-insignia-advertencia-texto transition-colors"
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-insignia-advertencia-texto transition-colors"
             >
               <Bookmark size={16} fill="currentColor" />
             </motion.button>
@@ -164,7 +167,7 @@ function BarraBusqueda({
               type="button"
               whileTap={{ scale: 0.9 }}
               onClick={() => setPanelAbierto(true)}
-              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
             >
               <Bookmark size={16} />
             </motion.button>
@@ -180,7 +183,7 @@ function BarraBusqueda({
               transition={{ duration: 0.25 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setPanelAbierto(!panelAbierto)}
-              className="relative shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+              className="relative shrink-0 size-7 inline-flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
             >
               <SlidersHorizontal size={16} />
               {numFiltrosActivos > 0 && (
@@ -197,7 +200,7 @@ function BarraBusqueda({
               type="button"
               whileTap={{ scale: 0.9 }}
               onClick={onAbrirColumnas}
-              className="hidden md:inline-flex shrink-0 size-7 items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+              className="hidden md:inline-flex shrink-0 size-7 items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
             >
               <Columns2 size={16} />
             </motion.button>
@@ -222,7 +225,7 @@ function BarraBusqueda({
               type="button"
               whileTap={{ scale: 0.75, rotate: -90 }}
               onClick={limpiarTodo}
-              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-insignia-peligro-texto transition-colors"
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-boton hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-insignia-peligro-texto transition-colors"
             >
               <X size={14} />
             </motion.button>

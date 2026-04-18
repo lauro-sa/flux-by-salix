@@ -3,7 +3,35 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
+ * GET /api/asistencias/turnos — Listar turnos laborales.
+ */
+export async function GET() {
+  try {
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+    const { data, error } = await admin
+      .from('turnos_laborales')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .order('orden', { ascending: true })
+      .order('creado_en', { ascending: true })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ turnos: data || [] })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+/**
  * POST /api/asistencias/turnos — Crear turno laboral.
+ * También acepta { accion: 'reordenar', ordenes: [{id, orden}, ...] }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +43,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const admin = crearClienteAdmin()
+
+    // Reordenar en lote
+    if (body.accion === 'reordenar' && Array.isArray(body.ordenes)) {
+      await Promise.all(body.ordenes.map((o: { id: string; orden: number }) =>
+        admin
+          .from('turnos_laborales')
+          .update({ orden: o.orden, actualizado_en: new Date().toISOString() })
+          .eq('id', o.id)
+          .eq('empresa_id', empresaId),
+      ))
+      return NextResponse.json({ ok: true })
+    }
 
     // Si se marca como default, quitar default de los demás
     if (body.es_default) {

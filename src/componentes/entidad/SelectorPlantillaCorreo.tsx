@@ -134,7 +134,7 @@ export function SelectorPlantillaCorreo({
     setNuevaParaTodos(false)
   }
 
-  const itemClase = 'flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md'
+  const itemClase = 'flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-boton'
 
   const renderPlantilla = (p: PlantillaCorreoCompleta) => {
     const esActual = p.id === plantillaActualId
@@ -171,7 +171,7 @@ export function SelectorPlantillaCorreo({
                   e.stopPropagation()
                   onTogglePredeterminada(esPredeterminada ? null : p.id)
                 }}
-                className={`size-6 flex items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
+                className={`size-6 flex items-center justify-center rounded-boton transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
               >
                 <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
               </button>
@@ -182,7 +182,7 @@ export function SelectorPlantillaCorreo({
             <Tooltip contenido="Eliminar">
               <button
                 onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
-                className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                className="size-6 flex items-center justify-center rounded-boton text-texto-terciario/30 hover:text-estado-error transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
               >
                 <Trash2 size={12} />
               </button>
@@ -227,7 +227,7 @@ export function SelectorPlantillaCorreo({
               setGuardando(false)
             }}
             disabled={guardando}
-            className="size-7 flex items-center justify-center rounded-md transition-all focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+            className="size-7 flex items-center justify-center rounded-boton transition-all focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
             style={{
               color: 'var(--insignia-advertencia)',
               background: 'rgba(234, 179, 8, 0.1)',
@@ -248,7 +248,7 @@ export function SelectorPlantillaCorreo({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="fixed w-80 rounded-xl shadow-lg py-1.5 bg-superficie-elevada border border-borde-sutil"
+            className="fixed w-80 rounded-card shadow-lg py-1.5 bg-superficie-elevada border border-borde-sutil"
             style={{ top: posMenu.top, left: posMenu.left, zIndex: 'var(--z-popover)' as unknown as number }}
           >
             {plantillas.length === 0 ? (
@@ -331,7 +331,7 @@ export function SelectorPlantillaCorreo({
                           if (e.key === 'Escape') { setCreando(false); setNombreNueva(''); setNuevaParaTodos(false) }
                         }}
                         placeholder="Nombre de la plantilla"
-                        className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-sm outline-none transition-colors"
+                        className="flex-1 min-w-0 rounded-card px-2.5 py-1.5 text-sm outline-none transition-colors"
                         style={{
                           background: 'var(--superficie-app)',
                           border: '1px solid var(--borde-sutil)',
@@ -406,7 +406,7 @@ export function SelectorPlantillaCorreo({
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm p-5 rounded-xl shadow-elevada bg-superficie-elevada border border-borde-sutil"
+                className="w-full max-w-sm p-5 rounded-card shadow-elevada bg-superficie-elevada border border-borde-sutil"
               >
                 <div className="flex items-start gap-3 mb-4">
                   <div

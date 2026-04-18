@@ -93,7 +93,7 @@ export function ResumenMetricas({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Ventas */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
           <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Vendido</p>
           <p className="text-xl font-bold text-insignia-exito-texto leading-tight">{formatoMoneda(datos.ordenesMonto)}</p>
           <p className="text-xxs text-texto-terciario mt-0.5">{datos.ordenesCant} órdenes</p>
@@ -115,7 +115,7 @@ export function ResumenMetricas({
         </div>
 
         {/* Presupuestos */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
           <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Presupuestado</p>
           <p className="text-xl font-bold text-texto-primario leading-tight">{datos.presupActual}</p>
           <p className="text-xxs text-texto-terciario mt-0.5">presupuestos emitidos</p>
@@ -128,7 +128,7 @@ export function ResumenMetricas({
         </div>
 
         {/* Tasa de cierre */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
           <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Tasa de cierre</p>
           <p className={`text-xl font-bold leading-tight ${datos.tasa >= 30 ? 'text-insignia-exito-texto' : datos.tasa >= 15 ? 'text-insignia-advertencia-texto' : 'text-texto-primario'}`}>
             {datos.tasa}%
@@ -143,7 +143,7 @@ export function ResumenMetricas({
         </div>
 
         {/* Contactos + Inbox */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
           <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Contactos nuevos</p>
           <p className="text-xl font-bold text-texto-primario leading-tight">{datos.contactosActual}</p>
           <p className="text-xxs text-texto-terciario mt-0.5">{clientesTotalActivos} con presupuestos</p>

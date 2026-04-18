@@ -69,7 +69,7 @@ export default function SubirImagenPie({ urlActual, onSubir, onEliminar }: Propi
 
       {tieneImagen ? (
         <div className="flex items-center gap-3">
-          <div className="relative w-14 h-14 rounded-lg border border-borde-sutil bg-white flex items-center justify-center overflow-hidden">
+          <div className="relative w-14 h-14 rounded-card border border-borde-sutil bg-white flex items-center justify-center overflow-hidden">
             <NextImage src={urlActual} alt="Imagen pie" fill sizes="56px" className="object-contain" />
           </div>
           <div className="flex flex-col gap-1.5">

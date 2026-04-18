@@ -242,7 +242,7 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
           ref={canvasRef}
           width={200}
           height={120}
-          className="w-full h-28 rounded-lg cursor-crosshair border border-borde-sutil"
+          className="w-full h-28 rounded-card cursor-crosshair border border-borde-sutil"
           onMouseDown={(e) => { arrastrando.current = true; manejarClickCanvas(e) }}
           onMouseMove={manejarMouseMove}
           onMouseUp={() => { arrastrando.current = false }}
@@ -283,7 +283,7 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
           <button
             type="button"
             onClick={abrirGotero}
-            className="size-8 rounded-lg border border-borde-sutil flex items-center justify-center cursor-pointer hover:bg-superficie-hover transition-colors shrink-0"
+            className="size-8 rounded-icono border border-borde-sutil flex items-center justify-center cursor-pointer hover:bg-superficie-hover transition-colors shrink-0"
             title="Gotero — elegir color de la pantalla"
           >
             <Pipette size={14} className="text-texto-terciario" />
@@ -301,7 +301,7 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
           type="text"
           value={hexInput}
           onChange={(e) => manejarHexInput(e.target.value)}
-          className="flex-1 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-sm text-texto-primario font-mono outline-none focus:border-texto-marca/50"
+          className="flex-1 bg-white/[0.04] border border-white/[0.1] rounded-input px-2.5 py-1.5 text-sm text-texto-primario font-mono outline-none focus:border-texto-marca/50"
           maxLength={7}
         />
       </div>
@@ -368,9 +368,9 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
   }
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
       <div className="flex items-start gap-3 mb-4">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: valor + '15' }}>
+        <div className="w-9 h-9 rounded-icono flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: valor + '15' }}>
           <Palette size={18} style={{ color: valor }} />
         </div>
         <div className="flex-1">
@@ -393,8 +393,8 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
       </div>
 
       {/* Preview del color actual */}
-      <div className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-superficie-hover/50">
-        <div className="w-10 h-10 rounded-lg border border-borde-sutil shadow-sm" style={{ backgroundColor: valor }} />
+      <div className="flex items-center gap-3 mb-5 p-3 rounded-card bg-superficie-hover/50">
+        <div className="w-10 h-10 rounded-icono border border-borde-sutil shadow-sm" style={{ backgroundColor: valor }} />
         <div>
           <p className="text-sm font-mono text-texto-primario">{valor.toUpperCase()}</p>
           <p className="text-xs text-texto-terciario">{esDefault ? 'Color de Flux (default)' : 'Color personalizado'}</p>
@@ -413,7 +413,7 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
               <Tooltip key={i} contenido={color}>
                 <button
                   onClick={() => onChange(color)}
-                  className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
+                  className="relative w-8 h-8 rounded-icono border-2 transition-all duration-150 cursor-pointer hover:scale-110"
                   style={{
                     backgroundColor: color,
                     borderColor: esSeleccionado(color) ? 'white' : 'transparent',
@@ -438,7 +438,7 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
             <Tooltip key={preset.color} contenido={preset.nombre}>
               <button
                 onClick={() => onChange(preset.color)}
-                className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
+                className="relative w-8 h-8 rounded-icono border-2 transition-all duration-150 cursor-pointer hover:scale-110"
                 style={{
                   backgroundColor: preset.color,
                   borderColor: esSeleccionado(preset.color) ? 'white' : 'transparent',
@@ -490,7 +490,7 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className="fixed bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg p-3 w-56"
+                    className="fixed bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg p-3 w-56"
                     style={{
                       top: pickerPos.top,
                       left: pickerPos.left,

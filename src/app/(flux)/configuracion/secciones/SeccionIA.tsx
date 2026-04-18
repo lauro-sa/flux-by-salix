@@ -220,8 +220,8 @@ export function SeccionIA() {
   if (!tieneAlgunModuloIA) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col items-center text-center py-12 px-6 bg-superficie-tarjeta border border-borde-sutil rounded-xl">
-          <div className="w-16 h-16 rounded-2xl bg-superficie-elevada flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center text-center py-12 px-6 bg-superficie-tarjeta border border-borde-sutil rounded-card">
+          <div className="w-16 h-16 rounded-modal bg-superficie-elevada flex items-center justify-center mb-4">
             <Sparkles size={28} strokeWidth={1.5} className="text-texto-terciario" />
           </div>
           <h3 className="text-base font-semibold text-texto-primario mb-2">
@@ -232,7 +232,7 @@ export function SeccionIA() {
           </p>
           <a
             href="/aplicaciones"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white no-underline transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-card text-sm font-medium text-white no-underline transition-colors"
             style={{ backgroundColor: 'var(--texto-marca)' }}
           >
             <Sparkles size={16} />
@@ -263,7 +263,7 @@ export function SeccionIA() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-superficie-hover/50 rounded-lg p-1">
+      <div className="flex gap-1 bg-superficie-hover/50 rounded-card p-1">
         {([
           { id: 'panel' as const, icono: <BarChart3 size={15} />, etiqueta: 'Panel' },
           { id: 'configuracion' as const, icono: <Settings2 size={15} />, etiqueta: 'Configuración' },
@@ -289,10 +289,10 @@ export function SeccionIA() {
       {subSeccion === 'panel' && (
         <div className="space-y-5">
           {/* Tarjeta de estado actual */}
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
                   <proveedorActivo.Logo size={22} />
                 </div>
                 <div>
@@ -371,13 +371,13 @@ export function SeccionIA() {
                     <button
                       key={p.id}
                       onClick={() => act({ proveedor_defecto: p.id })}
-                      className={`relative flex items-center gap-3 p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                      className={`relative flex items-center gap-3 p-3 rounded-card border transition-all text-left bg-transparent cursor-pointer ${
                         seleccionado
                           ? 'border-texto-marca bg-texto-marca/5 shadow-sm'
                           : 'border-borde-sutil hover:border-borde-fuerte'
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-lg bg-superficie-hover flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-card bg-superficie-hover flex items-center justify-center shrink-0">
                         <p.Logo size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -411,7 +411,7 @@ export function SeccionIA() {
             >
               {/* Key actual */}
               {apiKey && (
-                <div className="flex items-center gap-3 p-3 rounded-lg border border-insignia-exito/20 bg-insignia-exito/5 mb-3 w-full">
+                <div className="flex items-center gap-3 p-3 rounded-card border border-insignia-exito/20 bg-insignia-exito/5 mb-3 w-full">
                   <Shield size={16} className="text-insignia-exito shrink-0" />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium text-texto-primario">API Key configurada</span>
@@ -478,7 +478,7 @@ export function SeccionIA() {
                     <button
                       key={m.id}
                       onClick={() => act({ [modeloField]: m.id })}
-                      className={`flex flex-col p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                      className={`flex flex-col p-3 rounded-card border transition-all text-left bg-transparent cursor-pointer ${
                         seleccionado
                           ? 'border-texto-marca bg-texto-marca/5'
                           : 'border-borde-sutil hover:border-borde-fuerte'
@@ -551,7 +551,7 @@ export function SeccionIA() {
                         : [...config.modulos_accesibles, mod.id]
                       act({ modulos_accesibles: nuevos })
                     }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                    className={`flex items-center gap-3 p-3 rounded-card border transition-all text-left bg-transparent cursor-pointer ${
                       activo ? 'border-texto-marca/30 bg-texto-marca/5' : 'border-borde-sutil hover:border-borde-fuerte'
                     }`}
                   >
@@ -677,11 +677,11 @@ function TabCopiloto({ empresaId, supabase }: {
       </div>
 
       {/* ── SECCIÓN: ESTADO GENERAL ── */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 space-y-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 space-y-5">
         {/* Toggle habilitado */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
               <Zap size={20} className="text-texto-marca" />
             </div>
             <div>
@@ -706,7 +706,7 @@ function TabCopiloto({ empresaId, supabase }: {
         {/* Toggle WhatsApp copilot */}
         <div className="flex items-center justify-between pt-4 border-t border-white/[0.07]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--canal-whatsapp)', opacity: 0.15 }}>
+            <div className="w-10 h-10 rounded-card flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--canal-whatsapp)', opacity: 0.15 }}>
               <MessageSquare size={20} style={{ color: 'var(--canal-whatsapp)' }} />
             </div>
             <div>
@@ -815,7 +815,7 @@ function TabCopiloto({ empresaId, supabase }: {
                           : [...copiloto.herramientas_habilitadas, h.id]
                         actCop({ herramientas_habilitadas: nuevas })
                       }}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all text-left bg-transparent cursor-pointer text-sm ${
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-card border transition-all text-left bg-transparent cursor-pointer text-sm ${
                         activo
                           ? 'border-texto-marca/30 bg-texto-marca/5 text-texto-primario'
                           : 'border-borde-sutil text-texto-terciario hover:border-borde-fuerte'
@@ -837,7 +837,7 @@ function TabCopiloto({ empresaId, supabase }: {
       </SeccionConfig>
 
       {/* Info */}
-      <div className="rounded-xl bg-superficie-hover/40 p-4">
+      <div className="rounded-card bg-superficie-hover/40 p-4">
         <div className="flex items-start gap-2">
           <Shield size={14} className="text-texto-terciario shrink-0 mt-0.5" />
           <div className="text-xs text-texto-terciario space-y-1">
@@ -968,7 +968,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
           <MessageSquare size={20} className="text-texto-marca" />
         </div>
         <div className="flex-1">
@@ -980,7 +980,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
       </div>
 
       {/* Editor de prompt */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
         <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-texto-primario">Instrucciones del asistente</span>
@@ -1038,7 +1038,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
       </div>
 
       {/* Tips */}
-      <div className="rounded-xl bg-superficie-hover/40 p-4">
+      <div className="rounded-card bg-superficie-hover/40 p-4">
         <h4 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2.5">Tips para un buen prompt</h4>
         <ul className="space-y-2 text-xs text-texto-terciario">
           {[
@@ -1118,7 +1118,7 @@ function AsistentePresupuestos({ config, onActualizar }: {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-insignia-info/10 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-card bg-insignia-info/10 flex items-center justify-center shrink-0">
           <Wand2 size={20} className="text-insignia-info" />
         </div>
         <div className="flex-1">
@@ -1130,7 +1130,7 @@ function AsistentePresupuestos({ config, onActualizar }: {
       </div>
 
       {/* Comportamiento automático */}
-      <div className="rounded-xl bg-superficie-hover/40 p-4">
+      <div className="rounded-card bg-superficie-hover/40 p-4">
         <button
           onClick={() => setDetalle(!detalle)}
           className="flex items-center gap-2 text-xs font-semibold text-texto-terciario uppercase tracking-wider bg-transparent border-none cursor-pointer p-0 hover:text-texto-secundario transition-colors w-full text-left"

@@ -1,12 +1,14 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import {
-  ChevronLeft, ChevronRight, Loader2, Calendar, Printer, Download,
-  SlidersHorizontal, Maximize2, CheckSquare, X,
+  Loader2, Printer, Download,
+  Maximize2, CheckSquare, X,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
-import { Tooltip } from '@/componentes/ui/Tooltip'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
+import { Interruptor } from '@/componentes/ui/Interruptor'
+import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { formatearPuntualidadCorta } from '@/lib/constantes/asistencias'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalNomina } from './ModalNomina'
@@ -178,10 +180,14 @@ const COLORES_AVATAR = [
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: {
+export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, slotTabs, slotAcciones }: {
   onClickAsistencia?: (asistenciaId: string) => void
   onCrearFichaje?: (miembroId: string, miembroNombre: string, fecha: string) => void
   recargarKey?: number
+  /** Slot opcional para renderizar los tabs entre el hero y los controles */
+  slotTabs?: ReactNode
+  /** Slot opcional para acciones a la izquierda de la navegación ‹ Hoy › (ej. switcher de vistas) */
+  slotAcciones?: ReactNode
 }) {
   const [nominaAbierta, setNominaAbierta] = useState(false)
   const esMovil = useEsMovil()
@@ -251,7 +257,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
     return Array.from(dias)
   }, [selCeldas])
 
-  const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
+  const { desde, hasta, etiqueta } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
   const fechas = useMemo(() => {
     if (!ocultarFindes) return todasLasFechas
@@ -310,123 +316,89 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header de la matriz */}
-      {/* Barra de controles estilo buscador */}
-      <div className="px-3 sm:px-4 pt-2 sm:pt-3 shrink-0">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-borde-sutil bg-superficie-tarjeta">
-          {/* Periodo toggles */}
-          {(['semana', 'quincena', 'mes'] as Periodo[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => { setPeriodo(p); setOffset(0) }}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
-                periodo === p
-                  ? 'bg-superficie-elevada text-texto-primario'
-                  : 'text-texto-terciario hover:text-texto-secundario'
-              }`}
-            >
-              <Calendar size={11} />
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-
-          {/* Separador */}
-          <div className="w-px h-5 bg-borde-sutil" />
-
-          {/* Ocultar fines de semana */}
-          <Tooltip contenido={ocultarFindes ? 'Mostrar fines de semana' : 'Ocultar fines de semana'}>
-            <button
-              onClick={() => setOcultarFindes(v => !v)}
-              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
-                ocultarFindes ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
-              }`}
-            >
-              <SlidersHorizontal size={11} />
-              <span className="hidden sm:inline">{ocultarFindes ? 'Sin finde' : 'Sáb/Dom'}</span>
-            </button>
-          </Tooltip>
-
-          {/* Ajustar a pantalla */}
-          <Tooltip contenido={ajustarPantalla ? 'Tamaño normal' : 'Ajustar a pantalla'}>
-            <button
-              onClick={() => setAjustarPantalla(v => !v)}
-              className={`inline-flex items-center p-1 rounded-lg transition-colors ${
-                ajustarPantalla ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
-              }`}
-            >
-              <Maximize2 size={13} />
-            </button>
-          </Tooltip>
-
-          {/* Seleccionar */}
-          <Tooltip contenido={modoSeleccion ? 'Salir de selección' : 'Seleccionar para nómina'}>
-            <button
-              onClick={() => { setModoSeleccion(v => !v); if (modoSeleccion) setSelCeldas(new Set()) }}
-              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
-                modoSeleccion ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
-              }`}
-            >
-              {modoSeleccion ? <X size={11} /> : <CheckSquare size={11} />}
-              <span className="hidden sm:inline">{modoSeleccion ? `${selCeldas.size} sel.` : 'Seleccionar'}</span>
-            </button>
-          </Tooltip>
-
-          {/* Hoy — volver al período actual */}
-          {offset !== 0 && (
-            <>
-              <div className="w-px h-5 bg-borde-sutil" />
-              <button
-                onClick={() => setOffset(0)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/20 transition-colors"
+      <CabezaloHero
+        titulo={<HeroRango desde={desde} hasta={hasta} periodo={periodo} />}
+        onAnterior={() => setOffset(o => o - 1)}
+        onSiguiente={() => setOffset(o => o + 1)}
+        onHoy={() => setOffset(0)}
+        hoyDeshabilitado={offset === 0}
+        slotAcciones={slotAcciones}
+        slotTabs={slotTabs}
+        slotControles={<>
+          {/* Selector de período */}
+          <GrupoBotones>
+            {(['semana', 'quincena', 'mes'] as Periodo[]).map((p) => (
+              <Boton
+                key={p}
+                variante="secundario"
+                tamano="sm"
+                onClick={() => { setPeriodo(p); setOffset(0) }}
+                className={periodo === p ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
               >
-                <Calendar size={11} />
-                <span className="hidden sm:inline">Hoy</span>
-              </button>
-            </>
-          )}
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </Boton>
+            ))}
+          </GrupoBotones>
+
+          {/* Interruptor Sáb/Dom */}
+          <div className="flex items-center gap-2 pl-1">
+            <Interruptor activo={!ocultarFindes} onChange={(v) => setOcultarFindes(!v)} />
+            <span className="text-xs text-texto-secundario select-none">Sáb/Dom</span>
+          </div>
+
+          {/* Iconos de vista — agrupados */}
+          <GrupoBotones>
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              soloIcono
+              icono={<Maximize2 size={13} />}
+              onClick={() => setAjustarPantalla(v => !v)}
+              titulo={ajustarPantalla ? 'Tamaño normal' : 'Ajustar a pantalla'}
+              className={ajustarPantalla ? 'text-texto-marca bg-texto-marca/10 border-texto-marca/30' : ''}
+            />
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              soloIcono
+              icono={modoSeleccion ? <X size={13} /> : <CheckSquare size={13} />}
+              onClick={() => { setModoSeleccion(v => !v); if (modoSeleccion) setSelCeldas(new Set()) }}
+              titulo={modoSeleccion ? `Salir de selección (${selCeldas.size} sel.)` : 'Seleccionar para nómina'}
+              className={modoSeleccion ? 'text-texto-marca bg-texto-marca/10 border-texto-marca/30' : ''}
+            />
+          </GrupoBotones>
 
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Nómina */}
-          <button
+          {/* Acciones a la derecha */}
+          <GrupoBotones>
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            icono={<Printer size={12} />}
             onClick={() => setNominaAbierta(true)}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-texto-terciario hover:text-texto-secundario transition-colors"
           >
-            <Printer size={11} />
             <span className="hidden sm:inline">Nómina</span>
             {haySeleccion && (
-              <span className="text-xxs bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full">{selCeldas.size}</span>
+              <span className="text-xxs bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full ml-1">{selCeldas.size}</span>
             )}
-          </button>
-
-          {/* Exportar */}
-          <button
+          </Boton>
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            icono={<Download size={12} />}
             onClick={() => {
               const d = desde.toISOString().split('T')[0]
               const h = hasta.toISOString().split('T')[0]
               window.open(`/api/asistencias/exportar?desde=${d}&hasta=${h}`, '_blank')
             }}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-texto-terciario hover:text-texto-secundario transition-colors"
           >
-            <Download size={11} />
             <span className="hidden sm:inline">Exportar</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Navegación del período */}
-      <div className="flex items-center justify-center gap-3 px-4 py-3 shrink-0">
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
-        <button
-          onClick={() => setOffset(0)}
-          className="text-center hover:text-texto-marca transition-colors"
-        >
-          <p className="text-sm font-semibold text-texto-primario">{etiqueta}</p>
-          <p className="text-xxs text-texto-terciario">{subtitulo}</p>
-        </button>
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
-      </div>
+          </Boton>
+        </GrupoBotones>
+        </>}
+      />
 
       {/* Contenido */}
       {cargando ? (
@@ -450,7 +422,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             const colorAvatar = COLORES_AVATAR[idx % COLORES_AVATAR.length]
 
             return (
-              <div key={miembro.id} className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+              <div key={miembro.id} className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
                 {/* Header de tarjeta */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -467,7 +439,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
 
                 {/* Mini calendario semanal */}
                 <div className="px-3 pb-3">
-                  <div className="bg-superficie-app/50 rounded-lg border border-borde-sutil/50 overflow-hidden">
+                  <div className="bg-superficie-app/50 rounded-card border border-borde-sutil/50 overflow-hidden">
                     {/* Días header */}
                     <div className="grid" style={{ gridTemplateColumns: `repeat(${fechas.length}, 1fr)` }}>
                       {fechas.map((fecha) => {
@@ -530,7 +502,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         return (
                           <div
                             key={fecha}
-                            className={`flex flex-col items-center justify-center py-2 rounded-lg ${fondoCelda}`}
+                            className={`flex flex-col items-center justify-center py-2 rounded-card ${fondoCelda}`}
                           >
                             <span className={`text-sm font-bold ${textColor}`}>
                               {d.getDate()}
@@ -681,7 +653,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       const estado = estadoCelda(asist, fecha, esFinde, esFeriado)
                       const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-asistencia-feriado/5' : ''
                       const celdaSel = modoSeleccion && selCeldas.has(celdaKey(miembro.id, fecha))
-                      const ringSeleccion = celdaSel ? 'ring-2 ring-texto-marca/50 ring-inset rounded-md' : ''
+                      const ringSeleccion = celdaSel ? 'ring-2 ring-texto-marca/50 ring-inset rounded-boton' : ''
                       const esLunesTrasOculto = ocultarFindes && diaSemana === 1 && i > 0
 
                       // Separador de fin de semana
@@ -714,12 +686,12 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-asistencia-feriado/20 flex items-center justify-center">
+                                <div className="size-5 rounded-boton bg-asistencia-feriado/20 flex items-center justify-center">
                                   <span className="text-asistencia-feriado text-[7px] font-bold">F</span>
                                 </div>
                                 <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl px-3 py-2 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
                                       <div className="size-2 rounded-full bg-asistencia-feriado" />
                                       <span className="text-xs font-medium text-asistencia-feriado">Feriado</span>
@@ -729,7 +701,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 </div>
                               </div>
                             ) : (
-                            <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
+                            <div className={`mx-auto rounded-card ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
                               <span className={`text-asistencia-feriado ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold`}>Feriado</span>
                               {!esCompacto && <span className="text-xxs text-asistencia-feriado/60 truncate max-w-[80px]">{nombreFer}</span>}
                             </div>
@@ -741,12 +713,12 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-asistencia-ausente/20 flex items-center justify-center cursor-pointer" role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }}>
+                                <div className="size-5 rounded-boton bg-asistencia-ausente/20 flex items-center justify-center cursor-pointer" role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }}>
                                   <span className="text-asistencia-ausente text-[7px] font-bold">A</span>
                                 </div>
                                 <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl px-3 py-2 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
                                       <div className="size-2 rounded-full bg-asistencia-ausente" />
                                       <span className="text-xs font-medium text-asistencia-ausente">Ausente</span>
@@ -756,7 +728,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 </div>
                               </div>
                             ) : (
-                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-card ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
                               <span className={`text-asistencia-ausente ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
@@ -766,7 +738,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         celda = (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             <div
-                              className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-lg transition-colors' : ''}`}
+                              className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-card transition-colors' : ''}`}
                               {...(!esFinde ? { role: 'gridcell' as const, tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } } : {})}
                               onClick={() => { if (!esFinde) { if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }}
                             />
@@ -795,7 +767,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                               /* Ultra compacto: solo punto de color con tooltip rico */
                               <div className="group/celda relative inline-flex justify-center">
                                 <div
-                                  className="size-5 rounded-md flex items-center justify-center cursor-pointer"
+                                  className="size-5 rounded-boton flex items-center justify-center cursor-pointer"
                                   onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
                                   style={{ backgroundColor: `color-mix(in srgb, ${estado === 'cerrado' ? '#10b981' : estado === 'tardanza' ? '#f59e0b' : estado === 'auto_cerrado' ? '#ef4444' : estado === 'activo' ? '#0ea5e9' : '#10b981'} 20%, transparent)` }}
                                 >
@@ -804,7 +776,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 {/* Tooltip rico al hacer hover — aparece abajo */}
                                 <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl min-w-[180px] overflow-hidden">
                                     {/* Estado + fecha */}
                                     <div className="px-3 py-2 border-b border-white/[0.07]">
                                       <div className="flex items-center gap-1.5">
@@ -839,7 +811,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                               <div className="group/celda relative mx-auto">
                                 <div
                                   onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
-                                  className={`rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : esSemanal ? 'h-[90px] gap-1 pt-1.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                                  className={`rounded-card ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : esSemanal ? 'h-[90px] gap-1 pt-1.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
                                   <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
                                   <span className={`${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
                                   <span className="text-xxs text-texto-terciario leading-none">{horaS || '...'}</span>
@@ -850,7 +822,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 {/* Tooltip rico */}
                                 <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl min-w-[180px] overflow-hidden">
                                     <div className="px-3 py-2 border-b border-white/[0.07]">
                                       <div className="flex items-center gap-1.5">
                                         <div className={`size-2 rounded-full ${colorPunto}`} />

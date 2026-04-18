@@ -2,6 +2,7 @@
 
 // Primitivas
 export { Boton } from './Boton'
+export { GrupoBotones } from './GrupoBotones'
 export { Input } from './Input'
 export { InputMoneda } from './InputMoneda'
 export { InputDireccion } from './InputDireccion'

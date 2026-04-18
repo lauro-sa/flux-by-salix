@@ -150,7 +150,7 @@ function Tooltip({
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-medium max-w-64 text-center backdrop-blur-md border shadow-sm"
+              className="fixed pointer-events-none px-2.5 py-1.5 rounded-popover text-xs font-medium max-w-64 text-center backdrop-blur-md border shadow-sm"
               style={{
                 top: coords.top,
                 left: coords.left,

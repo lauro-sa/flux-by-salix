@@ -191,7 +191,7 @@ function SelectorContacto({
     const direccionTipo = direccionActual ? etiquetaTipoDireccion(direccionActual.tipo) : null
 
     return (
-      <div className={`rounded-lg bg-superficie-app/50 px-3 py-3 ${error ? 'ring-2 ring-estado-error/50' : ''}`}>
+      <div className={`rounded-card bg-superficie-app/50 px-3 py-3 ${error ? 'ring-2 ring-estado-error/50' : ''}`}>
         <div className="flex items-start justify-between">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ function SelectorContacto({
 
         {/* Alerta sin correo */}
         {!sinAlertaCorreo && !contacto.correo && (
-          <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+          <div className="mt-2 flex items-start gap-2 p-2.5 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
             <span className="text-insignia-advertencia text-sm shrink-0 mt-0.5">⚠</span>
             <p className="text-xs text-insignia-advertencia">
               Este contacto no tiene correo electrónico. No se podrán enviar documentos por email.
@@ -320,7 +320,7 @@ function SelectorContacto({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               style={{ position: 'fixed', top: posDropdown.top, left: posDropdown.left, width: posDropdown.width }}
-              className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[var(--z-popover)] max-h-[360px] overflow-y-auto"
+              className="bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-[var(--z-popover)] max-h-[360px] overflow-y-auto"
             >
             {tituloLista && (
               <div className="px-4 pt-3 pb-1.5">

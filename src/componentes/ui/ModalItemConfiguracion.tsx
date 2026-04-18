@@ -147,7 +147,7 @@ function ModalItemConfiguracion({
       <div className="space-y-5">
         {/* Preview custom */}
         {renderPreview && (
-          <div className="p-3 rounded-lg bg-superficie-hover/50">
+          <div className="p-3 rounded-card bg-superficie-hover/50">
             {renderPreview(valores)}
           </div>
         )}
@@ -259,7 +259,7 @@ function ModalItemConfiguracion({
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden mt-2"
                     >
-                      <div className="bg-superficie-elevada border border-borde-sutil rounded-xl p-3">
+                      <div className="bg-superficie-elevada border border-borde-sutil rounded-popover p-3">
                         <PickerInline
                           valor={esHex ? valorActual : '#6b7280'}
                           onChange={(c) => actualizar(campo.clave, c)}
@@ -285,7 +285,7 @@ function ModalItemConfiguracion({
                         key={emoji}
                         type="button"
                         onClick={() => actualizar(campo.clave, emoji)}
-                        className={`size-8 rounded-lg text-base flex items-center justify-center cursor-pointer transition-all duration-150 hover:scale-110 hover:bg-superficie-hover ${
+                        className={`size-8 rounded-card text-base flex items-center justify-center cursor-pointer transition-all duration-150 hover:scale-110 hover:bg-superficie-hover ${
                           sel ? 'bg-texto-marca/10 ring-2 ring-texto-marca scale-110' : ''
                         }`}
                       >
@@ -328,7 +328,7 @@ function CampoEmoji({ onSeleccionar }: { onSeleccionar: (emoji: string) => void 
           setTexto('')
         }
       }}
-      className="size-8 rounded-lg text-base text-center bg-white/[0.04] border-2 border-dashed border-borde-fuerte outline-none cursor-text transition-all focus:border-texto-marca/50 hover:scale-110 hover:bg-superficie-hover"
+      className="size-8 rounded-card text-base text-center bg-white/[0.04] border-2 border-dashed border-borde-fuerte outline-none cursor-text transition-all focus:border-texto-marca/50 hover:scale-110 hover:bg-superficie-hover"
       placeholder="✏️"
       title={t('comun.emoji_personalizado')}
     />

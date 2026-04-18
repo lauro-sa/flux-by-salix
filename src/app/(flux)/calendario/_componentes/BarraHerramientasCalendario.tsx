@@ -2,21 +2,18 @@
 
 /**
  * BarraHerramientasCalendario — Barra de navegación y controles del calendario.
- * Diseño responsive de 2 filas (desktop) o 3 filas (móvil):
- *   Desktop: [Hoy ‹ › Etiqueta | Todos/Míos + Filtrar] + [selector de vista centrado]
- *   Móvil:   [Hoy ‹ › Etiqueta corta] + [Todos/Míos + Filtrar] + [selector abreviado]
+ * Usa el patrón <CabezaloHero> reutilizable (mismo que Matriz asistencias y Nómina):
+ *   - Fila hero: título editorial del período + navegación ‹ Hoy ›
+ *   - Fila controles: selector de vista + filtros (Todos/Míos + Filtrar)
  * Se usa en: página principal del calendario.
  */
 
-import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { Filter } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
+import { CabezaloHero, HeroRango, type PeriodoHero } from '@/componentes/entidad/CabezaloHero'
 import { useTraduccion } from '@/lib/i18n'
-import {
-  NOMBRES_MESES,
-  NOMBRES_MESES_CORTOS,
-  NOMBRES_DIAS_COMPLETOS,
-} from './constantes'
 import type { VistaCalendario } from './tipos'
 
 const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string; etiquetaCorta: string }[] = [
@@ -29,88 +26,90 @@ const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string; etiquetaCorta:
   { valor: 'equipo', etiqueta: 'Equipo', etiquetaCorta: 'Eq' },
 ]
 
-/* ─── Funciones de etiqueta de fecha ─── */
+const DIAS_SEMANA_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-/** Etiqueta completa para desktop: "Martes 8 de abril", "Marzo 2026", etc. */
-function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
+/* ─── Helpers de rango para el hero ─── */
+
+/** Calcula el rango [desde, hasta] representativo del período según la vista */
+function obtenerRangoHero(vista: VistaCalendario, fecha: Date): { desde: Date; hasta: Date } {
   const anio = fecha.getFullYear()
-  const mes = NOMBRES_MESES[fecha.getMonth()]
+  const mes = fecha.getMonth()
 
   switch (vista) {
     case 'mes':
-      return `${mes} ${anio}`
-    case 'semana':
-      return etiquetaRangoSemana(fecha, 6)
-    case 'quincenal':
-      return etiquetaRangoSemana(fecha, 13)
-    case 'dia':
-    case 'equipo': {
-      const diaSemana = NOMBRES_DIAS_COMPLETOS[fecha.getDay()]
-      const diaNum = fecha.getDate()
-      const mesNombre = NOMBRES_MESES[fecha.getMonth()].toLowerCase()
-      return `${diaSemana} ${diaNum} de ${mesNombre}`
+      return { desde: new Date(anio, mes, 1), hasta: new Date(anio, mes + 1, 0) }
+    case 'semana': {
+      const d = fecha.getDay()
+      const diffLunes = d === 0 ? -6 : 1 - d
+      const desde = new Date(fecha); desde.setDate(fecha.getDate() + diffLunes); desde.setHours(0, 0, 0, 0)
+      const hasta = new Date(desde); hasta.setDate(desde.getDate() + 6)
+      return { desde, hasta }
     }
-    case 'anio':
-      return `${anio}`
-    default:
-      return `${mes} ${anio}`
-  }
-}
-
-/** Etiqueta compacta para móvil: "8 Abr 2026", "Mar 2026", etc. */
-function obtenerEtiquetaCorta(vista: VistaCalendario, fecha: Date): string {
-  const anio = fecha.getFullYear()
-  const mesCorto = NOMBRES_MESES_CORTOS[fecha.getMonth()]
-
-  switch (vista) {
-    case 'mes':
-      return `${mesCorto} ${anio}`
-    case 'semana':
-      return etiquetaRangoSemanaCorta(fecha, 6)
-    case 'quincenal':
-      return etiquetaRangoSemanaCorta(fecha, 13)
-    case 'dia':
-    case 'equipo': {
-      const diaNum = fecha.getDate()
-      return `${diaNum} ${mesCorto} ${anio}`
+    case 'quincenal': {
+      const d = fecha.getDay()
+      const diffLunes = d === 0 ? -6 : 1 - d
+      const desde = new Date(fecha); desde.setDate(fecha.getDate() + diffLunes); desde.setHours(0, 0, 0, 0)
+      const hasta = new Date(desde); hasta.setDate(desde.getDate() + 13)
+      return { desde, hasta }
     }
-    case 'anio':
-      return `${anio}`
+    case 'agenda': {
+      const hasta = new Date(fecha); hasta.setDate(fecha.getDate() + 30)
+      return { desde: fecha, hasta }
+    }
+    case 'dia':
+    case 'equipo':
     default:
-      return `${mesCorto} ${anio}`
+      return { desde: fecha, hasta: fecha }
   }
 }
 
-/** Helper: rango semanal completo (ej. "3 – 9 Mar 2026" o "28 Mar – 3 Abr 2026") */
-function etiquetaRangoSemana(fecha: Date, diasOffset: number): string {
-  const dia = fecha.getDay()
-  const diffLunes = dia === 0 ? -6 : 1 - dia
-  const lunes = new Date(fecha)
-  lunes.setDate(fecha.getDate() + diffLunes)
-  const fin = new Date(lunes)
-  fin.setDate(lunes.getDate() + diasOffset)
-  const mesInicio = NOMBRES_MESES[lunes.getMonth()].slice(0, 3)
-  const mesFin = NOMBRES_MESES[fin.getMonth()].slice(0, 3)
-  if (lunes.getMonth() === fin.getMonth()) {
-    return `${lunes.getDate()} – ${fin.getDate()} ${mesInicio} ${lunes.getFullYear()}`
+/** Construye el contenido del hero según la vista activa */
+function construirHero(vista: VistaCalendario, fecha: Date): ReactNode {
+  // Vista año: no es un rango, solo mostrar "2026 · AÑO · Vista anual"
+  if (vista === 'anio') {
+    return (
+      <div className="flex items-stretch gap-3 sm:gap-4 min-w-0">
+        <span className="text-4xl sm:text-5xl font-bold text-texto-primario leading-none tracking-tight">
+          {fecha.getFullYear()}
+        </span>
+        <div className="flex flex-col justify-center gap-1 min-w-0 py-1">
+          <span className="text-sm sm:text-base font-semibold text-texto-marca uppercase tracking-[0.15em] leading-none">Año</span>
+          <span className="text-xs sm:text-[13px] text-texto-terciario uppercase tracking-wider leading-none">Vista anual</span>
+        </div>
+      </div>
+    )
   }
-  return `${lunes.getDate()} ${mesInicio} – ${fin.getDate()} ${mesFin} ${fin.getFullYear()}`
+
+  const { desde, hasta } = obtenerRangoHero(vista, fecha)
+  const periodo: PeriodoHero | undefined =
+    vista === 'semana' ? 'semana' :
+    vista === 'mes' ? 'mes' :
+    vista === 'quincenal' ? 'quincena' :
+    undefined
+
+  // Para agenda: etiqueta custom "Agenda" + subtítulo "Próximos 30 días"
+  if (vista === 'agenda') {
+    return <HeroRango desde={desde} hasta={hasta} etiqueta="Agenda" subtitulo="Próximos 30 días" />
+  }
+
+  // Día / Equipo: un solo día — subtítulo con día de la semana
+  if (vista === 'dia' || vista === 'equipo') {
+    const diaSemana = DIAS_SEMANA_CORTO[fecha.getDay()]
+    return <HeroRango desde={desde} hasta={hasta} subtitulo={<>{fecha.getFullYear()} · {diaSemana}</>} />
+  }
+
+  // Mes, semana, quincenal
+  return <HeroRango desde={desde} hasta={hasta} periodo={periodo} />
 }
 
-/** Helper: rango semanal corto para móvil */
-function etiquetaRangoSemanaCorta(fecha: Date, diasOffset: number): string {
-  const dia = fecha.getDay()
-  const diffLunes = dia === 0 ? -6 : 1 - dia
-  const lunes = new Date(fecha)
-  lunes.setDate(fecha.getDate() + diffLunes)
-  const fin = new Date(lunes)
-  fin.setDate(lunes.getDate() + diasOffset)
-  const mesInicio = NOMBRES_MESES_CORTOS[lunes.getMonth()]
-  const mesFin = NOMBRES_MESES_CORTOS[fin.getMonth()]
-  if (lunes.getMonth() === fin.getMonth()) {
-    return `${lunes.getDate()}–${fin.getDate()} ${mesInicio}`
-  }
-  return `${lunes.getDate()} ${mesInicio} – ${fin.getDate()} ${mesFin}`
+/** ¿La fecha actual cae dentro del período que engloba a "hoy"? */
+function esPeriodoDeHoy(vista: VistaCalendario, fecha: Date): boolean {
+  const hoy = new Date()
+  const { desde, hasta } = obtenerRangoHero(vista, fecha)
+  const hoyMs = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()
+  const desdeMs = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate()).getTime()
+  const hastaMs = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate()).getTime()
+  return hoyMs >= desdeMs && hoyMs <= hastaMs
 }
 
 /* ─── Tipos ─── */
@@ -148,8 +147,6 @@ function BarraHerramientasCalendario({
   onCambiarFiltroVista,
 }: PropiedadesBarraHerramientas) {
   const { t } = useTraduccion()
-  const etiqueta = obtenerEtiqueta(vistaActiva, fechaActual)
-  const etiquetaMovil = obtenerEtiquetaCorta(vistaActiva, fechaActual)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
   const filtrosRef = useRef<HTMLDivElement>(null)
 
@@ -166,69 +163,43 @@ function BarraHerramientasCalendario({
   }, [filtrosAbiertos])
 
   const hayFiltroActivo = filtroTipo !== '' || filtroVista !== 'todos'
+  const hoyDeshabilitado = esPeriodoDeHoy(vistaActiva, fechaActual)
 
   return (
-    <div className="flex flex-col gap-1 mb-3">
-
-      {/* ═══ Fila 1: Navegación (izquierda) + Filtros en desktop (derecha) ═══ */}
-      <div className="flex items-center justify-between gap-2 py-1">
-
-        {/* Navegación: Hoy + flechas + etiqueta */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Boton variante="secundario" tamano="xs" onClick={() => onNavegar('hoy')} aria-label={t('calendario.a11y.ir_a_hoy')}>
-            {t('calendario.hoy')}
-          </Boton>
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => onNavegar('anterior')}
-              aria-label={t('calendario.a11y.ir_dia_anterior')}
-              className="p-1 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+    <CabezaloHero
+      titulo={construirHero(vistaActiva, fechaActual)}
+      onAnterior={() => onNavegar('anterior')}
+      onSiguiente={() => onNavegar('siguiente')}
+      onHoy={() => onNavegar('hoy')}
+      hoyDeshabilitado={hoyDeshabilitado}
+      slotControles={<>
+        {/* Selector de vista — segmented */}
+        <GrupoBotones>
+          {OPCIONES_VISTA.map((opcion) => (
+            <Boton
+              key={opcion.valor}
+              variante="secundario"
+              tamano="sm"
+              onClick={() => onCambiarVista(opcion.valor)}
+              className={vistaActiva === opcion.valor ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+              titulo={opcion.etiqueta}
             >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavegar('siguiente')}
-              aria-label={t('calendario.a11y.ir_dia_siguiente')}
-              className="p-1 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-          {/* Etiqueta completa en desktop, compacta en móvil */}
-          <span className="text-sm font-semibold text-texto-primario whitespace-nowrap truncate hidden md:inline">
-            {etiqueta}
-          </span>
-          <span className="text-sm font-semibold text-texto-primario whitespace-nowrap truncate md:hidden">
-            {etiquetaMovil}
-          </span>
-        </div>
+              <span className="hidden sm:inline">{opcion.etiqueta}</span>
+              <span className="sm:hidden">{opcion.etiquetaCorta}</span>
+            </Boton>
+          ))}
+        </GrupoBotones>
 
-        {/* Filtros en desktop (Todos/Míos + Filtrar) — ocultos en móvil, van en fila 2 */}
-        <div className="hidden md:flex items-center gap-2">
-          <FiltroVista
-            filtroVista={filtroVista}
-            onCambiarFiltroVista={onCambiarFiltroVista}
-          />
-          <FiltroTipo
-            tipos={tipos}
-            filtroTipo={filtroTipo}
-            onCambiarFiltroTipo={onCambiarFiltroTipo}
-            hayFiltroActivo={hayFiltroActivo}
-            filtrosAbiertos={filtrosAbiertos}
-            setFiltrosAbiertos={setFiltrosAbiertos}
-            filtrosRef={filtrosRef}
-          />
-        </div>
-      </div>
+        {/* Spacer */}
+        <div className="flex-1" />
 
-      {/* ═══ Fila 2 (solo móvil): Filtros ═══ */}
-      <div className="flex md:hidden items-center justify-between gap-2 py-1">
+        {/* Todos / Míos */}
         <FiltroVista
           filtroVista={filtroVista}
           onCambiarFiltroVista={onCambiarFiltroVista}
         />
+
+        {/* Filtrar por tipo */}
         <FiltroTipo
           tipos={tipos}
           filtroTipo={filtroTipo}
@@ -238,36 +209,16 @@ function BarraHerramientasCalendario({
           setFiltrosAbiertos={setFiltrosAbiertos}
           filtrosRef={filtrosRef}
         />
-      </div>
-
-      {/* ═══ Fila final: Selector de vista — centrado ═══ */}
-      <div className="flex items-center justify-center gap-0.5 py-0.5" role="tablist" aria-label={t('calendario.a11y.vista_calendario')}>
-        {OPCIONES_VISTA.map((opcion) => (
-          <button
-            key={opcion.valor}
-            type="button"
-            role="tab"
-            aria-selected={vistaActiva === opcion.valor}
-            onClick={() => onCambiarVista(opcion.valor)}
-            className={[
-              'px-2.5 md:px-3 py-1.5 text-xs rounded-md transition-all font-medium whitespace-nowrap',
-              vistaActiva === opcion.valor
-                ? 'bg-superficie-elevada text-texto-primario shadow-sm'
-                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
-            ].join(' ')}
-          >
-            <span className="hidden sm:inline">{opcion.etiqueta}</span>
-            <span className="sm:hidden">{opcion.etiquetaCorta}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+        {/* Oculto pero referenciado: a11y labels */}
+        <span className="sr-only">{t('calendario.a11y.vista_calendario')}</span>
+      </>}
+    />
   )
 }
 
 /* ─── Sub-componentes internos ─── */
 
-/** Toggle Todos / Míos */
+/** Toggle Todos / Míos — estilo GrupoBotones alineado con el resto */
 function FiltroVista({
   filtroVista,
   onCambiarFiltroVista,
@@ -278,26 +229,22 @@ function FiltroVista({
   if (!onCambiarFiltroVista) return null
 
   return (
-    <div className="flex items-center bg-superficie-tarjeta border border-borde-sutil rounded-lg p-0.5">
+    <GrupoBotones>
       {[
         { valor: 'todos', etiqueta: 'Todos' },
         { valor: 'mios', etiqueta: 'Míos' },
       ].map((op) => (
-        <button
+        <Boton
           key={op.valor}
-          type="button"
+          variante="secundario"
+          tamano="sm"
           onClick={() => onCambiarFiltroVista(op.valor)}
-          className={[
-            'px-2.5 py-1 text-xs rounded-md transition-colors font-medium min-h-[32px] flex items-center',
-            filtroVista === op.valor
-              ? 'bg-superficie-elevada text-texto-primario shadow-sm'
-              : 'text-texto-terciario hover:text-texto-secundario',
-          ].join(' ')}
+          className={filtroVista === op.valor ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
         >
           {op.etiqueta}
-        </button>
+        </Boton>
       ))}
-    </div>
+    </GrupoBotones>
   )
 }
 
@@ -323,33 +270,27 @@ function FiltroTipo({
 
   return (
     <div className="relative" ref={filtrosRef}>
-      <button
-        type="button"
+      <Boton
+        variante="secundario"
+        tamano="sm"
+        icono={<Filter size={13} />}
         onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}
-        className={[
-          'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors font-medium min-h-[32px]',
-          hayFiltroActivo || filtrosAbiertos
-            ? 'bg-superficie-elevada text-texto-primario border-borde-fuerte'
-            : 'text-texto-terciario border-borde-sutil hover:border-borde-fuerte hover:text-texto-secundario',
-        ].join(' ')}
+        className={hayFiltroActivo || filtrosAbiertos ? 'text-texto-marca bg-texto-marca/10 border-texto-marca/30' : ''}
       >
-        <Filter size={13} />
-        <span>Filtrar</span>
-        {hayFiltroActivo && (
-          <span className="size-1.5 rounded-full bg-texto-marca" />
-        )}
-      </button>
+        Filtrar
+        {hayFiltroActivo && <span className="ml-1.5 size-1.5 rounded-full bg-texto-marca inline-block" />}
+      </Boton>
 
-      {/* Dropdown — z-[var(--z-dropdown)] con posición absoluta hacia abajo */}
+      {/* Dropdown */}
       {filtrosAbiertos && (
-        <div className="absolute right-0 top-full mt-1.5 z-[var(--z-dropdown)] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl p-3 min-w-[220px]">
+        <div className="absolute right-0 top-full mt-1.5 z-[var(--z-dropdown)] bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl p-3 min-w-[220px]">
           <p className="text-xs font-medium text-texto-terciario mb-2">Tipo de evento</p>
           <div className="flex flex-col gap-0.5">
             <button
               type="button"
               onClick={() => { onCambiarFiltroTipo?.(''); setFiltrosAbiertos(false) }}
               className={[
-                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-colors text-left',
+                'flex items-center gap-2 px-2.5 py-1.5 rounded-card text-sm transition-colors text-left',
                 filtroTipo === ''
                   ? 'bg-superficie-hover text-texto-primario font-medium'
                   : 'text-texto-secundario hover:bg-superficie-hover',
@@ -366,7 +307,7 @@ function FiltroTipo({
                   setFiltrosAbiertos(false)
                 }}
                 className={[
-                  'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-colors text-left',
+                  'flex items-center gap-2 px-2.5 py-1.5 rounded-card text-sm transition-colors text-left',
                   filtroTipo === tipo.clave
                     ? 'bg-superficie-hover text-texto-primario font-medium'
                     : 'text-texto-secundario hover:bg-superficie-hover',

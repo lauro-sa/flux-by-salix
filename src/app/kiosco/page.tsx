@@ -125,7 +125,7 @@ export default function PaginaKiosco() {
 
         <button
           onClick={() => setModoReactivar(true)}
-          className="mt-4 px-6 py-3 rounded-xl text-base font-medium transition-all active:scale-95 bg-neutral-800 text-neutral-300 border border-neutral-700"
+          className="mt-4 px-6 py-3 rounded-card text-base font-medium transition-all active:scale-95 bg-neutral-800 text-neutral-300 border border-neutral-700"
         >
           Reactivar con PIN
         </button>
@@ -196,7 +196,7 @@ function PantallaReactivar({
           aria-label="Nombre del terminal"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          className="w-full px-4 py-3.5 rounded-xl text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500"
+          className="w-full px-4 py-3.5 rounded-card text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500"
         />
         <input
           type="password"
@@ -206,7 +206,7 @@ function PantallaReactivar({
           aria-label="Código PIN"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          className="w-full px-4 py-3.5 rounded-xl text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500 tracking-[0.5em] text-center"
+          className="w-full px-4 py-3.5 rounded-card text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500 tracking-[0.5em] text-center"
         />
 
         {error && (
@@ -216,14 +216,14 @@ function PantallaReactivar({
         <div className="flex gap-3 mt-2">
           <button
             onClick={onCancelar}
-            className="flex-1 py-3.5 rounded-xl text-base font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 active:scale-[0.98] transition-all"
+            className="flex-1 py-3.5 rounded-card text-base font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 active:scale-[0.98] transition-all"
           >
             Cancelar
           </button>
           <button
             onClick={manejarEnvio}
             disabled={!nombre.trim() || pin.length < 6 || enviando}
-            className="flex-1 py-3.5 rounded-xl text-base font-medium text-white active:scale-[0.98] transition-all disabled:opacity-40"
+            className="flex-1 py-3.5 rounded-card text-base font-medium text-white active:scale-[0.98] transition-all disabled:opacity-40"
             style={{ backgroundColor: 'var(--texto-marca)' }}
           >
             {enviando ? 'Activando...' : 'Activar'}

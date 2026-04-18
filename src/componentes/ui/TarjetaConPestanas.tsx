@@ -41,7 +41,7 @@ function TarjetaConPestanas({
   return (
     <div
       className={[
-        'bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5',
+        'bg-superficie-tarjeta border border-borde-sutil rounded-card p-5',
         className,
       ].join(' ')}
     >
@@ -55,13 +55,13 @@ function TarjetaConPestanas({
 
       {/* Header: pestañas + acciones */}
       <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-card p-0.5">
           {pestanas.map((p, i) => (
             <button
               key={i}
               onClick={() => setActiva(i)}
               className={[
-                'relative px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150',
+                'relative px-3 py-1.5 text-xs font-medium rounded-boton transition-colors duration-150',
                 activa === i
                   ? 'text-texto-primario'
                   : 'text-texto-terciario hover:text-texto-secundario',
@@ -70,7 +70,7 @@ function TarjetaConPestanas({
               {activa === i && (
                 <motion.div
                   layoutId={`pestana-fondo-${pestanas.map(p => p.etiqueta).join('-')}`}
-                  className="absolute inset-0 bg-superficie-tarjeta rounded-md shadow-sm border border-borde-sutil"
+                  className="absolute inset-0 bg-superficie-tarjeta rounded-boton shadow-sm border border-borde-sutil"
                   transition={{ type: 'spring', duration: 0.3, bounce: 0.15 }}
                 />
               )}

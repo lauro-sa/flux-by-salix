@@ -48,7 +48,7 @@ function Btn({ activo, onClick, titulo, children }: {
     <Tooltip contenido={titulo}>
       <button
         type="button" onClick={onClick} onMouseDown={(e) => e.preventDefault()}
-        className={['flex items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer active:scale-90',
+        className={['flex items-center justify-center size-7 rounded-boton transition-all duration-100 cursor-pointer active:scale-90',
           activo ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
         ].join(' ')}
       >{children}</button>
@@ -273,7 +273,7 @@ export function ToolbarEditorTexto({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={quitarColor}
-              className="ml-auto mr-2 flex items-center justify-center size-6 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-superficie-hover transition-colors cursor-pointer"
+              className="ml-auto mr-2 flex items-center justify-center size-6 rounded-boton text-texto-terciario hover:text-insignia-peligro hover:bg-superficie-hover transition-colors cursor-pointer"
             >
               <X size={14} />
             </button>
@@ -294,7 +294,7 @@ export function ToolbarEditorTexto({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => aplicarColor('#5b5bd6')}
                     className={[
-                      'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative shrink-0',
+                      'size-[26px] rounded-boton transition-all duration-100 cursor-pointer relative shrink-0',
                       colorTextoActual === '#5b5bd6' ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
                     ].join(' ')}
                     style={{ backgroundColor: '#5b5bd6' }}
@@ -310,7 +310,7 @@ export function ToolbarEditorTexto({
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => aplicarColor(c)}
                       className={[
-                        'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative shrink-0',
+                        'size-[26px] rounded-boton transition-all duration-100 cursor-pointer relative shrink-0',
                         colorTextoActual === c ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
                       ].join(' ')}
                       style={{ backgroundColor: c }}
@@ -333,7 +333,7 @@ export function ToolbarEditorTexto({
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => aplicarColor(color)}
                         className={[
-                          'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative',
+                          'size-[26px] rounded-boton transition-all duration-100 cursor-pointer relative',
                           colorTextoActual === color
                             ? 'ring-2 ring-texto-marca ring-offset-1'
                             : 'hover:scale-110 hover:ring-1 hover:ring-borde-fuerte',
@@ -399,7 +399,7 @@ export function ToolbarEditorTexto({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 4, scale: 0.97 }}
         transition={{ duration: 0.12, ease: 'easeOut' }}
-        className="fixed rounded-lg shadow-elevada border border-borde-sutil"
+        className="fixed rounded-card shadow-elevada border border-borde-sutil"
         style={{ top: toolbarPos.top, left: toolbarPos.left, zIndex: 'var(--z-popover)' as unknown as number, ...estiloSuperficie }}
         onMouseDown={(e) => e.preventDefault()}
       >
@@ -409,7 +409,7 @@ export function ToolbarEditorTexto({
             <button
               type="button" onMouseDown={(e) => e.preventDefault()}
               onClick={() => abrirPanel('tamano')}
-              className={['flex items-center gap-0.5 px-2 h-7 rounded-md text-xs font-medium transition-all cursor-pointer min-w-[80px]',
+              className={['flex items-center gap-0.5 px-2 h-7 rounded-boton text-xs font-medium transition-all cursor-pointer min-w-[80px]',
                 panelAbierto === 'tamano' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}
             >
@@ -443,7 +443,7 @@ export function ToolbarEditorTexto({
             <button
               type="button" onMouseDown={(e) => e.preventDefault()}
               onClick={() => abrirPanel('color')}
-              className={['flex flex-col items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer',
+              className={['flex flex-col items-center justify-center size-7 rounded-boton transition-all duration-100 cursor-pointer',
                 panelAbierto === 'color' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}
             >
@@ -478,7 +478,7 @@ export function ToolbarEditorTexto({
             exit={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
             transition={{ duration: 0.1 }}
             data-panel-editor="true"
-            className="fixed rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80dvh] overflow-y-auto"
+            className="fixed rounded-card shadow-elevada border border-borde-sutil overflow-hidden max-h-[80dvh] overflow-y-auto"
             style={{
               ...(panelAbajo
                 ? { top: toolbarPos.top + alturaToolbarPx + 4 }

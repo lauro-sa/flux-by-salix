@@ -23,7 +23,7 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalActividad } from './ModalActividad'
 import type { Actividad, Miembro, Vinculo } from './ModalActividad'
-import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
+import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -489,7 +489,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           <div className="flex items-center gap-2.5 min-w-0">
             {tipo && (
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                className="w-7 h-7 rounded-card flex items-center justify-center shrink-0"
                 style={{ backgroundColor: tipo.color + '15', color: tipo.color }}
               >
                 {Icono && <Icono size={14} />}
@@ -634,7 +634,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
             <Tooltip contenido={esPendiente ? 'Completar' : estado?.etiqueta || ''}>
               <button
                 onClick={(e) => { e.stopPropagation(); if (esPendiente) completarActividad(fila.id) }}
-                className={`size-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                className={`size-6 rounded-boton flex items-center justify-center shrink-0 transition-colors ${
                   esPendiente
                     ? 'bg-transparent cursor-pointer hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto text-texto-terciario'
                     : 'bg-transparent cursor-default'
@@ -659,7 +659,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
                       className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
                     />
                   </Tooltip>
-                  <div className="absolute top-full right-0 mt-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
+                  <div className="absolute top-full right-0 mt-0.5 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
                     {presetsPosposicion.map(op => (
                       <button
                         key={op.id}
@@ -710,7 +710,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           <div className="flex items-center gap-2">
             {tipo && (
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                className="w-7 h-7 rounded-card flex items-center justify-center shrink-0"
                 style={{ backgroundColor: tipo.color + '15', color: tipo.color }}
               >
                 {Icono && <Icono size={14} />}
@@ -813,7 +813,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
                     titulo="Posponer"
                     className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
                   />
-                  <div className="absolute bottom-full right-0 mb-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
+                  <div className="absolute bottom-full right-0 mb-0.5 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
                     {presetsPosposicion.map(op => (
                       <button
                         key={op.id}
@@ -949,7 +949,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
 
       {/* Sección: finalizadas hoy */}
       {finalizadasHoy.length > 0 && (
-        <div className="mt-4 border border-borde-sutil rounded-lg overflow-hidden">
+        <div className="mt-4 border border-borde-sutil rounded-card overflow-hidden">
           <button
             type="button"
             onClick={() => setSeccionHoyAbierta(!seccionHoyAbierta)}
@@ -998,7 +998,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
                     <button
                       type="button"
                       onClick={() => reactivarActividad(a.id)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-boton text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
                       title="Reactivar actividad"
                     >
                       <RotateCcw size={12} />
@@ -1067,7 +1067,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         <>
           <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => { setMenuPosponerLote(null); setPosMenuPosponer(null) }} />
           <div
-            className="fixed z-[var(--z-popover)] bg-superficie-elevada border border-borde-sutil rounded-xl p-1.5 min-w-[160px]"
+            className="fixed z-[var(--z-popover)] bg-superficie-elevada border border-borde-sutil rounded-card p-1.5 min-w-[160px]"
             style={{
               left: posMenuPosponer.x,
               transform: 'translateX(-50%)',
@@ -1081,7 +1081,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
               <button
                 key={op.id}
                 onClick={() => { posponerLote(menuPosponerLote, op.dias); setPosMenuPosponer(null) }}
-                className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover rounded-lg transition-colors flex items-center gap-2"
+                className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover rounded-card transition-colors flex items-center gap-2"
               >
                 <Clock size={14} className="text-texto-terciario" />
                 {op.etiqueta}

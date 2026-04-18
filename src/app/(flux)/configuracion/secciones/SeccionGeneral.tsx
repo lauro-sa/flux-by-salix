@@ -222,9 +222,9 @@ export function SeccionGeneral() {
       />
 
       {/* ══ Panel: Información general ══ */}
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden">
         <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
-          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
+          <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
             <Building2 size={15} style={{ color: '#8B78F0' }} />
           </div>
           <div>
@@ -282,9 +282,9 @@ export function SeccionGeneral() {
       </div>
 
       {/* ══ Panel: Datos fiscales ══ */}
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden">
         <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
-          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
+          <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
             <Receipt size={15} style={{ color: '#F0923A' }} />
           </div>
           <div>
@@ -300,7 +300,7 @@ export function SeccionGeneral() {
         {camposFiscalesEmpresa.length > 0 && (
           <div className="px-6 py-5 space-y-5">
             {Array.from(camposPorPais.entries()).map(([codigoPais, campos]) => (
-              <div key={codigoPais} className="rounded-lg border border-white/[0.06] overflow-hidden">
+              <div key={codigoPais} className="rounded-card border border-white/[0.06] overflow-hidden">
                 {/* Header del país */}
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06]">
                   <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
@@ -335,9 +335,9 @@ export function SeccionGeneral() {
       </div>
 
       {/* ══ Panel: Datos bancarios ══ */}
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden">
         <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
-          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
+          <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
             <Landmark size={15} style={{ color: '#4CAF50' }} />
           </div>
           <div>
@@ -395,9 +395,9 @@ export function SeccionGeneral() {
       </div>
 
       {/* ══ Panel: Identidad visual ══ */}
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden">
         <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
-          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(236,64,122,0.15)' }}>
+          <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(236,64,122,0.15)' }}>
             <Globe size={15} style={{ color: '#EC407A' }} />
           </div>
           <div>

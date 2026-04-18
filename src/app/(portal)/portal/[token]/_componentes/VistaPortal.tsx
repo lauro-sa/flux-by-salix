@@ -194,7 +194,7 @@ export default function VistaPortal({ datos }: Props) {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Error toast */}
         {error && (
-          <div className="rounded-xl bg-estado-error/10 border border-estado-error/20 px-4 py-3 text-sm text-estado-error text-center">
+          <div className="rounded-card bg-estado-error/10 border border-estado-error/20 px-4 py-3 text-sm text-estado-error text-center">
             {error}
           </div>
         )}

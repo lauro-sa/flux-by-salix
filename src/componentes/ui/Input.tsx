@@ -4,7 +4,7 @@ import { forwardRef, useState, useCallback, type InputHTMLAttributes, type React
 import { Eye, EyeOff } from 'lucide-react'
 import { aplicarFormato, detectarFormato, type TipoFormato } from '@/lib/formato'
 
-type TipoInput = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number'
+type TipoInput = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number' | 'date'
 
 interface PropiedadesInput extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   tipo?: TipoInput
@@ -107,7 +107,7 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
                   error ? 'border-insignia-peligro' : enfocado ? 'border-borde-foco' : 'border-borde-sutil',
                 ].join(' ')
               : [
-                  'rounded-md border bg-superficie-tarjeta',
+                  'rounded-input border bg-superficie-tarjeta',
                   compacto ? 'px-2 py-1' : 'px-3 py-2',
                   error ? 'border-insignia-peligro' : enfocado ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte',
                 ].join(' '),

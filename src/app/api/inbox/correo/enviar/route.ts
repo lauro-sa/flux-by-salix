@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Obtener canal y config
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_correo')
       .select('id, config_conexion, proveedor, nombre')
       .eq('id', canal_id)
       .eq('empresa_id', empresaId)

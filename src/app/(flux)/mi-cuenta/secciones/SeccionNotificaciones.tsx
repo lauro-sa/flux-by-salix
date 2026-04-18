@@ -209,7 +209,7 @@ export function SeccionNotificaciones() {
       />
 
       {/* ── Sonidos de notificación ── */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
         <div className="px-5 py-4 border-b border-borde-sutil">
           <div className="flex items-center gap-2 mb-1">
             <Volume2 size={18} className="text-texto-terciario" />
@@ -271,7 +271,7 @@ export function SeccionNotificaciones() {
 
       {/* ── Push Notifications ── */}
       {push.requiereInstalacion && (
-        <div className="bg-insignia-advertencia-fondo/30 border border-insignia-advertencia/20 rounded-xl p-5">
+        <div className="bg-insignia-advertencia-fondo/30 border border-insignia-advertencia/20 rounded-card p-5">
           <div className="flex items-center gap-2 mb-1">
             <Smartphone size={18} className="text-insignia-advertencia" />
             <h3 className="text-sm font-semibold text-texto-primario">Notificaciones push</h3>
@@ -284,7 +284,7 @@ export function SeccionNotificaciones() {
         </div>
       )}
       {push.soportado && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
           <div className="px-5 py-4 border-b border-borde-sutil">
             <div className="flex items-center gap-2 mb-1">
               <Smartphone size={18} className="text-texto-terciario" />
@@ -319,7 +319,7 @@ export function SeccionNotificaciones() {
 
       {/* ── Recibir todas las notificaciones (solo admin/propietario) ── */}
       {esAdminOPropietario && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
@@ -339,7 +339,7 @@ export function SeccionNotificaciones() {
       )}
 
       {/* ── Permisos del dispositivo ── */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
         <div className="px-5 py-4 border-b border-borde-sutil">
           <h3 className="text-sm font-semibold text-texto-primario mb-0.5">Permisos del dispositivo</h3>
           <p className="text-xs text-texto-terciario">Permisos que Flux necesita para funcionar correctamente en este dispositivo.</p>
@@ -398,7 +398,7 @@ export function SeccionNotificaciones() {
       </div>
 
       {/* Info sobre PWA */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <h3 className="text-sm font-semibold text-texto-secundario mb-2">¿Tenés problemas con los permisos?</h3>
         <div className="text-xs text-texto-terciario space-y-2 leading-relaxed">
           <p>

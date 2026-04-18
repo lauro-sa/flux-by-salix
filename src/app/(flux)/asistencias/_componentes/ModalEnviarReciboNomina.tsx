@@ -228,7 +228,7 @@ export function ModalEnviarReciboNomina({
     setResultadoLote(null)
 
     // Canales de correo
-    fetch('/api/inbox/canales?tipo=correo&modulo=asistencias')
+    fetch('/api/correo/canales?modulo=asistencias')
       .then(r => r.json())
       .then(data => {
         const mapped: CanalCorreoEmpresa[] = ((data.canales || []) as Record<string, unknown>[])
@@ -249,7 +249,7 @@ export function ModalEnviarReciboNomina({
       .catch(() => {})
 
     // Canales de WhatsApp
-    fetch('/api/inbox/canales?tipo=whatsapp')
+    fetch('/api/whatsapp/canales')
       .then(r => r.json())
       .then(data => {
         const mapped = ((data.canales || []) as Record<string, unknown>[])
@@ -521,7 +521,7 @@ export function ModalEnviarReciboNomina({
             <div className="space-y-1">
               <p className="text-xs font-medium text-texto-terciario mb-2">Errores:</p>
               {resultadoLote.resultados.filter(r => !r.ok).map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-insignia-peligro bg-insignia-peligro/10 rounded-md px-3 py-2">
+                <div key={i} className="flex items-center gap-2 text-xs text-insignia-peligro bg-insignia-peligro/10 rounded-boton px-3 py-2">
                   <AlertCircle size={12} />
                   <span>{r.nombre || r.correo || r.telefono || 'Desconocido'}: {r.error}</span>
                 </div>
@@ -538,7 +538,7 @@ export function ModalEnviarReciboNomina({
           <div className="flex gap-2">
             <button
               onClick={() => setCanalTipo('correo')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-card text-sm font-medium transition-all cursor-pointer border ${
                 canalTipo === 'correo'
                   ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
                   : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
@@ -552,7 +552,7 @@ export function ModalEnviarReciboNomina({
             </button>
             <button
               onClick={() => setCanalTipo('whatsapp')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-card text-sm font-medium transition-all cursor-pointer border ${
                 canalTipo === 'whatsapp'
                   ? 'bg-[#25D366]/15 border-[#25D366]/40 text-[#25D366]'
                   : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
@@ -575,7 +575,7 @@ export function ModalEnviarReciboNomina({
                   <select
                     value={canalCorreoSeleccionado}
                     onChange={e => setCanalCorreoSeleccionado(e.target.value)}
-                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-lg px-3 py-2 text-texto-primario"
+                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
                   >
                     {canalesCorreo.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre} ({c.email})</option>
@@ -586,7 +586,7 @@ export function ModalEnviarReciboNomina({
 
               <div>
                 <label className="text-xs font-medium text-texto-terciario mb-1 block">Asunto (preview)</label>
-                <div className="text-sm bg-superficie-elevada/30 border border-borde-sutil rounded-lg px-3 py-2 text-texto-primario">
+                <div className="text-sm bg-superficie-elevada/30 border border-borde-sutil rounded-card px-3 py-2 text-texto-primario">
                   {asuntoPreview}
                 </div>
               </div>
@@ -597,7 +597,7 @@ export function ModalEnviarReciboNomina({
                 </label>
                 <HtmlSeguro
                   html={htmlPreview}
-                  className="text-sm bg-superficie-elevada/20 border border-borde-sutil rounded-lg px-4 py-3 max-h-[300px] overflow-y-auto prose prose-sm prose-invert"
+                  className="text-sm bg-superficie-elevada/20 border border-borde-sutil rounded-card px-4 py-3 max-h-[300px] overflow-y-auto prose prose-sm prose-invert"
                 />
               </div>
             </div>
@@ -608,7 +608,7 @@ export function ModalEnviarReciboNomina({
             <div className="space-y-4">
               {/* Alerta si la plantilla no está aprobada */}
               {plantillaWA && !plantillaWAAprobada && (
-                <div className="flex items-start gap-2 text-xs text-insignia-advertencia bg-insignia-advertencia/10 rounded-lg px-3 py-2.5">
+                <div className="flex items-start gap-2 text-xs text-insignia-advertencia bg-insignia-advertencia/10 rounded-card px-3 py-2.5">
                   <AlertCircle size={14} className="shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium">Plantilla pendiente de aprobación</p>
@@ -620,7 +620,7 @@ export function ModalEnviarReciboNomina({
               )}
 
               {!plantillaWA && (
-                <div className="flex items-start gap-2 text-xs text-insignia-peligro bg-insignia-peligro/10 rounded-lg px-3 py-2.5">
+                <div className="flex items-start gap-2 text-xs text-insignia-peligro bg-insignia-peligro/10 rounded-card px-3 py-2.5">
                   <AlertCircle size={14} className="shrink-0 mt-0.5" />
                   <p>No se encontró la plantilla de WhatsApp para nómina. Creala desde Inbox → Configuración → Plantillas.</p>
                 </div>
@@ -632,7 +632,7 @@ export function ModalEnviarReciboNomina({
                   <select
                     value={canalWASeleccionado}
                     onChange={e => setCanalWASeleccionado(e.target.value)}
-                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-lg px-3 py-2 text-texto-primario"
+                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
                   >
                     {canalesWA.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
@@ -653,7 +653,7 @@ export function ModalEnviarReciboNomina({
                       <span className="text-xs font-medium text-white">Vista previa</span>
                     </div>
                     <div className="p-3 bg-[#ECE5DD] dark:bg-[#0b141a]">
-                      <div className="rounded-lg p-2.5 max-w-[290px] shadow-sm bg-white dark:bg-[#1f2c33]">
+                      <div className="rounded-card p-2.5 max-w-[290px] shadow-sm bg-white dark:bg-[#1f2c33]">
                         {previewWA.encabezado && (
                           <p className="text-sm font-semibold mb-1 text-gray-900 dark:text-gray-100">
                             {previewWA.encabezado}
@@ -693,7 +693,7 @@ export function ModalEnviarReciboNomina({
               {empleadosDisponibles.map(r => (
                 <div
                   key={r.miembro_id}
-                  className="flex items-center justify-between bg-superficie-elevada/20 border border-borde-sutil rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-superficie-elevada/20 border border-borde-sutil rounded-card px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
                     {canalTipo === 'correo' ? (
@@ -715,7 +715,7 @@ export function ModalEnviarReciboNomina({
               {empleadosNoDisponibles.map(r => (
                 <div
                   key={r.miembro_id}
-                  className="flex items-center justify-between bg-insignia-advertencia/5 border border-insignia-advertencia/20 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-insignia-advertencia/5 border border-insignia-advertencia/20 rounded-card px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
                     {canalTipo === 'correo' ? (

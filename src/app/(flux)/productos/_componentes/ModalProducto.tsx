@@ -17,7 +17,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import dynamic from 'next/dynamic'
 const EditorTexto = dynamic(
   () => import('@/componentes/ui/EditorTexto').then(m => m.EditorTexto),
-  { ssr: false, loading: () => <div className="h-[140px] animate-pulse rounded-lg bg-white/[0.04]" /> }
+  { ssr: false, loading: () => <div className="h-[140px] animate-pulse rounded-card bg-white/[0.04]" /> }
 )
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
@@ -308,16 +308,16 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
       titulo={esEdicion ? `Editar ${etiquetaTipo}` : `Nuevo ${etiquetaTipo}`}
       tamano="5xl"
       sinPadding
-      acciones={
-        <>
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar} disabled={guardando}>
-            {t('comun.cancelar')}
-          </Boton>
-          <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!nombre.trim()}>
-            {esEdicion ? `Guardar ${etiquetaTipo}` : `Crear ${etiquetaTipo}`}
-          </Boton>
-        </>
-      }
+      accionPrimaria={{
+        etiqueta: esEdicion ? `Guardar ${etiquetaTipo}` : `Crear ${etiquetaTipo}`,
+        onClick: manejarGuardar,
+        cargando: guardando,
+        disabled: !nombre.trim(),
+      }}
+      accionSecundaria={{
+        etiqueta: t('comun.cancelar'),
+        onClick: onCerrar,
+      }}
     >
       <div className="flex flex-col">
 
@@ -334,7 +334,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
             className="flex-1 min-w-0 text-[15px] font-medium" autoFocus />
 
           {/* Tipo toggle */}
-          <div className="flex items-center rounded-lg overflow-hidden border border-white/[0.06] shrink-0">
+          <div className="flex items-center rounded-card overflow-hidden border border-white/[0.06] shrink-0">
             {(['servicio', 'producto'] as TipoProducto[]).map(t => {
               const activo = tipo === t
               const color = COLOR_TIPO_PRODUCTO[t]
@@ -358,7 +358,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* Código (edición) */}
           {esEdicion && (
-            <span className="text-xs font-mono text-texto-terciario bg-white/[0.04] px-2 py-1 rounded-md border border-white/[0.06] shrink-0">
+            <span className="text-xs font-mono text-texto-terciario bg-white/[0.04] px-2 py-1 rounded-boton border border-white/[0.06] shrink-0">
               {producto!.codigo}
             </span>
           )}
@@ -433,7 +433,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   </div>
 
                   {/* Margen */}
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-card border border-white/[0.06] bg-white/[0.03]">
                     <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Margen</span>
                     <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-insignia-exito' : 'text-insignia-peligro') : 'text-texto-terciario'}`}>
                       {margenDisplay}
@@ -443,7 +443,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               </div>
 
               {/* Nota informativa — con espacio adecuado */}
-              <div className="flex items-start gap-2.5 mx-6 my-4 px-4 py-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+              <div className="flex items-start gap-2.5 mx-6 my-4 px-4 py-3 rounded-card border border-white/[0.06] bg-white/[0.02]">
                 <Info size={14} className="text-texto-terciario shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed text-texto-terciario">
                   Las categorías, unidades y categorías de costo se gestionan desde <span className="font-semibold text-texto-secundario">Configuración</span> en Productos.
@@ -458,25 +458,25 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
             <div className="p-6 space-y-5">
               {/* Interna + Cotización lado a lado */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                <div className="rounded-card border border-white/[0.06] overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
                     <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
                       <FileText size={13} className="text-texto-terciario" />
                       Descripción interna
                     </label>
-                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Solo equipo</span>
+                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-boton border border-white/[0.06]">Solo equipo</span>
                   </div>
                   <EditorTexto contenido={descripcion} onChange={setDescripcion}
                     placeholder="Descripción para uso interno del equipo..." alturaMinima={140} />
                 </div>
 
-                <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                <div className="rounded-card border border-white/[0.06] overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
                     <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
                       <FileText size={13} className="text-texto-terciario" />
                       Descripción para cotización
                     </label>
-                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Visible en docs</span>
+                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-boton border border-white/[0.06]">Visible en docs</span>
                   </div>
                   <EditorTexto contenido={descripcionVenta} onChange={setDescripcionVenta}
                     placeholder="Texto que aparecerá en presupuestos y facturas..." alturaMinima={140} />
@@ -484,13 +484,13 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               </div>
 
               {/* Notas internas — ancho completo */}
-              <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+              <div className="rounded-card border border-white/[0.06] overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
                   <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
                     <FileText size={13} className="text-texto-terciario" />
                     Notas internas
                   </label>
-                  <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Privado</span>
+                  <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-boton border border-white/[0.06]">Privado</span>
                 </div>
                 <EditorTexto contenido={notasInternas} onChange={setNotasInternas}
                   placeholder="Notas privadas, no visibles para clientes..." alturaMinima={100} />
@@ -512,7 +512,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               </div>
 
               {desgloseCostos.length > 0 ? (
-                <div className="rounded-xl border border-borde-sutil overflow-hidden">
+                <div className="rounded-card border border-borde-sutil overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-superficie-app border-b border-borde-sutil">
@@ -581,7 +581,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   </table>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-borde-sutil p-10 text-center text-texto-terciario">
+                <div className="rounded-card border border-dashed border-borde-sutil p-10 text-center text-texto-terciario">
                   <BarChart3 size={36} className="mx-auto mb-3 opacity-30" />
                   <p className="text-sm font-medium">Sin desglose de costos</p>
                   <p className="text-xs mt-1">Si no detallás costos acá, podés cargar el costo unitario manualmente en el tab General.</p>
@@ -590,7 +590,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
               {/* Resumen margen */}
               {precio > 0 && costoEfectivo > 0 && (
-                <div className="rounded-xl border border-borde-sutil p-5 bg-superficie-app">
+                <div className="rounded-card border border-borde-sutil p-5 bg-superficie-app">
                   <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center">
                     <div>
                       <p className="text-xs text-texto-terciario mb-1">Precio venta</p>
@@ -688,7 +688,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               <div className="border-t border-white/[0.07]" />
 
               {/* Alerta stock */}
-              <div className="flex items-center justify-between py-2.5 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+              <div className="flex items-center justify-between py-2.5 px-3 rounded-card border border-white/[0.06] bg-white/[0.03]">
                 <div>
                   <p className="text-xs font-medium text-texto-secundario">Alertar cuando el stock esté bajo</p>
                   <p className="text-[11px] text-texto-terciario mt-0.5">Se notifica al llegar al punto de reorden</p>

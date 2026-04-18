@@ -219,7 +219,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-borde-sutil">
             <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-lg bg-texto-marca/10 flex items-center justify-center">
+              <div className="size-8 rounded-card bg-texto-marca/10 flex items-center justify-center">
                 <Sparkles size={16} className="text-texto-marca" />
               </div>
               <div>
@@ -240,7 +240,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
               autoFocus
             />
             {/* Selector de modo */}
-            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-superficie-app border border-borde-sutil mt-3">
+            <div className="flex items-center gap-1 p-0.5 rounded-card bg-superficie-app border border-borde-sutil mt-3">
               {([
                 { id: 'simple' as const, label: 'Redactar' },
                 { id: 'paquete' as const, label: 'Crear' },
@@ -274,12 +274,12 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                   transition={{ duration: 0.3 }}
                   className="mt-4"
                 >
-                  <div className="rounded-xl bg-texto-marca/5 border border-texto-marca/20 p-5">
+                  <div className="rounded-card bg-texto-marca/5 border border-texto-marca/20 p-5">
                     <div className="flex flex-col items-center text-center gap-3">
                       <motion.div
                         animate={{ rotate: [0, 360] }}
                         transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                        className="size-10 rounded-xl bg-texto-marca/15 flex items-center justify-center"
+                        className="size-10 rounded-card bg-texto-marca/15 flex items-center justify-center"
                       >
                         <Sparkles size={20} className="text-texto-marca" />
                       </motion.div>
@@ -404,7 +404,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                         {/* Fila 1: icono + nombre + badges */}
                         <div className="flex items-start gap-2.5">
                           <div
-                            className="size-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+                            className="size-7 rounded-boton flex items-center justify-center shrink-0 mt-0.5"
                             style={{
                               backgroundColor: `var(--insignia-${linea.es_nuevo ? 'advertencia' : 'exito'}-fondo)`,
                               color: `var(--insignia-${linea.es_nuevo ? 'advertencia' : 'exito'}-texto)`,

@@ -39,9 +39,8 @@ export async function GET(request: NextRequest) {
       try {
         const admin = crearClienteAdmin()
         const { data: canalesGmail } = await admin
-          .from('canales_inbox')
+          .from('canales_correo')
           .select('id, config_conexion, sync_cursor')
-          .eq('tipo', 'correo')
           .eq('proveedor', 'gmail_oauth')
           .eq('activo', true)
 
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
               try {
                 const watch = await registrarWatchGmail(config.refresh_token, topicName)
                 await admin
-                  .from('canales_inbox')
+                  .from('canales_correo')
                   .update({
                     sync_cursor: {
                       ...cursor,

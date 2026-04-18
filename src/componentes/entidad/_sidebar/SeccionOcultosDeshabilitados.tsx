@@ -51,7 +51,7 @@ function SeccionOcultosDeshabilitados({
                       href={item.ruta}
                       onClick={() => { onCerrarMobil(); vibrar() }}
                       style={{ color: 'var(--texto-terciario)' }}
-                      className="flex items-center gap-2 px-1.5 py-2 rounded-md no-underline hover:bg-superficie-hover transition-colors"
+                      className="flex items-center gap-2 px-1.5 py-2 rounded-boton no-underline hover:bg-superficie-hover transition-colors"
                     >
                       <span className="shrink-0 flex opacity-50 ml-6">{item.icono}</span>
                       <span className="flex-1 truncate text-sm opacity-60">{item.etiqueta}</span>
@@ -86,7 +86,7 @@ function SeccionOcultosDeshabilitados({
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-px overflow-hidden">
                 {itemsDeshabilitados.map(item => (
                   <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="relative group">
-                    <div className="flex items-center gap-2 px-1.5 py-2 rounded-md cursor-not-allowed" style={{ color: 'var(--texto-terciario)' }}>
+                    <div className="flex items-center gap-2 px-1.5 py-2 rounded-boton cursor-not-allowed" style={{ color: 'var(--texto-terciario)' }}>
                       <span className="shrink-0 flex opacity-30 ml-6">{item.icono}</span>
                       <span className="flex-1 truncate text-sm opacity-40 line-through">{item.etiqueta}</span>
                     </div>

@@ -12,8 +12,8 @@ import {
   FileText, Image, Film, Tag, MoreHorizontal,
 } from 'lucide-react'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
-import { PanelIA } from './PanelIA'
-import { ModalEtiquetas } from './ModalEtiquetas'
+import { PanelIA } from '@/componentes/mensajeria/PanelIA'
+import { ModalEtiquetas } from '@/componentes/mensajeria/ModalEtiquetas'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import DOMPurify from 'isomorphic-dompurify'
@@ -81,31 +81,30 @@ function VisorCorreoHTML({ html }: { html: string }) {
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus'],
   })
 
-  // Construir documento completo — respeta dark/light mode del sistema.
-  // Correos con estilos inline (fondo blanco, colores fijos) se ven con su diseño original.
-  // Correos sin estilos (texto plano, HTML básico) heredan el tema del sistema.
+  // Correo con fondo blanco fijo (como Gmail/Outlook), para que los estilos inline
+  // del remitente se lean siempre, sin importar el tema de la app.
   const documentoCompleto = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
 <base target="_blank">
 <style>
-:root { color-scheme: light dark; }
+html, body {
+  background-color: #ffffff !important;
+  color: #1a1a1a;
+}
 body {
   margin: 0;
-  padding: 12px;
+  padding: 16px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  background-color: transparent;
-  color: light-dark(#1a1a1a, #e0e0e0);
 }
-a { color: light-dark(#2563eb, #60a5fa); }
+a { color: #2563eb; }
 img {
   max-width: 100% !important;
   height: auto !important;
@@ -152,9 +151,10 @@ pre { white-space: pre-wrap; }
 
   return (
     <div
-      className="rounded-lg overflow-hidden transition-opacity duration-200"
+      className="rounded-card overflow-hidden transition-opacity duration-200"
       style={{
         border: '1px solid var(--borde-sutil)',
+        background: '#ffffff',
         opacity: listo ? 1 : 0.3,
       }}
     >
@@ -166,7 +166,7 @@ pre { white-space: pre-wrap; }
         style={{
           height: listo ? altura : 80,
           maxHeight: 2000,
-          background: 'transparent',
+          background: '#ffffff',
           transition: 'height 0.2s ease',
         }}
         title="Contenido del correo"
@@ -356,7 +356,7 @@ export function PanelCorreo({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px]"
+                    className="absolute right-0 top-full mt-1 z-50 rounded-card py-1 min-w-[180px]"
                     style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                   >
                     <OpcionMenu icono={<ReplyAll size={14} />} onClick={() => { handleResponder('responder_todos'); setMenuOverflow(false) }}>{t('inbox.responder_todos')}</OpcionMenu>
@@ -412,51 +412,55 @@ export function PanelCorreo({
               return (
                 <div key={msg.id} className="px-4">
                   {/* Cabecera del mensaje (clickeable solo si hay múltiples mensajes en el hilo) */}
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    anchoCompleto
+                  <div
+                    role={esSoloMensaje ? undefined : 'button'}
+                    tabIndex={esSoloMensaje ? undefined : 0}
                     onClick={esSoloMensaje ? undefined : () => toggleExpandido(msg.id)}
-                    className={`py-3 ${esSoloMensaje ? 'cursor-default' : ''}`}
+                    onKeyDown={esSoloMensaje ? undefined : (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpandido(msg.id) }
+                    }}
+                    className={`flex items-center gap-3 py-4 rounded-md transition-colors ${
+                      esSoloMensaje ? 'cursor-default' : 'cursor-pointer hover:bg-[var(--superficie-hover)] -mx-2 px-2'
+                    }`}
                   >
-                    <span className="w-full flex items-center gap-3">
+                    <div className="flex-shrink-0">
                       <Avatar
                         nombre={msg.remitente_nombre || msg.correo_de || '?'}
                         tamano="sm"
                       />
-                      <span className="flex-1 min-w-0 text-left">
-                        <span className="flex items-center gap-2">
-                          <span className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
-                            {msg.remitente_nombre || msg.correo_de}
-                          </span>
-                          {!msg.es_entrante && (
-                            <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
-                          )}
-                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {formatoFechaCorreo(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
-                          </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
+                          {msg.remitente_nombre || msg.correo_de}
                         </span>
-                        {!expandido && (
-                          <span className="text-xs truncate block" style={{ color: 'var(--texto-terciario)' }}>
-                            {msg.texto}
-                          </span>
+                        {!msg.es_entrante && (
+                          <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
                         )}
-                      </span>
-                      <span className="flex items-center gap-1 flex-shrink-0">
-                        {msg.adjuntos.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            <Paperclip size={12} />
-                            {msg.adjuntos.length}
-                          </span>
-                        )}
-                        {!esSoloMensaje && (expandido ? (
-                          <ChevronUp size={14} style={{ color: 'var(--texto-terciario)' }} />
-                        ) : (
-                          <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
-                        ))}
-                      </span>
-                    </span>
-                  </Boton>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                          {formatoFechaCorreo(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
+                        </span>
+                      </div>
+                      {!expandido && (
+                        <p className="text-xs truncate mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                          {msg.texto}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {msg.adjuntos.length > 0 && (
+                        <span className="flex items-center gap-0.5 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                          <Paperclip size={12} />
+                          {msg.adjuntos.length}
+                        </span>
+                      )}
+                      {!esSoloMensaje && (expandido ? (
+                        <ChevronUp size={14} style={{ color: 'var(--texto-terciario)' }} />
+                      ) : (
+                        <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Cuerpo del mensaje (expandido) */}
                   <AnimatePresence>
@@ -523,7 +527,7 @@ export function PanelCorreo({
                                   href={adj.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="group flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors"
+                                  className="group flex items-center gap-2 px-2.5 py-1.5 rounded-boton text-xs transition-colors"
                                   style={{
                                     background: 'var(--superficie-hover)',
                                     color: 'var(--texto-secundario)',

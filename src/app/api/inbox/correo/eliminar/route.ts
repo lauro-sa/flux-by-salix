@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Obtener canal para saber el proveedor
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_correo')
       .select('id, proveedor, config_conexion')
       .eq('id', conversacion.canal_id)
       .single()

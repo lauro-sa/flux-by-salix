@@ -82,7 +82,7 @@ const itemsTimeline = [
 
 function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5 flex flex-col gap-4 cristal-panel scroll-mt-20">
+    <section id={id} className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 flex flex-col gap-4 cristal-panel scroll-mt-20">
       <h2 className="text-lg font-semibold text-texto-primario pb-2 border-b border-borde-sutil">{titulo}</h2>
       {children}
     </section>
@@ -112,7 +112,7 @@ function BotonOpcion({ activo, deshabilitado, onClick, icono, etiqueta, descripc
       onClick={onClick}
       disabled={deshabilitado}
       className={`
-        relative flex flex-col items-center gap-2 p-4 rounded-lg border transition-all duration-200 cursor-pointer
+        relative flex flex-col items-center gap-2 p-4 rounded-card border transition-all duration-200 cursor-pointer
         ${activo ? 'border-texto-marca bg-superficie-seleccionada' : 'border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover'}
         ${deshabilitado ? 'opacity-40 cursor-not-allowed' : ''}
       `}
@@ -129,7 +129,7 @@ function BotonOpcion({ activo, deshabilitado, onClick, icono, etiqueta, descripc
 /** Mini preview de UI para las tarjetas de tema */
 function MiniUI({ fondo, barra, lineas }: { fondo: string; barra: string; lineas: string }) {
   return (
-    <div className={`w-full h-20 rounded-md ${fondo} p-2 flex flex-col gap-1.5 border border-borde-sutil`}>
+    <div className={`w-full h-20 rounded-boton ${fondo} p-2 flex flex-col gap-1.5 border border-borde-sutil`}>
       <div className={`h-2 w-full rounded-sm ${barra}`} />
       <div className={`h-1.5 w-3/4 rounded-sm ${lineas}`} />
       <div className={`h-1.5 w-1/2 rounded-sm ${lineas}`} />
@@ -161,7 +161,7 @@ function SelectorApariencia() {
               key={e.clave}
               onClick={() => cambiarEscala(e.clave)}
               className={`
-                relative flex items-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer text-left
+                relative flex items-center gap-3 p-4 rounded-card border transition-all duration-200 cursor-pointer text-left
                 ${escala === e.clave ? 'border-texto-marca bg-superficie-seleccionada' : 'border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover'}
               `}
             >
@@ -191,7 +191,7 @@ function SelectorApariencia() {
               key={t.clave}
               onClick={() => cambiarTema(t.clave)}
               className={`
-                relative flex flex-col items-center gap-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer
+                relative flex flex-col items-center gap-2 p-3 rounded-card border transition-all duration-200 cursor-pointer
                 ${tema === t.clave ? 'border-texto-marca bg-superficie-seleccionada' : 'border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover'}
               `}
             >
@@ -224,14 +224,14 @@ function SelectorApariencia() {
                 onClick={() => !deshabilitado && cambiarEfecto(e.clave)}
                 disabled={deshabilitado}
                 className={`
-                  relative flex flex-col items-center gap-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer
+                  relative flex flex-col items-center gap-2 p-3 rounded-card border transition-all duration-200 cursor-pointer
                   ${efecto === e.clave ? 'border-texto-marca bg-superficie-seleccionada' : 'border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover'}
                   ${deshabilitado ? 'opacity-40 cursor-not-allowed' : ''}
                 `}
                 title={deshabilitado ? razonNoCristal : undefined}
               >
                 {/* Preview: rectángulos simulando paneles con diferente opacidad */}
-                <div className="w-full h-20 rounded-md bg-gradient-to-br from-insignia-violeta/20 via-insignia-info/15 to-insignia-cyan/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
+                <div className="w-full h-20 rounded-boton bg-gradient-to-br from-insignia-violeta/20 via-insignia-info/15 to-insignia-cyan/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
                   <div className={`h-2 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad}`} />
                   <div className={`h-6 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad} mt-auto`} />
                 </div>
@@ -243,7 +243,7 @@ function SelectorApariencia() {
           })}
         </div>
         {!soportaCristal && (
-          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-insignia-advertencia-fondo text-insignia-advertencia-texto text-xs">
+          <div className="mt-3 flex items-start gap-2 p-3 rounded-card bg-insignia-advertencia-fondo text-insignia-advertencia-texto text-xs">
             <span className="shrink-0 mt-0.5">⚠</span>
             <span>{razonNoCristal || 'Los efectos de transparencia requieren un dispositivo con GPU potente. En equipos más antiguos la interfaz puede sentirse lenta.'} Usá el modo <strong>Sólido</strong>.</span>
           </div>
@@ -267,11 +267,11 @@ function SelectorApariencia() {
                   key={f.clave}
                   onClick={() => cambiarFondo(f.clave)}
                   className={`
-                    relative flex flex-col items-center gap-2 p-3 rounded-lg border transition-all duration-200 cursor-pointer
+                    relative flex flex-col items-center gap-2 p-3 rounded-card border transition-all duration-200 cursor-pointer
                     ${fondoCristal === f.clave ? 'border-texto-marca bg-superficie-seleccionada' : 'border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover'}
                   `}
                 >
-                  <div className={`w-full h-14 rounded-md border border-borde-sutil ${f.gradiente ? 'bg-gradient-to-br ' + f.gradiente : 'bg-superficie-app'}`} />
+                  <div className={`w-full h-14 rounded-boton border border-borde-sutil ${f.gradiente ? 'bg-gradient-to-br ' + f.gradiente : 'bg-superficie-app'}`} />
                   <span className={`text-xs font-medium ${fondoCristal === f.clave ? 'text-texto-marca' : 'text-texto-primario'}`}>{f.etiqueta}</span>
                   <span className="text-xxs text-texto-terciario">{f.descripcion}</span>
                   {fondoCristal === f.clave && <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-texto-marca" />}
@@ -493,7 +493,7 @@ function SeccionEditorTexto({ id }: { id?: string }) {
       {html && (
         <details className="mt-3">
           <summary className="text-xxs text-texto-terciario cursor-pointer">Ver HTML generado</summary>
-          <pre className="mt-2 p-3 rounded-md bg-superficie-hover text-xxs text-texto-secundario overflow-x-auto max-h-32">
+          <pre className="mt-2 p-3 rounded-boton bg-superficie-hover text-xxs text-texto-secundario overflow-x-auto max-h-32">
             {html}
           </pre>
         </details>
@@ -589,7 +589,7 @@ const catalogoTipos = [
 function iconoNotifPeq(Icono: typeof Mail, color: string) {
   return (
     <div
-      className="size-6 rounded-md flex items-center justify-center shrink-0"
+      className="size-6 rounded-boton flex items-center justify-center shrink-0"
       style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
     >
       <Icono size={12} style={{ color }} />
@@ -640,7 +640,7 @@ const pushDemo = [
 function iconoNotif(Icono: typeof Mail, color: string) {
   return (
     <div
-      className="size-8 rounded-lg flex items-center justify-center shrink-0"
+      className="size-8 rounded-card flex items-center justify-center shrink-0"
       style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
     >
       <Icono size={16} style={{ color }} />
@@ -803,11 +803,11 @@ function SeccionModoConcentracion() {
     <div className="flex flex-col gap-4">
       <div>
         <Etiqueta>Ciclo rápido (como aparece en el menú Flux)</Etiqueta>
-        <div className="flex items-center gap-3 mt-2 p-4 rounded-xl bg-superficie-hover">
+        <div className="flex items-center gap-3 mt-2 p-4 rounded-card bg-superficie-hover">
           <button
             onClick={ciclar}
             className={[
-              'flex items-center gap-2.5 flex-1 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left',
+              'flex items-center gap-2.5 flex-1 px-3 py-2.5 rounded-card border cursor-pointer transition-all text-left',
               activo
                 ? 'bg-insignia-advertencia-fondo/50 border-insignia-advertencia-texto/20 text-insignia-advertencia-texto'
                 : 'bg-superficie-tarjeta border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-borde-fuerte',
@@ -942,7 +942,7 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
       <Separador etiqueta="Catálogo de tipos de notificación" />
       <div>
         <Etiqueta>Todos los tipos que existen en el sistema, organizados por categoría</Etiqueta>
-        <div className="mt-3 border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="mt-3 border border-borde-sutil rounded-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-superficie-hover text-texto-terciario text-xs text-left">
@@ -979,7 +979,7 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
       </div>
 
       <Separador etiqueta="Panel en estado vacío" />
-      <div className="border border-borde-sutil rounded-2xl overflow-hidden max-w-[400px]">
+      <div className="border border-borde-sutil rounded-modal overflow-hidden max-w-[400px]">
         <PanelNotificaciones
           titulo="Inbox"
           iconoTitulo={<Mail size={16} className="text-texto-terciario" />}
@@ -991,7 +991,7 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
       </div>
 
       <Separador etiqueta="Panel cargando" />
-      <div className="border border-borde-sutil rounded-2xl overflow-hidden max-w-[400px]">
+      <div className="border border-borde-sutil rounded-modal overflow-hidden max-w-[400px]">
         <PanelNotificaciones
           titulo="Actividades"
           iconoTitulo={<ClipboardCheck size={16} className="text-texto-terciario" />}
@@ -1055,7 +1055,7 @@ function SeccionMarca({ id }: { id?: string }) {
       {/* Entrada automática con ensamble */}
       <div>
         <Etiqueta>Entrada automática al cargar (ensamble + hover)</Etiqueta>
-        <div className="flex items-center justify-center py-8 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+        <div className="flex items-center justify-center py-8 rounded-card" style={{ backgroundColor: 'var(--superficie-hover)' }}>
           <LogoSalix layout="completo" tamano={52} animacion="ensamble" escalaTexto={1.2} />
         </div>
       </div>
@@ -1075,7 +1075,7 @@ function SeccionMarca({ id }: { id?: string }) {
       <Separador etiqueta="Animaciones bajo demanda" />
       <div>
         <Etiqueta>Reproducir animaciones de entrada</Etiqueta>
-        <div className="flex flex-col items-center gap-6 py-6 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+        <div className="flex flex-col items-center gap-6 py-6 rounded-card" style={{ backgroundColor: 'var(--superficie-hover)' }}>
           <div key={keyReset}>
             <LogoSalix layout="completo" tamano={48} animacion={animacion} escalaTexto={1.1} hover={false} tap={false} />
           </div>
@@ -1108,10 +1108,10 @@ function SeccionMarca({ id }: { id?: string }) {
       <div>
         <Etiqueta>Sobre fondos</Etiqueta>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="flex items-center justify-center py-6 rounded-lg bg-white">
+          <div className="flex items-center justify-center py-6 rounded-card bg-white">
             <LogoSalix layout="horizontal" tamano={28} color="#111111" />
           </div>
-          <div className="flex items-center justify-center py-6 rounded-lg bg-superficie-app">
+          <div className="flex items-center justify-center py-6 rounded-card bg-superficie-app">
             <LogoSalix layout="horizontal" tamano={28} color="#ffffff" />
           </div>
         </div>
@@ -1156,7 +1156,7 @@ export default function PaginaVitrina() {
       </div>
 
       {/* Indice de navegacion */}
-      <nav className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5 cristal-panel">
+      <nav className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 cristal-panel">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4 text-sm">
           <div>
             <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Fundamentos</h3>
@@ -1239,9 +1239,9 @@ export default function PaginaVitrina() {
         <div>
           <Etiqueta>Canales</Etiqueta>
           <Fila>
-            <span className="px-3 py-1.5 rounded-md bg-canal-whatsapp-fondo text-canal-whatsapp text-sm font-medium">WhatsApp</span>
-            <span className="px-3 py-1.5 rounded-md bg-canal-correo-fondo text-canal-correo text-sm font-medium">Correo</span>
-            <span className="px-3 py-1.5 rounded-md bg-canal-interno-fondo text-canal-interno text-sm font-medium">Interno</span>
+            <span className="px-3 py-1.5 rounded-boton bg-canal-whatsapp-fondo text-canal-whatsapp text-sm font-medium">WhatsApp</span>
+            <span className="px-3 py-1.5 rounded-boton bg-canal-correo-fondo text-canal-correo text-sm font-medium">Correo</span>
+            <span className="px-3 py-1.5 rounded-boton bg-canal-interno-fondo text-canal-interno text-sm font-medium">Interno</span>
           </Fila>
         </div>
       </Seccion>
@@ -1440,7 +1440,7 @@ export default function PaginaVitrina() {
               <button
                 key={t.id}
                 onClick={() => mostrar(t.tipo, t.mensaje)}
-                className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-hover bg-superficie-tarjeta cursor-pointer transition-colors"
+                className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-card border border-borde-sutil hover:bg-superficie-hover bg-superficie-tarjeta cursor-pointer transition-colors"
               >
                 <span className={`shrink-0 size-2 rounded-full ${t.tipo === 'exito' ? 'bg-insignia-exito' : t.tipo === 'error' ? 'bg-insignia-peligro' : t.tipo === 'advertencia' ? 'bg-insignia-advertencia' : 'bg-insignia-info'}`} />
                 <div className="flex-1 min-w-0">
@@ -1460,12 +1460,12 @@ export default function PaginaVitrina() {
             {toastsNotifDemo.map((t) => (
               <div
                 key={t.id}
-                className="border border-borde-sutil rounded-2xl overflow-hidden shadow-sm"
+                className="border border-borde-sutil rounded-modal overflow-hidden shadow-sm"
                 style={{ backgroundColor: 'var(--superficie-elevada)' }}
               >
                 <div className="flex items-start gap-3 p-4">
                   <div
-                    className="size-9 rounded-xl flex items-center justify-center shrink-0"
+                    className="size-9 rounded-card flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `color-mix(in srgb, ${t.color} 12%, transparent)` }}
                   >
                     {t.iconoComp}
@@ -1496,9 +1496,9 @@ export default function PaginaVitrina() {
             {pushDemo.map((p) => (
               <div
                 key={p.id}
-                className="flex items-start gap-3 px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-tarjeta"
+                className="flex items-start gap-3 px-4 py-3 rounded-card border border-borde-sutil bg-superficie-tarjeta"
               >
-                <div className="size-10 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+                <div className="size-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
                   <img src="/icons/icon-72x72.png" alt="Flux" className="size-6 rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1548,7 +1548,7 @@ export default function PaginaVitrina() {
           </Fila>
         </div>
         <Separador etiqueta="Cargador de página (con logo Salix)" />
-        <div className="rounded-xl border border-borde-sutil overflow-hidden" style={{ backgroundColor: 'var(--superficie-app)' }}>
+        <div className="rounded-card border border-borde-sutil overflow-hidden" style={{ backgroundColor: 'var(--superficie-app)' }}>
           <Cargador tamano="pagina" texto="Cargando..." />
         </div>
         <div>

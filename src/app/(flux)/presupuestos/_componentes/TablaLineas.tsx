@@ -186,7 +186,7 @@ function TablaLineas({
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg py-2 z-20 min-w-[220px]"
+                  className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg py-2 z-20 min-w-[220px]"
                 >
                   {/* Columnas visibles — reordenables */}
                   <div className="px-3 pb-1 mb-1 border-b border-borde-sutil">
@@ -205,7 +205,7 @@ function TablaLineas({
                         <Reorder.Item
                           key={colId}
                           value={colId}
-                          className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-grab active:cursor-grabbing hover:bg-superficie-tarjeta"
+                          className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-boton cursor-grab active:cursor-grabbing hover:bg-superficie-tarjeta"
                         >
                           {!col.requerida && <GripVertical size={12} className="text-texto-terciario shrink-0" />}
                           {col.requerida && <div className="w-3 shrink-0" />}
@@ -522,7 +522,7 @@ function FilaProducto({
       {/* ─── Barra de cambios vs catálogo ─── */}
       {!soloLectura && tieneCambiosCatalogo && puedeEditarProductos && (
         <div className={`flex items-center gap-2 pb-2 ${!soloLectura ? 'pl-8' : 'pl-2'} pr-10`}>
-          <div className="flex items-center gap-1.5 text-xxs text-texto-terciario bg-superficie-app/80 border border-borde-sutil/50 rounded-lg px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 text-xxs text-texto-terciario bg-superficie-app/80 border border-borde-sutil/50 rounded-card px-2.5 py-1.5">
             <span className="text-insignia-advertencia">Editado vs catálogo</span>
             <span className="text-texto-terciario/40">|</span>
             {presupuestoGuardado && onActualizarCatalogo && (

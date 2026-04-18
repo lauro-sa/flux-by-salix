@@ -683,7 +683,7 @@ export default function PaginaContacto() {
 
           {/* Banner provisorio (solo edición) */}
           {!esNuevo && esProvisorio && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-lg"
+            <div className="flex items-center justify-between px-4 py-3 rounded-card"
               style={{ background: 'var(--insignia-advertencia-fondo)', border: '1px solid var(--insignia-advertencia)' }}>
               <div className="flex items-center gap-2">
                 <Clock size={16} style={{ color: 'var(--insignia-advertencia)' }} />
@@ -876,7 +876,7 @@ export default function PaginaContacto() {
           {/* Vinculaciones / Relaciones */}
           {esNuevo ? (
             <section>
-              <div className="rounded-xl border border-borde-sutil overflow-hidden">
+              <div className="rounded-card border border-borde-sutil overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil" style={{ backgroundColor: 'var(--superficie-tarjeta)' }}>
                   <div className="flex items-center gap-2">
                     <Link2 size={15} className="text-texto-terciario" />
@@ -891,7 +891,7 @@ export default function PaginaContacto() {
                   {vinculacionesPendientes.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {vinculacionesPendientes.map(v => (
-                        <div key={v.vinculado_id} className="flex items-center gap-3 p-2.5 rounded-lg border border-borde-sutil hover:border-borde-fuerte transition-colors">
+                        <div key={v.vinculado_id} className="flex items-center gap-3 p-2.5 rounded-card border border-borde-sutil hover:border-borde-fuerte transition-colors">
                           <Avatar nombre={v.nombre} tamano="sm" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-texto-primario truncate">{v.nombre}</div>
@@ -979,7 +979,7 @@ export default function PaginaContacto() {
                     }])
                     setModalVincular(false); setBusquedaVinculo(''); setResultadosVinculo([])
                   }}
-                  className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
+                  className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-card hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
                   <Avatar nombre={[c.nombre, c.apellido].filter(Boolean).join(' ')} tamano="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-texto-primario truncate">{c.nombre} {c.apellido}</div>
@@ -998,7 +998,7 @@ export default function PaginaContacto() {
           <div className="space-y-4 p-1">
             <h3 className="text-lg font-bold text-texto-primario">{t('contactos.duplicado_detectado')}</h3>
             <p className="text-sm text-texto-secundario">{duplicado.mensaje}</p>
-            <div className="rounded-lg border border-borde-sutil p-3 flex items-center gap-3">
+            <div className="rounded-card border border-borde-sutil p-3 flex items-center gap-3">
               <div className="size-10 rounded-full bg-insignia-advertencia-fondo text-insignia-advertencia-texto flex items-center justify-center text-sm font-bold">
                 {duplicado.nombre.slice(0, 2).toUpperCase()}
               </div>
@@ -1214,7 +1214,7 @@ function SelectorConSugerencias({
       />
       {abierto && (filtradas.length > 0 || mostrarCrear) && (
         <div
-          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-40 overflow-y-auto"
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-card border border-borde-sutil shadow-elevada max-h-40 overflow-y-auto"
           style={{ backgroundColor: 'var(--superficie-elevada)' }}
           onMouseDown={e => e.preventDefault()}
         >
@@ -1334,7 +1334,7 @@ function SelectorEtiquetas({
 
       {abierto && (disponibles.length > 0 || mostrarCrear || creando) && (
         <div
-          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-48 overflow-y-auto"
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-card border border-borde-sutil shadow-elevada max-h-48 overflow-y-auto"
           style={{ backgroundColor: 'var(--superficie-elevada)' }}
           onMouseDown={e => e.preventDefault()}
         >

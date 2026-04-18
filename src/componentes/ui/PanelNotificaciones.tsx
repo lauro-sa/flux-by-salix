@@ -113,7 +113,7 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
           <Tooltip contenido="Descartar">
             <button
               onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
-              className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
+              className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-boton bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
             >
               <Trash2 size={13} />
             </button>
@@ -224,7 +224,7 @@ function PanelNotificaciones({
           <Tooltip contenido="Marcar todas como leídas">
             <button
               onClick={onMarcarTodasLeidas}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover border-none bg-transparent cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-boton text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover border-none bg-transparent cursor-pointer transition-colors"
             >
               <CheckCheck size={14} />
               <span className="hidden sm:inline">Marcar leídas</span>

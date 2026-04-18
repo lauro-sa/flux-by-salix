@@ -439,19 +439,19 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => cambiarMes(-1)}
-            className="p-1 rounded-md hover:bg-superficie-elevada transition-colors"
+            className="p-1 rounded-boton hover:bg-superficie-elevada transition-colors"
           >
             <ChevronLeft size={14} className="text-texto-secundario" />
           </button>
           <button
             onClick={() => setMesSeleccionado(formatoMes(new Date()))}
-            className="px-2 py-0.5 rounded-md text-xs font-medium text-texto-primario hover:bg-superficie-elevada transition-colors min-w-[120px] text-center"
+            className="px-2 py-0.5 rounded-boton text-xs font-medium text-texto-primario hover:bg-superficie-elevada transition-colors min-w-[120px] text-center"
           >
             {nombreMes(mesSeleccionado, 'es')}
           </button>
           <button
             onClick={() => cambiarMes(1)}
-            className="p-1 rounded-md hover:bg-superficie-elevada transition-colors"
+            className="p-1 rounded-boton hover:bg-superficie-elevada transition-colors"
           >
             <ChevronRight size={14} className="text-texto-secundario" />
           </button>
@@ -496,7 +496,7 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
             {sinAsignarLocal.length > 0 && (
               <button
                 onClick={() => setTabMobile(-1)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`shrink-0 rounded-card px-3 py-1.5 text-xs font-medium transition-colors ${
                   tabMobile === -1 ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-terciario hover:bg-white/[0.06]'
                 }`}
               >
@@ -507,7 +507,7 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               <button
                 key={vis.usuario_id}
                 onClick={() => setTabMobile(idx)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`shrink-0 rounded-card px-3 py-1.5 text-xs font-medium transition-colors ${
                   tabMobile === idx ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-terciario hover:bg-white/[0.06]'
                 }`}
               >
@@ -591,7 +591,7 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               : 'border-l-texto-marca/40'
 
             return (
-              <div className={`rounded-lg border border-texto-marca/30 border-l-2 ${colorBorde} bg-superficie-elevada shadow-xl w-[280px] cursor-grabbing`}>
+              <div className={`rounded-card border border-texto-marca/30 border-l-2 ${colorBorde} bg-superficie-elevada shadow-xl w-[280px] cursor-grabbing`}>
                 <div className="flex justify-center py-0.5 opacity-30">
                   <GripVertical size={12} />
                 </div>

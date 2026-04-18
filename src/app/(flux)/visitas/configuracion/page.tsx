@@ -107,7 +107,7 @@ export default function PaginaConfiguracionVisitas() {
                     onChange={(e) => setConfig({ ...config, duracion_estimada_default: parseInt(e.target.value) || 30 })}
                     min={5}
                     max={480}
-                    className="w-24 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
+                    className="w-24 px-3 py-2 rounded-card border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
                     disabled={!puedeEditar}
                   />
                   <span className="text-sm text-texto-terciario">minutos</span>
@@ -167,7 +167,7 @@ export default function PaginaConfiguracionVisitas() {
           {/* Check-in / Check-out */}
           {seccionActiva === 'checkin' && (
             <div className="space-y-6 max-w-lg">
-              <div className="flex items-center justify-between p-4 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+              <div className="flex items-center justify-between p-4 rounded-card border border-white/[0.06] bg-white/[0.03]">
                 <div>
                   <p className="text-sm text-texto-primario font-medium">Requerir geolocalización</p>
                   <p className="text-xs text-texto-terciario mt-0.5">El visitador debe compartir su ubicación al marcar llegada</p>
@@ -201,7 +201,7 @@ export default function PaginaConfiguracionVisitas() {
                       onChange={(e) => setConfig({ ...config, distancia_maxima_m: parseInt(e.target.value) || 500 })}
                       min={50}
                       max={5000}
-                      className="w-24 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
+                      className="w-24 px-3 py-2 rounded-card border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
                       disabled={!puedeEditar}
                     />
                     <span className="text-sm text-texto-terciario">metros</span>
@@ -273,7 +273,7 @@ function SeccionLista({
 
       <div className="space-y-1.5">
         {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-card border border-white/[0.06] bg-white/[0.03]">
             <span className="flex-1 text-sm text-texto-primario">{item}</span>
             {puedeEditar && (
               <button onClick={() => eliminar(i)} className="text-texto-terciario hover:text-insignia-peligro">
@@ -292,7 +292,7 @@ function SeccionLista({
             onChange={(e) => setNuevo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && agregar()}
             placeholder={placeholder}
-            className="flex-1 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
+            className="flex-1 px-3 py-2 rounded-card border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
           />
           <Boton tamano="sm" variante="fantasma" onClick={agregar}>
             <Plus size={14} />
@@ -356,7 +356,7 @@ function SeccionChecklist({
               onChange={(e) => actualizar(item.id, e.target.value)}
               placeholder="Nuevo item..."
               disabled={!puedeEditar}
-              className="flex-1 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
+              className="flex-1 px-3 py-2 rounded-card border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
             />
             {puedeEditar && (
               <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro">

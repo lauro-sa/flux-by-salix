@@ -41,14 +41,14 @@ export default function PaginaSelectorEmpresa() {
             onClick={() => empresa.activo && manejarSeleccion(empresa.id)}
             disabled={!empresa.activo || cargando}
             className={[
-              'w-full p-3 rounded-xl border text-left transition-all duration-150',
+              'w-full p-3 rounded-card border text-left transition-all duration-150',
               empresa.activo
                 ? 'bg-superficie-app border-borde-sutil hover:border-texto-marca/40 cursor-pointer'
                 : 'bg-superficie-app border-borde-sutil opacity-60 cursor-not-allowed',
             ].join(' ')}
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
                 <Building2 size={18} className="text-texto-marca" />
               </div>
               <div className="flex-1 min-w-0">

@@ -8,19 +8,17 @@ import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
-import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
+import SeccionAgenteIA from '@/componentes/mensajeria/SeccionAgenteIA'
 import {
   Settings2, FileText, Users,
   Clock, Bell, Sparkles, Bot, KanbanSquare,
   Zap,
 } from 'lucide-react'
-import type { CanalInbox, PlantillaRespuesta, ConfigInbox } from '@/tipos/inbox'
+import type { CanalMensajeria, ConfigMensajeria } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { ModalAgregarCanal } from '@/app/(flux)/inbox/_componentes/ModalAgregarCanal'
+import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { SeccionWhatsApp } from '@/app/(flux)/whatsapp/_componentes/SeccionWhatsApp'
-import { SeccionPlantillasWA } from '@/app/(flux)/whatsapp/_componentes/SeccionPlantillasWA'
 import { SeccionChatbot } from '@/app/(flux)/inbox/configuracion/_componentes/SeccionChatbot'
-import { SeccionRespuestasRapidas } from '@/app/(flux)/inbox/configuracion/_componentes/SeccionRespuestasRapidas'
 import {
   SeccionPipeline,
   SeccionEtiquetasConfig,
@@ -47,28 +45,24 @@ export default function PaginaConfiguracionWhatsApp() {
   const [modalCanal, setModalCanal] = useState(false)
 
   // Datos
-  const [config, setConfig] = useState<ConfigInbox | null>(null)
-  const [canales, setCanales] = useState<CanalInbox[]>([])
-  const [plantillas, setPlantillas] = useState<PlantillaRespuesta[]>([])
+  const [config, setConfig] = useState<ConfigMensajeria | null>(null)
+  const [canales, setCanales] = useState<CanalMensajeria[]>([])
 
   // Cargar configuración
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const [resConfig, resCanales, resPlantillas] = await Promise.all([
-        fetch('/api/inbox/config'),
-        fetch('/api/inbox/canales?tipo=whatsapp'),
-        fetch('/api/inbox/plantillas?canal=whatsapp'),
+      const [resConfig, resCanales] = await Promise.all([
+        fetch('/api/whatsapp/config'),
+        fetch('/api/whatsapp/canales'),
       ])
-      const [dataConfig, dataCanales, dataPlantillas] = await Promise.all([
+      const [dataConfig, dataCanales] = await Promise.all([
         resConfig.json(),
         resCanales.json(),
-        resPlantillas.json(),
       ])
 
       setConfig(dataConfig.config)
       setCanales(dataCanales.canales || [])
-      setPlantillas(dataPlantillas.plantillas || [])
     } catch {
       // silenciar
     } finally {
@@ -79,9 +73,9 @@ export default function PaginaConfiguracionWhatsApp() {
   useEffect(() => { cargar() }, [cargar])
 
   // Guardar config
-  const guardarConfig = useCallback(async (cambios: Partial<ConfigInbox>) => {
+  const guardarConfig = useCallback(async (cambios: Partial<ConfigMensajeria>) => {
     try {
-      await fetch('/api/inbox/config', {
+      await fetch('/api/whatsapp/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cambios),
@@ -114,7 +108,17 @@ export default function PaginaConfiguracionWhatsApp() {
       onVolver={() => router.push('/whatsapp')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        if (id === 'respuestas_rapidas') {
+          router.push('/whatsapp/configuracion/respuestas-rapidas')
+          return
+        }
+        if (id === 'plantillas_wa') {
+          router.push('/whatsapp/configuracion/plantillas-meta')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
       {/* Canales WhatsApp */}
       {seccionActiva === 'canales' && (
@@ -134,23 +138,6 @@ export default function PaginaConfiguracionWhatsApp() {
       {/* Agente IA */}
       {seccionActiva === 'agente_ia' && (
         <SeccionAgenteIA />
-      )}
-
-      {/* Respuestas rápidas */}
-      {seccionActiva === 'respuestas_rapidas' && (
-        <SeccionRespuestasRapidas
-          plantillas={plantillas}
-          onRecargar={cargar}
-          canalesPermitidos={['whatsapp']}
-        />
-      )}
-
-      {/* Plantillas Meta (WhatsApp) */}
-      {seccionActiva === 'plantillas_wa' && (
-        <SeccionPlantillasWA
-          canalesWhatsApp={canales}
-          onRecargar={cargar}
-        />
       )}
 
       {/* Etiquetas */}
@@ -245,7 +232,7 @@ export default function PaginaConfiguracionWhatsApp() {
             ].map(n => (
               <div
                 key={n.campo}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                className="flex items-center justify-between gap-3 p-3 rounded-card"
                 style={{ border: '1px solid var(--borde-sutil)' }}
               >
                 <div className="min-w-0">

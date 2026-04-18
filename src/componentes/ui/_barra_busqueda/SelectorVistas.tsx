@@ -40,7 +40,7 @@ function SelectorVistas({
               onClick={() => onCambiarVista(v.id)}
               disabled={v.deshabilitada}
               className={[
-                'shrink-0 size-7 inline-flex items-center justify-center rounded-md cursor-pointer border-none transition-colors',
+                'shrink-0 size-7 inline-flex items-center justify-center rounded-boton cursor-pointer border-none transition-colors',
                 v.id === vistaActual
                   ? 'bg-insignia-primario-fondo text-texto-marca'
                   : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario',
@@ -59,7 +59,7 @@ function SelectorVistas({
           type="button"
           whileTap={{ scale: 0.9 }}
           onClick={() => onToggleDropdown(!dropdownAbierto)}
-          className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario"
+          className="shrink-0 size-7 inline-flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario"
         >
           <MoreVertical size={16} />
         </motion.button>
@@ -70,7 +70,7 @@ function SelectorVistas({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute top-full right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-md shadow-lg z-50 overflow-hidden min-w-[140px]"
+              className="absolute top-full right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-50 overflow-hidden min-w-[140px]"
             >
               {opciones.map((v) => (
                 <button

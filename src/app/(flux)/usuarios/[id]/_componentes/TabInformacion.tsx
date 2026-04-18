@@ -102,7 +102,7 @@ export function TabInformacion({
   const [recortador, setRecortador] = useState<{ imagen: string; tipo: 'avatar' | 'kiosco' } | null>(null)
 
   return (
-    <div className="space-y-5 p-4 sm:p-6 [&>section]:bg-superficie-tarjeta/40 [&>section]:rounded-xl [&>section]:p-4 [&>section]:sm:p-5 [&>section]:border [&>section]:border-borde-sutil/40">
+    <div className="space-y-5 p-4 sm:p-6 [&>section]:bg-superficie-tarjeta/40 [&>section]:rounded-card [&>section]:p-4 [&>section]:sm:p-5 [&>section]:border [&>section]:border-borde-sutil/40">
 
       {/* ── 1. DATOS PERSONALES ── */}
       <section>
@@ -349,7 +349,7 @@ export function TabInformacion({
                     alt="Foto kiosco"
                     width={64}
                     height={85}
-                    className="w-16 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
+                    className="w-16 aspect-[3/4] object-cover rounded-card border border-borde-sutil"
                   />
                   <Boton
                     variante="fantasma"
@@ -357,7 +357,7 @@ export function TabInformacion({
                     icono={<Camera size={14} className="text-white" />}
                     titulo="Editar foto kiosco"
                     onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
-                    className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                    className="absolute inset-0 !rounded-card opacity-0 group-hover:opacity-100 !bg-black/40"
                   />
                   <Boton
                     variante="peligro"
@@ -375,7 +375,7 @@ export function TabInformacion({
               ) : (
                 <label
                   htmlFor="foto-kiosco-upload"
-                  className="w-16 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                  className="w-16 aspect-[3/4] rounded-card border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
                 >
                   <Camera size={14} className="text-texto-terciario" />
                   <span className="text-xxs text-texto-terciario">Subir</span>
@@ -516,7 +516,7 @@ export function TabInformacion({
             const imgUrl = previewLocal?.url || (docExistente?.url as string | undefined) || null
 
             return (
-              <div key={doc} className={`flex flex-col rounded-xl overflow-hidden border-2 transition-all ${imgUrl ? 'border-insignia-exito/40' : 'border-dashed border-borde-fuerte hover:border-texto-marca/30'}`}>
+              <div key={doc} className={`flex flex-col rounded-card overflow-hidden border-2 transition-all ${imgUrl ? 'border-insignia-exito/40' : 'border-dashed border-borde-fuerte hover:border-texto-marca/30'}`}>
 
                 {/* Input oculto */}
                 <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" id={`doc-${doc}`}

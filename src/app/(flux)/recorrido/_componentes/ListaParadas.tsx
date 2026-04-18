@@ -77,7 +77,7 @@ function PuntoFinalEdicion({
     : Flag
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-borde-sutil">
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-card border border-dashed border-borde-sutil">
       <div className={[
         'flex items-center justify-center size-7 rounded-full shrink-0 border',
         destino === 'ninguno'
@@ -106,7 +106,7 @@ function PuntoFinalEdicion({
                   key={String(op.valor)}
                   onClick={() => onCambiar(op.valor)}
                   className={[
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium border transition-colors',
                     activo
                       ? 'border-texto-marca/40 bg-texto-marca/10 text-texto-marca'
                       : 'border-borde-sutil text-texto-terciario hover:bg-superficie-elevada',
@@ -138,7 +138,7 @@ function ItemEdicion({ parada, indice }: { parada: Parada; indice: number }) {
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-borde-sutil bg-superficie-tarjeta">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 px-3 py-2.5 rounded-card border border-borde-sutil bg-superficie-tarjeta">
       <button
         {...attributes}
         {...listeners}
@@ -207,7 +207,7 @@ function ListaParadas({
   if (modoEdicion) {
     return (
       <div className="px-4 py-3 space-y-2">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-dashed border-borde-sutil">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-card border border-dashed border-borde-sutil">
           <div className="flex items-center justify-center size-7 rounded-full bg-texto-marca/15 shrink-0">
             <Home size={12} className="text-texto-marca" />
           </div>

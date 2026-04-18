@@ -338,7 +338,7 @@ export default function EditorPresupuesto({
 
   // ─── Cargar canales de correo y plantillas de la empresa ─────────────────
   useEffect(() => {
-    fetch('/api/inbox/canales?tipo=correo&modulo=presupuestos')
+    fetch('/api/correo/canales?modulo=presupuestos')
       .then(r => r.json())
       .then(data => {
         const canales = (data.canales || [])
@@ -1442,10 +1442,10 @@ export default function EditorPresupuesto({
   if (cargando || (modo === 'editar' && (!presupuesto || !config))) {
     return (
       <div className="w-full max-w-[1200px] mx-auto px-4 py-6">
-        <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+        <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
           <div className="px-6 pt-5 pb-4 border-b border-borde-sutil animate-pulse">
-            <div className="h-8 w-48 bg-superficie-app rounded-lg mb-3" />
-            <div className="h-5 w-32 bg-superficie-app rounded-lg" />
+            <div className="h-8 w-48 bg-superficie-app rounded-card mb-3" />
+            <div className="h-5 w-32 bg-superficie-app rounded-card" />
           </div>
           <div className="px-6 py-8 space-y-4 animate-pulse">
             <div className="h-4 w-64 bg-superficie-app rounded" />
@@ -1466,12 +1466,14 @@ export default function EditorPresupuesto({
 
   return (
     <div className={`w-full mx-auto px-4 py-6 ${
-      chatterLateral ? 'max-w-[1600px] flex gap-5 items-start' : 'max-w-[1200px] space-y-5'
+      chatterLateral
+        ? 'max-w-[1600px] flex gap-3 items-start grupo-doc-chatter-lateral'
+        : 'max-w-[1200px] space-y-3 grupo-doc-chatter-stacked'
     }`}>
       {/* ─── Contenido principal (se comprime cuando chatter está lateral) ─── */}
       <div className={`space-y-5 ${chatterLateral ? 'flex-1 min-w-0' : ''}`}>
       {/* ─── Contenedor principal ─── */}
-      <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+      <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
 
         {/* ─── Cabecera ─── */}
         <CabeceraPresupuesto
@@ -2143,7 +2145,7 @@ export default function EditorPresupuesto({
         }
       >
         <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+          <div className="flex items-start gap-3 p-3 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
             <AlertTriangle size={20} className="text-insignia-advertencia shrink-0 mt-0.5" />
             <p className="text-sm text-texto-secundario">
               Este presupuesto está vencido. Para continuar, actualizá la fecha de vencimiento.

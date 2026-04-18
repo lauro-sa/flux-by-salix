@@ -680,10 +680,10 @@ export default function PaginaCalendario() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/calendario/configuracion')}
     >
-      {/* Wrapper con márgenes laterales para la barra y contenido */}
-      <div className="flex flex-col h-full px-2 sm:px-6">
+      {/* Wrapper del contenido — CabezaloHero controla su propio padding horizontal */}
+      <div className="flex flex-col h-full">
 
-      {/* Barra de herramientas */}
+      {/* Barra de herramientas (usa CabezaloHero internamente) */}
       <BarraHerramientasCalendario
         vistaActiva={vistaActiva}
         fechaActual={fechaActual}
@@ -703,7 +703,7 @@ export default function PaginaCalendario() {
 
       {/* Vista activa — contenedor relativo para el mini calendario flotante + swipe navigation */}
       <div
-        className="flex flex-col flex-1 min-h-0 -mx-2 sm:-mx-6 relative"
+        className="flex flex-col flex-1 min-h-0 relative"
         onTouchStart={manejarTouchStartSwipe}
         onTouchEnd={manejarTouchEndSwipe}
       >
@@ -720,7 +720,7 @@ export default function PaginaCalendario() {
         )}
       </div>
 
-      </div>{/* cierre wrapper con márgenes */}
+      </div>{/* cierre wrapper */}
 
       {/* Popover de resumen del evento */}
       <PopoverEvento

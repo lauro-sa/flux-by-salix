@@ -171,7 +171,7 @@ export default function PaginaMatrizAsistencias() {
             <button
               key={p}
               onClick={() => { setPeriodo(p); setOffset(0) }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-card transition-colors ${
                 periodo === p
                   ? 'bg-superficie-elevada text-texto-primario'
                   : 'text-texto-terciario hover:text-texto-secundario'
@@ -255,7 +255,7 @@ export default function PaginaMatrizAsistencias() {
                         {asist && config ? (
                           <div
                             title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada, locale, hour12)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida, locale, hour12)}` : ''}`}
-                            className={`mx-auto size-7 rounded-md flex items-center justify-center cursor-default ${config.bg}`}
+                            className={`mx-auto size-7 rounded-boton flex items-center justify-center cursor-default ${config.bg}`}
                           >
                             <span className={`text-xxs font-bold ${config.texto}`}>
                               {estado === 'cerrado' ? '✓' :
@@ -268,7 +268,7 @@ export default function PaginaMatrizAsistencias() {
                             </span>
                           </div>
                         ) : esFinde ? (
-                          <div className="mx-auto size-7 rounded-md bg-superficie-elevada/50 opacity-30" />
+                          <div className="mx-auto size-7 rounded-boton bg-superficie-elevada/50 opacity-30" />
                         ) : null}
                       </td>
                     )

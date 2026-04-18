@@ -251,9 +251,9 @@ export const nodoEnrutar: NodoAgenteIA = {
 
       if (conv?.asignado_a) return { exito: true, datos: { ya_asignado: true } }
 
-      // Obtener config de asignación
+      // Obtener config de asignación (módulo WhatsApp — agente IA solo corre sobre WhatsApp)
       const { data: configInbox } = await admin
-        .from('config_inbox')
+        .from('config_whatsapp')
         .select('asignacion_automatica, algoritmo_asignacion')
         .eq('empresa_id', ctx.empresa_id)
         .single()

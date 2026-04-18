@@ -18,6 +18,7 @@ import { type ReactNode } from 'react'
 import { Modal, type TamanoModal } from '@/componentes/ui/Modal'
 import { BottomSheet, type AlturaSheet } from '@/componentes/ui/BottomSheet'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import type { AccionModal } from '@/componentes/ui/_modal/AccionesModal'
 
 interface PropiedadesModalAdaptable {
   abierto: boolean
@@ -26,7 +27,14 @@ interface PropiedadesModalAdaptable {
   /** Tamaño del modal en desktop — ignorado en móvil */
   tamano?: TamanoModal
   children: ReactNode
+  /** Escape hatch — JSX custom para el footer. Ignorado si se usa algún prop estructurado. */
   acciones?: ReactNode
+  /** Acción principal (derecha): Guardar, Crear, Confirmar. */
+  accionPrimaria?: AccionModal
+  /** Acción secundaria (derecha, pegada a primaria): Cancelar. */
+  accionSecundaria?: AccionModal
+  /** Acción destructiva (izquierda): Eliminar, Descartar. */
+  accionPeligro?: AccionModal
   /** Quita el padding del contenido */
   sinPadding?: boolean
   /** Altura del BottomSheet en móvil. Default: 'auto' */
@@ -46,6 +54,9 @@ function ModalAdaptable({
   tamano = 'lg',
   children,
   acciones,
+  accionPrimaria,
+  accionSecundaria,
+  accionPeligro,
   sinPadding,
   alturaMovil = 'auto',
   forzarModal = false,
@@ -61,6 +72,9 @@ function ModalAdaptable({
         onCerrar={onCerrar}
         titulo={titulo}
         acciones={acciones}
+        accionPrimaria={accionPrimaria}
+        accionSecundaria={accionSecundaria}
+        accionPeligro={accionPeligro}
         altura={alturaMovil}
         sinPadding={sinPadding}
       >
@@ -76,6 +90,9 @@ function ModalAdaptable({
       titulo={titulo}
       tamano={tamano}
       acciones={acciones}
+      accionPrimaria={accionPrimaria}
+      accionSecundaria={accionSecundaria}
+      accionPeligro={accionPeligro}
       sinPadding={sinPadding}
       accionesEncabezado={accionesEncabezado}
       expandido={expandido}

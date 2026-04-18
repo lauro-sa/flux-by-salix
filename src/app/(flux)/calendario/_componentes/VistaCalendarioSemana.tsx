@@ -202,7 +202,7 @@ function BloqueEventoArrastrable({
           }
         }}
         className={[
-          'absolute z-10 rounded-md overflow-hidden text-left cursor-grab px-1.5 py-0.5 select-none transition-shadow',
+          'absolute z-10 rounded-boton overflow-hidden text-left cursor-grab px-1.5 py-0.5 select-none transition-shadow',
           estaArrastrandoMover ? 'cursor-grabbing' : '',
           estaRedimensionando ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
         ].join(' ')}
@@ -985,7 +985,7 @@ function VistaCalendarioSemana({
 
                       return (
                         <div
-                          className="absolute left-1 right-1 rounded-md z-10 pointer-events-none flex flex-col justify-between p-1.5"
+                          className="absolute left-1 right-1 rounded-boton z-10 pointer-events-none flex flex-col justify-between p-1.5"
                           style={{
                             top: yMin,
                             height: alturaBloque,
@@ -1049,7 +1049,7 @@ function VistaCalendarioSemana({
 
           return (
             <div
-              className="rounded-md overflow-hidden px-1.5 py-1 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
+              className="rounded-boton overflow-hidden px-1.5 py-1 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
               style={{
                 width: 150,
                 height: alturaDragActivo,

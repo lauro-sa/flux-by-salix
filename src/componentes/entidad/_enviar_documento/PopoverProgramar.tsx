@@ -86,7 +86,7 @@ export function PopoverProgramar({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.96 }}
           transition={{ duration: 0.15 }}
-          className="absolute bottom-full right-0 mb-2 rounded-xl shadow-elevada overflow-visible z-50"
+          className="absolute bottom-full right-0 mb-2 rounded-popover shadow-elevada overflow-visible z-50"
           style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', width: mostrarCustom ? 340 : 280 }}
         >
           {/* Título */}

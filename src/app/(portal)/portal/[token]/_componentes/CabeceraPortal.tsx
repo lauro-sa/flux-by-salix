@@ -25,7 +25,7 @@ interface Props {
 export default function CabeceraPortal({ empresa }: Props) {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6">
-      <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-5 sm:p-6">
+      <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           {/* Izquierda: logo + info empresa */}
           <div className="flex items-start gap-4 min-w-0">
@@ -35,7 +35,7 @@ export default function CabeceraPortal({ empresa }: Props) {
                 alt={empresa.nombre}
                 width={80}
                 height={80}
-                className="size-16 sm:size-20 rounded-xl object-contain shrink-0"
+                className="size-16 sm:size-20 rounded-card object-contain shrink-0"
                 unoptimized
               />
             )}

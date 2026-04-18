@@ -17,7 +17,7 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    // Obtener reglas con JOINs a tipos_contacto y canales_inbox
+    // Obtener reglas con JOINs a tipos_contacto y canales_correo (las reglas son solo de correo)
     const { data, error } = await admin
       .from('correo_por_tipo_contacto')
       .select(`
@@ -27,22 +27,20 @@ export async function GET() {
         canal_id,
         creado_en,
         tipos_contacto!inner(etiqueta, icono),
-        canales_inbox!inner(nombre, config_conexion)
+        canales_correo!inner(nombre, config_conexion)
       `)
       .eq('empresa_id', empresaId)
 
     if (error) {
-      // Tabla no existe aún
       if (error.code === '42P01' || error.message?.includes('does not exist')) {
         return NextResponse.json({ reglas: [] })
       }
       throw error
     }
 
-    // Aplanar JOINs para facilitar uso en frontend
     const reglas = (data || []).map((r: Record<string, unknown>) => {
       const tipoContacto = r.tipos_contacto as Record<string, unknown> | null
-      const canal = r.canales_inbox as Record<string, unknown> | null
+      const canal = r.canales_correo as Record<string, unknown> | null
       const configConexion = canal?.config_conexion as Record<string, unknown> | null
       return {
         id: r.id,
@@ -77,7 +75,7 @@ export async function PUT(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_correo', 'editar')
     if (!permitido) {
       return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }

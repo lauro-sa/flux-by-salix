@@ -32,7 +32,7 @@ import { useEsMovil } from '@/hooks/useEsMovil'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
-import { GrabadorAudio } from '@/app/(flux)/inbox/_componentes/GrabadorAudio'
+import { GrabadorAudio } from '@/componentes/mensajeria/GrabadorAudio'
 import type { NotaRapida } from '@/hooks/useNotasRapidas'
 
 // ─── Tipos ───
@@ -399,7 +399,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
       <div className="relative" ref={menuAbiertoId === nota.id ? menuRef : undefined}>
         <button
           onClick={(e) => { e.stopPropagation(); setMenuAbiertoId(menuAbiertoId === nota.id ? null : nota.id) }}
-          className="p-1 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-white/[0.08] transition-colors"
+          className="p-1 rounded-boton text-texto-terciario hover:text-texto-primario hover:bg-white/[0.08] transition-colors"
         >
           <MoreHorizontal className="size-4" />
         </button>
@@ -411,7 +411,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg bg-superficie-elevada border border-white/[0.1] shadow-xl py-1"
+              className="absolute right-0 top-full mt-1 z-50 w-48 rounded-popover bg-superficie-elevada border border-white/[0.1] shadow-xl py-1"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -471,7 +471,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-superficie-elevada border border-white/[0.1] rounded-xl shadow-2xl p-5 mx-4 max-w-sm w-full space-y-4"
+          className="bg-superficie-elevada border border-white/[0.1] rounded-popover shadow-2xl p-5 mx-4 max-w-sm w-full space-y-4"
         >
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-texto-primario">Eliminar nota</h4>
@@ -486,13 +486,13 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => setConfirmarEliminarId(null)}
-              className="px-3 py-1.5 rounded-lg text-xs text-texto-secundario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+              className="px-3 py-1.5 rounded-card text-xs text-texto-secundario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={() => handleEliminar(confirmarEliminarId)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-estado-error hover:bg-estado-error/90 transition-colors"
+              className="px-3 py-1.5 rounded-card text-xs font-medium text-white bg-estado-error hover:bg-estado-error/90 transition-colors"
             >
               Eliminar
             </button>
@@ -512,7 +512,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
         </div>
       ) : listaFiltrada.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-          <div className="size-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+          <div className="size-14 rounded-modal bg-amber-500/10 flex items-center justify-center">
             <StickyNote className="size-7 text-amber-400" />
           </div>
           <div>
@@ -536,7 +536,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
             <motion.div
               key={nota.id}
               layout
-              className={`rounded-xl border transition-colors ${colorClase} relative group`}
+              className={`rounded-card border transition-colors ${colorClase} relative group`}
             >
               <button
                 onClick={() => abrirNota(nota)}
@@ -643,20 +643,20 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               <>
                 <button
                   onClick={() => { setMostrarCompartir(!mostrarCompartir); if (!mostrarCompartir) cargarMiembros() }}
-                  className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
                   title="Compartir"
                 >
                   <Users className="size-4" />
                 </button>
                 <button
                   onClick={() => handleFijar(notaActiva!)}
-                  className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
                 >
                   {notaActiva?.fijada ? <PinOff className="size-4" /> : <Pin className="size-4" />}
                 </button>
                 <button
                   onClick={() => setConfirmarEliminarId(notaActiva!.id)}
-                  className="p-1.5 rounded-lg text-texto-terciario hover:text-estado-error hover:bg-estado-error/10 transition-colors"
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-estado-error hover:bg-estado-error/10 transition-colors"
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -683,7 +683,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                       return (
                         <span
                           key={c.usuario_id}
-                          className="inline-flex items-center gap-1.5 rounded-md font-medium border border-texto-marca/30 bg-texto-marca/10 text-texto-marca pl-1.5 pr-1 py-0.5"
+                          className="inline-flex items-center gap-1.5 rounded-boton font-medium border border-texto-marca/30 bg-texto-marca/10 text-texto-marca pl-1.5 pr-1 py-0.5"
                         >
                           <span className="size-4 rounded-full bg-texto-marca/20 flex items-center justify-center text-[10px] font-bold shrink-0">
                             {nombre.charAt(0).toUpperCase()}
@@ -709,7 +709,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                   value={busquedaMiembro}
                   onChange={(e) => setBusquedaMiembro(e.target.value)}
                   placeholder="Buscar miembro..."
-                  className="w-full px-2.5 py-2 rounded-lg bg-white/[0.04] border border-white/[0.07] text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-texto-marca/40 transition-colors"
+                  className="w-full px-2.5 py-2 rounded-card bg-white/[0.04] border border-white/[0.07] text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-texto-marca/40 transition-colors"
                 />
 
                 {/* Lista de miembros filtrada */}
@@ -734,7 +734,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                         return (
                           <div
                             key={m.id}
-                            className={`flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors ${
+                            className={`flex items-center justify-between px-2.5 py-2 rounded-card transition-colors ${
                               yaCompartido
                                 ? 'bg-texto-marca/8 border border-texto-marca/20'
                                 : 'border border-transparent hover:bg-white/[0.06] cursor-pointer'
@@ -752,7 +752,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                               <div className="flex items-center gap-0.5 shrink-0">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); cambiarPermiso(m.usuario_id, false) }}
-                                  className={`p-1.5 rounded-md transition-colors ${
+                                  className={`p-1.5 rounded-boton transition-colors ${
                                     !compartido!.puede_editar
                                       ? 'bg-white/[0.1] text-texto-primario'
                                       : 'text-texto-terciario hover:bg-white/[0.06]'
@@ -763,7 +763,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); cambiarPermiso(m.usuario_id, true) }}
-                                  className={`p-1.5 rounded-md transition-colors ${
+                                  className={`p-1.5 rounded-boton transition-colors ${
                                     compartido!.puede_editar
                                       ? 'bg-insignia-exito/15 text-insignia-exito'
                                       : 'text-texto-terciario hover:bg-white/[0.06]'
@@ -857,7 +857,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                 <button
                   onClick={() => setGrabando(true)}
                   disabled={transcribiendo}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-texto-terciario hover:text-amber-400 hover:bg-amber-400/10 disabled:opacity-30 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs text-texto-terciario hover:text-amber-400 hover:bg-amber-400/10 disabled:opacity-30 transition-colors"
                 >
                   <Mic className="size-3.5" />
                   Dictar
@@ -895,7 +895,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
             <div className="flex items-center gap-2">
-              <div className="size-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+              <div className="size-8 rounded-card bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
                 <StickyNote className="size-4 text-white" />
               </div>
               <div>
@@ -909,14 +909,14 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               <button
                 onClick={crearNueva}
                 disabled={creando}
-                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors disabled:opacity-30"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors disabled:opacity-30"
                 title="Nueva nota"
               >
                 {creando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               </button>
               <button
                 onClick={onCerrar}
-                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
               >
                 <X className="size-4" />
               </button>

@@ -167,7 +167,7 @@ export default function PantallaConfirmacion({
       <div className="flex flex-col items-center gap-4 md:gap-5">
         {fotoUrl ? (
           <div
-            className="relative w-48 md:w-64 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+            className="relative w-48 md:w-64 aspect-[3/4] rounded-modal md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
             style={{
               border: '4px solid rgba(63,63,70,0.6)',
               animation: 'kiosco-check 500ms cubic-bezier(0.34,1.56,0.64,1)',

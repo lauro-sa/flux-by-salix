@@ -27,9 +27,9 @@ export function BannerInstalacion() {
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="fixed bottom-6 left-4 right-4 z-50 md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
         >
-          <div className="bg-superficie-elevada/95 backdrop-blur-md border border-borde-sutil rounded-2xl shadow-elevada p-4 flex items-start gap-3">
+          <div className="bg-superficie-elevada/95 backdrop-blur-md border border-borde-sutil rounded-popover shadow-elevada p-4 flex items-start gap-3">
             {/* Ícono */}
-            <div className="size-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
               <Download size={20} className="text-texto-marca" />
             </div>
 
@@ -39,19 +39,19 @@ export function BannerInstalacion() {
               {esIOS ? (
                 <div className="mt-1.5 space-y-1">
                   <div className="flex items-center gap-2 text-xs text-texto-secundario">
-                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                    <span className="size-5 rounded-boton bg-superficie-hover flex items-center justify-center shrink-0">
                       <Ellipsis size={14} className="text-texto-primario" />
                     </span>
                     <span>Tocá los <strong>tres puntos</strong> abajo</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-texto-secundario">
-                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                    <span className="size-5 rounded-boton bg-superficie-hover flex items-center justify-center shrink-0">
                       <Share size={12} className="text-texto-primario" />
                     </span>
                     <span>Luego <strong>Compartir</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-texto-secundario">
-                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                    <span className="size-5 rounded-boton bg-superficie-hover flex items-center justify-center shrink-0">
                       <Plus size={14} className="text-texto-primario" />
                     </span>
                     <span>Y por último <strong>Agregar a Inicio</strong></span>
@@ -80,7 +80,7 @@ export function BannerInstalacion() {
             {/* Cerrar */}
             <button
               onClick={descartar}
-              className="shrink-0 size-10 flex items-center justify-center rounded-lg text-texto-terciario hover:bg-superficie-hover active:bg-superficie-hover transition-colors cursor-pointer bg-transparent border-none"
+              className="shrink-0 size-10 flex items-center justify-center rounded-card text-texto-terciario hover:bg-superficie-hover active:bg-superficie-hover transition-colors cursor-pointer bg-transparent border-none"
               aria-label="Cerrar"
             >
               <X size={16} />

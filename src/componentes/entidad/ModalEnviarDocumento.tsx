@@ -157,7 +157,7 @@ export function ModalEnviarDocumento({
           {estado.arrastrando && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 flex items-center justify-center rounded-lg"
+              className="absolute inset-0 z-50 flex items-center justify-center rounded-card"
               style={{ background: 'rgba(var(--texto-marca-rgb, 37, 99, 235), 0.08)', border: '2px dashed var(--texto-marca)' }}
             >
               <div className="flex flex-col items-center gap-2">
@@ -219,7 +219,7 @@ export function ModalEnviarDocumento({
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
-                            className="fixed py-1 rounded-lg shadow-lg"
+                            className="fixed py-1 rounded-card shadow-lg"
                             style={{
                               top: posCanalDropdown.top,
                               left: posCanalDropdown.left,
@@ -414,7 +414,7 @@ export function ModalEnviarDocumento({
                   e.stopPropagation()
                   estado.setVariablesCuerpoAbierto(true)
                 }}
-                className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
+                className="flex items-center justify-center size-6 rounded-boton transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
                 style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
                 type="button"
               >
@@ -446,7 +446,7 @@ export function ModalEnviarDocumento({
             {adjuntoDocumento && (
               estado.incluirPdf ? (
                 <span
-                  className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xs"
+                  className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-boton text-xs"
                   style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
                 >
                   <FileText size={13} style={{ color: 'var(--insignia-peligro)' }} />
@@ -462,7 +462,7 @@ export function ModalEnviarDocumento({
               ) : (
                 <button
                   onClick={() => estado.setIncluirPdf(true)}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors hover:bg-[var(--superficie-hover)]"
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-boton text-xs transition-colors hover:bg-[var(--superficie-hover)]"
                   style={{ color: 'var(--texto-terciario)', border: '1px dashed var(--borde-sutil)' }}
                   type="button"
                 >
@@ -476,7 +476,7 @@ export function ModalEnviarDocumento({
             {estado.adjuntos.map((adj) => (
               <span
                 key={adj.id}
-                className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xs"
+                className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-boton text-xs"
                 style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
               >
                 {iconoArchivo(adj.tipo_mime)}
@@ -570,7 +570,7 @@ export function ModalEnviarDocumento({
                       estado.marcarPlantillaSincronizada()
                     }}
                     disabled={!tieneModificaciones}
-                    className="size-8 flex items-center justify-center rounded-lg transition-all"
+                    className="size-8 flex items-center justify-center rounded-card transition-all"
                     style={{
                       color: tieneModificaciones ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)',
                       opacity: tieneModificaciones ? 1 : 0.35,

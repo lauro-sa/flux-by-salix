@@ -103,7 +103,7 @@ export function BannerContacto({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="rounded-xl overflow-hidden"
+        className="rounded-card overflow-hidden"
         style={{
           height: 110,
           background: `linear-gradient(135deg, ${colores[0]} 0%, ${colores[1]} 100%)`,
@@ -132,7 +132,7 @@ export function BannerContacto({
               <Boton variante="fantasma" tamano="xs" soloIcono titulo="Más opciones" icono={<MoreVertical size={14} />} onClick={() => setMenuAbierto(!menuAbierto)} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80" />
 
               {menuAbierto && (
-                <div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-borde-sutil shadow-lg z-50 min-w-40 overflow-hidden"
+                <div className="absolute top-full right-0 mt-1 py-1 rounded-card border border-borde-sutil shadow-lg z-50 min-w-40 overflow-hidden"
                   style={{ backgroundColor: 'var(--superficie-elevada)' }}>
                   {acciones.map(acc => (
                     <OpcionMenu key={acc.id} icono={acc.icono} peligro={acc.peligro} onClick={() => { acc.onClick(); setMenuAbierto(false) }}>
@@ -220,7 +220,7 @@ function SelectorTipo({
         type="button"
         onClick={() => puedeEditar && setAbierto(!abierto)}
         className={[
-          'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border-none focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2',
+          'flex items-center gap-1.5 px-2.5 py-1 rounded-boton text-xs font-medium transition-colors border-none focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2',
           'bg-white/10 backdrop-blur-sm text-white/90',
           puedeEditar ? 'cursor-pointer hover:bg-white/20' : 'cursor-default',
         ].join(' ')}
@@ -231,7 +231,7 @@ function SelectorTipo({
       </button>
 
       {abierto && (
-        <div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-borde-sutil shadow-lg z-50 min-w-36 overflow-hidden"
+        <div className="absolute top-full right-0 mt-1 py-1 rounded-card border border-borde-sutil shadow-lg z-50 min-w-36 overflow-hidden"
           style={{ backgroundColor: 'var(--superficie-elevada)' }}>
           {tiposContacto.filter(t => t.clave !== 'equipo').map(tipo => {
             const Ic = ICONOS_TIPO[tipo.clave] || User

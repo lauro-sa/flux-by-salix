@@ -575,7 +575,7 @@ export default function ModalRecorrido({
 
               {/* Overlay con estadísticas */}
               <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
-                <div className="flex items-center gap-3 rounded-xl bg-superficie-elevada/90 backdrop-blur-md border border-white/[0.08] px-3.5 py-2 text-[12px]">
+                <div className="flex items-center gap-3 rounded-card bg-superficie-elevada/90 backdrop-blur-md border border-white/[0.08] px-3.5 py-2 text-[12px]">
                   <span className="flex items-center gap-1.5 text-texto-primario font-medium">
                     <Route size={12} className="text-texto-marca" />
                     {totalParadas} paradas

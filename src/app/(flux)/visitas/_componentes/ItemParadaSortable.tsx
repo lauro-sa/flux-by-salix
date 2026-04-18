@@ -90,7 +90,7 @@ export function ItemParadaSortable({ parada, indice, onQuitar }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-lg border border-l-2 transition-colors ${
+      className={`relative rounded-card border border-l-2 transition-colors ${
         esCompletada ? 'border-white/[0.04] bg-white/[0.01] opacity-60' :
         esActiva ? 'border-texto-marca/30 bg-texto-marca/5' :
         'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'

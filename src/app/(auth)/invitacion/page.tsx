@@ -168,7 +168,7 @@ function ContenidoInvitacion() {
       </p>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro">
+        <div className="mb-4 p-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro">
           <AlertCircle size={16} className="shrink-0" />
           <span>{error}</span>
         </div>

@@ -200,7 +200,7 @@ export function BloqueDireccion({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="rounded-lg border border-borde-sutil bg-superficie-app p-3 flex flex-col gap-3">
+            <div className="rounded-card border border-borde-sutil bg-superficie-app p-3 flex flex-col gap-3">
               {/* Encabezado sutil */}
               <div className="flex items-center gap-2 text-xs text-texto-terciario">
                 <MapPin size={12} />

@@ -652,7 +652,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
             <button
               onClick={() => { onChange(nombre); setAbierto(false); setBusqueda('') }}
               className={[
-                'w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer border-none',
+                'w-8 h-8 rounded-icono flex items-center justify-center transition-all cursor-pointer border-none',
                 seleccionado
                   ? 'bg-texto-marca/20 text-texto-marca ring-1 ring-texto-marca'
                   : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
@@ -676,9 +676,9 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
       <button
         ref={botonRef}
         onClick={() => setAbierto(!abierto)}
-        className="flex items-center gap-2 px-3 py-2 rounded-md border border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer text-sm text-texto-primario w-full"
+        className="flex items-center gap-2 px-3 py-2 rounded-input border border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer text-sm text-texto-primario w-full"
       >
-        <div className="w-7 h-7 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+        <div className="w-7 h-7 rounded-icono bg-superficie-hover flex items-center justify-center shrink-0">
           {IconoActual ? <IconoActual size={tamano} className="text-texto-marca" /> : <span className="text-xs text-texto-terciario">?</span>}
         </div>
         <span className="flex-1 text-left text-texto-secundario truncate">{valor || 'Seleccionar ícono'}</span>
@@ -695,7 +695,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="fixed border border-borde-sutil rounded-xl shadow-lg overflow-hidden bg-superficie-elevada"
+            className="fixed border border-borde-sutil rounded-popover shadow-lg overflow-hidden bg-superficie-elevada"
             style={{
               top: posicion.top,
               left: posicion.left,
@@ -705,7 +705,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
           >
             {/* Buscador — siempre visible */}
             <div className="p-2 border-b border-borde-sutil">
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-superficie-tarjeta border border-borde-fuerte">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-input bg-superficie-tarjeta border border-borde-fuerte">
                 <Search size={14} className="text-texto-terciario shrink-0" />
                 <input
                   ref={inputRef}

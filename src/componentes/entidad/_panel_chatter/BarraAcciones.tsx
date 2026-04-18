@@ -54,7 +54,7 @@ export function BarraAcciones({
           onClick={a.disponible ? a.onClick : undefined}
           disabled={!a.disponible}
           data-chatter-accion
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 shrink-0 ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-all duration-150 shrink-0 ${
             a.disponible
               ? 'text-texto-secundario cursor-pointer'
               : 'text-texto-terciario/40 cursor-not-allowed'

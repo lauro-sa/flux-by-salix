@@ -43,7 +43,7 @@ export default function DetalleLineas({
   }
 
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
       {/* Título con ícono */}
       <div className="px-5 py-4 border-b border-borde-sutil flex items-center gap-2">
         <FileText size={16} className="text-texto-terciario" />

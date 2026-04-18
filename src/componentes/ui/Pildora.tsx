@@ -22,7 +22,7 @@ function Pildora({ children, activa, onClick, icono, removible, onRemover, class
       type="button"
       onClick={onClick}
       className={[
-        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border cursor-pointer transition-all duration-150',
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-insignia text-sm font-medium border cursor-pointer transition-all duration-150',
         activa
           ? 'bg-insignia-primario-fondo text-insignia-primario-texto border-texto-marca'
           : 'bg-superficie-tarjeta text-texto-secundario border-borde-sutil hover:border-borde-fuerte',

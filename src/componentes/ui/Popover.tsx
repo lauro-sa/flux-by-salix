@@ -222,7 +222,7 @@ function Popover({
             <motion.div
               ref={panelRef}
               {...animacion}
-              className={`border border-borde-sutil rounded-2xl shadow-elevada overflow-y-auto overflow-x-hidden flex flex-col ${clasePan}`}
+              className={`border border-borde-sutil rounded-popover shadow-elevada overflow-y-auto overflow-x-hidden flex flex-col ${clasePan}`}
               style={{ ...posicion, ...estiloPanel }}
             >
               {contenido}

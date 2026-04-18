@@ -69,7 +69,7 @@ export default function AccionesPortal({
     return (
       <div className="space-y-3">
         {/* Banner de aceptado */}
-        <div className="rounded-xl bg-insignia-exito/10 border border-insignia-exito/20 p-4">
+        <div className="rounded-card bg-insignia-exito/10 border border-insignia-exito/20 p-4">
           <div className="flex items-start gap-3">
             <div className="size-8 rounded-full bg-insignia-exito/20 flex items-center justify-center shrink-0 mt-0.5">
               <Check size={16} className="text-insignia-exito" />
@@ -115,7 +115,7 @@ export default function AccionesPortal({
   if (estadoCliente === 'rechazado') {
     return (
       <div className="space-y-3">
-        <div className="rounded-xl bg-estado-error/10 border border-estado-error/20 p-4">
+        <div className="rounded-card bg-estado-error/10 border border-estado-error/20 p-4">
           <div className="flex items-start gap-3">
             <div className="size-8 rounded-full bg-estado-error/20 flex items-center justify-center shrink-0 mt-0.5">
               <X size={16} className="text-estado-error" />
@@ -143,7 +143,7 @@ export default function AccionesPortal({
 
       {/* Aviso de presupuesto vencido */}
       {estaVencido && (
-        <div className="rounded-xl bg-estado-error/10 border border-estado-error/20 p-4">
+        <div className="rounded-card bg-estado-error/10 border border-estado-error/20 p-4">
           <div className="flex items-start gap-3">
             <div className="size-8 rounded-full bg-estado-error/20 flex items-center justify-center shrink-0 mt-0.5">
               <X size={16} className="text-estado-error" />
@@ -160,7 +160,7 @@ export default function AccionesPortal({
 
       {/* Aceptar y firmar / Rechazar — dentro de tarjeta */}
       {!mostrarRechazo ? (
-        <div className={`bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 ${estaVencido ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`bg-superficie-tarjeta rounded-card border border-borde-sutil p-4 ${estaVencido ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="flex items-center justify-between">
             <Boton variante="exito" tamano="md" icono={<Check size={16} />} onClick={onAceptar} disabled={cargando || estaVencido} cargando={cargando}>
               Aceptar y firmar
@@ -171,7 +171,7 @@ export default function AccionesPortal({
           </div>
         </div>
       ) : (
-        <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-3">
+        <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil p-4 space-y-3">
           <p className="text-sm font-medium text-texto-primario">{t('portal.motivo_rechazo')}</p>
           <TextArea
             value={motivo}
@@ -211,7 +211,7 @@ function BotonesContacto({
           href={pdfUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-card text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: colorMarca }}
         >
           <FileText size={18} />
@@ -225,7 +225,7 @@ function BotonesContacto({
             href={linkWa}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors border"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-card text-sm font-medium transition-colors border"
             style={{ borderColor: 'var(--canal-whatsapp)', color: 'var(--canal-whatsapp)', backgroundColor: 'var(--canal-whatsapp-fondo)' }}
           >
             <IconoWhatsApp size={18} />
@@ -235,7 +235,7 @@ function BotonesContacto({
         {empresaTelefono && (
           <a
             href={`tel:${empresaTelefono}`}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-borde-fuerte text-sm font-medium text-texto-primario hover:bg-superficie-elevada transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-card border border-borde-fuerte text-sm font-medium text-texto-primario hover:bg-superficie-elevada transition-colors"
           >
             <Phone size={16} />
             {t('portal.llamar')}

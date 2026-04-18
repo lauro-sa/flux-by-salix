@@ -356,7 +356,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
         onClick={() => setVisible(true)}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="absolute z-40 bottom-5 right-5 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-texto-marca text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all font-medium text-xs"
+        className="absolute z-40 bottom-5 right-5 flex items-center gap-2 px-4 py-2.5 rounded-card bg-texto-marca text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all font-medium text-xs"
         title="Mostrar mini calendario"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -391,7 +391,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                   className={[
-                    'absolute z-20 rounded-xl border-2 border-dashed pointer-events-none transition-all duration-150',
+                    'absolute z-20 rounded-card border-2 border-dashed pointer-events-none transition-all duration-150',
                     esDestino
                       ? 'border-texto-marca bg-texto-marca/10 scale-100'
                       : 'border-borde-sutil/50 bg-superficie-hover/20 scale-95',
@@ -427,7 +427,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
           : { type: 'spring', stiffness: 500, damping: 35 }
         }
         className={[
-          'absolute z-30 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl select-none',
+          'absolute z-30 bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl select-none',
           arrastrando ? 'shadow-2xl ring-2 ring-texto-marca/30 opacity-80' : '',
         ].join(' ')}
         style={{ width: PANEL_W }}

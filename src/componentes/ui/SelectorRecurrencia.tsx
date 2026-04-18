@@ -141,7 +141,7 @@ function DetalleRecurrencia({
             <button
               onClick={() => toggleDiaSemana(d.valor)}
               className={[
-                'size-7 rounded-md text-xxs font-semibold border cursor-pointer transition-all flex items-center justify-center',
+                'size-7 rounded-boton text-xxs font-semibold border cursor-pointer transition-all flex items-center justify-center',
                 (valor.diasSemana || []).includes(d.valor)
                   ? 'bg-texto-marca text-white border-texto-marca'
                   : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario',
@@ -166,7 +166,7 @@ function DetalleRecurrencia({
                 key={m}
                 onClick={() => onChange({ ...valor, cadaMeses: m })}
                 className={[
-                  'px-2 py-1 rounded-md text-xxs font-medium border cursor-pointer transition-all',
+                  'px-2 py-1 rounded-boton text-xxs font-medium border cursor-pointer transition-all',
                   (valor.cadaMeses || 2) === m
                     ? 'bg-texto-marca/10 border-texto-marca/30 text-texto-marca'
                     : 'bg-transparent border-borde-sutil text-texto-terciario',
@@ -183,7 +183,7 @@ function DetalleRecurrencia({
           <button
             onClick={() => onChange({ ...valor, diaMes: valor.diaMes || diaRef, semanaDelMes: null, diaSemanaDelMes: null })}
             className={[
-              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-all text-left',
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-boton border text-xs cursor-pointer transition-all text-left',
               valor.diaMes
                 ? 'bg-texto-marca/5 border-texto-marca/25 text-texto-marca'
                 : 'bg-transparent border-borde-sutil text-texto-secundario hover:border-borde-fuerte',
@@ -210,7 +210,7 @@ function DetalleRecurrencia({
           <button
             onClick={() => onChange({ ...valor, diaMes: null, semanaDelMes: valor.semanaDelMes ?? 1, diaSemanaDelMes: valor.diaSemanaDelMes ?? diaSemanaRef })}
             className={[
-              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-all text-left',
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-boton border text-xs cursor-pointer transition-all text-left',
               valor.semanaDelMes != null
                 ? 'bg-texto-marca/5 border-texto-marca/25 text-texto-marca'
                 : 'bg-transparent border-borde-sutil text-texto-secundario hover:border-borde-fuerte',
@@ -325,7 +325,7 @@ function SelectorRecurrencia({ valor, onChange, fechaReferencia, compacto = fals
             key={f.valor}
             onClick={() => cambiarFrecuencia(f.valor as Frecuencia)}
             className={[
-              'px-2 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-all',
+              'px-2 py-1.5 rounded-boton text-xs font-medium border cursor-pointer transition-all',
               valor.frecuencia === f.valor
                 ? 'bg-texto-marca/10 border-texto-marca/30 text-texto-marca'
                 : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario',

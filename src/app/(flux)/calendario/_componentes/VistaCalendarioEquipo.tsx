@@ -433,7 +433,7 @@ function VistaCalendarioEquipo({
                           e.stopPropagation()
                           onClickEvento(ep.evento, { x: e.clientX, y: e.clientY })
                         }}
-                        className="absolute z-10 rounded-md overflow-hidden text-left cursor-pointer px-1.5 py-0.5 transition-shadow hover:shadow-md"
+                        className="absolute z-10 rounded-boton overflow-hidden text-left cursor-pointer px-1.5 py-0.5 transition-shadow hover:shadow-md"
                         style={{
                           top: ep.arribaPixeles,
                           height: Math.max(ep.altoPixeles, 20),

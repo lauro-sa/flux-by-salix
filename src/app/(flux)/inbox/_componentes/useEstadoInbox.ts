@@ -7,9 +7,9 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
-  MensajeConAdjuntos, CanalInterno, CanalInbox, ModuloEmpresa,
+  MensajeConAdjuntos, CanalInterno, CanalMensajeria, ModuloEmpresa,
 } from '@/tipos/inbox'
-import type { DatosMensaje } from './CompositorMensaje'
+import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { DatosCorreo } from './CompositorCorreo'
 import type { CarpetaCorreo } from './SidebarCorreo'
 import { useTraduccion } from '@/lib/i18n'
@@ -64,7 +64,7 @@ export function useEstadoInbox() {
 
   // Correo
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
-  const [canalesCorreo, setCanalesCorreo] = useState<CanalInbox[]>([])
+  const [canalesCorreo, setCanalesCorreo] = useState<CanalMensajeria[]>([])
   const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>('')
   const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
   const [canalTodas, setCanalTodas] = useState(false)
@@ -126,7 +126,7 @@ export function useEstadoInbox() {
   useEffect(() => {
     const cargarConfig = async () => {
       try {
-        const res = await fetch('/api/inbox/config')
+        const res = await fetch('/api/correo/config')
         const data = await res.json()
 
         if (data.modulos) {
@@ -318,9 +318,9 @@ export function useEstadoInbox() {
     if (tabActivo !== 'correo' || !configCargada) return
     const cargar = async () => {
       try {
-        const res = await fetch('/api/inbox/canales?tipo=correo')
+        const res = await fetch('/api/correo/canales')
         const data = await res.json()
-        const canales = (data.canales || []) as CanalInbox[]
+        const canales = (data.canales || []) as CanalMensajeria[]
         setCanalesCorreo(canales)
         const idsCanales = new Set(canales.map(c => c.id))
         if (canales.length > 0 && (!canalCorreoActivo || !idsCanales.has(canalCorreoActivo))) {

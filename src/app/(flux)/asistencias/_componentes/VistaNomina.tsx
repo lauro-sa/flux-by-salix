@@ -6,18 +6,15 @@
  * Se usa en: ContenidoAsistencias.tsx (tab "Nómina")
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import {
-  ChevronLeft, ChevronRight, Users,
-  Loader2, AlertTriangle, Banknote, Calendar,
-} from 'lucide-react'
+import { Users, Loader2, Banknote } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
-import { Insignia } from '@/componentes/ui/Insignia'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 import { ModalDetalleNomina } from './ModalDetalleNomina'
-import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───
 
@@ -135,9 +132,12 @@ export interface VistaNominaHandle {
 
 // ─── Componente ───
 
-export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_props, ref) {
-  const { locale } = useFormato()
+interface VistaNominaProps {
+  /** Slot opcional para renderizar los tabs entre el hero y los controles */
+  slotTabs?: ReactNode
+}
 
+export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(function VistaNomina({ slotTabs }, ref) {
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
   const [fechaRef, setFechaRef] = useState(new Date())
   const [cargando, setCargando] = useState(false)
@@ -147,6 +147,16 @@ export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_p
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<ResultadoNomina | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
+
+  // Fechas como Date para el hero editorial
+  const desdeDate = useMemo(() => new Date(periodo.desde + 'T12:00:00'), [periodo.desde])
+  const hastaDate = useMemo(() => new Date(periodo.hasta + 'T12:00:00'), [periodo.hasta])
+
+  // ¿Estamos en el período actual? (para deshabilitar "Hoy")
+  const enPeriodoActual = useMemo(() => {
+    const hoy = calcularPeriodo(new Date(), tipoPeriodo)
+    return hoy.desde === periodo.desde && hoy.hasta === periodo.hasta
+  }, [tipoPeriodo, periodo.desde, periodo.hasta])
 
   // Exponer acciones al cabezal via ref
   useImperativeHandle(ref, () => ({
@@ -191,40 +201,33 @@ export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_p
   const totalHoras = resultados.reduce((s, r) => s + r.horas_netas, 0)
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      {/* ── Header: tipo de período + navegación ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTipoPeriodo(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
-                tipoPeriodo === t
-                  ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
-                  : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:text-texto-secundario'
-              }`}
-            >
-              {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
-            </button>
-          ))}
-        </div>
+    <div>
+      <CabezaloHero
+        titulo={<HeroRango desde={desdeDate} hasta={hastaDate} periodo={tipoPeriodo} />}
+        onAnterior={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'prev'))}
+        onSiguiente={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'next'))}
+        onHoy={() => setFechaRef(new Date())}
+        hoyDeshabilitado={enPeriodoActual}
+        slotTabs={slotTabs}
+        slotControles={
+          <GrupoBotones>
+            {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
+              <Boton
+                key={t}
+                variante="secundario"
+                tamano="sm"
+                onClick={() => setTipoPeriodo(t)}
+                className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+              >
+                {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
+              </Boton>
+            ))}
+          </GrupoBotones>
+        }
+      />
 
-        <div className="flex items-center gap-3">
-          <Boton variante="secundario" tamano="xs" soloIcono titulo="Anterior"
-            icono={<ChevronLeft size={16} />}
-            onClick={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'prev'))}
-          />
-          <div className="text-center min-w-[200px]">
-            <p className="text-sm font-semibold text-texto-primario">{periodo.etiqueta}</p>
-            <p className="text-xxs text-texto-terciario">{periodo.desde} — {periodo.hasta}</p>
-          </div>
-          <Boton variante="secundario" tamano="xs" soloIcono titulo="Siguiente"
-            icono={<ChevronRight size={16} />}
-            onClick={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'next'))}
-          />
-        </div>
-      </div>
+      {/* Contenido principal */}
+      <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
 
       {/* ── Resumen ── */}
       {!cargando && resultados.length > 0 && (
@@ -233,21 +236,21 @@ export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_p
           animate={{ opacity: 1, y: 0 }}
           className="grid grid-cols-2 md:grid-cols-4 gap-3"
         >
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
             <p className="text-2xl font-bold text-texto-primario">{fmtMonto(totalBruto)}</p>
             <p className="text-xxs text-texto-terciario uppercase mt-1">Costo empresa</p>
           </div>
           {totalDescuento > 0 && (
-            <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
+            <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
               <p className="text-2xl font-bold text-insignia-advertencia">-{fmtMonto(totalDescuento)}</p>
               <p className="text-xxs text-texto-terciario uppercase mt-1">Adelantos</p>
             </div>
           )}
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
             <p className="text-2xl font-bold text-insignia-exito">{fmtMonto(totalNeto)}</p>
             <p className="text-xxs text-texto-terciario uppercase mt-1">A transferir</p>
           </div>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
             <p className="text-2xl font-bold text-texto-secundario">{fmtHoras(totalHoras)}</p>
             <p className="text-xxs text-texto-terciario uppercase mt-1">Horas totales</p>
           </div>
@@ -277,7 +280,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_p
           descripcion="No hay empleados con compensación configurada para este período."
         />
       ) : (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3 border-b border-white/[0.07]">
             <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">Empleado</span>
@@ -346,6 +349,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle>(function VistaNomina(_p
           </div>
         </div>
       )}
+      </div>
 
       {/* Modal detalle de empleado */}
       <ModalDetalleNomina

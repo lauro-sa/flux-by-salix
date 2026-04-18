@@ -331,7 +331,7 @@ export function SeccionSeguridad() {
       {/* Cambiar contraseña */}
       <div>
         <h3 className="text-sm font-semibold text-texto-secundario mb-3">Cambiar contraseña</h3>
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 space-y-4">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 space-y-4">
           <Input
             tipo="password"
             etiqueta="Contraseña actual"
@@ -390,7 +390,7 @@ export function SeccionSeguridad() {
           </div>
         </div>
 
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
           {cargandoDispositivos ? (
             <div className="p-5 text-sm text-texto-terciario">Cargando dispositivos...</div>
           ) : dispositivos.length === 0 ? (

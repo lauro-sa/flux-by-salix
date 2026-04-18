@@ -133,7 +133,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
     || (modo === 'subir' && archivoBase64)
 
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
       {/* Título */}
       <div className="px-5 py-4 border-b border-borde-sutil">
         <h3 className="text-lg font-semibold text-texto-primario">{t('portal.firma')}</h3>
@@ -174,7 +174,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
               placeholder={t('portal.firma_placeholder')}
               formato={null}
             />
-            <div className="bg-superficie-app rounded-lg border border-dashed border-borde-fuerte p-6 flex items-center justify-center min-h-[120px]">
+            <div className="bg-superficie-app rounded-card border border-dashed border-borde-fuerte p-6 flex items-center justify-center min-h-[120px]">
               {firmaAutoBase64 ? (
                 <img src={firmaAutoBase64} alt="Firma" className="max-h-[100px] max-w-full" />
               ) : (
@@ -186,7 +186,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
 
         {modo === 'dibujar' && (
           <div className="space-y-3">
-            <div className="relative bg-superficie-app rounded-lg border border-dashed border-borde-fuerte overflow-hidden">
+            <div className="relative bg-superficie-app rounded-card border border-dashed border-borde-fuerte overflow-hidden">
               <canvas
                 ref={canvasRef}
                 width={500}
@@ -215,7 +215,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
           <div className="space-y-4">
             {archivoBase64 ? (
               <div className="space-y-3">
-                <div className="bg-superficie-app rounded-lg border border-borde-sutil p-6 flex items-center justify-center">
+                <div className="bg-superficie-app rounded-card border border-borde-sutil p-6 flex items-center justify-center">
                   <img src={archivoBase64} alt="Firma subida" className="max-h-[100px] max-w-full" />
                 </div>
                 <Boton variante="fantasma" tamano="sm" icono={<Trash2 size={14} />} onClick={() => setArchivoBase64(null)}>
@@ -223,7 +223,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                 </Boton>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors">
+              <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-card border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors">
                 <Upload size={28} className="text-texto-terciario" />
                 <span className="text-sm text-texto-terciario">{t('portal.firma_seleccione_imagen')}</span>
                 <span className="text-xs text-texto-terciario">{t('portal.firma_formatos')}</span>

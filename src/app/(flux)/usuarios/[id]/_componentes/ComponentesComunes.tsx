@@ -65,10 +65,10 @@ export function TarjetaStat({ etiqueta, valor, subvalor, icono, color = 'primari
   }
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-texto-terciario font-medium uppercase tracking-wide">{etiqueta}</span>
-        <div className={`size-8 rounded-lg flex items-center justify-center ${colores[color]}`}>
+        <div className={`size-8 rounded-card flex items-center justify-center ${colores[color]}`}>
           {icono}
         </div>
       </div>

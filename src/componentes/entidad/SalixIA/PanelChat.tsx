@@ -16,7 +16,7 @@ import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, M
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
 import { useEsMovil } from '@/hooks/useEsMovil'
-import { GrabadorAudio } from '@/app/(flux)/inbox/_componentes/GrabadorAudio'
+import { GrabadorAudio } from '@/componentes/mensajeria/GrabadorAudio'
 
 interface PropiedadesPanelChat {
   abierto: boolean
@@ -208,7 +208,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             <>
               <button
                 onClick={() => setVistaHistorial(false)}
-                className="p-1 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="p-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
               >
                 <ChevronLeft className="size-4" />
               </button>
@@ -216,7 +216,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             </>
           ) : (
             <>
-              <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
+              <div className="size-8 rounded-card bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
                 <Sparkles className="size-4 text-violet-400" />
               </div>
               <div>
@@ -231,14 +231,14 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             <>
               <button
                 onClick={abrirHistorial}
-                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
                 title="Conversaciones anteriores"
               >
                 <History className="size-4" />
               </button>
               <button
                 onClick={iniciarNueva}
-                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
                 title="Nueva conversación"
               >
                 <Plus className="size-4" />
@@ -247,7 +247,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
           )}
           <button
             onClick={onCerrar}
-            className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+            className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
           >
             <X className="size-4" />
           </button>
@@ -260,7 +260,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
           {/* Botón nueva conversación */}
           <button
             onClick={iniciarNueva}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-texto-marca/5 border border-texto-marca/20 text-left transition-colors hover:bg-texto-marca/10 mb-2"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-card bg-texto-marca/5 border border-texto-marca/20 text-left transition-colors hover:bg-texto-marca/10 mb-2"
           >
             <Plus className="size-4 text-texto-marca shrink-0" />
             <span className="text-sm font-medium text-texto-marca">Nueva conversación</span>
@@ -276,7 +276,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
               <button
                 key={conv.id}
                 onClick={() => seleccionarConversacion(conv.id)}
-                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/[0.04] border border-transparent ${
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-card text-left transition-colors hover:bg-white/[0.04] border border-transparent ${
                   conversacion_id === conv.id ? 'bg-white/[0.06] border-white/[0.08]' : ''
                 }`}
               >
@@ -306,7 +306,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
       >
         {mensajes.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8">
-            <div className="size-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
+            <div className="size-14 rounded-modal bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
               <Sparkles className="size-7 text-violet-400" />
             </div>
             <div>
@@ -324,7 +324,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             className={`flex ${msg.rol === 'usuario' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+              className={`max-w-[85%] rounded-modal px-3.5 py-2.5 text-[13px] leading-relaxed ${
                 msg.rol === 'usuario'
                   ? 'bg-texto-marca text-white rounded-br-md'
                   : 'bg-white/[0.06] text-texto-primario rounded-bl-md'
@@ -354,7 +354,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
 
         {error && (
           <div className="text-center">
-            <p className="text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2 inline-block">
+            <p className="text-xs text-red-400 bg-red-400/10 rounded-card px-3 py-2 inline-block">
               {error}
             </p>
           </div>
@@ -380,7 +380,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
 
         {/* Input de texto + botón micrófono (oculto durante grabación) */}
         {!grabando && (
-          <div className="flex items-end gap-2 bg-white/[0.04] rounded-xl px-3 py-2 border border-white/[0.07] focus-within:border-texto-marca/40 transition-colors">
+          <div className="flex items-end gap-2 bg-white/[0.04] rounded-card px-3 py-2 border border-white/[0.07] focus-within:border-texto-marca/40 transition-colors">
             <textarea
               ref={inputRef}
               value={texto}
@@ -398,7 +398,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
               <button
                 onClick={handleEnviar}
                 disabled={cargando}
-                className="p-1.5 rounded-lg text-texto-marca hover:bg-texto-marca/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="p-1.5 rounded-card text-texto-marca hover:bg-texto-marca/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 <Send className="size-4" />
               </button>
@@ -406,7 +406,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
               <button
                 onClick={() => setGrabando(true)}
                 disabled={cargando || transcribiendo}
-                className="p-1.5 rounded-lg text-texto-terciario hover:text-violet-400 hover:bg-violet-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-violet-400 hover:bg-violet-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
                 title="Grabar audio"
               >
                 <Mic className="size-4" />

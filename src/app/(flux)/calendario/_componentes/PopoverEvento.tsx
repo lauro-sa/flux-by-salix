@@ -161,7 +161,7 @@ function PopoverEvento({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-          className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl max-w-xs p-4 flex flex-col gap-2.5"
+          className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-xl max-w-xs p-4 flex flex-col gap-2.5"
           style={estiloPos}
         >
           {evento._es_recorrido ? (

@@ -76,7 +76,7 @@ export default function PantallaEspera({
       {/* Instrucción */}
       <div className="flex flex-col items-center gap-3 mt-2">
         <div
-          className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl"
+          className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-modal md:rounded-3xl"
           style={{ backgroundColor: 'var(--kiosco-card)', border: '1px solid var(--kiosco-border)' }}
         >
           <span style={{ color: 'var(--kiosco-texto-mut)' }}>

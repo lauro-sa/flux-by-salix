@@ -90,7 +90,7 @@ export default function CabeceraOrden({
         />
         <h1 className="text-xl sm:text-2xl font-semibold text-texto-secundario">{numero}</h1>
         {!publicada && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-insignia-advertencia-fondo text-insignia-advertencia-texto">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-boton text-xs font-medium bg-insignia-advertencia-fondo text-insignia-advertencia-texto">
             <PenLine size={11} />
             Borrador
           </span>
@@ -107,14 +107,14 @@ export default function CabeceraOrden({
           <button
             type="button"
             onClick={() => puedeEditarEstado && transicionesValidas.length > 0 && setMenuEstadoAbierto(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto} ${!puedeEditarEstado ? 'cursor-default' : ''}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto} ${!puedeEditarEstado ? 'cursor-default' : ''}`}
           >
             {ETIQUETAS_ESTADO_OT[estado]}
             {puedeEditarEstado && transicionesValidas.length > 0 && <ChevronDown size={14} />}
           </button>
 
           {menuEstadoAbierto && puedeEditarEstado && transicionesValidas.length > 0 && (
-            <div className="absolute top-full mt-1 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+            <div className="absolute top-full mt-1 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
               {transicionesValidas.map(nuevoEstado => {
                 const colores = COLORES_ESTADO_OT[nuevoEstado]
                 return (

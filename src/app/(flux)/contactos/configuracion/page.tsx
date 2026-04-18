@@ -421,10 +421,10 @@ function SeccionDatos() {
       <p className="text-sm text-texto-terciario">Exportar e importar contactos del directorio</p>
 
       {/* ══ Tarjeta 1: Copia de seguridad JSON ══ */}
-      <div className="rounded-xl border border-borde-sutil overflow-hidden">
+      <div className="rounded-card border border-borde-sutil overflow-hidden">
         {/* Encabezado */}
         <div className="flex items-center gap-3 p-5 pb-4">
-          <div className="size-10 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-card bg-superficie-elevada flex items-center justify-center shrink-0">
             <DatabaseBackup size={20} className="text-texto-secundario" />
           </div>
           <div className="flex-1 min-w-0">
@@ -437,7 +437,7 @@ function SeccionDatos() {
         </div>
 
         {/* Info box */}
-        <div className="mx-5 mb-4 p-4 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
+        <div className="mx-5 mb-4 p-4 rounded-card border border-borde-sutil bg-superficie-elevada/50">
           <div className="flex gap-3">
             <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
               <span className="text-insignia-info-texto text-xs font-bold">i</span>
@@ -478,7 +478,7 @@ function SeccionDatos() {
 
         {/* Resultado de importación */}
         {resultado && (
-          <div className="mx-5 mb-4 p-3 rounded-lg bg-superficie-elevada space-y-2">
+          <div className="mx-5 mb-4 p-3 rounded-card bg-superficie-elevada space-y-2">
             <div className="flex items-center gap-4 text-sm">
               <span className="text-insignia-exito-texto font-medium">
                 <Check size={14} className="inline mr-1" />{resultado.creados} creados
@@ -505,7 +505,7 @@ function SeccionDatos() {
         )}
 
         {error && (
-          <div className="mx-5 mb-4 p-3 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+          <div className="mx-5 mb-4 p-3 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
             <AlertTriangle size={14} />
             {error}
           </div>
@@ -518,10 +518,10 @@ function SeccionDatos() {
       </div>
 
       {/* ══ Tarjeta 2: Descargar Excel ══ */}
-      <div className="rounded-xl border border-borde-sutil overflow-hidden">
+      <div className="rounded-card border border-borde-sutil overflow-hidden">
         {/* Encabezado */}
         <div className="flex items-center gap-3 p-5 pb-4">
-          <div className="size-10 rounded-lg bg-insignia-exito-fondo/50 flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-card bg-insignia-exito-fondo/50 flex items-center justify-center shrink-0">
             <Download size={20} className="text-insignia-exito-texto" />
           </div>
           <div className="flex-1">
@@ -531,7 +531,7 @@ function SeccionDatos() {
         </div>
 
         {/* Info box */}
-        <div className="mx-5 mb-4 p-4 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
+        <div className="mx-5 mb-4 p-4 rounded-card border border-borde-sutil bg-superficie-elevada/50">
           <div className="flex gap-3">
             <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
               <span className="text-insignia-info-texto text-xs font-bold">i</span>
@@ -691,10 +691,10 @@ function SeccionGoogleDrive() {
       <p className="text-sm text-texto-terciario">Sincronización automática con Google Sheets</p>
 
       {/* ══ Tarjeta principal ══ */}
-      <div className="rounded-xl border border-borde-sutil overflow-hidden">
+      <div className="rounded-card border border-borde-sutil overflow-hidden">
         {/* Encabezado con estado */}
         <div className="flex items-center gap-3 p-5 pb-4">
-          <div className="size-10 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-card bg-superficie-elevada flex items-center justify-center shrink-0">
             <CloudCog size={20} className="text-texto-secundario" />
           </div>
           <div className="flex-1 min-w-0">
@@ -715,7 +715,7 @@ function SeccionGoogleDrive() {
         {!config?.conectado ? (
           <>
             {/* Info box para desconectados */}
-            <div className="mx-5 mb-4 p-4 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
+            <div className="mx-5 mb-4 p-4 rounded-card border border-borde-sutil bg-superficie-elevada/50">
               <div className="flex gap-3">
                 <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
                   <span className="text-insignia-info-texto text-xs font-bold">i</span>
@@ -732,7 +732,7 @@ function SeccionGoogleDrive() {
                 type="button"
                 onClick={conectar}
                 disabled={conectando}
-                className="w-full flex items-center gap-3 p-4 rounded-xl border border-borde-sutil hover:border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                className="w-full flex items-center gap-3 p-4 rounded-card border border-borde-sutil hover:border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
               >
                 {/* Ícono G de Google */}
                 <div className="size-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-borde-sutil shrink-0">
@@ -775,7 +775,7 @@ function SeccionGoogleDrive() {
 
               {/* Error */}
               {config.ultimo_error && (
-                <div className="p-3 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+                <div className="p-3 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
                   <AlertTriangle size={14} />
                   {config.ultimo_error}
                 </div>
@@ -841,7 +841,7 @@ function SeccionGoogleDrive() {
 
       {/* Mensaje de feedback */}
       {mensaje && (
-        <div className="p-3 rounded-lg bg-superficie-elevada text-sm text-texto-secundario flex items-center gap-2">
+        <div className="p-3 rounded-card bg-superficie-elevada text-sm text-texto-secundario flex items-center gap-2">
           <Check size={14} className="text-insignia-exito-texto" />
           {mensaje}
         </div>

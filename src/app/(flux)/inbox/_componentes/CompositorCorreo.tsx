@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
-import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
+import { SelectorRespuestasRapidas } from '@/componentes/mensajeria/SelectorRespuestasRapidas'
 import type { Editor } from '@tiptap/react'
 
 /**
@@ -214,7 +214,7 @@ function InputEmailChips({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="absolute left-0 right-0 z-50 mt-1 py-1 rounded-lg shadow-lg max-h-[160px] overflow-y-auto"
+              className="absolute left-0 right-0 z-50 mt-1 py-1 rounded-card shadow-lg max-h-[160px] overflow-y-auto"
               style={{
                 background: 'var(--superficie-elevada)',
                 border: '1px solid var(--borde-sutil)',
@@ -487,7 +487,7 @@ export function CompositorCorreo({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center rounded-lg"
+            className="absolute inset-0 z-50 flex items-center justify-center rounded-card"
             style={{
               background: 'rgba(var(--texto-marca-rgb, 37, 99, 235), 0.08)',
               border: '2px dashed var(--texto-marca)',
@@ -510,7 +510,7 @@ export function CompositorCorreo({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg shadow-lg"
+            className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-card shadow-lg"
             style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
           >
             <span className="text-sm whitespace-nowrap">

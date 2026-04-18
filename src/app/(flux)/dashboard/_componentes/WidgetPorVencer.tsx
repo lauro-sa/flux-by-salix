@@ -54,7 +54,7 @@ export function WidgetPorVencer({ presupuestos, formatoMoneda }: Props) {
           return (
             <div
               key={p.id}
-              className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
+              className="flex items-center justify-between py-2 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors"
               onClick={() => router.push(`/presupuestos/${p.id}`)}
             >
               <div className="min-w-0 flex-1">

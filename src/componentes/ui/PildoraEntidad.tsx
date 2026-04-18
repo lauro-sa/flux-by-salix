@@ -39,7 +39,7 @@ function PildoraEntidad({
   return (
     <span
       className={[
-        'inline-flex items-center gap-1.5 rounded-md font-medium border border-texto-marca/30 bg-texto-marca/10 text-texto-marca',
+        'inline-flex items-center gap-1.5 rounded-boton font-medium border border-texto-marca/30 bg-texto-marca/10 text-texto-marca',
         compacto ? 'pl-1.5 pr-1 py-0.5' : 'pl-2 pr-1 py-0.5',
         className,
       ].join(' ')}

@@ -321,7 +321,7 @@ function SelectorVariables({
             type="button"
             onClick={() => setAbiertoInterno(!abiertoInterno)}
             className={[
-              'flex items-center justify-center size-8 rounded-md border transition-all duration-150 cursor-pointer',
+              'flex items-center justify-center size-8 rounded-boton border transition-all duration-150 cursor-pointer',
               abierto
                 ? 'border-borde-foco bg-superficie-seleccionada text-texto-marca'
                 : 'border-borde-sutil bg-superficie-tarjeta text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte',
@@ -342,7 +342,7 @@ function SelectorVariables({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: posicion === 'arriba' ? 4 : -4, scale: 0.98 }}
               transition={{ duration: 0.12 }}
-              className="fixed rounded-xl border border-borde-sutil shadow-elevada overflow-hidden"
+              className="fixed rounded-popover border border-borde-sutil shadow-elevada overflow-hidden"
               style={{
                 zIndex: 'var(--z-modal, 9999)' as unknown as number,
                 top: posPopover.top,
@@ -364,7 +364,7 @@ function SelectorVariables({
                 <button
                   type="button"
                   onClick={() => { setEntidadActiva(null); setBusqueda('') }}
-                  className="flex items-center justify-center size-6 rounded-md shrink-0 transition-colors hover:bg-superficie-hover"
+                  className="flex items-center justify-center size-6 rounded-boton shrink-0 transition-colors hover:bg-superficie-hover"
                   style={{ color: 'var(--texto-terciario)' }}
                 >
                   <ArrowLeft size={14} />

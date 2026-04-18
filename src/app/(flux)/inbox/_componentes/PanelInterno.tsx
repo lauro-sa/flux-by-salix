@@ -11,7 +11,7 @@ import {
   MoreHorizontal, UserPlus, Pencil, Archive, SmilePlus,
 } from 'lucide-react'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
-import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
+import { CompositorMensaje, type DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -337,7 +337,7 @@ export function PanelInterno({
               {esMovil && onVolverMovil && (
                 <button
                   onClick={onVolverMovil}
-                  className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-md transition-colors active:bg-[var(--superficie-hover)]"
+                  className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-boton transition-colors active:bg-[var(--superficie-hover)]"
                   style={{ color: 'var(--texto-secundario)' }}
                 >
                   <ChevronLeft size={22} />
@@ -378,7 +378,7 @@ export function PanelInterno({
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil shadow-md"
+                      className="absolute right-0 top-full mt-1 z-50 rounded-card py-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil shadow-md"
                       onMouseDown={e => e.stopPropagation()}
                     >
                       <OpcionMenu
@@ -607,7 +607,7 @@ function CanalItem({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute right-1 top-full z-50 rounded-lg py-1 min-w-[160px] bg-superficie-elevada border border-borde-sutil shadow-md"
+            className="absolute right-1 top-full z-50 rounded-card py-1 min-w-[160px] bg-superficie-elevada border border-borde-sutil shadow-md"
             onMouseDown={e => e.stopPropagation()}
           >
             {onSilenciar && (
@@ -693,7 +693,7 @@ function MensajeInterno({
         <div className="relative max-w-[75%] group/burbuja">
           {/* Burbuja */}
           <div
-            className="rounded-xl px-3 py-2"
+            className="rounded-card px-3 py-2"
             style={{
               background: esPropio ? 'var(--texto-marca)' : 'var(--superficie-elevada)',
               color: esPropio ? 'var(--texto-inverso)' : 'var(--texto-primario)',
@@ -707,7 +707,7 @@ function MensajeInterno({
             {mensaje.adjuntos.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1.5">
                 {mensaje.adjuntos.map((adj) => adj.tipo_mime.startsWith('image/')
-                  ? <Image key={adj.id} src={adj.url} alt={adj.nombre_archivo} width={240} height={160} sizes="240px" className="rounded-md object-contain" />
+                  ? <Image key={adj.id} src={adj.url} alt={adj.nombre_archivo} width={240} height={160} sizes="240px" className="rounded-boton object-contain" />
                   : <a key={adj.id} href={adj.url} target="_blank" rel="noopener noreferrer" className="text-xs underline">📎 {adj.nombre_archivo}</a>
                 )}
               </div>
@@ -792,7 +792,7 @@ function MensajeInterno({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full mt-1 rounded-lg p-2 text-xs z-50 min-w-[140px] bg-superficie-elevada text-texto-primario border border-borde-sutil shadow-md"
+                className="absolute top-full mt-1 rounded-card p-2 text-xs z-50 min-w-[140px] bg-superficie-elevada text-texto-primario border border-borde-sutil shadow-md"
                 style={{ [esPropio ? 'right' : 'left']: 0 }}
               >
                 {lecturas.leido_por.length > 0 && (
@@ -823,7 +823,7 @@ function MensajeInterno({
   // ─── Modo canal/grupo: estilo Slack ───
   return (
     <div
-      className="group flex gap-2.5 px-1 py-0.5 rounded-md transition-colors relative"
+      className="group flex gap-2.5 px-1 py-0.5 rounded-boton transition-colors relative"
       onMouseEnter={() => setMostrarAcciones(true)}
       onMouseLeave={() => { setMostrarAcciones(false); setMostrarLecturas(false) }}
       style={{ background: mostrarAcciones ? 'var(--superficie-hover)' : 'transparent' }}
@@ -865,7 +865,7 @@ function MensajeInterno({
                     width={300}
                     height={200}
                     sizes="300px"
-                    className="rounded-md object-contain cursor-pointer"
+                    className="rounded-boton object-contain cursor-pointer"
                   />
                 )
               }
@@ -892,7 +892,7 @@ function MensajeInterno({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="mt-1 rounded-lg p-2 text-xs bg-superficie-elevada border border-borde-sutil shadow-md"
+              className="mt-1 rounded-card p-2 text-xs bg-superficie-elevada border border-borde-sutil shadow-md"
             >
               {lecturas.leido_por.length > 0 && (
                 <div className="mb-1.5">
@@ -969,7 +969,7 @@ function MensajeInterno({
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
-            className="absolute -top-3 right-2 flex items-center gap-0.5 px-1 py-0.5 rounded-md"
+            className="absolute -top-3 right-2 flex items-center gap-0.5 px-1 py-0.5 rounded-boton"
             style={{
               background: 'var(--superficie-elevada)',
               boxShadow: 'var(--sombra-md)',

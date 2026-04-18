@@ -31,7 +31,7 @@ function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onElimin
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.2, delay: indice * 0.03 }}
-      className="group flex items-start gap-2.5 py-2.5 px-1 rounded-lg hover:bg-superficie-hover transition-colors"
+      className="group flex items-start gap-2.5 py-2.5 px-1 rounded-card hover:bg-superficie-hover transition-colors"
     >
       {/* Botón check */}
       <Boton

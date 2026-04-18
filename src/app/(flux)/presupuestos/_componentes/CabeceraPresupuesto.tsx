@@ -13,6 +13,7 @@ import {
   Loader2, MoreHorizontal, Wrench,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
 import { ETIQUETAS_ESTADO, TRANSICIONES_ESTADO } from '@/tipos/presupuesto'
 import type { EstadoPresupuesto } from '@/tipos/presupuesto'
@@ -117,7 +118,7 @@ export default function CabeceraPresupuesto({
 
       {/* Fila 3: Botones de acción (modo editar o post-creación) */}
       {(modo === 'editar' || presupuestoIdCreado) && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center">
           <BotonesAccion
             estadoActual={estadoActual}
             estaCancelado={estaCancelado}
@@ -222,7 +223,7 @@ function BotonesAccion({
   const labelConfirmar = esConfirmadoCliente ? 'Aprobar Orden de Venta' : t('comun.confirmar')
 
   return (
-    <>
+    <GrupoBotones>
       {siguienteEstado && (
         <BotonAccion
           onClick={() => onCambiarEstado(siguienteEstado)}
@@ -256,7 +257,7 @@ function BotonesAccion({
           titulo="Más acciones"
         />
         {menuAbierto && (
-          <div className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+          <div className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg overflow-hidden py-1">
             {opcionesMenu.map(op => (
               <button
                 key={op.label}
@@ -276,7 +277,7 @@ function BotonesAccion({
       {!estaCancelado && estadosPosibles.includes('cancelado') && (
         <BotonAccion onClick={() => onCambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
       )}
-    </>
+    </GrupoBotones>
   )
 }
 

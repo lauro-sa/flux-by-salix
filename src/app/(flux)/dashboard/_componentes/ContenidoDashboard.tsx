@@ -236,10 +236,10 @@ export default function ContenidoDashboard() {
         </div>
 
         {/* Pestañas General / Métricas */}
-        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-lg p-0.5 shrink-0">
+        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-card p-0.5 shrink-0">
           <button
             onClick={() => setPestana('general')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-boton transition-colors ${
               pestana === 'general'
                 ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
                 : 'text-texto-terciario hover:text-texto-secundario'
@@ -250,7 +250,7 @@ export default function ContenidoDashboard() {
           </button>
           <button
             onClick={() => setPestana('metricas')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-boton transition-colors ${
               pestana === 'metricas'
                 ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
                 : 'text-texto-terciario hover:text-texto-secundario'
@@ -405,7 +405,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Últimos presupuestos" icono={<FileText size={14} />} verTodo={() => router.push('/presupuestos')}>
           {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
             datos.presupuestos.recientes.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
+              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
@@ -425,7 +425,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Últimos contactos" icono={<Users size={14} />} verTodo={() => router.push('/contactos')}>
           {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
             datos.contactos.recientes.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
+              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="size-6 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
                     {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
@@ -447,7 +447,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Próximas actividades" icono={<CheckSquare size={14} />} verTodo={() => router.push('/actividades')}>
           {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
             datos.actividades_proximas.map(act => (
-              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
+              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
@@ -588,7 +588,7 @@ function PestanaMetricas({
 
       {/* ─── Próximamente ─── */}
       <motion.div variants={itemVariantes}>
-        <div className="border border-borde-sutil border-dashed rounded-lg p-6">
+        <div className="border border-borde-sutil border-dashed rounded-card p-6">
           <h3 className="text-sm font-semibold text-texto-secundario mb-4">Próximamente</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
@@ -598,7 +598,7 @@ function PestanaMetricas({
               { icono: <Megaphone size={16} />, nombre: 'Marketing' },
               { icono: <ShieldCheck size={16} />, nombre: 'Auditoría' },
             ].map(m => (
-              <div key={m.nombre} className="flex items-center gap-2.5 py-2.5 px-3 rounded-lg bg-superficie-hover/30 text-texto-terciario">
+              <div key={m.nombre} className="flex items-center gap-2.5 py-2.5 px-3 rounded-card bg-superficie-hover/30 text-texto-terciario">
                 {m.icono}
                 <span className="text-xs">{m.nombre}</span>
               </div>
@@ -623,10 +623,10 @@ function KpiCompacto({
   return (
     <div
       onClick={onClick}
-      className="bg-superficie-tarjeta border border-borde-sutil rounded-lg py-3 px-4 cursor-pointer hover:border-borde-fuerte hover:shadow-sm transition-all duration-150"
+      className="bg-superficie-tarjeta border border-borde-sutil rounded-card py-3 px-4 cursor-pointer hover:border-borde-fuerte hover:shadow-sm transition-all duration-150"
     >
       <div className="flex items-center gap-3">
-        <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 bg-insignia-${color}-fondo text-insignia-${color}-texto`}>
+        <div className={`size-8 rounded-card flex items-center justify-center shrink-0 bg-insignia-${color}-fondo text-insignia-${color}-texto`}>
           {icono}
         </div>
         <div className="min-w-0 flex-1">
@@ -647,7 +647,7 @@ function TarjetaReciente({
   titulo: string; icono: React.ReactNode; verTodo: () => void; children: React.ReactNode
 }) {
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-texto-terciario">{icono}</span>
@@ -678,7 +678,7 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
   const filtrados = canal === 'todos' ? mensajes : mensajes.filter(m => m.tipo_canal === canal)
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-texto-terciario"><MessageSquare size={14} /></span>
         <h3 className="text-xs font-semibold text-texto-primario">Últimos mensajes</h3>
@@ -690,7 +690,7 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
             <button
               key={c}
               onClick={() => setCanal(c)}
-              className={`px-2 py-0.5 text-xxs rounded-md transition-colors ${canal === c ? 'bg-superficie-hover text-texto-primario font-medium' : 'text-texto-terciario hover:text-texto-secundario'}`}
+              className={`px-2 py-0.5 text-xxs rounded-boton transition-colors ${canal === c ? 'bg-superficie-hover text-texto-primario font-medium' : 'text-texto-terciario hover:text-texto-secundario'}`}
             >
               {ETIQUETA_CANAL[c] || c}
             </button>
@@ -703,7 +703,7 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
           filtrados.slice(0, 5).map(m => {
             const preview = m.correo_asunto || m.texto || `[${m.tipo_contenido}]`
             return (
-              <div key={m.id} className="flex items-start gap-2 py-1.5 px-1 rounded-md hover:bg-superficie-hover transition-colors">
+              <div key={m.id} className="flex items-start gap-2 py-1.5 px-1 rounded-boton hover:bg-superficie-hover transition-colors">
                 <div className={`size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                   m.tipo_canal === 'whatsapp' ? 'bg-canal-whatsapp/15 text-canal-whatsapp'
                   : m.tipo_canal === 'correo' ? 'bg-canal-correo/15 text-canal-correo'
@@ -746,7 +746,7 @@ function BotonRapido({ etiqueta, icono, onClick }: { etiqueta: string; icono: Re
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-texto-primario transition-all cursor-pointer"
+      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-card border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-texto-primario transition-all cursor-pointer"
     >
       <span className="text-texto-terciario/50">{icono}</span>
       {etiqueta}

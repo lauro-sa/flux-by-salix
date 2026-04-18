@@ -92,7 +92,7 @@ function ItemSortable({
   }
 
   return (
-    <div ref={setNodeRef} style={estiloSortable} className={`relative group ${isDragging ? 'shadow-lg rounded-md bg-superficie-elevada' : ''} ${animandoSalida ? 'sidebar-item-puff' : ''}`}>
+    <div ref={setNodeRef} style={estiloSortable} className={`relative group ${isDragging ? 'shadow-lg rounded-boton bg-superficie-elevada' : ''} ${animandoSalida ? 'sidebar-item-puff' : ''}`}>
       {/* Item principal — div clickeable, long press abre menu */}
       <div
         ref={itemRef}
@@ -108,7 +108,7 @@ function ItemSortable({
         }}
         style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-primario)', opacity: activo ? 1 : 0.65 }}
         className={[
-          'flex items-center rounded-md text-[13px] cursor-pointer transition-all duration-100 relative select-none',
+          'flex items-center rounded-boton text-[13px] cursor-pointer transition-all duration-100 relative select-none',
           colapsado ? 'justify-center py-2.5 mx-auto w-10' : 'px-2 py-2 pr-7',
           activo ? 'font-semibold bg-superficie-activa' : 'font-normal hover:bg-superficie-hover hover:opacity-90!',
         ].join(' ')}
@@ -138,7 +138,7 @@ function ItemSortable({
           <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-texto-marca" />
         )}
         {colapsado && (
-          <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-md bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>
+          <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-boton bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>
         )}
       </div>
 
@@ -149,7 +149,7 @@ function ItemSortable({
             e.stopPropagation()
             onAbrirMenu(item.id, e.currentTarget)
           }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-md cursor-pointer opacity-0 group-hover:opacity-100 group-active:opacity-100 hover:bg-superficie-activa active:bg-superficie-activa flex items-center justify-center transition-opacity z-30"
+          className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-boton cursor-pointer opacity-0 group-hover:opacity-100 group-active:opacity-100 hover:bg-superficie-activa active:bg-superficie-activa flex items-center justify-center transition-opacity z-30"
           style={{ color: 'var(--texto-terciario)' }}
         >
           <MoreHorizontal size={13} />
@@ -160,7 +160,7 @@ function ItemSortable({
       {menuAbierto && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[var(--z-popover)]" onClick={onCerrarMenu}>
           <div
-            className="absolute bg-superficie-elevada border border-borde-sutil rounded-md shadow-lg py-1 w-44"
+            className="absolute bg-superficie-elevada border border-borde-sutil rounded-boton shadow-lg py-1 w-44"
             style={{ top: menuPos.top, left: menuPos.left }}
             onClick={(e) => e.stopPropagation()}
           >

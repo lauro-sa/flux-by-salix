@@ -51,7 +51,7 @@ function TablaBase<T>({ columnas, datos, claveFila, seleccionables, seleccionado
 
   if (cargando) {
     return (
-      <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-lg overflow-hidden ${className}`}>
+      <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden ${className}`}>
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex gap-4 px-4 py-3 border-b border-borde-sutil last:border-b-0">
             {columnas.map((col) => (
@@ -68,7 +68,7 @@ function TablaBase<T>({ columnas, datos, claveFila, seleccionables, seleccionado
   }
 
   return (
-    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-lg overflow-hidden overflow-x-auto ${className}`}>
+    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden overflow-x-auto ${className}`}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-borde-sutil">

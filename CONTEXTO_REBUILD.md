@@ -1121,8 +1121,8 @@ presencia/{usuario_id} = {
 | `recorrido` | Modo Visitador | `ver_recorrido`, `autoasignar`, `coordinar` |
 | `ordenes_trabajo` | Órdenes de Trabajo | `ver_propio`, `ver_todos`, `crear`, `editar`, `eliminar`, `completar_etapa` |
 
-**Módulos de configuración (13):**
-- `config_empresa`, `config_contactos`, `config_visitas`, `config_actividades`, `config_calendario`, `config_presupuestos`, `config_facturas`, `config_informes`, `config_ordenes_trabajo`, `config_usuarios`, `config_asistencias`, `config_productos`, `config_inbox`
+**Módulos de configuración (15):**
+- `config_empresa`, `config_contactos`, `config_visitas`, `config_actividades`, `config_calendario`, `config_presupuestos`, `config_facturas`, `config_informes`, `config_ordenes_trabajo`, `config_usuarios`, `config_asistencias`, `config_productos`, `config_correo`, `config_whatsapp`, `config_interno`
 - Cada uno con acciones: `ver`, `editar`
 
 ### 18.2 Diccionario de acciones

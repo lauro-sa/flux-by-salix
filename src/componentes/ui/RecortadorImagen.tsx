@@ -126,7 +126,7 @@ function RecortadorImagen({
     >
       <div className="space-y-4">
         {/* Área de recorte */}
-        <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden">
+        <div className="relative w-full aspect-square bg-black rounded-card overflow-hidden">
           <Cropper
             image={imagen}
             crop={crop}

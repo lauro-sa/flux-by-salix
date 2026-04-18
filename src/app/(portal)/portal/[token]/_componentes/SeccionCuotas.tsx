@@ -102,7 +102,7 @@ export default function SeccionCuotas({
     : totalFinal
 
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
       <div className="px-5 py-4 border-b border-borde-sutil">
         <h3 className="text-base font-semibold text-texto-primario flex items-center gap-2">
           <CircleDollarSign size={18} style={{ color: colorMarca }} />
@@ -266,7 +266,7 @@ export default function SeccionCuotas({
         {comprobantes.length > 0 && (
           <div className="space-y-2">
             {comprobantes.map(c => (
-              <div key={c.id} className="flex items-center gap-2 text-sm bg-superficie-app rounded-lg px-3 py-2">
+              <div key={c.id} className="flex items-center gap-2 text-sm bg-superficie-app rounded-card px-3 py-2">
                 <FileText size={14} className={
                   c.estado === 'confirmado' ? 'text-insignia-exito shrink-0'
                     : c.estado === 'rechazado' ? 'text-estado-error shrink-0'
@@ -285,7 +285,7 @@ export default function SeccionCuotas({
           </div>
         )}
 
-        <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors text-sm text-texto-terciario">
+        <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-card border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors text-sm text-texto-terciario">
           {cargandoComprobante ? (
             <Loader2 size={16} className="animate-spin" />
           ) : (

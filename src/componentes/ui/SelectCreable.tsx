@@ -177,7 +177,7 @@ export function SelectCreable({
             'flex items-center justify-between gap-2 text-sm cursor-pointer transition-all duration-150 w-full text-left outline-none',
             esPlano
               ? `bg-transparent border-0 border-b px-0 py-1 rounded-none ${abierto ? 'border-borde-foco' : 'border-borde-sutil'}`
-              : `px-3 py-2 rounded-md border bg-superficie-tarjeta ${abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte'}`,
+              : `px-3 py-2 rounded-input border bg-superficie-tarjeta ${abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte'}`,
           ].join(' ')}>
           <span className={seleccionada ? 'text-texto-primario' : 'text-texto-terciario'}>
             {seleccionada?.etiqueta || placeholder}
@@ -194,7 +194,7 @@ export function SelectCreable({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed border border-borde-sutil rounded-md shadow-lg overflow-hidden"
+              className="fixed border border-borde-sutil rounded-popover shadow-lg overflow-hidden"
               style={{
                 top: posicion.top,
                 left: posicion.left,

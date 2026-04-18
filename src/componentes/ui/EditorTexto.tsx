@@ -109,7 +109,7 @@ function EditorTexto({
 
   return (
     <div
-      className={['rounded-lg border border-borde-sutil bg-superficie-tarjeta overflow-hidden',
+      className={['rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden',
         'focus-within:ring-2 focus-within:ring-texto-marca/20 transition-shadow', className].join(' ')}
       style={style}
     >

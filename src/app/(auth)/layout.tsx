@@ -83,7 +83,7 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="relative z-10 w-full max-w-[440px]"
         >
-          <div className="bg-superficie-tarjeta/90 backdrop-blur-md border border-borde-sutil/60 rounded-xl p-6 sm:p-8 shadow-xl shadow-black/[0.10]">
+          <div className="bg-superficie-tarjeta/90 backdrop-blur-md border border-borde-sutil/60 rounded-card p-6 sm:p-8 shadow-xl shadow-black/[0.10]">
             {children}
           </div>
         </motion.div>

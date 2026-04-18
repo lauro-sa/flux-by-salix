@@ -135,12 +135,12 @@ export function SeccionRegional() {
       />
 
       {/* Panel unificado con secciones separadas por divisores */}
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden divide-y divide-white/[0.07]">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden divide-y divide-white/[0.07]">
 
         {/* Países donde opera */}
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
               <Globe size={15} style={{ color: '#4A90E2' }} />
             </div>
             <div>
@@ -158,7 +158,7 @@ export function SeccionRegional() {
                     setPaises(nuevos)
                     guardarInmediato({ paises: nuevos })
                   }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-boton text-xs font-medium transition-all cursor-pointer border ${
                     activo
                       ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
                       : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
@@ -177,7 +177,7 @@ export function SeccionRegional() {
         {/* Moneda principal */}
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
               <DollarSign size={15} style={{ color: '#4CAF50' }} />
             </div>
             <div>
@@ -193,7 +193,7 @@ export function SeccionRegional() {
         {/* Zona horaria */}
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
               <Clock size={15} style={{ color: '#8B78F0' }} />
             </div>
             <div>
@@ -209,7 +209,7 @@ export function SeccionRegional() {
         {/* Formato de fecha y hora */}
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
               <Calendar size={15} style={{ color: '#4A90E2' }} />
             </div>
             <div>
@@ -232,7 +232,7 @@ export function SeccionRegional() {
         {/* Inicio de semana */}
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
               <CalendarDays size={15} style={{ color: '#F0923A' }} />
             </div>
             <div>

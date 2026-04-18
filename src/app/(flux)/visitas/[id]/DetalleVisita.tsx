@@ -69,7 +69,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
       <div className="flex items-center gap-3 px-6 py-4 border-b border-borde-sutil">
         <button
           onClick={() => router.push('/visitas')}
-          className="p-1.5 rounded-lg hover:bg-white/[0.06] text-texto-terciario"
+          className="p-1.5 rounded-card hover:bg-white/[0.06] text-texto-terciario"
         >
           <ArrowLeft size={18} />
         </button>
@@ -220,7 +220,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
                 {t('visitas.direccion')}
               </label>
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+              <div className="flex items-center gap-2 p-3 rounded-card border border-white/[0.06] bg-white/[0.03]">
                 <MapPin size={14} className="text-texto-terciario flex-shrink-0" />
                 <span className="text-sm text-texto-primario flex-1">{visita.direccion_texto}</span>
                 {visita.direccion_lat && visita.direccion_lng && (
@@ -297,7 +297,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
                 {t('visitas.registro_ubicacion')}
               </label>
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+              <div className="flex items-center gap-2 p-3 rounded-card border border-white/[0.06] bg-white/[0.03]">
                 <MapPin size={14} className="text-insignia-exito" />
                 <span className="text-sm text-texto-primario">
                   {visita.registro_lat.toFixed(6)}, {visita.registro_lng.toFixed(6)}

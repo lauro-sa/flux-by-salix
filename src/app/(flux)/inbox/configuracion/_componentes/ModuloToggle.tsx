@@ -17,7 +17,7 @@ export function ModuloToggle({
 }) {
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-lg"
+      className="flex items-center gap-3 p-3 rounded-card"
       style={{ border: '1px solid var(--borde-sutil)' }}
     >
       <div className="flex-shrink-0">{icono}</div>

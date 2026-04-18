@@ -49,7 +49,7 @@ function TooltipClientes({ active, payload, label }: { active?: boolean; payload
   if (!active || !payload?.length) return null
   const total = payload.reduce((s, p) => s + p.value, 0)
   return (
-    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-lg px-3 py-2.5 shadow-md min-w-[150px]">
+    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-card px-3 py-2.5 shadow-md min-w-[150px]">
       <p className="text-xs text-texto-terciario mb-1.5 font-medium">{label}</p>
       {payload.filter(p => p.value > 0).map(p => (
         <div key={p.name} className="flex items-center justify-between gap-3 text-xs py-0.5">
@@ -203,10 +203,10 @@ export function WidgetClientes({ activosPorTipo, totalActivos, nuevosPorMes }: P
 
         {/* Toggle de modo comparación */}
         <div className="flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-card p-0.5">
             <button
               onClick={() => setModoComparacion('mes_anterior')}
-              className={`px-2 py-1 text-xxs rounded-md transition-colors ${
+              className={`px-2 py-1 text-xxs rounded-boton transition-colors ${
                 modoComparacion === 'mes_anterior'
                   ? 'bg-superficie-tarjeta shadow-sm border border-borde-sutil text-texto-primario font-medium'
                   : 'text-texto-terciario hover:text-texto-secundario'
@@ -216,7 +216,7 @@ export function WidgetClientes({ activosPorTipo, totalActivos, nuevosPorMes }: P
             </button>
             <button
               onClick={() => setModoComparacion('anio_anterior')}
-              className={`px-2 py-1 text-xxs rounded-md transition-colors ${
+              className={`px-2 py-1 text-xxs rounded-boton transition-colors ${
                 modoComparacion === 'anio_anterior'
                   ? 'bg-superficie-tarjeta shadow-sm border border-borde-sutil text-texto-primario font-medium'
                   : 'text-texto-terciario hover:text-texto-secundario'

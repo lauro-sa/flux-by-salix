@@ -224,9 +224,9 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
       >
         <div className="space-y-5">
           {/* Preview */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-superficie-hover/50">
+          <div className="flex items-center gap-3 p-3 rounded-card bg-superficie-hover/50">
             <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              className="w-9 h-9 rounded-card flex items-center justify-center"
               style={{ backgroundColor: color + '18', color }}
             >
               {(() => { const I = obtenerIcono(icono); return I ? <I size={18} /> : null })()}

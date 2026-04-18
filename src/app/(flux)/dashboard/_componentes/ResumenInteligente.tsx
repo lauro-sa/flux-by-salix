@@ -81,7 +81,7 @@ export function ResumenInteligente(props: Props) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5"
+      className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

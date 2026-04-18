@@ -191,7 +191,7 @@ export function TabResumen({
           {perfil.documento_numero ? (
             <Tarjeta compacta>
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-insignia-info-fondo flex items-center justify-center">
+                <div className="size-9 rounded-card bg-insignia-info-fondo flex items-center justify-center">
                   <Fingerprint size={16} className="text-insignia-info-texto" />
                 </div>
                 <div>
@@ -206,7 +206,7 @@ export function TabResumen({
           {fechaNac && (
             <Tarjeta compacta>
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-insignia-rosa-fondo flex items-center justify-center">
+                <div className="size-9 rounded-card bg-insignia-rosa-fondo flex items-center justify-center">
                   <Calendar size={16} className="text-insignia-rosa-texto" />
                 </div>
                 <div className="flex-1">
@@ -248,7 +248,7 @@ export function TabResumen({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Tarjeta compacta>
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg bg-insignia-violeta-fondo flex items-center justify-center">
+            <div className="size-9 rounded-card bg-insignia-violeta-fondo flex items-center justify-center">
               <Clock size={16} className="text-insignia-violeta-texto" />
             </div>
             <div>
@@ -264,7 +264,7 @@ export function TabResumen({
 
         <Tarjeta compacta>
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg bg-insignia-cyan-fondo flex items-center justify-center">
+            <div className="size-9 rounded-card bg-insignia-cyan-fondo flex items-center justify-center">
               <Fingerprint size={16} className="text-insignia-cyan-texto" />
             </div>
             <div>
@@ -278,7 +278,7 @@ export function TabResumen({
 
         <Tarjeta compacta>
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="size-9 rounded-lg bg-insignia-naranja-fondo flex items-center justify-center shrink-0">
+            <div className="size-9 rounded-card bg-insignia-naranja-fondo flex items-center justify-center shrink-0">
               <MapPin size={16} className="text-insignia-naranja-texto" />
             </div>
             <div className="min-w-0 flex-1">
@@ -298,7 +298,7 @@ export function TabResumen({
           {contactoEmergencia ? (
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-insignia-peligro-fondo flex items-center justify-center">
+                <div className="size-9 rounded-card bg-insignia-peligro-fondo flex items-center justify-center">
                   <Heart size={16} className="text-insignia-peligro-texto" />
                 </div>
                 <div>
@@ -323,7 +323,7 @@ export function TabResumen({
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-superficie-hover flex items-center justify-center">
+              <div className="size-9 rounded-card bg-superficie-hover flex items-center justify-center">
                 <Heart size={16} className="text-texto-terciario" />
               </div>
               <p className="text-xs text-texto-terciario">Sin contacto de emergencia cargado</p>
@@ -359,12 +359,12 @@ export function TabResumen({
                 <div key={tipo}>
                   <p className="text-xxs text-texto-terciario/60 uppercase tracking-wide font-semibold text-center mb-1">{titulo}</p>
                   <div
-                    className={`rounded-md overflow-hidden ${imgUrl ? 'cursor-pointer hover:opacity-80' : 'bg-superficie-hover/30'}`}
+                    className={`rounded-boton overflow-hidden ${imgUrl ? 'cursor-pointer hover:opacity-80' : 'bg-superficie-hover/30'}`}
                     onClick={() => imgUrl && setDocPreview({ titulo: tipo, url: imgUrl })}
                   >
                     {imgUrl ? (
                       <div className="relative w-full h-20">
-                        <Image src={imgUrl} alt={tipo} fill sizes="150px" className="object-contain rounded-md bg-superficie-hover/20" />
+                        <Image src={imgUrl} alt={tipo} fill sizes="150px" className="object-contain rounded-boton bg-superficie-hover/20" />
                       </div>
                     ) : (
                       <div className="w-full h-20 flex flex-col items-center justify-center gap-1">

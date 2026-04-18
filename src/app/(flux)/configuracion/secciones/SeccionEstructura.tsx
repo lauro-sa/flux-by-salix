@@ -1,78 +1,46 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
-  Plus, Pencil, Trash2, X, Check, ChevronRight, ChevronDown, Clock, Search,
-  Building, Briefcase, Users, UserPlus, Crown, AlertTriangle, RotateCcw,
+  Plus, Trash2, Check, Clock,
+  Building, Briefcase, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
-import { Avatar } from '@/componentes/ui/Avatar'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
-import { obtenerIcono, obtenerTodosLosIconos } from '@/componentes/ui/SelectorIcono'
-import { Tooltip } from '@/componentes/ui/Tooltip'
-import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { MiniSelectorIcono } from '@/componentes/ui/MiniSelectorIcono'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { PALETA_COLORES_SECTOR } from '@/lib/colores_entidad'
+import {
+  construirArbol,
+  obtenerDescendientes,
+  contarMiembrosPorSector,
+  type Sector,
+  type Puesto,
+  type MiembroSimple,
+  type Horario,
+  type AsignacionMiembroSector,
+} from './estructura/tipos'
+import { NodoSector } from './estructura/NodoSector'
+import { TabHorarios } from './estructura/TabHorarios'
 
 /**
- * SeccionEstructura — Gestión de sectores (organigrama jerárquico) y puestos de trabajo.
+ * SeccionEstructura — Gestión de sectores (organigrama jerárquico), puestos y horarios laborales.
  * Sectores: árbol con jerarquía padre-hijo, jefes, miembros asignados.
  * Puestos: catálogo vinculable a sectores específicos o globales.
+ * Horarios: por empresa o por sector.
  */
 
-// ==================== TIPOS ====================
-
-interface Sector {
-  id: string
-  nombre: string
-  color: string
-  icono: string
-  activo: boolean
-  orden: number
-  padre_id: string | null
-  jefe_id: string | null
-  es_predefinido: boolean
-}
-
-interface Horario {
-  id: string
-  sector_id: string | null
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
-  activo: boolean
-}
-
-interface Puesto {
-  id: string
-  nombre: string
-  descripcion: string | null
-  color: string
-  activo: boolean
-  orden: number
-  sector_ids: string[]
-}
-
-interface MiembroSimple {
-  id: string
-  usuario_id: string
-  nombre: string
-  apellido: string
-}
-
-// Colores para sectores (centralizados en colores_entidad.ts)
 const COLORES_SECTOR = PALETA_COLORES_SECTOR
 
-// Iconos populares para sectores
+// Iconos sugeridos cuando se elige un sector (el buscador permite elegir cualquier otro).
 const ICONOS_RAPIDOS_SECTOR = [
   'Building', 'Building2', 'Briefcase', 'Users', 'UserPlus', 'Crown',
   'Phone', 'Mail', 'MessageSquare', 'Headphones', 'Shield', 'Target',
@@ -82,311 +50,6 @@ const ICONOS_RAPIDOS_SECTOR = [
   'Globe', 'Wifi', 'Camera', 'FileText', 'ClipboardList', 'Calendar',
 ]
 
-/** Mini selector de icono para sectores */
-function MiniSelectorIconoSector({ valor, color, onChange }: { valor: string; color: string; onChange: (v: string) => void }) {
-  const [abierto, setAbierto] = useState(false)
-  const [busqueda, setBusqueda] = useState('')
-  const contenedorRef = useRef<HTMLDivElement>(null)
-  const IconoActual = obtenerIcono(valor)
-
-  useEffect(() => {
-    if (!abierto) return
-    const handler = (e: MouseEvent) => {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [abierto])
-
-  const todosLosIconos = obtenerTodosLosIconos()
-  const iconosFiltrados = busqueda.trim()
-    ? todosLosIconos.filter(k => k.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 48)
-    : ICONOS_RAPIDOS_SECTOR
-
-  return (
-    <div ref={contenedorRef} className="relative shrink-0">
-      <button onClick={() => { setAbierto(!abierto); setBusqueda('') }}
-        className="size-11 rounded-xl flex items-center justify-center cursor-pointer border border-borde-sutil hover:border-texto-marca/40 transition-colors"
-        style={{ backgroundColor: color + '15', color }} title="Cambiar icono">
-        {IconoActual && <IconoActual size={20} />}
-      </button>
-      <AnimatePresence>
-        {abierto && (
-          <motion.div initial={{ opacity: 0, y: 4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }} transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[280px]">
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-borde-sutil">
-              <Search size={13} className="text-texto-terciario shrink-0" />
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar icono..." autoFocus
-                className="flex-1 bg-transparent border-none text-xs text-texto-primario placeholder:text-texto-terciario outline-none" />
-            </div>
-            <div className="grid grid-cols-8 gap-0.5 p-1.5 max-h-[200px] overflow-y-auto">
-              {iconosFiltrados.map(nombre => {
-                const Ic = obtenerIcono(nombre)
-                if (!Ic) return null
-                return (
-                  <Tooltip key={nombre} contenido={nombre}>
-                    <button onClick={() => { onChange(nombre); setAbierto(false) }}
-                      className={`size-8 rounded-md flex items-center justify-center cursor-pointer transition-colors border-none ${
-                        valor === nombre ? 'bg-texto-marca/15 text-texto-marca' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario'
-                      }`}>
-                      <Ic size={15} />
-                    </button>
-                  </Tooltip>
-                )
-              })}
-            </div>
-            {!busqueda.trim() && (
-              <div className="px-3 py-1.5 border-t border-borde-sutil">
-                <p className="text-[10px] text-texto-terciario text-center">Buscá para ver todos los iconos</p>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// ==================== UTILIDADES DE ÁRBOL ====================
-
-/** Construye el árbol jerárquico a partir de la lista plana */
-function construirArbol(sectores: Sector[], padreId: string | null = null): (Sector & { hijos: Sector[] })[] {
-  return sectores
-    .filter(s => s.padre_id === padreId)
-    .sort((a, b) => a.orden - b.orden)
-    .map(s => ({
-      ...s,
-      hijos: construirArbol(sectores, s.id) as unknown as Sector[],
-    }))
-}
-
-/** Obtiene todos los IDs descendientes de un sector (para prevenir referencias circulares) */
-function obtenerDescendientes(sectores: Sector[], sectorId: string): Set<string> {
-  const descendientes = new Set<string>()
-  const buscar = (id: string) => {
-    sectores.filter(s => s.padre_id === id).forEach(s => {
-      descendientes.add(s.id)
-      buscar(s.id)
-    })
-  }
-  buscar(sectorId)
-  return descendientes
-}
-
-/** Cuenta miembros por sector */
-function contarMiembrosPorSector(asignaciones: { sector_id: string }[]): Map<string, number> {
-  const conteo = new Map<string, number>()
-  asignaciones.forEach(a => {
-    conteo.set(a.sector_id, (conteo.get(a.sector_id) || 0) + 1)
-  })
-  return conteo
-}
-
-/** Obtiene miembros asignados a un sector */
-function obtenerMiembrosDeSector(
-  sectorId: string,
-  asignaciones: { sector_id: string; miembro_id: string }[],
-  miembros: MiembroSimple[]
-): MiembroSimple[] {
-  const miembroIds = asignaciones.filter(a => a.sector_id === sectorId).map(a => a.miembro_id)
-  return miembros.filter(m => miembroIds.includes(m.id))
-}
-
-// ==================== COMPONENTE NODO DEL ÁRBOL ====================
-
-interface PropsNodoSector {
-  sector: Sector & { hijos: Sector[] }
-  nivel: number
-  esUltimo: boolean
-  miembrosPorSector: Map<string, number>
-  miembros: MiembroSimple[]
-  asignaciones: { sector_id: string; miembro_id: string }[]
-  sectores: Sector[]
-  onEditar: (sector: Sector) => void
-  onEliminar: (sector: Sector) => void
-  onAgregarHijo: (padreId: string) => void
-}
-
-function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asignaciones, sectores, onEditar, onEliminar, onAgregarHijo }: PropsNodoSector) {
-  const { t } = useTraduccion()
-  const [expandido, setExpandido] = useState(nivel < 2)
-  const [mostrarPersonas, setMostrarPersonas] = useState(false)
-  const hijos = sector.hijos as unknown as (Sector & { hijos: Sector[] })[]
-  const tieneHijos = hijos.length > 0
-  const cantidadMiembros = miembrosPorSector.get(sector.id) || 0
-  const jefe = sector.jefe_id ? miembros.find(m => m.usuario_id === sector.jefe_id) : null
-  const personasSector = mostrarPersonas ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros) : []
-
-  return (
-    <div className="relative">
-      {/* Línea vertical del padre (si no es raíz) */}
-      {nivel > 0 && (
-        <div
-          className="absolute border-l-2 border-borde-fuerte"
-          style={{
-            left: (nivel - 1) * 28 + 14,
-            top: 0,
-            height: esUltimo ? 20 : '100%',
-          }}
-        />
-      )}
-
-      {/* Línea horizontal hacia el nodo (si no es raíz) */}
-      {nivel > 0 && (
-        <div
-          className="absolute border-t-2 border-borde-fuerte"
-          style={{
-            left: (nivel - 1) * 28 + 14,
-            top: 20,
-            width: 14,
-          }}
-        />
-      )}
-
-      {/* Nodo */}
-      <div
-        className="group relative flex items-center gap-2.5 py-1.5 pr-2 rounded-lg hover:bg-superficie-hover/50 transition-colors"
-        style={{ paddingLeft: nivel * 28 + 4 }}
-      >
-        {/* Botón expandir */}
-        <Boton
-          variante="fantasma"
-          tamano="xs"
-          soloIcono
-          titulo="Expandir"
-          onClick={() => tieneHijos ? setExpandido(!expandido) : setMostrarPersonas(!mostrarPersonas)}
-          icono={
-            (tieneHijos || cantidadMiembros > 0)
-              ? (expandido || mostrarPersonas ? <ChevronDown size={13} /> : <ChevronRight size={13} />)
-              : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />
-          }
-          className="!w-5 !h-5 shrink-0"
-        />
-
-        {/* Ícono del sector */}
-        {(() => {
-          const IconoSector = obtenerIcono(sector.icono || 'Building')
-          return (
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: sector.color + '20', color: sector.color }}>
-              {IconoSector && <IconoSector size={16} />}
-            </div>
-          )
-        })()}
-
-        {/* Nombre + info */}
-        <Boton
-          variante="fantasma"
-          onClick={() => setMostrarPersonas(!mostrarPersonas)}
-          className="!p-0 min-w-0 !justify-start !text-left"
-        >
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
-              {sector.nombre}
-            </span>
-            <span className="text-xs text-texto-terciario">
-              {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
-              {cantidadMiembros > 0 && tieneHijos && ' · '}
-              {tieneHijos && `${(sector.hijos as unknown as Sector[]).length} sub-sector${(sector.hijos as unknown as Sector[]).length > 1 ? 'es' : ''}`}
-            </span>
-          </div>
-        </Boton>
-
-        {/* Jefe badge */}
-        {jefe && (
-          <div className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: sector.color + '20', color: sector.color }}>
-            <Crown size={10} />
-            <span className="truncate max-w-24">{jefe.nombre} {jefe.apellido}</span>
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Acciones (hover) */}
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar" icono={<Plus size={12} />} onClick={() => onAgregarHijo(sector.id)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
-        </div>
-      </div>
-
-      {/* Personas del sector (expandible) */}
-      <AnimatePresence>
-        {mostrarPersonas && cantidadMiembros > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-            className="relative"
-          >
-            {personasSector.map((persona, idx) => (
-              <div
-                key={persona.id}
-                className="relative flex items-center gap-2 py-1 text-xs text-texto-secundario"
-                style={{ paddingLeft: (nivel + 1) * 28 + 4 }}
-              >
-                {/* Línea vertical */}
-                <div
-                  className="absolute border-l border-dashed border-borde-fuerte/60"
-                  style={{
-                    left: nivel * 28 + 14,
-                    top: 0,
-                    height: idx === personasSector.length - 1 ? 14 : '100%',
-                  }}
-                />
-                {/* Línea horizontal */}
-                <div
-                  className="absolute border-t border-dashed border-borde-fuerte/60"
-                  style={{
-                    left: nivel * 28 + 14,
-                    top: 14,
-                    width: 10,
-                  }}
-                />
-                <Avatar nombre={`${persona.nombre} ${persona.apellido}`} tamano="xs" />
-                <span>{persona.nombre} {persona.apellido}</span>
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Hijos */}
-      <AnimatePresence>
-        {expandido && tieneHijos && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {hijos.map((hijo, idx) => (
-              <NodoSector
-                key={hijo.id}
-                sector={hijo}
-                nivel={nivel + 1}
-                esUltimo={idx === hijos.length - 1}
-                miembrosPorSector={miembrosPorSector}
-                miembros={miembros}
-                asignaciones={asignaciones}
-                sectores={sectores}
-                onEditar={onEditar}
-                onEliminar={onEliminar}
-                onAgregarHijo={onAgregarHijo}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-// ==================== COMPONENTE PRINCIPAL ====================
-
 export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) {
   const { t } = useTraduccion()
   const { empresa } = useEmpresa()
@@ -395,9 +58,8 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
   const [sectores, setSectores] = useState<Sector[]>([])
   const [puestos, setPuestos] = useState<Puesto[]>([])
   const [miembros, setMiembros] = useState<MiembroSimple[]>([])
-  const [asignaciones, setAsignaciones] = useState<{ sector_id: string; miembro_id: string }[]>([])
+  const [asignaciones, setAsignaciones] = useState<AsignacionMiembroSector[]>([])
   const [horarios, setHorarios] = useState<Horario[]>([])
-  const [horarioSectorId, setHorarioSectorId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const tabInicialValido = (tabInicial === 'sectores' || tabInicial === 'puestos' || tabInicial === 'horarios') ? tabInicial : 'sectores'
   const [tab, setTab] = useState<'sectores' | 'puestos' | 'horarios'>(tabInicialValido)
@@ -432,7 +94,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     const [sectoresRes, puestosRes, miembrosRes, horariosRes, asignacionesRes] = await Promise.all([
       supabase.from('sectores').select('*').eq('empresa_id', empresa.id).order('orden'),
       supabase.from('puestos').select('*').eq('empresa_id', empresa.id).order('orden'),
-      supabase.from('miembros').select('id, usuario_id, perfiles(nombre, apellido)').eq('empresa_id', empresa.id),
+      supabase.from('miembros').select('id, usuario_id').eq('empresa_id', empresa.id),
       supabase.from('horarios').select('*').eq('empresa_id', empresa.id).order('dia_semana'),
       fetch('/api/miembros-sectores').then(r => r.ok ? r.json() : []),
     ])
@@ -442,7 +104,8 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     setHorarios(horariosRes.data || [])
     setAsignaciones(asignacionesRes || [])
 
-    // Mapear miembros con perfiles (query separada porque el join falla)
+    // NOTA: el join miembros→perfiles falla en el cliente Supabase por políticas RLS
+    // entre tablas — mientras no se resuelva a nivel FK/RLS, hacemos dos queries.
     if (miembrosRes.data) {
       const ids = miembrosRes.data.map(m => m.usuario_id)
       const { data: perfilesData } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', ids)
@@ -526,19 +189,18 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     if (!modalEliminar) return
     setGuardando(true)
 
-    // Promover hijos a nivel raíz
+    // Promover hijos al mismo nivel del eliminado
     await supabase.from('sectores')
       .update({ padre_id: modalEliminar.padre_id })
       .eq('padre_id', modalEliminar.id)
 
-    // Desasignar miembros de este sector (vía API)
+    // Desasignar miembros de este sector (vía API con service_role)
     await fetch('/api/miembros-sectores', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sector_id: modalEliminar.id }),
     })
 
-    // Eliminar sector
     await supabase.from('sectores').delete().eq('id', modalEliminar.id)
 
     setGuardando(false)
@@ -546,7 +208,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     cargarDatos()
   }
 
-  // Opciones de padre (excluir el sector actual y sus descendientes)
+  // Excluir el sector actual y sus descendientes para evitar ciclos
   const opcionesPadre = useMemo(() => {
     const excluidos = modalEditar ? obtenerDescendientes(sectores, modalEditar.id) : new Set<string>()
     if (modalEditar) excluidos.add(modalEditar.id)
@@ -555,13 +217,13 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       { valor: '__ninguno__', etiqueta: '— Sin sector padre (raíz)' },
       ...sectores
         .filter(s => !excluidos.has(s.id))
-        .map(s => ({ valor: s.id, etiqueta: s.nombre }))
+        .map(s => ({ valor: s.id, etiqueta: s.nombre })),
     ]
   }, [sectores, modalEditar])
 
   const opcionesJefe = useMemo(() => [
     { valor: '__ninguno__', etiqueta: '— Sin jefe asignado' },
-    ...miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}` }))
+    ...miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}` })),
   ], [miembros])
 
   // ==================== ACCIONES PUESTOS ====================
@@ -594,53 +256,38 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     cargarDatos()
   }
 
-  // ==================== HORARIOS ====================
-
-  const DIAS_SEMANA = [
-    { valor: 0, etiqueta: 'Lunes' },
-    { valor: 1, etiqueta: 'Martes' },
-    { valor: 2, etiqueta: 'Miércoles' },
-    { valor: 3, etiqueta: 'Jueves' },
-    { valor: 4, etiqueta: 'Viernes' },
-    { valor: 5, etiqueta: 'Sábado' },
-    { valor: 6, etiqueta: 'Domingo' },
-  ]
-
-  const horariosDelSector = useMemo(() => {
-    return horarios.filter(h =>
-      horarioSectorId ? h.sector_id === horarioSectorId : h.sector_id === null
-    )
-  }, [horarios, horarioSectorId])
-
-  const calcularHoras = (inicio: string, fin: string): string => {
-    const [hi, mi] = inicio.split(':').map(Number)
-    const [hf, mf] = fin.split(':').map(Number)
-    const minutos = (hf * 60 + mf) - (hi * 60 + mi)
-    return minutos > 0 ? (minutos / 60).toFixed(1) : '0'
-  }
-
-  const guardarHorario = async (diaSemana: number, datos: { activo: boolean; hora_inicio: string; hora_fin: string }) => {
+  const restablecerPredefinidos = async () => {
     if (!empresa) return
+    setGuardando(true)
 
-    const existente = horariosDelSector.find(h => h.dia_semana === diaSemana)
+    await fetch('/api/miembros-sectores', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    })
+    await supabase.from('sectores').delete().eq('empresa_id', empresa.id)
+    await supabase.from('puestos').delete().eq('empresa_id', empresa.id)
 
-    if (existente) {
-      await supabase.from('horarios').update({
-        activo: datos.activo,
-        hora_inicio: datos.hora_inicio,
-        hora_fin: datos.hora_fin,
-      }).eq('id', existente.id)
-    } else {
-      await supabase.from('horarios').insert({
+    const predefinidos = [
+      { nombre: 'General', color: '#737373', icono: 'Building', orden: 0 },
+      { nombre: 'Comercio', color: '#f59e0b', icono: 'ShoppingCart', orden: 1 },
+      { nombre: 'Industria', color: '#3b82f6', icono: 'Factory', orden: 2 },
+      { nombre: 'Servicios', color: '#8b5cf6', icono: 'Wrench', orden: 3 },
+      { nombre: 'Tecnología', color: '#06b6d4', icono: 'Code', orden: 4 },
+      { nombre: 'Salud', color: '#10b981', icono: 'Heart', orden: 5 },
+      { nombre: 'Educación', color: '#6366f1', icono: 'GraduationCap', orden: 6 },
+    ]
+
+    await supabase.from('sectores').insert(
+      predefinidos.map(s => ({
         empresa_id: empresa.id,
-        sector_id: horarioSectorId,
-        dia_semana: diaSemana,
-        activo: datos.activo,
-        hora_inicio: datos.hora_inicio,
-        hora_fin: datos.hora_fin,
-      })
-    }
+        ...s,
+        es_predefinido: true,
+      })),
+    )
 
+    setGuardando(false)
+    setModalReset(false)
     cargarDatos()
   }
 
@@ -654,7 +301,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-superficie-hover/50 rounded-lg p-1">
+      <div className="flex gap-1 bg-superficie-hover/50 rounded-card p-1">
         <Boton
           variante="fantasma"
           tamano="sm"
@@ -689,7 +336,6 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       {/* ==================== TAB SECTORES ==================== */}
       {tab === 'sectores' && (
         <>
-          {/* Estadísticas */}
           <div className="flex gap-4 text-xs text-texto-terciario">
             <span>{sectores.filter(s => s.activo).length} sectores activos</span>
             <span>·</span>
@@ -705,8 +351,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
             )}
           </div>
 
-          {/* Árbol */}
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
             <div className="px-4 py-3 border-b border-borde-sutil flex items-center justify-between">
               <h3 className="text-sm font-semibold text-texto-primario">Organigrama</h3>
               <Boton variante="fantasma" tamano="sm" icono={<Plus size={14} />} onClick={() => abrirNuevo(null)}>
@@ -723,13 +368,12 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
                 {arbol.map((sector, idx) => (
                   <NodoSector
                     key={sector.id}
-                    sector={sector as Sector & { hijos: Sector[] }}
+                    sector={sector}
                     nivel={0}
                     esUltimo={idx === arbol.length - 1}
                     miembrosPorSector={miembrosPorSector}
                     miembros={miembros}
                     asignaciones={asignaciones}
-                    sectores={sectores}
                     onEditar={abrirEditar}
                     onEliminar={(s) => setModalEliminar(s)}
                     onAgregarHijo={(padreId) => abrirNuevo(padreId)}
@@ -739,7 +383,6 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
             )}
           </div>
 
-          {/* Botón reset */}
           <div className="flex justify-end mt-3">
             <Boton
               variante="fantasma"
@@ -755,7 +398,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
 
       {/* ==================== TAB PUESTOS ==================== */}
       {tab === 'puestos' && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
           <div className="px-4 py-3 border-b border-borde-sutil flex items-center justify-between">
             <h3 className="text-sm font-semibold text-texto-primario">Puestos de trabajo</h3>
             <Boton variante="fantasma" tamano="sm" icono={<Plus size={14} />} onClick={() => setModalNuevoPuesto(true)}>
@@ -792,92 +435,13 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       )}
 
       {/* ==================== TAB HORARIOS ==================== */}
-      {tab === 'horarios' && (
-        <div className="space-y-4">
-          {/* Selector de sector */}
-          <div className="flex items-center gap-3">
-            <Select
-              etiqueta={t('configuracion.estructura.horario_de')}
-              opciones={[
-                { valor: '__general__', etiqueta: 'General (toda la empresa)' },
-                ...sectores.map(s => ({ valor: s.id, etiqueta: s.nombre })),
-              ]}
-              valor={horarioSectorId || '__general__'}
-              onChange={(v) => setHorarioSectorId(v === '__general__' ? null : v)}
-            />
-          </div>
-
-          <p className="text-xs text-texto-terciario">
-            {horarioSectorId
-              ? 'Este horario aplica solo a este sector. Si no se define, hereda el horario general.'
-              : 'Este es el horario por defecto para toda la empresa. Cada sector puede tener uno propio.'}
-          </p>
-
-          {/* Grilla de horarios */}
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-borde-sutil">
-              <h3 className="text-sm font-semibold text-texto-primario">
-                {horarioSectorId ? `Horario — ${sectores.find(s => s.id === horarioSectorId)?.nombre}` : 'Horario general'}
-              </h3>
-            </div>
-
-            <div className="divide-y divide-borde-sutil">
-              {DIAS_SEMANA.map(dia => {
-                const horario = horariosDelSector.find(h => h.dia_semana === dia.valor)
-                const activo = horario?.activo ?? (dia.valor <= 4) // L-V activos por defecto
-                const inicio = horario?.hora_inicio || '09:00'
-                const fin = horario?.hora_fin || '18:00'
-
-                return (
-                  <div key={dia.valor} className={`flex items-center gap-4 px-4 py-3 ${!activo ? 'opacity-40' : ''}`}>
-                    {/* Toggle día */}
-                    <Boton
-                      variante="fantasma"
-                      tamano="xs"
-                      soloIcono
-                      titulo={activo ? 'Desactivar día' : 'Activar día'}
-                      onClick={() => guardarHorario(dia.valor, { activo: !activo, hora_inicio: inicio, hora_fin: fin })}
-                      icono={activo ? <Check size={12} className="text-white" /> : undefined}
-                      className={`!w-5 !h-5 !rounded !border-2 ${
-                        activo ? '!bg-texto-marca !border-texto-marca' : '!bg-transparent !border-borde-fuerte'
-                      }`}
-                    />
-
-                    {/* Nombre del día */}
-                    <span className="text-sm font-medium text-texto-primario w-24">{dia.etiqueta}</span>
-
-                    {/* Horas */}
-                    {activo ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <SelectorHora
-                          valor={inicio}
-                          onChange={(v) => guardarHorario(dia.valor, { activo, hora_inicio: v || '09:00', hora_fin: fin })}
-                        />
-                        <span className="text-xs text-texto-terciario">a</span>
-                        <SelectorHora
-                          valor={fin}
-                          onChange={(v) => guardarHorario(dia.valor, { activo, hora_inicio: inicio, hora_fin: v || '18:00' })}
-                        />
-                        <span className="text-xs text-texto-terciario ml-2">
-                          {calcularHoras(inicio, fin)}h
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-texto-terciario italic">No laboral</span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Info de horario flexible */}
-            <div className="px-4 py-3 bg-superficie-hover/30 border-t border-borde-sutil">
-              <p className="text-xs text-texto-terciario">
-                Los colaboradores con <strong>horario flexible</strong> habilitado en su perfil no están sujetos a estos horarios para el fichaje, pero siguen contando como horas trabajadas.
-              </p>
-            </div>
-          </div>
-        </div>
+      {tab === 'horarios' && empresa && (
+        <TabHorarios
+          empresaId={empresa.id}
+          sectores={sectores}
+          horarios={horarios}
+          onCambio={cargarDatos}
+        />
       )}
 
       {/* ==================== MODAL SECTOR (crear/editar) ==================== */}
@@ -896,24 +460,35 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         }
       >
         <div className="space-y-4">
-          {/* Nombre con preview icono */}
           <div className="flex items-start gap-3">
-            <MiniSelectorIconoSector valor={formIcono} color={formColor} onChange={setFormIcono} />
+            <MiniSelectorIcono
+              valor={formIcono}
+              color={formColor}
+              onChange={setFormIcono}
+              iconosRapidos={ICONOS_RAPIDOS_SECTOR}
+            />
             <div className="flex-1">
               <p className="text-[11px] text-texto-terciario mb-1.5">Nombre del sector</p>
-              <Input tipo="text" placeholder="Ej: Ventas, Soporte, RRHH..."
-                value={formNombre} onChange={(e) => setFormNombre(e.target.value)}
-                formato="nombre_empresa" />
+              <Input
+                tipo="text"
+                placeholder="Ej: Ventas, Soporte, RRHH..."
+                value={formNombre}
+                onChange={(e) => setFormNombre(e.target.value)}
+                formato="nombre_empresa"
+              />
             </div>
           </div>
 
-          {/* Colores como bolitas */}
           <div className="flex flex-wrap gap-1.5 items-center">
             {COLORES_SECTOR.map(c => (
-              <button key={c} onClick={() => setFormColor(c)}
+              <button
+                key={c}
+                onClick={() => setFormColor(c)}
                 className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
                   formColor === c ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
-                }`} style={{ backgroundColor: c }}>
+                }`}
+                style={{ backgroundColor: c }}
+              >
                 {formColor === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
               </button>
             ))}
@@ -922,12 +497,18 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
           <div className="border-t border-white/[0.07]" />
 
           <div className="grid grid-cols-2 gap-3">
-            <Select etiqueta="Sector padre" opciones={opcionesPadre}
+            <Select
+              etiqueta="Sector padre"
+              opciones={opcionesPadre}
               valor={formPadreId || '__ninguno__'}
-              onChange={(v) => setFormPadreId(v === '__ninguno__' ? null : v)} />
-            <Select etiqueta="Jefe del sector" opciones={opcionesJefe}
+              onChange={(v) => setFormPadreId(v === '__ninguno__' ? null : v)}
+            />
+            <Select
+              etiqueta="Jefe del sector"
+              opciones={opcionesJefe}
               valor={formJefeId || '__ninguno__'}
-              onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)} />
+              onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)}
+            />
           </div>
         </div>
       </Modal>
@@ -971,23 +552,35 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         <div className="space-y-4">
           <div>
             <p className="text-[11px] text-texto-terciario mb-1.5">Nombre del puesto</p>
-            <Input tipo="text" placeholder="Ej: Director comercial, Vendedor..."
-              value={puestoNombre} onChange={(e) => setPuestoNombre(e.target.value)}
-              formato="nombre_empresa" />
+            <Input
+              tipo="text"
+              placeholder="Ej: Director comercial, Vendedor..."
+              value={puestoNombre}
+              onChange={(e) => setPuestoNombre(e.target.value)}
+              formato="nombre_empresa"
+            />
           </div>
           <div>
             <p className="text-[11px] text-texto-terciario mb-1.5">Descripción (opcional)</p>
-            <Input tipo="text" placeholder="Breve descripción del puesto..."
-              value={puestoDescripcion} onChange={(e) => setPuestoDescripcion(e.target.value)} />
+            <Input
+              tipo="text"
+              placeholder="Breve descripción del puesto..."
+              value={puestoDescripcion}
+              onChange={(e) => setPuestoDescripcion(e.target.value)}
+            />
           </div>
           <div>
             <p className="text-[11px] text-texto-terciario mb-1.5">Color</p>
             <div className="flex flex-wrap gap-1.5 items-center">
               {COLORES_SECTOR.map(c => (
-                <button key={c} onClick={() => setPuestoColor(c)}
+                <button
+                  key={c}
+                  onClick={() => setPuestoColor(c)}
                   className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
                     puestoColor === c ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
-                  }`} style={{ backgroundColor: c }}>
+                  }`}
+                  style={{ backgroundColor: c }}
+                >
                   {puestoColor === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
                 </button>
               ))}
@@ -1014,42 +607,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       <ModalConfirmacion
         abierto={modalReset}
         onCerrar={() => setModalReset(false)}
-        onConfirmar={async () => {
-          if (!empresa) return
-          setGuardando(true)
-
-          // Eliminar todos los sectores actuales
-          await fetch('/api/miembros-sectores', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ all: true }),
-          })
-          await supabase.from('sectores').delete().eq('empresa_id', empresa.id)
-          await supabase.from('puestos').delete().eq('empresa_id', empresa.id)
-
-          // Recrear predefinidos
-          const predefinidos = [
-            { nombre: 'General', color: '#737373', icono: 'Building', orden: 0 },
-            { nombre: 'Comercio', color: '#f59e0b', icono: 'ShoppingCart', orden: 1 },
-            { nombre: 'Industria', color: '#3b82f6', icono: 'Factory', orden: 2 },
-            { nombre: 'Servicios', color: '#8b5cf6', icono: 'Wrench', orden: 3 },
-            { nombre: 'Tecnología', color: '#06b6d4', icono: 'Code', orden: 4 },
-            { nombre: 'Salud', color: '#10b981', icono: 'Heart', orden: 5 },
-            { nombre: 'Educación', color: '#6366f1', icono: 'GraduationCap', orden: 6 },
-          ]
-
-          await supabase.from('sectores').insert(
-            predefinidos.map(s => ({
-              empresa_id: empresa.id,
-              ...s,
-              es_predefinido: true,
-            }))
-          )
-
-          setGuardando(false)
-          setModalReset(false)
-          cargarDatos()
-        }}
+        onConfirmar={restablecerPredefinidos}
         titulo="¿Restablecer estructura?"
         descripcion="Se eliminarán todos los sectores y puestos actuales y se restaurarán los 7 sectores predefinidos. Las asignaciones de personas se perderán. Esta acción no se puede deshacer."
         tipo="advertencia"

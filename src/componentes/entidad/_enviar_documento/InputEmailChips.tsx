@@ -123,7 +123,7 @@ export function InputEmailChips({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="absolute left-0 right-0 z-50 mt-1 py-1 rounded-lg shadow-lg max-h-[160px] overflow-y-auto"
+              className="absolute left-0 right-0 z-50 mt-1 py-1 rounded-popover shadow-lg max-h-[160px] overflow-y-auto"
               style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
             >
               {sugerencias.map((s) => (

@@ -339,7 +339,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
         {/* Card principal: contacto + datos clave */}
-        <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta p-5">
+        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-5">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_auto] gap-5">
 
             {/* Lado izquierdo: contacto + acciones rápidas */}
@@ -352,7 +352,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
               <div className="flex flex-wrap gap-2">
                 {orden.contacto_telefono && (
                   <a href={`tel:${orden.contacto_telefono.replace(/[^+\d]/g, '')}`}>
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
+                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
                       <Phone size={14} />
                       {t('ordenes.llamar')}
                     </button>
@@ -360,7 +360,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 )}
                 {(orden.contacto_whatsapp || orden.contacto_telefono) && (
                   <a href={`https://wa.me/${(orden.contacto_whatsapp || orden.contacto_telefono || '').replace(/[^+\d]/g, '')}`} target="_blank" rel="noopener noreferrer">
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent hover:bg-superficie-hover/50 active:scale-95" style={{ color: 'var(--canal-whatsapp)' }}>
+                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent hover:bg-superficie-hover/50 active:scale-95" style={{ color: 'var(--canal-whatsapp)' }}>
                       <IconoWhatsApp size={14} />
                       {t('ordenes.whatsapp')}
                     </button>
@@ -368,7 +368,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 )}
                 {orden.contacto_direccion && (
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orden.contacto_direccion)}`} target="_blank" rel="noopener noreferrer">
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
+                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
                       <MapPin size={14} />
                       {t('ordenes.ver_mapa')}
                     </button>
@@ -398,7 +398,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                         window.open(`https://wa.me/${num}?text=${mensaje}`, '_blank')
                         mostrarToast('exito', `Aviso de llegada enviado a ${nombreAviso}`)
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/10 text-insignia-exito-texto hover:bg-insignia-exito/20 active:scale-95"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-semibold transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/10 text-insignia-exito-texto hover:bg-insignia-exito/20 active:scale-95"
                     >
                       <Bell size={14} />
                       Avisar llegada
@@ -464,7 +464,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                           <button
                             type="button"
                             onClick={() => toggleResponsable(a.usuario_id)}
-                            className={`p-1 rounded-md transition-colors cursor-pointer border-none bg-transparent ${
+                            className={`p-1 rounded-boton transition-colors cursor-pointer border-none bg-transparent ${
                               a.es_cabecilla
                                 ? 'text-texto-marca hover:bg-texto-marca/10'
                                 : 'text-texto-terciario hover:text-texto-marca hover:bg-texto-marca/10'
@@ -476,7 +476,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                           <button
                             type="button"
                             onClick={() => quitarAsignado(a.usuario_id)}
-                            className="p-1 rounded-md hover:bg-insignia-peligro/10 text-texto-terciario hover:text-insignia-peligro transition-colors cursor-pointer border-none bg-transparent"
+                            className="p-1 rounded-boton hover:bg-insignia-peligro/10 text-texto-terciario hover:text-insignia-peligro transition-colors cursor-pointer border-none bg-transparent"
                             title="Quitar"
                           >
                             <X size={12} />
@@ -509,7 +509,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                           initial={{ opacity: 0, y: -4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -4 }}
-                          className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1 max-h-48 overflow-y-auto"
+                          className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1 max-h-48 overflow-y-auto"
                         >
                           {miembrosDisponibles.map(m => (
                             <button
@@ -567,7 +567,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         </div>
 
         {/* Tareas y actividades con progreso */}
-        <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta p-4">
+        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
           <SeccionActividadesOrden
             ordenId={ordenId}
             ordenNumero={orden.numero}
@@ -579,7 +579,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         </div>
 
         {/* Chatter — abajo de todo */}
-        <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
+        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
           <PanelChatter
             entidadTipo="orden_trabajo"
             entidadId={ordenId}

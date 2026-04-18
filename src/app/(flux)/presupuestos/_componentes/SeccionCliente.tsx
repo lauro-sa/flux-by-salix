@@ -59,7 +59,7 @@ export default function SeccionCliente({
   return (
     <div className="space-y-3 py-3">
       {/* CLIENTE */}
-      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
+      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
         <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
           {t('documentos.cliente')}
         </span>
@@ -199,7 +199,7 @@ function DirigidoACrear({
   const router = useRouter()
 
   return (
-    <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
+    <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
       <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
         Dirigido a
       </span>
@@ -277,7 +277,7 @@ function DirigidoAEditarExistente({
   const router = useRouter()
 
   return (
-    <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
+    <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
       <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
         Dirigido a
       </span>
@@ -332,7 +332,7 @@ function DirigidoAEditarLista({
   const tieneConCorreo = vinculaciones.some(v => v.vinculado.correo)
 
   return (
-    <div className={`bg-superficie-hover/50 rounded-lg px-3 py-3 -mx-3 ${
+    <div className={`bg-superficie-hover/50 rounded-card px-3 py-3 -mx-3 ${
       clienteSinCorreo && tieneConCorreo
         ? 'border border-insignia-advertencia/30 ring-1 ring-insignia-advertencia/10'
         : 'border border-borde-sutil/50'

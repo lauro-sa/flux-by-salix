@@ -25,9 +25,9 @@ export async function sincronizarEmpresa(
   try {
     // Derivar locale de la zona horaria de la empresa para formateo de fechas
     const { data: configRegional } = await admin
-      .from('config_inbox')
+      .from('empresas')
       .select('zona_horaria')
-      .eq('empresa_id', config.empresa_id)
+      .eq('id', config.empresa_id)
       .maybeSingle()
     const zona = configRegional?.zona_horaria || 'America/Argentina/Buenos_Aires'
     const locale = zona.startsWith('America/Argentina') ? 'es-AR'

@@ -100,7 +100,7 @@ function ChipRemovible({
   icono?: React.ReactNode
 }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-superficie-elevada border border-borde-sutil text-texto-secundario">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-boton text-xs font-medium bg-superficie-elevada border border-borde-sutil text-texto-secundario">
       {icono}
       <span className="max-w-[120px] truncate">{etiqueta}</span>
       <button
@@ -206,7 +206,7 @@ function SelectorAsignados({
           type="button"
           onClick={() => setAbierto(!abierto)}
           disabled={disponibles.length === 0}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-boton text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <UserPlus size={12} />
           {asignados.length === 0 ? 'Agregar asignado' : 'Agregar otro'}
@@ -221,7 +221,7 @@ function SelectorAsignados({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed max-h-40 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              className="fixed max-h-40 overflow-y-auto rounded-card border border-borde-sutil bg-superficie-tarjeta shadow-lg"
               style={{
                 top: posAsignado.top,
                 left: posAsignado.left,
@@ -375,13 +375,13 @@ function SelectorVinculaciones({
           <button
             type="button"
             onClick={() => setMostrarBuscador(true)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-boton text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer"
           >
             <Search size={12} />
             Vincular contacto
           </button>
         ) : (
-          <div className="flex items-center gap-1.5 border border-borde-sutil rounded-md px-2 py-1 bg-superficie-tarjeta">
+          <div className="flex items-center gap-1.5 border border-borde-sutil rounded-boton px-2 py-1 bg-superficie-tarjeta">
             <Search size={12} className="text-texto-terciario shrink-0" />
             <input
               type="text"
@@ -407,7 +407,7 @@ function SelectorVinculaciones({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed max-h-36 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              className="fixed max-h-36 overflow-y-auto rounded-card border border-borde-sutil bg-superficie-tarjeta shadow-lg"
               style={{
                 top: posicion.top,
                 left: posicion.left,
@@ -681,47 +681,6 @@ function ModalEvento({
     }
   }, [onEliminar, onCerrar])
 
-  /** Botones del footer del modal */
-  const acciones = (
-    <div className="flex items-center justify-between w-full gap-3">
-      {/* Boton eliminar (solo en edicion) */}
-      <div>
-        {esEdicion && onEliminar && (
-          <Boton
-            variante="peligro"
-            tamano="sm"
-            icono={<Trash2 size={14} />}
-            onClick={manejarEliminar}
-            cargando={eliminando}
-            disabled={guardando}
-          >
-            Eliminar
-          </Boton>
-        )}
-      </div>
-
-      {/* Botones cancelar y guardar */}
-      <div className="flex items-center gap-2">
-        <Boton
-          variante="fantasma"
-          tamano="sm"
-          onClick={onCerrar}
-          disabled={guardando || eliminando}
-        >
-          Cancelar
-        </Boton>
-        <Boton
-          tamano="sm"
-          onClick={manejarGuardar}
-          cargando={guardando}
-          disabled={!titulo.trim() || !fechaInicio || eliminando}
-        >
-          {esEdicion ? 'Guardar cambios' : 'Crear evento'}
-        </Boton>
-      </div>
-    </div>
-  )
-
   return (
     <ModalAdaptable
       abierto={abierto}
@@ -729,7 +688,22 @@ function ModalEvento({
       titulo={esEdicion ? 'Editar evento' : 'Nuevo evento'}
       tamano="5xl"
       sinPadding
-      acciones={acciones}
+      accionPrimaria={{
+        etiqueta: esEdicion ? 'Guardar cambios' : 'Crear evento',
+        onClick: manejarGuardar,
+        cargando: guardando,
+        disabled: !titulo.trim() || !fechaInicio,
+      }}
+      accionSecundaria={{
+        etiqueta: 'Cancelar',
+        onClick: onCerrar,
+      }}
+      accionPeligro={esEdicion && onEliminar ? {
+        etiqueta: 'Eliminar',
+        onClick: manejarEliminar,
+        cargando: eliminando,
+        icono: <Trash2 size={14} />,
+      } : undefined}
       alturaMovil="completo"
     >
       {/* Banner para eventos vinculados a visita */}
@@ -847,7 +821,7 @@ function ModalEvento({
             <div className="flex flex-col gap-1.5">
               {OPCIONES_VISIBILIDAD.map(op => (
                 <button key={op.valor} type="button" onClick={() => setVisibilidad(op.valor)}
-                  className={`flex items-center gap-2.5 text-left px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                  className={`flex items-center gap-2.5 text-left px-3 py-2 rounded-card border transition-all cursor-pointer ${
                     visibilidad === op.valor
                       ? 'border-texto-marca/40 bg-texto-marca/8'
                       : 'border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02]'

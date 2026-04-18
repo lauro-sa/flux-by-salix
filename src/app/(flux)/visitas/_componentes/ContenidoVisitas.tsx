@@ -660,7 +660,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
 
       {/* Sección: finalizadas hoy */}
       {finalizadasHoy.length > 0 && (
-        <div className="mt-4 border border-borde-sutil rounded-lg overflow-hidden">
+        <div className="mt-4 border border-borde-sutil rounded-card overflow-hidden">
           <button
             type="button"
             onClick={() => setSeccionHoyAbierta(!seccionHoyAbierta)}
@@ -699,7 +699,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
                   <button
                     type="button"
                     onClick={() => reactivarVisita(v.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-boton text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
                     title="Reactivar visita"
                   >
                     <RotateCcw size={12} />

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTema } from '@/hooks/useTema'
 import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
+import { FooterAccionesModal, type AccionModal } from '@/componentes/ui/_modal/AccionesModal'
 
 type TamanoModal = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl'
 
@@ -14,7 +15,18 @@ interface PropiedadesModal {
   titulo?: string
   tamano?: TamanoModal
   children: ReactNode
+  /**
+   * Escape hatch — JSX custom para el footer cuando se necesita un layout
+   * que no encaja en los 3 roles (primaria/secundaria/peligro). Ignorado
+   * si se usa alguno de los props estructurados.
+   */
   acciones?: ReactNode
+  /** Acción principal (derecha): Guardar, Crear, Confirmar. */
+  accionPrimaria?: AccionModal
+  /** Acción secundaria (derecha, pegada a primaria): Cancelar. */
+  accionSecundaria?: AccionModal
+  /** Acción destructiva (izquierda): Eliminar, Descartar. */
+  accionPeligro?: AccionModal
   /** Botones extra en el encabezado (al lado del título, antes del botón cerrar) */
   accionesEncabezado?: ReactNode
   /** Quita el padding y scroll del contenedor de children para layouts personalizados */
@@ -39,7 +51,24 @@ const anchosPx: Record<TamanoModal, number> = {
  * Más anchos que altos en PC. Responsive en mobile.
  * En modo cristal: panel con backdrop-filter blur.
  */
-function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, accionesEncabezado, sinPadding, expandido }: PropiedadesModal) {
+function Modal({
+  abierto,
+  onCerrar,
+  titulo,
+  tamano = 'lg',
+  children,
+  acciones,
+  accionPrimaria,
+  accionSecundaria,
+  accionPeligro,
+  accionesEncabezado,
+  sinPadding,
+  expandido,
+}: PropiedadesModal) {
+  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro)
+  const footer = tieneAccionesEstructuradas
+    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} />
+    : acciones
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const panelRef = useRef<HTMLDivElement>(null)
@@ -120,7 +149,7 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, a
               aria-label={titulo || 'Modal'}
               className={expandido
                 ? 'w-full h-full flex flex-col pointer-events-auto'
-                : `rounded-lg shadow-elevada w-full flex flex-col pointer-events-auto border border-borde-sutil ${
+                : `rounded-modal shadow-elevada w-full flex flex-col pointer-events-auto border border-borde-sutil ${
                   ['3xl', '4xl', '5xl'].includes(tamano) ? 'max-h-[90dvh]' : 'max-h-[min(85dvh,640px)]'
                 }`
               }
@@ -142,16 +171,16 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, a
                 <div className="flex items-center gap-1">
                   {accionesEncabezado}
                   <button onClick={onCerrar} aria-label="Cerrar"
-                    className="flex items-center justify-center size-7 rounded-lg border border-white/[0.08] bg-transparent text-texto-terciario cursor-pointer hover:bg-white/[0.06] hover:text-texto-secundario transition-colors">
+                    className="flex items-center justify-center size-7 rounded-boton border border-white/[0.08] bg-transparent text-texto-terciario cursor-pointer hover:bg-white/[0.06] hover:text-texto-secundario transition-colors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
               </div>
             )}
             <div className={sinPadding ? 'flex-1 min-h-0 flex flex-col overflow-y-auto' : 'px-6 py-6 flex-1 overflow-y-auto'}>{children}</div>
-            {acciones && (
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.07] shrink-0">
-                {acciones}
+            {footer && (
+              <div className={`flex items-center ${tieneAccionesEstructuradas ? '' : 'justify-end gap-3'} px-6 py-4 border-t border-white/[0.07] shrink-0`}>
+                {footer}
               </div>
             )}
           </motion.div>
@@ -164,3 +193,4 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, a
 }
 
 export { Modal, type PropiedadesModal, type TamanoModal }
+export type { AccionModal }

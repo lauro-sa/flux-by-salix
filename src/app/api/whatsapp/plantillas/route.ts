@@ -5,7 +5,7 @@ import {
   listarPlantillasMeta, crearPlantillaMeta, eliminarPlantillaMeta,
   type ConfigCuentaWhatsApp, type ComponentePlantillaMeta,
 } from '@/lib/whatsapp'
-import type { ComponentesPlantillaWA, EstadoMeta } from '@/tipos/inbox'
+import type { ComponentesPlantillaWA, EstadoMeta } from '@/tipos/whatsapp'
 
 /**
  * GET /api/whatsapp/plantillas — Listar plantillas locales.
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       .from('plantillas_whatsapp')
       .select('*')
       .eq('empresa_id', empresaId)
+      .order('orden', { ascending: true })
       .order('creado_en', { ascending: false })
 
     if (canalId) query = query.eq('canal_id', canalId)
@@ -60,6 +61,22 @@ export async function POST(request: NextRequest) {
     const { accion } = body
     const admin = crearClienteAdmin()
 
+    // ─── REORDENAR (cambiar campo orden en lote) ───
+    if (accion === 'reordenar') {
+      const { ordenes } = body as { ordenes: Array<{ id: string; orden: number }> }
+      if (!Array.isArray(ordenes)) {
+        return NextResponse.json({ error: 'ordenes es requerido' }, { status: 400 })
+      }
+      await Promise.all(ordenes.map(o =>
+        admin
+          .from('plantillas_whatsapp')
+          .update({ orden: o.orden, actualizado_en: new Date().toISOString() })
+          .eq('id', o.id)
+          .eq('empresa_id', empresaId),
+      ))
+      return NextResponse.json({ ok: true })
+    }
+
     // ─── GUARDAR (crear o actualizar borrador local) ───
     if (accion === 'guardar') {
       const {
@@ -70,6 +87,14 @@ export async function POST(request: NextRequest) {
       if (!nombre || !nombre_api || !canal_id) {
         return NextResponse.json({ error: 'nombre, nombre_api y canal_id son requeridos' }, { status: 400 })
       }
+
+      // Obtener nombre del usuario para auditoría
+      const { data: perfil } = await admin
+        .from('perfiles')
+        .select('nombre, apellido')
+        .eq('id', user.id)
+        .single()
+      const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido || ''}`.trim() : 'Usuario'
 
       const datos = {
         empresa_id: empresaId,
@@ -88,10 +113,10 @@ export async function POST(request: NextRequest) {
       }
 
       if (id) {
-        // Verificar estado de la plantilla
+        // Obtener estado + valores originales para auditoría
         const { data: existente } = await admin
           .from('plantillas_whatsapp')
-          .select('estado_meta')
+          .select('*')
           .eq('id', id)
           .eq('empresa_id', empresaId)
           .single()
@@ -102,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         // Si está aprobada/pendiente en Meta, solo permitir campos locales (modulos, disponibilidad)
         const esEditableEnMeta = ['BORRADOR', 'ERROR'].includes(existente.estado_meta)
-        const datosUpdate = esEditableEnMeta ? datos : {
+        const datosUpdate: Record<string, unknown> = esEditableEnMeta ? datos : {
           modulos: datos.modulos,
           es_por_defecto: datos.es_por_defecto,
           disponible_para: datos.disponible_para,
@@ -110,6 +135,43 @@ export async function POST(request: NextRequest) {
           usuarios_permitidos: datos.usuarios_permitidos,
           actualizado_en: datos.actualizado_en,
         }
+
+        // Detectar cambios y registrar auditoría campo por campo
+        const CAMPOS_AUDITABLES = [
+          'nombre', 'nombre_api', 'categoria', 'idioma', 'componentes',
+          'modulos', 'es_por_defecto', 'disponible_para', 'roles_permitidos', 'usuarios_permitidos',
+        ] as const
+        const cambios: Array<{ campo: string; antes: unknown; despues: unknown }> = []
+        for (const campo of CAMPOS_AUDITABLES) {
+          if (!(campo in datosUpdate)) continue
+          const antes = (existente as Record<string, unknown>)[campo]
+          const despues = (datosUpdate as Record<string, unknown>)[campo]
+          if (JSON.stringify(antes) !== JSON.stringify(despues)) {
+            cambios.push({ campo, antes, despues })
+          }
+        }
+
+        if (cambios.length > 0) {
+          const serializar = (v: unknown): string => {
+            if (v === null || v === undefined) return ''
+            if (typeof v === 'string') return v
+            if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+            return JSON.stringify(v)
+          }
+          await admin.from('auditoria_plantillas_whatsapp').insert(
+            cambios.map(c => ({
+              empresa_id: empresaId,
+              plantilla_id: id,
+              editado_por: user.id,
+              campo_modificado: c.campo,
+              valor_anterior: serializar(c.antes),
+              valor_nuevo: serializar(c.despues),
+            })),
+          )
+        }
+
+        datosUpdate.editado_por = user.id
+        datosUpdate.editado_por_nombre = nombreUsuario
 
         const { data, error } = await admin
           .from('plantillas_whatsapp')
@@ -125,7 +187,12 @@ export async function POST(request: NextRequest) {
         // Crear nueva
         const { data, error } = await admin
           .from('plantillas_whatsapp')
-          .insert({ ...datos, estado_meta: 'BORRADOR', creado_por: user.id })
+          .insert({
+            ...datos,
+            estado_meta: 'BORRADOR',
+            creado_por: user.id,
+            creado_por_nombre: nombreUsuario,
+          })
           .select()
           .single()
 
@@ -153,7 +220,7 @@ export async function POST(request: NextRequest) {
 
       // Obtener config del canal
       const { data: canal } = await admin
-        .from('canales_inbox')
+        .from('canales_whatsapp')
         .select('config_conexion')
         .eq('id', canal_id)
         .eq('empresa_id', empresaId)
@@ -222,7 +289,7 @@ export async function POST(request: NextRequest) {
       if (!['BORRADOR', 'ERROR'].includes(plantilla.estado_meta) && canal_id) {
         try {
           const { data: canal } = await admin
-            .from('canales_inbox')
+            .from('canales_whatsapp')
             .select('config_conexion')
             .eq('id', canal_id)
             .eq('empresa_id', empresaId)
@@ -253,7 +320,7 @@ export async function POST(request: NextRequest) {
       if (!canal_id) return NextResponse.json({ error: 'canal_id es requerido' }, { status: 400 })
 
       const { data: canal } = await admin
-        .from('canales_inbox')
+        .from('canales_whatsapp')
         .select('config_conexion')
         .eq('id', canal_id)
         .eq('empresa_id', empresaId)

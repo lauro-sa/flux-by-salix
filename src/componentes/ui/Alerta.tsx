@@ -34,7 +34,7 @@ const iconosAlerta: Record<TipoAlerta, ReactNode> = {
  */
 function Alerta({ tipo = 'info', titulo, children, cerrable, onCerrar, className = '' }: PropiedadesAlerta) {
   return (
-    <div className={`flex gap-3 p-4 rounded-md border-l-4 text-sm ${clasesAlerta[tipo]} ${className}`}>
+    <div className={`flex gap-3 p-4 rounded-card border-l-4 text-sm ${clasesAlerta[tipo]} ${className}`}>
       <span className="shrink-0 mt-0.5">{iconosAlerta[tipo]}</span>
       <div className="flex-1 min-w-0">
         {titulo && <p className="font-semibold mb-1">{titulo}</p>}

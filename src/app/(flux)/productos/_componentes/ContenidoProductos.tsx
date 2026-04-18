@@ -220,7 +220,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
         const color = COLOR_TIPO_PRODUCTO[fila.tipo] || 'neutro'
         return (
           <div className="flex items-center gap-2.5">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0"
+            <div className="size-8 rounded-card flex items-center justify-center shrink-0"
               style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
               {fila.tipo === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
             </div>
@@ -387,7 +387,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
     return (
       <div className="px-2.5 py-2 pr-7 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-md flex items-center justify-center shrink-0"
+          <div className="size-7 rounded-boton flex items-center justify-center shrink-0"
             style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
             {fila.tipo === 'servicio' ? <Wrench size={13} /> : <Package size={13} />}
           </div>

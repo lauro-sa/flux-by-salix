@@ -228,9 +228,9 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
   }
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
       <div className="flex items-start gap-3 mb-4">
-        <div className="w-9 h-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5 text-texto-marca">
+        <div className="w-9 h-9 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5 text-texto-marca">
           {info.icono}
         </div>
         <div>
@@ -242,7 +242,7 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
       <div className="flex items-center gap-4">
         <div
           className={[
-            'relative border-2 border-dashed border-borde-fuerte rounded-xl flex items-center justify-center overflow-hidden bg-superficie-hover',
+            'relative border-2 border-dashed border-borde-fuerte rounded-card flex items-center justify-center overflow-hidden bg-superficie-hover',
             variante === 'cuadrado' ? 'w-20 h-20' : 'w-48 h-16',
           ].join(' ')}
         >
@@ -292,7 +292,7 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
           {/* Área de recorte */}
           <div
             ref={contenedorRef}
-            className="relative rounded-lg overflow-hidden border border-borde-fuerte cursor-grab active:cursor-grabbing select-none"
+            className="relative rounded-card overflow-hidden border border-borde-fuerte cursor-grab active:cursor-grabbing select-none"
             style={{ width: AREA_ANCHO, height: AREA_ALTO, maxWidth: '100%' }}
             onMouseDown={manejarMouseDown}
             onMouseMove={manejarMouseMove}
@@ -308,7 +308,7 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
               style={{ width: AREA_ANCHO, height: AREA_ALTO, maxWidth: '100%', display: 'block' }}
             />
             {/* Borde del marco */}
-            <div className="absolute inset-0 border-2 border-white/20 rounded-lg pointer-events-none" />
+            <div className="absolute inset-0 border-2 border-white/20 rounded-card pointer-events-none" />
           </div>
 
           {/* Controles de zoom */}

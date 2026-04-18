@@ -125,14 +125,14 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
       onMouseEnter={() => esGrupo && setExpandido(true)}
       onMouseLeave={() => setExpandido(false)}
-      className="w-full sm:w-[360px] max-w-[calc(100vw-2rem)] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden pointer-events-auto"
+      className="w-full sm:w-[360px] max-w-[calc(100vw-2rem)] border border-borde-sutil rounded-modal shadow-elevada overflow-hidden pointer-events-auto"
       style={{ backgroundColor: 'var(--superficie-elevada)' }}
     >
       {/* Header: siempre visible */}
       <div className="flex items-start gap-3 p-3.5">
         <div className="relative shrink-0">
           <div
-            className="size-9 rounded-lg flex items-center justify-center"
+            className="size-9 rounded-card flex items-center justify-center"
             style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
           >
             <Icono size={18} style={{ color }} />

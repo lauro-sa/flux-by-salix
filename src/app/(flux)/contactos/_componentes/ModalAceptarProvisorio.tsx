@@ -195,7 +195,7 @@ export function ModalAceptarProvisorio({
         type="button"
         onClick={() => setSeleccionado(estaSeleccionado ? null : contacto)}
         className={`
-          w-full text-left p-3 rounded-lg border transition-all
+          w-full text-left p-3 rounded-card border transition-all
           ${estaSeleccionado
             ? 'border-texto-marca/50 bg-texto-marca/10'
             : 'border-borde-sutil hover:border-white/20 hover:bg-white/[0.03]'

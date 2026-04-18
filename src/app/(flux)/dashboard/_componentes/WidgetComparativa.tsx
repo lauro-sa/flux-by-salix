@@ -51,7 +51,7 @@ function TooltipComparativa({ active, payload, label, unidad }: {
   if (!active || !payload?.length) return null
   const total = payload.reduce((s, p) => s + p.value, 0)
   return (
-    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-lg px-3 py-2.5 shadow-md min-w-[160px]">
+    <div className="bg-[var(--superficie-tarjeta)] border border-borde-fuerte rounded-card px-3 py-2.5 shadow-md min-w-[160px]">
       <p className="text-xs text-texto-terciario mb-1.5 font-medium">{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center justify-between gap-3 text-xs py-0.5">
@@ -209,7 +209,7 @@ export function WidgetComparativa({ presupuestosPorMes, contactosPorMes, formato
                       .filter(([k]) => k.startsWith(`${anio}-`))
                       .reduce((s, [, v]) => s + v, 0)
                 return (
-                  <div key={anio} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-md bg-superficie-hover/50">
+                  <div key={anio} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-boton bg-superficie-hover/50">
                     <div className="flex items-center gap-1.5">
                       <div className="size-2 rounded-full" style={{ backgroundColor: COLORES_ANIOS[(anios.indexOf(anio)) % COLORES_ANIOS.length] }} />
                       <span className="text-texto-secundario">{anio}</span>

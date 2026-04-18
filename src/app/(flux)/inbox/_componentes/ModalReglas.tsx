@@ -163,16 +163,15 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
       onCerrar={onCerrar}
       titulo="Reglas automáticas"
       tamano="lg"
-      acciones={
-        editando ? (
-          <div className="flex items-center gap-2">
-            <Boton variante="secundario" tamano="sm" onClick={cancelarEdicion}>{t('comun.cancelar')}</Boton>
-            <Boton variante="primario" tamano="sm" onClick={guardar} disabled={!nombre.trim()}>
-              {editando.id ? 'Guardar cambios' : 'Crear regla'}
-            </Boton>
-          </div>
-        ) : undefined
-      }
+      accionPrimaria={editando ? {
+        etiqueta: editando.id ? 'Guardar cambios' : 'Crear regla',
+        onClick: guardar,
+        disabled: !nombre.trim(),
+      } : undefined}
+      accionSecundaria={editando ? {
+        etiqueta: t('comun.cancelar'),
+        onClick: cancelarEdicion,
+      } : undefined}
     >
       {editando ? (
         /* ─── Formulario de edición ─── */
@@ -279,7 +278,7 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
             reglas.map((regla) => (
               <div
                 key={regla.id}
-                className="rounded-lg transition-all"
+                className="rounded-card transition-all"
                 style={{ border: '1px solid var(--borde-sutil)' }}
               >
                 <div className="flex items-center gap-3 px-3 py-2.5">

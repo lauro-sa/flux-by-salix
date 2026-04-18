@@ -4,6 +4,7 @@ import { useState, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MoreHorizontal, Settings, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
 import { ProveedorSlotPaginador } from '@/componentes/tablas/ContextoPaginacion'
@@ -74,64 +75,60 @@ function PlantillaListado({
   const slotPaginadorRef = useRef<HTMLDivElement | null>(null)
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div className={`plantilla-listado flex flex-col h-full ${className}`}>
 
       {/* ═══ CABECERO — Título está en las migajas del navbar ═══ */}
       <div className="shrink-0 px-2 sm:px-6 pt-5 sm:pt-5 pb-5 sm:pb-5">
         <div className="flex items-center gap-2">
-          {accionPrincipal && (
-            <>
-              <div className="sm:hidden">
-                <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
-                  Nuevo
-                </Boton>
-              </div>
-              <div className="hidden sm:block">
-                <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
-                  {accionPrincipal.etiqueta}
-                </Boton>
-              </div>
-            </>
-          )}
-
-          {acciones.length > 0 && (
+          {(accionPrincipal || acciones.length > 0) && (
             <div className="relative">
-              <div className="sm:hidden">
-                <Boton variante="secundario" tamano="md" soloIcono icono={<MoreHorizontal size={16} />} onClick={() => setMenuAbierto(!menuAbierto)} titulo={t('comun.acciones')} />
-              </div>
-              <div className="hidden sm:block">
-                <Boton variante="secundario" tamano="md" iconoDerecho={<MoreHorizontal size={14} />} onClick={() => setMenuAbierto(!menuAbierto)}>
-                  {t('comun.acciones')}
-                </Boton>
-              </div>
+              <GrupoBotones>
+                {accionPrincipal && (
+                  <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
+                    <span className="sm:hidden">Nuevo</span>
+                    <span className="hidden sm:inline">{accionPrincipal.etiqueta}</span>
+                  </Boton>
+                )}
+                {acciones.length > 0 && (
+                  <Boton
+                    variante="secundario"
+                    tamano="md"
+                    iconoDerecho={<MoreHorizontal size={14} />}
+                    onClick={() => setMenuAbierto(!menuAbierto)}
+                    titulo={t('comun.acciones')}
+                  >
+                    <span className="hidden sm:inline">{t('comun.acciones')}</span>
+                  </Boton>
+                )}
+              </GrupoBotones>
 
-                <AnimatePresence>
-                  {menuAbierto && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuAbierto(false)} />
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.12 }}
-                        className="absolute top-full left-0 mt-1 min-w-[180px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
-                      >
-                        {acciones.map((accion) => (
-                          <OpcionMenu
-                            key={accion.id}
-                            icono={accion.icono}
-                            peligro={accion.peligro}
-                            onClick={() => { accion.onClick(); setMenuAbierto(false) }}
-                          >
-                            {accion.etiqueta}
-                          </OpcionMenu>
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
+              <AnimatePresence>
+                {menuAbierto && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuAbierto(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute top-full right-0 mt-1 min-w-[180px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-50 overflow-hidden"
+                    >
+                      {acciones.map((accion) => (
+                        <OpcionMenu
+                          key={accion.id}
+                          icono={accion.icono}
+                          peligro={accion.peligro}
+                          onClick={() => { accion.onClick(); setMenuAbierto(false) }}
+                        >
+                          {accion.etiqueta}
+                        </OpcionMenu>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           <div className="flex-1" />
 

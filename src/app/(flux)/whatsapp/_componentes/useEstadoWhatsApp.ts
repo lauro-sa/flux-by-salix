@@ -10,7 +10,7 @@ import type {
   EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, VistaMovilWA,
 } from '@/tipos/inbox'
-import type { DatosMensaje } from '@/app/(flux)/inbox/_componentes/CompositorMensaje'
+import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { MediaVisor } from './PanelWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, INTERVALO_POLLING } from '@/lib/constantes/timeouts'
@@ -123,7 +123,7 @@ export function useEstadoWhatsApp() {
   // Cargar canal WhatsApp activo
   useEffect(() => {
     if (!configCargada) return
-    fetch('/api/inbox/canales?tipo=whatsapp')
+    fetch('/api/whatsapp/canales')
       .then(r => r.json())
       .then(data => {
         const canales = data.canales || []
@@ -430,7 +430,7 @@ export function useEstadoWhatsApp() {
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
           .replace(/[^a-zA-Z0-9._-]/g, '_')
           .slice(0, 100)
-        const path = `inbox/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
+        const path = `whatsapp/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('adjuntos')
@@ -520,7 +520,7 @@ export function useEstadoWhatsApp() {
   }, [conversacionSeleccionada, supabase, usuarioId])
 
   // ─── Enviar nuevo WhatsApp (plantilla) ───
-  const enviarNuevoWhatsApp = useCallback(async (telefono: string, plantilla: import('@/tipos/inbox').PlantillaWhatsApp, valoresVariables: string[]) => {
+  const enviarNuevoWhatsApp = useCallback(async (telefono: string, plantilla: import('@/tipos/whatsapp').PlantillaWhatsApp, valoresVariables: string[]) => {
     if (!canalWAId) throw new Error('No hay canal WhatsApp configurado')
 
     const resConv = await fetch('/api/inbox/conversaciones', {

@@ -210,7 +210,7 @@ function TarjetaAdjunto({ adjunto, onEliminar }: { adjunto: AdjuntoConOrigen; on
   }, [menuAbierto])
 
   return (
-    <div className="relative group w-[130px] rounded-md border border-borde-sutil overflow-visible hover:border-texto-marca/30 transition-colors">
+    <div className="relative group w-[130px] rounded-boton border border-borde-sutil overflow-visible hover:border-texto-marca/30 transition-colors">
       <a
         href={adjunto.url}
         target="_blank"
@@ -268,7 +268,7 @@ function TarjetaAdjunto({ adjunto, onEliminar }: { adjunto: AdjuntoConOrigen; on
           </button>
 
           {menuAbierto && (
-            <div className="absolute top-full mt-1 right-0 min-w-32 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+            <div className="absolute top-full mt-1 right-0 min-w-32 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg overflow-hidden py-1">
               {confirmando ? (
                 <div className="px-3 py-2">
                   <p className="text-xs text-texto-secundario mb-2">¿Eliminar este archivo?</p>

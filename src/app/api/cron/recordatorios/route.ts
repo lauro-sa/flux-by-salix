@@ -86,10 +86,9 @@ export async function GET(request: NextRequest) {
         try {
           // Obtener canal WhatsApp de la empresa
           const { data: canal } = await admin
-            .from('canales_inbox')
+            .from('canales_whatsapp')
             .select('id, config_conexion')
             .eq('empresa_id', empresaId)
-            .eq('tipo', 'whatsapp')
             .eq('activo', true)
             .limit(1)
             .single()

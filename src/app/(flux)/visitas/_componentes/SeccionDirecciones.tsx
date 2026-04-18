@@ -48,7 +48,7 @@ export function SeccionDirecciones({ direcciones, direccionId, cargando, onSelec
           <button
             key={dir.id}
             onClick={() => onSeleccionar(dir)}
-            className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+            className={`w-full text-left px-3 py-2.5 rounded-card border text-sm transition-colors ${
               esSeleccionada
                 ? 'border-texto-marca/40 bg-texto-marca/10 text-texto-primario'
                 : 'border-white/[0.06] bg-white/[0.03] text-texto-secundario hover:bg-white/[0.06]'

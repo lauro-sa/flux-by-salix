@@ -126,7 +126,7 @@ function TarjetaVisita({
   const temp = colorTemperatura(v.temperatura ?? null)
 
   return (
-    <div className={`rounded-xl border transition-colors ${
+    <div className={`rounded-card border transition-colors ${
       esCancelada
         ? 'border-[var(--insignia-peligro)]/20 bg-[var(--insignia-peligro)]/[0.03]'
         : esCompletada
@@ -189,7 +189,7 @@ function TarjetaVisita({
           {fotos.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {fotos.map((foto, i) => (
-                <div key={i} className="relative size-20 rounded-lg overflow-hidden border border-white/[0.08]">
+                <div key={i} className="relative size-20 rounded-card overflow-hidden border border-white/[0.08]">
                   <NextImage src={foto.url} alt={foto.nombre} fill sizes="80px" className="object-cover" />
                 </div>
               ))}
@@ -429,7 +429,7 @@ function ResumenDia({
         {/* Reactivar recorrido — reabre todo y permite editar visitas, fotos, orden */}
         <button
           onClick={onReactivar}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium border border-[var(--insignia-advertencia)]/30 text-[var(--insignia-advertencia)] bg-[var(--insignia-advertencia)]/[0.06] hover:bg-[var(--insignia-advertencia)]/[0.12] transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-card text-sm font-medium border border-[var(--insignia-advertencia)]/30 text-[var(--insignia-advertencia)] bg-[var(--insignia-advertencia)]/[0.06] hover:bg-[var(--insignia-advertencia)]/[0.12] transition-colors"
         >
           <RotateCcw size={14} />
           <span>Reabrir recorrido</span>
@@ -438,7 +438,7 @@ function ResumenDia({
         {/* Volver al inicio */}
         <button
           onClick={() => router.push('/dashboard')}
-          className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+          className="w-full py-3 rounded-card text-sm font-semibold text-white transition-colors"
           style={{ backgroundColor: 'var(--texto-marca)' }}
         >
           Volver al inicio

@@ -147,9 +147,9 @@ function PlantillaConfiguracion({
                   onClick={() => !seccion.deshabilitada && onCambiarSeccion(seccion.id)}
                   disabled={seccion.deshabilitada}
                   className={[
-                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left cursor-pointer border-none transition-colors relative focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-card text-sm font-medium text-left cursor-pointer border-none transition-colors relative focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     activa
-                      ? 'bg-superficie-seleccionada text-texto-marca'
+                      ? 'bg-superficie-seleccionada text-texto-primario'
                       : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
                     seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
                   ].join(' ')}
@@ -196,9 +196,9 @@ function PlantillaConfiguracion({
 
                   {/* Header informativo */}
                   {(iconoHeader || descripcion) && (
-                    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+                    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
                       {iconoHeader && (
-                        <div className="w-11 h-11 rounded-lg flex items-center justify-center mb-3" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
+                        <div className="w-11 h-11 rounded-card flex items-center justify-center mb-3" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
                           {iconoHeader}
                         </div>
                       )}
@@ -217,7 +217,7 @@ function PlantillaConfiguracion({
                           {grupo.grupo}
                         </p>
                       )}
-                      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+                      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
                         {grupo.items.map((seccion, si) => {
                           const activa = seccion.id === seccionActiva
                           return (
@@ -233,7 +233,7 @@ function PlantillaConfiguracion({
                               className={[
                                 'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                                 activa
-                                  ? 'text-texto-marca'
+                                  ? 'text-texto-primario'
                                   : 'text-texto-primario active:bg-superficie-hover',
                                 seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
                               ].join(' ')}
@@ -287,7 +287,7 @@ function PlantillaConfiguracion({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 md:p-8"
+                className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-6 md:p-8"
               >
                 {children}
               </motion.div>

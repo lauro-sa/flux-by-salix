@@ -55,7 +55,7 @@ function ContenidoFilaColumna<T>({ clave, mapaColumnas, columnasVisibles, column
               {anclada ? <PinOff size={12} /> : <Pin size={12} />}
             </button>
           </Tooltip>
-          <div className="shrink-0 flex items-center rounded-md border border-borde-sutil overflow-hidden">
+          <div className="shrink-0 flex items-center rounded-boton border border-borde-sutil overflow-hidden">
             {([
               { val: 'left' as const, icono: <AlignLeft size={10} />, titulo: 'Izquierda' },
               { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Centro' },
@@ -79,14 +79,14 @@ function ContenidoFilaColumna<T>({ clave, mapaColumnas, columnasVisibles, column
   if (arrastrable) {
     return (
       <Reorder.Item value={clave}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-superficie-hover cursor-grab active:cursor-grabbing">
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-boton hover:bg-superficie-hover cursor-grab active:cursor-grabbing">
         {contenido}
       </Reorder.Item>
     )
   }
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-superficie-hover">
+    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-boton hover:bg-superficie-hover">
       {contenido}
     </div>
   )
@@ -212,7 +212,7 @@ export function PanelColumnas<T>({
         </span>
 
         {/* Alinear todas */}
-        <div className="shrink-0 flex items-center rounded-md border border-borde-sutil overflow-hidden">
+        <div className="shrink-0 flex items-center rounded-boton border border-borde-sutil overflow-hidden">
           {([
             { val: 'left' as const, icono: <AlignLeft size={10} />, titulo: 'Todas a la izquierda' },
             { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Todas al centro' },

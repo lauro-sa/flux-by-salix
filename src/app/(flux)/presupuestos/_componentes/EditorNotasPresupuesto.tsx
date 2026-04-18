@@ -105,7 +105,7 @@ function ItemReordenable({
       dragListener={false}
       dragControls={controles}
       className={[
-        'flex items-center gap-2 group rounded-lg px-3 py-1 transition-colors duration-150',
+        'flex items-center gap-2 group rounded-card px-3 py-1 transition-colors duration-150',
         enfocado
           ? 'bg-superficie-app'
           : 'hover:bg-superficie-app/60',

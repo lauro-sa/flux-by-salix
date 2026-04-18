@@ -101,7 +101,7 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
   const pctSemana = totalReg > 0 ? Math.round((totalSemana.presentes / totalReg) * 100) : 0
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2">

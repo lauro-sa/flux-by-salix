@@ -137,7 +137,7 @@ function VistaCalendarioAgenda({
         >
           {/* Encabezado del día */}
           <div
-            className="sticky top-0 z-10 flex items-baseline gap-2 p-3 rounded-lg mb-1"
+            className="sticky top-0 z-10 flex items-baseline gap-2 p-3 rounded-card mb-1"
             style={{ backgroundColor: 'color-mix(in srgb, var(--superficie-hover) 50%, transparent)' }}
           >
             {grupo.etiqueta && (
@@ -172,7 +172,7 @@ function VistaCalendarioAgenda({
                   initial={reducirMovimiento ? false : { opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={reducirMovimiento ? { duration: 0 } : { duration: 0.12, delay: indiceGrupo * 0.02 + indiceEvento * 0.02 }}
-                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:bg-superficie-hover w-full group"
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-card text-left transition-colors hover:bg-superficie-hover w-full group"
                   onClick={(e) => onClickEvento(evento, { x: e.clientX, y: e.clientY })}
                   aria-label={`${evento.titulo}, ${formatearRangoHora(evento)}`}
                 >

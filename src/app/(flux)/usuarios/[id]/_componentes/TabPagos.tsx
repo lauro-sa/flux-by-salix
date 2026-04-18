@@ -353,7 +353,7 @@ export function TabPagos({
 
               return (
                 <div key={a.id as string} className="flex items-center gap-4 py-3">
-                  <div className="size-10 rounded-lg bg-insignia-advertencia/10 flex items-center justify-center shrink-0">
+                  <div className="size-10 rounded-card bg-insignia-advertencia/10 flex items-center justify-center shrink-0">
                     <Banknote size={16} className="text-insignia-advertencia" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -437,7 +437,7 @@ export function TabPagos({
             <select
               value={adelantoCuotas}
               onChange={e => setAdelantoCuotas(e.target.value)}
-              className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-lg px-3 py-2 text-texto-primario"
+              className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
                 <option key={n} value={n}>
@@ -467,7 +467,7 @@ export function TabPagos({
           />
 
           {parseFloat(adelantoMonto) > 0 && parseInt(adelantoCuotas) > 0 && (
-            <div className="bg-superficie-hover/50 rounded-lg border border-borde-sutil p-3">
+            <div className="bg-superficie-hover/50 rounded-card border border-borde-sutil p-3">
               <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-2">Resumen</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-texto-secundario">Adelanto total</span>
@@ -501,7 +501,7 @@ export function TabPagos({
           <div className="divide-y divide-borde-sutil">
             {pagos.map((pago) => (
               <div key={pago.id as string} className="flex items-center gap-4 py-3">
-                <div className="size-10 rounded-lg bg-insignia-exito-fondo flex items-center justify-center shrink-0">
+                <div className="size-10 rounded-card bg-insignia-exito-fondo flex items-center justify-center shrink-0">
                   <Receipt size={16} className="text-insignia-exito-texto" />
                 </div>
                 <div className="flex-1 min-w-0">

@@ -114,13 +114,13 @@ export function AsuntoConVariables({
       {etiqueta && (
         <label className="text-xs font-medium text-texto-secundario mb-1.5 block">{etiqueta}</label>
       )}
-    <div className="relative rounded-lg transition-shadow focus-within:ring-2 focus-within:ring-texto-marca/20" style={{ border: '1px solid var(--borde-fuerte)' }}>
+    <div className="relative rounded-card transition-shadow focus-within:ring-2 focus-within:ring-texto-marca/20" style={{ border: '1px solid var(--borde-fuerte)' }}>
       <div
         ref={editableRef}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
-        className="w-full text-sm outline-none py-2 px-3 pr-9 min-h-[36px] rounded-lg"
+        className="w-full text-sm outline-none py-2 px-3 pr-9 min-h-[36px] rounded-card"
         style={{ color: 'var(--texto-primario)' }}
         data-placeholder={placeholder}
       />

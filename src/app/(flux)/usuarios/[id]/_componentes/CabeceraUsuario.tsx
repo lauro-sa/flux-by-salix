@@ -78,7 +78,7 @@ export function CabeceraUsuario({
 
   return (
     <>
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 sm:p-6">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
           {/* Avatar con upload + recortador */}
           <div className="relative group shrink-0">
@@ -234,13 +234,17 @@ export function CabeceraUsuario({
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.12 }}
                     role="menu"
-                    className="absolute right-0 top-full mt-1 w-64 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden py-1"
+                    className="absolute right-0 top-full mt-1 w-64 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg z-50 overflow-hidden py-1"
                   >
-                    <ItemMenu icono={<MailIcon size={15} />} onClick={() => ejecutarAccion('reset-password')}>Enviar reseteo de contraseña</ItemMenu>
-                    <ItemMenu icono={<KeyRound size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}>Forzar nueva contraseña</ItemMenu>
-                    <ItemMenu icono={<LogOut size={15} />} onClick={() => ejecutarAccion('forzar-logout')}>Forzar cierre de sesión</ItemMenu>
-
-                    <div className="border-t border-borde-sutil my-1" />
+                    {/* Acciones de cuenta — solo si el empleado ya tiene cuenta Flux */}
+                    {miembro.usuario_id && (
+                      <>
+                        <ItemMenu icono={<MailIcon size={15} />} onClick={() => ejecutarAccion('reset-password')}>Enviar reseteo de contraseña</ItemMenu>
+                        <ItemMenu icono={<KeyRound size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}>Forzar nueva contraseña</ItemMenu>
+                        <ItemMenu icono={<LogOut size={15} />} onClick={() => ejecutarAccion('forzar-logout')}>Forzar cierre de sesión</ItemMenu>
+                        <div className="border-t border-borde-sutil my-1" />
+                      </>
+                    )}
 
                     <ItemMenu icono={<Power size={15} />} variante="advertencia" onClick={() => ejecutarAccion('desactivar')}>
                       {miembro.activo ? 'Desactivar usuario' : 'Reactivar usuario'}

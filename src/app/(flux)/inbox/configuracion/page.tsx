@@ -13,16 +13,14 @@ import {
   Clock, Bell, MessagesSquare,
   Zap, TrendingUp, Tag,
 } from 'lucide-react'
-import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
-import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
+import type { CanalMensajeria, ConfigMensajeria, TipoCanal } from '@/tipos/inbox'
+import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 
 // Sub-componentes extraídos
 import { ModuloToggle } from './_componentes/ModuloToggle'
 import { SeccionCorreo } from './_componentes/SeccionCorreo'
-import { SeccionRespuestasRapidas } from './_componentes/SeccionRespuestasRapidas'
-import { SeccionPlantillasCorreo } from './_componentes/SeccionPlantillasCorreo'
 import {
   SeccionEtiquetasConfig,
   SeccionReglasConfig,
@@ -47,10 +45,8 @@ export default function PaginaConfiguracionInbox() {
   const [modalCanal, setModalCanal] = useState<{ abierto: boolean; tipo: TipoCanal }>({ abierto: false, tipo: 'correo' })
 
   // Datos
-  const [config, setConfig] = useState<ConfigInbox | null>(null)
-  const [canales, setCanales] = useState<CanalInbox[]>([])
-  const [plantillas, setPlantillas] = useState<PlantillaRespuesta[]>([])
-  const [plantillasCorreo, setPlantillasCorreo] = useState<PlantillaRespuesta[]>([])
+  const [config, setConfig] = useState<ConfigMensajeria | null>(null)
+  const [canales, setCanales] = useState<CanalMensajeria[]>([])
   const [modulos, setModulos] = useState<Record<string, boolean>>({
     inbox_correo: true,
     inbox_interno: true,
@@ -60,23 +56,17 @@ export default function PaginaConfiguracionInbox() {
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const [resConfig, resCanales, resPlantillas, resPlantillasCorreo] = await Promise.all([
-        fetch('/api/inbox/config'),
-        fetch('/api/inbox/canales'),
-        fetch('/api/inbox/plantillas?canal=correo'),
-        fetch('/api/correo/plantillas'),
+      const [resConfig, resCanales] = await Promise.all([
+        fetch('/api/correo/config'),
+        fetch('/api/correo/canales'),
       ])
-      const [dataConfig, dataCanales, dataPlantillas, dataPlantillasCorreo] = await Promise.all([
+      const [dataConfig, dataCanales] = await Promise.all([
         resConfig.json(),
         resCanales.json(),
-        resPlantillas.json(),
-        resPlantillasCorreo.json(),
       ])
 
       setConfig(dataConfig.config)
       setCanales(dataCanales.canales || [])
-      setPlantillas(dataPlantillas.plantillas || [])
-      setPlantillasCorreo(dataPlantillasCorreo.plantillas || [])
 
       // Cargar estado de módulos
       if (dataConfig.modulos) {
@@ -97,7 +87,7 @@ export default function PaginaConfiguracionInbox() {
   const toggleModulo = useCallback(async (modulo: string, activo: boolean) => {
     setModulos(prev => ({ ...prev, [modulo]: activo }))
     try {
-      await fetch('/api/inbox/config', {
+      await fetch('/api/correo/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modulo, activo }),
@@ -111,9 +101,9 @@ export default function PaginaConfiguracionInbox() {
   useEffect(() => { cargar() }, [cargar])
 
   // Guardar config
-  const guardarConfig = useCallback(async (cambios: Partial<ConfigInbox>) => {
+  const guardarConfig = useCallback(async (cambios: Partial<ConfigMensajeria>) => {
     try {
-      await fetch('/api/inbox/config', {
+      await fetch('/api/correo/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cambios),
@@ -149,7 +139,18 @@ export default function PaginaConfiguracionInbox() {
       onVolver={() => router.push('/inbox')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        // Secciones que viven en su propia ruta (pantalla completa) — navegamos en vez de renderizar inline
+        if (id === 'plantillas_correo') {
+          router.push('/inbox/configuracion/plantillas-correo')
+          return
+        }
+        if (id === 'respuestas_rapidas') {
+          router.push('/inbox/configuracion/respuestas-rapidas')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
       {/* General */}
       {seccionActiva === 'general' && (
@@ -213,7 +214,7 @@ export default function PaginaConfiguracionInbox() {
             ].map(n => (
               <div
                 key={n.campo}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                className="flex items-center justify-between gap-3 p-3 rounded-card"
                 style={{ border: '1px solid var(--borde-sutil)' }}
               >
                 <div className="min-w-0">
@@ -243,24 +244,6 @@ export default function PaginaConfiguracionInbox() {
       {/* Métricas */}
       {seccionActiva === 'metricas' && (
         <SeccionMetricasConfig />
-      )}
-
-      {/* Respuestas rápidas de correo */}
-      {seccionActiva === 'respuestas_rapidas' && (
-        <SeccionRespuestasRapidas
-          plantillas={plantillas}
-          onRecargar={cargar}
-          canalesPermitidos={['correo']}
-        />
-      )}
-
-      {/* Plantillas Correo — tabla independiente */}
-      {seccionActiva === 'plantillas_correo' && (
-        <SeccionPlantillasCorreo
-          canal="correo"
-          plantillas={plantillasCorreo}
-          onRecargar={cargar}
-        />
       )}
 
       {/* Asignación */}
@@ -350,7 +333,7 @@ export default function PaginaConfiguracionInbox() {
             ].map(n => (
               <div
                 key={n.campo}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                className="flex items-center justify-between gap-3 p-3 rounded-card"
                 style={{ border: '1px solid var(--borde-sutil)' }}
               >
                 <div className="min-w-0">

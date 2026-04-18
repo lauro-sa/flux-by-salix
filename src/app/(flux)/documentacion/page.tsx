@@ -12,7 +12,7 @@ export default function PaginaDocumentacion() {
           Documentación
         </h1>
       </div>
-      <div className="flex-1 flex items-center justify-center bg-superficie-tarjeta border border-borde-sutil rounded-lg">
+      <div className="flex-1 flex items-center justify-center bg-superficie-tarjeta border border-borde-sutil rounded-card">
         <EstadoVacio
           icono={<BookOpen size={52} strokeWidth={1} />}
           titulo="En construcción"

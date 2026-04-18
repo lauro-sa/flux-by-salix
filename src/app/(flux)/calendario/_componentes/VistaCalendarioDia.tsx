@@ -230,7 +230,7 @@ function BloqueEventoDiaArrastrable({
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.15, delay: indice * 0.03 }}
         className={[
-          'absolute rounded-md px-2.5 py-1.5 text-left overflow-hidden cursor-grab transition-shadow hover:shadow-md z-10 select-none',
+          'absolute rounded-boton px-2.5 py-1.5 text-left overflow-hidden cursor-grab transition-shadow hover:shadow-md z-10 select-none',
           estaArrastrandoMover ? 'cursor-grabbing' : '',
           estaRedimensionando ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
         ].join(' ')}
@@ -762,7 +762,7 @@ function VistaCalendarioDia({
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.15 }}
                 onClick={() => onClickEvento(evento)}
-                className="rounded-md px-2.5 py-1 text-xs font-medium truncate max-w-[200px] transition-opacity hover:opacity-80"
+                className="rounded-boton px-2.5 py-1 text-xs font-medium truncate max-w-[200px] transition-opacity hover:opacity-80"
                 style={{
                   backgroundColor: evento.color ? `${evento.color}20` : 'var(--superficie-elevada)',
                   color: evento.color || 'var(--texto-primario)',
@@ -855,7 +855,7 @@ function VistaCalendarioDia({
 
               return (
                 <div
-                  className="absolute left-16 right-2 rounded-md z-10 pointer-events-none flex flex-col justify-between p-1.5"
+                  className="absolute left-16 right-2 rounded-boton z-10 pointer-events-none flex flex-col justify-between p-1.5"
                   style={{
                     top: yMin,
                     height: alturaBloque,
@@ -921,7 +921,7 @@ function VistaCalendarioDia({
 
           return (
             <div
-              className="rounded-md overflow-hidden px-2.5 py-1.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
+              className="rounded-boton overflow-hidden px-2.5 py-1.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
               style={{
                 width: 250,
                 height: altura,

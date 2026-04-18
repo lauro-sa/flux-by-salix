@@ -55,7 +55,7 @@ function ToastEnvioPendiente({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
       transition={{ duration: 0.25 }}
-      className="fixed top-4 left-4 right-4 sm:left-auto sm:w-[380px] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-elevada overflow-hidden" style={{ zIndex: 'var(--z-popover)' as unknown as number }}
+      className="fixed top-4 left-4 right-4 sm:left-auto sm:w-[380px] bg-superficie-elevada border border-borde-sutil rounded-popover shadow-elevada overflow-hidden" style={{ zIndex: 'var(--z-popover)' as unknown as number }}
     >
       {enviando ? (
         <div className="flex items-center gap-3 px-4 py-4">

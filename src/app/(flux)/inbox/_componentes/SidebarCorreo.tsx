@@ -7,7 +7,7 @@ import {
   Inbox, Send as SendIcon, ShieldBan, Archive,
   ChevronDown, ChevronRight, Mail, Pen, GripVertical,
 } from 'lucide-react'
-import type { CanalInbox } from '@/tipos/inbox'
+import type { CanalMensajeria } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { usePreferencias } from '@/hooks/usePreferencias'
 
@@ -29,7 +29,7 @@ interface ContadorCarpeta {
 }
 
 interface PropiedadesSidebarCorreo {
-  canales: CanalInbox[]
+  canales: CanalMensajeria[]
   canalActivo: string
   carpetaActiva: CarpetaCorreo
   onSeleccionarCanal: (canalId: string) => void
@@ -114,7 +114,7 @@ export function SidebarCorreo({
 
   const canalesOrdenados = useMemo(() => {
     const mapa = new Map(canales.map(c => [c.id, c]))
-    return ordenCanales.map(id => mapa.get(id)).filter(Boolean) as CanalInbox[]
+    return ordenCanales.map(id => mapa.get(id)).filter(Boolean) as CanalMensajeria[]
   }, [canales, ordenCanales])
 
   /** Guarda la config del inbox en preferencias (BD + localStorage) */

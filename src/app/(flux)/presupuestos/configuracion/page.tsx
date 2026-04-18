@@ -11,14 +11,13 @@ import {
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { useFormato } from '@/hooks/useFormato'
-import ModalCondicionPago from '../_componentes/ModalCondicionPago'
 import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import type {
-  Impuesto, Moneda, UnidadMedida, CondicionPago,
+  Impuesto, Moneda, UnidadMedida,
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
   TipoColumnaPie,
 } from '@/tipos/presupuesto'
@@ -72,27 +71,6 @@ const UNIDADES_DEFAULT: UnidadMedida[] = [
   { id: 'm2', label: 'Metro cuadrado', abreviatura: 'm²' },
   { id: 'lt', label: 'Litro', abreviatura: 'lt' },
   { id: 'gl', label: 'Global', abreviatura: 'gl' },
-]
-
-const CONDICIONES_PAGO_DEFAULT: CondicionPago[] = [
-  { id: 'contado', label: 'Contado', tipo: 'plazo_fijo', diasVencimiento: 0, hitos: [], notaPlanPago: '', predeterminado: false },
-  { id: 'pago_anticipado', label: '100% Pago anticipado', tipo: 'plazo_fijo', diasVencimiento: 0, hitos: [], notaPlanPago: '', predeterminado: false },
-  { id: '7dias', label: '100% a 7 días de facturación', tipo: 'plazo_fijo', diasVencimiento: 7, hitos: [], notaPlanPago: '', predeterminado: false },
-  { id: '15dias', label: '15 días', tipo: 'plazo_fijo', diasVencimiento: 15, hitos: [], notaPlanPago: '', predeterminado: false },
-  { id: '30dias', label: '30 días', tipo: 'plazo_fijo', diasVencimiento: 30, hitos: [], notaPlanPago: '', predeterminado: true },
-  { id: '60dias', label: '60 días', tipo: 'plazo_fijo', diasVencimiento: 60, hitos: [], notaPlanPago: '', predeterminado: false },
-  { id: '50_50', label: '50% adelanto + 50% al finalizar', tipo: 'hitos', diasVencimiento: 0, hitos: [
-    { id: 'h1', porcentaje: 50, descripcion: 'Adelanto', diasDesdeEmision: 0 },
-    { id: 'h2', porcentaje: 50, descripcion: 'Al finalizar', diasDesdeEmision: 0 },
-  ], notaPlanPago: '', predeterminado: false },
-  { id: '60_40', label: '60% adelanto + 40% al finalizar', tipo: 'hitos', diasVencimiento: 0, hitos: [
-    { id: 'h1', porcentaje: 60, descripcion: 'Adelanto', diasDesdeEmision: 0 },
-    { id: 'h2', porcentaje: 40, descripcion: 'Al finalizar', diasDesdeEmision: 0 },
-  ], notaPlanPago: '', predeterminado: false },
-  { id: '75_25', label: '75% adelanto + 25% al finalizar', tipo: 'hitos', diasVencimiento: 0, hitos: [
-    { id: 'h1', porcentaje: 75, descripcion: 'Adelanto', diasDesdeEmision: 0 },
-    { id: 'h2', porcentaje: 25, descripcion: 'Al finalizar', diasDesdeEmision: 0 },
-  ], notaPlanPago: '', predeterminado: false },
 ]
 
 // Defaults para configuración PDF
@@ -231,10 +209,6 @@ export default function PaginaConfigPresupuestos() {
   const [seccionActiva, setSeccionActiva] = useState('impuestos')
   const autoguardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Modal condición de pago
-  const [modalCondicionAbierto, setModalCondicionAbierto] = useState(false)
-  const [condicionEditando, setCondicionEditando] = useState<CondicionPago | null>(null)
-
   // Modal genérico para impuestos/monedas/unidades
   const [modalFinanciero, setModalFinanciero] = useState<{ abierto: boolean; seccion: string; valores?: Record<string, unknown>; editandoId?: string }>({ abierto: false, seccion: '' })
 
@@ -243,7 +217,6 @@ export default function PaginaConfigPresupuestos() {
   const [monedas, setMonedas] = useState<Moneda[]>([])
   const [monedaPredeterminada, setMonedaPredeterminada] = useState('ARS')
   const [unidades, setUnidades] = useState<UnidadMedida[]>([])
-  const [condicionesPago, setCondicionesPago] = useState<CondicionPago[]>([])
   const [diasVencimiento, setDiasVencimiento] = useState(30)
   const [validezBloqueada, setValidezBloqueada] = useState(false)
   const [condicionesDefault, setCondicionesDefault] = useState('')
@@ -316,7 +289,6 @@ export default function PaginaConfigPresupuestos() {
         setMonedas((data.monedas as Moneda[]) || [])
         setMonedaPredeterminada(data.moneda_predeterminada || 'ARS')
         setUnidades((data.unidades as UnidadMedida[]) || [])
-        setCondicionesPago((data.condiciones_pago as CondicionPago[]) || [])
         setDiasVencimiento(data.dias_vencimiento_predeterminado || 30)
         setValidezBloqueada(data.validez_bloqueada || false)
         setCondicionesDefault(data.condiciones_predeterminadas || '')
@@ -427,7 +399,6 @@ export default function PaginaConfigPresupuestos() {
     autoguardar(campos)
   }
   const guardarUnidades = (nuevas: UnidadMedida[]) => { setUnidades(nuevas); autoguardar({ unidades: nuevas }) }
-  const guardarCondiciones = (nuevas: CondicionPago[]) => { setCondicionesPago(nuevas); autoguardar({ condiciones_pago: nuevas }) }
   const guardarNumeracion = (campos?: Record<string, unknown>) => {
     autoguardar({ secuencia: { prefijo, digitos, siguiente, reinicio, componentes: componentesNum, ...campos } })
   }
@@ -490,7 +461,13 @@ export default function PaginaConfigPresupuestos() {
       onVolver={() => router.push('/presupuestos')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        if (id === 'condiciones') {
+          router.push('/presupuestos/configuracion/condiciones-pago')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
       {/* ─── IMPUESTOS ─── */}
       {seccionActiva === 'impuestos' && (
@@ -586,67 +563,6 @@ export default function PaginaConfigPresupuestos() {
         />
       )}
 
-      {/* ─── CONDICIONES DE PAGO ─── */}
-      {seccionActiva === 'condiciones' && (
-        <div className="space-y-4">
-          <ListaConfiguracion
-            titulo={t('documentos.condiciones_pago')}
-            descripcion="Arrastrá para reordenar. Hacé clic para editar. Este orden se refleja en los selectores."
-            items={condicionesPago.map(c => ({
-              id: c.id, nombre: c.label,
-              badges: [{ texto: c.tipo === 'hitos' ? 'Hitos' : 'Plazo', color: (c.tipo === 'hitos' ? 'violeta' : 'neutro') as 'violeta' | 'neutro' }],
-              subtitulo: c.tipo === 'hitos'
-                ? (c.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
-                : `${c.diasVencimiento} días`,
-              activo: c.activo !== false,
-              predeterminado: c.predeterminado,
-            }))}
-            controles="default-activo-borrar"
-            nombreRadio="condicion_predeterminada"
-            ordenable
-            acciones={[{
-              tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar condición',
-              onClick: () => { setCondicionEditando(null); setModalCondicionAbierto(true) },
-            }]}
-            onEditar={(item) => {
-              const cond = condicionesPago.find(c => c.id === item.id)
-              if (cond) { setCondicionEditando(cond); setModalCondicionAbierto(true) }
-            }}
-            onToggleActivo={(item) => {
-              const idx = condicionesPago.findIndex(c => c.id === item.id)
-              if (idx >= 0) { const n = [...condicionesPago]; n[idx] = { ...n[idx], activo: !n[idx].activo }; guardarCondiciones(n) }
-            }}
-            onTogglePredeterminado={(item) => {
-              guardarCondiciones(condicionesPago.map(c => ({ ...c, predeterminado: c.id === item.id })))
-            }}
-            onEliminar={(item) => guardarCondiciones(condicionesPago.filter(c => c.id !== item.id))}
-            onReordenar={(ids) => {
-              const mapa = new Map(condicionesPago.map(c => [c.id, c]))
-              guardarCondiciones(ids.map(id => mapa.get(id)!).filter(Boolean))
-            }}
-            restaurable
-            onRestaurar={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)}
-          />
-
-          <ModalCondicionPago
-            key={condicionEditando?.id || 'nueva'}
-            abierto={modalCondicionAbierto}
-            onCerrar={() => { setModalCondicionAbierto(false); setCondicionEditando(null) }}
-            condicionEditar={condicionEditando}
-            onGuardar={(condicion) => {
-              if (condicionEditando) {
-                guardarCondiciones(condicionesPago.map(c => c.id === condicionEditando.id ? { ...condicion, predeterminado: c.predeterminado } : c))
-              } else {
-                if (condicionesPago.some(c => c.id === condicion.id)) {
-                  condicion.id = `${condicion.id}_${Date.now()}`
-                }
-                guardarCondiciones([...condicionesPago, condicion])
-              }
-            }}
-          />
-        </div>
-      )}
-
       {/* ─── NUMERACIÓN ─── */}
       {seccionActiva === 'numeracion' && (() => {
         const hoy = new Date()
@@ -715,7 +631,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Vista previa */}
               <div>
                 <span className="text-xs text-texto-terciario font-medium block mb-1">{t('documentos.vista_previa')}</span>
-                <div className="text-2xl font-mono font-semibold text-texto-primario px-5 py-3 rounded-lg bg-superficie-app inline-block">
+                <div className="text-2xl font-mono font-semibold text-texto-primario px-5 py-3 rounded-card bg-superficie-app inline-block">
                   {previewNumero}
                 </div>
               </div>
@@ -734,14 +650,14 @@ export default function PaginaConfigPresupuestos() {
               </div>
 
               {/* Constructor de bloques */}
-              <div className="p-4 rounded-xl border border-borde-sutil space-y-3">
+              <div className="p-4 rounded-card border border-borde-sutil space-y-3">
                 <div>
                   <span className="text-xs text-texto-terciario font-medium block">Estructura del número</span>
                   <p className="text-xs text-texto-terciario mt-0.5">Movés, quitás o agregás bloques. Los separadores son editables.</p>
                 </div>
 
                 {/* Bloques */}
-                <div className="flex flex-wrap items-center gap-2.5 py-4 px-4 rounded-xl bg-superficie-app/50 min-h-[64px]">
+                <div className="flex flex-wrap items-center gap-2.5 py-4 px-4 rounded-card bg-superficie-app/50 min-h-[64px]">
                   {componentesNum.map((comp, i) => {
                     const esFijo = comp.tipo === 'prefijo' || comp.tipo === 'secuencial'
                     const color = COLORES_BLOQUE[comp.tipo] || COLORES_BLOQUE.separador
@@ -750,7 +666,7 @@ export default function PaginaConfigPresupuestos() {
 
                     if (comp.tipo === 'separador') {
                       return (
-                        <div key={`sep-${i}`} className={`inline-flex items-center gap-1.5 h-10 px-2.5 rounded-lg border ${color}`}>
+                        <div key={`sep-${i}`} className={`inline-flex items-center gap-1.5 h-10 px-2.5 rounded-card border ${color}`}>
                           {puedeIzq && (
                             <button onClick={() => moverComponente(i, -1)} className="text-texto-terciario/40 hover:text-texto-secundario transition-colors text-sm">‹</button>
                           )}
@@ -782,7 +698,7 @@ export default function PaginaConfigPresupuestos() {
                     else if (comp.tipo === 'dia') valor = String(hoy.getDate()).padStart(2, '0')
 
                     return (
-                      <div key={`${comp.tipo}-${i}`} className={`inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border ${color}`}>
+                      <div key={`${comp.tipo}-${i}`} className={`inline-flex items-center gap-1.5 h-10 px-3 rounded-card border ${color}`}>
                         {puedeIzq && (
                           <button onClick={() => moverComponente(i, -1)} className="text-current opacity-30 hover:opacity-80 transition-opacity text-sm">‹</button>
                         )}
@@ -889,7 +805,7 @@ export default function PaginaConfigPresupuestos() {
               </div>
 
               {/* Próximo número */}
-              <div className="p-4 rounded-xl border border-borde-sutil">
+              <div className="p-4 rounded-card border border-borde-sutil">
                 <label className="text-xs text-texto-terciario font-medium block mb-1">Próximo número</label>
                 <p className="text-xs text-texto-terciario mb-2">El siguiente número secuencial que se asignará</p>
                 <div className="flex items-center gap-3">
@@ -986,7 +902,7 @@ export default function PaginaConfigPresupuestos() {
           {/* ── VISTA PREVIA DEL MEMBRETE (HTML real de la plantilla) ── */}
           <div className="mb-5">
             <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
-            <div ref={previewContRef} className="bg-superficie-hover rounded-lg p-4 flex justify-center">
+            <div ref={previewContRef} className="bg-superficie-hover rounded-card p-4 flex justify-center">
               <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(400 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
@@ -1000,7 +916,7 @@ export default function PaginaConfigPresupuestos() {
 
           <div className="space-y-4">
             {/* Controles del membrete */}
-            <div className="p-4 rounded-xl border border-borde-sutil bg-superficie-app/30 space-y-4">
+            <div className="p-4 rounded-card border border-borde-sutil bg-superficie-app/30 space-y-4">
               {/* Toggle logo */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-texto-primario">Mostrar logo en el membrete</span>
@@ -1242,7 +1158,7 @@ export default function PaginaConfigPresupuestos() {
             </div>
 
             {/* Editor de contenido HTML rico */}
-            <div className="rounded-xl border border-borde-sutil overflow-hidden">
+            <div className="rounded-card border border-borde-sutil overflow-hidden">
               <EditorTexto
                 contenido={membrete.contenido_html || ''}
                 onChange={(html) => {
@@ -1276,7 +1192,7 @@ export default function PaginaConfigPresupuestos() {
           {/* ── VISTA PREVIA DEL PIE (HTML real de la plantilla, scroll al fondo) ── */}
           <div className="mb-5">
             <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
-            <div className="bg-superficie-hover rounded-lg p-4 flex justify-center">
+            <div className="bg-superficie-hover rounded-card p-4 flex justify-center">
               <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(200 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
@@ -1299,7 +1215,7 @@ export default function PaginaConfigPresupuestos() {
 
           <div className="space-y-4">
             {/* Opciones generales del pie */}
-            <div className="p-4 rounded-xl border border-borde-sutil bg-superficie-app/30 space-y-3">
+            <div className="p-4 rounded-card border border-borde-sutil bg-superficie-app/30 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-texto-primario">Línea separadora encima del pie</span>
                 <button
@@ -1384,7 +1300,7 @@ export default function PaginaConfigPresupuestos() {
               }
 
               return (
-                <div key={pos} className="p-4 rounded-xl border border-borde-sutil space-y-3">
+                <div key={pos} className="p-4 rounded-card border border-borde-sutil space-y-3">
                   <span className="text-xs font-semibold text-texto-primario capitalize">
                     Columna {pos}
                   </span>
@@ -1419,7 +1335,7 @@ export default function PaginaConfigPresupuestos() {
                     <div>
                       <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-0.5">Texto</span>
                       <p className="text-xxs text-texto-terciario mb-1.5">Seleccioná texto para cambiar tamaño, color, negrita y más</p>
-                      <div className="rounded-lg border border-borde-sutil overflow-hidden">
+                      <div className="rounded-card border border-borde-sutil overflow-hidden">
                         <EditorTexto
                           contenido={columna.texto || ''}
                           onChange={(html) => {
@@ -1562,7 +1478,7 @@ export default function PaginaConfigPresupuestos() {
             >
               <div className="w-full flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="size-12 rounded-lg bg-[var(--texto-marca)]/10 flex items-center justify-center group-hover:bg-[var(--texto-marca)]/20 transition-colors">
+                  <div className="size-12 rounded-card bg-[var(--texto-marca)]/10 flex items-center justify-center group-hover:bg-[var(--texto-marca)]/20 transition-colors">
                     <Code2 size={22} className="text-texto-marca" />
                   </div>
                   <div className="text-left">
@@ -1622,8 +1538,8 @@ export default function PaginaConfigPresupuestos() {
 
           <div className="space-y-5">
             {/* ── Vista previa ── */}
-            <div className="p-4 rounded-xl border border-borde-sutil bg-superficie-app">
-              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/[0.04]">
+            <div className="p-4 rounded-card border border-borde-sutil bg-superficie-app">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-card bg-white/[0.04]">
                 <FileType className="size-4 text-texto-terciario shrink-0" />
                 <p className="text-[13px] font-mono text-texto-primario break-all leading-relaxed">
                   {(() => {
@@ -1686,7 +1602,7 @@ export default function PaginaConfigPresupuestos() {
               </div>
 
               {/* Pills del nombre — flujo inline horizontal */}
-              <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl border border-white/[0.07] bg-white/[0.02] min-h-[48px]">
+              <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] min-h-[48px]">
                 {segmentosNombre.map((seg, idx) => {
                   const infoPill = obtenerInfoVariable(seg.variable)
                   const etiquetaPill = `${infoPill.entidadEtiqueta} — ${infoPill.campoEtiqueta}`
@@ -1697,7 +1613,7 @@ export default function PaginaConfigPresupuestos() {
                         <span className="text-xs font-mono text-texto-terciario/40 select-none px-0.5">{seg.separador.trim()}</span>
                       )}
                       {/* Pill de la variable */}
-                      <span className="group inline-flex items-center gap-1 px-2 py-1 rounded-md bg-texto-marca/10 border border-texto-marca/20 text-xs text-texto-marca transition-colors hover:bg-texto-marca/15">
+                      <span className="group inline-flex items-center gap-1 px-2 py-1 rounded-boton bg-texto-marca/10 border border-texto-marca/20 text-xs text-texto-marca transition-colors hover:bg-texto-marca/15">
                         <span className="font-medium">{etiquetaPill}</span>
                         <button
                           onClick={() => {
@@ -1736,7 +1652,7 @@ export default function PaginaConfigPresupuestos() {
                           }]
                           actualizarSegmentosNombre(nuevos)
                         }}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-all ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-boton text-xs transition-all ${
                           yaUsada
                             ? 'bg-white/[0.02] text-texto-terciario/25 border border-white/[0.04] cursor-default line-through'
                             : 'bg-white/[0.04] text-texto-secundario border border-white/[0.08] hover:border-texto-marca/30 hover:bg-texto-marca/8 hover:text-texto-marca cursor-pointer'
@@ -1783,7 +1699,7 @@ export default function PaginaConfigPresupuestos() {
           </p>
 
           {/* Toggle: usar datos de empresa o personalizar */}
-          <div className="p-4 rounded-xl border border-borde-sutil mb-5">
+          <div className="p-4 rounded-card border border-borde-sutil mb-5">
             <div className="flex items-start gap-3">
               <Checkbox
                 marcado={datosEmpresaPdf.usar_datos_empresa !== false}
@@ -1808,7 +1724,7 @@ export default function PaginaConfigPresupuestos() {
 
           {/* Preview de datos de empresa (cuando hereda) */}
           {datosEmpresaPdf.usar_datos_empresa !== false && (
-            <div className="p-4 rounded-xl bg-superficie-app border border-borde-sutil mb-5">
+            <div className="p-4 rounded-card bg-superficie-app border border-borde-sutil mb-5">
               <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">
                 Datos heredados de la empresa
               </p>
@@ -1904,7 +1820,7 @@ export default function PaginaConfigPresupuestos() {
           )}
 
           {/* Toggle mostrar en portal/PDF */}
-          <div className="mt-5 p-4 rounded-xl border border-borde-sutil">
+          <div className="mt-5 p-4 rounded-card border border-borde-sutil">
             <div className="flex items-start gap-3">
               <Checkbox
                 marcado={datosEmpresaPdf.mostrar_datos_bancarios}
@@ -1930,10 +1846,10 @@ export default function PaginaConfigPresupuestos() {
 
           <div className="space-y-6">
             {/* Estado del módulo */}
-            <div className="p-5 rounded-xl border border-borde-sutil">
+            <div className="p-5 rounded-card border border-borde-sutil">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-lg bg-[var(--texto-marca)]/10 flex items-center justify-center">
+                  <div className="size-10 rounded-card bg-[var(--texto-marca)]/10 flex items-center justify-center">
                     <Package size={20} className="text-texto-marca" />
                   </div>
                   <div>
@@ -1948,7 +1864,7 @@ export default function PaginaConfigPresupuestos() {
             </div>
 
             {/* Info */}
-            <div className="p-4 rounded-xl bg-superficie-app space-y-3">
+            <div className="p-4 rounded-card bg-superficie-app space-y-3">
               <p className="text-xs text-texto-secundario">
                 <strong>Categoría:</strong> Finanzas
               </p>

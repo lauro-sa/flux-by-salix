@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const admin = crearClienteAdmin()
 
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .select('id, config_conexion')
       .eq('id', canalId)
       .eq('empresa_id', empresaId)
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     // Cachear resultado en config del canal
     await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .update({
         config_conexion: {
           ...(canal.config_conexion as Record<string, unknown>),

@@ -18,7 +18,7 @@ import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/inbox'
+import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/whatsapp'
 import type { ContactoChatter, DatosDocumentoChatter } from './tipos'
 import { formatearTextoWA } from './constantes'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
@@ -333,7 +333,7 @@ export function ModalWhatsAppChatter({
     >
       <div className="space-y-4">
         {/* Info del contacto */}
-        <div className="flex items-center gap-3 p-3 bg-canal-whatsapp/5 border border-canal-whatsapp/20 rounded-lg">
+        <div className="flex items-center gap-3 p-3 bg-canal-whatsapp/5 border border-canal-whatsapp/20 rounded-card">
           <div className="flex items-center justify-center size-9 rounded-full bg-canal-whatsapp/10 text-canal-whatsapp shrink-0">
             <IconoWhatsApp size={20} />
           </div>
@@ -386,7 +386,7 @@ export function ModalWhatsAppChatter({
               <button
                 ref={selectorRef}
                 onClick={() => setSelectorAbierto(!selectorAbierto)}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 border rounded-lg bg-superficie-app text-left transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2.5 border rounded-card bg-superficie-app text-left transition-colors ${
                   selectorAbierto ? 'border-texto-marca ring-2 ring-texto-marca/20' : 'border-borde-sutil hover:border-texto-marca/40'
                 }`}
               >
@@ -407,7 +407,7 @@ export function ModalWhatsAppChatter({
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl max-h-[280px] overflow-y-auto"
+                    className="bg-superficie-elevada border border-borde-sutil rounded-popover shadow-xl max-h-[280px] overflow-y-auto"
                   >
                     {plantillas.map(p => (
                       <button
@@ -442,7 +442,7 @@ export function ModalWhatsAppChatter({
             {plantillaSeleccionada && (
               <div className="space-y-2">
                 <label className="text-xs font-medium text-texto-secundario">Vista previa</label>
-                <div className="rounded-xl overflow-hidden border border-borde-sutil">
+                <div className="rounded-card overflow-hidden border border-borde-sutil">
                   {/* Header WA */}
                   <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#075e54' }}>
                     <IconoWhatsApp size={16} style={{ color: '#fff' }} />
@@ -456,7 +456,7 @@ export function ModalWhatsAppChatter({
                     style={{ background: '#e5ddd5', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L20 40M0 20L40 20\' stroke=\'%23d5cec5\' stroke-width=\'0.5\'/%3E%3C/svg%3E")' }}
                   >
                     {/* Burbuja */}
-                    <div className="rounded-lg p-3 max-w-full shadow-sm" style={{ background: '#fff', color: '#111' }}>
+                    <div className="rounded-card p-3 max-w-full shadow-sm" style={{ background: '#fff', color: '#111' }}>
                       {/* Encabezado */}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo === 'TEXT' && encabezadoHtml && (
                         <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" style={{ color: '#111' }} />
@@ -493,7 +493,7 @@ export function ModalWhatsAppChatter({
                     {plantillaSeleccionada.componentes?.botones?.length ? (
                       <div className="mt-1 space-y-1">
                         {plantillaSeleccionada.componentes.botones.map((b, i) => (
-                          <div key={i} className="rounded-lg py-2 text-center text-sm font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
+                          <div key={i} className="rounded-card py-2 text-center text-sm font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
                             {b.tipo === 'URL' && '🔗 '}
                             {b.tipo === 'PHONE_NUMBER' && '📞 '}
                             {b.texto || 'Botón'}
@@ -517,7 +517,7 @@ export function ModalWhatsAppChatter({
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 p-2.5 bg-insignia-peligro/10 border border-insignia-peligro/20 rounded-lg">
+              <div className="flex items-center gap-2 p-2.5 bg-insignia-peligro/10 border border-insignia-peligro/20 rounded-card">
                 <AlertCircle size={14} className="text-insignia-peligro shrink-0" />
                 <p className="text-xs text-insignia-peligro">{error}</p>
               </div>

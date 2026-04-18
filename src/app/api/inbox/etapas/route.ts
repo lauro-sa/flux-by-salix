@@ -31,12 +31,12 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'ver')
+    const tipoCanalParam = request.nextUrl.searchParams.get('tipo_canal') as TipoCanal | null
+    const permisoRequerido = tipoCanalParam === 'whatsapp' ? 'config_whatsapp' : 'config_correo'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, permisoRequerido, 'ver')
     if (!permitido) {
       return NextResponse.json({ error: 'Sin permiso para ver etapas' }, { status: 403 })
     }
-
-    const tipoCanalParam = request.nextUrl.searchParams.get('tipo_canal') as TipoCanal | null
     const admin = crearClienteAdmin()
 
     // Construir query base
@@ -98,11 +98,6 @@ export async function POST(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para crear etapas' }, { status: 403 })
-    }
-
     const body = await request.json()
     const { tipo_canal, clave, etiqueta, color, icono, orden } = body
 
@@ -111,6 +106,12 @@ export async function POST(request: NextRequest) {
         { error: 'tipo_canal, clave, etiqueta y color son requeridos' },
         { status: 400 }
       )
+    }
+
+    const permisoRequerido = tipo_canal === 'whatsapp' ? 'config_whatsapp' : 'config_correo'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, permisoRequerido, 'editar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para crear etapas' }, { status: 403 })
     }
 
     const admin = crearClienteAdmin()
@@ -168,16 +169,25 @@ export async function PATCH(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para editar etapas' }, { status: 403 })
-    }
-
     const body = await request.json()
     const { id, etiqueta, color, icono, orden, activa } = body
 
     if (!id) {
       return NextResponse.json({ error: 'id es requerido' }, { status: 400 })
+    }
+
+    // Obtener tipo_canal de la etapa para seleccionar el permiso correcto
+    const adminCheck = crearClienteAdmin()
+    const { data: etapaExistente } = await adminCheck
+      .from('etapas_conversacion')
+      .select('tipo_canal')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+    const permisoRequerido = etapaExistente?.tipo_canal === 'whatsapp' ? 'config_whatsapp' : 'config_correo'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, permisoRequerido, 'editar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para editar etapas' }, { status: 403 })
     }
 
     // Construir objeto de actualización solo con los campos proporcionados
@@ -227,11 +237,6 @@ export async function DELETE(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para eliminar etapas' }, { status: 403 })
-    }
-
     const id = request.nextUrl.searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'id es requerido como query param' }, { status: 400 })
@@ -239,16 +244,22 @@ export async function DELETE(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Primero obtener la etapa para verificar si es predefinida
+    // Obtener la etapa con tipo_canal para verificar permiso y si es predefinida
     const { data: etapa, error: errorBuscar } = await admin
       .from('etapas_conversacion')
-      .select('id, es_predefinida')
+      .select('id, es_predefinida, tipo_canal')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
 
     if (errorBuscar || !etapa) {
       return NextResponse.json({ error: 'Etapa no encontrada' }, { status: 404 })
+    }
+
+    const permisoRequerido = etapa.tipo_canal === 'whatsapp' ? 'config_whatsapp' : 'config_correo'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, permisoRequerido, 'editar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para eliminar etapas' }, { status: 403 })
     }
 
     if (etapa.es_predefinida) {

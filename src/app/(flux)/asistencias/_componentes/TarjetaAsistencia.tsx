@@ -232,7 +232,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
 
           {/* Barra segmentada + tags de duración */}
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 px-2 py-[3px] rounded-md bg-asistencia-presente-fondo border border-asistencia-presente/25">
+            <div className="flex items-center gap-1 px-2 py-[3px] rounded-boton bg-asistencia-presente-fondo border border-asistencia-presente/25">
               <Calendar size={11} className="text-asistencia-presente" />
               <span className="text-[11px] font-medium text-asistencia-presente">{dur}</span>
             </div>
@@ -269,7 +269,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           <div className="px-5 py-3 border-b border-r border-white/[0.07]">
             <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Entrada</p>
             <div className="flex items-center gap-2">
-              <div className="size-7 rounded-md bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
+              <div className="size-7 rounded-boton bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
                 {ICONO_METODO[r.metodo_registro] || <Pencil size={13} />}
               </div>
               <div>
@@ -284,7 +284,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Salida</p>
             {r.hora_salida && !enCurso ? (
               <div className="flex items-center gap-2">
-                <div className="size-7 rounded-md bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
+                <div className="size-7 rounded-boton bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
                   {ICONO_METODO[r.metodo_salida || 'manual'] || <Pencil size={13} />}
                 </div>
                 <div>

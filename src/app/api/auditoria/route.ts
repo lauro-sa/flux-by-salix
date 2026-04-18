@@ -22,6 +22,10 @@ const TABLAS_PERMITIDAS = new Set([
   'auditoria_actividades',
   'auditoria_presupuestos',
   'auditoria_ordenes',
+  'auditoria_plantillas_correo',
+  'auditoria_respuestas_rapidas_correo',
+  'auditoria_respuestas_rapidas_whatsapp',
+  'auditoria_plantillas_whatsapp',
 ])
 
 // Campos FK permitidos por tabla
@@ -32,6 +36,10 @@ const CAMPOS_PERMITIDOS: Record<string, string[]> = {
   auditoria_actividades: ['actividad_id'],
   auditoria_presupuestos: ['presupuesto_id'],
   auditoria_ordenes: ['orden_id'],
+  auditoria_plantillas_correo: ['plantilla_id'],
+  auditoria_respuestas_rapidas_correo: ['plantilla_id'],
+  auditoria_respuestas_rapidas_whatsapp: ['plantilla_id'],
+  auditoria_plantillas_whatsapp: ['plantilla_id'],
 }
 
 export async function GET(request: NextRequest) {
@@ -72,11 +80,13 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Resolver nombres de editores
+    // Resolver nombres de editores — primero busca por miembros.id (patrón asistencias),
+    // luego como fallback por perfiles.id (patrón productos/plantillas_correo con user.id).
     const editoresIds = [...new Set((cambios || []).map(c => c.editado_por).filter(Boolean))]
-    let nombresMap = new Map<string, string>()
+    const nombresMap = new Map<string, string>()
 
     if (editoresIds.length > 0) {
+      // 1) Intentar resolver como miembro.id
       const { data: miembros } = await admin
         .from('miembros')
         .select('id, usuario_id')
@@ -90,7 +100,22 @@ export async function GET(request: NextRequest) {
           .in('id', usuarioIds)
 
         const perfilesMap = new Map((perfiles || []).map(p => [p.id, `${p.nombre} ${p.apellido || ''}`.trim()]))
-        nombresMap = new Map(miembros.map(m => [m.id, perfilesMap.get(m.usuario_id) || 'Desconocido']))
+        for (const m of miembros) {
+          nombresMap.set(m.id, perfilesMap.get(m.usuario_id) || 'Desconocido')
+        }
+      }
+
+      // 2) Fallback: resolver ids restantes como perfiles.id directamente (user.id)
+      const idsPendientes = editoresIds.filter(id => !nombresMap.has(id))
+      if (idsPendientes.length > 0) {
+        const { data: perfilesDirectos } = await admin
+          .from('perfiles')
+          .select('id, nombre, apellido')
+          .in('id', idsPendientes)
+
+        for (const p of perfilesDirectos || []) {
+          nombresMap.set(p.id, `${p.nombre} ${p.apellido || ''}`.trim())
+        }
       }
     }
 

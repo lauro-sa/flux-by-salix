@@ -132,13 +132,13 @@ function InputHoraKiosco({ valor, onChange, etiqueta }: {
           onBlur={formatearYGuardar}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formatearYGuardar(); (e.target as HTMLInputElement).blur() } }}
           placeholder="HH:MM"
-          className="flex-1 h-11 rounded-xl border text-sm font-mono text-center outline-none"
+          className="flex-1 h-11 rounded-card border text-sm font-mono text-center outline-none"
           style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto)', borderColor: 'var(--kiosco-border)' }}
         />
         <button
           type="button"
           onClick={() => setAbierto(v => !v)}
-          className="h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 transition-all"
+          className="h-11 w-11 rounded-card border flex items-center justify-center shrink-0 transition-all"
           style={{
             backgroundColor: abierto ? 'var(--borde-fuerte)' : 'var(--kiosco-card)',
             borderColor: abierto ? 'var(--texto-marca)' : 'var(--kiosco-border)',
@@ -151,7 +151,7 @@ function InputHoraKiosco({ valor, onChange, etiqueta }: {
 
       {abierto && (
         <div
-          className="absolute z-50 top-full mt-2 left-0 right-0 rounded-xl shadow-2xl overflow-hidden"
+          className="absolute z-50 top-full mt-2 left-0 right-0 rounded-popover shadow-2xl overflow-hidden"
           style={{ backgroundColor: 'var(--kiosco-card-hover)', border: '1px solid var(--borde-fuerte)', animation: 'kiosco-entrada 200ms cubic-bezier(0.16,1,0.3,1)' }}
         >
           <div className="flex">
@@ -242,7 +242,7 @@ function InputFechaKiosco({ valor, onChange }: {
         onBlur={formatearYGuardar}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formatearYGuardar(); (e.target as HTMLInputElement).blur() } }}
         placeholder="DD/MM (ej: 0704)"
-        className="w-full h-11 rounded-xl border text-sm px-4 outline-none mb-2"
+        className="w-full h-11 rounded-card border text-sm px-4 outline-none mb-2"
         style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto)', borderColor: 'var(--kiosco-border)' }}
       />
 
@@ -252,7 +252,7 @@ function InputFechaKiosco({ valor, onChange }: {
           <button
             key={d.valor}
             onClick={() => onChange(d.valor)}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all capitalize active:scale-95"
+            className="px-2.5 py-1 rounded-card text-xs font-medium transition-all capitalize active:scale-95"
             style={{
               backgroundColor: valor === d.valor ? 'var(--texto-marca)' : 'var(--kiosco-card)',
               color: valor === d.valor ? '#fff' : 'var(--kiosco-texto-sec)',
@@ -334,7 +334,7 @@ export default function PantallaSolicitud({
             const fechaFmt = sol.fecha ? sol.fecha.split('-').reverse().join('/') : '—'
             const puedeApelar = sol.estado === 'rechazada' && !sol.solicitudOriginalId && !idsYaApelados.has(sol.id)
             return (
-              <div key={sol.id} className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+              <div key={sol.id} className="flex items-start gap-2 px-3 py-2 rounded-card text-xs font-medium"
                 style={{
                   backgroundColor: sol.estado === 'aprobada' ? 'rgba(74,222,128,0.1)' : sol.estado === 'rechazada' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
                   border: `1px solid ${sol.estado === 'aprobada' ? 'rgba(74,222,128,0.2)' : sol.estado === 'rechazada' ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.2)'}`,
@@ -379,14 +379,14 @@ export default function PantallaSolicitud({
             placeholder={apelandoId ? 'Explicá por qué debería reconsiderarse...' : 'Explicá por qué no pudiste fichar...'}
             rows={2}
             maxLength={300}
-            className="w-full rounded-xl text-sm p-3 resize-none outline-none"
+            className="w-full rounded-card text-sm p-3 resize-none outline-none"
             style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto)', border: '1px solid var(--kiosco-border)' }}
           />
           <p className="text-[10px] text-right mt-0.5" style={{ color: 'var(--kiosco-texto-dim)' }}>{motivo.length}/300</p>
         </div>
 
         {/* Aviso */}
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs"
+        <div className="flex items-start gap-2 px-3 py-2 rounded-card text-xs"
           style={{ backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(252,211,77,0.7)' }}
         >
           <Info size={14} className="mt-0.5 shrink-0" />
@@ -396,13 +396,13 @@ export default function PantallaSolicitud({
         {/* Botones */}
         <div className="flex gap-3">
           <button onClick={alCancelar} disabled={cargando}
-            className="flex-1 h-11 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+            className="flex-1 h-11 rounded-card text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
             style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto-sec)', border: '1px solid var(--kiosco-border)' }}
           >
             Cancelar
           </button>
           <button onClick={manejarEnvio} disabled={!esValido}
-            className="flex-1 h-11 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-2"
+            className="flex-1 h-11 rounded-card text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-2"
             style={{ backgroundColor: 'var(--texto-marca)', color: '#fff' }}
           >
             {cargando

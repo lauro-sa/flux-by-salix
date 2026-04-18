@@ -18,7 +18,10 @@ interface EstadoVistaDatos {
 interface VistaGuardada {
   id: string
   nombre: string
+  icono?: string | null
+  orden?: number
   predefinida: boolean
+  es_sistema?: boolean
   estado: EstadoVistaDatos
 }
 
@@ -108,13 +111,13 @@ function useVistasGuardadas(modulo?: string) {
   }, [modulo])
 
   /* ── Guardar nueva vista ── */
-  const guardar = useCallback(async (nombre: string, estado: EstadoVistaDatos) => {
+  const guardar = useCallback(async (nombre: string, estado: EstadoVistaDatos, icono?: string | null) => {
     if (!modulo) return null
     try {
       const res = await fetch('/api/vistas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modulo, nombre, estado }),
+        body: JSON.stringify({ modulo, nombre, estado, icono }),
       })
       if (res.ok) {
         const nueva: VistaGuardada = await res.json()
@@ -124,6 +127,60 @@ function useVistasGuardadas(modulo?: string) {
     } catch { /* silencioso */ }
     return null
   }, [modulo])
+
+  /* ── Renombrar vista ── */
+  const renombrar = useCallback(async (id: string, nombre: string) => {
+    try {
+      const res = await fetch('/api/vistas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, nombre }),
+      })
+      if (res.ok) {
+        const actualizada: VistaGuardada = await res.json()
+        setVistas(prev => prev.map(v => v.id === id ? actualizada : v))
+      }
+    } catch { /* silencioso */ }
+  }, [])
+
+  /* ── Cambiar icono (emoji) ── */
+  const cambiarIcono = useCallback(async (id: string, icono: string | null) => {
+    try {
+      const res = await fetch('/api/vistas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, icono }),
+      })
+      if (res.ok) {
+        const actualizada: VistaGuardada = await res.json()
+        setVistas(prev => prev.map(v => v.id === id ? actualizada : v))
+      }
+    } catch { /* silencioso */ }
+  }, [])
+
+  /* ── Reordenar vistas en lote ── */
+  const reordenar = useCallback(async (idsOrdenados: string[]) => {
+    // Actualización optimista en cliente
+    setVistas(prev => {
+      const map = new Map(prev.map(v => [v.id, v]))
+      const reordenadas: VistaGuardada[] = []
+      idsOrdenados.forEach((id, i) => {
+        const v = map.get(id)
+        if (v) reordenadas.push({ ...v, orden: i })
+      })
+      // Mantener las que no vinieron en la lista (ej: sistema) al inicio
+      const faltantes = prev.filter(v => !idsOrdenados.includes(v.id))
+      return [...faltantes, ...reordenadas]
+    })
+    try {
+      const ordenes = idsOrdenados.map((id, i) => ({ id, orden: i }))
+      await fetch('/api/vistas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordenes }),
+      })
+    } catch { /* silencioso */ }
+  }, [])
 
   /* ── Eliminar vista ── */
   const eliminar = useCallback(async (id: string) => {
@@ -179,7 +236,18 @@ function useVistasGuardadas(modulo?: string) {
     [vistas]
   )
 
-  return { vistas, cargando, guardar, eliminar, sobrescribir, marcarPredefinida, vistaPredefinida }
+  return {
+    vistas,
+    cargando,
+    guardar,
+    eliminar,
+    sobrescribir,
+    marcarPredefinida,
+    renombrar,
+    cambiarIcono,
+    reordenar,
+    vistaPredefinida,
+  }
 }
 
 /**

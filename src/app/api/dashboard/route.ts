@@ -220,7 +220,7 @@ export async function GET() {
       // ─── Mensajes recientes (últimos 30 para cubrir todos los canales) ───
       admin
         .from('mensajes')
-        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, correo_de, es_nota_interna, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre, canal_id, canal:canales_inbox(nombre))')
+        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, correo_de, es_nota_interna, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre, canal_id)')
         .eq('empresa_id', empresaId)
         .is('eliminado_en', null)
         .order('creado_en', { ascending: false })

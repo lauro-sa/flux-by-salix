@@ -58,11 +58,10 @@ export async function POST(request: NextRequest) {
 
     // Obtener config del canal de WhatsApp
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .select('config_conexion')
       .eq('id', canal_id)
       .eq('empresa_id', empresaId)
-      .eq('tipo', 'whatsapp')
       .single()
 
     if (!canal) return NextResponse.json({ error: 'Canal de WhatsApp no encontrado' }, { status: 404 })

@@ -428,20 +428,16 @@ function ModalVisita({
       tamano="5xl"
       sinPadding
       alturaMovil="completo"
-      acciones={
-        <div className="flex items-center gap-2 px-6 py-3">
-          <Boton variante="fantasma" onClick={onCerrar}>
-            {t('comun.cancelar')}
-          </Boton>
-          <Boton
-            onClick={manejarGuardar}
-            cargando={guardando}
-            disabled={!contactoId || !fechaProgramada}
-          >
-            {esEdicion ? t('comun.guardar') : t('visitas.nueva')}
-          </Boton>
-        </div>
-      }
+      accionPrimaria={{
+        etiqueta: esEdicion ? t('comun.guardar') : t('visitas.nueva'),
+        onClick: manejarGuardar,
+        cargando: guardando,
+        disabled: !contactoId || !fechaProgramada,
+      }}
+      accionSecundaria={{
+        etiqueta: t('comun.cancelar'),
+        onClick: onCerrar,
+      }}
     >
       {/* Acciones rápidas en edición */}
       {esEdicion && visita && esActiva && (
@@ -547,7 +543,7 @@ function ModalVisita({
               {/* Receptor ya seleccionado — pill estilo marca */}
               {(recibeContactoSeleccionado || (recibeModoManual && recibeNombre)) ? (
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-texto-marca/40 bg-texto-marca/10">
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-card border border-texto-marca/40 bg-texto-marca/10">
                     <User size={13} className="text-texto-marca shrink-0" />
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-texto-primario">
@@ -604,7 +600,7 @@ function ModalVisita({
                             <button
                               key={v.id}
                               onClick={() => seleccionarReceptorVinculado(v)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-texto-marca/10 hover:border-texto-marca/30 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-texto-marca/10 hover:border-texto-marca/30 transition-colors"
                             >
                               <User size={11} className="text-texto-terciario" />
                               <span>{nombre}</span>
@@ -697,7 +693,7 @@ function ModalVisita({
                   onChange={(e) => setDuracionEstimada(parseInt(e.target.value) || 30)}
                   min={5}
                   max={480}
-                  className="w-20 px-2 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
+                  className="w-20 px-2 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
                 />
                 <span className="text-xs text-texto-terciario">{t('visitas.minutos')}</span>
               </div>
@@ -714,7 +710,7 @@ function ModalVisita({
                 <button
                   key={p}
                   onClick={() => setPrioridad(p)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  className={`px-3 py-1.5 rounded-card text-xs font-medium border transition-colors ${
                     prioridad === p
                       ? p === 'urgente'
                         ? 'bg-insignia-peligro/15 border-insignia-peligro/40 text-insignia-peligro'

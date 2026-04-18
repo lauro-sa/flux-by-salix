@@ -136,7 +136,7 @@ function ToastItem({ toast, onRemover }: { toast: DatosToast; onRemover: () => v
       className="pointer-events-auto"
     >
       <div
-        className="relative flex items-center gap-3 pl-4 pr-3 py-3 rounded-xl border border-borde-sutil shadow-elevada overflow-hidden max-w-[400px] max-sm:max-w-none backdrop-blur-sm"
+        className="relative flex items-center gap-3 pl-4 pr-3 py-3 rounded-card border border-borde-sutil shadow-elevada overflow-hidden max-w-[400px] max-sm:max-w-none backdrop-blur-sm"
         style={{ backgroundColor: 'var(--superficie-elevada)' }}
       >
         {/* Barra de progreso inferior */}
@@ -153,7 +153,7 @@ function ToastItem({ toast, onRemover }: { toast: DatosToast; onRemover: () => v
 
         {/* Ícono con fondo */}
         <div
-          className="size-7 rounded-lg flex items-center justify-center shrink-0"
+          className="size-7 rounded-card flex items-center justify-center shrink-0"
           style={{ backgroundColor: fondoIcono }}
         >
           <Icono size={14} strokeWidth={2.5} style={{ color: colorIcono }} />

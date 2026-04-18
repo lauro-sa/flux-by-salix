@@ -76,7 +76,7 @@ export function EditorCodigoHtml({
             <button
               onClick={onToggleVariablesHtml}
               onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors hover:bg-[var(--superficie-hover)]"
+              className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-boton transition-colors hover:bg-[var(--superficie-hover)]"
               style={{ color: variablesHtmlAbierto ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
               type="button"
             >
@@ -99,7 +99,7 @@ export function EditorCodigoHtml({
           placeholder={"<p>Hola {{contacto.nombre}},</p>\n<p>Adjuntamos el {{presupuesto.numero}}.</p>"}
           spellCheck={false}
           rows={12}
-          className="w-full rounded-md border border-borde-fuerte bg-superficie-tarjeta px-3 py-2 text-xs font-mono text-texto-primario placeholder:text-texto-placeholder resize-y outline-none focus:border-borde-foco focus:shadow-foco transition-all"
+          className="w-full rounded-boton border border-borde-fuerte bg-superficie-tarjeta px-3 py-2 text-xs font-mono text-texto-primario placeholder:text-texto-placeholder resize-y outline-none focus:border-borde-foco focus:shadow-foco transition-all"
           style={{ tabSize: 2, minHeight: 220 }}
         />
       </div>

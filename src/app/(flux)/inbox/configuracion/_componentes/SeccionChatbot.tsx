@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
-import { EditorWhatsApp } from './EditorWhatsApp'
+import { EditorWhatsApp } from '@/app/(flux)/whatsapp/_componentes/EditorWhatsApp'
 
 /**
  * Tipos internos del chatbot — opciones de menú y palabras clave.
@@ -150,11 +150,11 @@ export function SeccionChatbot() {
     <div className="space-y-5">
       {/* Header + toggle */}
       <div
-        className="flex items-center justify-between p-4 rounded-xl"
+        className="flex items-center justify-between p-4 rounded-card"
         style={estiloSeccion}
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
+          <div className="w-10 h-10 rounded-card flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
             <Bot size={20} style={{ color: 'var(--texto-marca)' }} />
           </div>
           <div>
@@ -177,7 +177,7 @@ export function SeccionChatbot() {
       <div className={`space-y-4 ${!config.activo ? 'opacity-40 pointer-events-none' : ''}`}>
 
         {/* Cuándo disparar */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
             Cuándo disparar
           </p>
@@ -197,7 +197,7 @@ export function SeccionChatbot() {
         </div>
 
         {/* Mensaje de bienvenida */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <IconoWhatsApp size={14} style={{ color: 'var(--canal-whatsapp)' }} />
@@ -280,7 +280,7 @@ export function SeccionChatbot() {
         </div>
 
         {/* Menú de opciones */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm">📋</span>
@@ -370,7 +370,7 @@ export function SeccionChatbot() {
 
               {config.opciones_menu.length === 0 ? (
                 <div
-                  className="flex flex-col items-center justify-center py-6 rounded-lg cursor-pointer"
+                  className="flex flex-col items-center justify-center py-6 rounded-card cursor-pointer"
                   style={{ border: '2px dashed var(--borde-sutil)' }}
                   onClick={agregarOpcionMenu}
                 >
@@ -387,7 +387,7 @@ export function SeccionChatbot() {
                     // TEXTO NUMERADO
                     if (tipo === 'texto') {
                       return (
-                        <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
+                        <div key={i} className="p-3 rounded-card" style={{ background: 'var(--superficie-hover)' }}>
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-sm flex-shrink-0" style={{ color: 'var(--texto-marca)' }}>
                               {i + 1}️⃣
@@ -418,7 +418,7 @@ export function SeccionChatbot() {
                     // BOTONES
                     if (tipo === 'botones') {
                       return (
-                        <div key={i} className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
+                        <div key={i} className="rounded-card overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
                           {/* Simula un botón de WhatsApp */}
                           <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: 'var(--superficie-hover)' }}>
                             <div
@@ -454,7 +454,7 @@ export function SeccionChatbot() {
 
                     // LISTA
                     return (
-                      <div key={i} className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
+                      <div key={i} className="rounded-card overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
                         <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
                           <div className="flex items-center gap-2">
                             <div
@@ -503,7 +503,7 @@ export function SeccionChatbot() {
         </div>
 
         {/* Palabras clave */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">🔑</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Respuestas por palabra clave</span>
@@ -514,7 +514,7 @@ export function SeccionChatbot() {
 
           <div className="space-y-2">
             {config.palabras_clave.map((pc, i) => (
-              <div key={i} className="p-2.5 rounded-lg space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
+              <div key={i} className="p-2.5 rounded-card space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
                 <div className="flex items-center gap-2">
                   <Input
                     value={pc.palabras.join(', ')}
@@ -542,7 +542,7 @@ export function SeccionChatbot() {
         </div>
 
         {/* Mensaje por defecto */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">❓</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Mensaje por defecto</span>
@@ -560,7 +560,7 @@ export function SeccionChatbot() {
         </div>
 
         {/* Transferencia a agente */}
-        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="p-4 rounded-card space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">🙋</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Transferir a agente</span>

@@ -73,7 +73,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, l
   }
 
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
       {/* Header colapsable */}
       <Boton
         variante="fantasma"
@@ -115,7 +115,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, l
               const esCliente = msg.autor === 'cliente'
               return (
                 <div key={msg.id} className={`flex ${esCliente ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${
+                  <div className={`max-w-[80%] rounded-modal px-3.5 py-2 ${
                     esCliente
                       ? 'rounded-br-md text-white'
                       : 'rounded-bl-md bg-superficie-app text-texto-primario'

@@ -2,12 +2,12 @@
 
 import React, { useRef } from 'react'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
-import { ListaConversaciones } from '@/app/(flux)/inbox/_componentes/ListaConversaciones'
+import { ListaConversaciones } from '@/componentes/mensajeria/ListaConversaciones'
 import { PanelWhatsApp } from './PanelWhatsApp'
-import { PanelInfoContacto } from '@/app/(flux)/inbox/_componentes/PanelInfoContacto'
-import VistaPipeline from '@/app/(flux)/inbox/_componentes/VistaPipeline'
+import { PanelInfoContacto } from '@/componentes/mensajeria/PanelInfoContacto'
+import VistaPipeline from '@/componentes/mensajeria/VistaPipeline'
 import type { ConversacionConDetalles, MensajeConAdjuntos, EstadoConversacion } from '@/tipos/inbox'
-import type { DatosMensaje } from '@/app/(flux)/inbox/_componentes/CompositorMensaje'
+import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { VistaMovilWA } from '@/tipos/inbox'
 
 /**

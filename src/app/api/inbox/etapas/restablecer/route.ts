@@ -35,11 +35,6 @@ export async function POST(request: Request) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para restablecer etapas' }, { status: 403 })
-    }
-
     const body = await request.json()
     const tipoCanal = body.tipo_canal as TipoCanal
 
@@ -48,6 +43,12 @@ export async function POST(request: Request) {
         { error: 'tipo_canal debe ser "whatsapp" o "correo"' },
         { status: 400 }
       )
+    }
+
+    const permisoRequerido = tipoCanal === 'whatsapp' ? 'config_whatsapp' : 'config_correo'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, permisoRequerido, 'editar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para restablecer etapas' }, { status: 403 })
     }
 
     const defaults = obtenerEtapasDefault(tipoCanal)

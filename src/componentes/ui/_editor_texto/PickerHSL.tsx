@@ -90,7 +90,7 @@ export function PickerHSL({ valorInicial, onAplicar }: PropiedadesPickerHSL) {
         <div className="relative">
           <canvas
             ref={canvasRef} width={160} height={96}
-            className="w-full h-24 rounded-lg cursor-crosshair"
+            className="w-full h-24 rounded-card cursor-crosshair"
             onMouseDown={(e) => { arrastrando.current = true; manejar(e) }}
             onMouseMove={(e) => { if (arrastrando.current) manejar(e) }}
             onMouseUp={() => arrastrando.current = false}
@@ -112,7 +112,7 @@ export function PickerHSL({ valorInicial, onAplicar }: PropiedadesPickerHSL) {
 
         {/* Hex input + preview + aplicar */}
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-lg border border-borde-sutil shrink-0" style={{ backgroundColor: colorActual }} />
+          <div className="size-7 rounded-card border border-borde-sutil shrink-0" style={{ backgroundColor: colorActual }} />
           <input
             type="text"
             value={hexInput}
@@ -137,14 +137,14 @@ export function PickerHSL({ valorInicial, onAplicar }: PropiedadesPickerHSL) {
                 setHue(Math.round(h * 360)); setSat(Math.round(s * 100)); setLight(Math.round(l * 100))
               }
             }}
-            className="flex-1 text-xs font-mono bg-superficie-hover/50 text-texto-primario rounded-md px-2 py-1.5 outline-none border border-borde-sutil focus:border-texto-marca min-w-0"
+            className="flex-1 text-xs font-mono bg-superficie-hover/50 text-texto-primario rounded-boton px-2 py-1.5 outline-none border border-borde-sutil focus:border-texto-marca min-w-0"
             placeholder="#3b82f6"
           />
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onAplicar(colorActual)}
-            className="text-xs font-medium text-white bg-texto-marca hover:bg-texto-marca/90 rounded-md px-3 py-1.5 transition-colors shrink-0"
+            className="text-xs font-medium text-white bg-texto-marca hover:bg-texto-marca/90 rounded-boton px-3 py-1.5 transition-colors shrink-0"
           >
             OK
           </button>

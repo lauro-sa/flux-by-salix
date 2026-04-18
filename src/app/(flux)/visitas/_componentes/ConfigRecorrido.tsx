@@ -88,7 +88,7 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
         {permisos.map(({ campo, clave }) => (
           <div
             key={campo}
-            className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5"
+            className="flex items-center justify-between rounded-card border border-white/[0.06] bg-white/[0.03] py-2 px-2.5"
           >
             <span className="text-sm text-texto-primario">{t(clave)}</span>
             <Interruptor
@@ -107,7 +107,7 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
             {t('visitas.salida_y_regreso')}
           </p>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
+            <div className="flex items-center justify-between rounded-card border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
               <div className="flex items-center gap-2 min-w-0">
                 <Building2 size={12} className="shrink-0 text-texto-terciario" />
                 <div className="min-w-0">
@@ -120,7 +120,7 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
                 onChange={() => origenDestino.onToggleOrigen(!origenDestino.origenEmpresa)}
               />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
+            <div className="flex items-center justify-between rounded-card border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
               <div className="flex items-center gap-2 min-w-0">
                 <RotateCcw size={12} className="shrink-0 text-texto-terciario" />
                 <div className="min-w-0">

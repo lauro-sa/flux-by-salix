@@ -7,7 +7,7 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalActividad } from '../../actividades/_componentes/ModalActividad'
 import type { Actividad, Miembro } from '../../actividades/_componentes/ModalActividad'
-import type { TipoActividad } from '../../actividades/configuracion/secciones/SeccionTipos'
+import type { TipoActividad } from '../../actividades/configuracion/_tipos'
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
 import type { AsignadoOrdenTrabajo } from '@/tipos/orden-trabajo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -329,13 +329,13 @@ export default function SeccionActividadesOrden({
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mb-4 p-3 rounded-lg border border-texto-marca/20 bg-texto-marca/5 space-y-2.5">
+            <div className="mb-4 p-3 rounded-card border border-texto-marca/20 bg-texto-marca/5 space-y-2.5">
               <input
                 type="text"
                 value={tituloTarea}
                 onChange={e => setTituloTarea(e.target.value)}
                 placeholder="Título de la tarea..."
-                className="w-full px-3 py-2 rounded-lg bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:border-texto-marca"
+                className="w-full px-3 py-2 rounded-card bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:border-texto-marca"
                 autoFocus
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && crearTareaOT()}
               />
@@ -343,7 +343,7 @@ export default function SeccionActividadesOrden({
                 value={descripcionTarea}
                 onChange={e => setDescripcionTarea(e.target.value)}
                 placeholder="Descripción (opcional)"
-                className="w-full px-3 py-2 rounded-lg bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:border-texto-marca"
+                className="w-full px-3 py-2 rounded-card bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:border-texto-marca"
                 rows={2}
               />
 
@@ -355,7 +355,7 @@ export default function SeccionActividadesOrden({
                     type="date"
                     value={fechaTarea}
                     onChange={e => setFechaTarea(e.target.value)}
-                    className="px-2 py-1.5 rounded-lg bg-superficie-app border border-borde-sutil text-xs text-texto-primario focus:outline-none focus:border-texto-marca"
+                    className="px-2 py-1.5 rounded-card bg-superficie-app border border-borde-sutil text-xs text-texto-primario focus:outline-none focus:border-texto-marca"
                   />
                 </div>
 
@@ -456,14 +456,14 @@ export default function SeccionActividadesOrden({
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="mt-3 p-4 rounded-lg border border-insignia-peligro/20 bg-insignia-peligro/5 space-y-3"
+            className="mt-3 p-4 rounded-card border border-insignia-peligro/20 bg-insignia-peligro/5 space-y-3"
           >
             <p className="text-sm font-medium text-texto-primario">Motivo de cancelación</p>
             <textarea
               value={motivoCancelacion}
               onChange={e => setMotivoCancelacion(e.target.value)}
               placeholder="¿Por qué se cancela esta tarea? (opcional)"
-              className="w-full px-3 py-2 rounded-lg bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:border-texto-marca"
+              className="w-full px-3 py-2 rounded-card bg-superficie-app border border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:border-texto-marca"
               rows={2}
               autoFocus
             />
@@ -547,7 +547,7 @@ function SelectorResponsables({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-superficie-app border border-borde-sutil text-xs text-texto-secundario hover:border-texto-marca/40 transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-card bg-superficie-app border border-borde-sutil text-xs text-texto-secundario hover:border-texto-marca/40 transition-colors cursor-pointer"
       >
         <User size={12} className="text-texto-terciario" />
         {nombresSeleccionados.length > 0
@@ -563,7 +563,7 @@ function SelectorResponsables({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1 max-h-48 overflow-y-auto"
+            className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1 max-h-48 overflow-y-auto"
           >
             {seleccionados.length > 0 && (
               <button
@@ -624,9 +624,9 @@ function FilaTareaOrden({
   const vencida = tarea.fecha_vencimiento && new Date(tarea.fecha_vencimiento) < new Date() && !completada
 
   return (
-    <div className={`flex items-start gap-3 px-3 py-3.5 rounded-lg transition-colors border-b border-white/[0.04] last:border-b-0 ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
+    <div className={`flex items-start gap-3 px-3 py-3.5 rounded-card transition-colors border-b border-white/[0.04] last:border-b-0 ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
       <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+        className="w-8 h-8 rounded-card flex items-center justify-center shrink-0 mt-0.5"
         style={{ backgroundColor: 'var(--texto-marca)' + '15', color: 'var(--texto-marca)' }}
       >
         <CheckCircle size={14} />
@@ -660,7 +660,7 @@ function FilaTareaOrden({
           <button
             type="button"
             onClick={onCompletar}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/5 text-insignia-exito-texto hover:bg-insignia-exito/15 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/5 text-insignia-exito-texto hover:bg-insignia-exito/15 active:scale-95"
           >
             <CheckCircle size={14} />
             <span className="hidden sm:inline">Hecho</span>
@@ -670,7 +670,7 @@ function FilaTareaOrden({
           <button
             type="button"
             onClick={onCancelar}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-peligro/20 bg-transparent text-texto-terciario hover:text-insignia-peligro-texto hover:bg-insignia-peligro/10 active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-insignia-peligro/20 bg-transparent text-texto-terciario hover:text-insignia-peligro-texto hover:bg-insignia-peligro/10 active:scale-95"
           >
             <Ban size={13} />
           </button>
@@ -679,7 +679,7 @@ function FilaTareaOrden({
           <button
             type="button"
             onClick={onReactivar}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-white/[0.1] bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.05] active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-white/[0.1] bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.05] active:scale-95"
           >
             <RotateCcw size={13} />
             <span className="hidden sm:inline">Reabrir</span>
@@ -714,10 +714,10 @@ function FilaActividadCompacta({
   const vencida = actividad.fecha_vencimiento && new Date(actividad.fecha_vencimiento) < new Date() && !completada
 
   return (
-    <div className={`flex items-start gap-3 px-3 py-3.5 rounded-lg transition-colors border-b border-white/[0.04] last:border-b-0 ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
+    <div className={`flex items-start gap-3 px-3 py-3.5 rounded-card transition-colors border-b border-white/[0.04] last:border-b-0 ${completada ? 'opacity-50' : 'hover:bg-superficie-hover/50'}`}>
       {tipo && (
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+          className="w-8 h-8 rounded-card flex items-center justify-center shrink-0 mt-0.5"
           style={{ backgroundColor: tipo.color + '15', color: tipo.color }}
         >
           {Icono && <Icono size={14} />}
@@ -752,7 +752,7 @@ function FilaActividadCompacta({
           <button
             type="button"
             onClick={onCompletar}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/5 text-insignia-exito-texto hover:bg-insignia-exito/15 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/5 text-insignia-exito-texto hover:bg-insignia-exito/15 active:scale-95"
           >
             <CheckCircle size={14} />
             <span className="hidden sm:inline">Hecho</span>
@@ -762,7 +762,7 @@ function FilaActividadCompacta({
           <button
             type="button"
             onClick={onPosponer}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-insignia-advertencia/30 bg-transparent text-insignia-advertencia-texto hover:bg-insignia-advertencia/10 active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-insignia-advertencia/30 bg-transparent text-insignia-advertencia-texto hover:bg-insignia-advertencia/10 active:scale-95"
           >
             <Clock size={14} />
           </button>
@@ -771,7 +771,7 @@ function FilaActividadCompacta({
           <button
             type="button"
             onClick={onReactivar}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-white/[0.1] bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.05] active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border border-white/[0.1] bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.05] active:scale-95"
           >
             <RotateCcw size={13} />
             <span className="hidden sm:inline">Reabrir</span>

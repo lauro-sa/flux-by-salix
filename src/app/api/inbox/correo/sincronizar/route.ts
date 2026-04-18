@@ -34,9 +34,8 @@ export async function POST(request: NextRequest) {
 
     // Determinar qué canales sincronizar
     let query = admin
-      .from('canales_inbox')
+      .from('canales_correo')
       .select('*')
-      .eq('tipo', 'correo')
       .eq('activo', true)
 
     if (canal_id) {
@@ -105,7 +104,7 @@ export async function POST(request: NextRequest) {
 
         // Actualizar estado del canal
         await admin
-          .from('canales_inbox')
+          .from('canales_correo')
           .update({
             estado_conexion: 'conectado',
             ultimo_error: null,
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
 
         // Marcar canal con error
         await admin
-          .from('canales_inbox')
+          .from('canales_correo')
           .update({
             estado_conexion: 'error',
             ultimo_error: errorMsg.slice(0, 500),
@@ -223,7 +222,7 @@ async function sincronizarGmail(
 
   // Actualizar cursor
   await admin
-    .from('canales_inbox')
+    .from('canales_correo')
     .update({
       sync_cursor: {
         historyId: nuevoHistoryId,
@@ -297,7 +296,7 @@ async function sincronizarGmailCompleto(
 
   // Guardar cursor
   await admin
-    .from('canales_inbox')
+    .from('canales_correo')
     .update({
       sync_cursor: {
         historyId: perfil.historyId,
@@ -406,7 +405,7 @@ async function sincronizarIMAP(
   }
 
   // Guardar cursor con UIDs por carpeta + nombres detectados
-  await admin.from('canales_inbox').update({
+  await admin.from('canales_correo').update({
     sync_cursor: {
       ultimoUID: ultimoUIDInbox,
       ultimoUID_sent: ultimoUIDSent,
@@ -466,7 +465,7 @@ async function procesarCorreoEntrante(
   let estadoInicial: 'abierta' | 'spam' = 'abierta'
   if (esEntrante) {
     const { data: configInbox } = await admin
-      .from('config_inbox')
+      .from('config_correo')
       .select('correo_lista_permitidos, correo_lista_bloqueados')
       .eq('empresa_id', empresaId)
       .maybeSingle()
@@ -829,7 +828,7 @@ async function procesarAdjuntos(
 ): Promise<void> {
   // Obtener refresh_token del canal
   const { data: canal } = await admin
-    .from('canales_inbox')
+    .from('canales_correo')
     .select('config_conexion, proveedor')
     .eq('id', canalId)
     .single()
@@ -862,7 +861,7 @@ async function procesarAdjuntos(
         .slice(0, 100)
 
       // Subir a Supabase Storage
-      const storagePath = `inbox/${empresaId}/correo/${mensajeId}/${nombreLimpio}`
+      const storagePath = `correo/${empresaId}/${mensajeId}/${nombreLimpio}`
       const { error: errorStorage } = await admin.storage
         .from('adjuntos')
         .upload(storagePath, buffer, {
@@ -890,7 +889,7 @@ async function procesarAdjuntos(
             .jpeg({ quality: 70 })
             .toBuffer()
 
-          const miniaturaPath = `inbox/${empresaId}/correo/${mensajeId}/thumb_${nombreLimpio}`
+          const miniaturaPath = `correo/${empresaId}/${mensajeId}/thumb_${nombreLimpio}`
           await admin.storage
             .from('adjuntos')
             .upload(miniaturaPath, miniatura, {

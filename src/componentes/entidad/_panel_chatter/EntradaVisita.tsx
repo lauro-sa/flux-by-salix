@@ -40,7 +40,7 @@ function GaleriaCompacta({ adjuntos }: { adjuntos: AdjuntoChatter[] }) {
           href={foto.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="relative size-14 rounded-md overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
+          className="relative size-14 rounded-boton overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
         >
           <Image
             src={foto.url}
@@ -91,7 +91,7 @@ export function EntradaVisita({
 
   return (
     <>
-      <div className="rounded-lg border-l-[3px] border-l-texto-marca border border-texto-marca/15 bg-texto-marca/[0.04] overflow-hidden my-1">
+      <div className="rounded-card border-l-[3px] border-l-texto-marca border border-texto-marca/15 bg-texto-marca/[0.04] overflow-hidden my-1">
         {/* Header */}
         <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
           <div className="flex items-center justify-center size-7 rounded-full bg-texto-marca/10 text-texto-marca shrink-0">

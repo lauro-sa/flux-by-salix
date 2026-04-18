@@ -40,7 +40,7 @@ function OpcionMenu({
       disabled={disabled}
       onClick={onClick}
       className={[
-        'flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left border-none cursor-pointer transition-colors duration-100 rounded-md',
+        'flex items-center gap-2.5 w-full px-3 py-2 text-sm text-left border-none cursor-pointer transition-colors duration-100 rounded-boton',
         peligro
           ? 'text-insignia-peligro-texto bg-transparent hover:bg-insignia-peligro-fondo'
           : activo

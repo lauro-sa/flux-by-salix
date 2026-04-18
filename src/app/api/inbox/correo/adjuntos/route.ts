@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, 100)
 
-      const storagePath = `inbox/${empresaId}/correo/borrador_${timestamp}/${nombreLimpio}`
+      const storagePath = `correo/${empresaId}/borrador_${timestamp}/${nombreLimpio}`
 
       // Subir a Storage (usa buffer comprimido si es imagen)
       const { error: errorStorage } = await admin.storage
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
             .jpeg({ quality: 70 })
             .toBuffer()
 
-          const thumbPath = `inbox/${empresaId}/correo/borrador_${timestamp}/thumb_${nombreLimpio}`
+          const thumbPath = `correo/${empresaId}/borrador_${timestamp}/thumb_${nombreLimpio}`
           await admin.storage
             .from('adjuntos')
             .upload(thumbPath, miniatura, {

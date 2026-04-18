@@ -87,10 +87,10 @@ function SeccionCampanasWhatsApp() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: i * 0.03 }}
-            className="rounded-lg border border-borde-sutil bg-superficie-tarjeta p-4 flex gap-3"
+            className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 flex gap-3"
           >
             <div
-              className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              className="w-8 h-8 rounded-boton flex items-center justify-center shrink-0 mt-0.5"
               style={{
                 backgroundColor: 'color-mix(in srgb, var(--canal-whatsapp) 12%, transparent)',
                 color: 'var(--canal-whatsapp)',
@@ -107,7 +107,7 @@ function SeccionCampanasWhatsApp() {
       </div>
 
       {/* Nota técnica */}
-      <div className="rounded-lg bg-superficie-elevada border border-borde-sutil p-4">
+      <div className="rounded-card bg-superficie-elevada border border-borde-sutil p-4">
         <h4 className="text-sm font-semibold text-texto-primario mb-2">Nota técnica</h4>
         <ul className="text-xs text-texto-terciario space-y-1.5 list-disc list-inside leading-relaxed">
           <li>Usa la misma integración de WhatsApp Business API que ya tiene Flux para el inbox.</li>

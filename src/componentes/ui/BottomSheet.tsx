@@ -21,6 +21,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } f
 import { useTema } from '@/hooks/useTema'
 import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
+import { FooterAccionesModal, type AccionModal } from '@/componentes/ui/_modal/AccionesModal'
 
 /* ─── Tipos ─── */
 
@@ -31,7 +32,14 @@ interface PropiedadesBottomSheet {
   onCerrar: () => void
   titulo?: string
   children: ReactNode
+  /** Escape hatch — JSX custom para el footer. Ignorado si se usa algún prop estructurado. */
   acciones?: ReactNode
+  /** Acción principal (derecha): Guardar, Crear, Confirmar. */
+  accionPrimaria?: AccionModal
+  /** Acción secundaria (derecha, pegada a primaria): Cancelar. */
+  accionSecundaria?: AccionModal
+  /** Acción destructiva (izquierda): Eliminar, Descartar. */
+  accionPeligro?: AccionModal
   /** Altura del sheet. Mínimo siempre 75vh. Default: 'auto' (se adapta al contenido, mín 75vh) */
   altura?: AlturaSheet
   /** Quita el padding del contenido para layouts personalizados */
@@ -63,10 +71,17 @@ function BottomSheet({
   titulo,
   children,
   acciones,
+  accionPrimaria,
+  accionSecundaria,
+  accionPeligro,
   altura = 'auto',
   sinPadding = false,
   fondo,
 }: PropiedadesBottomSheet) {
+  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro)
+  const footer = tieneAccionesEstructuradas
+    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} />
+    : acciones
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const panelRef = useRef<HTMLDivElement>(null)
@@ -200,7 +215,7 @@ function BottomSheet({
               aria-modal="true"
               aria-label={titulo || 'Panel'}
               className={[
-                'w-full rounded-t-2xl flex flex-col pointer-events-auto',
+                'w-full rounded-t-modal flex flex-col pointer-events-auto',
                 'border border-b-0 border-borde-sutil shadow-elevada',
                 'overflow-hidden',
               ].join(' ')}
@@ -239,17 +254,17 @@ function BottomSheet({
               </div>
 
               {/* ── Acciones — alejadas de la home bar de iOS ── */}
-              {acciones && (
+              {footer && (
                 <div
-                  className="flex gap-3 px-5 pt-3 border-t border-borde-sutil shrink-0"
+                  className={`flex items-center ${tieneAccionesEstructuradas ? '' : 'gap-3'} px-5 pt-3 border-t border-borde-sutil shrink-0`}
                   style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
                 >
-                  {acciones}
+                  {footer}
                 </div>
               )}
 
               {/* ── Safe area inferior cuando no hay acciones ── */}
-              {!acciones && (
+              {!footer && (
                 <div
                   className="shrink-0"
                   style={{ height: 'max(env(safe-area-inset-bottom), 0.5rem)' }}

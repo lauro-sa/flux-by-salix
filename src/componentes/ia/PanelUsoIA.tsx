@@ -186,7 +186,7 @@ export function PanelUsoIA({ proveedorActivo, nombreProveedor }: { proveedorActi
 
       {/* Desglose por modelo */}
       {metricas.por_modelo.length > 0 && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 size={16} className="text-texto-terciario" />
             <h3 className="text-sm font-semibold text-texto-primario">Consumo por modelo</h3>
@@ -230,7 +230,7 @@ export function PanelUsoIA({ proveedorActivo, nombreProveedor }: { proveedorActi
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Por canal */}
         {metricas.por_canal.length > 0 && (
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare size={16} className="text-texto-terciario" />
               <h3 className="text-sm font-semibold text-texto-primario">Por canal</h3>
@@ -240,8 +240,8 @@ export function PanelUsoIA({ proveedorActivo, nombreProveedor }: { proveedorActi
                 const Icono = ICONOS_CANAL[c.canal] || Sparkles
                 const nombre = NOMBRES_CANAL[c.canal] || c.canal
                 return (
-                  <div key={c.canal} className="flex items-center gap-3 p-2.5 rounded-lg bg-superficie-hover/50">
-                    <div className="w-8 h-8 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
+                  <div key={c.canal} className="flex items-center gap-3 p-2.5 rounded-card bg-superficie-hover/50">
+                    <div className="w-8 h-8 rounded-popover bg-superficie-elevada flex items-center justify-center shrink-0">
                       <Icono size={16} className="text-texto-terciario" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -258,7 +258,7 @@ export function PanelUsoIA({ proveedorActivo, nombreProveedor }: { proveedorActi
 
         {/* Herramientas más usadas */}
         {metricas.top_herramientas.length > 0 && (
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
             <div className="flex items-center gap-2 mb-4">
               <Wrench size={16} className="text-texto-terciario" />
               <h3 className="text-sm font-semibold text-texto-primario">Herramientas más usadas</h3>
@@ -297,9 +297,9 @@ export function PanelUsoIA({ proveedorActivo, nombreProveedor }: { proveedorActi
           href={enlace.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 p-4 rounded-xl border border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover/50 transition-colors no-underline group"
+          className="flex items-center gap-3 p-4 rounded-card border border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover/50 transition-colors no-underline group"
         >
-          <div className="w-9 h-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
             <ExternalLink size={16} className="text-texto-marca" />
           </div>
           <div className="flex-1 min-w-0">
@@ -341,7 +341,7 @@ function TarjetaMetrica({
     : null
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
       <p className="text-xs text-texto-terciario mb-1">{etiqueta}</p>
       <p className="text-xl font-bold text-texto-primario">{valor}</p>
       {tieneComparacion && (
@@ -363,14 +363,14 @@ function EsqueletoPanel() {
     <div className="space-y-5 animate-pulse">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4">
+          <div key={i} className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
             <div className="h-3 w-16 bg-superficie-hover rounded mb-2" />
             <div className="h-6 w-20 bg-superficie-hover rounded mb-1.5" />
             <div className="h-3 w-24 bg-superficie-hover rounded" />
           </div>
         ))}
       </div>
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <div className="h-4 w-32 bg-superficie-hover rounded mb-4" />
         {[1, 2].map(i => (
           <div key={i} className="mb-3">
@@ -390,7 +390,7 @@ function EstadoSinDatos({ proveedorActivo }: { proveedorActivo: string }) {
 
   return (
     <div className="flex flex-col items-center text-center py-10 px-6">
-      <div className="w-14 h-14 rounded-2xl bg-superficie-elevada flex items-center justify-center mb-4">
+      <div className="w-14 h-14 rounded-modal bg-superficie-elevada flex items-center justify-center mb-4">
         <BarChart3 size={24} strokeWidth={1.5} className="text-texto-terciario" />
       </div>
       <h3 className="text-base font-semibold text-texto-primario mb-1.5">

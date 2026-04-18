@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     if (canalId) {
       // Actualizar canal existente
       const { error } = await admin
-        .from('canales_inbox')
+        .from('canales_correo')
         .update({
           nombre: nombre || email,
           config_conexion: configConexion,
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Crear nuevo canal de correo
       const { error } = await admin
-        .from('canales_inbox')
+        .from('canales_correo')
         .insert({
           empresa_id: empresaId,
           tipo: 'correo',
@@ -141,10 +141,9 @@ export async function GET(request: NextRequest) {
           const watch = await registrarWatchGmail(refreshToken, topicName)
           // Guardar expiración del watch en sync_cursor
           const canalIdActual = canalId || (await admin
-            .from('canales_inbox')
+            .from('canales_correo')
             .select('id')
             .eq('empresa_id', empresaId)
-            .eq('tipo', 'correo')
             .eq('proveedor', 'gmail_oauth')
             .ilike('config_conexion->>email', email)
             .single()
@@ -152,7 +151,7 @@ export async function GET(request: NextRequest) {
 
           if (canalIdActual) {
             await admin
-              .from('canales_inbox')
+              .from('canales_correo')
               .update({
                 sync_cursor: {
                   ...syncCursor,

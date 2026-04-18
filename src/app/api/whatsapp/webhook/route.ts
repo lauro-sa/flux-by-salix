@@ -40,9 +40,8 @@ export async function GET(request: NextRequest) {
     // Buscar la cuenta que tiene este token de verificación
     const admin = crearAdmin()
     const { data: canales, error } = await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .select('id, config_conexion')
-      .eq('tipo', 'whatsapp')
 
     if (error) {
       console.error('Error consultando canales:', error)
@@ -101,9 +100,8 @@ export async function POST(request: NextRequest) {
 
           // Buscar canal por phoneNumberId
           const { data: canal } = await admin
-            .from('canales_inbox')
+            .from('canales_whatsapp')
             .select('id, empresa_id, config_conexion, nombre')
-            .eq('tipo', 'whatsapp')
             .contains('config_conexion', { phoneNumberId })
             .limit(1)
             .single()
@@ -457,7 +455,7 @@ async function procesarMensajeEntrante(
     try {
       // Obtener config de SLA de la empresa
       const { data: configInbox } = await admin
-        .from('config_inbox')
+        .from('config_whatsapp')
         .select('sla_primera_respuesta_minutos')
         .eq('empresa_id', canal.empresa_id)
         .limit(1)
@@ -604,7 +602,7 @@ async function asignarAgenteAutomatico(
   try {
     // 1. Consultar config_inbox para verificar si la asignación automática está habilitada
     const { data: config } = await admin
-      .from('config_inbox')
+      .from('config_whatsapp')
       .select('asignacion_automatica, algoritmo_asignacion')
       .eq('empresa_id', empresaId)
       .limit(1)
@@ -863,7 +861,7 @@ async function descargarYGuardarMedia(
 
     // Subir a Supabase Storage
     const nombreArchivo = extraerNombreArchivo(msg)
-    const storagePath = `inbox/${canal.empresa_id}/whatsapp/${mensajeId}/${nombreArchivo}`
+    const storagePath = `whatsapp/${canal.empresa_id}/${mensajeId}/${nombreArchivo}`
 
     const { error: uploadError } = await admin.storage
       .from('adjuntos')
@@ -977,12 +975,11 @@ async function procesarEstadoPlantilla(
   // Actualizar en todas las empresas que tengan esta plantilla
   // (Meta envía por WABA, no por empresa)
   await admin
-    .from('plantillas_respuesta')
+    .from('respuestas_rapidas_whatsapp')
     .update({
       activo: nuevoEstado === 'APPROVED',
       actualizado_en: new Date().toISOString(),
     })
-    .eq('canal', 'whatsapp')
     .ilike('contenido', `%${nombreApi}%`)
 }
 
@@ -1129,7 +1126,7 @@ async function procesarChatbot(
   // 3. Si modo fuera_horario, verificar horario
   if (configBot.modo === 'fuera_horario') {
     const { data: configInbox } = await admin
-      .from('config_inbox')
+      .from('config_whatsapp')
       .select('horario_atencion_inicio, horario_atencion_fin')
       .eq('empresa_id', canal.empresa_id)
       .single()

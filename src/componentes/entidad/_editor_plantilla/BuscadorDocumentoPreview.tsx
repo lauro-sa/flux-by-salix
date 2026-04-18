@@ -53,7 +53,7 @@ export function BuscadorDocumentoPreview({
 
       {mostrar && (
         <div
-          className="absolute left-0 right-0 top-full mt-1 z-50 rounded-xl shadow-elevada max-h-[280px] overflow-y-auto"
+          className="absolute left-0 right-0 top-full mt-1 z-50 rounded-popover shadow-elevada max-h-[280px] overflow-y-auto"
           style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
         >
           {cargando ? (

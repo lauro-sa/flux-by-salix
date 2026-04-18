@@ -68,7 +68,7 @@ function SeccionVistaDefault({ config, cargando, onAccionAPI }: PropiedadesSecci
 
   return (
     <div className="space-y-4">
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <h3 className="text-base font-semibold text-texto-primario">Vista predeterminada</h3>
         <p className="text-sm text-texto-terciario mt-0.5 mb-5">
           Elige la vista que se mostrará al abrir el calendario. Cada usuario puede cambiarla temporalmente.
@@ -82,7 +82,7 @@ function SeccionVistaDefault({ config, cargando, onAccionAPI }: PropiedadesSecci
               <button
                 key={opcion.valor}
                 onClick={() => cambiarVista(opcion.valor)}
-                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150 cursor-pointer ${
+                className={`flex items-start gap-3 p-4 rounded-card border-2 text-left transition-all duration-150 cursor-pointer ${
                   seleccionada
                     ? 'border-texto-marca bg-texto-marca/5'
                     : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte hover:bg-superficie-hover/50'

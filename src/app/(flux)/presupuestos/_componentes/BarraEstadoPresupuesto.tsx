@@ -75,7 +75,7 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
       {/* Desktop: chevrones */}
       <div className="hidden sm:inline-flex items-center gap-2">
         <div
-          className="inline-flex items-stretch overflow-hidden rounded-lg bg-superficie-app border border-borde-sutil"
+          className="inline-flex items-stretch"
           onMouseLeave={() => setHoverIdx(null)}
         >
           {FLUJO_ESTADO.map((estado, i) => {
@@ -102,7 +102,9 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
                 onMouseEnter={() => setHoverIdx(i)}
                 style={{
                   clipPath: clipPathChevron(esPrimero, esUltimo),
-                  marginLeft: esPrimero ? 0 : -FLECHA,
+                  // Solapamiento reducido para que se vea el fondo detrás
+                  // entre chevrones (estilo segmentado como los botones).
+                  marginLeft: esPrimero ? 0 : -FLECHA + 4,
                   paddingLeft: esPrimero ? 14 : FLECHA + 8,
                   paddingRight: esUltimo ? 14 : FLECHA + 8,
                   zIndex: enHover ? FLUJO_ESTADO.length + 1 : FLUJO_ESTADO.length - i,
@@ -112,7 +114,7 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
                       ? `rgba(${rgb}, ${esClickeable ? 0.30 : 0.15})`
                       : esPasado
                         ? `rgba(${rgb}, 0.10)`
-                        : 'transparent',
+                        : 'var(--superficie-app)',
                   color: esActual
                     ? 'white'
                     : enHover
@@ -185,7 +187,7 @@ function BadgeTerminal({
       </button>
 
       {abierto && (
-        <div className="absolute top-full mt-2 right-0 z-50 min-w-40 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+        <div className="absolute top-full mt-2 right-0 z-50 min-w-40 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
           {transicionesValidas.map(est => (
             <Boton
               key={est}
@@ -249,7 +251,7 @@ function PillMobile({
       </div>
 
       {abierto && (
-        <div className="absolute top-full mt-2 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+        <div className="absolute top-full mt-2 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
           {[...FLUJO_ESTADO, ...(esTerminal ? [estadoActual] : [])].map((estado, i) => {
             const esActual = estado === estadoActual
             const esPasado = esTerminal ? (i < FLUJO_ESTADO.length) : (i < idxEfectivo)

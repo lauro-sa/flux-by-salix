@@ -10,7 +10,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Plus, Mail, Shield, RefreshCw, Loader2 } from 'lucide-react'
-import type { CanalInbox, ConfigInbox } from '@/tipos/inbox'
+import type { CanalMensajeria, ConfigMensajeria } from '@/tipos/inbox'
 import { CanalCard } from './CanalCard'
 import { useTraduccion } from '@/lib/i18n'
 import { TIMEOUT_AUTH } from '@/lib/constantes/timeouts'
@@ -40,11 +40,11 @@ export function SeccionCorreo({
   onRecargar,
   onGuardarConfig,
 }: {
-  canalesCorreo: CanalInbox[]
-  config: ConfigInbox | null
+  canalesCorreo: CanalMensajeria[]
+  config: ConfigMensajeria | null
   onAgregarCanal: () => void
   onRecargar: () => void
-  onGuardarConfig: (cambios: Partial<ConfigInbox>) => void
+  onGuardarConfig: (cambios: Partial<ConfigMensajeria>) => void
 }) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -92,7 +92,7 @@ export function SeccionCorreo({
       ...config,
       correo_lista_permitidos: permitidos,
       correo_lista_bloqueados: bloqueados,
-    } as Partial<ConfigInbox>)
+    } as Partial<ConfigMensajeria>)
   }
 
   const [sincronizando, setSincronizando] = useState(false)
@@ -138,7 +138,7 @@ export function SeccionCorreo({
   // Hacer principal
   const hacerPrincipal = async (canalId: string) => {
     try {
-      await fetch(`/api/inbox/canales/${canalId}`, {
+      await fetch(`/api/correo/canales/${canalId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ es_principal: true }),
@@ -179,7 +179,7 @@ export function SeccionCorreo({
   // Guardar módulos disponibles de una bandeja
   const guardarModulosBandeja = async (canalId: string, modulos: string[]) => {
     try {
-      await fetch(`/api/inbox/canales/${canalId}`, {
+      await fetch(`/api/correo/canales/${canalId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modulos_disponibles: modulos }),
@@ -197,7 +197,7 @@ export function SeccionCorreo({
   })
 
   const canalPrincipal = canalesCorreo.find(c => c.es_principal)
-  const emailDeCanal = (canal: CanalInbox) => {
+  const emailDeCanal = (canal: CanalMensajeria) => {
     const cfg = canal.config_conexion as Record<string, unknown>
     return (cfg.email || cfg.usuario || canal.nombre) as string
   }
@@ -265,7 +265,7 @@ export function SeccionCorreo({
 
           {/* Cuenta principal */}
           <div
-            className="p-3 rounded-lg mb-4 flex items-center gap-3"
+            className="p-3 rounded-card mb-4 flex items-center gap-3"
             style={{ background: 'var(--superficie-hover)' }}
           >
             <Shield size={16} style={{ color: 'var(--texto-marca)' }} />
@@ -295,7 +295,7 @@ export function SeccionCorreo({
                 {tiposContacto.map((tipo) => (
                   <div
                     key={tipo.id}
-                    className="flex items-center gap-3 p-2 rounded-lg"
+                    className="flex items-center gap-3 p-2 rounded-card"
                     style={{ background: 'var(--superficie-tarjeta)' }}
                   >
                     <span className="text-xs font-medium flex-1 min-w-0" style={{ color: 'var(--texto-primario)' }}>

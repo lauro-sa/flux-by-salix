@@ -16,7 +16,7 @@ export default function PaginaOffline() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      <div className="size-20 rounded-2xl bg-superficie-hover flex items-center justify-center mb-6">
+      <div className="size-20 rounded-modal bg-superficie-hover flex items-center justify-center mb-6">
         <WifiOff size={36} className="text-texto-terciario" />
       </div>
 
@@ -30,7 +30,7 @@ export default function PaginaOffline() {
 
       <button
         onClick={() => window.location.reload()}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-texto-marca text-white cursor-pointer border-none transition-all hover:brightness-110"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-card text-sm font-medium bg-texto-marca text-white cursor-pointer border-none transition-all hover:brightness-110"
       >
         <RefreshCw size={16} />
         Reintentar

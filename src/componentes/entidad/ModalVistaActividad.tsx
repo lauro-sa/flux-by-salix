@@ -153,7 +153,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
               {/* Tipo pill + estado */}
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-sm font-semibold"
                   style={{
                     backgroundColor: `color-mix(in srgb, ${tipoColor} 15%, transparent)`,
                     color: tipoColor,
@@ -164,7 +164,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
                 </span>
 
                 {estado && (
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${estado.clase}`}>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-card text-xs font-medium ${estado.clase}`}>
                     {actividad.estado_clave === 'completada' && <CheckCircle2 size={11} />}
                     {actividad.estado_clave === 'cancelada' && <Ban size={11} />}
                     {estado.etiqueta}
@@ -196,7 +196,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
             {/* Prioridad */}
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-texto-terciario uppercase tracking-wider font-medium">Prioridad</span>
-              <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${prio.clase}`}>
+              <span className={`px-2 py-0.5 rounded-boton text-xs font-medium border ${prio.clase}`}>
                 {prio.etiqueta}
               </span>
             </div>
@@ -223,7 +223,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
                   {asignados.map(a => (
                     <span
                       key={a.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-white/[0.06] border border-white/[0.08] text-texto-secundario"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-boton text-xs font-medium bg-white/[0.06] border border-white/[0.08] text-texto-secundario"
                     >
                       <Users size={10} className="text-texto-terciario" />
                       {a.nombre}
@@ -240,7 +240,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
           {actividad.descripcion && (
             <div className="mt-5">
               <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Descripción</p>
-              <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+              <div className="p-3.5 rounded-card bg-white/[0.02] border border-white/[0.06]">
                 <p className="text-sm text-texto-primario leading-relaxed whitespace-pre-wrap">
                   {actividad.descripcion}
                 </p>
@@ -266,7 +266,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
               </div>
               <div className="space-y-0.5">
                 {checklist.map(item => (
-                  <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-3 rounded-lg hover:bg-white/[0.02]">
+                  <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-3 rounded-card hover:bg-white/[0.02]">
                     {item.completado
                       ? <CheckSquare size={15} className="text-insignia-exito shrink-0" />
                       : <Square size={15} className="text-texto-terciario shrink-0" />
@@ -288,7 +288,7 @@ export function ModalVistaActividad({ abierto, onCerrar, actividadId, onEditar }
                 {vinculos.map(v => (
                   <span
                     key={v.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-texto-secundario"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-texto-secundario"
                   >
                     <LinkIcon size={11} className="text-texto-terciario" />
                     {v.nombre}

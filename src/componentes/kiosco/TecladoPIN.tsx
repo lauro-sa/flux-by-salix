@@ -78,7 +78,7 @@ export default function TecladoPIN({
                 key={i}
                 onClick={borrar}
                 disabled={pin.length === 0}
-                className="h-16 rounded-2xl text-xl font-medium transition-all active:scale-95 disabled:opacity-30"
+                className="h-16 rounded-modal text-xl font-medium transition-all active:scale-95 disabled:opacity-30"
                 style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto-mut)', border: '1px solid var(--kiosco-border)' }}
               >
                 ←
@@ -91,7 +91,7 @@ export default function TecladoPIN({
               key={i}
               onClick={() => agregarDigito(tecla)}
               disabled={pin.length >= largoPIN}
-              className="h-16 rounded-2xl text-2xl font-medium transition-all active:scale-95 disabled:opacity-50"
+              className="h-16 rounded-modal text-2xl font-medium transition-all active:scale-95 disabled:opacity-50"
               style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto)', border: '1px solid var(--kiosco-border)' }}
             >
               {tecla}
@@ -104,7 +104,7 @@ export default function TecladoPIN({
       <div className="flex gap-4 w-[280px]">
         <button
           onClick={alCancelar}
-          className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-95"
+          className="flex-1 py-3.5 rounded-card text-base font-medium transition-all active:scale-95"
           style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto-mut)', border: '1px solid var(--kiosco-border)' }}
         >
           Cancelar
@@ -112,7 +112,7 @@ export default function TecladoPIN({
         <button
           onClick={enviar}
           disabled={pin.length < largoPIN}
-          className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-95 disabled:opacity-30"
+          className="flex-1 py-3.5 rounded-card text-base font-medium transition-all active:scale-95 disabled:opacity-30"
           style={{ backgroundColor: 'var(--texto-marca)', color: '#fff' }}
         >
           Aceptar

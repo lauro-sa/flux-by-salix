@@ -47,7 +47,9 @@ export type ModuloConfig =
   | 'config_usuarios'
   | 'config_asistencias'
   | 'config_productos'
-  | 'config_inbox'
+  | 'config_correo'
+  | 'config_whatsapp'
+  | 'config_interno'
   | 'config_recorrido'
 
 // Union de todos los modulos
@@ -104,7 +106,7 @@ export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modul
       'config_empresa', 'config_contactos', 'config_visitas', 'config_actividades',
       'config_calendario', 'config_presupuestos', 'config_facturas', 'config_informes',
       'config_ordenes_trabajo', 'config_usuarios', 'config_asistencias', 'config_productos',
-      'config_inbox', 'config_recorrido',
+      'config_correo', 'config_whatsapp', 'config_interno', 'config_recorrido',
     ],
   },
 }
@@ -146,7 +148,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   config_usuarios: ['ver', 'editar'],
   config_asistencias: ['ver', 'editar'],
   config_productos: ['ver', 'editar'],
-  config_inbox: ['ver', 'editar'],
+  config_correo: ['ver', 'editar'],
+  config_whatsapp: ['ver', 'editar'],
+  config_interno: ['ver', 'editar'],
   config_recorrido: ['ver', 'editar'],
 }
 
@@ -182,7 +186,9 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   config_usuarios: 'Config usuarios',
   config_asistencias: 'Config asistencias',
   config_productos: 'Config productos',
-  config_inbox: 'Config inbox',
+  config_correo: 'Config correo',
+  config_whatsapp: 'Config WhatsApp',
+  config_interno: 'Config interno',
   config_recorrido: 'Config recorrido',
 }
 

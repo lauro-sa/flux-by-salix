@@ -115,7 +115,7 @@ function TarjetaParada({
       <button
         onClick={onSeleccionar}
         className={[
-          'w-full text-center px-6 py-1.5 transition-colors rounded-lg',
+          'w-full text-center px-6 py-1.5 transition-colors rounded-boton',
           expandida ? '' : 'hover:bg-superficie-elevada/30',
           esCancelada ? 'opacity-40' : '',
         ].join(' ')}
@@ -174,21 +174,21 @@ function TarjetaParada({
                   <button
                     onClick={() => tieneCoords && abrirNavegacion({ lat: visita.direccion_lat!, lng: visita.direccion_lng! })}
                     disabled={!tieneCoords}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all disabled:opacity-30"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all disabled:opacity-30"
                   >
                     <Navigation size={16} className="text-[var(--insignia-info)]" />
                     <span className="text-[10px] font-medium text-texto-secundario">Navegar</span>
                   </button>
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'cancelada')}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <X size={16} className="text-[var(--insignia-peligro)]" />
                     <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
                   </button>
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'en_camino')}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <Check size={16} className="text-[var(--insignia-exito)]" />
                     <span className="text-[10px] font-medium text-texto-secundario">{t('recorrido.en_camino')}</span>
@@ -200,7 +200,7 @@ function TarjetaParada({
               {estado === 'programada' && bloqueada && tieneCoords && (
                 <button
                   onClick={() => abrirNavegacion({ lat: visita.direccion_lat!, lng: visita.direccion_lng! })}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-borde-sutil text-xs text-texto-terciario hover:bg-superficie-elevada transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-card border border-borde-sutil text-xs text-texto-terciario hover:bg-superficie-elevada transition-colors"
                 >
                   <Navigation size={13} className="text-[var(--insignia-info)]" />
                   <span>Ver en mapa</span>
@@ -212,21 +212,21 @@ function TarjetaParada({
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'programada')}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <RotateCcw size={16} className="text-texto-terciario" />
                     <span className="text-[10px] font-medium text-texto-secundario">Deshacer</span>
                   </button>
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'cancelada')}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <X size={16} className="text-[var(--insignia-peligro)]" />
                     <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
                   </button>
                   <button
                     onClick={() => onRegistrar(visita.id)}
-                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <Check size={16} className="text-[var(--insignia-exito)]" />
                     <span className="text-[10px] font-medium text-texto-secundario">{t('recorrido.llegue')}</span>
@@ -240,14 +240,14 @@ function TarjetaParada({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => onEditar(visita.id)}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                     >
                       <Pencil size={14} className="text-texto-marca" />
                       <span className="text-[11px] font-medium text-texto-secundario">Agregar info</span>
                     </button>
                     <button
                       onClick={() => onRegistrar(visita.id)}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                     >
                       <Check size={14} className="text-[var(--insignia-exito)]" />
                       <span className="text-[11px] font-medium text-texto-secundario">Completar</span>
@@ -256,14 +256,14 @@ function TarjetaParada({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => onCambiarEstado(visita.id, 'programada')}
-                      className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium text-texto-terciario hover:bg-superficie-elevada transition-colors"
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-card text-[11px] font-medium text-texto-terciario hover:bg-superficie-elevada transition-colors"
                     >
                       <RotateCcw size={12} />
                       <span>Deshacer</span>
                     </button>
                     <button
                       onClick={() => onCambiarEstado(visita.id, 'cancelada')}
-                      className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium text-texto-terciario hover:bg-superficie-elevada transition-colors"
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-card text-[11px] font-medium text-texto-terciario hover:bg-superficie-elevada transition-colors"
                     >
                       <X size={12} />
                       <span>{t('comun.cancelar')}</span>
@@ -276,7 +276,7 @@ function TarjetaParada({
               {esCancelada && (
                 <button
                   onClick={() => onCambiarEstado(visita.id, 'programada')}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
                 >
                   <RotateCcw size={14} className="text-texto-marca" />
                   <span>Reactivar parada</span>
@@ -288,14 +288,14 @@ function TarjetaParada({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => onEditar(visita.id)}
-                    className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
                   >
                     <Pencil size={14} className="text-texto-marca" />
                     <span>Editar registro</span>
                   </button>
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'programada')}
-                    className="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-card border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all text-xs font-medium text-texto-secundario"
                   >
                     <RotateCcw size={14} className="text-texto-terciario" />
                     <span>Reabrir</span>

@@ -180,7 +180,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
               <p className="text-sm text-texto-primario leading-relaxed whitespace-pre-wrap">{notasRegistro}</p>
             )}
             {notasAdmin && (
-              <div className="p-2.5 rounded-lg bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
+              <div className="p-2.5 rounded-card bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
                 <p className="text-[10px] font-medium text-[var(--insignia-info)] uppercase tracking-wider mb-1">Indicaciones</p>
                 <p className="text-xs text-texto-terciario whitespace-pre-wrap">{notasAdmin}</p>
               </div>
@@ -196,7 +196,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
                   href={foto.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative size-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
+                  className="relative size-16 rounded-card overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
                 >
                   <Image
                     src={foto.url}
@@ -221,7 +221,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
               {checklist.map(item => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-white/[0.02]"
+                  className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-card bg-white/[0.02]"
                 >
                   {item.completado
                     ? <CheckSquare size={14} className="text-[var(--insignia-exito)] shrink-0" />
@@ -237,7 +237,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
         )}
 
         {/* ── 6. Detalles — info secundaria compacta ── */}
-        <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
+        <div className="rounded-card bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
           <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Detalles</p>
 
           {motivo && (

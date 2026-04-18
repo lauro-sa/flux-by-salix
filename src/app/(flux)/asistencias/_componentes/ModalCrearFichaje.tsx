@@ -124,19 +124,21 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
       onCerrar={onCerrar}
       titulo="Agregar fichaje"
       tamano="md"
-      acciones={
-        <div className="flex items-center justify-end w-full gap-2">
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
-          <Boton variante="primario" tamano="sm" onClick={crear} cargando={guardando}>
-            <Plus size={13} className="mr-1" /> Crear fichaje
-          </Boton>
-        </div>
-      }
+      accionPrimaria={{
+        etiqueta: 'Crear fichaje',
+        onClick: crear,
+        cargando: guardando,
+        icono: <Plus size={13} />,
+      }}
+      accionSecundaria={{
+        etiqueta: t('comun.cancelar'),
+        onClick: onCerrar,
+      }}
     >
       <div className="space-y-4">
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-insignia-peligro-fondo border border-insignia-peligro/20">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-insignia-peligro-fondo border border-insignia-peligro/20">
             <AlertTriangle size={14} className="text-insignia-peligro shrink-0" />
             <p className="text-xs text-insignia-peligro">{error}</p>
           </div>

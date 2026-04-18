@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useTraduccion } from '@/lib/i18n'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Search, X, Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Columns3, SlidersHorizontal, Bookmark, BookmarkPlus,
   List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star, MoreVertical,
+  GripVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
@@ -29,8 +30,9 @@ import {
   ANCHO_MINIMO_COLUMNA, ANCHO_DEFAULT_COLUMNA, REGISTROS_POR_PAGINA_DEFAULT,
 } from '@/componentes/tablas/tipos-tabla'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { PanelColumnas } from '@/componentes/tablas/PanelColumnas'
-import { SeccionFiltroPanel, GuardarVistaInline } from '@/componentes/tablas/PanelFiltros'
+import { SeccionFiltroPanel, GuardarVistaInline, FilaVista } from '@/componentes/tablas/PanelFiltros'
 import { PieResumenFila } from '@/componentes/tablas/PieResumen'
 import { BarraAccionesLote } from '@/componentes/tablas/BarraAccionesLote'
 
@@ -65,6 +67,8 @@ function TablaDinamica<T>({
   onClickFila,
   onVistaExterna,
   vistaExternaActiva,
+  ocultarSwitcherVistas = false,
+  ocultarBarraHerramientas = false,
   contenidoCustom,
   mostrarResumen = false,
   estadoVacio,
@@ -75,6 +79,8 @@ function TablaDinamica<T>({
   accionDerecha,
   grupoTarjetas,
   etiquetaGrupoTarjetas,
+  filasReordenables = false,
+  onReordenarFilas,
   className = '',
 }: PropiedadesTablaDinamica<T>) {
 
@@ -233,6 +239,9 @@ function TablaDinamica<T>({
     eliminar: eliminarVistaBD,
     sobrescribir: sobrescribirVistaBD,
     marcarPredefinida: marcarPredefinidaBD,
+    renombrar: renombrarVistaBD,
+    cambiarIcono: cambiarIconoVistaBD,
+    reordenar: reordenarVistasBD,
     vistaPredefinida,
   } = useVistasGuardadas(idModulo)
 
@@ -269,6 +278,11 @@ function TablaDinamica<T>({
 
   /* ── Estado de ordenamiento ── */
   const [ordenamiento, setOrdenamiento] = useState<{ clave: string; direccion: DireccionOrden }[]>([])
+
+  /* ── Estado de drag-and-drop para reordenar filas (solo si filasReordenables + sin ordenamiento activo) ── */
+  const [dragFilaId, setDragFilaId] = useState<string | null>(null)
+  const [dragSobreId, setDragSobreId] = useState<string | null>(null)
+  const dragActivo = filasReordenables && !!onReordenarFilas && ordenamiento.length === 0
 
   /* ── Estado de opciones visuales ── */
   const [opcionesVisuales, setOpcionesVisuales] = useState<OpcionesVisuales>({
@@ -368,8 +382,8 @@ function TablaDinamica<T>({
   }, [filtros, onBusqueda])
 
   /* Handlers de vistas */
-  const manejarGuardarVista = useCallback((nombre: string) => {
-    guardarVistaBD(nombre, estadoActualDatos)
+  const manejarGuardarVista = useCallback((nombre: string, icono?: string | null) => {
+    guardarVistaBD(nombre, estadoActualDatos, icono)
   }, [guardarVistaBD, estadoActualDatos])
 
   const manejarEliminarVista = useCallback((id: string) => {
@@ -388,6 +402,18 @@ function TablaDinamica<T>({
   const manejarMarcarPredefinida = useCallback((id: string) => {
     marcarPredefinidaBD(id)
   }, [marcarPredefinidaBD])
+
+  const manejarRenombrarVista = useCallback((id: string, nombre: string) => {
+    renombrarVistaBD(id, nombre)
+  }, [renombrarVistaBD])
+
+  const manejarCambiarIconoVista = useCallback((id: string, icono: string | null) => {
+    cambiarIconoVistaBD(id, icono)
+  }, [cambiarIconoVistaBD])
+
+  const manejarReordenarVistas = useCallback((idsOrdenados: string[]) => {
+    reordenarVistasBD(idsOrdenados)
+  }, [reordenarVistasBD])
 
   /* Limpiar todo: búsqueda + filtros internos + filtros externos + orden */
   const limpiarTodo = useCallback(() => {
@@ -857,38 +883,38 @@ function TablaDinamica<T>({
 
   /* Elemento paginador reutilizable — se comparte con PlantillaListado via contexto */
   const paginadorElemento = totalPaginas > 1 ? (
-    <div className="flex items-center gap-0.5 shrink-0 border border-borde-sutil rounded-lg px-1 h-9">
+    <GrupoBotones className="shrink-0">
       <Boton
-        variante="fantasma"
-        tamano="xs"
+        variante="secundario"
+        tamano="sm"
         soloIcono
         icono={<ChevronLeft size={14} />}
         titulo={t('paginacion.pagina_anterior')}
         onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
         disabled={paginaActual === 1}
       />
-      <Tooltip contenido={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}>
-        <button
-          type="button"
-          onClick={() => {
-            if (paginaActual === totalPaginas) setPaginaActual(1)
-            else setPaginaActual(totalPaginas)
-          }}
-          className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-        >
-          {registroInicio}–{registroFin} / {totalRegistros.toLocaleString(locale)}
-        </button>
-      </Tooltip>
       <Boton
-        variante="fantasma"
-        tamano="xs"
+        variante="secundario"
+        tamano="sm"
+        tooltip={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}
+        onClick={() => {
+          if (paginaActual === totalPaginas) setPaginaActual(1)
+          else setPaginaActual(totalPaginas)
+        }}
+        className="tabular-nums"
+      >
+        {registroInicio}–{registroFin} / {totalRegistros.toLocaleString(locale)}
+      </Boton>
+      <Boton
+        variante="secundario"
+        tamano="sm"
         soloIcono
         icono={<ChevronRight size={14} />}
         titulo={t('paginacion.pagina_siguiente')}
         onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
         disabled={paginaActual === totalPaginas}
       />
-    </div>
+    </GrupoBotones>
   ) : null
 
   return (
@@ -899,6 +925,7 @@ function TablaDinamica<T>({
     <div ref={contenedorRef} className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ TOOLBAR ═══ */}
+      {!ocultarBarraHerramientas && (
       <div className={`flex items-center gap-2 pt-5 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
 
         {/* Buscador — mobile: 100%, desktop: adaptable (oculto en contenidoCustom) */}
@@ -906,8 +933,11 @@ function TablaDinamica<T>({
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
-            'flex items-center gap-1.5 px-3 h-9 rounded-lg border bg-superficie-tarjeta transition-all duration-200',
+            'flex items-center gap-1.5 px-3 h-9 rounded-card border bg-superficie-tarjeta transition-all duration-200',
             inputEnfocado ? 'border-borde-foco shadow-foco' : 'border-borde-sutil hover:border-borde-fuerte',
+            // Al abrir el panel de filtros, las caras inferiores quedan
+            // planas para que buscador + panel se vean como grupo segmentado.
+            panelFiltrosAbierto ? 'rounded-b-none!' : '',
           ].join(' ')}>
             {/* Lupa */}
             <Search size={15} className="text-texto-terciario shrink-0" />
@@ -1006,7 +1036,7 @@ function TablaDinamica<T>({
             />
 
             {/* Mobile: menú de vistas (3 puntitos dentro del buscador) */}
-            {vistas.length > 1 && (
+            {vistas.length > 1 && !ocultarSwitcherVistas && (
               <div className="sm:hidden relative shrink-0">
                 <Boton
                   variante="fantasma"
@@ -1025,7 +1055,7 @@ function TablaDinamica<T>({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden py-1"
+                        className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-50 overflow-hidden py-1"
                       >
                         {vistas.map((v) => (
                           <button
@@ -1097,7 +1127,7 @@ function TablaDinamica<T>({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.97 }}
                     transition={{ type: 'spring', duration: 0.3 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 overflow-hidden"
+                    className="absolute top-full left-0 right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover rounded-t-none! shadow-lg z-50 overflow-hidden"
                   >
                     <div className="max-h-[460px] overflow-y-auto">
                       {/* Layout 3 columnas: Filtros | Orden | Favoritos */}
@@ -1144,7 +1174,7 @@ function TablaDinamica<T>({
                                             <button key={`${op.clave}-${op.direccion}`} type="button"
                                               onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
                                               className={[
-                                                'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                                                'px-3 py-1.5 rounded-boton text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                                                 activo ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
                                               ].join(' ')}>
                                               {op.etiqueta}
@@ -1171,52 +1201,75 @@ function TablaDinamica<T>({
                         })()}
 
                         {/* ── Columna 3: Favoritos / Vistas ── */}
-                        {idModulo && (
-                          <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
-                            <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
-                              <Star size={12} />
-                              Favoritos
-                            </span>
+                        {idModulo && (() => {
+                          const vistasSistema = (vistasGuardadas || []).filter(v => v.es_sistema)
+                          const vistasPersonales = (vistasGuardadas || []).filter(v => !v.es_sistema)
+                          return (
+                            <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
+                              <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                <Star size={12} />
+                                Favoritos
+                              </span>
 
-                            {/* Vistas guardadas */}
-                            {vistasGuardadas && vistasGuardadas.length > 0 ? (
-                              <div className="flex flex-col gap-0.5">
-                                {vistasGuardadas.map((v) => {
-                                  const esActiva = detector?.vistaActiva?.id === v.id
-                                  return (
-                                    <div key={v.id}
-                                      className="group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-superficie-hover transition-colors"
-                                      onClick={() => manejarAplicarVista(v.id)}>
-                                      <Bookmark size={13} className={esActiva ? 'text-texto-marca fill-current' : 'text-texto-terciario'} />
-                                      <span className={`flex-1 text-sm truncate ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
-                                      {v.predefinida && <Star size={11} className="text-texto-marca fill-current shrink-0" />}
-                                      {esActiva && <Check size={13} className="text-texto-marca shrink-0" />}
-                                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
-                                        {manejarMarcarPredefinida && !v.predefinida && (
-                                          <Tooltip contenido="Marcar como predefinida"><button type="button" onClick={(e) => { e.stopPropagation(); manejarMarcarPredefinida(v.id) }}
-                                            className="size-5 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors"
-                                            ><Star size={11} /></button></Tooltip>
-                                        )}
-                                        {manejarEliminarVista && (
-                                          <Tooltip contenido="Eliminar"><button type="button" onClick={(e) => { e.stopPropagation(); manejarEliminarVista(v.id) }}
-                                            className="size-5 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors"
-                                            ><X size={11} /></button></Tooltip>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-texto-terciario">Sin vistas guardadas</p>
-                            )}
+                              {(!vistasGuardadas || vistasGuardadas.length === 0) && (
+                                <p className="text-xs text-texto-terciario">Sin vistas guardadas</p>
+                              )}
 
-                            {/* Guardar actual */}
-                            {manejarGuardarVista && detector?.tipo !== 'default' && (
-                              <GuardarVistaInline onGuardar={manejarGuardarVista} />
-                            )}
-                          </div>
-                        )}
+                              {vistasSistema.length > 0 && (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider px-1.5 mb-1">
+                                    Del sistema
+                                  </span>
+                                  {vistasSistema.map(v => (
+                                    <FilaVista
+                                      key={v.id}
+                                      vista={v}
+                                      esActiva={detector?.vistaActiva?.id === v.id}
+                                      puedeArrastrar={false}
+                                      onAplicar={() => manejarAplicarVista(v.id)}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+
+                              {vistasPersonales.length > 0 && (
+                                <div className="flex flex-col gap-0.5">
+                                  {vistasSistema.length > 0 && (
+                                    <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider px-1.5 mb-1">
+                                      Mis vistas
+                                    </span>
+                                  )}
+                                  <Reorder.Group
+                                    axis="y"
+                                    values={vistasPersonales}
+                                    onReorder={(nuevoOrden) => manejarReordenarVistas(nuevoOrden.map(v => v.id))}
+                                    className="flex flex-col gap-0.5"
+                                  >
+                                    {vistasPersonales.map(v => (
+                                      <Reorder.Item key={v.id} value={v} className="list-none">
+                                        <FilaVista
+                                          vista={v}
+                                          esActiva={detector?.vistaActiva?.id === v.id}
+                                          puedeArrastrar
+                                          onAplicar={() => manejarAplicarVista(v.id)}
+                                          onRenombrar={(n) => manejarRenombrarVista(v.id, n)}
+                                          onCambiarIcono={(i) => manejarCambiarIconoVista(v.id, i)}
+                                          onMarcarPredefinida={() => manejarMarcarPredefinida(v.id)}
+                                          onEliminar={() => manejarEliminarVista(v.id)}
+                                        />
+                                      </Reorder.Item>
+                                    ))}
+                                  </Reorder.Group>
+                                </div>
+                              )}
+
+                              {/* Guardar actual */}
+                              {manejarGuardarVista && detector?.tipo !== 'default' && (
+                                <GuardarVistaInline onGuardar={manejarGuardarVista} />
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                   </motion.div>
@@ -1237,29 +1290,28 @@ function TablaDinamica<T>({
         )}
 
         {/* Switcher de vistas — desktop only (en mobile está dentro del buscador) */}
-        {vistas.length > 1 && (
-          <div className="hidden sm:flex items-center gap-0 shrink-0 outline outline-1 outline-borde-sutil rounded-md overflow-hidden">
-            {vistas.map((v) => (
-              <Tooltip key={v} contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
-                <button
-                  type="button"
+        {vistas.length > 1 && !ocultarSwitcherVistas && (
+          <GrupoBotones className="hidden sm:inline-flex shrink-0">
+            {vistas.map((v) => {
+              const esActiva = vistaExternaActiva ? v === vistaExternaActiva : v === vistaActual
+              return (
+                <Boton
+                  key={v}
+                  variante="secundario"
+                  tamano="sm"
+                  soloIcono
+                  titulo={v.charAt(0).toUpperCase() + v.slice(1)}
+                  icono={iconosVista[v]}
                   onClick={() => {
                     if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return }
                     if (onVistaExterna && vistaExternaActiva) { onVistaExterna(v); }
                     vistaManualRef.current = true; setVistaActual(v)
                   }}
-                  className={[
-                    'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
-                    (vistaExternaActiva ? v === vistaExternaActiva : v === vistaActual)
-                      ? 'bg-superficie-hover text-texto-primario'
-                      : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
-                  ].join(' ')}
-                >
-                  {iconosVista[v]}
-                </button>
-              </Tooltip>
-            ))}
-          </div>
+                  className={esActiva ? 'bg-superficie-hover text-texto-primario' : 'text-texto-terciario'}
+                />
+              )
+            })}
+          </GrupoBotones>
         )}
 
         {/* Panel de columnas (sidebar derecho fijo — absolute para no afectar flex) */}
@@ -1299,6 +1351,7 @@ function TablaDinamica<T>({
           </AnimatePresence>
         </div>
       </div>
+      )}
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
       {contenidoCustom ? (
@@ -1327,9 +1380,23 @@ function TablaDinamica<T>({
                 {/* Header */}
                 <thead>
                   <tr className="border-b border-borde-fuerte sticky top-0 z-20" style={{ background: 'var(--superficie-anclada-alterna)' }}>
+                    {/* Handle de drag — aparece solo si filasReordenables + sin orden activo */}
+                    {dragActivo && (
+                      <th
+                        className="w-8 min-w-8 px-1 py-2.5 sticky left-0 z-30"
+                        style={{ background: 'var(--superficie-anclada-alterna)' }}
+                      />
+                    )}
+
                     {/* Checkbox header */}
                     {seleccionables && (
-                      <th className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-30" style={{ background: 'var(--superficie-anclada-alterna)' }}>
+                      <th
+                        className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky z-30"
+                        style={{
+                          background: 'var(--superficie-anclada-alterna)',
+                          left: dragActivo ? 32 : 0,
+                        }}
+                      >
                         <Checkbox
                           marcado={todoSeleccionado}
                           onChange={() => toggleTodos()}
@@ -1411,6 +1478,9 @@ function TablaDinamica<T>({
                         ? 'var(--superficie-anclada-alterna)'
                         : 'var(--superficie-anclada)'
 
+                      const siendoArrastrada = dragFilaId === id
+                      const destinoDrag = dragSobreId === id && dragFilaId !== null && dragFilaId !== id
+
                       return (
                         <tr
                           key={id}
@@ -1420,6 +1490,35 @@ function TablaDinamica<T>({
                           onKeyDown={onClickFila ? (e) => {
                             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickFila(fila) }
                           } : undefined}
+                          draggable={dragActivo}
+                          onDragStart={dragActivo ? (e) => {
+                            e.dataTransfer.effectAllowed = 'move'
+                            e.dataTransfer.setData('text/plain', id)
+                            setDragFilaId(id)
+                          } : undefined}
+                          onDragOver={dragActivo ? (e) => {
+                            e.preventDefault()
+                            if (dragFilaId && dragFilaId !== id) setDragSobreId(id)
+                          } : undefined}
+                          onDragLeave={dragActivo ? () => setDragSobreId(null) : undefined}
+                          onDrop={dragActivo ? (e) => {
+                            e.preventDefault()
+                            const origenId = e.dataTransfer.getData('text/plain') || dragFilaId
+                            if (origenId && origenId !== id && onReordenarFilas) {
+                              const idsActuales = datosPaginados.map(claveFila)
+                              const idxOrigen = idsActuales.indexOf(origenId)
+                              const idxDestino = idsActuales.indexOf(id)
+                              if (idxOrigen >= 0 && idxDestino >= 0) {
+                                const nuevos = [...idsActuales]
+                                const [movido] = nuevos.splice(idxOrigen, 1)
+                                nuevos.splice(idxDestino, 0, movido)
+                                onReordenarFilas(nuevos)
+                              }
+                            }
+                            setDragFilaId(null)
+                            setDragSobreId(null)
+                          } : undefined}
+                          onDragEnd={dragActivo ? () => { setDragFilaId(null); setDragSobreId(null) } : undefined}
                           className={[
                             'transition-colors duration-100',
                             opcionesVisuales.mostrarDivisores ? 'border-b border-borde-sutil last:border-b-0' : '',
@@ -1431,11 +1530,31 @@ function TablaDinamica<T>({
                               : '',
                             !estaSeleccionado ? 'hover:bg-superficie-hover' : '',
                             onClickFila ? 'focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2' : '',
+                            siendoArrastrada ? 'opacity-40' : '',
+                            destinoDrag ? 'outline outline-2 outline-texto-marca -outline-offset-2' : '',
                           ].join(' ')}
                         >
+                          {/* Handle de drag — sticky con fondo sólido */}
+                          {dragActivo && (
+                            <td
+                              className="w-8 min-w-8 px-1 py-2.5 text-center sticky left-0 z-10"
+                              style={{ background: fondoStickyFila, cursor: 'grab' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <GripVertical
+                                size={13}
+                                className="text-texto-terciario opacity-40 hover:opacity-100 transition-opacity mx-auto"
+                              />
+                            </td>
+                          )}
+
                           {/* Checkbox — siempre sticky con fondo sólido */}
                           {seleccionables && (
-                            <td className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-10" style={{ background: fondoStickyFila }} onClick={(e) => e.stopPropagation()}>
+                            <td
+                              className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky z-10"
+                              style={{ background: fondoStickyFila, left: dragActivo ? 32 : 0 }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <Checkbox
                                 marcado={estaSeleccionado}
                                 onChange={() => toggleUno(id)}
@@ -1503,7 +1622,7 @@ function TablaDinamica<T>({
                   key={id}
                   layout
                   className={[
-                    'relative rounded-lg border transition-all duration-150 cursor-pointer',
+                    'relative rounded-card border transition-all duration-150 cursor-pointer',
                     estaSeleccionado
                       ? 'border-texto-marca bg-superficie-seleccionada'
                       : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte sm:hover:shadow-sm',

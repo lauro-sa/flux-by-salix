@@ -48,7 +48,7 @@ export default function SeccionLineasOrden({ lineas }: Props) {
           // Nota (texto libre)
           if (linea.tipo_linea === 'nota') {
             return (
-              <div key={linea.id} className="py-2 px-3 bg-white/[0.02] rounded-lg">
+              <div key={linea.id} className="py-2 px-3 bg-white/[0.02] rounded-card">
                 <p className="text-xs text-texto-terciario italic flex items-start gap-1.5">
                   <AlignLeft size={12} className="shrink-0 mt-0.5" />
                   {linea.descripcion}
@@ -65,9 +65,9 @@ export default function SeccionLineasOrden({ lineas }: Props) {
           return (
             <div
               key={linea.id}
-              className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-superficie-hover/50 transition-colors"
+              className="flex items-start gap-3 py-2.5 px-3 rounded-card hover:bg-superficie-hover/50 transition-colors"
             >
-              <div className="w-7 h-7 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-7 h-7 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5">
                 <Package size={13} className="text-texto-marca" />
               </div>
               <div className="flex-1 min-w-0">

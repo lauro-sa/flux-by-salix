@@ -303,7 +303,7 @@ function RegistroVisita({
         <button
           onClick={enviar}
           disabled={enviando}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-card text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
           style={{ backgroundColor: 'var(--insignia-exito)' }}
         >
           {enviando ? (
@@ -325,8 +325,8 @@ function RegistroVisita({
         <div className="space-y-3">
           {/* ── Header con info del contacto ── */}
           {contactoNombre && (
-            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-              <div className="size-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5">
+            <div className="flex items-start gap-3 p-3.5 rounded-card bg-white/[0.04] border border-white/[0.06]">
+              <div className="size-9 rounded-card bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5">
                 <MapPin size={16} className="text-texto-terciario" />
               </div>
               <div className="min-w-0">
@@ -378,14 +378,14 @@ function RegistroVisita({
 
           {/* ── Indicaciones de la admin (solo lectura) ── */}
           {notasAdmin && (
-            <div className="p-3 rounded-xl bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
+            <div className="p-3 rounded-card bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
               <p className="text-[11px] font-medium text-[var(--insignia-info)] uppercase tracking-wider mb-1.5">Indicaciones</p>
               <p className="text-sm text-texto-secundario whitespace-pre-wrap">{notasAdmin}</p>
             </div>
           )}
 
           {/* ── Notas del visitador ── */}
-          <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+          <div className="p-3.5 rounded-card bg-white/[0.04] border border-white/[0.06]">
             <div className="flex items-center gap-2 mb-3">
               <FileText size={13} className="text-texto-terciario" />
               <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Registro de visita</p>
@@ -395,13 +395,13 @@ function RegistroVisita({
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Descripción del trabajo realizado..."
               rows={3}
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-sm text-texto-primario placeholder:text-texto-terciario/40 resize-none focus:outline-none focus:border-texto-marca/40 transition-colors"
+              className="w-full rounded-card border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-sm text-texto-primario placeholder:text-texto-terciario/40 resize-none focus:outline-none focus:border-texto-marca/40 transition-colors"
             />
           </div>
 
           {/* ── Checklist ── */}
           {checklist.length > 0 && (
-            <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <div className="p-3.5 rounded-card bg-white/[0.04] border border-white/[0.06]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <CheckSquare size={13} className="text-texto-terciario" />
@@ -426,10 +426,10 @@ function RegistroVisita({
                   <button
                     key={i}
                     onClick={() => toggleChecklist(i)}
-                    className="flex items-center gap-3 w-full p-2.5 rounded-lg border border-white/[0.04] hover:bg-white/[0.02] transition-all text-left active:scale-[0.99]"
+                    className="flex items-center gap-3 w-full p-2.5 rounded-card border border-white/[0.04] hover:bg-white/[0.02] transition-all text-left active:scale-[0.99]"
                   >
                     <div
-                      className="size-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0"
+                      className="size-5 rounded-boton border-2 flex items-center justify-center transition-all shrink-0"
                       style={{
                         borderColor: item.completado ? 'var(--insignia-exito)' : 'var(--borde-fuerte)',
                         backgroundColor: item.completado ? 'var(--insignia-exito)' : 'transparent',
@@ -461,7 +461,7 @@ function RegistroVisita({
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Fotos existentes */}
               {fotosExistentes.map((foto) => (
-                <div key={foto.url} className="relative shrink-0 size-20 rounded-xl overflow-hidden border border-white/[0.08]">
+                <div key={foto.url} className="relative shrink-0 size-20 rounded-card overflow-hidden border border-white/[0.08]">
                   <NextImage src={foto.url} alt={foto.nombre} fill sizes="80px" className="object-cover" />
                   <button
                     onClick={() => eliminarFotoExistente(foto)}
@@ -478,7 +478,7 @@ function RegistroVisita({
 
               {/* Fotos nuevas */}
               {previewsNuevas.map((src, i) => (
-                <div key={i} className="relative shrink-0 size-20 rounded-xl overflow-hidden border border-texto-marca/30">
+                <div key={i} className="relative shrink-0 size-20 rounded-card overflow-hidden border border-texto-marca/30">
                   <img src={src} alt={`Nueva ${i + 1}`} className="size-full object-cover" />
                   <button
                     onClick={() => quitarFotoNueva(i)}
@@ -492,14 +492,14 @@ function RegistroVisita({
               {/* Botones agregar: cámara y galería */}
               <button
                 onClick={() => inputCamaraRef.current?.click()}
-                className="shrink-0 size-20 rounded-xl border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
+                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
               >
                 <Camera size={18} className="text-texto-terciario" />
                 <span className="text-[10px] text-texto-terciario">Cámara</span>
               </button>
               <button
                 onClick={() => inputGaleriaRef.current?.click()}
-                className="shrink-0 size-20 rounded-xl border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
+                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
               >
                 <ImagePlus size={18} className="text-texto-terciario" />
                 <span className="text-[10px] text-texto-terciario">Galería</span>

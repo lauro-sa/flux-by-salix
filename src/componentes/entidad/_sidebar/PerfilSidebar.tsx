@@ -68,7 +68,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
   return (
     <>
       <div ref={perfilRef} className="relative px-2 pb-2 pt-2 border-t border-borde-sutil shrink-0">
-        <button onClick={colapsado ? abrirPerfil : () => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
+        <button onClick={colapsado ? abrirPerfil : () => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-card border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
           <div className="relative shrink-0">
             <Avatar nombre={nombreUsuario} tamano="sm" />
             <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-sidebar ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
@@ -90,7 +90,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -4 }}
-                    className="absolute w-56 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[var(--z-popover)] py-1"
+                    className="absolute w-56 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-[var(--z-popover)] py-1"
                     style={{ bottom: menuPos.bottom, left: menuPos.left }}
                     onClick={e => e.stopPropagation()}
                   >
@@ -119,7 +119,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
         ) : (
           <AnimatePresence>
             {perfilAbierto && (
-              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} className="absolute left-2.5 right-2.5 bottom-full mb-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 py-1">
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} className="absolute left-2.5 right-2.5 bottom-full mb-1 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-50 py-1">
                 <div className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Estado</div>
                 {estados.map(est => (
                   <OpcionMenu

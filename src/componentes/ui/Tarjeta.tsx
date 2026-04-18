@@ -21,7 +21,7 @@ function Tarjeta({ children, titulo, subtitulo, acciones, onClick, className = '
     <div
       onClick={onClick}
       className={[
-        'bg-superficie-tarjeta border border-borde-sutil rounded-lg transition-all duration-150',
+        'bg-superficie-tarjeta border border-borde-sutil rounded-card transition-all duration-150',
         compacta ? 'p-3' : 'p-5',
         onClick ? 'cursor-pointer hover:border-borde-fuerte hover:shadow-sm' : '',
         className,

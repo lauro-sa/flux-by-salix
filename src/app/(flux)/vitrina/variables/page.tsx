@@ -239,7 +239,7 @@ function ComboboxBuscable({ opciones, valor, onChange, placeholder = 'Buscar...'
         type="button"
         onClick={() => setAbierto(!abierto)}
         className={[
-          'flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm cursor-pointer transition-all text-left',
+          'flex items-center gap-2 w-full px-3 py-2 rounded-card border text-sm cursor-pointer transition-all text-left',
           abierto ? 'border-borde-foco shadow-foco' : 'border-borde-sutil',
           'bg-superficie-tarjeta',
         ].join(' ')}
@@ -268,7 +268,7 @@ function ComboboxBuscable({ opciones, valor, onChange, placeholder = 'Buscar...'
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
+              className="fixed border border-borde-sutil rounded-card shadow-lg overflow-hidden"
               style={{
                 top: posicion.top,
                 left: posicion.left,
@@ -678,7 +678,7 @@ export default function VitrinaVariables() {
         key={`${claveEntidad}.${variable.clave}`}
         type="button"
         onClick={() => copiarVariable(claveEntidad, variable.clave)}
-        className="group flex items-start gap-3 w-full p-3 rounded-lg border border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover transition-colors text-left cursor-pointer"
+        className="group flex items-start gap-3 w-full p-3 rounded-card border border-borde-sutil bg-superficie-tarjeta hover:bg-superficie-hover transition-colors text-left cursor-pointer"
       >
         {/* Info principal */}
         <div className="flex-1 min-w-0 space-y-1">
@@ -740,7 +740,7 @@ export default function VitrinaVariables() {
           </div>
 
           {/* Selectores de datos reales */}
-          <div className="mt-4 p-4 rounded-xl border border-borde-sutil bg-superficie-app space-y-3">
+          <div className="mt-4 p-4 rounded-card border border-borde-sutil bg-superficie-app space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-texto-terciario">
                 <Database size={14} />
@@ -752,7 +752,7 @@ export default function VitrinaVariables() {
                   type="button"
                   onClick={() => setDatosFicticios(!datosFicticios)}
                   className={[
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border',
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-card text-xs font-medium transition-colors cursor-pointer border',
                     datosFicticios
                       ? 'bg-texto-marca/10 border-texto-marca/30 text-texto-marca'
                       : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario',
@@ -836,7 +836,7 @@ export default function VitrinaVariables() {
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar variable..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco transition-colors"
+                className="w-full pl-9 pr-3 py-2 rounded-card border border-borde-sutil bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco transition-colors"
               />
             </div>
 
@@ -849,7 +849,7 @@ export default function VitrinaVariables() {
                   type="button"
                   onClick={() => { setEntidadActiva(ent.clave); setBusqueda('') }}
                   className={[
-                    'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-left transition-colors cursor-pointer',
+                    'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-card text-left transition-colors cursor-pointer',
                     activa ? 'bg-superficie-seleccionada text-texto-marca' : 'text-texto-secundario hover:bg-superficie-hover',
                   ].join(' ')}
                 >

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Obtener canal y config
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .select('id, config_conexion')
       .eq('id', canalIdFinal)
       .eq('empresa_id', empresaId)

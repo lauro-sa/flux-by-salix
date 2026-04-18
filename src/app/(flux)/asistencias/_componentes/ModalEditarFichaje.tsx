@@ -260,25 +260,24 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
       onCerrar={onCerrar}
       titulo=""
       tamano="md"
-      acciones={
-        editando ? (
-          <div className="flex items-center justify-between w-full">
-            <Boton variante="peligro" tamano="sm" onClick={eliminar} disabled={guardando}>
-              <Trash2 size={13} className="mr-1" /> Eliminar
-            </Boton>
-            <div className="flex items-center gap-2">
-              <Boton variante="secundario" tamano="sm" onClick={() => setEditando(false)}>{t('comun.cancelar')}</Boton>
-              <Boton variante="primario" tamano="sm" onClick={guardar} cargando={guardando}>{t('comun.guardar')}</Boton>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-end w-full">
-            <Boton variante="secundario" tamano="sm" onClick={() => setEditando(true)}>
-              <Pencil size={13} className="mr-1" /> Editar
-            </Boton>
-          </div>
-        )
-      }
+      accionPrimaria={editando ? {
+        etiqueta: t('comun.guardar'),
+        onClick: guardar,
+        cargando: guardando,
+      } : {
+        etiqueta: 'Editar',
+        onClick: () => setEditando(true),
+        icono: <Pencil size={13} />,
+      }}
+      accionSecundaria={editando ? {
+        etiqueta: t('comun.cancelar'),
+        onClick: () => setEditando(false),
+      } : undefined}
+      accionPeligro={editando ? {
+        etiqueta: 'Eliminar',
+        onClick: eliminar,
+        icono: <Trash2 size={13} />,
+      } : undefined}
     >
       <div className="-mx-5 -mt-4">
         {/* ═══ HEADER: Avatar + Nombre + Badge ═══ */}
@@ -318,7 +317,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <span className="text-xs text-texto-terciario/50 ml-1">· {dur}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-asistencia-presente/12 border border-asistencia-presente/25">
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-boton bg-asistencia-presente/12 border border-asistencia-presente/25">
                     <Calendar size={11} className="text-asistencia-presente" />
                     <span className="text-[11px] font-medium text-asistencia-presente">{dur}</span>
                   </div>
@@ -339,7 +338,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 <div className="px-5 py-3 border-b border-r border-white/[0.07]">
                   <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Entrada</p>
                   <div className="flex items-center gap-2">
-                    <div className="size-7 rounded-md bg-asistencia-presente/15 flex items-center justify-center text-asistencia-presente">
+                    <div className="size-7 rounded-boton bg-asistencia-presente/15 flex items-center justify-center text-asistencia-presente">
                       {metEntrada.icono}
                     </div>
                     <div>
@@ -354,7 +353,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Salida</p>
                   {metSalida ? (
                     <div className="flex items-center gap-2">
-                      <div className={`size-7 rounded-md flex items-center justify-center ${
+                      <div className={`size-7 rounded-boton flex items-center justify-center ${
                         r.estado === 'auto_cerrado' ? 'bg-asistencia-tarde/15 text-asistencia-tarde' : 'bg-asistencia-presente/15 text-asistencia-presente'
                       }`}>
                         {metSalida.icono}
@@ -465,7 +464,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <div className="px-5 py-3 border-r border-white/[0.07]">
                     <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto entrada</p>
                     <div className="relative w-full h-32">
-                      <Image src={r.foto_entrada} alt="Foto entrada" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-lg" />
+                      <Image src={r.foto_entrada} alt="Foto entrada" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-card" />
                     </div>
                   </div>
                 )}
@@ -473,7 +472,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <div className="px-5 py-3">
                     <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto salida</p>
                     <div className="relative w-full h-32">
-                      <Image src={r.foto_salida} alt="Foto salida" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-lg" />
+                      <Image src={r.foto_salida} alt="Foto salida" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-card" />
                     </div>
                   </div>
                 )}
@@ -543,7 +542,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
             </div>
 
             {/* Trámite colapsable */}
-            <details className="group border border-white/[0.08] rounded-lg overflow-hidden">
+            <details className="group border border-white/[0.08] rounded-card overflow-hidden">
               <summary className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-colors list-none [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-texto-terciario/60">
                   <Footprints size={12} />
@@ -582,7 +581,7 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">{etiqueta}</label>
-      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-2 focus-within:border-texto-marca/50 transition-colors">
+      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-card px-2.5 py-2 focus-within:border-texto-marca/50 transition-colors">
         <Clock size={13} className="text-texto-terciario/30 shrink-0" />
         <input
           type="time"

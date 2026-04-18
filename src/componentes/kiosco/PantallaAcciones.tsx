@@ -147,7 +147,7 @@ export default function PantallaAcciones({
       {/* Avatar + nombre + cargo */}
       <div className="flex flex-col items-center gap-3 landscape:gap-2 md:gap-4">
         {fotoUrl ? (
-          <div className="relative w-44 landscape:w-44 md:w-56 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+          <div className="relative w-44 landscape:w-44 md:w-56 aspect-[3/4] rounded-modal md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
             style={{ border: '4px solid rgba(63,63,70,0.6)' }}
           >
             <Image src={fotoUrl} alt={nombre} fill sizes="(max-width: 768px) 176px, 224px" className="object-cover" draggable={false} />
@@ -197,7 +197,7 @@ export default function PantallaAcciones({
                   transition: 'opacity 0.95s linear',
                   ...(popActivo ? { animation: 'kiosco-pop-btn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards', pointerEvents: 'none' as const } : {}),
                 }}
-                className="flex-1 flex items-center gap-2 md:gap-3 px-4 py-3 landscape:py-2.5 md:px-5 md:py-4 rounded-xl md:rounded-2xl text-sm md:text-base font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center gap-2 md:gap-3 px-4 py-3 landscape:py-2.5 md:px-5 md:py-4 rounded-card md:rounded-modal text-sm md:text-base font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
               >
                 {btn.icono}
                 <div className="text-left">
@@ -211,7 +211,7 @@ export default function PantallaAcciones({
           {/* Botón Salida — full width con fill de progreso */}
           <button
             onClick={() => { resetContador(); alAccionar('salida') }}
-            className="relative overflow-hidden w-full flex items-center gap-2 md:gap-3 px-5 py-3.5 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-[0.98]"
+            className="relative overflow-hidden w-full flex items-center gap-2 md:gap-3 px-5 py-3.5 landscape:py-3 md:px-6 md:py-5 rounded-card md:rounded-modal text-base md:text-lg font-bold justify-center border transition-colors active:scale-[0.98]"
             style={{
               backgroundColor: 'var(--kiosco-accion-cancelar-bg)',
               borderColor: 'rgba(239,68,68,0.25)',
@@ -240,7 +240,7 @@ export default function PantallaAcciones({
         /* Sin turno → Empezar */
         <button
           onClick={() => { resetContador(); alAccionar('entrada') }}
-          className="w-full max-w-xl md:max-w-2xl flex items-center gap-2 md:gap-3 px-5 py-4 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95"
+          className="w-full max-w-xl md:max-w-2xl flex items-center gap-2 md:gap-3 px-5 py-4 landscape:py-3 md:px-6 md:py-5 rounded-card md:rounded-modal text-base md:text-lg font-bold justify-center border transition-colors active:scale-95"
           style={{
             backgroundColor: 'var(--kiosco-accion-entrada-bg)',
             borderColor: 'rgba(74,222,128,0.3)',
@@ -259,7 +259,7 @@ export default function PantallaAcciones({
       {(
         <button
           onClick={() => { resetContador(); alReportar() }}
-          className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl text-sm md:text-base font-medium transition-all active:scale-95"
+          className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-card md:rounded-modal text-sm md:text-base font-medium transition-all active:scale-95"
           style={{
             backgroundColor: 'rgba(39,39,42,0.6)',
             border: '1px solid rgba(63,63,70,0.4)',

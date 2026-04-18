@@ -82,7 +82,7 @@ const ETIQUETAS_DEFAULT: Record<string, string> = {
 }
 
 /** Mini avatar neutro para la tabla — sin colores, solo iniciales con borde sutil */
-function MiniAvatar({ nombre }: { nombre: string }) {
+function MiniAvatar({ nombre, title }: { nombre: string; title?: string }) {
   const limpio = nombre.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f]/gu, '').trim()
   const partes = limpio.split(/\s+/).filter(Boolean)
   const iniciales = partes.length >= 2
@@ -91,6 +91,7 @@ function MiniAvatar({ nombre }: { nombre: string }) {
 
   return (
     <div
+      title={title}
       className="size-5 rounded-full flex items-center justify-center border border-borde-sutil
         text-texto-terciario text-[9px] font-medium leading-none
         hover:text-texto-secundario hover:border-borde-fuerte transition-colors cursor-pointer"
@@ -126,6 +127,16 @@ function IndicadorEditado({
   const etiquetas = { ...ETIQUETAS_DEFAULT, ...etiquetasCampos }
   const fueEditado = !!nombreEditor
   const nombreAvatar = nombreEditor || nombreCreador || '?'
+
+  // Tooltip nativo al hover con info resumida (el popover detallado se abre al click).
+  const tituloResumen = [
+    nombreCreador
+      ? `Creado por ${nombreCreador}${fechaCreacion ? ' — ' + fmtFecha(fechaCreacion) : ''}`
+      : null,
+    fueEditado && nombreEditor
+      ? `Editado por ${nombreEditor}${fechaEdicion ? ' — ' + fmtFecha(fechaEdicion) : ''}`
+      : null,
+  ].filter(Boolean).join('\n')
 
   const cargarAuditoria = async () => {
     if (cargado || !tablaAuditoria || !campoReferencia) {
@@ -237,7 +248,7 @@ function IndicadorEditado({
                     {gruposEdicion.map((grupo, i) => (
                       <div
                         key={i}
-                        className="rounded-lg bg-superficie-app/50 border border-borde-sutil p-2.5 space-y-2"
+                        className="rounded-card bg-superficie-app/50 border border-borde-sutil p-2.5 space-y-2"
                       >
                         {/* Encabezado: avatar + nombre + fecha */}
                         <div className="flex items-center justify-between gap-2">
@@ -298,7 +309,7 @@ function IndicadorEditado({
       }
       onCambio={(abierto) => { if (abierto) cargarAuditoria() }}
     >
-      <MiniAvatar nombre={nombreAvatar} />
+      <MiniAvatar nombre={nombreAvatar} title={tituloResumen} />
     </Popover>
     </div>
   )

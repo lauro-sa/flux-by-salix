@@ -57,7 +57,7 @@ function SeccionHorarioLaboral({ config, cargando, onAccionAPI }: PropiedadesSec
 
   return (
     <div className="space-y-4">
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <h3 className="text-base font-semibold text-texto-primario">Horario laboral</h3>
         <p className="text-base text-texto-terciario mt-0.5 mb-5">
           Respetar el horario de atención de la empresa al calcular fechas de vencimiento y posposición.
@@ -76,7 +76,7 @@ function SeccionHorarioLaboral({ config, cargando, onAccionAPI }: PropiedadesSec
 
         {/* Info box */}
         {respetarDias && (
-          <div className="mt-4 p-4 rounded-lg bg-superficie-hover/50 border border-borde-sutil">
+          <div className="mt-4 p-4 rounded-card bg-superficie-hover/50 border border-borde-sutil">
             <div className="flex gap-3">
               <Info size={16} className="text-texto-terciario shrink-0 mt-0.5" />
               <div className="text-xs text-texto-secundario space-y-1.5">
@@ -91,7 +91,7 @@ function SeccionHorarioLaboral({ config, cargando, onAccionAPI }: PropiedadesSec
 
       {/* Ajustar actividades existentes — Salix IA */}
       {respetarDias && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">

@@ -40,10 +40,15 @@ export function PieResumenFila<T>({
     setOverrides(prev => ({ ...prev, [clave]: siguiente }))
   }
 
+  // Fondo sólido para cada celda — con border-collapse:collapse el background del <tfoot>
+  // no se ve a través de los <td>, así que lo aplicamos por celda para que las filas
+  // no se vean "pasar por atrás" al scrollear.
+  const fondoPie = 'var(--superficie-anclada-alterna)'
+
   return (
     <tr className="border-t-2 border-borde-fuerte">
       {/* Celda del checkbox */}
-      {seleccionables && <td className="w-10 min-w-10 px-2.5 py-2 sticky left-0 z-10" style={{ background: 'var(--superficie-anclada-alterna)' }} />}
+      {seleccionables && <td className="w-10 min-w-10 px-2.5 py-2 sticky left-0 bottom-0 z-10" style={{ background: fondoPie }} />}
 
       {columnasVisibles.map((clave) => {
         const col = columnas.find((c) => c.clave === clave)
@@ -90,15 +95,16 @@ export function PieResumenFila<T>({
             key={clave}
             onClick={() => ciclarCalculo(clave, tipoCalculo)}
             className={[
-              'px-4 py-2 cursor-pointer hover:bg-superficie-hover/50 transition-colors select-none',
-              anclada ? 'sticky z-10 border-r-2 border-r-borde-fuerte' : '',
+              'px-4 py-2 cursor-pointer hover:bg-superficie-hover/50 transition-colors select-none sticky bottom-0',
+              anclada ? 'z-20 border-r-2 border-r-borde-fuerte' : 'z-10',
               opcionesVisuales.bordesColumnas && !anclada ? 'border-r border-borde-sutil last:border-r-0' : '',
             ].join(' ')}
             style={{
               width: ancho,
               minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
               textAlign: col.alineacion || 'left',
-              ...(anclada ? { left: offsetAncladas[clave], background: 'var(--superficie-anclada-alterna)' } : {}),
+              background: fondoPie,
+              ...(anclada ? { left: offsetAncladas[clave] } : {}),
             }}
           >
             <Tooltip contenido="Click para cambiar cálculo">

@@ -178,10 +178,10 @@ export default function PaginaOnboarding() {
                 onClick={() => irAPaso('crear')}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full p-4 rounded-xl border border-borde-sutil bg-superficie-app hover:border-texto-marca/40 transition-all text-left cursor-pointer group"
+                className="w-full p-4 rounded-card border border-borde-sutil bg-superficie-app hover:border-texto-marca/40 transition-all text-left cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0 group-hover:bg-texto-marca/15 transition-colors">
+                  <div className="w-10 h-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0 group-hover:bg-texto-marca/15 transition-colors">
                     <Building2 size={20} className="text-texto-marca" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -198,10 +198,10 @@ export default function PaginaOnboarding() {
                 onClick={() => irAPaso('unirse')}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full p-4 rounded-xl border border-borde-sutil bg-superficie-app hover:border-texto-marca/40 transition-all text-left cursor-pointer group"
+                className="w-full p-4 rounded-card border border-borde-sutil bg-superficie-app hover:border-texto-marca/40 transition-all text-left cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-insignia-info/10 flex items-center justify-center shrink-0 group-hover:bg-insignia-info/15 transition-colors">
+                  <div className="w-10 h-10 rounded-card bg-insignia-info/10 flex items-center justify-center shrink-0 group-hover:bg-insignia-info/15 transition-colors">
                     <Users size={20} className="text-insignia-info" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -277,7 +277,7 @@ export default function PaginaOnboarding() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
+                    className="p-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
                   >
                     <AlertCircle size={16} className="shrink-0" />
                     <span>{error}</span>
@@ -345,7 +345,7 @@ export default function PaginaOnboarding() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
+                    className="p-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
                   >
                     <AlertCircle size={16} className="shrink-0" />
                     <span>{error}</span>

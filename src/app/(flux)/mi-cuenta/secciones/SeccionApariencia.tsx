@@ -16,7 +16,7 @@ import type { Tema, Efecto, FondoCristal, EscalaTexto } from '@/hooks/useTema'
 /* Mini preview de UI para las tarjetas de tema */
 function MiniUI({ fondo, barra, lineas }: { fondo: string; barra: string; lineas: string }) {
   return (
-    <div className={`w-full h-20 rounded-md ${fondo} p-2 flex flex-col gap-1.5 border border-borde-sutil`}>
+    <div className={`w-full h-20 rounded-boton ${fondo} p-2 flex flex-col gap-1.5 border border-borde-sutil`}>
       <div className={`h-2 w-full rounded-sm ${barra}`} />
       <div className={`h-1.5 w-3/4 rounded-sm ${lineas}`} />
       <div className={`h-1.5 w-1/2 rounded-sm ${lineas}`} />
@@ -47,7 +47,7 @@ export function SeccionApariencia() {
       />
 
       {/* Nota sobre por dispositivo */}
-      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-superficie-tarjeta border border-borde-sutil text-xs text-texto-terciario leading-relaxed">
+      <div className="flex items-start gap-2.5 p-3 rounded-card bg-superficie-tarjeta border border-borde-sutil text-xs text-texto-terciario leading-relaxed">
         <Monitor size={14} className="shrink-0 mt-0.5 text-texto-terciario" />
         <span>
           Tamaño de fuente, intensidad Glass y fondo se guardan <strong className="text-texto-primario">por plataforma</strong>: una configuración para celulares y otra para computadoras.
@@ -136,7 +136,7 @@ export function SeccionApariencia() {
                   efecto === e.clave ? '!border-texto-marca !bg-superficie-seleccionada' : '!border-borde-sutil'
                 }`}
               >
-                <div className="w-full h-20 rounded-md bg-gradient-to-br from-insignia-violeta/20 via-insignia-info/15 to-insignia-cyan/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
+                <div className="w-full h-20 rounded-boton bg-gradient-to-br from-insignia-violeta/20 via-insignia-info/15 to-insignia-cyan/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
                   <div className={`h-2 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad}`} />
                   <div className={`h-6 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad} mt-auto`} />
                 </div>
@@ -148,7 +148,7 @@ export function SeccionApariencia() {
           })}
         </div>
         {!soportaCristal && (
-          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-insignia-advertencia-fondo text-insignia-advertencia-texto text-xs">
+          <div className="mt-3 flex items-start gap-2 p-3 rounded-card bg-insignia-advertencia-fondo text-insignia-advertencia-texto text-xs">
             <span className="shrink-0 mt-0.5">⚠</span>
             <span>{razonNoCristal || 'Los efectos de transparencia requieren un dispositivo con GPU potente. En equipos más antiguos la interfaz puede sentirse lenta.'} Si notás problemas de rendimiento, usá el modo <strong>Sólido</strong>.</span>
           </div>
@@ -176,7 +176,7 @@ export function SeccionApariencia() {
                     fondoCristal === f.clave ? '!border-texto-marca !bg-superficie-seleccionada' : '!border-borde-sutil'
                   }`}
                 >
-                  <div className={`w-full h-14 rounded-md border border-borde-sutil ${f.gradiente ? 'bg-gradient-to-br ' + f.gradiente : 'bg-superficie-app'}`} />
+                  <div className={`w-full h-14 rounded-boton border border-borde-sutil ${f.gradiente ? 'bg-gradient-to-br ' + f.gradiente : 'bg-superficie-app'}`} />
                   <span className={`text-xs font-medium ${fondoCristal === f.clave ? 'text-texto-marca' : 'text-texto-primario'}`}>{f.etiqueta}</span>
                   <span className="text-xxs text-texto-terciario">{f.descripcion}</span>
                   {fondoCristal === f.clave && <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-texto-marca" />}

@@ -261,6 +261,76 @@ Alertas en tiempo real en tu celular/PC.
 
 ---
 
+## Usuarios y empleados
+
+Flux separa dos conceptos:
+
+- **Empleado** — persona que trabaja en la empresa. Tiene legajo, puesto, compensación, horario. Puede fichar en el kiosco con llavero RFID o PIN aunque nunca use el software.
+- **Usuario** — empleado con cuenta Flux activa. Accede a la app web y ve el sistema según su rol.
+
+Un mismo registro transita entre cuatro estados del ciclo de vida:
+
+| Estado | Puede fichar en kiosco | Accede a Flux | Cuándo se usa |
+|--------|------------------------|---------------|---------------|
+| **Solo fichaje** | Sí (con RFID / PIN) | No | Empleados operativos que solo marcan entrada/salida |
+| **Pendiente** | Sí | No (todavía) | Se le envió la invitación y falta que acepte |
+| **Activo** | Sí | Sí | Empleado con cuenta Flux vinculada |
+| **Desactivado** | No | No | Ex-empleado o usuario suspendido |
+
+### Agregar un empleado
+
+Desde **Usuarios → Agregar empleado**.
+
+1. **Datos personales** — nombre y apellido son obligatorios. Correo, teléfono y fecha de nacimiento son opcionales.
+2. **Rol y organización** — asigná rol, legajo, sector y puesto si ya los tenés configurados.
+3. **Fichaje y kiosco** — llavero RFID y/o PIN de respaldo. Con cualquiera de los dos el empleado puede fichar desde el primer día.
+4. **Enviar invitación a Flux** — si cargaste correo, el empleado recibirá un correo con el link para crear su contraseña y acceder. Sin correo solo tendrá acceso al kiosco.
+
+### Importación masiva (CSV)
+
+Desde **Usuarios → Importar CSV** podés cargar hasta 500 empleados de una sola vez.
+
+Formato:
+- Primera línea: encabezados.
+- Columnas soportadas (en cualquier orden): `nombre, apellido, correo, telefono, rol, numero_empleado, sector, puesto, kiosco_rfid, kiosco_pin, metodo_fichaje`
+- Obligatorios: `nombre` y `apellido`.
+- Sector y puesto se resuelven por nombre contra los configurados en la empresa (mayúsculas/minúsculas ignoradas).
+
+El sistema reporta cuántas filas se crearon y cuáles tuvieron error, sin frenar el lote.
+
+### Ciclo de vida y acciones
+
+En el perfil de cada empleado (**Usuarios → [nombre]**) se muestra la tarjeta **Estado del empleado** con:
+
+- Estado actual destacado con ícono y color.
+- Stepper visual: Solo fichaje → Pendiente → Activo.
+- Acciones contextuales según el estado:
+  - **Solo fichaje**: Enviar invitación a Flux.
+  - **Pendiente**: Cancelar invitación, Copiar link, Reenviar invitación.
+  - **Activo**: Desactivar.
+  - **Desactivado**: Reactivar.
+
+Las invitaciones vencen a las **48 horas**. Si expiraron, el empleado vuelve al estado "Solo fichaje".
+
+### Flujo de registro del empleado
+
+Cuando el empleado invitado abre el link y crea su cuenta:
+
+1. Sistema busca miembros pendientes con ese correo en la empresa.
+2. Vincula el nuevo `usuario_id` al miembro existente — no duplica registros.
+3. El legajo, llavero RFID, historial de fichadas y sector quedan intactos.
+4. El empleado pasa automáticamente al estado **Activo**.
+
+### Filtros por estado
+
+El listado de **Usuarios** muestra chips arriba con el conteo por estado. Permite ver solo pendientes, solo fichaje, etc. Clic en "Todos" para volver al listado completo.
+
+### Envío automático del correo de invitación
+
+El sistema usa el **canal de correo principal** de la empresa (Gmail o IMAP conectado en **Inbox → Configuración → Correo**) para enviar la invitación. Si no hay canal configurado, la invitación se crea igual y aparece un link que podés compartir manualmente.
+
+---
+
 ## Configuración general
 
 Desde **Configuración** podés personalizar todo tu Flux:

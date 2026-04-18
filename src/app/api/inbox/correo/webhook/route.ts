@@ -41,9 +41,8 @@ export async function POST(request: NextRequest) {
 
     // Buscar canal por email
     const { data: canales } = await admin
-      .from('canales_inbox')
+      .from('canales_correo')
       .select('*')
-      .eq('tipo', 'correo')
       .eq('proveedor', 'gmail_oauth')
       .eq('activo', true)
 
@@ -100,7 +99,7 @@ export async function POST(request: NextRequest) {
 
       // Actualizar historyId
       await admin
-        .from('canales_inbox')
+        .from('canales_correo')
         .update({
           sync_cursor: {
             ...cursor,

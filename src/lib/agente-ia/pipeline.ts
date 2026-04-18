@@ -137,12 +137,12 @@ export async function ejecutarPipelineAgente(params: {
   })
 
   // Derivar locale de la zona horaria de la empresa (para formateo de fechas)
-  const { data: configInboxLocale } = await admin
-    .from('config_inbox')
+  const { data: empresaTz } = await admin
+    .from('empresas')
     .select('zona_horaria')
-    .eq('empresa_id', empresa_id)
+    .eq('id', empresa_id)
     .maybeSingle()
-  const zonaEmpresa = configInboxLocale?.zona_horaria || 'America/Argentina/Buenos_Aires'
+  const zonaEmpresa = empresaTz?.zona_horaria || 'America/Argentina/Buenos_Aires'
   const locale = zonaEmpresa.startsWith('America/Argentina') ? 'es-AR'
     : zonaEmpresa.startsWith('America') ? 'es-MX'
     : 'es'
@@ -536,14 +536,18 @@ async function verificarDebeActuar(
   if (config.modo_activacion === 'fuera_horario') {
     // Verificar si estamos fuera del horario de atención (usando zona horaria de la empresa)
     const { data: configInbox } = await admin
-      .from('config_inbox')
-      .select('horario_atencion_inicio, horario_atencion_fin, zona_horaria')
+      .from('config_whatsapp')
+      .select('horario_atencion_inicio, horario_atencion_fin')
       .eq('empresa_id', config.empresa_id)
       .single()
+    const { data: empresaTz } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', config.empresa_id)
+      .maybeSingle()
 
     if (configInbox) {
-      // Usar zona horaria de la empresa, fallback a America/Argentina/Buenos_Aires
-      const zonaHoraria = configInbox.zona_horaria || 'America/Argentina/Buenos_Aires'
+      const zonaHoraria = empresaTz?.zona_horaria || 'America/Argentina/Buenos_Aires'
       let horaActual: number
       try {
         const ahora = new Date()
@@ -821,10 +825,10 @@ async function enviarMensajeBot(
   empresaId: string,
   canalId: string,
 ) {
-  // Obtener datos del canal para enviar vía WhatsApp API
+  // Obtener datos del canal WhatsApp para enviar vía API
   const { data: canal } = await admin
-    .from('canales_inbox')
-    .select('tipo, config_conexion')
+    .from('canales_whatsapp')
+    .select('config_conexion')
     .eq('id', canalId)
     .single()
 
@@ -846,7 +850,7 @@ async function enviarMensajeBot(
   }
 
   let enviadoPorWhatsApp = false
-  if (canal?.tipo === 'whatsapp' && telefonoContacto) {
+  if (canal && telefonoContacto) {
     const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
     if (configWa.phoneNumberId && configWa.tokenAcceso) {
       try {

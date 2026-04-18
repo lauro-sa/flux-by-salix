@@ -131,7 +131,7 @@ export default function PaginaSetupKiosco() {
         {estado === 'error' && (
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-3 rounded-xl text-base font-medium transition-all active:scale-95"
+            className="mt-4 px-6 py-3 rounded-card text-base font-medium transition-all active:scale-95"
             style={{
               backgroundColor: 'var(--texto-marca)',
               color: '#fff',

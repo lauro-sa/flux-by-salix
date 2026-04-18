@@ -130,7 +130,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className="overflow-hidden"
     >
-      <div className="border border-insignia-advertencia/30 rounded-lg bg-insignia-advertencia/5 overflow-hidden">
+      <div className="border border-insignia-advertencia/30 rounded-card bg-insignia-advertencia/5 overflow-hidden">
         {/* Etiqueta */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-insignia-advertencia/20">
           <span className="text-xs font-medium text-insignia-advertencia">

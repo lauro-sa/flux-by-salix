@@ -5,6 +5,7 @@ export { PlantillaApp } from './PlantillaApp'
 export { PlantillaListado } from './PlantillaListado'
 export { PlantillaDetalle } from './PlantillaDetalle'
 export { PlantillaConfiguracion } from './PlantillaConfiguracion'
+export { PlantillaEditor } from './PlantillaEditor'
 
 // Layout y navegación
 export { Sidebar } from './Sidebar'
@@ -14,7 +15,6 @@ export { Migajas } from './Migajas'
 
 // Paneles y modales
 export { PanelChatter } from './PanelChatter'
-export { ModalEditorPlantillaCorreo } from './ModalEditorPlantillaCorreo'
 export { ModalEnviarDocumento } from './ModalEnviarDocumento'
 export { SelectorPlantillaCorreo } from './SelectorPlantillaCorreo'
 

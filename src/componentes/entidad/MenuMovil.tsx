@@ -197,9 +197,9 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
             <div className="flex items-center justify-between px-5 h-[var(--header-alto)] shrink-0">
               {/* Empresa */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={`size-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0 ${logoEmpresa ? '' : 'bg-texto-marca'}`}>
+                <div className={`size-9 rounded-card flex items-center justify-center text-white font-bold text-sm shrink-0 ${logoEmpresa ? '' : 'bg-texto-marca'}`}>
                   {logoEmpresa ? (
-                    <Image src={logoEmpresa} alt={nombreEmpresa} width={36} height={36} className="size-9 rounded-lg object-cover" />
+                    <Image src={logoEmpresa} alt={nombreEmpresa} width={36} height={36} className="size-9 rounded-card object-cover" />
                   ) : (
                     inicialEmpresa
                   )}
@@ -250,7 +250,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                           animate="visible"
                           onClick={() => navegar(item.ruta)}
                           className={[
-                            'flex items-center gap-3.5 w-full px-3 py-3 rounded-xl border-none cursor-pointer transition-colors active:scale-[0.98] text-left',
+                            'flex items-center gap-3.5 w-full px-3 py-3 rounded-card border-none cursor-pointer transition-colors active:scale-[0.98] text-left',
                             activo
                               ? 'bg-texto-marca/10'
                               : 'bg-transparent',
@@ -291,7 +291,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                 {/* Avatar + nombre */}
                 <button
                   onClick={() => navegar('/mi-cuenta')}
-                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                 >
                   <div className="relative shrink-0">
                     <Avatar nombre={nombreUsuario} tamano="md" />
@@ -340,11 +340,11 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                             router.push('/dashboard')
                           }
                         }}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                       >
-                        <div className={`size-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
+                        <div className={`size-8 rounded-card flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
                           {emp.logo_url ? (
-                            <Image src={emp.logo_url} alt={emp.nombre} width={32} height={32} className="size-8 rounded-lg object-cover" />
+                            <Image src={emp.logo_url} alt={emp.nombre} width={32} height={32} className="size-8 rounded-card object-cover" />
                           ) : (
                             emp.nombre[0]
                           )}

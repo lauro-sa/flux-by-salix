@@ -27,14 +27,14 @@ export function PrevisualizacionPlantilla({
     <div className="space-y-4">
       {/* Asunto resuelto */}
       {asunto.trim() && (
-        <div className="px-4 py-2.5 rounded-lg" style={{ border: '1px solid var(--borde-sutil)' }}>
+        <div className="px-4 py-2.5 rounded-card" style={{ border: '1px solid var(--borde-sutil)' }}>
           <span className="text-xxs uppercase tracking-wider font-semibold mr-2" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
           <span className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>{resolverPreview(asunto)}</span>
         </div>
       )}
 
       {/* Contenido resuelto */}
-      <div className="px-4 py-3 rounded-lg" style={{ border: '1px solid var(--borde-sutil)', minHeight: 220 }}>
+      <div className="px-4 py-3 rounded-card" style={{ border: '1px solid var(--borde-sutil)', minHeight: 220 }}>
         <div
           className="text-sm leading-relaxed [&_p]:my-2 [&_p:empty]:my-2 [&_p:empty]:min-h-[1em] [&_br]:block [&_br]:content-[''] [&_br]:my-1"
           style={{ color: 'var(--texto-primario)' }}

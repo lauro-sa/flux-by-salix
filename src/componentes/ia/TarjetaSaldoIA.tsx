@@ -171,7 +171,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
 
   if (cargando) {
     return (
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 animate-pulse">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5 animate-pulse">
         <div className="h-4 w-32 bg-superficie-hover rounded mb-3" />
         <div className="h-8 w-24 bg-superficie-hover rounded mb-2" />
         <div className="h-2 w-full bg-superficie-hover rounded" />
@@ -182,9 +182,9 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
   // Sin registros — estado inicial
   if (!tieneRegistros) {
     return (
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-superficie-hover flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-card bg-superficie-hover flex items-center justify-center shrink-0">
             <Wallet size={18} className="text-texto-terciario" />
           </div>
           <div>
@@ -224,7 +224,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
 
   // Con registros — vista completa
   return (
-    <div className={`bg-superficie-tarjeta border rounded-xl p-5 ${
+    <div className={`bg-superficie-tarjeta border rounded-card p-5 ${
       saldoBajo ? 'border-insignia-advertencia/40' : 'border-borde-sutil'
     }`}>
       {/* Header con saldo */}
@@ -276,7 +276,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
 
       {/* Alerta saldo bajo */}
       {saldoBajo && (
-        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-insignia-advertencia/10 mb-3">
+        <div className="flex items-center gap-2 p-2.5 rounded-card bg-insignia-advertencia/10 mb-3">
           <AlertTriangle size={14} className="text-insignia-advertencia shrink-0" />
           <p className="text-xs text-insignia-advertencia">
             Tu crédito está por agotarse.{' '}
@@ -323,9 +323,9 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
             <div key={c.id}>
               {editandoId === c.id ? (
                 // Fila en modo edición
-                <div className="p-2.5 rounded-lg bg-superficie-hover/80 space-y-2">
+                <div className="p-2.5 rounded-card bg-superficie-hover/80 space-y-2">
                   <div className="flex gap-2">
-                    <div className="flex items-center gap-1.5 flex-1 rounded-md border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5">
+                    <div className="flex items-center gap-1.5 flex-1 rounded-boton border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5">
                       <span className="text-xs text-texto-terciario shrink-0">US$</span>
                       <input
                         type="number"
@@ -341,7 +341,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
                       type="date"
                       value={editFecha}
                       onChange={e => setEditFecha(e.target.value)}
-                      className="rounded-md border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5 text-xs text-texto-primario outline-none [color-scheme:dark]"
+                      className="rounded-boton border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5 text-xs text-texto-primario outline-none [color-scheme:dark]"
                     />
                   </div>
                   <input
@@ -349,7 +349,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
                     value={editNota}
                     onChange={e => setEditNota(e.target.value)}
                     placeholder="Nota"
-                    className="w-full rounded-md border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5 text-xs text-texto-primario placeholder:text-texto-placeholder outline-none"
+                    className="w-full rounded-boton border border-borde-sutil bg-superficie-tarjeta px-2 py-1.5 text-xs text-texto-primario placeholder:text-texto-placeholder outline-none"
                   />
                   <div className="flex gap-1.5 justify-end">
                     <Boton variante="fantasma" tamano="xs" icono={<X size={12} />} onClick={() => setEditandoId(null)}>
@@ -362,7 +362,7 @@ export function TarjetaSaldoIA({ proveedorActivo, nombreProveedor, costoEstimado
                 </div>
               ) : (
                 // Fila normal
-                <div className="flex items-center justify-between p-2 rounded-lg bg-superficie-hover/50 text-xs group">
+                <div className="flex items-center justify-between p-2 rounded-card bg-superficie-hover/50 text-xs group">
                   <div className="flex items-center gap-2 min-w-0">
                     {c.tipo === 'ajuste' && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-insignia-info/10 text-insignia-info shrink-0">
@@ -441,7 +441,7 @@ function FormularioCarga({
   const esAjuste = modo === 'ajuste'
 
   return (
-    <div className="p-3 rounded-lg border border-borde-sutil bg-superficie-hover/30 space-y-2.5">
+    <div className="p-3 rounded-card border border-borde-sutil bg-superficie-hover/30 space-y-2.5">
       <p className="text-xs font-medium text-texto-secundario">
         {esAjuste ? 'Ajustar saldo actual' : 'Registrar recarga de crédito'}
       </p>
@@ -451,7 +451,7 @@ function FormularioCarga({
         </p>
       )}
       <div className="flex gap-2">
-        <div className="flex items-center gap-1.5 flex-1 rounded-lg border border-borde-sutil bg-superficie-tarjeta px-3 py-2">
+        <div className="flex items-center gap-1.5 flex-1 rounded-card border border-borde-sutil bg-superficie-tarjeta px-3 py-2">
           <span className="text-sm text-texto-terciario shrink-0">US$</span>
           <input
             type="number"
@@ -469,7 +469,7 @@ function FormularioCarga({
           value={fechaNueva}
           onChange={e => setFechaNueva(e.target.value)}
           max={hoy()}
-          className="rounded-lg border border-borde-sutil bg-superficie-tarjeta px-3 py-2 text-sm text-texto-primario outline-none [color-scheme:dark]"
+          className="rounded-card border border-borde-sutil bg-superficie-tarjeta px-3 py-2 text-sm text-texto-primario outline-none [color-scheme:dark]"
         />
       </div>
       <input
@@ -477,7 +477,7 @@ function FormularioCarga({
         value={notaNueva}
         onChange={e => setNotaNueva(e.target.value)}
         placeholder="Nota (opcional)"
-        className="w-full rounded-lg border border-borde-sutil bg-superficie-tarjeta px-3 py-2 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none"
+        className="w-full rounded-card border border-borde-sutil bg-superficie-tarjeta px-3 py-2 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none"
       />
       <div className="flex gap-2 justify-end">
         <Boton variante="fantasma" tamano="xs" onClick={onCancelar}>

@@ -165,7 +165,7 @@ export default function SeccionDatosPresupuesto({
       </div>
 
       {/* Datos del presupuesto — agrupados con divide-y */}
-      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
+      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card -mx-3 divide-y divide-borde-sutil/50">
         {/* Referencia */}
         <div className="px-3 py-1">
           <div className={fila}>
@@ -294,7 +294,7 @@ export default function SeccionDatosPresupuesto({
                   const montoTotal = totalDocumento * h.porcentaje / 100
                   const montoNeto = subtotalNeto * h.porcentaje / 100
                   return (
-                    <div key={h.id} className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                    <div key={h.id} className="rounded-boton border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                       {/* Encabezado: descripción + porcentaje */}
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs font-medium text-texto-secundario">{h.descripcion}</span>

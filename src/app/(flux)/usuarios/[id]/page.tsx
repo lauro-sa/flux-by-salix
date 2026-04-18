@@ -9,7 +9,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, FileText, Wallet, Shield, KeyRound, FileUp } from 'lucide-react'
+import { User, FileText, Wallet, Shield, KeyRound, FileUp, Fingerprint, PowerOff, ChevronRight } from 'lucide-react'
+import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -34,6 +35,8 @@ import { CabeceraUsuario } from './_componentes/CabeceraUsuario'
 import { TabResumen } from './_componentes/TabResumen'
 import { TabInformacion } from './_componentes/TabInformacion'
 import { TabPagos } from './_componentes/TabPagos'
+import { InfoEstadoMiembro } from '@/componentes/entidad/InfoEstadoMiembro'
+import { calcularEstadoMiembro } from '@/lib/miembros/estado'
 
 /* ═══════════════════════════════════════════════════
    PÁGINA PRINCIPAL
@@ -87,6 +90,15 @@ export default function PaginaPerfilUsuario() {
   const [archivosDocLocal, setArchivosDocLocal] = useState<Record<string, { nombre: string; url: string | null; subiendo: boolean; error?: boolean }>>({})
   const [docPreview, setDocPreview] = useState<{ titulo: string; url: string } | null>(null)
 
+  /* ── Estado: invitación vigente + acciones del ciclo de vida ── */
+  const [invitacionVigente, setInvitacionVigente] = useState<{ token: string; expira_en: string; usado: boolean } | null>(null)
+  const [linkInvitacion, setLinkInvitacion] = useState<string | null>(null)
+  const [accionEstadoCargando, setAccionEstadoCargando] = useState<'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | null>(null)
+  /* Modal con 2 opciones al tocar "Desactivar": solo fichaje o desactivar completo */
+  const [modalOpcionesDesactivar, setModalOpcionesDesactivar] = useState(false)
+  const [opcionDesactivarCargando, setOpcionDesactivarCargando] = useState<'solo-fichaje' | 'completo' | null>(null)
+  const [errorDesactivar, setErrorDesactivar] = useState('')
+
   /* ── Refs para setSnapshot ── */
   const setSnapshotPerfilRef = useRef<(d: Record<string, unknown>) => void>(() => {})
   const setSnapshotMiembroRef = useRef<(d: Record<string, unknown>) => void>(() => {})
@@ -107,29 +119,64 @@ export default function PaginaPerfilUsuario() {
       setMiembro(miembroData)
       setSnapshotMiembroRef.current(miembroData as unknown as Record<string, unknown>)
 
-      const { data: perfilData } = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id', miembroData.usuario_id)
-        .single()
+      let perfilData: Perfil | null = null
 
-      if (perfilData) {
-        setPerfil(perfilData)
-        setSnapshotPerfilRef.current(perfilData as unknown as Record<string, unknown>)
-
-        // Registrar en historial de recientes (fire-and-forget)
-        fetch('/api/dashboard/recientes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tipoEntidad: 'miembro',
-            entidadId: miembroData.id,
-            titulo: [perfilData.nombre, perfilData.apellido].filter(Boolean).join(' ') || 'Usuario',
-            subtitulo: miembroData.puesto_nombre || miembroData.rol || undefined,
-            accion: 'visto',
-          }),
-        }).catch(() => {})
+      if (miembroData.usuario_id) {
+        // Miembro con cuenta Flux: traer perfil real
+        const { data } = await supabase
+          .from('perfiles')
+          .select('*')
+          .eq('id', miembroData.usuario_id)
+          .single()
+        if (data) perfilData = data as Perfil
       }
+
+      if (!perfilData) {
+        // Miembro sin cuenta (solo fichaje/pendiente): derivar perfil "sintético"
+        // desde el contacto tipo equipo vinculado a este miembro. Esto permite
+        // que la página /usuarios/[id] muestre los datos del empleado aunque
+        // todavía no exista en auth.users. Los updates se redirigen al contacto.
+        const { data: contacto } = await supabase
+          .from('contactos')
+          .select('nombre, apellido, correo, telefono, fecha_nacimiento, documento_numero, domicilio')
+          .eq('miembro_id', miembroData.id)
+          .eq('en_papelera', false)
+          .maybeSingle()
+
+        perfilData = {
+          id: '', // vacío = perfil sintético; guardarPerfil lo usa como señal
+          nombre: contacto?.nombre || '',
+          apellido: contacto?.apellido || '',
+          avatar_url: null,
+          telefono: contacto?.telefono || null,
+          creado_en: miembroData.unido_en,
+          actualizado_en: miembroData.unido_en,
+          correo: contacto?.correo || null,
+          correo_empresa: contacto?.correo || null,
+          telefono_empresa: null,
+          fecha_nacimiento: contacto?.fecha_nacimiento || null,
+          genero: null,
+          documento_numero: contacto?.documento_numero || null,
+          domicilio: contacto?.domicilio || null,
+          direccion: null,
+        }
+      }
+
+      setPerfil(perfilData)
+      setSnapshotPerfilRef.current(perfilData as unknown as Record<string, unknown>)
+
+      // Registrar en historial de recientes (fire-and-forget)
+      fetch('/api/dashboard/recientes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoEntidad: 'miembro',
+          entidadId: miembroData.id,
+          titulo: [perfilData.nombre, perfilData.apellido].filter(Boolean).join(' ') || 'Usuario',
+          subtitulo: miembroData.puesto_nombre || miembroData.rol || undefined,
+          accion: 'visto',
+        }),
+      }).catch(() => {})
 
       // Sectores de la empresa
       const { data: sectoresData } = await supabase
@@ -188,9 +235,68 @@ export default function PaginaPerfilUsuario() {
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
+  /* ── Cargar invitación vigente por correo del empleado (si existe) ── */
+  useEffect(() => {
+    if (!empresa || !miembro) { setInvitacionVigente(null); return }
+    const correoBuscado = (perfil?.correo_empresa || perfil?.correo || '').toLowerCase().trim()
+    if (!correoBuscado) { setInvitacionVigente(null); return }
+
+    supabase
+      .from('invitaciones')
+      .select('token, expira_en, usado')
+      .eq('empresa_id', empresa.id)
+      .eq('correo', correoBuscado)
+      .eq('usado', false)
+      .gt('expira_en', new Date().toISOString())
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setInvitacionVigente(data)
+          // Reconstruir link (usando slug si lo tiene la empresa)
+          const slug = (empresa as { slug?: string }).slug
+          const dominio = process.env.NEXT_PUBLIC_APP_DOMAIN || 'fluxsalix.com'
+          const link = slug
+            ? `https://${slug}.${dominio}/invitacion?token=${data.token}`
+            : `${window.location.origin}/invitacion?token=${data.token}`
+          setLinkInvitacion(link)
+        } else {
+          setInvitacionVigente(null)
+          setLinkInvitacion(null)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa, miembro, perfil])
+
   /* ── Autoguardado ── */
   const guardarPerfil = useCallback(async (datos: Record<string, unknown>) => {
     if (!perfil) return false
+
+    // Perfil sintético (miembro sin cuenta Flux): los cambios se persisten
+    // en el contacto tipo equipo vinculado en vez de en `perfiles`. Cuando
+    // el empleado reclame su cuenta, el trigger de registro copia estos
+    // datos al perfil real.
+    if (!perfil.id) {
+      const mapaContacto: Record<string, unknown> = {}
+      if ('nombre' in datos) mapaContacto.nombre = datos.nombre
+      if ('apellido' in datos) mapaContacto.apellido = datos.apellido
+      if ('telefono' in datos) mapaContacto.telefono = datos.telefono
+      if ('correo_empresa' in datos) mapaContacto.correo = datos.correo_empresa
+      if ('correo' in datos) mapaContacto.correo = datos.correo
+      if ('fecha_nacimiento' in datos) mapaContacto.fecha_nacimiento = datos.fecha_nacimiento
+      if ('documento_numero' in datos) mapaContacto.documento_numero = datos.documento_numero
+      if ('domicilio' in datos) mapaContacto.domicilio = datos.domicilio
+
+      if (Object.keys(mapaContacto).length === 0) return true
+
+      const { error } = await supabase
+        .from('contactos')
+        .update(mapaContacto)
+        .eq('miembro_id', miembroId)
+      return !error
+    }
+
     try {
       const res = await fetch('/api/perfiles/actualizar', {
         method: 'PATCH',
@@ -202,7 +308,7 @@ export default function PaginaPerfilUsuario() {
       return false
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perfil])
+  }, [perfil, miembroId])
 
   const guardarMiembro = useCallback(async (datos: Record<string, unknown>) => {
     if (!miembro) return false
@@ -489,6 +595,141 @@ export default function PaginaPerfilUsuario() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargarPagos])
 
+  /* ── Acciones del ciclo de vida (invitar / reenviar / copiar / cancelar / activar) ── */
+  const manejarAccionEstado = useCallback(async (
+    accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar'
+  ) => {
+    if (!miembro) return
+    setAccionEstadoCargando(accion)
+
+    try {
+      if (accion === 'copiar-link') {
+        if (linkInvitacion) {
+          await navigator.clipboard.writeText(linkInvitacion)
+          // dejar breve feedback visual (el botón muestra Check mientras está "cargando")
+          await new Promise(r => setTimeout(r, 900))
+        }
+        return
+      }
+
+      if (accion === 'invitar' || accion === 'reenviar') {
+        const correoDestino = (perfil?.correo_empresa || perfil?.correo || '').trim()
+        if (!correoDestino) return
+        const res = await fetch('/api/invitaciones/crear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo: correoDestino, rol: miembro.rol || 'empleado' }),
+        })
+        if (res.ok) {
+          const datos = await res.json()
+          if (datos?.invitacion) {
+            setInvitacionVigente({
+              token: datos.invitacion.token,
+              expira_en: datos.invitacion.expira_en,
+              usado: false,
+            })
+            setLinkInvitacion(datos.link || null)
+          }
+        }
+        return
+      }
+
+      if (accion === 'cancelar-invitacion') {
+        const correoDestino = (perfil?.correo_empresa || perfil?.correo || '').trim()
+        if (!correoDestino) return
+        const res = await fetch('/api/invitaciones/cancelar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo: correoDestino }),
+        })
+        if (res.ok) {
+          setInvitacionVigente(null)
+          setLinkInvitacion(null)
+        }
+        return
+      }
+
+      if (accion === 'desactivar') {
+        // En lugar de desactivar directo, abrimos modal con 2 opciones:
+        // pasar a solo fichaje (desvincular cuenta) o desactivar por completo.
+        setErrorDesactivar('')
+        setModalOpcionesDesactivar(true)
+        return
+      }
+
+      if (accion === 'reactivar') {
+        const res = await fetch('/api/miembros/activar', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ miembro_id: miembroId, activo: true }),
+        })
+        if (res.ok) setMiembro(m => m ? { ...m, activo: true } : null)
+      }
+    } finally {
+      setAccionEstadoCargando(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [miembro, miembroId, perfil, linkInvitacion])
+
+  /* ── Ejecutar opción del modal de desactivar ── */
+  const ejecutarDesactivacion = useCallback(async (
+    opcion: 'solo-fichaje' | 'completo',
+    forzar = false,
+  ) => {
+    setOpcionDesactivarCargando(opcion)
+    setErrorDesactivar('')
+    try {
+      if (opcion === 'solo-fichaje') {
+        const res = await fetch('/api/miembros/desvincular-cuenta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ miembro_id: miembroId, forzar }),
+        })
+        const datos = await res.json()
+        if (!res.ok) {
+          // Si requiere forzar, el admin confirma y reintentamos
+          if (datos?.requiere_forzar && !forzar) {
+            const confirmado = window.confirm(
+              'Este empleado ya inició sesión en Flux. ¿Querés desvincular su cuenta igualmente? La información del empleado se mantiene, solo pierde el acceso a la app.'
+            )
+            if (confirmado) return ejecutarDesactivacion(opcion, true)
+          }
+          setErrorDesactivar(datos?.error || 'Error al pasar a solo fichaje')
+          return
+        }
+        // Recargar datos: el miembro ahora es "solo fichaje"
+        await cargarDatos()
+        setModalOpcionesDesactivar(false)
+      } else {
+        // Desactivación completa: miembro.activo = false
+        const res = await fetch('/api/miembros/activar', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ miembro_id: miembroId, activo: false }),
+        })
+        const datos = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setErrorDesactivar(datos?.error || 'Error al desactivar')
+          return
+        }
+        setMiembro(m => m ? { ...m, activo: false } : null)
+        setModalOpcionesDesactivar(false)
+      }
+    } finally {
+      setOpcionDesactivarCargando(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [miembroId, cargarDatos])
+
+  /* Estado derivado del ciclo de vida del empleado */
+  const estadoCicloMiembro = useMemo(() => {
+    if (!miembro) return 'fichaje' as const
+    return calcularEstadoMiembro(
+      { usuario_id: miembro.usuario_id ?? null, activo: miembro.activo },
+      invitacionVigente,
+    )
+  }, [miembro, invitacionVigente])
+
   /* ── Datos derivados ── */
   const nombreCompleto = perfil ? `${perfil.nombre || 'Sin'} ${perfil.apellido || 'nombre'}` : ''
 
@@ -622,12 +863,12 @@ export default function PaginaPerfilUsuario() {
 
   const estadoIndicador = estadoPerfil !== 'idle' ? estadoPerfil : estadoMiembro
 
-  /* ── Tabs config ── */
+  /* ── Tabs config — "Permisos" solo aplica a empleados con cuenta Flux ── */
   const tabsConfig = [
     { clave: 'resumen', etiqueta: 'Resumen', icono: <User size={15} /> },
     { clave: 'informacion', etiqueta: 'Información', icono: <FileText size={15} /> },
     { clave: 'pagos', etiqueta: 'Pagos', icono: <Wallet size={15} /> },
-    { clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> },
+    ...(miembro?.usuario_id ? [{ clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> }] : []),
   ]
 
   /* ════════════ LOADING / ERROR ════════════ */
@@ -636,9 +877,9 @@ export default function PaginaPerfilUsuario() {
       <div className="p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 w-24 bg-superficie-hover rounded" />
-          <div className="h-20 bg-superficie-hover rounded-xl" />
+          <div className="h-20 bg-superficie-hover rounded-card" />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-superficie-hover rounded-lg" />)}
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-superficie-hover rounded-card" />)}
           </div>
         </div>
       </div>
@@ -683,6 +924,19 @@ export default function PaginaPerfilUsuario() {
         empresaId={empresa?.id || ''}
         miembroId={miembroId}
       />
+
+      {/* ══════ ESTADO DEL CICLO DE VIDA ══════ */}
+      {miembro.rol !== 'propietario' && (
+        <InfoEstadoMiembro
+          estado={estadoCicloMiembro}
+          correo={perfil?.correo_empresa || perfil?.correo || null}
+          invitacion={invitacionVigente}
+          linkInvitacion={linkInvitacion}
+          puedeGestionar={puedeEditar}
+          onAccion={manejarAccionEstado}
+          cargando={accionEstadoCargando}
+        />
+      )}
 
       {/* ══════ TABS ══════ */}
       <Tabs
@@ -874,7 +1128,7 @@ export default function PaginaPerfilUsuario() {
         {docPreview && (
           <div className="flex flex-col items-center gap-4">
             <div className="relative w-full" style={{ height: '60dvh' }}>
-              <Image src={docPreview.url} alt={docPreview.titulo} fill sizes="(max-width: 768px) 100vw, 600px" className="object-contain rounded-lg" />
+              <Image src={docPreview.url} alt={docPreview.titulo} fill sizes="(max-width: 768px) 100vw, 600px" className="object-contain rounded-card" />
             </div>
             <a
               href={docPreview.url}
@@ -901,6 +1155,85 @@ export default function PaginaPerfilUsuario() {
         etiquetaConfirmar="Eliminar"
         cargando={accionCargando === 'eliminar'}
       />
+
+      {/* ══════ MODAL OPCIONES AL DESACTIVAR ══════ */}
+      <Modal
+        abierto={modalOpcionesDesactivar}
+        onCerrar={() => { if (!opcionDesactivarCargando) setModalOpcionesDesactivar(false) }}
+        titulo={`Desactivar a ${perfil?.nombre || 'este empleado'}`}
+        tamano="md"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-texto-secundario leading-relaxed">
+            Elegí cómo querés desactivar el acceso. Los datos del empleado (legajo, RFID, fichadas, pagos, compensación) se mantienen intactos en cualquier caso.
+          </p>
+
+          {/* Opción 1: Pasar a solo fichaje */}
+          <Tarjeta
+            compacta
+            onClick={opcionDesactivarCargando ? undefined : () => ejecutarDesactivacion('solo-fichaje')}
+            className={opcionDesactivarCargando ? 'opacity-50 pointer-events-none' : 'group'}
+          >
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 size-10 rounded-input bg-insignia-cyan-fondo text-insignia-cyan-texto flex items-center justify-center">
+                <Fingerprint size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-texto-primario flex items-center gap-2">
+                  Pasar a solo fichaje
+                  {opcionDesactivarCargando === 'solo-fichaje' && (
+                    <span className="text-xs text-texto-terciario">Aplicando…</span>
+                  )}
+                </p>
+                <p className="text-xs text-texto-secundario mt-1 leading-relaxed">
+                  Sigue fichando en el kiosco con RFID o PIN. Pierde el acceso a la app Flux. Podés re-invitarlo después cuando quieras.
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-texto-terciario shrink-0 group-hover:text-texto-primario transition-colors" />
+            </div>
+          </Tarjeta>
+
+          {/* Opción 2: Desactivar por completo */}
+          <Tarjeta
+            compacta
+            onClick={opcionDesactivarCargando ? undefined : () => ejecutarDesactivacion('completo')}
+            className={opcionDesactivarCargando ? 'opacity-50 pointer-events-none' : 'group'}
+          >
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 size-10 rounded-input bg-insignia-neutro-fondo text-insignia-neutro-texto flex items-center justify-center">
+                <PowerOff size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-texto-primario flex items-center gap-2">
+                  Desactivar por completo
+                  {opcionDesactivarCargando === 'completo' && (
+                    <span className="text-xs text-texto-terciario">Aplicando…</span>
+                  )}
+                </p>
+                <p className="text-xs text-texto-secundario mt-1 leading-relaxed">
+                  No puede fichar ni acceder a Flux. Se mantiene todo el historial, podés reactivar cuando quieras.
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-texto-terciario shrink-0 group-hover:text-texto-primario transition-colors" />
+            </div>
+          </Tarjeta>
+
+          {errorDesactivar && (
+            <p className="text-xs text-insignia-peligro pt-1">{errorDesactivar}</p>
+          )}
+
+          <div className="flex justify-end pt-2 border-t border-white/[0.07]">
+            <Boton
+              variante="fantasma"
+              tamano="sm"
+              onClick={() => setModalOpcionesDesactivar(false)}
+              disabled={!!opcionDesactivarCargando}
+            >
+              {t('comun.cancelar')}
+            </Boton>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

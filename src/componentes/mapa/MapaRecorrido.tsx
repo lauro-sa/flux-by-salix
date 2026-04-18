@@ -93,7 +93,7 @@ export function MapaRecorrido({
   // Fallback sin API key
   if (!API_KEY) {
     return (
-      <div className={`rounded-xl border border-borde-sutil bg-superficie-tarjeta p-4 ${className}`}>
+      <div className={`rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 ${className}`}>
         <p className="text-texto-secundario text-sm mb-3">
           Mapa no disponible — configurar NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         </p>
@@ -256,7 +256,7 @@ export function MapaRecorrido({
       {puntos.length > 0 && (
         <div className="absolute bottom-14 left-3 z-20">
           {selectorAbierto ? (
-            <div className={`flex flex-col gap-1 backdrop-blur-md rounded-xl p-1.5 border ${
+            <div className={`flex flex-col gap-1 backdrop-blur-md rounded-card p-1.5 border ${
               esClaro
                 ? 'bg-white/90 border-black/10 shadow-lg'
                 : 'bg-black/80 border-white/10'
@@ -265,7 +265,7 @@ export function MapaRecorrido({
                 <button
                   key={valor}
                   onClick={() => cambiarPreferencia(valor)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-card text-xs font-medium transition-colors ${
                     preferencia === valor
                       ? 'bg-insignia-info text-texto-inverso'
                       : esClaro

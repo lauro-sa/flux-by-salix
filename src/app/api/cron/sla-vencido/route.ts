@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Buscar conversaciones con SLA vencido que todavía no fueron respondidas
     const { data: conversaciones, error } = await admin
       .from('conversaciones')
-      .select('id, empresa_id, contacto_nombre, canal, asignado_a, asignado_nombre, sla_primera_respuesta_vence_en')
+      .select('id, empresa_id, contacto_nombre, canal, tipo_canal, asignado_a, asignado_nombre, sla_primera_respuesta_vence_en')
       .not('sla_primera_respuesta_vence_en', 'is', null)
       .is('sla_primera_respuesta_en', null)
       .lt('sla_primera_respuesta_vence_en', ahora)
@@ -46,19 +46,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, notificadas: 0 })
     }
 
-    // Obtener config de inbox por empresa para verificar si tienen SLA habilitado
+    // Leer config por canal (correo/whatsapp) — cada módulo tiene su flag SLA
     const empresaIds = [...new Set(conversaciones.map(c => c.empresa_id))]
-    const { data: configs } = await admin
-      .from('config_inbox')
-      .select('empresa_id, notificar_sla_vencido')
-      .in('empresa_id', empresaIds)
-
-    const configPorEmpresa = new Map(configs?.map(c => [c.empresa_id, c]) || [])
+    const [{ data: configsCorreo }, { data: configsWhatsApp }] = await Promise.all([
+      admin.from('config_correo').select('empresa_id, notificar_sla_vencido').in('empresa_id', empresaIds),
+      admin.from('config_whatsapp').select('empresa_id, notificar_sla_vencido').in('empresa_id', empresaIds),
+    ])
+    const configCorreoMap = new Map(configsCorreo?.map(c => [c.empresa_id, c]) || [])
+    const configWhatsAppMap = new Map(configsWhatsApp?.map(c => [c.empresa_id, c]) || [])
 
     let notificadas = 0
 
     for (const conv of conversaciones) {
-      const config = configPorEmpresa.get(conv.empresa_id)
+      const tipo = (conv as { tipo_canal?: string }).tipo_canal || conv.canal
+      const config = tipo === 'whatsapp' ? configWhatsAppMap.get(conv.empresa_id)
+        : tipo === 'correo' ? configCorreoMap.get(conv.empresa_id)
+        : null
       if (config && !config.notificar_sla_vencido) continue
 
       // Calcular cuánto se pasó del SLA

@@ -4,7 +4,7 @@ import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { PanelInterno } from './PanelInterno'
 import { ModalCrearCanalInterno } from './ModalCrearCanalInterno'
 import type { ConversacionConDetalles, MensajeConAdjuntos, CanalInterno } from '@/tipos/inbox'
-import type { DatosMensaje } from './CompositorMensaje'
+import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { VistaMovilInterno } from './useEstadoInbox'
 
 /**

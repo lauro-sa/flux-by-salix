@@ -250,7 +250,7 @@ export function PreviewMembrete({
       <div ref={contenedorRef}>
         <div className="flex justify-center" style={{ height: expandido ? `${(ANCHO_PDF * (297 / 210)) * escala}px` : 'auto' }}>
           <motion.div
-            className="bg-white rounded-lg shadow-lg border border-borde-sutil overflow-hidden origin-top"
+            className="bg-white rounded-card shadow-lg border border-borde-sutil overflow-hidden origin-top"
             style={{ width: ANCHO_PDF, transform: `scale(${escala})` }}
             animate={{ height: expandido ? ANCHO_PDF * (297 / 210) : 'auto' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -358,7 +358,7 @@ export function PreviewPiePagina({
       <div ref={contenedorRef}>
         <div className="flex justify-center" style={{ height: expandido ? `${(ANCHO_PDF * (297 / 210)) * escala}px` : 'auto' }}>
           <motion.div
-            className="bg-white rounded-lg shadow-lg border border-borde-sutil overflow-hidden origin-top"
+            className="bg-white rounded-card shadow-lg border border-borde-sutil overflow-hidden origin-top"
             style={{ width: ANCHO_PDF, transform: `scale(${escala})` }}
             animate={{ height: expandido ? ANCHO_PDF * (297 / 210) : 'auto' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}

@@ -12,7 +12,7 @@ export default function PaginaInformes() {
           Informes
         </h1>
       </div>
-      <div className="flex-1 flex items-center justify-center bg-superficie-tarjeta border border-borde-sutil rounded-lg">
+      <div className="flex-1 flex items-center justify-center bg-superficie-tarjeta border border-borde-sutil rounded-card">
         <EstadoVacio
           icono={<BarChart3 size={52} strokeWidth={1} />}
           titulo="Los números están por llegar"

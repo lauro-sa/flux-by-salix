@@ -248,7 +248,7 @@ function EntradaSistema({
               {' · creó actividad'}
             </p>
             <div
-              className={`rounded-lg border p-3 space-y-2 transition-colors ${
+              className={`rounded-card border p-3 space-y-2 transition-colors ${
                 actividadResuelta
                   ? 'border-white/[0.05] bg-white/[0.01] opacity-60'
                   : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.12] cursor-pointer'
@@ -340,7 +340,7 @@ function EntradaSistema({
                   <AnimatePresence>
                     {menuPosponer && (
                       <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }}
-                        className="absolute left-0 bottom-full mb-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl py-1 min-w-[120px]">
+                        className="absolute left-0 bottom-full mb-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-xl py-1 min-w-[120px]">
                         {OPCIONES_POSPONER.map(opcion => (
                           <button key={opcion.dias} onClick={() => handlePosponer(opcion.dias)}
                             className="w-full text-left px-3 py-1.5 text-xs text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors">
@@ -517,7 +517,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
   const htmlCorreo = entrada.metadata?.correo_html
 
   return (
-    <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-lg my-0.5">
+    <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-card my-0.5">
       {/* Línea de sistema: quién ejecutó la acción */}
       <div className="flex items-center gap-2.5">
         <div className="flex items-center justify-center size-6 rounded-full shrink-0 bg-canal-correo/10 text-canal-correo">
@@ -533,7 +533,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
       </div>
 
       {/* Card del correo expandible */}
-      <div className={`rounded-lg border overflow-hidden ml-8 ${
+      <div className={`rounded-card border overflow-hidden ml-8 ${
         esRecibido
           ? 'border-canal-correo/30 bg-canal-correo/5'
           : 'border-borde-sutil bg-superficie-app/60'
@@ -609,7 +609,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
   const botones = entrada.metadata?.whatsapp_botones
 
   return (
-    <div className="rounded-lg border border-canal-whatsapp/20 bg-canal-whatsapp/[0.03] overflow-hidden my-1">
+    <div className="rounded-card border border-canal-whatsapp/20 bg-canal-whatsapp/[0.03] overflow-hidden my-1">
       {/* Header: nombre + plantilla badge */}
       <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
         <div className="flex items-center justify-center size-7 rounded-full bg-canal-whatsapp/10 text-canal-whatsapp shrink-0">
@@ -750,7 +750,7 @@ function EntradaNotaInterna({
   const fueEditada = !!entrada.editado_en
 
   return (
-    <div className="group flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-lg my-0.5">
+    <div className="group flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-card my-0.5">
       <Avatar nombre={entrada.autor_nombre} foto={entrada.autor_avatar_url} tamano="xs" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -809,7 +809,7 @@ function EntradaNotaInterna({
 function EntradaMensaje({ entrada, esMensajePortal, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; esMensajePortal: boolean; formatoHora: string; locale: string }) {
   return (
     <div className={`flex items-start gap-2.5 py-2 ${
-      esMensajePortal ? 'bg-texto-marca/5 -mx-3 px-3 rounded-lg my-0.5' : ''
+      esMensajePortal ? 'bg-texto-marca/5 -mx-3 px-3 rounded-card my-0.5' : ''
     }`}>
       <Avatar nombre={entrada.autor_nombre} foto={entrada.autor_avatar_url} tamano="xs" />
       <div className="flex-1 min-w-0">
@@ -872,7 +872,7 @@ function ListaAdjuntos({ adjuntos }: { adjuntos?: { url: string; nombre: string;
             href={adj.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group block w-[120px] rounded-md border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
+            className="group block w-[120px] rounded-boton border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
             title={adj.nombre}
           >
             {/* Preview */}

@@ -82,7 +82,7 @@ export function MatrizCategoria({
   }, [columnas, modulos, permisos])
 
   return (
-    <div className="rounded-lg border border-borde-sutil overflow-hidden">
+    <div className="rounded-card border border-borde-sutil overflow-hidden">
       {/* Cabecera de categoria */}
       <div className="flex items-center justify-between w-full px-4 py-3 bg-superficie-tarjeta rounded-t-lg">
         <div

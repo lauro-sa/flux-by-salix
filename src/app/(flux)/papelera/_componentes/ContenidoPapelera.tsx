@@ -420,7 +420,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           {/* Info + contador */}
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg bg-insignia-peligro/10 flex items-center justify-center shrink-0">
+            <div className="size-9 rounded-card bg-insignia-peligro/10 flex items-center justify-center shrink-0">
               <Trash2 size={18} className="text-insignia-peligro" />
             </div>
             <div>
@@ -446,7 +446,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
               placeholder="Buscar en papelera..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 text-sm bg-superficie-tarjeta border border-borde-sutil rounded-lg outline-none text-texto-primario placeholder:text-texto-terciario focus:border-texto-marca/40 transition-colors"
+              className="w-full pl-9 pr-8 py-2 text-sm bg-superficie-tarjeta border border-borde-sutil rounded-card outline-none text-texto-primario placeholder:text-texto-terciario focus:border-texto-marca/40 transition-colors"
             />
             {busqueda && (
               <button
@@ -482,7 +482,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
         {cargando ? (
           <SkeletonLista filas={6} />
         ) : elementosFiltrados.length === 0 ? (
-          <div className="flex items-center justify-center h-full bg-superficie-tarjeta border border-borde-sutil rounded-xl">
+          <div className="flex items-center justify-center h-full bg-superficie-tarjeta border border-borde-sutil rounded-card">
             <EstadoVacio
               icono={<Trash2 size={48} strokeWidth={1} />}
               titulo={busqueda ? 'Sin resultados' : 'Papelera vacía'}
@@ -508,11 +508,11 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                    className="flex gap-3 px-4 py-3.5 rounded-xl bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors"
+                    className="flex gap-3 px-4 py-3.5 rounded-card bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors"
                   >
                     {/* Ícono tipo + avatar eliminador apilados a las puntas */}
                     <div className="flex flex-col items-center justify-between shrink-0 self-stretch">
-                      <div className="size-9 rounded-lg flex items-center justify-center bg-superficie-hover">
+                      <div className="size-9 rounded-card flex items-center justify-center bg-superficie-hover">
                         <Icono size={16} className="text-texto-terciario" />
                       </div>
                       <Tooltip contenido={nombreEliminador || 'Usuario desconocido'} posicion="derecha" delay={300}>

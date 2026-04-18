@@ -2,12 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Settings2, Bell, Tag, Zap, ListChecks, Clock, Briefcase } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { SeccionTipos, type TipoActividad } from './secciones/SeccionTipos'
 import { SeccionEstados, type EstadoActividad } from './secciones/SeccionEstados'
 import { SeccionPosposicion } from './secciones/SeccionPosposicion'
 import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
@@ -20,10 +18,8 @@ export default function PaginaConfiguracionActividades() {
   const router = useRouter()
   const [seccionActiva, setSeccionActiva] = useState('tipos')
   const [cargando, setCargando] = useState(true)
-  const [tipos, setTipos] = useState<TipoActividad[]>([])
   const [estados, setEstados] = useState<EstadoActividad[]>([])
   const [config, setConfig] = useState<Record<string, unknown> | null>(null)
-  const [miembros, setMiembros] = useState<{ usuario_id: string; nombre: string; apellido: string }[]>([])
 
   const secciones: SeccionConfig[] = [
     { id: 'tipos', etiqueta: 'Tipos de actividad', icono: <Tag size={16} />, grupo: 'Personalización' },
@@ -41,23 +37,8 @@ export default function PaginaConfiguracionActividades() {
       ])
       if (!configRes.ok) throw new Error()
       const data = await configRes.json()
-      setTipos(data.tipos || [])
       setEstados(data.estados || [])
       setConfig(data.config || null)
-
-      // Cargar miembros
-      const supabase = crearClienteNavegador()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const empresaId = user.app_metadata?.empresa_activa_id
-        if (empresaId) {
-          const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-          if (mRes?.length) {
-            const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
-            setMiembros((perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido })))
-          }
-        }
-      }
     } catch {
       console.error('Error al cargar config de actividades')
     } finally {
@@ -92,17 +73,14 @@ export default function PaginaConfiguracionActividades() {
       onVolver={() => router.push('/actividades')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        if (id === 'tipos') {
+          router.push('/actividades/configuracion/tipos')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
-      {seccionActiva === 'tipos' && (
-        <SeccionTipos
-          tipos={tipos}
-          miembros={miembros}
-          cargando={cargando}
-          onActualizar={setTipos}
-          onAccionAPI={ejecutarAccion}
-        />
-      )}
       {seccionActiva === 'estados' && (
         <SeccionEstados
           estados={estados}

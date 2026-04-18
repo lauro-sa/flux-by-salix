@@ -34,7 +34,7 @@ function GuardaModulo({ slug, nombre, children }: PropiedadesGuardaModulo) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 max-w-sm text-center p-6">
-          <div className="w-14 h-14 rounded-2xl bg-superficie-elevada flex items-center justify-center text-texto-terciario">
+          <div className="w-14 h-14 rounded-modal bg-superficie-elevada flex items-center justify-center text-texto-terciario">
             <Blocks size={28} strokeWidth={1.5} />
           </div>
           <div>

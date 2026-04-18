@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Settings2, Clock, CalendarCheck, Monitor, Timer, Zap,
-  Plus, Trash2, Star, ChevronDown, ChevronUp, Shield,
-  Link2, Copy, RefreshCw, Ban, ExternalLink, Globe,
+  Plus, Trash2, Shield,
+  Link2, Copy, RefreshCw, Ban, Globe,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -15,37 +15,11 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { useFormato } from '@/hooks/useFormato'
-import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { QRCodeSVG } from 'qrcode.react'
 import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 // ─── Tipos ───────────────────────────────────────────────────
-
-interface DiaHorario {
-  activo: boolean
-  desde: string
-  hasta: string
-}
-
-interface DiasConfig {
-  lunes: DiaHorario
-  martes: DiaHorario
-  miercoles: DiaHorario
-  jueves: DiaHorario
-  viernes: DiaHorario
-  sabado: DiaHorario
-  domingo: DiaHorario
-}
-
-interface TurnoLaboral {
-  id: string
-  nombre: string
-  es_default: boolean
-  flexible: boolean
-  tolerancia_min: number
-  dias: DiasConfig
-}
 
 interface ConfigAsistencias {
   kiosco_habilitado: boolean
@@ -73,41 +47,6 @@ interface Terminal {
   creado_en: string
 }
 
-interface Sector {
-  id: string
-  nombre: string
-  turno_id: string | null
-  activo: boolean
-}
-
-interface HorarioEmpresa {
-  id: string
-  dia_semana: number // 0=Lun, 1=Mar, ... 6=Dom
-  hora_inicio: string
-  hora_fin: string
-  activo: boolean
-}
-
-const DIAS_SEMANA: { clave: keyof DiasConfig; etiqueta: string }[] = [
-  { clave: 'lunes', etiqueta: 'Lunes' },
-  { clave: 'martes', etiqueta: 'Martes' },
-  { clave: 'miercoles', etiqueta: 'Miércoles' },
-  { clave: 'jueves', etiqueta: 'Jueves' },
-  { clave: 'viernes', etiqueta: 'Viernes' },
-  { clave: 'sabado', etiqueta: 'Sábado' },
-  { clave: 'domingo', etiqueta: 'Domingo' },
-]
-
-const DIAS_DEFAULT: DiasConfig = {
-  lunes: { activo: true, desde: '09:00', hasta: '18:00' },
-  martes: { activo: true, desde: '09:00', hasta: '18:00' },
-  miercoles: { activo: true, desde: '09:00', hasta: '18:00' },
-  jueves: { activo: true, desde: '09:00', hasta: '18:00' },
-  viernes: { activo: true, desde: '09:00', hasta: '18:00' },
-  sabado: { activo: false, desde: '09:00', hasta: '13:00' },
-  domingo: { activo: false, desde: '09:00', hasta: '13:00' },
-}
-
 // ─── Página principal ────────────────────────────────────────
 
 export default function PaginaConfiguracionAsistencias() {
@@ -115,10 +54,7 @@ export default function PaginaConfiguracionAsistencias() {
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [cargando, setCargando] = useState(true)
   const [config, setConfig] = useState<ConfigAsistencias | null>(null)
-  const [turnos, setTurnos] = useState<TurnoLaboral[]>([])
   const [terminales, setTerminales] = useState<Terminal[]>([])
-  const [sectores, setSectores] = useState<Sector[]>([])
-  const [horariosEmpresa, setHorariosEmpresa] = useState<HorarioEmpresa[]>([])
 
   const cargar = useCallback(async () => {
     try {
@@ -126,10 +62,7 @@ export default function PaginaConfiguracionAsistencias() {
       if (!res.ok) return
       const data = await res.json()
       setConfig(data.config)
-      setTurnos(data.turnos || [])
       setTerminales(data.terminales || [])
-      setSectores(data.sectores || [])
-      setHorariosEmpresa(data.horarios_empresa || [])
     } finally {
       setCargando(false)
     }
@@ -165,7 +98,13 @@ export default function PaginaConfiguracionAsistencias() {
       onVolver={() => router.push('/asistencias')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        if (id === 'turnos') {
+          router.push('/asistencias/configuracion/turnos')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
       {cargando ? (
         <div className="flex items-center justify-center py-20">
@@ -175,9 +114,6 @@ export default function PaginaConfiguracionAsistencias() {
         <>
           {seccionActiva === 'general' && (
             <SeccionGeneral config={config} onGuardar={guardarConfig} />
-          )}
-          {seccionActiva === 'turnos' && (
-            <SeccionTurnos turnos={turnos} sectores={sectores} horariosEmpresa={horariosEmpresa} onRecargar={cargar} />
           )}
           {seccionActiva === 'kiosco' && (
             <SeccionKiosco config={config} onGuardar={guardarConfig} />
@@ -262,308 +198,6 @@ function SeccionGeneral({ config, onGuardar }: { config: ConfigAsistencias; onGu
   )
 }
 
-// ─── Sección Turnos Laborales ────────────────────────────────
-
-function SeccionTurnos({ turnos, sectores, horariosEmpresa, onRecargar }: {
-  turnos: TurnoLaboral[]
-  sectores: Sector[]
-  horariosEmpresa: HorarioEmpresa[]
-  onRecargar: () => void
-}) {
-  const router = useRouter()
-  const [expandido, setExpandido] = useState<string | null>(null)
-  const [creando, setCreando] = useState(false)
-  const [nuevoNombre, setNuevoNombre] = useState('')
-
-  // Turnos personalizados (excluir el predeterminado viejo si existe)
-  const turnosPersonalizados = turnos.filter(t => !t.es_default)
-
-  const crearTurno = async () => {
-    if (!nuevoNombre.trim()) return
-    setCreando(true)
-    await fetch('/api/asistencias/turnos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: nuevoNombre.trim(), es_default: false, dias: DIAS_DEFAULT }),
-    })
-    setNuevoNombre('')
-    setCreando(false)
-    onRecargar()
-  }
-
-  const actualizarTurno = async (id: string, campos: Partial<TurnoLaboral>) => {
-    await fetch('/api/asistencias/turnos', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...campos }),
-    })
-    onRecargar()
-  }
-
-  const eliminarTurno = async (id: string) => {
-    await fetch('/api/asistencias/turnos', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    onRecargar()
-  }
-
-  const asignarSector = async (sectorId: string, turnoId: string | null) => {
-    await fetch('/api/asistencias/config', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _asignar_sector: { sector_id: sectorId, turno_id: turnoId } }),
-    })
-    onRecargar()
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Horario predeterminado (read-only, desde config empresa) */}
-      <TarjetaConfig
-        titulo={
-          <div className="flex flex-wrap items-center gap-2">
-            <span>Horario predeterminado</span>
-            <span className="inline-flex items-center gap-1 text-xxs font-semibold px-1.5 py-0.5 rounded-full bg-insignia-exito/15 text-insignia-exito shrink-0">
-              <Star size={10} /> Empresa
-            </span>
-          </div>
-        }
-        descripcion="Este horario aplica a todos los empleados que no tengan un turno personalizado asignado. Se configura en Configuración de empresa → Regional."
-      >
-        {/* Vista read-only de días */}
-        <div className="space-y-1">
-          {DIAS_SEMANA.map(({ clave, etiqueta }, idx) => {
-            const horario = horariosEmpresa.find(h => h.dia_semana === idx)
-            const activo = horario?.activo ?? (idx <= 4)
-            const inicio = horario?.hora_inicio || '09:00'
-            const fin = horario?.hora_fin || '18:00'
-
-            return (
-              <div key={clave} className={`flex items-center gap-3 py-1.5 ${!activo ? 'opacity-40' : ''}`}>
-                <div className="w-28 shrink-0 flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${activo ? 'bg-insignia-exito' : 'bg-borde-sutil'}`} />
-                  <span className="text-sm text-texto-primario">{etiqueta}</span>
-                </div>
-                {activo ? (
-                  <span className="text-sm text-texto-secundario tabular-nums">
-                    {inicio.slice(0, 5)} a {fin.slice(0, 5)}
-                  </span>
-                ) : (
-                  <span className="text-xs text-texto-terciario italic">No laboral</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="pt-3 border-t border-borde-sutil mt-3">
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            onClick={() => router.push('/configuracion?seccion=estructura&tab=horarios')}
-          >
-            <ExternalLink size={12} className="mr-1" /> Editar en configuración de empresa
-          </Boton>
-        </div>
-      </TarjetaConfig>
-
-      {/* Crear turno personalizado */}
-      <TarjetaConfig titulo="Turnos personalizados" descripcion="Creá turnos con horarios diferentes al predeterminado. Después asignalos a sectores (abajo) o a miembros individuales desde su perfil. Los empleados sin turno asignado usan el horario predeterminado de la empresa.">
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Input
-              etiqueta="Nombre del turno"
-              value={nuevoNombre}
-              onChange={(e) => setNuevoNombre(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') crearTurno() }}
-              placeholder="Ej: Turno mañana, Horario fábrica..."
-              compacto
-            />
-          </div>
-          <Boton onClick={crearTurno} disabled={!nuevoNombre.trim() || creando} cargando={creando} tamano="sm">
-            <Plus size={14} className="mr-1" /> Crear
-          </Boton>
-        </div>
-      </TarjetaConfig>
-
-      {/* Lista de turnos personalizados */}
-      {turnosPersonalizados.map((turno) => {
-        const abierto = expandido === turno.id
-        const diasActivos = DIAS_SEMANA.filter(d => turno.dias[d.clave]?.activo)
-        const resumenHorario = diasActivos.length > 0
-          ? `${diasActivos.map(d => d.etiqueta.slice(0, 3)).join(', ')} · ${turno.dias[diasActivos[0].clave]?.desde || '09:00'} a ${turno.dias[diasActivos[0].clave]?.hasta || '18:00'}`
-          : 'Sin días activos'
-
-        return (
-          <TarjetaConfig
-            key={turno.id}
-            titulo={
-              <button
-                type="button"
-                onClick={() => setExpandido(abierto ? null : turno.id)}
-                className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full text-left cursor-pointer"
-              >
-                {abierto ? <ChevronUp size={14} className="text-texto-terciario shrink-0" /> : <ChevronDown size={14} className="text-texto-terciario shrink-0" />}
-                <span className="shrink-0">{turno.nombre}</span>
-                {turno.flexible && (
-                  <span className="text-xxs font-semibold px-1.5 py-0.5 rounded-full bg-insignia-info/15 text-insignia-info shrink-0">
-                    Flexible
-                  </span>
-                )}
-                {!abierto && (
-                  <span className="ml-auto text-xs text-texto-terciario font-normal hidden sm:inline">
-                    {resumenHorario} · {turno.flexible ? 'Sin control' : `${turno.tolerancia_min}min tolerancia`}
-                  </span>
-                )}
-              </button>
-            }
-          >
-            {abierto && (
-              <EditorTurno
-                turno={turno}
-                onActualizar={(campos) => actualizarTurno(turno.id, campos)}
-                onEliminar={() => eliminarTurno(turno.id)}
-                puedeEliminar
-              />
-            )}
-          </TarjetaConfig>
-        )
-      })}
-
-      {/* Asignación a sectores */}
-      {turnosPersonalizados.length > 0 && sectores.length > 0 && (
-        <TarjetaConfig titulo="Asignar a sectores" descripcion="Asigná un turno personalizado a cada sector. Todos los empleados de ese sector heredan el horario. Si un miembro tiene turno propio en su perfil, ese tiene prioridad.">
-          <div className="space-y-2">
-            {sectores.map((sector) => (
-              <div key={sector.id} className="flex items-center justify-between py-2 px-1">
-                <span className="text-sm text-texto-primario">{sector.nombre}</span>
-                <div className="w-48">
-                  <Select
-                    opciones={[
-                      { valor: '', etiqueta: 'Predeterminado (empresa)' },
-                      ...turnosPersonalizados.map(t => ({ valor: t.id, etiqueta: t.nombre })),
-                    ]}
-                    valor={sector.turno_id || ''}
-                    onChange={(v) => asignarSector(sector.id, v || null)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </TarjetaConfig>
-      )}
-    </div>
-  )
-}
-
-// ─── Editor de turno expandido ───────────────────────────────
-
-function EditorTurno({ turno, onActualizar, onEliminar, puedeEliminar }: {
-  turno: TurnoLaboral
-  onActualizar: (campos: Partial<TurnoLaboral>) => void
-  onEliminar: () => void
-  puedeEliminar: boolean
-}) {
-  const [dias, setDias] = useState<DiasConfig>(turno.dias)
-
-  const actualizarDia = (clave: keyof DiasConfig, campo: keyof DiaHorario, valor: boolean | string) => {
-    const nuevosDias = { ...dias, [clave]: { ...dias[clave], [campo]: valor } }
-    setDias(nuevosDias)
-    onActualizar({ dias: nuevosDias })
-  }
-
-  return (
-    <div className="space-y-4 pt-2">
-      {/* Nombre editable */}
-      <div className="max-w-[300px]">
-        <Input
-          etiqueta="Nombre del turno"
-          value={turno.nombre}
-          onChange={() => {}}
-          onBlur={(e) => {
-            const val = e.currentTarget.value.trim()
-            if (val && val !== turno.nombre) onActualizar({ nombre: val })
-          }}
-          compacto
-        />
-      </div>
-
-      {/* Opciones generales */}
-      <div className="flex flex-wrap items-center gap-6">
-        <Interruptor
-          activo={turno.flexible}
-          onChange={(v) => onActualizar({ flexible: v })}
-          etiqueta="Flexible (sin control de puntualidad)"
-        />
-      </div>
-
-      {/* Tolerancia */}
-      {!turno.flexible && (
-        <div className="max-w-[200px]">
-          <Input
-            tipo="number"
-            etiqueta="Tolerancia tardanza (min)"
-            value={String(turno.tolerancia_min)}
-            onChange={() => {}}
-            onBlur={(e) => {
-              const val = parseInt(e.currentTarget.value) || 10
-              onActualizar({ tolerancia_min: Math.max(0, Math.min(60, val)) })
-            }}
-            compacto
-          />
-        </div>
-      )}
-
-      {/* Días de la semana */}
-      <div className="space-y-1">
-        <p className="text-xs font-semibold text-texto-secundario mb-2">Horarios por día</p>
-        {DIAS_SEMANA.map(({ clave, etiqueta }) => (
-          <div key={clave} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 py-1.5">
-            <div className="w-28 shrink-0">
-              <Interruptor
-                activo={dias[clave].activo}
-                onChange={(v) => actualizarDia(clave, 'activo', v)}
-                etiqueta={etiqueta}
-              />
-            </div>
-            {dias[clave].activo && (
-              <div className="flex items-center gap-2 text-sm pl-12 sm:pl-0">
-                <div className="w-[110px]">
-                  <SelectorHora
-                    valor={dias[clave].desde || null}
-                    onChange={(v) => actualizarDia(clave, 'desde', v || '09:00')}
-                    pasoMinutos={15}
-                  />
-                </div>
-                <span className="text-texto-terciario shrink-0">a</span>
-                <div className="w-[110px]">
-                  <SelectorHora
-                    valor={dias[clave].hasta || null}
-                    onChange={(v) => actualizarDia(clave, 'hasta', v || '18:00')}
-                    pasoMinutos={15}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Eliminar */}
-      {puedeEliminar && (
-        <div className="pt-2 border-t border-borde-sutil">
-          <Boton variante="peligro" tamano="sm" onClick={onEliminar}>
-            <Trash2 size={14} className="mr-1" /> Eliminar turno
-          </Boton>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Sección Kiosco ──────────────────────────────────────────
 
 function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (
@@ -746,7 +380,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
         <TarjetaConfig titulo="Activar terminal" descripcion="Abrí el navegador en la tablet, escaneá este QR o pegá el enlace. El terminal se vincula automáticamente y queda listo para fichar.">
           <div className="space-y-4">
             <div className="flex justify-center py-4">
-              <div className="p-4 bg-white rounded-2xl shadow-lg">
+              <div className="p-4 bg-white rounded-modal shadow-lg">
                 <QRCodeSVG
                   value={linkGenerado.link}
                   size={200}
@@ -756,7 +390,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
               </div>
             </div>
 
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-superficie-elevada border border-borde-sutil">
+            <div className="flex items-center gap-2 p-3 rounded-card bg-superficie-elevada border border-borde-sutil">
               <Link2 size={14} className="text-texto-terciario shrink-0" />
               <code className="text-xs text-texto-secundario break-all flex-1 select-all">{linkGenerado.link}</code>
             </div>
@@ -782,7 +416,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
         <TarjetaConfig titulo="Terminales activas" descripcion="Dispositivos vinculados y funcionando. Podés cambiar la zona horaria si un terminal está en una ubicación con huso horario diferente al de la empresa.">
           <div className="space-y-2">
             {terminalesActivas.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-xl border border-borde-sutil">
+              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-card border border-borde-sutil">
                 <div className="size-2.5 rounded-full bg-insignia-exito shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-texto-primario truncate">{t.nombre}</p>
@@ -795,7 +429,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                   {editandoZona === t.id ? (
                     <div className="flex items-center gap-2 mt-1.5">
                       <select
-                        className="text-xs bg-superficie-elevada border border-borde-sutil rounded-lg px-2 py-1 text-texto-primario"
+                        className="text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1 text-texto-primario"
                         defaultValue={t.zona_horaria || ''}
                         onChange={(e) => guardarZona(t.id, e.target.value || null)}
                       >
@@ -829,14 +463,14 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => regenerarLink(t.id)}
-                    className="p-2 rounded-lg hover:bg-superficie-elevada transition-colors"
+                    className="p-2 rounded-card hover:bg-superficie-elevada transition-colors"
                     title="Regenerar enlace"
                   >
                     <RefreshCw size={15} className="text-texto-terciario" />
                   </button>
                   <button
                     onClick={() => setConfirmar({ tipo: 'revocar', id: t.id, nombre: t.nombre })}
-                    className="p-2 rounded-lg hover:bg-insignia-peligro/10 transition-colors"
+                    className="p-2 rounded-card hover:bg-insignia-peligro/10 transition-colors"
                     title="Revocar terminal"
                   >
                     <Ban size={15} className="text-insignia-peligro" />
@@ -853,7 +487,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
         <TarjetaConfig titulo="Terminales revocadas" descripcion="Dispositivos desactivados.">
           <div className="space-y-2">
             {terminalesRevocadas.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-xl border border-borde-sutil opacity-60">
+              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-card border border-borde-sutil opacity-60">
                 <div className="size-2.5 rounded-full bg-texto-terciario shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-texto-primario truncate">{t.nombre}</p>
@@ -861,7 +495,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                 </div>
                 <button
                   onClick={() => setConfirmar({ tipo: 'eliminar', id: t.id, nombre: t.nombre })}
-                  className="p-2 rounded-lg hover:bg-insignia-peligro/10 transition-colors shrink-0"
+                  className="p-2 rounded-card hover:bg-insignia-peligro/10 transition-colors shrink-0"
                   title="Eliminar terminal"
                 >
                   <Trash2 size={15} className="text-insignia-peligro" />
@@ -997,7 +631,7 @@ function TarjetaConfig({ titulo, descripcion, accion, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
       <div className="px-5 py-4 border-b border-borde-sutil">
         <div className="flex items-center justify-between">
           <div>

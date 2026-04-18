@@ -36,7 +36,7 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
               <AlarmClock size={20} className="text-texto-marca" />
             </div>
             <div>
@@ -56,7 +56,7 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
             </div>
           </div>
 
-          <div className="px-3 py-2.5 rounded-lg bg-superficie-hover text-xs text-texto-terciario italic">
+          <div className="px-3 py-2.5 rounded-card bg-superficie-hover text-xs text-texto-terciario italic">
             Este es un ejemplo de cómo se vería el modal cuando llegue el momento del recordatorio.
           </div>
         </div>
@@ -70,11 +70,11 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed left-4 right-4 sm:left-auto sm:right-6 sm:w-[360px] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden"
+            className="fixed left-4 right-4 sm:left-auto sm:right-6 sm:w-[360px] border border-borde-sutil rounded-popover shadow-elevada overflow-hidden"
             style={{ backgroundColor: 'var(--superficie-elevada)', top: 'calc(var(--header-alto) + 12px)', zIndex: 'var(--z-popover)' as unknown as number }}
           >
             <div className="flex items-start gap-3 p-4">
-              <div className="size-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-texto-marca/10 flex items-center justify-center shrink-0">
                 <AlarmClock size={18} className="text-texto-marca" />
               </div>
               <div className="flex-1 min-w-0">

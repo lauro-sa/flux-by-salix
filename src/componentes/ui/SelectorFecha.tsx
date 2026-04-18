@@ -320,7 +320,7 @@ function SelectorFecha({
       <div
         ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full min-w-0',
+          'flex items-center gap-2 px-3 py-2 rounded-input border text-sm transition-all w-full min-w-0',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
@@ -370,7 +370,7 @@ function SelectorFecha({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed w-[280px] max-w-[calc(100vw-1.5rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed w-[280px] max-w-[calc(100vw-1.5rem)] bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg overflow-hidden"
               style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 'var(--z-popover)' as unknown as number }}
             >
               {/* ── VISTA DÍAS ── */}
@@ -378,7 +378,7 @@ function SelectorFecha({
                 <div className="p-3">
                   {/* Nav del mes */}
                   <div className="flex items-center justify-between mb-3">
-                    <button type="button" onClick={mesAnterior} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={mesAnterior} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronLeft size={14} />
                     </button>
                     <button
@@ -388,7 +388,7 @@ function SelectorFecha({
                     >
                       {MESES[mesVista]} {anioVista}
                     </button>
-                    <button type="button" onClick={mesSiguiente} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={mesSiguiente} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronRight size={14} />
                     </button>
                   </div>
@@ -455,7 +455,7 @@ function SelectorFecha({
               {vista === 'meses' && (
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <button type="button" onClick={() => setAnioVista(a => a - 1)} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={() => setAnioVista(a => a - 1)} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronLeft size={14} />
                     </button>
                     <button
@@ -465,7 +465,7 @@ function SelectorFecha({
                     >
                       {anioVista}
                     </button>
-                    <button type="button" onClick={() => setAnioVista(a => a + 1)} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={() => setAnioVista(a => a + 1)} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronRight size={14} />
                     </button>
                   </div>
@@ -480,7 +480,7 @@ function SelectorFecha({
                           type="button"
                           onClick={() => { setMesVista(i); setVista('dias') }}
                           className={[
-                            'py-2 rounded-md text-xs font-medium cursor-pointer border-none transition-colors',
+                            'py-2 rounded-boton text-xs font-medium cursor-pointer border-none transition-colors',
                             sel ? 'text-texto-inverso' : '',
                             actual && !sel ? 'font-bold text-texto-marca' : '',
                             !sel ? 'bg-transparent hover:bg-superficie-hover text-texto-primario' : '',
@@ -499,13 +499,13 @@ function SelectorFecha({
               {vista === 'anios' && (
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-3">
-                    <button type="button" onClick={() => setAnioRangoInicio(a => Math.max(anioMin, a - 12))} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={() => setAnioRangoInicio(a => Math.max(anioMin, a - 12))} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronsLeft size={14} />
                     </button>
                     <span className="text-sm font-semibold text-texto-primario">
                       {anioRangoInicio} – {Math.min(anioRangoInicio + 11, anioMax)}
                     </span>
-                    <button type="button" onClick={() => setAnioRangoInicio(a => Math.min(anioMax - 11, a + 12))} className="size-7 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                    <button type="button" onClick={() => setAnioRangoInicio(a => Math.min(anioMax - 11, a + 12))} className="size-7 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                       <ChevronsRight size={14} />
                     </button>
                   </div>
@@ -521,7 +521,7 @@ function SelectorFecha({
                           type="button"
                           onClick={() => { setAnioVista(anio); setVista('meses') }}
                           className={[
-                            'py-2 rounded-md text-xs font-medium cursor-pointer border-none transition-colors',
+                            'py-2 rounded-boton text-xs font-medium cursor-pointer border-none transition-colors',
                             sel ? 'text-texto-inverso' : '',
                             actual && !sel ? 'font-bold text-texto-marca' : '',
                             !sel ? 'bg-transparent hover:bg-superficie-hover text-texto-primario' : '',

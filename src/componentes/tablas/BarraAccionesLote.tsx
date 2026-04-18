@@ -122,7 +122,7 @@ export function BarraAccionesLote({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-            className="fixed z-[var(--z-modal)] flex items-center gap-1.5 px-2 py-1.5 rounded-2xl select-none"
+            className="fixed z-[var(--z-modal)] flex items-center gap-1.5 px-2 py-1.5 rounded-modal select-none"
             style={{
               backgroundColor: 'var(--superficie-elevada)',
               border: '1px solid var(--borde-sutil)',
@@ -136,7 +136,7 @@ export function BarraAccionesLote({
             }}
           >
             {/* Conteo */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-sm font-semibold tabular-nums shrink-0"
+            <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-boton text-sm font-semibold tabular-nums shrink-0"
               style={{ color: 'var(--texto-primario)' }}
             >
               <CheckSquare size={14} className="opacity-60" />
@@ -164,7 +164,7 @@ export function BarraAccionesLote({
             {/* Deseleccionar */}
             <button
               onClick={onLimpiarSeleccion}
-              className="flex items-center justify-center size-9 rounded-xl transition-colors shrink-0 cursor-pointer active:scale-90"
+              className="flex items-center justify-center size-9 rounded-boton transition-colors shrink-0 cursor-pointer active:scale-90"
               style={{ color: 'var(--texto-terciario)' }}
             >
               <X size={16} />
@@ -196,7 +196,7 @@ export function BarraAccionesLote({
           exit={{ opacity: 0, y: esArriba ? -12 : 12, scale: 0.95 }}
           transition={arrastrando ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 350 }}
           className={[
-            'fixed z-[var(--z-modal)] flex items-center gap-1 px-1.5 py-1.5 rounded-2xl select-none group/barra',
+            'fixed z-[var(--z-modal)] flex items-center gap-1 px-1.5 py-1.5 rounded-modal select-none group/barra',
             esArriba ? 'top-20' : 'bottom-6',
           ].join(' ')}
           style={{
@@ -212,14 +212,14 @@ export function BarraAccionesLote({
           }}
         >
           {/* Drag handle — visible solo en hover */}
-          <div className="flex items-center justify-center w-7 h-8 rounded-xl opacity-0 group-hover/barra:opacity-100 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          <div className="flex items-center justify-center w-7 h-8 rounded-boton opacity-0 group-hover/barra:opacity-100 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 touch-none"
             style={{ color: 'var(--texto-terciario)' }}
           >
             <GripVertical size={14} />
           </div>
 
           {/* Conteo con ícono checkbox */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-semibold tabular-nums shrink-0"
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-boton text-sm font-semibold tabular-nums shrink-0"
             style={{ color: 'var(--texto-primario)' }}
           >
             <CheckSquare size={14} className="opacity-60" />
@@ -248,7 +248,7 @@ export function BarraAccionesLote({
           <Tooltip contenido="Deseleccionar todo (Esc)">
             <button
               onClick={onLimpiarSeleccion}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-boton text-xs transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
               style={{ color: 'var(--texto-secundario)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--superficie-hover)'
@@ -288,7 +288,7 @@ function BotonAccion({
       <button
         data-accion-lote={accion.id}
         onClick={onClick}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-boton text-sm font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
         style={{
           color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
         }}
@@ -327,7 +327,7 @@ function BotonAccionMovil({
       <button
         data-accion-lote={accion.id}
         onClick={onClick}
-        className="flex items-center justify-center size-9 rounded-xl transition-colors shrink-0 cursor-pointer active:scale-90"
+        className="flex items-center justify-center size-9 rounded-boton transition-colors shrink-0 cursor-pointer active:scale-90"
         style={{
           color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
         }}

@@ -272,7 +272,7 @@ function SelectorHora({
       <div
         ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full overflow-hidden',
+          'flex items-center gap-2 px-3 py-2 rounded-input border text-sm transition-all w-full overflow-hidden',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
@@ -314,20 +314,20 @@ function SelectorHora({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed w-[240px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed w-[240px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg overflow-hidden"
               style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 'var(--z-popover)' as unknown as number }}
             >
               {/* Selector con flechas */}
               <div className="p-4 flex items-center justify-center gap-4">
                 {/* Hora */}
                 <div className="flex flex-col items-center gap-1">
-                  <button type="button" onClick={incrementarHora} className="size-8 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                  <button type="button" onClick={incrementarHora} className="size-8 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                     <ChevronUp size={16} />
                   </button>
                   <div className="text-2xl font-bold text-texto-primario tabular-nums w-12 text-center">
                     {es12h ? String(horaLocal % 12 || 12).padStart(2, '0') : String(horaLocal).padStart(2, '0')}
                   </div>
-                  <button type="button" onClick={decrementarHora} className="size-8 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                  <button type="button" onClick={decrementarHora} className="size-8 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                     <ChevronDown size={16} />
                   </button>
                 </div>
@@ -336,13 +336,13 @@ function SelectorHora({
 
                 {/* Minuto */}
                 <div className="flex flex-col items-center gap-1">
-                  <button type="button" onClick={incrementarMinuto} className="size-8 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                  <button type="button" onClick={incrementarMinuto} className="size-8 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                     <ChevronUp size={16} />
                   </button>
                   <div className="text-2xl font-bold text-texto-primario tabular-nums w-12 text-center">
                     {String(minutoLocal).padStart(2, '0')}
                   </div>
-                  <button type="button" onClick={decrementarMinuto} className="size-8 flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
+                  <button type="button" onClick={decrementarMinuto} className="size-8 flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
                     <ChevronDown size={16} />
                   </button>
                 </div>

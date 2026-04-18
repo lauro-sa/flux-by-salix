@@ -72,7 +72,7 @@ function ContenidoLogin() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-4 p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
+            className="mb-4 p-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
           >
             <AlertCircle size={16} className="shrink-0" />
             <span>{t('auth.error_verificacion')}</span>
@@ -126,7 +126,7 @@ function ContenidoLogin() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
+              className="p-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
             >
               <AlertCircle size={16} className="shrink-0" />
               <span>{error}</span>

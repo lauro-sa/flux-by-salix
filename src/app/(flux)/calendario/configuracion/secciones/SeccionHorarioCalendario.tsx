@@ -101,7 +101,7 @@ function SeccionHorarioCalendario({ config, cargando, onAccionAPI }: Propiedades
 
   return (
     <div className="space-y-4">
-      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="border border-white/[0.06] rounded-card overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/[0.07]">
           <h3 className="text-sm font-medium text-texto-primario">Horario laboral</h3>
@@ -133,7 +133,7 @@ function SeccionHorarioCalendario({ config, cargando, onAccionAPI }: Propiedades
                 const activo = diasLaborales.includes(dia.valor)
                 return (
                   <button key={dia.valor} onClick={() => toggleDia(dia.valor)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border text-center ${
+                    className={`flex-1 py-1.5 rounded-card text-xs font-medium transition-all cursor-pointer border text-center ${
                       activo
                         ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
                         : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
@@ -150,7 +150,7 @@ function SeccionHorarioCalendario({ config, cargando, onAccionAPI }: Propiedades
           {/* Intervalo de slots */}
           <div>
             <p className="text-[11px] text-texto-terciario mb-2.5">Intervalo de slots</p>
-            <div className="flex rounded-lg border border-white/[0.06] overflow-hidden">
+            <div className="flex rounded-card border border-white/[0.06] overflow-hidden">
               {INTERVALOS_SLOT.map(slot => (
                 <button key={slot.valor} onClick={() => cambiarIntervalo(slot.valor)}
                   className={`flex-1 py-2 text-xs font-medium transition-all cursor-pointer border-none ${

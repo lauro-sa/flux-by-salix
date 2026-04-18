@@ -52,7 +52,14 @@ export interface FiltroTabla {
   id: string
   etiqueta: string
   icono?: ReactNode
-  tipo: 'seleccion' | 'multiple' | 'fecha' | 'pills'
+  /**
+   * - 'pills': botones horizontales (mejor para 2-5 opciones cortas).
+   * - 'seleccion': lista vertical, una sola opción.
+   * - 'multiple': lista vertical con checkboxes (mejor para <10 opciones).
+   * - 'multiple-compacto': botón compacto con popover (mejor para 10+ opciones o etiquetas largas).
+   * - 'fecha': selector de fecha.
+   */
+  tipo: 'seleccion' | 'multiple' | 'multiple-compacto' | 'fecha' | 'pills'
   valor: string | string[]
   onChange: (valor: string | string[]) => void
   opciones?: { valor: string; etiqueta: string }[]
@@ -119,6 +126,10 @@ export interface PropiedadesTablaDinamica<T> {
   onVistaExterna?: (vista: TipoVista) => void
   /** Vista externa activa — se usa para resaltar el botón cuando la vista la maneja el padre */
   vistaExternaActiva?: TipoVista | null
+  /** Oculta el switcher de vistas de la barra de herramientas — úsalo cuando los iconos se muevan a otro lugar (ej. hero de la vista matriz) */
+  ocultarSwitcherVistas?: boolean
+  /** Oculta la barra de herramientas completa (buscador, paginador, switcher, columnas) — útil en vistas custom que tienen su propia navegación (ej. matriz) */
+  ocultarBarraHerramientas?: boolean
   /** Contenido custom que reemplaza la tabla (ej: vista matriz) */
   contenidoCustom?: ReactNode
 
@@ -147,6 +158,15 @@ export interface PropiedadesTablaDinamica<T> {
   grupoTarjetas?: (fila: T) => string
   /** Etiqueta legible del grupo (si no se pasa, usa la clave directa) */
   etiquetaGrupoTarjetas?: (clave: string) => string
+
+  /**
+   * Filas reordenables por drag-and-drop. Cuando está activo, se agrega una columna de handle
+   * al inicio y el usuario puede arrastrar filas para reordenar. Solo aplica en la vista lista.
+   * Incompatible con ordenamiento por columnas (se desactiva automáticamente).
+   */
+  filasReordenables?: boolean
+  /** Callback al reordenar filas — recibe los IDs en el nuevo orden */
+  onReordenarFilas?: (idsOrdenados: string[]) => void
 
   className?: string
 }

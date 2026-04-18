@@ -260,7 +260,7 @@ export function BarraControlsWA({
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className={`inline-flex items-center ${esMovil ? 'gap-2 px-2.5 py-1.5' : 'gap-1 px-2 py-1'} rounded-2xl`}
+      className={`inline-flex items-center ${esMovil ? 'gap-2 px-2.5 py-1.5' : 'gap-1 px-2 py-1'} rounded-modal`}
       style={{
         background: 'color-mix(in srgb, var(--superficie-tarjeta) 80%, transparent)',
         backdropFilter: 'blur(12px) saturate(1.3)',

@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
+    // Obtener nombre del creador para auditoría
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+    const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido || ''}`.trim() : 'Usuario'
+
     const { data, error } = await admin
       .from('plantillas_correo')
       .insert({
@@ -73,6 +81,7 @@ export async function POST(request: NextRequest) {
         roles_permitidos: body.roles_permitidos || [],
         usuarios_permitidos: body.usuarios_permitidos || [],
         creado_por: user.id,
+        creado_por_nombre: nombreCreador,
       })
       .select()
       .single()

@@ -121,7 +121,7 @@ function Header({
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
-        <button type="button" onClick={onAbrirMenuMobil} className="md:hidden shrink-0 size-10 inline-flex items-center justify-center rounded-lg text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent">
+        <button type="button" onClick={onAbrirMenuMobil} className="md:hidden shrink-0 size-10 inline-flex items-center justify-center rounded-boton text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent">
           <PanelLeft size={26} />
         </button>
 
@@ -164,7 +164,7 @@ function Header({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className="absolute left-0 top-full mt-1.5 border border-borde-sutil rounded-xl shadow-lg overflow-hidden min-w-[220px] max-w-[calc(100vw-2rem)] py-1 z-50"
+                className="absolute left-0 top-full mt-1.5 border border-borde-sutil rounded-popover shadow-lg overflow-hidden min-w-[220px] max-w-[calc(100vw-2rem)] py-1 z-50"
                 style={estiloPopover}
               >
                 <div className="px-3 py-2 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">
@@ -258,7 +258,7 @@ function Header({
           soloIcono
           titulo="Menú"
           onClick={() => setMenuAbierto(!menuAbierto)}
-          className="rounded-xl !size-10 sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
+          className="rounded-boton !size-10 sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
           icono={<IconoSalix tamano={26} hover tap />}
         >
           <span className="hidden sm:inline text-sm font-medium text-current">Flux</span>
@@ -272,12 +272,12 @@ function Header({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute right-0 top-full mt-2 border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden w-[280px] max-w-[calc(100vw-2rem)] z-50"
+              className="absolute right-0 top-full mt-2 border border-borde-sutil rounded-popover shadow-elevada overflow-hidden w-[280px] max-w-[calc(100vw-2rem)] z-50"
               style={estiloPopover}
             >
               {/* Cabecera del menú — Logo + info */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                <div className="size-11 rounded-lg bg-superficie-hover flex items-center justify-center shrink-0">
+                <div className="size-11 rounded-boton bg-superficie-hover flex items-center justify-center shrink-0">
                   <IconoSalix tamano={26} />
                 </div>
                 <div className="flex flex-col min-w-0">
@@ -313,7 +313,7 @@ function Header({
                 <button
                   onClick={() => modoConcentracion.ciclar()}
                   className={[
-                    'flex items-center gap-2.5 w-full mt-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                    'flex items-center gap-2.5 w-full mt-2 px-3 py-2.5 rounded-card border cursor-pointer transition-all text-left focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     modoConcentracion.activo
                       ? 'bg-insignia-advertencia-fondo/50 border-insignia-advertencia-texto/20 text-insignia-advertencia-texto'
                       : 'bg-superficie-hover border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-borde-fuerte',
@@ -336,13 +336,13 @@ function Header({
               {/* Apariencia — tema */}
               <div className="px-4 py-3">
                 <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Apariencia</span>
-                <div className="flex items-center gap-1 mt-2 p-1 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+                <div className="flex items-center gap-1 mt-2 p-1 rounded-boton" style={{ backgroundColor: 'var(--superficie-hover)' }}>
                   {TEMAS.map(({ clave, icono: Icono, etiqueta }) => (
                     <button
                       key={clave}
                       onClick={() => cambiarTema(clave)}
                       className={[
-                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-boton border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                         tema === clave
                           ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
                           : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
@@ -360,13 +360,13 @@ function Header({
               {/* Idioma — compacto tipo pill igual que tema */}
               <div className="px-4 py-3">
                 <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Idioma</span>
-                <div className="flex items-center gap-1 mt-2 p-1 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+                <div className="flex items-center gap-1 mt-2 p-1 rounded-boton" style={{ backgroundColor: 'var(--superficie-hover)' }}>
                   {idiomasDisponibles.map((i) => (
                     <button
                       key={i.codigo}
                       onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt') }}
                       className={[
-                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-boton border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                         idioma === i.codigo
                           ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
                           : 'bg-transparent text-texto-terciario hover:text-texto-secundario',

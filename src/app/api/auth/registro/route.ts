@@ -61,10 +61,35 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Auto-vinculación: buscar contactos de equipo con este correo ──
-    // Si el admin pre-cargó usuarios (ej: migración), existirán como contactos
-    // tipo "equipo" sin miembro_id. Los vinculamos automáticamente.
     let autoVinculados = 0
 
+    // Fase A: miembros pre-cargados por el admin (usuario_id=null) que ya
+    // tienen un contacto tipo "equipo" con este correo. Vinculamos el
+    // usuario_id en el miembro existente — NO creamos uno nuevo, así se
+    // preservan legajo, RFID, puesto, compensación, historial de fichadas.
+    const { data: contactosConMiembroPendiente } = await admin
+      .from('contactos')
+      .select('id, empresa_id, miembro_id, miembros!inner(id, usuario_id, activo)')
+      .eq('correo', correoNormalizado)
+      .eq('en_papelera', false)
+      .not('miembro_id', 'is', null)
+      .is('miembros.usuario_id', null)
+
+    if (contactosConMiembroPendiente && contactosConMiembroPendiente.length > 0) {
+      for (const contacto of contactosConMiembroPendiente) {
+        // Vincular usuario_id al miembro pendiente
+        const { error: errorVincular } = await admin
+          .from('miembros')
+          .update({ usuario_id: userId })
+          .eq('id', contacto.miembro_id)
+
+        if (!errorVincular) autoVinculados++
+      }
+    }
+
+    // Fase B (legacy): contactos de equipo importados sin miembro_id.
+    // Si el admin pre-cargó usuarios (ej: migración), existirán como contactos
+    // tipo "equipo" sin miembro_id. Los vinculamos creando un miembro nuevo.
     const { data: contactosEquipo } = await admin
       .from('contactos')
       .select('id, empresa_id, nombre, apellido')

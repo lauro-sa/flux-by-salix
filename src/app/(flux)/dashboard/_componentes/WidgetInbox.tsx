@@ -38,7 +38,7 @@ interface Props {
 
 function MiniMetrica({ etiqueta, valor, icono }: { etiqueta: string; valor: number | string; icono: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2.5 py-2.5 px-3 rounded-lg bg-superficie-hover/50">
+    <div className="flex items-center gap-2.5 py-2.5 px-3 rounded-card bg-superficie-hover/50">
       <div className="text-texto-terciario">{icono}</div>
       <div>
         <p className="text-lg font-bold text-texto-primario leading-tight">{valor}</p>
@@ -111,11 +111,11 @@ export function WidgetInbox({ resumen, porAgente }: Props) {
 
       {/* Tiempos promedio */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="py-2.5 px-3 rounded-lg bg-superficie-hover/50 text-center">
+        <div className="py-2.5 px-3 rounded-card bg-superficie-hover/50 text-center">
           <span className="text-lg font-bold text-texto-primario">{resumen.tiempo_respuesta_promedio_min}m</span>
           <p className="text-xxs text-texto-terciario">Resp. promedio</p>
         </div>
-        <div className="py-2.5 px-3 rounded-lg bg-superficie-hover/50 text-center">
+        <div className="py-2.5 px-3 rounded-card bg-superficie-hover/50 text-center">
           <span className="text-lg font-bold text-texto-primario">{resumen.tiempo_resolucion_promedio_hrs}h</span>
           <p className="text-xxs text-texto-terciario">Resolución prom.</p>
         </div>

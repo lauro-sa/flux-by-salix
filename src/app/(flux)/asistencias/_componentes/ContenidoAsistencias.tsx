@@ -7,7 +7,9 @@ import { useListado } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Plus, History, Banknote, Send } from 'lucide-react'
+import { Download, Clock, TimerOff, Plus, History, Banknote, Send, List, LayoutGrid, CalendarDays } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -326,6 +328,28 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     { clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> },
   ]
 
+  // Switcher de vistas — se renderiza en el hero de matriz (al lado de ‹ Hoy ›)
+  // y se oculta de la toolbar de TablaDinamica cuando vista === 'matriz'.
+  const switcherVistasHero = (
+    <GrupoBotones>
+      {(['lista', 'tarjetas', 'matriz'] as const).map((v) => {
+        const iconos = { lista: <List size={14} />, tarjetas: <LayoutGrid size={14} />, matriz: <CalendarDays size={14} /> }
+        return (
+          <Boton
+            key={v}
+            variante="secundario"
+            tamano="sm"
+            soloIcono
+            titulo={v.charAt(0).toUpperCase() + v.slice(1)}
+            icono={iconos[v]}
+            onClick={() => setVista(v)}
+            className={vista === v ? 'bg-superficie-hover text-texto-primario' : 'text-texto-terciario'}
+          />
+        )
+      })}
+    </GrupoBotones>
+  )
+
   return (
     <PlantillaListado
       titulo="Asistencias"
@@ -346,8 +370,8 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
-      {/* ── Tabs debajo del cabezal estándar ── */}
-      <div className="px-4 md:px-6 mb-2">
+      {/* ── Tabs: siempre arriba del contenido, pegados al cabezal (mismo bloque de navegación) ── */}
+      <div className="px-4 md:px-6 -mt-2">
         <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
       </div>
 
@@ -358,6 +382,8 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
           datos={registros}
           claveFila={(r) => r.id}
           vistas={['lista', 'tarjetas', 'matriz']}
+          ocultarSwitcherVistas={vista === 'matriz'}
+          ocultarBarraHerramientas={vista === 'matriz'}
           seleccionables
           busqueda={busqueda}
           onBusqueda={setBusqueda}
@@ -371,6 +397,7 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
           vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
           contenidoCustom={vista === 'matriz' ? <VistaMatriz
             recargarKey={matrizKey}
+            slotAcciones={switcherVistasHero}
             onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
             onClickAsistencia={async (id) => {
               const res = await fetch(`/api/asistencias/detalle?id=${id}`)

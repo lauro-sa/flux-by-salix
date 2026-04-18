@@ -77,14 +77,14 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // ─── Verificar que la IA está habilitada para el inbox ───
+    // ─── Verificar que la IA está habilitada para la empresa ───
     const { data: configInbox } = await admin
-      .from('config_inbox')
-      .select('ia_habilitada')
+      .from('config_ia_empresa')
+      .select('habilitada')
       .eq('empresa_id', empresaId)
       .single()
 
-    if (configInbox && !configInbox.ia_habilitada) {
+    if (configInbox && !configInbox.habilitada) {
       return NextResponse.json({
         error: 'La IA no está habilitada para el inbox. Activala en Configuración del Inbox > General.',
       }, { status: 403 })

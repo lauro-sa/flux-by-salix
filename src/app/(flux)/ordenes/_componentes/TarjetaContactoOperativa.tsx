@@ -27,7 +27,7 @@ export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, d
   const waLimpio = (whatsapp || telefono)?.replace(/[^+\d]/g, '') || ''
 
   return (
-    <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta p-4 space-y-3">
+    <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 space-y-3">
       {/* Header */}
       <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
         {t('ordenes.contacto_seccion')}

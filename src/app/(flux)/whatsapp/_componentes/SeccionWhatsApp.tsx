@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
-import type { CanalInbox } from '@/tipos/inbox'
+import type { CanalMensajeria } from '@/tipos/inbox'
 
 /**
  * Sección completa de configuración de WhatsApp.
@@ -25,7 +25,7 @@ import type { CanalInbox } from '@/tipos/inbox'
  */
 
 interface PropiedadesSeccionWhatsApp {
-  canales: CanalInbox[]
+  canales: CanalMensajeria[]
   onRecargar: () => void
 }
 
@@ -88,7 +88,7 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
 
       {/* Card principal */}
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-card overflow-hidden"
         style={{
           border: '1px solid var(--borde-sutil)',
           background: 'var(--superficie-tarjeta)',
@@ -185,7 +185,7 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
 // DETALLE DE UNA CUENTA EXISTENTE
 // ═══════════════════════════════════════
 
-function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: () => void }) {
+function DetalleCuenta({ canal, onRecargar }: { canal: CanalMensajeria; onRecargar: () => void }) {
   const { t } = useTraduccion()
   const config = canal.config_conexion as Record<string, unknown>
   const [guardando, setGuardando] = useState(false)
@@ -228,7 +228,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
     setGuardando(true)
     try {
       const nuevaConfig = { ...config, [campo]: valor }
-      await fetch(`/api/inbox/canales/${canal.id}`, {
+      await fetch(`/api/whatsapp/canales/${canal.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config_conexion: nuevaConfig }),
@@ -250,7 +250,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Stepper de progreso ═══ */}
       <div
-        className="rounded-lg p-5"
+        className="rounded-card p-5"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -301,7 +301,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Datos básicos ═══ */}
       <div
-        className="rounded-lg p-5 space-y-5"
+        className="rounded-card p-5 space-y-5"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         {/* Nombre */}
@@ -311,7 +311,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
             placeholder="WhatsApp Ventas"
             onBlur={(e) => {
               if (e.target.value !== canal.nombre) {
-                fetch(`/api/inbox/canales/${canal.id}`, {
+                fetch(`/api/whatsapp/canales/${canal.id}`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ nombre: e.target.value }),
@@ -328,7 +328,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div
-              className="p-4 rounded-lg cursor-pointer"
+              className="p-4 rounded-card cursor-pointer"
               style={{
                 border: canal.proveedor === 'meta_api' ? '2px solid var(--insignia-exito)' : '1px solid var(--borde-sutil)',
                 background: canal.proveedor === 'meta_api' ? 'var(--insignia-exito-fondo)' : 'transparent',
@@ -345,7 +345,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
               </p>
             </div>
             <div
-              className="p-4 rounded-lg cursor-pointer"
+              className="p-4 rounded-card cursor-pointer"
               style={{ border: canal.proveedor === 'twilio' ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)' }}
             >
               <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
@@ -377,7 +377,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
       {/* ═══ Credenciales Meta Cloud API ═══ */}
       {canal.proveedor === 'meta_api' && (
         <div
-          className="rounded-lg p-5 space-y-5"
+          className="rounded-card p-5 space-y-5"
           style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
         >
           <div className="flex items-center gap-2">
@@ -466,7 +466,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
               En Meta: Configuración → Webhook → copiá y pegá este valor
             </p>
             <div
-              className="flex items-center gap-2 p-3 rounded-lg font-mono text-xs"
+              className="flex items-center gap-2 p-3 rounded-card font-mono text-xs"
               style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
             >
               <span className="flex-1 break-all">{webhookUrl}</span>
@@ -478,7 +478,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Firma de agente ═══ */}
       <div
-        className="rounded-lg p-5"
+        className="rounded-card p-5"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         <div className="flex items-center justify-between">
@@ -497,14 +497,14 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </div>
         {firmaActiva && (
           <div
-            className="mt-4 p-4 rounded-lg"
+            className="mt-4 p-4 rounded-card"
             style={{ background: 'var(--superficie-hover)' }}
           >
             <p className="text-xxs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--texto-terciario)' }}>
               Vista previa — cómo lo ve el cliente
             </p>
             <div
-              className="inline-block px-4 py-3 rounded-lg"
+              className="inline-block px-4 py-3 rounded-card"
               style={{ background: 'var(--superficie-app)' }}
             >
               <p className="text-xs font-bold" style={{ color: 'var(--texto-primario)' }}>
@@ -523,7 +523,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Modo coexistencia ═══ */}
       <div
-        className="rounded-lg p-5"
+        className="rounded-card p-5"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         <div className="flex items-center justify-between">
@@ -554,7 +554,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ FAQs ═══ */}
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-card overflow-hidden"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         <FAQItem
@@ -588,7 +588,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Calidad del número ═══ */}
       <div
-        className="rounded-lg p-5"
+        className="rounded-card p-5"
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         <div className="flex items-center justify-between">
@@ -663,7 +663,7 @@ function FormularioNuevaCuenta({ onCrear, onCancelar }: { onCrear: () => void; o
     setGuardando(true)
     setError('')
     try {
-      const res = await fetch('/api/inbox/canales', {
+      const res = await fetch('/api/whatsapp/canales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -843,7 +843,7 @@ function NotificacionesPush() {
 
   return (
     <div
-      className="rounded-lg p-4"
+      className="rounded-card p-4"
       style={{
         border: '1px solid var(--borde-sutil)',
         background: 'var(--superficie-tarjeta)',

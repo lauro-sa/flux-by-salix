@@ -53,7 +53,7 @@ export default function InfoDocumento({ presupuesto, vendedorNombre, estadoClien
   const IconoEstado = badge.icono
 
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
       {/* Franja de color marca arriba */}
       <div className="h-1" style={{ backgroundColor: colorMarca }} />
 

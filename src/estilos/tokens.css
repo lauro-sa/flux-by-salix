@@ -158,12 +158,53 @@
   --sombra-elevada: 0 16px 48px rgba(0, 0, 0, 0.12);
   --sombra-foco: 0 0 0 3px var(--insignia-primario-fondo);
 
-  /* Radios — ligeramente más redondeados para look moderno */
+  /* ═══════════════════════════════════════════════════════════════
+     RADIOS — BORDES REDONDEADOS
+     ═══════════════════════════════════════════════════════════════
+     Toda la app usa radios SEMÁNTICOS (por tipo de elemento), NO
+     genéricos (sm/md/lg). Esto permite cambiar el radio de, por
+     ejemplo, "todos los botones" sin tocar cards o modales.
+
+     Cómo se usa desde los componentes:
+       className="rounded-boton"   → usa --radio-boton
+       className="rounded-card"    → usa --radio-card
+       etc.
+
+     Las utilidades rounded-<nombre> se generan automáticamente
+     porque en globals.css mapeamos cada --radio-<nombre> a
+     --radius-<nombre> dentro del @theme de Tailwind.
+
+     REGLA: nunca usar rounded-md/lg/xl hardcodeados. Si aparece
+     un tipo de elemento nuevo que no encaja en ninguno, agregar
+     un token nuevo acá en vez de hardcodear.
+     ─────────────────────────────────────────────────────────────── */
+
+  /* Escala genérica — solo para uso interno (referencias cruzadas).
+     No referenciar directamente desde componentes. */
   --radio-sm: 6px;
   --radio-md: 8px;
   --radio-lg: 12px;
   --radio-xl: 16px;
   --radio-completo: 9999px;
+
+  /* ── Radios semánticos ──
+     Cada token mapea a un tipo de elemento de UI. Cambiar el valor
+     acá ripplea a toda la app para ese tipo. */
+
+  /* Elementos interactivos chicos (texto o ícono) */
+  --radio-boton:    6px;   /* Botones de acción (primario, secundario, fantasma, íconos, toggles, tabs, píldoras internas de menús) */
+  --radio-input:    6px;   /* Campos de formulario: Input, TextArea, Select, SelectCreable, InputMoneda, selectores de fecha/hora */
+  --radio-icono:    6px;   /* Contenedores cuadrados decorativos alrededor de un ícono (ej: size-8 con bg tintado) */
+
+  /* Contenedores medianos */
+  --radio-card:     8px;   /* Tarjetas, filas de lista, tablas, barra de búsqueda, paginador, alertas, paneles internos */
+
+  /* Contenedores grandes / elevados */
+  --radio-modal:    12px;  /* Modales, bottom sheets, barras flotantes de acciones lote */
+  --radio-popover:  8px;   /* Dropdowns, menús de acción, popovers, tooltips, panels de filtros, calendario */
+
+  /* Píldoras / badges */
+  --radio-insignia: 9999px;/* Insignias y píldoras totalmente redondas (pill). Tags rectangulares usan rounded-boton */
 
   /* Transiciones */
   --transicion-rapida: 120ms ease;
@@ -268,7 +309,7 @@
     --texto-terciario: rgba(235, 235, 245, 0.50);
     --texto-placeholder: rgba(235, 235, 245, 0.35);
     --texto-inverso: #ffffff;
-    --texto-marca: #7b7bd8;
+    --texto-marca: #5b5bd6;
 
     /* Superficies — Desktop dark: oscuro profundo con saltos amplios */
     --superficie-app: #141414;

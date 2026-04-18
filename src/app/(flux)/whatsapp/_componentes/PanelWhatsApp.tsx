@@ -12,13 +12,13 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextArea } from '@/componentes/ui/TextArea'
-import { ModalEtiquetas } from '@/app/(flux)/inbox/_componentes/ModalEtiquetas'
+import { ModalEtiquetas } from '@/componentes/mensajeria/ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { CompositorMensaje, type DatosMensaje } from '@/app/(flux)/inbox/_componentes/CompositorMensaje'
-import { PanelIA } from '@/app/(flux)/inbox/_componentes/PanelIA'
-import { PopoverSnooze } from '@/app/(flux)/inbox/_componentes/PopoverSnooze'
+import { CompositorMensaje, type DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
+import { PanelIA } from '@/componentes/mensajeria/PanelIA'
+import { PopoverSnooze } from '@/componentes/mensajeria/PopoverSnooze'
 import { SelectorPlantillasWA } from './SelectorPlantillasWA'
-import type { PlantillaWhatsApp } from '@/tipos/inbox'
+import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 // PopoverProgramar ahora vive dentro de CompositorMensaje
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
@@ -564,7 +564,7 @@ export function PanelWhatsApp({
         {esMovil && onVolver && (
           <button
             onClick={onVolver}
-            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-md transition-colors active:bg-[var(--superficie-hover)]"
+            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-boton transition-colors active:bg-[var(--superficie-hover)]"
             style={{ color: 'var(--texto-secundario)' }}
           >
             <ChevronLeft size={22} />
@@ -749,7 +749,7 @@ export function PanelWhatsApp({
                 style={{ position: 'sticky', top: 64 }}
               >
                 <span
-                  className="text-xxs px-3 py-1 rounded-lg shadow-sm"
+                  className="text-xxs px-3 py-1 rounded-card shadow-sm"
                   style={{
                     background: 'var(--superficie-elevada)',
                     color: 'var(--texto-terciario)',
@@ -771,7 +771,7 @@ export function PanelWhatsApp({
                   className={`flex ${esPropio ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
+                    className="max-w-[75%] rounded-card px-3 py-1.5 relative"
                     style={{
                       background: esPropio
                         ? 'var(--superficie-seleccionada)'
@@ -846,7 +846,7 @@ export function PanelWhatsApp({
                     className="flex justify-center"
                   >
                     <div
-                      className="max-w-[85%] rounded-lg px-3 py-2 relative"
+                      className="max-w-[85%] rounded-card px-3 py-2 relative"
                       style={{
                         background: 'color-mix(in srgb, var(--texto-marca) 8%, var(--superficie-tarjeta))',
                         border: '1px dashed color-mix(in srgb, var(--texto-marca) 40%, transparent)',
@@ -901,7 +901,7 @@ export function PanelWhatsApp({
                   className="flex justify-center group/nota"
                 >
                   <div
-                    className="max-w-[85%] rounded-lg px-3 py-2 relative"
+                    className="max-w-[85%] rounded-card px-3 py-2 relative"
                     style={{
                       background: 'color-mix(in srgb, var(--insignia-advertencia) 10%, var(--superficie-tarjeta))',
                       border: '1px dashed color-mix(in srgb, var(--insignia-advertencia) 40%, transparent)',
@@ -1033,7 +1033,7 @@ export function PanelWhatsApp({
                   className="flex justify-end"
                 >
                   <div
-                    className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
+                    className="max-w-[75%] rounded-card px-3 py-1.5 relative"
                     style={{
                       background: 'color-mix(in srgb, var(--texto-marca) 8%, var(--superficie-seleccionada))',
                       border: '1px solid color-mix(in srgb, var(--texto-marca) 20%, transparent)',
@@ -1060,7 +1060,7 @@ export function PanelWhatsApp({
                             return (
                               <div
                                 key={li}
-                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs"
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-boton text-xs"
                                 style={{
                                   background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)',
                                   color: 'var(--texto-primario)',
@@ -1108,7 +1108,7 @@ export function PanelWhatsApp({
               >
                 <div className="relative max-w-[75%]">
                   <div
-                    className="rounded-lg px-3 py-1.5 relative"
+                    className="rounded-card px-3 py-1.5 relative"
                     style={{
                       background: esPropio
                         ? 'var(--superficie-seleccionada)'
@@ -1162,7 +1162,7 @@ export function PanelWhatsApp({
                                 href={btn.url!}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block rounded-lg py-2 text-center text-sm font-medium no-underline hover:opacity-80 transition-opacity"
+                                className="block rounded-card py-2 text-center text-sm font-medium no-underline hover:opacity-80 transition-opacity"
                                 style={{ background: 'var(--superficie-tarjeta)', color: 'var(--whatsapp-enlace)', boxShadow: 'var(--sombra-sm)' }}
                               >
                                 🔗 {btn.texto}
@@ -1172,7 +1172,7 @@ export function PanelWhatsApp({
                           return (
                             <div
                               key={idx}
-                              className="rounded-lg py-2 text-center text-sm font-medium"
+                              className="rounded-card py-2 text-center text-sm font-medium"
                               style={{ background: 'var(--superficie-tarjeta)', color: 'var(--whatsapp-enlace)', boxShadow: 'var(--sombra-sm)' }}
                             >
                               {btn.tipo === 'PHONE_NUMBER' && '📞 '}
@@ -1275,7 +1275,7 @@ export function PanelWhatsApp({
                 className="flex justify-end"
               >
                 <div
-                  className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
+                  className="max-w-[75%] rounded-card px-3 py-1.5 relative"
                   style={{
                     background: 'color-mix(in srgb, var(--texto-marca) 6%, var(--superficie-seleccionada))',
                     border: '1px dashed color-mix(in srgb, var(--texto-marca) 30%, transparent)',
@@ -1315,7 +1315,7 @@ export function PanelWhatsApp({
                           mostrarToast('error', 'Error al cancelar')
                         }
                       }}
-                      className="text-xxs font-medium px-2 py-0.5 rounded-md transition-colors"
+                      className="text-xxs font-medium px-2 py-0.5 rounded-boton transition-colors"
                       style={{
                         color: 'var(--insignia-peligro)',
                         background: 'color-mix(in srgb, var(--insignia-peligro) 8%, transparent)',
@@ -1984,7 +1984,7 @@ function MiniaturVideo({
           preload="metadata"
           playsInline
           muted
-          className="max-w-full rounded-md"
+          className="max-w-full rounded-boton"
           style={{ maxHeight: 280 }}
         />
         <span className="absolute inset-0 flex items-center justify-center cursor-pointer">
@@ -2016,7 +2016,7 @@ function GrillaImagenes({
 
   return (
     <div className="space-y-1">
-      <div className="grid grid-cols-2 gap-0.5 rounded-md overflow-hidden">
+      <div className="grid grid-cols-2 gap-0.5 rounded-boton overflow-hidden">
         {imagenes.slice(0, 4).map((msg, i) => {
           const adj = msg.adjuntos[0]
           if (!adj) return null
@@ -2110,7 +2110,7 @@ function ContenidoMensaje({
                   width={400}
                   height={300}
                   sizes="(max-width: 768px) 80vw, 400px"
-                  className="rounded-md object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                  className="rounded-boton object-contain cursor-pointer hover:opacity-90 transition-opacity"
                 />
               </div>
             </Boton>

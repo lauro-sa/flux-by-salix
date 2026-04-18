@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
+import { resolverCanales } from '@/lib/canales'
 
 const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
 
@@ -26,10 +27,7 @@ export async function GET(
 
     const { data, error } = await admin
       .from('conversaciones')
-      .select(`
-        *,
-        canal:canales_inbox!canal_id(id, nombre, tipo, proveedor, estado_conexion)
-      `)
+      .select('*')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -38,8 +36,11 @@ export async function GET(
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
 
-    // Registrar en historial de recientes (fire-and-forget)
-    const canalObj = Array.isArray(data.canal) ? data.canal[0] : data.canal
+    // Resolver canal desde la tabla correspondiente según tipo_canal
+    const canalesMap = await resolverCanales(admin, [data as { canal_id?: string; tipo_canal?: string }])
+    const canalObj = data.canal_id ? canalesMap.get(data.canal_id) || null : null
+    const dataConCanal = { ...data, canal: canalObj }
+
     const nombreCanal = canalObj?.tipo === 'whatsapp' ? 'WhatsApp' : canalObj?.tipo === 'correo' ? 'Correo' : 'Chat'
     registrarReciente({
       empresaId,
@@ -51,7 +52,7 @@ export async function GET(
       accion: 'visto',
     })
 
-    return NextResponse.json({ conversacion: data })
+    return NextResponse.json({ conversacion: dataConCanal })
   } catch (err) {
     console.error('Error al obtener conversación:', err)
     return NextResponse.json({ error: 'Error al obtener conversación' }, { status: 500 })

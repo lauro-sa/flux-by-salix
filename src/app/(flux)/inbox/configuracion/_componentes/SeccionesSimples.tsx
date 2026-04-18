@@ -7,7 +7,7 @@ import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfig
 import { ModalItemConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import { Mail, Zap, Plus } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { SeccionEtapas } from '../../_componentes/SeccionEtapas'
+import { SeccionEtapas } from '@/componentes/mensajeria/SeccionEtapas'
 import { ModalReglas } from '../../_componentes/ModalReglas'
 import { PanelMetricas } from '../../_componentes/PanelMetricas'
 import { ListaProgramados } from '../../_componentes/ListaProgramados'
@@ -38,13 +38,13 @@ export function SeccionPipeline({ canales = ['whatsapp', 'correo'] }: { canales?
       {/* Tabs — solo si hay más de un canal */}
       {canales.length > 1 && (
         <div
-          className="flex gap-1 p-1 rounded-lg w-fit"
+          className="flex gap-1 p-1 rounded-card w-fit"
           style={{ background: 'var(--superficie-hover)' }}
         >
           {canales.includes('whatsapp') && (
             <button
               onClick={() => setTabCanal('whatsapp')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-boton text-xs font-medium transition-all"
               style={{
                 background: tabCanal === 'whatsapp' ? 'var(--superficie-tarjeta)' : 'transparent',
                 color: tabCanal === 'whatsapp' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
@@ -58,7 +58,7 @@ export function SeccionPipeline({ canales = ['whatsapp', 'correo'] }: { canales?
           {canales.includes('correo') && (
             <button
               onClick={() => setTabCanal('correo')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-boton text-xs font-medium transition-all"
               style={{
                 background: tabCanal === 'correo' ? 'var(--superficie-tarjeta)' : 'transparent',
                 color: tabCanal === 'correo' ? 'var(--texto-primario)' : 'var(--texto-terciario)',

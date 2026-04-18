@@ -71,7 +71,7 @@ function ModalLlegada({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-x-4 z-50 bg-superficie-tarjeta rounded-2xl border border-borde-sutil shadow-xl overflow-hidden"
+            className="fixed inset-x-4 z-50 bg-superficie-tarjeta rounded-modal border border-borde-sutil shadow-xl overflow-hidden"
             style={{ top: '50%', transform: 'translateY(-50%)' }}
           >
             {/* Header */}
@@ -104,7 +104,7 @@ function ModalLlegada({
                 <button
                   onClick={llamar}
                   disabled={!telefono}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
+                  className="flex items-center justify-center gap-2 py-3 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
                 >
                   <Phone size={16} className="text-insignia-info" />
                   <span className="text-sm font-medium text-texto-primario">{t('visitas.llamar')}</span>
@@ -112,7 +112,7 @@ function ModalLlegada({
                 <button
                   onClick={abrirWhatsApp}
                   disabled={!telefono}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
+                  className="flex items-center justify-center gap-2 py-3 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
                 >
                   <IconoWhatsApp size={16} className="text-canal-whatsapp" />
                   <span className="text-sm font-medium text-texto-primario">{t('visitas.whatsapp')}</span>
@@ -123,7 +123,7 @@ function ModalLlegada({
               {direccionLat && direccionLng && (
                 <button
                   onClick={navegarDireccion}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                 >
                   <Navigation size={16} className="text-texto-terciario" />
                   <span className="text-sm font-medium text-texto-secundario">{t('visitas.ver_en_mapa')}</span>
@@ -133,7 +133,7 @@ function ModalLlegada({
               {/* Avisar que llegué — acción principal */}
               <button
                 onClick={() => { onAvisarLlegada(); onCerrar() }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white bg-insignia-exito transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-card text-sm font-semibold text-white bg-insignia-exito transition-colors"
               >
                 <Bell size={16} />
                 <span>{t('visitas.avisar_que_llegue')}</span>

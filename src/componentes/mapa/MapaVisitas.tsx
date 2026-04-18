@@ -26,7 +26,7 @@ export function MapaVisitas({
   // Fallback sin API key — lista de direcciones con links a Google Maps
   if (!API_KEY) {
     return (
-      <div className={`rounded-xl border border-borde-sutil bg-superficie-tarjeta p-4 ${className}`}>
+      <div className={`rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 ${className}`}>
         <p className="text-texto-secundario text-sm mb-3">
           Mapa no disponible — configurar NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         </p>
@@ -50,7 +50,7 @@ export function MapaVisitas({
   const centroMapa = centro || calcularCentro(puntos)
 
   return (
-    <div className={`rounded-xl overflow-hidden h-[200px] md:h-[400px] ${className}`}>
+    <div className={`rounded-card overflow-hidden h-[200px] md:h-[400px] ${className}`}>
       <Map
         mapId="VISITAS_MAP"
         defaultCenter={centroMapa}

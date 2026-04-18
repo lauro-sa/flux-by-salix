@@ -58,10 +58,9 @@ export async function POST(request: NextRequest) {
 
     // Obtener token de acceso del canal WhatsApp
     const { data: canal } = await admin
-      .from('canales_inbox')
+      .from('canales_whatsapp')
       .select('id, empresa_id, config_conexion')
       .eq('empresa_id', empresaId)
-      .eq('tipo', 'whatsapp')
       .limit(1)
       .single()
 
@@ -96,7 +95,7 @@ export async function POST(request: NextRequest) {
 
       // Nombre sanitizado
       const nombreArchivo = extraerNombreArchivo(metadata)
-      const storagePath = `inbox/${canal.empresa_id}/whatsapp/${msg.id}/${nombreArchivo}`
+      const storagePath = `whatsapp/${canal.empresa_id}/${msg.id}/${nombreArchivo}`
 
       // Subir a Storage
       const { error: uploadError } = await admin.storage

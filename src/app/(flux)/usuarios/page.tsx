@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  UserPlus, Users, Mail, Copy, Check, Download, Upload,
-  Briefcase, DollarSign, Calendar, UserRoundSearch,
-  Clock, Cake, Phone,
+  UserPlus, Users, Mail, Copy, Check, Download, Upload as UploadIcon,
+  Calendar, UserRoundSearch,
+  Clock, Cake, Phone, Send, Hash, Fingerprint, KeyRound,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -15,10 +15,16 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { Pildora } from '@/componentes/ui/Pildora'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { TextArea } from '@/componentes/ui/TextArea'
+import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { calcularEstadoMiembro, ESTADOS_MIEMBRO, type EstadoMiembro } from '@/lib/miembros/estado'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol } from '@/hooks/useRol'
@@ -33,7 +39,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
 interface MiembroTabla {
   id: string
-  usuario_id: string
+  usuario_id: string | null
   nombre: string
   apellido: string
   avatar_url: string | null
@@ -42,6 +48,7 @@ interface MiembroTabla {
   telefono_empresa: string
   rol: string
   activo: boolean
+  estado: EstadoMiembro
   sector: string
   puesto: string
   numero_empleado: number | null
@@ -501,13 +508,38 @@ export default function PaginaUsuarios() {
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
 
-  // Modal de invitar
-  const [modalInvitar, setModalInvitar] = useState(false)
-  const [invCorreo, setInvCorreo] = useState('')
-  const [invRol, setInvRol] = useState('empleado')
+  // Modal de agregar empleado (crear con o sin invitación)
+  const [modalAgregar, setModalAgregar] = useState(false)
+  const [nuevoEmpleado, setNuevoEmpleado] = useState({
+    nombre: '',
+    apellido: '',
+    correo: '',
+    telefono: '',
+    fecha_ingreso: new Date().toISOString().split('T')[0], // hoy por default; permite retroactivo
+    rol: 'empleado',
+    numero_empleado: '',
+    sector_id: '',
+    puesto_id: '',
+    metodo_fichaje: 'kiosco',
+    kiosco_rfid: '',
+    kiosco_pin: '',
+    enviar_invitacion: true,
+  })
   const [invitando, setInvitando] = useState(false)
   const [invError, setInvError] = useState('')
   const [linkCopiado, setLinkCopiado] = useState('')
+  const [correoEnviadoExitoso, setCorreoEnviadoExitoso] = useState(false)
+  const [sectoresDisponibles, setSectoresDisponibles] = useState<{ id: string; nombre: string }[]>([])
+  const [puestosDisponibles, setPuestosDisponibles] = useState<{ id: string; nombre: string }[]>([])
+
+  // Filtro de estado en el listado
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoMiembro>('todos')
+
+  // Importación CSV
+  const [modalImportar, setModalImportar] = useState(false)
+  const [csvTexto, setCsvTexto] = useState('')
+  const [importando, setImportando] = useState(false)
+  const [reporteImport, setReporteImport] = useState<{ creados: number; total: number; errores: { fila: number; motivo: string }[] } | null>(null)
 
   // Modal de confirmación
   const [modalActivar, setModalActivar] = useState<{ miembro: MiembroTabla; accion: 'activar' | 'desactivar' } | null>(null)
@@ -532,15 +564,45 @@ export default function PaginaUsuarios() {
       return
     }
 
-    // Cargar perfiles
-    const usuarioIds = miembrosData.map(m => m.usuario_id)
-    const { data: perfilesData } = await supabase
-      .from('perfiles')
-      .select('id, nombre, apellido, avatar_url, telefono, telefono_empresa, correo_empresa, fecha_nacimiento, documento_numero, genero, domicilio')
-      .in('id', usuarioIds)
+    // Cargar perfiles (solo los miembros que ya tienen cuenta Flux)
+    const usuarioIds = miembrosData.map(m => m.usuario_id).filter((x): x is string => !!x)
+    const { data: perfilesData } = usuarioIds.length > 0
+      ? await supabase
+          .from('perfiles')
+          .select('id, nombre, apellido, avatar_url, telefono, telefono_empresa, correo_empresa, correo, fecha_nacimiento, documento_numero, genero, domicilio')
+          .in('id', usuarioIds)
+      : { data: [] as Array<{ id: string; nombre: string; apellido: string; avatar_url: string | null; telefono: string | null; telefono_empresa: string | null; correo_empresa: string | null; correo: string | null; fecha_nacimiento: string | null; documento_numero: string | null; genero: string | null; domicilio: string | null }> }
 
     const perfilesMapa = new Map(
       (perfilesData || []).map(p => [p.id, p])
+    )
+
+    // Cargar contactos vinculados a los miembros (para los que no tienen perfil aún)
+    const miembroIdsParaContactos = miembrosData.map(m => m.id)
+    const { data: contactosData } = await supabase
+      .from('contactos')
+      .select('miembro_id, nombre, apellido, correo, telefono, fecha_nacimiento, documento_numero')
+      .in('miembro_id', miembroIdsParaContactos)
+      .eq('en_papelera', false)
+
+    const contactosMapa = new Map(
+      (contactosData || []).filter(c => c.miembro_id).map(c => [c.miembro_id as string, c])
+    )
+
+    // Cargar invitaciones vigentes para derivar estado "pendiente"
+    const correosConMiembro = (contactosData || []).map(c => (c.correo || '').toLowerCase().trim()).filter(Boolean)
+    const { data: invitacionesData } = correosConMiembro.length > 0
+      ? await supabase
+          .from('invitaciones')
+          .select('correo, expira_en, usado')
+          .eq('empresa_id', empresa.id)
+          .in('correo', correosConMiembro)
+          .eq('usado', false)
+          .gt('expira_en', new Date().toISOString())
+      : { data: [] as Array<{ correo: string; expira_en: string; usado: boolean }> }
+
+    const invitacionesMapa = new Map(
+      (invitacionesData || []).map(i => [i.correo.toLowerCase().trim(), i])
     )
 
     // Cargar sectores de miembros (vía API para evitar 406 de PostgREST)
@@ -579,24 +641,33 @@ export default function PaginaUsuarios() {
       }
     }
 
-    // Armar datos completos
+    // Armar datos completos — si el miembro no tiene perfil (sin cuenta Flux)
+    // derivamos nombre/correo/teléfono desde el contacto tipo equipo vinculado.
     const resultado: MiembroTabla[] = miembrosData.map(m => {
-      const perfil = perfilesMapa.get(m.usuario_id)
+      const perfil = m.usuario_id ? perfilesMapa.get(m.usuario_id) : undefined
+      const contacto = contactosMapa.get(m.id)
+      const correo = (perfil?.correo_empresa || perfil?.correo || contacto?.correo || '').trim()
+      const invitacion = correo ? invitacionesMapa.get(correo.toLowerCase()) : undefined
+      const estado = calcularEstadoMiembro(
+        { usuario_id: m.usuario_id, activo: m.activo },
+        invitacion ? { expira_en: invitacion.expira_en, usado: invitacion.usado } : null,
+      )
       return {
         id: m.id,
         usuario_id: m.usuario_id,
-        nombre: perfil?.nombre || 'Sin',
-        apellido: perfil?.apellido || 'nombre',
+        nombre: perfil?.nombre || contacto?.nombre || 'Sin',
+        apellido: perfil?.apellido || contacto?.apellido || 'nombre',
         avatar_url: perfil?.avatar_url || null,
-        correo: perfil?.correo_empresa || '',
-        telefono: perfil?.telefono || '',
+        correo,
+        telefono: perfil?.telefono || contacto?.telefono || '',
         telefono_empresa: perfil?.telefono_empresa || '',
         rol: m.rol,
         activo: m.activo,
+        estado,
         sector: miembroSectorMapa.get(m.id) || '',
         puesto: m.puesto_id ? (puestosMapa.get(m.puesto_id) || '') : '',
         numero_empleado: m.numero_empleado ?? null,
-        documento_numero: perfil?.documento_numero || '',
+        documento_numero: perfil?.documento_numero || contacto?.documento_numero || '',
         genero: perfil?.genero || '',
         domicilio: perfil?.domicilio || '',
         compensacion_tipo: m.compensacion_tipo || 'fijo',
@@ -608,7 +679,7 @@ export default function PaginaUsuarios() {
         turno: m.turno || '',
         metodo_fichaje: m.metodo_fichaje || '',
         unido_en: m.unido_en,
-        fecha_nacimiento: perfil?.fecha_nacimiento || null,
+        fecha_nacimiento: perfil?.fecha_nacimiento || contacto?.fecha_nacimiento || null,
       }
     })
 
@@ -629,29 +700,103 @@ export default function PaginaUsuarios() {
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  /* ── Invitar usuario ── */
-  const invitarUsuario = async () => {
+  /* ── Cargar sectores y puestos disponibles para el modal de agregar ── */
+  useEffect(() => {
+    if (!empresa) return
+    supabase
+      .from('sectores')
+      .select('id, nombre')
+      .eq('empresa_id', empresa.id)
+      .eq('activo', true)
+      .order('orden')
+      .then(({ data }) => { if (data) setSectoresDisponibles(data) })
+    supabase
+      .from('puestos')
+      .select('id, nombre')
+      .eq('empresa_id', empresa.id)
+      .eq('activo', true)
+      .order('orden')
+      .then(({ data }) => { if (data) setPuestosDisponibles(data) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa])
+
+  /* ── Resetear formulario del modal ── */
+  const resetFormularioEmpleado = () => {
+    setNuevoEmpleado({
+      nombre: '', apellido: '', correo: '', telefono: '',
+      fecha_ingreso: new Date().toISOString().split('T')[0],
+      rol: 'empleado', numero_empleado: '', sector_id: '', puesto_id: '',
+      metodo_fichaje: 'kiosco', kiosco_rfid: '', kiosco_pin: '',
+      enviar_invitacion: true,
+    })
     setInvError('')
-    if (!invCorreo) { setInvError('El correo es obligatorio'); return }
+    setLinkCopiado('')
+    setCorreoEnviadoExitoso(false)
+  }
+
+  /* ── Agregar empleado — crea el miembro (con o sin invitación) ── */
+  const agregarEmpleado = async () => {
+    setInvError('')
+    const { nombre, apellido, correo, telefono, fecha_ingreso, rol, numero_empleado, sector_id, puesto_id, metodo_fichaje, kiosco_rfid, kiosco_pin, enviar_invitacion } = nuevoEmpleado
+
+    if (!nombre.trim() || !apellido.trim()) {
+      setInvError('Nombre y apellido son obligatorios')
+      return
+    }
+    if (enviar_invitacion && !correo.trim()) {
+      setInvError('Para enviar invitación, el correo es obligatorio')
+      return
+    }
     setInvitando(true)
 
-    const res = await fetch('/api/invitaciones/crear', {
+    // 1. Crear el miembro (usuario_id=null, activo=true)
+    const resCrear = await fetch('/api/miembros/crear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ correo: invCorreo, rol: invRol }),
+      body: JSON.stringify({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        correo: correo.trim() || null,
+        telefono: telefono.trim() || null,
+        rol,
+        numero_empleado: numero_empleado ? parseInt(numero_empleado, 10) : null,
+        puesto_id: puesto_id || null,
+        puesto_nombre: puesto_id ? (puestosDisponibles.find(p => p.id === puesto_id)?.nombre || null) : null,
+        sector: sector_id ? (sectoresDisponibles.find(s => s.id === sector_id)?.nombre || null) : null,
+        metodo_fichaje: metodo_fichaje || 'kiosco',
+        kiosco_rfid: kiosco_rfid.trim() || null,
+        kiosco_pin: kiosco_pin.trim() || null,
+        fecha_ingreso: fecha_ingreso || null,
+      }),
     })
-    const datos = await res.json()
 
-    if (!res.ok) {
-      setInvError(datos.error)
+    if (!resCrear.ok) {
+      const datos = await resCrear.json()
+      setInvError(datos.error || 'Error al crear el empleado')
       setInvitando(false)
       return
     }
 
-    setLinkCopiado(datos.link)
+    // 2. Si marcó "enviar invitación" y hay correo → disparar invitación
+    if (enviar_invitacion && correo.trim()) {
+      const resInv = await fetch('/api/invitaciones/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo: correo.trim(), rol }),
+      })
+      if (resInv.ok) {
+        const datos = await resInv.json()
+        setLinkCopiado(datos.link)
+        setCorreoEnviadoExitoso(!!datos.correo_enviado)
+      }
+    }
+
     setInvitando(false)
-    setInvCorreo('')
-    setInvRol('empleado')
+    if (!enviar_invitacion) {
+      // Sin invitación: cerrar modal y refrescar
+      setModalAgregar(false)
+      resetFormularioEmpleado()
+    }
     cargarDatos()
   }
 
@@ -672,6 +817,70 @@ export default function PaginaUsuarios() {
     if (res.ok) cargarDatos()
     setProcesando(false)
     setModalActivar(null)
+  }
+
+  /* ── Parsear CSV y disparar importación masiva ── */
+  const importarCsv = async () => {
+    setImportando(true)
+    setReporteImport(null)
+
+    // Parser simple: primera línea = encabezados. Campos entre comillas
+    // soportados para escapar comas. Alias aceptados para algunos nombres.
+    const lineas = csvTexto.trim().split(/\r?\n/).filter(l => l.trim())
+    if (lineas.length < 2) {
+      setImportando(false)
+      setReporteImport({ creados: 0, total: 0, errores: [{ fila: 0, motivo: 'El CSV debe tener encabezado y al menos una fila de datos' }] })
+      return
+    }
+
+    const parseLinea = (linea: string): string[] => {
+      const campos: string[] = []
+      let actual = ''
+      let enComillas = false
+      for (const char of linea) {
+        if (char === '"') enComillas = !enComillas
+        else if (char === ',' && !enComillas) { campos.push(actual); actual = '' }
+        else actual += char
+      }
+      campos.push(actual)
+      return campos.map(c => c.trim())
+    }
+
+    const encabezados = parseLinea(lineas[0]).map(h => h.toLowerCase().trim().replace(/[^a-z_]/g, '_'))
+    const filas = lineas.slice(1).map(linea => {
+      const campos = parseLinea(linea)
+      const fila: Record<string, string> = {}
+      encabezados.forEach((h, i) => { fila[h] = campos[i] || '' })
+      return fila
+    })
+
+    const res = await fetch('/api/miembros/importar-csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filas }),
+    })
+
+    if (res.ok) {
+      const datos = await res.json()
+      setReporteImport(datos)
+      cargarDatos()
+    } else {
+      const datos = await res.json()
+      setReporteImport({ creados: 0, total: filas.length, errores: [{ fila: 0, motivo: datos.error || 'Error del servidor' }] })
+    }
+    setImportando(false)
+  }
+
+  /* ── Filtrado por estado del ciclo de vida ── */
+  const miembrosFiltrados = miembros.filter(m => filtroEstado === 'todos' ? true : m.estado === filtroEstado)
+
+  /* ── Conteo por estado (para mostrar en los chips del filtro) ── */
+  const conteoEstado: Record<EstadoMiembro | 'todos', number> = {
+    todos: miembros.length,
+    fichaje: miembros.filter(m => m.estado === 'fichaje').length,
+    pendiente: miembros.filter(m => m.estado === 'pendiente').length,
+    activo: miembros.filter(m => m.estado === 'activo').length,
+    desactivado: miembros.filter(m => m.estado === 'desactivado').length,
   }
 
   /* ── Acciones en lote ── */
@@ -698,16 +907,39 @@ export default function PaginaUsuarios() {
       titulo={t('navegacion.usuarios')}
       icono={<Users size={20} />}
       accionPrincipal={puedeGestionar ? {
-        etiqueta: t('empresa.invitar'),
+        etiqueta: t('usuarios.agregar_empleado'),
         icono: <UserPlus size={14} />,
-        onClick: () => { setModalInvitar(true); setLinkCopiado('') },
+        onClick: () => { resetFormularioEmpleado(); setModalAgregar(true) },
       } : undefined}
       acciones={[
+        { id: 'importar', etiqueta: t('usuarios.importar_csv'), icono: <UploadIcon size={14} />, onClick: () => { setModalImportar(true); setReporteImport(null); setCsvTexto('') } },
         { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/usuarios/configuracion')}
     >
+      {/* ══════ FILTRO POR ESTADO DEL CICLO DE VIDA ══════ */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-4 px-1">
+        {([
+          { clave: 'todos' as const, etiqueta: t('usuarios.filtro_todos') },
+          { clave: 'activo' as const, etiqueta: t('usuarios.estado_activo') },
+          { clave: 'pendiente' as const, etiqueta: t('usuarios.estado_pendiente') },
+          { clave: 'fichaje' as const, etiqueta: t('usuarios.estado_fichaje') },
+          { clave: 'desactivado' as const, etiqueta: t('usuarios.estado_desactivado') },
+        ]).map(chip => (
+          <Pildora
+            key={chip.clave}
+            activa={filtroEstado === chip.clave}
+            onClick={() => setFiltroEstado(chip.clave)}
+          >
+            {chip.etiqueta}
+            <span className={filtroEstado === chip.clave ? 'opacity-70' : 'text-texto-terciario/60'}>
+              {conteoEstado[chip.clave]}
+            </span>
+          </Pildora>
+        ))}
+      </div>
+
       <TablaDinamica<MiembroTabla>
         idModulo="usuarios"
         columnas={columnas}
@@ -718,7 +950,7 @@ export default function PaginaUsuarios() {
           { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
           { etiqueta: t('comun.nombre_za'), clave: 'nombre', direccion: 'desc' },
         ]}
-        datos={miembros}
+        datos={miembrosFiltrados}
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas']}
         seleccionables={puedeGestionar}
@@ -733,6 +965,12 @@ export default function PaginaUsuarios() {
           const esCumple = dias >= 0 && dias <= 7
           const ingreso = formatearIngreso(fila.unido_en, formato.locale)
           const tieneDetalle = fila.telefono || fila.compensacion_monto > 0 || ingreso
+          const etiquetaEstadoFila: Record<EstadoMiembro, string> = {
+            fichaje: t('usuarios.estado_fichaje'),
+            pendiente: t('usuarios.estado_pendiente'),
+            activo: t('usuarios.estado_activo'),
+            desactivado: t('usuarios.estado_desactivado'),
+          }
           return (
             <div className="p-4 flex flex-col gap-3">
               {/* ── Identidad ── */}
@@ -776,7 +1014,9 @@ export default function PaginaUsuarios() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
-                  <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? t('comun.activo') : t('comun.inactivo')}</Insignia>
+                  <Insignia color={ESTADOS_MIEMBRO[fila.estado].color} tamano="sm">
+                    {etiquetaEstadoFila[fila.estado]}
+                  </Insignia>
                 </div>
                 {fila.sector && <p className="text-xs text-texto-terciario truncate">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
               </div>
@@ -812,41 +1052,193 @@ export default function PaginaUsuarios() {
         estadoVacio={
           <EstadoVacio
             icono={<UserRoundSearch size={52} strokeWidth={1} />}
-            titulo="Sin miembros del equipo"
-            descripcion="Invitá a tu primer miembro para empezar a gestionar el equipo."
-            accion={puedeGestionar ? <Boton icono={<UserPlus size={14} />} onClick={() => setModalInvitar(true)}>Invitar usuario</Boton> : undefined}
+            titulo={filtroEstado === 'todos'
+              ? t('usuarios.sin_usuarios')
+              : t('usuarios.sin_miembros_estado').replace('{{estado}}', t(`usuarios.estado_${filtroEstado}` as Parameters<typeof t>[0]) || filtroEstado)}
+            descripcion={filtroEstado === 'todos'
+              ? t('usuarios.sin_miembros_desc')
+              : t('usuarios.sin_miembros_estado_desc')}
+            accion={puedeGestionar ? <Boton icono={<UserPlus size={14} />} onClick={() => { resetFormularioEmpleado(); setModalAgregar(true) }}>{t('usuarios.agregar_empleado')}</Boton> : undefined}
           />
         }
       />
 
-      {/* ══════ MODAL INVITAR ══════ */}
-      <Modal abierto={modalInvitar} onCerrar={() => setModalInvitar(false)} titulo={t('empresa.invitar')} tamano="sm">
+      {/* ══════ MODAL AGREGAR EMPLEADO ══════ */}
+      <Modal
+        abierto={modalAgregar}
+        onCerrar={() => { setModalAgregar(false); resetFormularioEmpleado() }}
+        titulo={t('usuarios.agregar_empleado')}
+        tamano="lg"
+      >
         {linkCopiado ? (
           <div className="flex flex-col gap-4">
             <div className="text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-insignia-exito/10 flex items-center justify-center mb-3">
                 <Check size={24} className="text-insignia-exito" />
               </div>
-              <p className="text-sm text-texto-primario font-medium mb-1">Invitación creada</p>
-              <p className="text-xs text-texto-terciario">Compartí este link con el usuario</p>
+              <p className="text-sm text-texto-primario font-medium mb-1">
+                {correoEnviadoExitoso ? t('usuarios.invitacion_enviada') : t('usuarios.invitacion_lista')}
+              </p>
+              <p className="text-xs text-texto-terciario">
+                {correoEnviadoExitoso ? t('usuarios.invitacion_compartir') : t('usuarios.invitacion_sin_canal')}
+              </p>
             </div>
             <div className="flex gap-2">
               <Input tipo="text" value={linkCopiado} readOnly compacto />
-              <Boton variante="secundario" tamano="sm" soloIcono titulo="Copiar enlace" icono={<Copy size={14} />} onClick={() => navigator.clipboard.writeText(linkCopiado)} />
+              <Boton variante="secundario" tamano="sm" soloIcono titulo={t('portal.copiar_enlace')} icono={<Copy size={14} />} onClick={() => navigator.clipboard.writeText(linkCopiado)} />
             </div>
-            <Boton variante="primario" anchoCompleto onClick={() => setModalInvitar(false)}>Listo</Boton>
+            <Boton variante="primario" anchoCompleto onClick={() => { setModalAgregar(false); resetFormularioEmpleado() }}>{t('comun.listo')}</Boton>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            <Input
-              tipo="email"
-              etiqueta="Correo del usuario"
-              placeholder="usuario@correo.com"
-              value={invCorreo}
-              onChange={(e) => setInvCorreo(e.target.value)}
-              icono={<Mail size={16} />}
-            />
-            <Select etiqueta="Rol" opciones={ROLES_OPCIONES} valor={invRol} onChange={(v) => setInvRol(v)} />
+          <div className="space-y-5">
+            {/* ── Datos personales ── */}
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">
+                {t('usuarios.seccion_datos_personales')}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  tipo="text"
+                  etiqueta={t('usuarios.nombre')}
+                  placeholder="Juan"
+                  value={nuevoEmpleado.nombre}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, nombre: e.target.value }))}
+                />
+                <Input
+                  tipo="text"
+                  etiqueta={t('usuarios.apellido')}
+                  placeholder="Pérez"
+                  value={nuevoEmpleado.apellido}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, apellido: e.target.value }))}
+                />
+                <Input
+                  tipo="email"
+                  etiqueta={t('usuarios.correo_opcional')}
+                  placeholder="usuario@correo.com"
+                  value={nuevoEmpleado.correo}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, correo: e.target.value }))}
+                  icono={<Mail size={16} />}
+                />
+                <Input
+                  tipo="tel"
+                  etiqueta={t('usuarios.telefono_opcional')}
+                  placeholder="+54 9 ..."
+                  value={nuevoEmpleado.telefono}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, telefono: e.target.value }))}
+                  icono={<Phone size={16} />}
+                />
+                <SelectorFecha
+                  etiqueta="Fecha de ingreso"
+                  valor={nuevoEmpleado.fecha_ingreso}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, fecha_ingreso: v || new Date().toISOString().split('T')[0] }))}
+                />
+              </div>
+              <p className="text-[11px] text-texto-terciario/70 mt-2 leading-relaxed">
+                Si el empleado ya está trabajando hace unos días, poné la fecha real de inicio. Después podés cargar sus fichajes desde Asistencias.
+              </p>
+            </div>
+
+            <div className="border-t border-white/[0.07]" />
+
+            {/* ── Rol y organización ── */}
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">
+                {t('usuarios.seccion_rol_organizacion')}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  etiqueta={t('usuarios.rol')}
+                  opciones={ROLES_OPCIONES}
+                  valor={nuevoEmpleado.rol}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, rol: v }))}
+                />
+                <Input
+                  tipo="number"
+                  etiqueta={t('usuarios.legajo_opcional')}
+                  placeholder={t('usuarios.legajo_placeholder')}
+                  value={nuevoEmpleado.numero_empleado}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, numero_empleado: e.target.value }))}
+                  icono={<Hash size={16} />}
+                />
+                <Select
+                  etiqueta={t('usuarios.sector_opcional')}
+                  opciones={[{ valor: '', etiqueta: t('usuarios.sin_sector') }, ...sectoresDisponibles.map(s => ({ valor: s.id, etiqueta: s.nombre }))]}
+                  valor={nuevoEmpleado.sector_id}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, sector_id: v }))}
+                />
+                <Select
+                  etiqueta={t('usuarios.puesto_opcional')}
+                  opciones={[{ valor: '', etiqueta: t('usuarios.sin_puesto') }, ...puestosDisponibles.map(p => ({ valor: p.id, etiqueta: p.nombre }))]}
+                  valor={nuevoEmpleado.puesto_id}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, puesto_id: v }))}
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-white/[0.07]" />
+
+            {/* ── Fichaje y kiosco ── */}
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">
+                {t('usuarios.seccion_fichaje_kiosco')}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Select
+                  etiqueta={t('usuarios.metodo_fichaje')}
+                  opciones={[
+                    { valor: 'kiosco', etiqueta: t('usuarios.metodo_kiosco') },
+                    { valor: 'automatico', etiqueta: t('usuarios.metodo_automatico') },
+                    { valor: 'manual', etiqueta: t('usuarios.metodo_manual') },
+                  ]}
+                  valor={nuevoEmpleado.metodo_fichaje}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, metodo_fichaje: v }))}
+                />
+                <Input
+                  tipo="text"
+                  etiqueta={t('usuarios.llavero_rfid')}
+                  placeholder={t('usuarios.llavero_placeholder')}
+                  value={nuevoEmpleado.kiosco_rfid}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, kiosco_rfid: e.target.value }))}
+                  icono={<Fingerprint size={16} />}
+                />
+                <Input
+                  tipo="text"
+                  etiqueta={t('usuarios.pin_respaldo')}
+                  placeholder={t('usuarios.pin_placeholder')}
+                  value={nuevoEmpleado.kiosco_pin}
+                  onChange={(e) => setNuevoEmpleado(p => ({ ...p, kiosco_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  icono={<KeyRound size={16} />}
+                />
+              </div>
+              <p className="text-[11px] text-texto-terciario/70 mt-2 leading-relaxed">
+                {t('usuarios.nota_kiosco')}
+              </p>
+            </div>
+
+            <div className="border-t border-white/[0.07]" />
+
+            {/* ── Acceso a Flux ── */}
+            <div className="flex items-start gap-3 p-3 rounded-card bg-superficie-elevada/40 border border-borde-sutil">
+              <div className="pt-0.5">
+                <Checkbox
+                  marcado={nuevoEmpleado.enviar_invitacion}
+                  onChange={(v) => setNuevoEmpleado(p => ({ ...p, enviar_invitacion: v }))}
+                  deshabilitado={!nuevoEmpleado.correo.trim()}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-texto-primario flex items-center gap-1.5">
+                  <Send size={13} className="text-texto-terciario" />
+                  {t('usuarios.enviar_invitacion_flux')}
+                </p>
+                <p className="text-xs text-texto-terciario mt-0.5 leading-relaxed">
+                  {nuevoEmpleado.correo.trim()
+                    ? t('usuarios.enviar_invitacion_con_correo')
+                    : t('usuarios.enviar_invitacion_sin_correo')}
+                </p>
+              </div>
+            </div>
+
             <AnimatePresence>
               {invError && (
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-sm text-insignia-peligro">
@@ -854,9 +1246,111 @@ export default function PaginaUsuarios() {
                 </motion.p>
               )}
             </AnimatePresence>
-            <Boton variante="primario" anchoCompleto cargando={invitando} onClick={invitarUsuario} icono={<UserPlus size={16} />}>
-              Enviar invitación
-            </Boton>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.07]">
+              <Boton variante="fantasma" tamano="sm" onClick={() => { setModalAgregar(false); resetFormularioEmpleado() }}>
+                {t('comun.cancelar')}
+              </Boton>
+              <Boton
+                variante="primario"
+                tamano="sm"
+                cargando={invitando}
+                onClick={agregarEmpleado}
+                icono={<UserPlus size={14} />}
+              >
+                {t('usuarios.crear_empleado')}
+              </Boton>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ══════ MODAL IMPORTAR CSV ══════ */}
+      <Modal
+        abierto={modalImportar}
+        onCerrar={() => { setModalImportar(false); setReporteImport(null); setCsvTexto('') }}
+        titulo={t('usuarios.importar_titulo')}
+        tamano="lg"
+      >
+        {reporteImport ? (
+          <div className="space-y-4">
+            <div className={`flex items-start gap-3 p-4 rounded-card border ${reporteImport.creados > 0 ? 'bg-insignia-exito-fondo border-insignia-exito/30' : 'bg-insignia-peligro-fondo border-insignia-peligro/30'}`}>
+              <Check size={20} className={reporteImport.creados > 0 ? 'text-insignia-exito-texto mt-0.5' : 'text-insignia-peligro-texto mt-0.5'} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-texto-primario">
+                  {t('usuarios.importar_resultado')
+                    .replace('{{creados}}', String(reporteImport.creados))
+                    .replace('{{total}}', String(reporteImport.total))}
+                </p>
+                {reporteImport.errores.length > 0 && (
+                  <p className="text-xs text-texto-terciario mt-0.5">
+                    {reporteImport.errores.length} {reporteImport.errores.length === 1 ? t('usuarios.importar_error') : t('usuarios.importar_errores')}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {reporteImport.errores.length > 0 && (
+              <div className="max-h-64 overflow-y-auto border border-borde-sutil rounded-card">
+                <table className="w-full text-xs">
+                  <thead className="bg-superficie-elevada/50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-texto-terciario font-medium">{t('usuarios.importar_fila')}</th>
+                      <th className="px-3 py-2 text-left text-texto-terciario font-medium">{t('usuarios.importar_motivo')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reporteImport.errores.map((err, i) => (
+                      <tr key={i} className="border-t border-borde-sutil">
+                        <td className="px-3 py-2 text-texto-terciario font-mono">{err.fila || '—'}</td>
+                        <td className="px-3 py-2 text-texto-primario">{err.motivo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.07]">
+              <Boton variante="fantasma" tamano="sm" onClick={() => { setReporteImport(null); setCsvTexto('') }}>{t('usuarios.importar_otro')}</Boton>
+              <Boton variante="primario" tamano="sm" onClick={() => { setModalImportar(false); setReporteImport(null); setCsvTexto('') }}>{t('usuarios.importar_listo')}</Boton>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-3 rounded-card bg-superficie-elevada/40 border border-borde-sutil text-xs text-texto-secundario leading-relaxed">
+              <p className="font-medium text-texto-primario mb-1">{t('usuarios.importar_formato_titulo')}</p>
+              <p>{t('usuarios.importar_formato_desc')}</p>
+              <code className="block mt-1.5 px-2 py-1 rounded bg-superficie-app text-[11px] text-texto-primario overflow-x-auto">
+                nombre, apellido, correo, telefono, rol, numero_empleado, sector, puesto, kiosco_rfid, kiosco_pin, metodo_fichaje
+              </code>
+              <p className="mt-2">{t('usuarios.importar_obligatorios')}</p>
+            </div>
+
+            <TextArea
+              etiqueta="CSV"
+              rows={10}
+              monoespacio
+              value={csvTexto}
+              onChange={(e) => setCsvTexto(e.target.value)}
+              placeholder={`nombre,apellido,correo,telefono,rol,numero_empleado,sector,puesto,kiosco_rfid,kiosco_pin\nJuan,Pérez,juan@mail.com,+5491122334455,empleado,101,Ventas,Cajero,ABC123,1234\nMaría,González,,+5491199887766,empleado,102,Producción,,XYZ456,5678`}
+            />
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.07]">
+              <Boton variante="fantasma" tamano="sm" onClick={() => { setModalImportar(false); setCsvTexto('') }}>
+                {t('comun.cancelar')}
+              </Boton>
+              <Boton
+                variante="primario"
+                tamano="sm"
+                cargando={importando}
+                onClick={importarCsv}
+                icono={<UploadIcon size={14} />}
+                disabled={!csvTexto.trim()}
+              >
+                {t('comun.importar')}
+              </Boton>
+            </div>
           </div>
         )}
       </Modal>

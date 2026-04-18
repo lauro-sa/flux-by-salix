@@ -165,7 +165,7 @@ export function SeccionPerfil() {
         {/* Correo de acceso */}
         <Tarjeta compacta>
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg bg-insignia-info-fondo flex items-center justify-center shrink-0">
+            <div className="size-9 rounded-card bg-insignia-info-fondo flex items-center justify-center shrink-0">
               <Mail size={16} className="text-insignia-info-texto" />
             </div>
             <div className="min-w-0">
@@ -179,7 +179,7 @@ export function SeccionPerfil() {
         {ctx.documentoNumero && (
           <Tarjeta compacta>
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-insignia-cyan-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-cyan-fondo flex items-center justify-center shrink-0">
                 <CreditCard size={16} className="text-insignia-cyan-texto" />
               </div>
               <div className="min-w-0">
@@ -194,7 +194,7 @@ export function SeccionPerfil() {
         {ctx.fechaNacimiento && (
           <Tarjeta compacta>
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-insignia-rosa-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-rosa-fondo flex items-center justify-center shrink-0">
                 <Cake size={16} className="text-insignia-rosa-texto" />
               </div>
               <div className="min-w-0">
@@ -212,7 +212,7 @@ export function SeccionPerfil() {
         {ctx.domicilio && (
           <Tarjeta compacta>
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-insignia-naranja-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-naranja-fondo flex items-center justify-center shrink-0">
                 <MapPin size={16} className="text-insignia-naranja-texto" />
               </div>
               <div className="min-w-0">
@@ -227,7 +227,7 @@ export function SeccionPerfil() {
         {ctx.correoEmpresa && (
           <Tarjeta compacta>
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-insignia-violeta-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-violeta-fondo flex items-center justify-center shrink-0">
                 <Briefcase size={16} className="text-insignia-violeta-texto" />
               </div>
               <div className="min-w-0">
@@ -242,7 +242,7 @@ export function SeccionPerfil() {
         {ctx.telefonoEmpresa && (
           <Tarjeta compacta>
             <div className="flex items-center gap-3">
-              <div className="size-9 rounded-lg bg-insignia-exito-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-exito-fondo flex items-center justify-center shrink-0">
                 <Phone size={16} className="text-insignia-exito-texto" />
               </div>
               <div className="min-w-0">
@@ -321,7 +321,7 @@ export function SeccionPerfil() {
                     : '!border-borde-sutil'
                 }`}
               >
-                <div className="size-8 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
+                <div className="size-8 rounded-card bg-superficie-elevada flex items-center justify-center shrink-0">
                   {activo ? <Check size={14} className="text-texto-marca" /> : <MessageSquare size={14} className="text-texto-terciario" />}
                 </div>
                 <div className="min-w-0">
@@ -350,7 +350,7 @@ export function SeccionPerfil() {
         {!editandoEm ? (
           ctx.emergencia.nombre ? (
             <div className="flex items-start gap-3">
-              <div className="size-9 rounded-lg bg-insignia-rosa-fondo flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-card bg-insignia-rosa-fondo flex items-center justify-center shrink-0">
                 <Heart size={16} className="text-insignia-rosa-texto" />
               </div>
               <div className="space-y-0.5">

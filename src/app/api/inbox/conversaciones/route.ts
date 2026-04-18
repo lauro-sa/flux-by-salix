@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
+import { resolverCanales } from '@/lib/canales'
 
 /**
  * GET /api/inbox/conversaciones — Listar conversaciones con filtros.
@@ -52,7 +53,6 @@ export async function GET(request: NextRequest) {
       .from('conversaciones')
       .select(`
         *,
-        canal:canales_inbox!canal_id(id, nombre, tipo, proveedor),
         contacto:contactos!contacto_id(id, nombre, apellido, correo, telefono, whatsapp, avatar_url, es_provisorio),
         etapa:etapas_conversacion!etapa_id(id, etiqueta, color, icono)
       `, { count: 'exact' })
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
         if (idsConv.length > 0) {
           const { data: convsExtra } = await admin
             .from('conversaciones')
-            .select(`*, canal:canales_inbox!canal_id(id, nombre, tipo, proveedor)`)
+            .select('*')
             .eq('empresa_id', empresaId)
             .in('id', idsConv.slice(0, 10))
             .order('ultimo_mensaje_en', { ascending: false, nullsFirst: false })
@@ -150,6 +150,9 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    // Resolver info de canal desde canales_correo/canales_whatsapp según tipo_canal
+    const canalesMap = await resolverCanales(admin, resultados as Array<{ canal_id?: string; tipo_canal?: string }>)
 
     // Enriquecer con flags del usuario actual (fijada, silenciada, seguida)
     const convIds = resultados.map(c => c.id)
@@ -168,6 +171,7 @@ export async function GET(request: NextRequest) {
         const etapaJoin = c.etapa as { id: string; etiqueta: string; color: string; icono: string | null } | null
         return {
           ...c,
+          canal: c.canal_id ? canalesMap.get(c.canal_id) || null : null,
           etapa_etiqueta: etapaJoin?.etiqueta || null,
           etapa_color: etapaJoin?.color || null,
           _fijada: pinsSet.has(c.id),
@@ -183,7 +187,12 @@ export async function GET(request: NextRequest) {
     // Aplanar etapa para resultados sin pins
     const resultadosConEtapa = resultados.map(c => {
       const etapaJoin = c.etapa as { id: string; etiqueta: string; color: string; icono: string | null } | null
-      return { ...c, etapa_etiqueta: etapaJoin?.etiqueta || null, etapa_color: etapaJoin?.color || null }
+      return {
+        ...c,
+        canal: c.canal_id ? canalesMap.get(c.canal_id) || null : null,
+        etapa_etiqueta: etapaJoin?.etiqueta || null,
+        etapa_color: etapaJoin?.color || null,
+      }
     })
     return NextResponse.json({ conversaciones: resultadosConEtapa, total: count || resultados.length })
   } catch (err) {
@@ -227,9 +236,17 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Verificar que el canal pertenezca a la empresa
+    // Verificar que el canal pertenezca a la empresa (buscar en la tabla del tipo correspondiente)
+    const tablaCanal =
+      tipo_canal === 'whatsapp' ? 'canales_whatsapp' :
+      tipo_canal === 'correo' ? 'canales_correo' :
+      tipo_canal === 'interno' ? 'canales_internos' :
+      null
+    if (!tablaCanal) {
+      return NextResponse.json({ error: 'Tipo de canal no soportado' }, { status: 400 })
+    }
     const { data: canalVerif } = await admin
-      .from('canales_inbox')
+      .from(tablaCanal)
       .select('id')
       .eq('id', canal_id)
       .eq('empresa_id', empresaId)

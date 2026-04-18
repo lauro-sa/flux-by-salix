@@ -92,7 +92,7 @@ export function BarraSuperiorInbox({
             onClick={onSincronizarCorreos}
             disabled={sincronizando}
             title={sincronizando ? 'Sincronizando...' : 'Sincronizar correos'}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors cursor-pointer disabled:cursor-default"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-boton transition-colors cursor-pointer disabled:cursor-default"
             style={{
               background: 'transparent',
               border: 'none',

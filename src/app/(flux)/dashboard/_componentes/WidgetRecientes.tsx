@@ -178,14 +178,14 @@ export function WidgetRecientes() {
 
   if (cargando) {
     return (
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 sm:p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 sm:p-5">
         <div className="flex items-center gap-2 mb-4">
           <Clock size={15} className="text-texto-terciario" />
           <h3 className="text-sm font-semibold text-texto-primario">Tu actividad reciente</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4 gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-7 bg-superficie-hover/40 rounded-md animate-pulse" />
+            <div key={i} className="h-7 bg-superficie-hover/40 rounded-boton animate-pulse" />
           ))}
         </div>
       </div>
@@ -194,7 +194,7 @@ export function WidgetRecientes() {
 
   if (recientes.length === 0) {
     return (
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 sm:p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 sm:p-5">
         <div className="flex items-center gap-2 mb-4">
           <Clock size={15} className="text-texto-terciario" />
           <h3 className="text-sm font-semibold text-texto-primario">Tu actividad reciente</h3>
@@ -207,7 +207,7 @@ export function WidgetRecientes() {
   }
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 sm:p-5">
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 sm:p-5">
       <div className="flex items-center gap-2 mb-4">
         <Clock size={15} className="text-texto-terciario" />
         <h3 className="text-sm font-semibold text-texto-primario">Tu actividad reciente</h3>
@@ -226,7 +226,7 @@ export function WidgetRecientes() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.025, duration: 0.2 }}
               onClick={() => router.push(config.ruta(item.entidad_id))}
-              className="flex items-center gap-2 py-1 px-1.5 rounded-md hover:bg-superficie-hover/60 cursor-pointer transition-colors group"
+              className="flex items-center gap-2 py-1 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors group"
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
@@ -237,7 +237,7 @@ export function WidgetRecientes() {
               }}
             >
               {/* Icono tipo entidad */}
-              <div className={`size-6 rounded-md flex items-center justify-center shrink-0 ${config.color}`}>
+              <div className={`size-6 rounded-boton flex items-center justify-center shrink-0 ${config.color}`}>
                 {config.icono}
               </div>
 

@@ -6,7 +6,6 @@ import { Settings2, Bell, Tag, Zap, Briefcase, LayoutGrid } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { SeccionTiposEvento, type TipoEventoCalendario } from './secciones/SeccionTiposEvento'
 import { SeccionHorarioCalendario } from './secciones/SeccionHorarioCalendario'
 import { SeccionVistaDefault } from './secciones/SeccionVistaDefault'
 
@@ -18,7 +17,6 @@ export default function PaginaConfiguracionCalendario() {
   const router = useRouter()
   const [seccionActiva, setSeccionActiva] = useState('tipos')
   const [cargando, setCargando] = useState(true)
-  const [tipos, setTipos] = useState<TipoEventoCalendario[]>([])
   const [config, setConfig] = useState<Record<string, unknown> | null>(null)
 
   const secciones: SeccionConfig[] = [
@@ -34,7 +32,6 @@ export default function PaginaConfiguracionCalendario() {
       const res = await fetch('/api/calendario/config')
       if (!res.ok) throw new Error()
       const data = await res.json()
-      setTipos(data.tipos || [])
       setConfig(data.config || null)
     } catch {
       console.error('Error al cargar config del calendario')
@@ -70,16 +67,14 @@ export default function PaginaConfiguracionCalendario() {
       onVolver={() => router.push('/calendario')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={setSeccionActiva}
+      onCambiarSeccion={(id) => {
+        if (id === 'tipos') {
+          router.push('/calendario/configuracion/tipos')
+          return
+        }
+        setSeccionActiva(id)
+      }}
     >
-      {seccionActiva === 'tipos' && (
-        <SeccionTiposEvento
-          tipos={tipos}
-          cargando={cargando}
-          onActualizar={setTipos}
-          onAccionAPI={ejecutarAccion}
-        />
-      )}
       {seccionActiva === 'horario' && (
         <SeccionHorarioCalendario
           config={config as {

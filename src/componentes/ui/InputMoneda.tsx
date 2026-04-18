@@ -65,7 +65,7 @@ export function InputMoneda({ etiqueta, value, onChange, moneda, placeholder = '
       )}
       <div
         className={`
-          flex items-center gap-2 w-full rounded-xl border transition-colors
+          flex items-center gap-2 w-full rounded-input border transition-colors
           ${disabled ? 'opacity-50 cursor-not-allowed bg-superficie-app' : 'bg-superficie-tarjeta'}
           ${enfocado ? 'border-texto-marca ring-2 ring-texto-marca/20' : 'border-borde-sutil hover:border-borde-fuerte'}
         `}

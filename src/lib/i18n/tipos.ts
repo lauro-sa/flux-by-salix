@@ -1206,6 +1206,75 @@ export interface Traducciones {
     ld: string
     personalizado: string
     desactivar_seleccionados: string
+
+    // Ciclo de vida del empleado y acciones de agregar/invitar/cancelar
+    agregar_empleado: string
+    crear_empleado: string
+    seccion_datos_personales: string
+    seccion_rol_organizacion: string
+    seccion_fichaje_kiosco: string
+    correo_opcional: string
+    telefono_opcional: string
+    legajo_opcional: string
+    legajo_placeholder: string
+    sector_opcional: string
+    puesto_opcional: string
+    sin_sector: string
+    sin_puesto: string
+    metodo_fichaje: string
+    metodo_kiosco: string
+    metodo_automatico: string
+    metodo_manual: string
+    llavero_rfid: string
+    llavero_placeholder: string
+    pin_respaldo: string
+    pin_placeholder: string
+    nota_kiosco: string
+    enviar_invitacion_flux: string
+    enviar_invitacion_con_correo: string
+    enviar_invitacion_sin_correo: string
+    invitacion_enviada: string
+    invitacion_lista: string
+    invitacion_compartir: string
+    invitacion_sin_canal: string
+    estado_del_empleado: string
+    ciclo_vida: string
+    ciclo_vida_suspendido: string
+    estado_fichaje: string
+    estado_fichaje_desc: string
+    estado_fichaje_caption: string
+    estado_pendiente: string
+    estado_pendiente_desc: string
+    estado_pendiente_caption: string
+    estado_activo: string
+    estado_activo_desc: string
+    estado_activo_caption: string
+    estado_desactivado: string
+    estado_desactivado_desc: string
+    reenviar_invitacion: string
+    copiar_link: string
+    cancelar_invitacion: string
+    reactivar_empleado: string
+    desactivar: string
+    invitacion_expira_hoy: string
+    invitacion_expira_manana: string
+    invitacion_expira_en_dias: string
+    filtro_todos: string
+    sin_miembros_estado: string
+    sin_miembros_estado_desc: string
+    sin_miembros_desc: string
+    importar_csv: string
+    importar_titulo: string
+    importar_formato_titulo: string
+    importar_formato_desc: string
+    importar_obligatorios: string
+    importar_resultado: string
+    importar_error: string
+    importar_errores: string
+    importar_fila: string
+    importar_motivo: string
+    importar_otro: string
+    importar_listo: string
   }
 
   // Aplicaciones (módulos instalables)

@@ -44,7 +44,7 @@ function Kanban<T>({ columnas, items, obtenerColumna, renderItem, claveItem, cla
                 <div key={claveItem(item)}>{renderItem(item)}</div>
               ))}
               {itemsColumna.length === 0 && (
-                <div className="text-xs text-texto-terciario text-center py-8 border border-dashed border-borde-sutil rounded-lg">
+                <div className="text-xs text-texto-terciario text-center py-8 border border-dashed border-borde-sutil rounded-card">
                   Sin items
                 </div>
               )}

@@ -757,7 +757,7 @@ function WidgetJornada() {
         type="button"
         title="Jornada"
         className={[
-          'flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors cursor-pointer border-none',
+          'flex items-center gap-1.5 rounded-card px-2 py-1 transition-colors cursor-pointer border-none',
           'hover:bg-superficie-hover text-texto-terciario hover:text-texto-secundario',
         ].join(' ')}
       >

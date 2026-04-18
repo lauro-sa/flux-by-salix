@@ -38,7 +38,7 @@ export function BarraSuperiorWhatsApp({
     >
       {/* Toggle vista: conversaciones / pipeline */}
       {!esMovil ? (
-        <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden">
+        <div className="flex items-center border border-borde-sutil rounded-card overflow-hidden">
           <Boton
             variante={vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
             tamano="xs"

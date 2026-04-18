@@ -4,11 +4,11 @@ import React from 'react'
 import { Boton } from '@/componentes/ui/Boton'
 import { ArrowLeft, PanelLeftOpen, PanelLeftClose, Columns2, Rows2, Pen } from 'lucide-react'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
-import { ListaConversaciones } from './ListaConversaciones'
+import { ListaConversaciones } from '@/componentes/mensajeria/ListaConversaciones'
 import { PanelCorreo } from './PanelCorreo'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
 import { SidebarCorreo, type CarpetaCorreo } from './SidebarCorreo'
-import type { ConversacionConDetalles, MensajeConAdjuntos, CanalInbox, EstadoConversacion } from '@/tipos/inbox'
+import type { ConversacionConDetalles, MensajeConAdjuntos, CanalMensajeria, EstadoConversacion } from '@/tipos/inbox'
 import type { ModoVista, VistaMovilCorreo } from './useEstadoInbox'
 
 /**
@@ -37,7 +37,7 @@ interface PropsLayoutCorreo {
   enviando: boolean
 
   // Canales de correo
-  canalesCorreo: CanalInbox[]
+  canalesCorreo: CanalMensajeria[]
   canalCorreoActivo: string
   onCambiarCanal: (id: string) => void
   carpetaCorreo: CarpetaCorreo
@@ -583,7 +583,7 @@ function VistaFilaCorreo({
 function ToggleModoVista({ modoVista, onCambiar, invertido }: { modoVista: ModoVista; onCambiar: (modo: ModoVista) => void; invertido?: boolean }) {
   const columnaActiva = modoVista === 'columna'
   return (
-    <div className="flex items-center gap-0 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+    <div className="flex items-center gap-0 rounded-boton p-0.5" style={{ background: 'var(--superficie-hover)' }}>
       <Boton
         variante="fantasma"
         tamano="xs"

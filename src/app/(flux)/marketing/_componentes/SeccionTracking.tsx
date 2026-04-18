@@ -85,12 +85,12 @@ function SeccionTracking() {
       />
 
       {/* Ejemplo de snippet */}
-      <div className="rounded-lg bg-superficie-elevada border border-borde-sutil p-4">
+      <div className="rounded-card bg-superficie-elevada border border-borde-sutil p-4">
         <h4 className="text-sm font-semibold text-texto-primario mb-3 flex items-center gap-2">
           <Code size={14} className="text-texto-marca" />
           Ejemplo del snippet
         </h4>
-        <div className="rounded-md bg-[#1e1e2e] p-3 font-mono text-xs text-[#cdd6f4] overflow-x-auto">
+        <div className="rounded-boton bg-[#1e1e2e] p-3 font-mono text-xs text-[#cdd6f4] overflow-x-auto">
           <span className="text-[#89b4fa]">{'<!-- Flux Tracking - Pegar antes de </body> -->'}</span>
           <br />
           <span className="text-[#cba6f7]">{'<script'}</span>
@@ -112,12 +112,12 @@ function SeccionTracking() {
       </div>
 
       {/* Ejemplo de evento */}
-      <div className="rounded-lg bg-superficie-elevada border border-borde-sutil p-4">
+      <div className="rounded-card bg-superficie-elevada border border-borde-sutil p-4">
         <h4 className="text-sm font-semibold text-texto-primario mb-3 flex items-center gap-2">
           <MousePointerClick size={14} className="text-texto-marca" />
           Ejemplo de evento personalizado
         </h4>
-        <div className="rounded-md bg-[#1e1e2e] p-3 font-mono text-xs text-[#cdd6f4] overflow-x-auto">
+        <div className="rounded-boton bg-[#1e1e2e] p-3 font-mono text-xs text-[#cdd6f4] overflow-x-auto">
           <span className="text-[#89b4fa]">{'<!-- Botón con tracking automático -->'}</span>
           <br />
           <span className="text-[#cba6f7]">{'<button'}</span>
@@ -144,10 +144,10 @@ function SeccionTracking() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: i * 0.03 }}
-            className="rounded-lg border border-borde-sutil bg-superficie-tarjeta p-4 flex gap-3"
+            className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 flex gap-3"
           >
             <div
-              className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              className="w-8 h-8 rounded-boton flex items-center justify-center shrink-0 mt-0.5"
               style={{
                 backgroundColor: 'color-mix(in srgb, var(--texto-marca) 12%, transparent)',
                 color: 'var(--texto-marca)',
@@ -164,7 +164,7 @@ function SeccionTracking() {
       </div>
 
       {/* Nota técnica */}
-      <div className="rounded-lg bg-superficie-elevada border border-borde-sutil p-4">
+      <div className="rounded-card bg-superficie-elevada border border-borde-sutil p-4">
         <h4 className="text-sm font-semibold text-texto-primario mb-2">Nota técnica</h4>
         <ul className="text-xs text-texto-terciario space-y-1.5 list-disc list-inside leading-relaxed">
           <li>El script se sirve desde un CDN (Vercel Edge o Cloudflare) para máxima velocidad global.</li>

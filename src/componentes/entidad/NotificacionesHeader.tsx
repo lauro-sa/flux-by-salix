@@ -152,7 +152,7 @@ function renderizarIconoNotificacion(tipo: string, color: string, cantidad: numb
   return (
     <div className="relative shrink-0">
       <div
-        className="size-8 rounded-lg flex items-center justify-center"
+        className="size-8 rounded-card flex items-center justify-center"
         style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
       >
         {esWhatsApp
@@ -333,7 +333,7 @@ function PestanasInbox({
             key={clave}
             onClick={() => onChange(clave)}
             className={[
-              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border-none cursor-pointer transition-colors',
+              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-boton text-xs font-medium border-none cursor-pointer transition-colors',
               esActiva
                 ? 'bg-superficie-hover text-texto-primario'
                 : 'bg-transparent text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
@@ -395,7 +395,7 @@ function PestanasActividades({
             key={clave}
             onClick={() => onChange(clave)}
             className={[
-              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border-none cursor-pointer transition-colors',
+              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-boton text-xs font-medium border-none cursor-pointer transition-colors',
               esActiva
                 ? 'bg-superficie-hover text-texto-primario'
                 : 'bg-transparent text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
@@ -518,7 +518,7 @@ function FilaActividad({ item, onClick }: { item: ActividadPendiente; onClick: (
       className="flex items-center gap-3 px-4 py-2.5 border-b border-borde-sutil/50 cursor-pointer hover:bg-superficie-hover transition-colors"
     >
       <div
-        className="size-7 rounded-md flex items-center justify-center shrink-0"
+        className="size-7 rounded-boton flex items-center justify-center shrink-0"
         style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
       >
         {esVencida

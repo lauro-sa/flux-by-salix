@@ -57,6 +57,96 @@
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   GrupoBotones: segmentado con caras internas planas
+   ═══════════════════════════════════════════════════════════════
+   El componente <GrupoBotones> envuelve a sus hijos en un div con
+   la clase .grupo-botones. Las reglas de abajo aplican el radio
+   según posición:
+   - Primer hijo conserva solo el radio izquierdo
+   - Último hijo conserva solo el radio derecho
+   - Los intermedios quedan rectos
+
+   Usa !important para ganar sobre el rounded-boton que cada <Boton>
+   trae por defecto. Está fuera de @layer, así la cascada unlayered
+   le da precedencia sobre las utilidades de Tailwind.
+
+   Soporta también un botón anidado dentro de un <div> hijo
+   (caso típico: menú con dropdown que necesita wrapper `relative`).
+   ─────────────────────────────────────────────────────────────── */
+
+/* Reset: todos los hijos y botones anidados pierden el radio.
+   Cubre cuatro casos de anidación del trigger:
+     1. <button>                              — botón directo
+     2. <span tooltip><button>                — Boton con prop tooltip
+     3. <div relative><button>                — dropdown simple (wrapper para menu)
+     4. <div relative><span tooltip><button>  — dropdown + tooltip combinados */
+.grupo-botones > *,
+.grupo-botones > span > button,
+.grupo-botones > div > button,
+.grupo-botones > div > span > button {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Primer hijo: radio izquierdo */
+.grupo-botones > :first-child,
+.grupo-botones > span:first-child > button,
+.grupo-botones > div:first-child > button,
+.grupo-botones > div:first-child > span > button {
+  border-top-left-radius: var(--radio-boton) !important;
+  border-bottom-left-radius: var(--radio-boton) !important;
+}
+
+/* Último hijo: radio derecho */
+.grupo-botones > :last-child,
+.grupo-botones > span:last-child > button,
+.grupo-botones > div:last-child > button,
+.grupo-botones > div:last-child > span > button {
+  border-top-right-radius: var(--radio-boton) !important;
+  border-bottom-right-radius: var(--radio-boton) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GrupoDocChatter: documento + chatter pegados tipo toolbar
+   ═══════════════════════════════════════════════════════════════
+   Se aplica al wrapper que contiene la columna izquierda (documento
+   y posibles tarjetas debajo) y el panel chatter como último hijo.
+   Dos variantes según la dirección:
+     - lateral: chatter a la derecha → caras verticales internas planas
+     - stacked: chatter abajo       → caras horizontales internas planas
+   Asume estructura:
+     <div class="grupo-doc-chatter-[lateral|stacked]">
+       <div>  <!-- columna izquierda -->
+         <tarjeta-documento/>
+         [más tarjetas opcionales]
+       </div>
+       <PanelChatter/>
+     </div>
+   ─────────────────────────────────────────────────────────────── */
+
+/* LATERAL: documento a la izquierda, chatter a la derecha */
+.grupo-doc-chatter-lateral > :first-child > :first-child {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.grupo-doc-chatter-lateral > :last-child {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+/* STACKED: documento arriba, chatter abajo */
+.grupo-doc-chatter-stacked > :first-child > :last-child {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.grupo-doc-chatter-stacked > :last-child {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
 /* Contenido principal */
 .contenido-principal-layout {
   min-height: 100%;
@@ -96,6 +186,12 @@
   min-height: 0;
   flex: 1 1 0%;
   overflow: hidden;
+  padding-bottom: 0;
+}
+
+/* Cuando la página es un listado (tabla/tarjetas), ya gestiona su propio
+   alto/scroll interno — el padding inferior del main dejaba un margen feo. */
+.main-layout:has(> .plantilla-listado) {
   padding-bottom: 0;
 }
 
@@ -342,6 +438,20 @@ input:-webkit-autofill:active {
   --shadow-media: var(--sombra-md);
   --shadow-fuerte: var(--sombra-lg);
   --shadow-foco: var(--sombra-foco);
+
+  /* ── Radios semánticos ──
+     Mapean tokens de tokens.css a utilidades de Tailwind (rounded-<nombre>).
+     REGLA: en componentes usar SIEMPRE rounded-boton / rounded-input /
+     rounded-card / rounded-modal / rounded-popover / rounded-insignia /
+     rounded-icono — nunca rounded-md/lg/xl hardcodeados.
+     Cambiar un valor en tokens.css ripplea automáticamente a toda la app. */
+  --radius-boton:    var(--radio-boton);
+  --radius-input:    var(--radio-input);
+  --radius-icono:    var(--radio-icono);
+  --radius-card:     var(--radio-card);
+  --radius-modal:    var(--radio-modal);
+  --radius-popover:  var(--radio-popover);
+  --radius-insignia: var(--radio-insignia);
 
   /* Transiciones — mapeo a tokens para usar duration-rapida, duration-normal, etc. */
   --transition-duration-rapida: 120ms;

@@ -90,7 +90,7 @@ export function BarraKPIs({ contactoId, contactoNombre }: { contactoId: string; 
       />
 
       {/* KPIs */}
-      <div className={`flex items-stretch gap-0 overflow-x-auto rounded-xl border border-borde-sutil bg-superficie-tarjeta transition-opacity duration-200 ${cargandoKpis ? 'opacity-40' : ''}`} style={{ scrollbarWidth: 'none' }}>
+      <div className={`flex items-stretch gap-0 overflow-x-auto rounded-card border border-borde-sutil bg-superficie-tarjeta transition-opacity duration-200 ${cargandoKpis ? 'opacity-40' : ''}`} style={{ scrollbarWidth: 'none' }}>
         {items.map((item, i) => {
           const Icono = item.icono
           const tieneRuta = !!item.ruta

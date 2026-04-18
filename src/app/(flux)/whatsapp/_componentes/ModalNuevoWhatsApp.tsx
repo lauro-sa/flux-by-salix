@@ -6,7 +6,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import type { PlantillaWhatsApp } from '@/tipos/inbox'
+import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
@@ -179,7 +179,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
               onBlur={() => setTocado(true)}
               placeholder="Ej: 5491123456789"
               autoFocus
-              className="w-full pl-9 pr-10 py-2.5 rounded-lg text-sm outline-none transition-all"
+              className="w-full pl-9 pr-10 py-2.5 rounded-card text-sm outline-none transition-all"
               style={{
                 background: 'var(--superficie-tarjeta)',
                 border: `1px solid ${mostrarEstado ? (validacion.valido ? 'var(--insignia-exito)' : 'var(--insignia-peligro)') : 'var(--borde-sutil)'}`,
@@ -230,7 +230,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                   value={busquedaPlantilla}
                   onChange={(e) => setBusquedaPlantilla(e.target.value)}
                   placeholder="Buscar plantilla..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs outline-none"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-boton text-xs outline-none"
                   style={{
                     background: 'var(--superficie-hover)',
                     color: 'var(--texto-primario)',
@@ -264,7 +264,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                   <button
                     key={plantilla.id}
                     onClick={() => seleccionarPlantilla(seleccionada ? null : plantilla)}
-                    className="w-full text-left rounded-xl p-3 transition-all cursor-pointer"
+                    className="w-full text-left rounded-card p-3 transition-all cursor-pointer"
                     style={{
                       background: seleccionada ? 'var(--superficie-seleccionada)' : 'var(--superficie-tarjeta)',
                       border: `2px solid ${seleccionada ? 'var(--canal-whatsapp)' : 'var(--borde-sutil)'}`,
@@ -290,7 +290,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
 
                     {/* Preview burbuja — muestra los valores editados en tiempo real */}
                     <div
-                      className="rounded-lg p-2.5 text-xs leading-relaxed"
+                      className="rounded-card p-2.5 text-xs leading-relaxed"
                       style={{
                         background: 'color-mix(in srgb, var(--canal-whatsapp) 8%, var(--superficie-hover))',
                         color: 'var(--texto-secundario)',
@@ -347,7 +347,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                     setValoresVariables(nuevos)
                   }}
                   placeholder={plantillaSeleccionada.componentes?.cuerpo?.ejemplos?.[i] || `Variable ${i + 1}`}
-                  className="w-full px-3 py-1.5 rounded-md text-xs outline-none transition-all"
+                  className="w-full px-3 py-1.5 rounded-boton text-xs outline-none transition-all"
                   style={{
                     background: 'var(--superficie-tarjeta)',
                     border: '1px solid var(--borde-sutil)',

@@ -19,7 +19,7 @@ interface PropiedadesResumenPermisos {
 
 export function ResumenPermisos({ estadisticas, rol, onPreset }: PropiedadesResumenPermisos) {
   return (
-    <div className="flex items-center gap-5 p-4 rounded-lg bg-superficie-tarjeta border border-borde-sutil">
+    <div className="flex items-center gap-5 p-4 rounded-card bg-superficie-tarjeta border border-borde-sutil">
       <AnilloProgreso porcentaje={estadisticas.porcentaje} />
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">

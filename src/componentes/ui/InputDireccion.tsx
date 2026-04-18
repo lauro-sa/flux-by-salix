@@ -178,7 +178,7 @@ export function InputDireccion({
       <div
         ref={inputWrapperRef}
         className={[
-          'flex items-center gap-2 rounded-md border bg-superficie-tarjeta transition-all duration-150',
+          'flex items-center gap-2 rounded-boton border bg-superficie-tarjeta transition-all duration-150',
           compacto ? 'px-2 py-1' : 'px-3 py-2',
           deshabilitado ? 'opacity-50 cursor-not-allowed' : '',
           errorMostrar
@@ -248,7 +248,7 @@ export function InputDireccion({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg overflow-hidden max-h-[360px] overflow-y-auto"
+              className="fixed rounded-boton border border-borde-fuerte bg-superficie-tarjeta shadow-lg overflow-hidden max-h-[360px] overflow-y-auto"
               style={{
                 top: posicion.top,
                 left: posicion.left,
@@ -283,7 +283,7 @@ export function InputDireccion({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg px-3 py-3 text-sm text-texto-terciario text-center"
+              className="fixed rounded-boton border border-borde-fuerte bg-superficie-tarjeta shadow-lg px-3 py-3 text-sm text-texto-terciario text-center"
               style={{
                 top: posicion.top,
                 left: posicion.left,

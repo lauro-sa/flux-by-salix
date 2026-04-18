@@ -39,18 +39,20 @@ const clasesVariante: Record<VarianteBoton, string> = {
   advertencia: 'bg-insignia-advertencia text-white hover:brightness-110',
 }
 
+// Altura fija por tamaño — garantiza que botones con texto y soloIcono
+// tengan EXACTAMENTE la misma altura cuando comparten el mismo tamano.
 const clasesTamano: Record<TamanoBoton, string> = {
-  xs: 'px-2.5 py-1 text-xs gap-1.5',
-  sm: 'px-3 py-1.5 text-sm gap-1.5',
-  md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-5 py-2.5 text-sm gap-2',
+  xs: 'h-7 px-2.5 text-xs gap-1.5',
+  sm: 'h-8 px-3 text-sm gap-1.5',
+  md: 'h-9 px-4 text-sm gap-2',
+  lg: 'h-10 px-5 text-sm gap-2',
 }
 
 const clasesSoloIcono: Record<TamanoBoton, string> = {
-  xs: 'p-1.5 size-7 touch-target',
-  sm: 'p-1.5 size-8 touch-target',
-  md: 'p-2 size-9 touch-target',
-  lg: 'p-2.5 size-10 touch-target',
+  xs: 'size-7 p-1.5 touch-target',
+  sm: 'size-8 p-1.5 touch-target',
+  md: 'size-9 p-2 touch-target',
+  lg: 'size-10 p-2.5 touch-target',
 }
 
 /**
@@ -83,7 +85,7 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
   ) => {
     const clases = [
       'inline-flex items-center justify-center font-medium leading-none whitespace-nowrap select-none transition-all duration-150 cursor-pointer',
-      redondeado ? 'rounded-full' : 'rounded-lg',
+      redondeado ? 'rounded-full' : 'rounded-boton',
       clasesVariante[variante],
       soloIcono ? clasesSoloIcono[tamano] : clasesTamano[tamano],
       anchoCompleto ? 'w-full' : '',

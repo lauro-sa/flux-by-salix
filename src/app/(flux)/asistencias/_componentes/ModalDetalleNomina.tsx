@@ -561,7 +561,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
           <div className="flex items-center justify-between px-6 py-3 bg-white/[0.02]">
             <button
               onClick={() => navegarPeriodo('prev')}
-              className="size-10 flex items-center justify-center rounded-lg border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
+              className="size-10 flex items-center justify-center rounded-card border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
               title="Período anterior"
             >
               <ChevronLeft size={22} className="text-texto-secundario" />
@@ -582,7 +582,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
             </div>
             <button
               onClick={() => navegarPeriodo('next')}
-              className="size-10 flex items-center justify-center rounded-lg border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
+              className="size-10 flex items-center justify-center rounded-card border border-borde-sutil hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
               title="Período siguiente"
             >
               <ChevronRight size={22} className="text-texto-secundario" />
@@ -696,13 +696,13 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                     ].map(op => (
                       <button key={op.valor}
                         onClick={() => { const prev = compTipo; setCompTipo(op.valor); guardarCompensacion('compensacion_tipo', op.valor, prev) }}
-                        className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        className={`flex items-start gap-3 p-3 rounded-card border text-left cursor-pointer transition-all ${
                           compTipo === op.valor
                             ? 'border-texto-marca bg-texto-marca/5'
                             : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
                         }`}
                       >
-                        <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        <div className={`size-10 rounded-card flex items-center justify-center shrink-0 ${
                           compTipo === op.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
                         }`}>
                           {op.icono}
@@ -910,7 +910,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
 
               {/* Saldo a favor del período anterior */}
               {emp.saldo_anterior > 0 && (
-                <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-insignia-info/10 border border-insignia-info/20">
+                <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-info/10 border border-insignia-info/20">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-insignia-info">A favor período anterior</span>
@@ -923,7 +923,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
 
               {/* Saldo en contra del período anterior */}
               {emp.saldo_anterior < 0 && (
-                <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20">
+                <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-insignia-peligro">Debe del período anterior</span>
@@ -958,12 +958,12 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
 
                 if (esEditando) {
                   return (
-                    <div key={aid} className="space-y-2 p-3 rounded-lg border border-texto-marca/30 bg-texto-marca/5">
+                    <div key={aid} className="space-y-2 p-3 rounded-card border border-texto-marca/30 bg-texto-marca/5">
                       <InputMoneda value={editAdelantoMonto} onChange={setEditAdelantoMonto} moneda="ARS" etiqueta="Monto" />
                       <div>
                         <label className="text-xs text-texto-terciario mb-1 block">Cuotas totales</label>
                         <select value={editAdelantoCuotas} onChange={e => setEditAdelantoCuotas(e.target.value)}
-                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-lg px-2 py-1.5 text-texto-primario">
+                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
                           {Array.from({ length: 12 }, (_, i) => i + 1).filter(n => n >= cuotasD).map(n => (
                             <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}{n === cuotasD ? ' (mínimo, ya descontadas)' : ''}</option>
                           ))}
@@ -1017,11 +1017,11 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
 
               {/* Formulario nuevo adelanto */}
               {mostrarFormAdelanto && (
-                <div className="space-y-2 p-3 rounded-lg border border-white/[0.07] bg-white/[0.02]">
+                <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02]">
                   <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
                   <div className="grid grid-cols-2 gap-2">
                     <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
-                      className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-lg px-2 py-1.5 text-texto-primario">
+                      className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
                       {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
                         <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
                       ))}

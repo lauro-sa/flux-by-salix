@@ -1193,6 +1193,87 @@ export const es: Traducciones = {
     ld: 'L-D',
     personalizado: 'Personalizado',
     desactivar_seleccionados: 'Desactivar seleccionados',
+
+    // Agregar / crear empleado
+    agregar_empleado: 'Agregar empleado',
+    crear_empleado: 'Crear empleado',
+    seccion_datos_personales: 'Datos personales',
+    seccion_rol_organizacion: 'Rol y organización',
+    seccion_fichaje_kiosco: 'Fichaje y kiosco',
+    correo_opcional: 'Correo (opcional)',
+    telefono_opcional: 'Teléfono (opcional)',
+    legajo_opcional: 'Legajo # (opcional)',
+    legajo_placeholder: 'Ej: 1001',
+    sector_opcional: 'Sector (opcional)',
+    puesto_opcional: 'Puesto (opcional)',
+    sin_sector: '— Sin sector —',
+    sin_puesto: '— Sin puesto —',
+
+    // Fichaje / kiosco
+    metodo_fichaje: 'Método de fichaje',
+    metodo_kiosco: 'Kiosco (RFID o PIN)',
+    metodo_automatico: 'Automático (app móvil)',
+    metodo_manual: 'Manual (ingreso a mano)',
+    llavero_rfid: 'Llavero RFID',
+    llavero_placeholder: 'Acercá el llavero al lector',
+    pin_respaldo: 'PIN de respaldo',
+    pin_placeholder: '4 a 6 dígitos',
+    nota_kiosco: 'El llavero y el PIN permiten fichar desde el primer día, aún sin cuenta Flux. Podés dejar ambos vacíos y cargarlos después.',
+
+    // Invitación
+    enviar_invitacion_flux: 'Enviar invitación a Flux por correo',
+    enviar_invitacion_con_correo: 'El empleado recibirá un correo con un link para crear su contraseña y acceder.',
+    enviar_invitacion_sin_correo: 'Cargá un correo para poder invitarlo. Sin correo, el empleado solo podrá fichar en el kiosco.',
+    invitacion_enviada: 'Invitación enviada por correo',
+    invitacion_lista: 'Empleado creado e invitación lista',
+    invitacion_compartir: 'También podés compartir el link directamente.',
+    invitacion_sin_canal: 'No hay canal de correo configurado — compartí el link manualmente.',
+
+    // Estado del ciclo de vida
+    estado_del_empleado: 'Estado del empleado',
+    ciclo_vida: 'Ciclo de vida',
+    ciclo_vida_suspendido: 'Ciclo de vida (suspendido)',
+    estado_fichaje: 'Solo fichaje',
+    estado_fichaje_desc: 'Puede fichar en el kiosco con RFID o PIN. No tiene cuenta para acceder a Flux.',
+    estado_fichaje_caption: 'Kiosco · RFID · PIN',
+    estado_pendiente: 'Pendiente',
+    estado_pendiente_desc: 'Se le envió una invitación. Al aceptar y crear su cuenta queda como miembro activo.',
+    estado_pendiente_caption: 'Invitación enviada',
+    estado_activo: 'Activo',
+    estado_activo_desc: 'Tiene cuenta Flux vinculada y acceso completo según su rol.',
+    estado_activo_caption: 'Accede a Flux',
+    estado_desactivado: 'Desactivado',
+    estado_desactivado_desc: 'El acceso fue suspendido por un administrador. No puede iniciar sesión ni fichar.',
+
+    // Acciones de estado
+    reenviar_invitacion: 'Reenviar invitación',
+    copiar_link: 'Copiar link',
+    cancelar_invitacion: 'Cancelar invitación',
+    reactivar_empleado: 'Reactivar empleado',
+    desactivar: 'Desactivar',
+    invitacion_expira_hoy: 'La invitación expira hoy',
+    invitacion_expira_manana: 'La invitación expira mañana',
+    invitacion_expira_en_dias: 'La invitación expira en {{dias}} días',
+
+    // Filtros por estado
+    filtro_todos: 'Todos',
+    sin_miembros_estado: 'Sin miembros en estado "{{estado}}"',
+    sin_miembros_estado_desc: 'Probá con otro filtro o agregá un empleado nuevo.',
+    sin_miembros_desc: 'Agregá a tu primer empleado para empezar a gestionar el equipo.',
+
+    // Importar CSV
+    importar_csv: 'Importar CSV',
+    importar_titulo: 'Importar empleados desde CSV',
+    importar_formato_titulo: 'Formato esperado',
+    importar_formato_desc: 'Primera línea: encabezados. Columnas soportadas (en cualquier orden):',
+    importar_obligatorios: 'Campos obligatorios: nombre y apellido. Máximo 500 filas por importación.',
+    importar_resultado: '{{creados}} de {{total}} empleados creados',
+    importar_error: 'fila con error',
+    importar_errores: 'filas con errores',
+    importar_fila: 'Fila',
+    importar_motivo: 'Motivo',
+    importar_otro: 'Importar otro',
+    importar_listo: 'Listo',
   },
 
   aplicaciones: {

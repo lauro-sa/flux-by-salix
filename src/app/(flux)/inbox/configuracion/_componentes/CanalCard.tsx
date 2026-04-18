@@ -6,9 +6,9 @@ import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Pencil, Trash2, Shield, ChevronDown, Mail } from 'lucide-react'
-import type { CanalInbox, TipoCanal } from '@/tipos/inbox'
+import type { CanalMensajeria, TipoCanal } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { ModalAgregarCanal } from '../../_componentes/ModalAgregarCanal'
+import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -16,7 +16,7 @@ import { useTraduccion } from '@/lib/i18n'
  * Card visual de canal conectado — muestra todos los datos de la cuenta.
  * Se usa en SeccionCorreo para listar bandejas de correo.
  */
-export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: CanalInbox; onRecargar?: () => void; onHacerPrincipal?: (canalId: string) => void }) {
+export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: CanalMensajeria; onRecargar?: () => void; onHacerPrincipal?: (canalId: string) => void }) {
   const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(false)
   const [cargandoCalidad, setCargandoCalidad] = useState(false)
@@ -31,7 +31,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
   const handleEliminar = async () => {
     setEliminando(true)
     try {
-      await fetch(`/api/inbox/canales/${canal.id}`, { method: 'DELETE' })
+      await fetch(`/api/correo/canales/${canal.id}`, { method: 'DELETE' })
       setModalEliminar(false)
       onRecargar?.()
     } catch { /* silenciar */ }
@@ -95,7 +95,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
 
   return (
     <div
-      className="rounded-lg overflow-hidden transition-all"
+      className="rounded-card overflow-hidden transition-all"
       style={{
         border: expandido ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
         background: 'var(--superficie-tarjeta)',
@@ -112,7 +112,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
         <span className="w-full flex items-center gap-3">
           {/* Icono del canal */}
           <span
-            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            className="w-10 h-10 rounded-card flex items-center justify-center flex-shrink-0"
             style={{
               background: esWhatsApp ? 'rgba(37, 211, 102, 0.1)' : 'rgba(37, 99, 235, 0.1)',
             }}
@@ -219,7 +219,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
               {/* Calidad del número (solo WA) */}
               {esWhatsApp && calidad && (
                 <div
-                  className="flex items-center gap-3 p-3 rounded-lg"
+                  className="flex items-center gap-3 p-3 rounded-card"
                   style={{ background: 'var(--superficie-hover)' }}
                 >
                   <div className="flex-1">
@@ -254,7 +254,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
               {/* Webhook URL (solo WA Meta) */}
               {esWhatsApp && canal.proveedor === 'meta_api' && (
                 <div
-                  className="p-3 rounded-lg"
+                  className="p-3 rounded-card"
                   style={{ background: 'var(--superficie-hover)' }}
                 >
                   <p className="text-xs font-medium mb-1" style={{ color: 'var(--texto-secundario)' }}>
@@ -280,7 +280,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                     Firma de correo
                   </label>
                   <div
-                    className="rounded-lg overflow-hidden"
+                    className="rounded-card overflow-hidden"
                     style={{ border: '1px solid var(--borde-sutil)' }}
                   >
                     <EditorTexto
@@ -289,7 +289,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                         // Autoguardado con debounce — usa el mismo patrón que EditorFirmaCanal
                         clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>)[`firma_${canal.id}`])
                         ;(window as unknown as Record<string, ReturnType<typeof setTimeout>>)[`firma_${canal.id}`] = setTimeout(async () => {
-                          await fetch(`/api/inbox/canales/${canal.id}`, {
+                          await fetch(`/api/correo/canales/${canal.id}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({

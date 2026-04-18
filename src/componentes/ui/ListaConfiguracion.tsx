@@ -222,14 +222,14 @@ function ListaConfiguracion({
         {!renderContenido && item.icono && (
           typeof item.icono === 'string' ? (
             <div
-              className="size-8 rounded-lg flex items-center justify-center shrink-0 text-base"
+              className="size-8 rounded-card flex items-center justify-center shrink-0 text-base"
               style={item.color ? { backgroundColor: item.color + '18' } : undefined}
             >
               {item.icono}
             </div>
           ) : (
             <div
-              className="size-8 rounded-lg flex items-center justify-center shrink-0"
+              className="size-8 rounded-card flex items-center justify-center shrink-0"
               style={item.color ? { backgroundColor: item.color + '18', color: item.color } : undefined}
             >
               {item.icono}
@@ -349,7 +349,7 @@ function ListaConfiguracion({
       type="button"
       onClick={() => onEliminar(item)}
       title={t('comun.eliminar')}
-      className="size-7 inline-flex items-center justify-center rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors cursor-pointer bg-transparent border-none"
+      className="size-7 inline-flex items-center justify-center rounded-boton text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors cursor-pointer bg-transparent border-none"
     >
       <Trash2 size={13} />
     </button>
@@ -459,7 +459,7 @@ function ListaConfiguracion({
 
   // ─── Render principal ───────────────────────────────────────────
   return (
-    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden ${className}`}>
+    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden ${className}`}>
 
       {/* ─── Header ──────────────────────────────────────────── */}
       <div className="px-5 pt-4 pb-3 border-b border-white/[0.08]">
@@ -511,7 +511,7 @@ function ListaConfiguracion({
                 <button
                   key={f.clave}
                   onClick={() => onCambioFiltro?.(f.clave)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-boton text-[11px] border transition-all cursor-pointer ${
                     filtroActivo === f.clave
                       ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
                       : 'border-transparent text-texto-terciario hover:text-texto-secundario'
@@ -528,7 +528,7 @@ function ListaConfiguracion({
 
           {/* Buscador */}
           {buscador && (
-            <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 ml-auto">
+            <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.1] rounded-card px-2.5 py-1.5 ml-auto">
               <Search size={12} className="text-texto-terciario/60 shrink-0" />
               <input
                 type="text"

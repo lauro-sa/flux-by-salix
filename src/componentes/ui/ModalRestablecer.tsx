@@ -170,7 +170,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
       {cargando ? (
         <CargadorSeccion />
       ) : error ? (
-        <div className="p-4 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+        <div className="p-4 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
           <AlertTriangle size={16} />
           {error}
         </div>
@@ -190,7 +190,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
       ) : (
         <div className="space-y-4">
           {/* Advertencia */}
-          <div className="p-3 rounded-lg bg-insignia-advertencia-fondo/50 border border-insignia-advertencia-fondo">
+          <div className="p-3 rounded-card bg-insignia-advertencia-fondo/50 border border-insignia-advertencia-fondo">
             <p className="text-base text-texto-secundario">
               Los siguientes {etiquetaTipo} tienen contactos asignados. Elegí qué hacer con cada uno antes de restablecer.
             </p>
@@ -198,7 +198,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
 
           {/* Acción en lote */}
           {hayItemsNoDefault && (
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
+            <div className="flex items-center gap-3 p-3 rounded-card border border-borde-sutil bg-superficie-elevada/50">
               <span className="text-xs text-texto-terciario shrink-0">Aplicar a todos:</span>
               <div className="flex gap-2 flex-wrap">
                 <Boton variante="secundario" tamano="xs" onClick={() => aplicarATodos('__mantener__')}>
@@ -221,7 +221,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
               return (
                 <div
                   key={clave}
-                  className={`rounded-lg border transition-colors ${
+                  className={`rounded-card border transition-colors ${
                     !mapeos[clave] || mapeos[clave] === ''
                       ? 'border-insignia-advertencia-fondo bg-insignia-advertencia-fondo/10'
                       : 'border-borde-sutil'
@@ -259,7 +259,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
                   {/* Lista de contactos expandida */}
                   {expandido && (
                     <div className="px-3 pb-3 pt-0">
-                      <div className="rounded-md border border-borde-sutil bg-superficie-app/50 divide-y divide-borde-sutil max-h-[200px] overflow-y-auto">
+                      <div className="rounded-boton border border-borde-sutil bg-superficie-app/50 divide-y divide-borde-sutil max-h-[200px] overflow-y-auto">
                         {item.contactos.map(contacto => (
                           <div key={contacto.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                             <User size={12} className="text-texto-terciario shrink-0" />

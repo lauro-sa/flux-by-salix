@@ -32,7 +32,7 @@ export default function PiePortal({ empresa }: Props) {
   return (
     <footer className="max-w-3xl mx-auto px-4 sm:px-6 pb-6 mt-8 space-y-4">
       {/* Tarjeta empresa */}
-      <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil py-8 px-5">
+      <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil py-8 px-5">
         <div className="flex flex-col items-center gap-3">
           {empresa.logo_url && (
             <Image
@@ -40,7 +40,7 @@ export default function PiePortal({ empresa }: Props) {
               alt={empresa.nombre}
               width={64}
               height={64}
-              className="size-16 rounded-xl object-contain"
+              className="size-16 rounded-card object-contain"
               unoptimized
             />
           )}
@@ -49,7 +49,7 @@ export default function PiePortal({ empresa }: Props) {
 
         {(datosContacto.length > 0 || webLimpia) && (
           <div className="mt-5">
-            <div className="bg-superficie-elevada rounded-lg px-4 py-3">
+            <div className="bg-superficie-elevada rounded-card px-4 py-3">
               <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-texto-secundario">
                 {datosContacto.map((dato, i) => (
                   <span key={i} className="flex items-center gap-2">

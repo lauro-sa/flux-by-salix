@@ -60,7 +60,7 @@ function EfectoActivacion({ activo }: { activo: boolean }) {
           {[0, 0.12, 0.24].map((delay, i) => (
             <motion.div
               key={`anillo-${i}`}
-              className="absolute rounded-2xl border-2 border-texto-marca"
+              className="absolute rounded-modal border-2 border-texto-marca"
               initial={{ width: 80, height: 60, opacity: 0.5, borderRadius: 12 }}
               animate={{ width: 800, height: 600, opacity: 0, borderRadius: 400 }}
               exit={{ opacity: 0 }}
@@ -123,7 +123,7 @@ function TarjetaModulo({ modulo, onClick }: { modulo: ModuloConEstado; onClick: 
 
         {/* Ícono */}
         <div className={`
-          w-16 h-16 rounded-xl flex items-center justify-center transition-all border
+          w-16 h-16 rounded-card flex items-center justify-center transition-all border
           ${esProximamente
             ? 'bg-superficie-elevada/50 border-borde-sutil/50 text-texto-terciario/40'
             : estaActivo
@@ -247,7 +247,7 @@ function ModalModulo({
               ? { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
               : { type: 'spring', damping: 15 }
             }
-            className={`shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-500 ${claseIcono}`}
+            className={`shrink-0 w-16 h-16 rounded-modal flex items-center justify-center transition-colors duration-500 ${claseIcono}`}
           >
             <Icono size={32} strokeWidth={1.5} />
           </motion.div>
@@ -301,7 +301,7 @@ function ModalModulo({
           <motion.div
             animate={{ opacity: recienDesinstalado ? 0.3 : 1 }}
             transition={{ duration: 0.5 }}
-            className="rounded-xl border border-borde-sutil p-4 flex flex-col gap-3"
+            className="rounded-card border border-borde-sutil p-4 flex flex-col gap-3"
           >
             {modulo.features.map((feature, i) => (
               <div key={i} className="flex items-start gap-3">
@@ -322,7 +322,7 @@ function ModalModulo({
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className="overflow-hidden"
             >
-              <div className="flex items-start gap-2.5 p-3 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+              <div className="flex items-start gap-2.5 p-3 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
                 <AlertTriangle size={16} className="text-insignia-advertencia shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-medium text-insignia-advertencia">Datos en período de gracia</p>

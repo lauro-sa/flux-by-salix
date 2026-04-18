@@ -149,7 +149,7 @@ export default function SelectorPlantilla({
     }
   }
 
-  const itemClase = "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md"
+  const itemClase = "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-boton"
 
   return (
     <div ref={ref} className="relative inline-flex items-center">
@@ -177,7 +177,7 @@ export default function SelectorPlantilla({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1.5 w-80 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 py-1.5"
+            className="absolute right-0 top-full mt-1.5 w-80 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg z-50 py-1.5"
           >
             {/* ── Plantillas guardadas ── */}
             {plantillas.length > 0 && (
@@ -228,7 +228,7 @@ export default function SelectorPlantilla({
                 <button
                   type="button"
                   onClick={handleGuardarCambios}
-                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md hover:bg-superficie-app ${tieneModificaciones ? 'text-texto-marca' : 'text-texto-primario'}`}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-boton hover:bg-superficie-app ${tieneModificaciones ? 'text-texto-marca' : 'text-texto-primario'}`}
                 >
                   <Save size={14} className="shrink-0" />
                   <span className="flex-1 min-w-0">
@@ -256,7 +256,7 @@ export default function SelectorPlantilla({
                         if (e.key === 'Escape') { setCreando(false); setNombreNueva('') }
                       }}
                       placeholder="Nombre de la plantilla"
-                      className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-lg px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
+                      className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-card px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
                     />
                     <Boton variante="primario" tamano="xs" onClick={handleGuardarComo} disabled={!nombreNueva.trim() || guardando}>
                       {guardando ? '...' : 'Guardar'}
@@ -282,7 +282,7 @@ export default function SelectorPlantilla({
               <div className="relative" ref={infoRef}>
                 <button
                   type="button"
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-xxs text-texto-terciario hover:text-texto-secundario transition-colors rounded-md"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-left text-xxs text-texto-terciario hover:text-texto-secundario transition-colors rounded-boton"
                   onMouseEnter={() => setInfoVisible(true)}
                   onMouseLeave={() => setInfoVisible(false)}
                   onClick={() => setInfoVisible(!infoVisible)}
@@ -298,7 +298,7 @@ export default function SelectorPlantilla({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 4 }}
                       transition={{ duration: 0.12 }}
-                      className="absolute bottom-full left-0 right-0 mb-1 bg-superficie-app border border-borde-sutil rounded-lg shadow-lg p-3 z-10"
+                      className="absolute bottom-full left-0 right-0 mb-1 bg-superficie-app border border-borde-sutil rounded-card shadow-lg p-3 z-10"
                     >
                       <p className="text-xxs font-medium text-texto-secundario mb-1.5">
                         Al guardar una plantilla se incluye:
@@ -338,7 +338,7 @@ export default function SelectorPlantilla({
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-elevada w-full max-w-sm p-5"
+                className="bg-superficie-elevada border border-borde-sutil rounded-card shadow-elevada w-full max-w-sm p-5"
               >
                 <div className="flex items-start gap-3 mb-4">
                   <div className="size-9 rounded-full bg-estado-error/10 flex items-center justify-center shrink-0 mt-0.5">

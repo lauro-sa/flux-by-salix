@@ -7,7 +7,7 @@ import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import type { PlantillaWhatsApp } from '@/tipos/inbox'
+import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
@@ -255,7 +255,7 @@ export function SelectorPlantillasWA({
               return (
                 <div
                   key={plantilla.id}
-                  className="rounded-xl overflow-hidden transition-all"
+                  className="rounded-card overflow-hidden transition-all"
                   style={{
                     background: 'var(--superficie-app)',
                     border: '1px solid var(--borde-sutil)',
@@ -289,7 +289,7 @@ export function SelectorPlantillasWA({
                   {/* Preview tipo burbuja WhatsApp */}
                   <div className="px-3 py-2.5">
                     <div
-                      className="rounded-lg px-3 py-2 text-sm"
+                      className="rounded-card px-3 py-2 text-sm"
                       style={{
                         background: 'color-mix(in srgb, var(--canal-whatsapp) 8%, var(--superficie-tarjeta))',
                         border: '1px solid color-mix(in srgb, var(--canal-whatsapp) 15%, transparent)',
@@ -348,7 +348,7 @@ export function SelectorPlantillasWA({
                     <button
                       onClick={() => onEnviarPlantilla(plantilla)}
                       disabled={enviando}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-card text-sm font-medium transition-opacity disabled:opacity-50"
                       style={{
                         background: 'var(--canal-whatsapp)',
                         color: '#fff',

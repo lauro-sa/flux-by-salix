@@ -307,21 +307,21 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
     <div className="space-y-4">
       {/* Mensajes */}
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-insignia-peligro-fondo border border-insignia-peligro/20 text-insignia-peligro text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-card bg-insignia-peligro-fondo border border-insignia-peligro/20 text-insignia-peligro text-sm">
           <AlertCircle size={16} />
           <span>{error}</span>
           <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
         </div>
       )}
       {exito && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-insignia-exito-fondo border border-insignia-exito/20 text-insignia-exito text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-card bg-insignia-exito-fondo border border-insignia-exito/20 text-insignia-exito text-sm">
           <Check size={16} />
           <span>{exito}</span>
         </div>
       )}
 
       {/* Tarjeta principal */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-base font-semibold text-texto-primario">Feriados y días no laborables</h3>
         </div>
@@ -332,7 +332,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
         {/* Selector de año + acciones */}
         <div className="flex flex-wrap items-center gap-2 mb-5">
           {/* Año */}
-          <div className="flex items-center gap-1 bg-superficie-app border border-borde-sutil rounded-lg overflow-hidden">
+          <div className="flex items-center gap-1 bg-superficie-app border border-borde-sutil rounded-card overflow-hidden">
             <button
               onClick={() => setAnioActivo(a => a - 1)}
               className="px-2.5 py-2 text-sm text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer"
@@ -418,7 +418,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
             </p>
           </div>
         ) : (
-          <div className="border border-borde-sutil rounded-lg overflow-hidden">
+          <div className="border border-borde-sutil rounded-card overflow-hidden">
             {/* Header de tabla */}
             <div className="grid grid-cols-[72px_44px_1fr_100px_32px] gap-3 px-4 py-2.5 bg-superficie-app text-xs font-medium text-texto-terciario uppercase tracking-wider border-b border-borde-sutil">
               <span>Fecha</span>
@@ -477,7 +477,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       {/* ── Modal: Crear feriado manual ── */}
       {modalCrear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setModalCrear(false)}>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-modal p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-texto-primario mb-4">Agregar feriado</h3>
 
             <div className="space-y-4">
@@ -495,7 +495,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
                   type="date"
                   value={nuevaFecha}
                   onChange={e => setNuevaFecha(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-texto-primario text-sm focus:outline-none focus:ring-2 focus:ring-texto-marca/30"
+                  className="w-full px-3 py-2 rounded-card border border-borde-sutil bg-superficie-tarjeta text-texto-primario text-sm focus:outline-none focus:ring-2 focus:ring-texto-marca/30"
                 />
               </div>
               <div>
@@ -505,7 +505,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
                     <button
                       key={t.valor}
                       onClick={() => setNuevoTipo(t.valor)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-card text-sm font-medium border transition-colors cursor-pointer ${
                         nuevoTipo === t.valor
                           ? `${COLORES_TIPO[t.valor].fondo} ${COLORES_TIPO[t.valor].texto} ${COLORES_TIPO[t.valor].borde}`
                           : 'bg-superficie-app text-texto-secundario border-borde-sutil hover:bg-superficie-hover'
@@ -540,7 +540,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       {/* ── Modal: Cargar por país ── */}
       {modalPais && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setModalPais(false)}>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-modal p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-texto-primario mb-2">Cargar feriados por país</h3>
             <p className="text-sm text-texto-terciario mb-5">
               Se cargarán los feriados nacionales oficiales de {anioActivo} usando una base de datos pública.
@@ -553,7 +553,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
                   <button
                     key={p.codigo}
                     onClick={() => setPaisCargar(p.codigo)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                    className={`px-3 py-2 rounded-card text-sm font-medium border transition-colors cursor-pointer ${
                       paisCargar === p.codigo
                         ? 'bg-texto-marca text-white border-texto-marca'
                         : 'bg-superficie-app text-texto-secundario border-borde-sutil hover:bg-superficie-hover'
@@ -578,7 +578,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       {/* ── Modal: Salix IA ── */}
       {modalIA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setModalIA(false)}>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-2xl w-full max-w-2xl mx-4 max-h-[85dvh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-modal w-full max-w-2xl mx-4 max-h-[85dvh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header fijo */}
             <div className="p-6 pb-0">
               <div className="flex items-center gap-2 mb-2">
@@ -604,7 +604,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
                       <button
                         key={p.codigo}
                         onClick={() => setPaisIA(p.codigo)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                        className={`px-3 py-2 rounded-card text-sm font-medium border transition-colors cursor-pointer ${
                           paisIA === p.codigo
                             ? 'bg-texto-marca text-white border-texto-marca'
                             : 'bg-superficie-app text-texto-secundario border-borde-sutil hover:bg-superficie-hover'

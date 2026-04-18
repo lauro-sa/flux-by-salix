@@ -212,7 +212,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
           {paso === 'subir' && (
             <motion.div key="subir" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
               <div
-                className={`flex-1 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-4 p-8 transition-colors cursor-pointer ${
+                className={`flex-1 border-2 border-dashed rounded-card flex flex-col items-center justify-center gap-4 p-8 transition-colors cursor-pointer ${
                   arrastrando ? 'border-marca bg-marca/5' : 'border-borde-sutil hover:border-marca/50'
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setArrastrando(true) }}
@@ -227,7 +227,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
                   </div>
                 ) : (
                   <>
-                    <div className="size-16 rounded-2xl bg-marca/10 flex items-center justify-center">
+                    <div className="size-16 rounded-modal bg-marca/10 flex items-center justify-center">
                       <Upload size={28} className="text-marca" />
                     </div>
                     <div className="text-center">
@@ -239,7 +239,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
               </div>
 
               {error && (
-                <div className="mt-3 p-3 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+                <div className="mt-3 p-3 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
                   <AlertTriangle size={14} />
                   {error}
                 </div>
@@ -253,7 +253,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
           {paso === 'mapear' && analisis && (
             <motion.div key="mapear" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col gap-4 overflow-hidden">
               {/* Info del archivo */}
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-superficie-elevada">
+              <div className="flex items-center gap-3 p-3 rounded-card bg-superficie-elevada">
                 <FileSpreadsheet size={20} className="text-marca shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-texto-primario truncate">{archivo?.name}</p>
@@ -313,7 +313,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+                <div className="p-3 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
                   <AlertTriangle size={14} />
                   {error}
                 </div>
@@ -343,7 +343,7 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
           {/* ══════ PASO 3: IMPORTANDO ══════ */}
           {paso === 'importando' && (
             <motion.div key="importando" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col items-center justify-center gap-6">
-              <div className="size-16 rounded-2xl bg-marca/10 flex items-center justify-center animate-pulse">
+              <div className="size-16 rounded-modal bg-marca/10 flex items-center justify-center animate-pulse">
                 <FileSpreadsheet size={28} className="text-marca" />
               </div>
               <div className="text-center">
@@ -366,15 +366,15 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
             <motion.div key="resultado" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col gap-4">
               {/* Resumen */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="p-4 rounded-xl bg-insignia-exito-fondo text-center">
+                <div className="p-4 rounded-card bg-insignia-exito-fondo text-center">
                   <p className="text-2xl font-bold text-insignia-exito-texto">{resultado.creados}</p>
                   <p className="text-xs text-insignia-exito-texto/80 mt-1">Creados</p>
                 </div>
-                <div className="p-4 rounded-xl bg-insignia-info-fondo text-center">
+                <div className="p-4 rounded-card bg-insignia-info-fondo text-center">
                   <p className="text-2xl font-bold text-insignia-info-texto">{resultado.actualizados}</p>
                   <p className="text-xs text-insignia-info-texto/80 mt-1">Actualizados</p>
                 </div>
-                <div className={`p-4 rounded-xl text-center ${resultado.errores > 0 ? 'bg-insignia-peligro-fondo' : 'bg-superficie-elevada'}`}>
+                <div className={`p-4 rounded-card text-center ${resultado.errores > 0 ? 'bg-insignia-peligro-fondo' : 'bg-superficie-elevada'}`}>
                   <p className={`text-2xl font-bold ${resultado.errores > 0 ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>{resultado.errores}</p>
                   <p className={`text-xs mt-1 ${resultado.errores > 0 ? 'text-insignia-peligro-texto/80' : 'text-texto-terciario'}`}>Errores</p>
                 </div>
@@ -468,7 +468,7 @@ export function ModalBackup({ abierto, onCerrar, onImportacionCompleta }: Propie
             </p>
 
             <div
-              className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-marca/50 transition-colors"
+              className="border-2 border-dashed rounded-card p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-marca/50 transition-colors"
               onClick={() => refInput.current?.click()}
             >
               {cargando ? (
@@ -485,7 +485,7 @@ export function ModalBackup({ abierto, onCerrar, onImportacionCompleta }: Propie
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
+              <div className="p-3 rounded-card bg-insignia-peligro-fondo text-insignia-peligro-texto text-sm flex items-center gap-2">
                 <AlertTriangle size={14} />
                 {error}
               </div>
@@ -500,15 +500,15 @@ export function ModalBackup({ abierto, onCerrar, onImportacionCompleta }: Propie
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-insignia-exito-fondo text-center">
+              <div className="p-3 rounded-card bg-insignia-exito-fondo text-center">
                 <p className="text-xl font-bold text-insignia-exito-texto">{resultado.creados}</p>
                 <p className="text-xs text-insignia-exito-texto/80">Creados</p>
               </div>
-              <div className="p-3 rounded-xl bg-insignia-info-fondo text-center">
+              <div className="p-3 rounded-card bg-insignia-info-fondo text-center">
                 <p className="text-xl font-bold text-insignia-info-texto">{resultado.actualizados}</p>
                 <p className="text-xs text-insignia-info-texto/80">Actualizados</p>
               </div>
-              <div className={`p-3 rounded-xl text-center ${resultado.errores > 0 ? 'bg-insignia-peligro-fondo' : 'bg-superficie-elevada'}`}>
+              <div className={`p-3 rounded-card text-center ${resultado.errores > 0 ? 'bg-insignia-peligro-fondo' : 'bg-superficie-elevada'}`}>
                 <p className={`text-xl font-bold ${resultado.errores > 0 ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>{resultado.errores}</p>
                 <p className="text-xs text-texto-terciario">Errores</p>
               </div>

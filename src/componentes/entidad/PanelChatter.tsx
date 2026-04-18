@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
-  MessageSquare, Loader2, Search, Zap,
+  MessageSquare, Loader2, Search, Zap, Logs,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
   Check,
 } from 'lucide-react'
@@ -394,14 +394,14 @@ export function PanelChatter({
 
   return (
     <>
-      <div className={`flex flex-col bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden ${
+      <div className={`flex flex-col bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden ${
         esLateral ? 'h-full' : ''
       } ${className}`}>
         {/* ─── Header ─── */}
         <div className="px-3 py-2 border-b border-borde-sutil flex items-center gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Zap size={14} className="text-texto-secundario shrink-0" />
-            <span className="text-sm font-semibold text-texto-primario">Actividad</span>
+            <Logs size={14} className="text-texto-secundario shrink-0" />
+            <span className="text-sm font-semibold text-texto-primario">Chatter</span>
             {entradas.length > 0 && (
               <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded-full">
                 {entradas.length}
@@ -419,7 +419,7 @@ export function PanelChatter({
                   if (colapsado) setColapsado(false)
                   setAdjuntosExpandidos(!adjuntosExpandidos)
                 }}
-                className={`relative p-1.5 rounded-md transition-colors ${
+                className={`relative p-1.5 rounded-boton transition-colors ${
                   adjuntosExpandidos ? 'bg-texto-marca/10 text-texto-marca' : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'
                 }`}
                 title={`${totalAdjuntos} adjunto${totalAdjuntos > 1 ? 's' : ''}`}
@@ -438,7 +438,7 @@ export function PanelChatter({
                 setMostrarBusqueda(!mostrarBusqueda)
                 if (mostrarBusqueda) setBusqueda('')
               }}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-1.5 rounded-boton transition-colors ${
                 mostrarBusqueda ? 'bg-texto-marca/10 text-texto-marca' : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'
               }`}
               title="Buscar en actividad"
@@ -464,7 +464,7 @@ export function PanelChatter({
               onCambio={setMenuAbierto}
             >
               <button
-                className="p-1.5 rounded-md text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover transition-colors"
+                className="p-1.5 rounded-boton text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover transition-colors"
                 title="Opciones"
               >
                 <MoreVertical size={14} />
@@ -507,7 +507,7 @@ export function PanelChatter({
                     className="overflow-hidden"
                   >
                     <div className="px-3 py-2 border-b border-borde-sutil">
-                      <div className="flex items-center gap-2 bg-superficie-app rounded-lg px-2.5 py-1.5 border border-borde-sutil focus-within:border-texto-marca/40 transition-colors">
+                      <div className="flex items-center gap-2 bg-superficie-app rounded-card px-2.5 py-1.5 border border-borde-sutil focus-within:border-texto-marca/40 transition-colors">
                         <Search size={13} className="text-texto-terciario shrink-0" />
                         <input
                           type="text"
@@ -537,7 +537,7 @@ export function PanelChatter({
                     <button
                       key={f.clave}
                       onClick={() => setFiltro(f.clave)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors shrink-0 ${
+                      className={`flex items-center gap-1 px-2 py-1 rounded-boton text-xs font-medium transition-colors shrink-0 ${
                         esActivo
                           ? 'bg-texto-marca/10 text-texto-marca'
                           : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'

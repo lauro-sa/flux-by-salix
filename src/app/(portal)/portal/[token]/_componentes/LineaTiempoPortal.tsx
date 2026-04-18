@@ -191,7 +191,7 @@ export default function LineaTiempoPortal({
 // ─── Timeline vertical reutilizable ───
 function TimelineVertical({ pasos, colorMarca }: { pasos: Paso[]; colorMarca: string }) {
   return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil px-5 py-4">
+    <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil px-5 py-4">
       <div className="flex flex-col">
         {pasos.map((paso, i) => {
           const esUltimo = i === pasos.length - 1

@@ -438,7 +438,7 @@ export default function EditorPlantillaPdf() {
         {/* Derecha: acciones */}
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle mobile: editor / preview */}
-          <div className="flex sm:hidden border border-borde-sutil rounded-lg overflow-hidden">
+          <div className="flex sm:hidden border border-borde-sutil rounded-card overflow-hidden">
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Code size={14} />} titulo="Editor" onClick={() => setVistaActiva('editor')}
               className={vistaActiva === 'editor' ? 'bg-marca-500/10 text-texto-marca' : 'text-texto-terciario'} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Eye size={14} />} titulo="Vista previa" onClick={() => setVistaActiva('preview')}

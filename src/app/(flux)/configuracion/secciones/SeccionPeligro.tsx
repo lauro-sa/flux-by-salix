@@ -44,7 +44,7 @@ export function SeccionPeligro() {
         <p className="text-base text-texto-terciario">Acciones irreversibles. Procedé con precaución.</p>
       </div>
 
-      <div className="bg-insignia-peligro/5 border border-insignia-peligro/20 rounded-xl p-6">
+      <div className="bg-insignia-peligro/5 border border-insignia-peligro/20 rounded-card p-6">
         <div className="flex items-start gap-3">
           <AlertTriangle size={20} className="text-insignia-peligro mt-0.5 shrink-0" />
           <div className="flex-1">

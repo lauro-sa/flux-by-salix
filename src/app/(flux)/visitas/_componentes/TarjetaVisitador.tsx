@@ -118,7 +118,7 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-lg border border-l-2 ${colorBorde} transition-colors ${
+      className={`relative rounded-card border border-l-2 ${colorBorde} transition-colors ${
         esInactiva ? 'border-white/[0.04] bg-white/[0.01] opacity-50' :
         esActiva ? 'border-texto-marca/30 bg-texto-marca/5' :
         'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'
@@ -259,7 +259,7 @@ export default function TarjetaVisitador({
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col rounded-xl border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] md:h-[calc(100dvh-200px)]
+        flex flex-col rounded-card border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] md:h-[calc(100dvh-200px)]
         ${isOver ? 'border-texto-marca/40 bg-texto-marca/5' : 'border-borde-sutil'}
       `}
     >
@@ -323,7 +323,7 @@ export default function TarjetaVisitador({
         <div className="shrink-0 px-2 pt-2">
           <MapaRecorrido
             ruta={rutaMapa}
-            className="h-[140px] rounded-lg overflow-hidden"
+            className="h-[140px] rounded-card overflow-hidden"
           />
         </div>
       )}
@@ -415,7 +415,7 @@ export default function TarjetaVisitador({
                             const fechaISO = new Date(visita.fecha_programada!).toISOString().split('T')[0]
                             onAbrirRecorrido(usuarioId, fechaISO)
                           }}
-                          className={`shrink-0 rounded-md px-1.5 py-1 transition-colors flex items-center gap-1 ${
+                          className={`shrink-0 rounded-boton px-1.5 py-1 transition-colors flex items-center gap-1 ${
                             grupoEnCurso
                               ? 'text-insignia-advertencia bg-insignia-advertencia/10 hover:bg-insignia-advertencia/20'
                               : 'text-texto-terciario hover:bg-texto-marca/10 hover:text-texto-marca'
@@ -443,7 +443,7 @@ export default function TarjetaVisitador({
               </>
             ) : (
               <>
-                <div className="mb-1.5 rounded-lg border-2 border-dashed border-borde-sutil p-3">
+                <div className="mb-1.5 rounded-card border-2 border-dashed border-borde-sutil p-3">
                   <MapPin size={20} className="text-texto-terciario/40" />
                 </div>
                 <p className="text-xs text-texto-terciario">Arrastrá visitas acá</p>

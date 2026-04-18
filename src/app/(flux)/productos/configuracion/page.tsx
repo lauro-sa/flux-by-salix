@@ -217,7 +217,7 @@ export default function PaginaConfiguracionProductos() {
                   onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, prefijo: e.target.value.toUpperCase() } : pr))}
                   onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
                   maxLength={5}
-                  className="w-20 bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50"
+                  className="w-20 bg-white/[0.04] border border-white/[0.1] rounded-card px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50"
                 />
                 <input
                   type="number"
@@ -225,10 +225,10 @@ export default function PaginaConfiguracionProductos() {
                   onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, siguiente: parseInt(e.target.value) || 1 } : pr))}
                   onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
                   min={1}
-                  className="w-24 bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="w-24 bg-white/[0.04] border border-white/[0.1] rounded-card px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <span className="text-xs text-texto-terciario/30 shrink-0">→</span>
-                <span className="font-mono text-xs text-texto-terciario bg-white/[0.04] border border-white/[0.06] px-3 py-1.5 rounded-lg shrink-0">
+                <span className="font-mono text-xs text-texto-terciario bg-white/[0.04] border border-white/[0.06] px-3 py-1.5 rounded-card shrink-0">
                   {p.prefijo}-{String(p.siguiente).padStart(4, '0')}
                 </span>
               </div>
@@ -364,7 +364,7 @@ export default function PaginaConfiguracionProductos() {
 
       {/* Indicador de guardado */}
       {guardando && (
-        <div className="fixed bottom-4 right-4 px-4 py-2 rounded-xl bg-superficie-elevada border border-borde-sutil text-xs text-texto-terciario shadow-lg">
+        <div className="fixed bottom-4 right-4 px-4 py-2 rounded-card bg-superficie-elevada border border-borde-sutil text-xs text-texto-terciario shadow-lg">
           Guardando...
         </div>
       )}

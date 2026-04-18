@@ -480,7 +480,7 @@ export function VinculacionesContacto({
   return (
     <section>
       {/* ═══ Contenedor principal de Relaciones ═══ */}
-      <div className="rounded-xl border border-borde-sutil overflow-hidden">
+      <div className="rounded-card border border-borde-sutil overflow-hidden">
 
         {/* Encabezado */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil" style={{ backgroundColor: 'var(--superficie-tarjeta)' }}>
@@ -655,7 +655,7 @@ export function VinculacionesContacto({
               )}
 
               {/* Opciones */}
-              <div className="rounded-lg border border-borde-sutil p-3 space-y-2">
+              <div className="rounded-card border border-borde-sutil p-3 space-y-2">
                 <Checkbox
                   marcado={crearBidireccional}
                   onChange={setCrearBidireccional}
@@ -679,7 +679,7 @@ export function VinculacionesContacto({
           /* ═══ MODO CONFIGURAR: contacto seleccionado, configurar vínculo ═══ */
           ) : seleccionado ? (
             <>
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil">
+              <div className="flex items-center gap-3 p-3 rounded-card border border-borde-sutil">
                 <Avatar nombre={[seleccionado.nombre, seleccionado.apellido].filter(Boolean).join(' ')} tamano="md" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-texto-primario">
@@ -704,7 +704,7 @@ export function VinculacionesContacto({
               />
 
               {/* Opciones */}
-              <div className="space-y-2.5 rounded-lg border border-borde-sutil p-3">
+              <div className="space-y-2.5 rounded-card border border-borde-sutil p-3">
                 <div>
                   <Checkbox
                     marcado={bidireccional}
@@ -850,23 +850,21 @@ export function VinculacionesContacto({
         abierto={modalEdicion}
         onCerrar={() => { setModalEdicion(false); setVinculoEditando(null) }}
         titulo="Editar contacto vinculado"
-        acciones={
-          <>
-            <Boton variante="peligro" tamano="sm"
-              onClick={() => {
-                if (vinculoEditando) {
-                  desvincular(vinculoEditando.vinculado_id)
-                  setModalEdicion(false)
-                  setVinculoEditando(null)
-                }
-              }}>
-              Desvincular
-            </Boton>
-            <Boton variante="primario" tamano="sm" onClick={guardarEdicion} cargando={guardandoEdicion}>
-              Guardar
-            </Boton>
-          </>
-        }
+        accionPrimaria={{
+          etiqueta: 'Guardar',
+          onClick: guardarEdicion,
+          cargando: guardandoEdicion,
+        }}
+        accionPeligro={{
+          etiqueta: 'Desvincular',
+          onClick: () => {
+            if (vinculoEditando) {
+              desvincular(vinculoEditando.vinculado_id)
+              setModalEdicion(false)
+              setVinculoEditando(null)
+            }
+          },
+        }}
       >
         {vinculoEditando && (
           <div className="space-y-4">
@@ -1065,7 +1063,7 @@ function SelectorPuesto({
       {typeof window !== 'undefined' && abierto && (filtrados.length > 0 || mostrarCrear) && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          className="fixed rounded-card border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
           style={{ backgroundColor: 'var(--superficie-elevada)', top: posicion.top, left: posicion.left, width: posicion.width, zIndex: 'var(--z-popover)' as unknown as number }}
           onMouseDown={e => e.preventDefault()}
         >
@@ -1091,7 +1089,7 @@ function SelectorPuesto({
       {/* Valor seleccionado como pill (si hay) */}
       {valor && !abierto && (
         <div className="flex items-center gap-1 mt-1.5">
-          <span className="px-2.5 py-0.5 text-xs rounded-md font-medium text-white" style={{ backgroundColor: 'var(--texto-marca)' }}>
+          <span className="px-2.5 py-0.5 text-xs rounded-boton font-medium text-white" style={{ backgroundColor: 'var(--texto-marca)' }}>
             {valor}
           </span>
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => { onChange(''); setTexto('') }} titulo="Quitar puesto" />
@@ -1236,7 +1234,7 @@ function SelectorRelacion({
       {typeof window !== 'undefined' && abierto && (filtrados.length > 0 || mostrarCrear) && createPortal(
         <div
           ref={dropdownRelRef}
-          className="fixed rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          className="fixed rounded-card border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
           style={{ backgroundColor: 'var(--superficie-elevada)', top: posRel.top, left: posRel.left, width: posRel.width, zIndex: 'var(--z-popover)' as unknown as number }}
           onMouseDown={e => e.preventDefault()}
         >
@@ -1270,7 +1268,7 @@ function SelectorRelacion({
       {/* Pill del valor seleccionado */}
       {seleccionado && !abierto && (
         <div className="flex items-center gap-1 mt-1.5">
-          <span className="px-2.5 py-0.5 text-xs rounded-md font-medium border border-borde-sutil text-texto-primario">
+          <span className="px-2.5 py-0.5 text-xs rounded-boton font-medium border border-borde-sutil text-texto-primario">
             {seleccionado.etiqueta}
           </span>
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiar} titulo="Quitar relación" />
@@ -1346,7 +1344,7 @@ function TarjetaVinculo({
   return (
     <div
       onClick={editable ? onClick : undefined}
-      className={`relative p-3 rounded-lg border border-borde-sutil group transition-colors ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/50' : ''}`}
+      className={`relative p-3 rounded-card border border-borde-sutil group transition-colors ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/50' : ''}`}
     >
       {/* Botón desvincular (esquina superior derecha) */}
       {editable && onDesvincular && (
@@ -1396,7 +1394,7 @@ function TarjetaVinculo({
         <a
           href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
           onClick={e => e.stopPropagation()}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded-boton text-xs text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
         >
           <ExternalLink size={11} />
           Ver

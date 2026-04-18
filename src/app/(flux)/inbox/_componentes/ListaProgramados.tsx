@@ -78,7 +78,7 @@ export function ListaProgramados() {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex items-center gap-3 p-2.5 rounded-lg"
+              className="flex items-center gap-3 p-2.5 rounded-card"
               style={{ background: 'var(--superficie-hover)' }}
             >
               <div

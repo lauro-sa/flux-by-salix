@@ -741,7 +741,7 @@ export default function PaginaRecorrido() {
                     }}
                   >
                     <button
-                      className="w-full flex items-center gap-4 text-left py-4 px-4 rounded-2xl border border-borde-sutil/50 bg-white/[0.03] active:bg-white/[0.06] transition-colors"
+                      className="w-full flex items-center gap-4 text-left py-4 px-4 rounded-modal border border-borde-sutil/50 bg-white/[0.03] active:bg-white/[0.06] transition-colors"
                       onClick={() => setSheetExpandido(true)}
                     >
                       <div className="flex items-center justify-center size-12 rounded-full border-2 shrink-0 text-base font-bold"
@@ -777,7 +777,7 @@ export default function PaginaRecorrido() {
                       <button
                         onClick={() => tieneCoords && abrirRutaCompleta([{ lat: v.direccion_lat!, lng: v.direccion_lng! }])}
                         disabled={!tieneCoords || estado === 'completada'}
-                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-25"
+                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-25"
                       >
                         <Navigation size={16} className="text-[var(--insignia-info)]" />
                         <span className="text-[10px] font-medium text-texto-secundario">Navegar</span>
@@ -787,7 +787,7 @@ export default function PaginaRecorrido() {
                       {estado === 'cancelada' ? (
                         <button
                           onClick={() => manejarCambiarEstado(v.id, 'programada')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <RotateCcw size={16} className="text-texto-terciario" />
                           <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
@@ -795,7 +795,7 @@ export default function PaginaRecorrido() {
                       ) : estado === 'completada' ? (
                         <button
                           onClick={() => manejarEditar(v.id)}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <Pencil size={16} className="text-texto-terciario" />
                           <span className="text-[10px] font-medium text-texto-secundario">Editar</span>
@@ -813,7 +813,7 @@ export default function PaginaRecorrido() {
                             })
                             setLlegadaAbierta(true)
                           }}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <Phone size={16} className="text-[var(--insignia-info)]" />
                           <span className="text-[10px] font-medium text-texto-secundario">Contactar</span>
@@ -821,7 +821,7 @@ export default function PaginaRecorrido() {
                       ) : (
                         <button
                           onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <X size={16} className="text-[var(--insignia-peligro)]" />
                           <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
@@ -832,7 +832,7 @@ export default function PaginaRecorrido() {
                       {estado === 'programada' ? (
                         <button
                           onClick={() => manejarCambiarEstado(v.id, 'en_camino')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 hover:bg-[var(--insignia-info)]/20 transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 hover:bg-[var(--insignia-info)]/20 transition-colors"
                         >
                           <Route size={16} className="text-[var(--insignia-info)]" />
                           <span className="text-[10px] font-medium text-[var(--insignia-info)]">En camino</span>
@@ -840,7 +840,7 @@ export default function PaginaRecorrido() {
                       ) : estado === 'en_camino' ? (
                         <button
                           onClick={() => manejarLlegada(v.id)}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
                         >
                           <MapPin size={16} className="text-[var(--insignia-exito)]" />
                           <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Llegué</span>
@@ -848,7 +848,7 @@ export default function PaginaRecorrido() {
                       ) : estado === 'en_sitio' ? (
                         <button
                           onClick={() => manejarRegistrar(v.id)}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
                         >
                           <Pencil size={16} className="text-[var(--insignia-exito)]" />
                           <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Registrar</span>
@@ -856,7 +856,7 @@ export default function PaginaRecorrido() {
                       ) : estado === 'completada' ? (
                         <button
                           onClick={() => manejarCambiarEstado(v.id, 'programada')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <RotateCcw size={16} className="text-texto-terciario" />
                           <span className="text-[10px] font-medium text-texto-secundario">Reabrir</span>
@@ -864,7 +864,7 @@ export default function PaginaRecorrido() {
                       ) : (
                         <button
                           onClick={() => manejarCambiarEstado(v.id, 'programada')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <RotateCcw size={16} className="text-texto-terciario" />
                           <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
@@ -938,7 +938,7 @@ export default function PaginaRecorrido() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={invertirRuta}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
                 >
                   <ArrowUpDown size={14} />
                   <span>{t('visitas.invertir')}</span>
@@ -946,7 +946,7 @@ export default function PaginaRecorrido() {
                 <button
                   onClick={optimizarRuta}
                   disabled={optimizando}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors disabled:opacity-50"
                 >
                   {optimizando ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                   <span>{t('visitas.optimizar')}</span>
@@ -954,7 +954,7 @@ export default function PaginaRecorrido() {
                 {paradasPreOptimizar && (
                   <button
                     onClick={revertirOptimizacion}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-insignia-advertencia/40 text-insignia-advertencia hover:bg-insignia-advertencia/10 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-medium border border-insignia-advertencia/40 text-insignia-advertencia hover:bg-insignia-advertencia/10 transition-colors"
                   >
                     <Undo2 size={14} />
                     <span>{t('visitas.revertir')}</span>
@@ -963,7 +963,7 @@ export default function PaginaRecorrido() {
               </div>
               <button
                 onClick={() => { setModoEdicion(false); setSheetExpandido(false) }}
-                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white bg-insignia-info transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-card text-sm font-semibold text-white bg-insignia-info transition-colors"
               >
                 <span>{t('visitas.confirmar_ruta')}</span>
               </button>

@@ -135,17 +135,17 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
         <div className="space-y-4">
           {/* Resumen general */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
+            <div className="bg-superficie-elevada/30 rounded-card px-3 py-3 text-center">
               <DollarSign size={16} className="mx-auto text-asistencia-presente mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtMonto(totalPagar)}</p>
               <p className="text-xxs text-texto-terciario">Total a pagar</p>
             </div>
-            <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
+            <div className="bg-superficie-elevada/30 rounded-card px-3 py-3 text-center">
               <Clock size={16} className="mx-auto text-asistencia-particular mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtHoras(totalHoras)}</p>
               <p className="text-xxs text-texto-terciario">Horas totales</p>
             </div>
-            <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
+            <div className="bg-superficie-elevada/30 rounded-card px-3 py-3 text-center">
               <UserCheck size={16} className="mx-auto text-asistencia-presente mb-1" />
               <p className="text-lg font-bold text-texto-primario">{diasLaborales}</p>
               <p className="text-xxs text-texto-terciario">Días laborales</p>
@@ -159,7 +159,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
               const pctAsistencia = r.dias_laborales > 0 ? Math.round((r.dias_trabajados / r.dias_laborales) * 100) : 0
 
               return (
-                <div key={r.miembro_id} className="bg-superficie-elevada/20 border border-borde-sutil rounded-lg px-4 py-3">
+                <div key={r.miembro_id} className="bg-superficie-elevada/20 border border-borde-sutil rounded-card px-4 py-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                       <div className={`size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${colorAvatar}`}>

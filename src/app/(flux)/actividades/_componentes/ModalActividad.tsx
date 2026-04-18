@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { SelectorCalendarioBloque } from './SelectorCalendarioBloque'
-import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
+import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
@@ -411,14 +411,16 @@ function ModalActividad({
       titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
       tamano="5xl"
       sinPadding
-      acciones={
-        <>
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
-          <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!titulo.trim() || !tipoId}>
-            {esEdicion ? t('comun.guardar') : (tipoConCalendario && bloquesNuevos.length > 0 ? `${t('comun.crear')} y agendar` : `${t('comun.crear')} actividad`)}
-          </Boton>
-        </>
-      }
+      accionPrimaria={{
+        etiqueta: esEdicion ? t('comun.guardar') : (tipoConCalendario && bloquesNuevos.length > 0 ? `${t('comun.crear')} y agendar` : `${t('comun.crear')} actividad`),
+        onClick: manejarGuardar,
+        cargando: guardando,
+        disabled: !titulo.trim() || !tipoId,
+      }}
+      accionSecundaria={{
+        etiqueta: t('comun.cancelar'),
+        onClick: onCerrar,
+      }}
     >
       {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
       {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
@@ -432,7 +434,7 @@ function ModalActividad({
           {onPosponer && (
             <div className="relative group">
               <Boton variante="advertencia" tamano="sm" redondeado icono={<Clock size={15} />}>Posponer</Boton>
-              <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
+              <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
                 {(presetsPosposicion ?? [
                   { id: '1d', etiqueta: '1 día', dias: 1 },
                   { id: '3d', etiqueta: '3 días', dias: 3 },
@@ -490,7 +492,7 @@ function ModalActividad({
               const IconoSel = obtenerIcono(tipoSeleccionado.icono)
               return (
                 <button
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-transparent text-white shadow-sm cursor-pointer border hover:opacity-85 transition-opacity"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium border-transparent text-white shadow-sm cursor-pointer border hover:opacity-85 transition-opacity"
                   style={{ backgroundColor: tipoSeleccionado.color }}
                   onClick={() => setTiposExpandidos(true)}
                 >
@@ -508,7 +510,7 @@ function ModalActividad({
                   const sel = tipoId === tipo.id
                   return (
                     <button key={tipo.id} onClick={() => { manejarCambioTipo(tipo.id); setTiposExpandidos(false) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium transition-all cursor-pointer border ${
                         sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
                       }`}
                       style={sel ? { backgroundColor: tipo.color } : undefined}>
@@ -652,13 +654,13 @@ function ModalActividad({
               </div>
               {bloquesNuevos.length === 0 ? (
                 <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
-                  className="w-full py-4 px-3 rounded-lg border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
+                  className="w-full py-4 px-3 rounded-card border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
                   Sin bloques — tocá para abrir el calendario
                 </button>
               ) : (
                 <div className="space-y-1">
                   {bloquesNuevos.map((bloque, i) => (
-                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] text-xs">
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-card bg-white/[0.03] text-xs">
                       <span className="size-1.5 rounded-full bg-texto-marca shrink-0" />
                       <span className="text-texto-primario font-medium">{bloque.fecha}</span>
                       <span className="text-texto-terciario">{bloque.horaInicio} – {bloque.horaFin}</span>
@@ -892,7 +894,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
 
       {/* Input de búsqueda — siempre visible */}
       <div className="relative" ref={inputWrapperRef}>
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-borde-sutil bg-superficie-tarjeta">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-boton border border-borde-sutil bg-superficie-tarjeta">
           <Search size={13} className="text-texto-terciario/50 shrink-0" />
           <Input
             tipo="text"
@@ -916,7 +918,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.12 }}
-              className="fixed bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden"
               style={{
                 top: posicion.top,
                 left: posicion.left,
@@ -933,7 +935,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
                     <button
                       key={tv.clave}
                       onClick={() => { setTabActivo(tv.clave); setBusqueda('') }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xxs font-medium transition-colors cursor-pointer border-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-boton text-xxs font-medium transition-colors cursor-pointer border-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                         activo
                           ? 'text-texto-marca bg-texto-marca/8'
                           : 'text-texto-terciario bg-transparent hover:text-texto-secundario hover:bg-superficie-hover'
@@ -1292,7 +1294,7 @@ function SeccionBloquesCalendario({
               return (
                 <div
                   key={bloque.id}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] group"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-card bg-white/[0.03] group"
                 >
                   <div
                     className="size-1.5 rounded-full shrink-0"
@@ -1326,7 +1328,7 @@ function SeccionBloquesCalendario({
       {/* Estado vacío */}
       {!cargando && bloques.length === 0 && !mostrarFormulario && (
         <button type="button" onClick={onAbrirCalendario || (() => setMostrarFormulario(true))}
-          className="w-full py-4 px-3 rounded-lg border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
+          className="w-full py-4 px-3 rounded-card border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
           Sin bloques — tocá para agendar
         </button>
       )}
@@ -1340,7 +1342,7 @@ function SeccionBloquesCalendario({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-superficie-hover/30 rounded-lg border border-borde-sutil">
+            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-superficie-hover/30 rounded-card border border-borde-sutil">
               <SelectorFecha
                 valor={nuevaFechaInicio}
                 onChange={(v) => setNuevaFechaInicio(v || '')}
@@ -1445,7 +1447,7 @@ function SeccionSeguimientos({
           {lista.length > 0 && (
             <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
               {[...lista].reverse().map((s) => (
-                <div key={s.id} className="flex gap-2 text-xs py-1.5 px-2 rounded-lg bg-superficie-tarjeta">
+                <div key={s.id} className="flex gap-2 text-xs py-1.5 px-2 rounded-card bg-superficie-tarjeta">
                   <div className="shrink-0 mt-0.5">
                     <div className="size-5 rounded-full bg-insignia-advertencia-fondo flex items-center justify-center text-insignia-advertencia-texto text-xxs font-bold">
                       {s.registrado_por_nombre?.charAt(0)?.toUpperCase() || '?'}

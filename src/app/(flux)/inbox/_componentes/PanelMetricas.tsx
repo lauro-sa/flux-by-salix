@@ -116,7 +116,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="p-3 rounded-lg"
+            className="p-3 rounded-card"
             style={{ background: 'var(--superficie-hover)' }}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -133,7 +133,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
       {/* Métricas de rendimiento: resolución, SLA, tiempos */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Tasa de resolución */}
-        <div className="p-3 rounded-lg flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
+        <div className="p-3 rounded-card flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
           <div>
             <p className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>Tasa de resolución</p>
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Resueltas / nuevas</p>
@@ -145,7 +145,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
         </div>
 
         {/* SLA cumplido */}
-        <div className="p-3 rounded-lg flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
+        <div className="p-3 rounded-card flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
           <div>
             <div className="flex items-center gap-1.5">
               <Target size={12} style={{ color: 'var(--texto-terciario)' }} />
@@ -160,7 +160,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
         </div>
 
         {/* Tiempo promedio de respuesta */}
-        <div className="p-3 rounded-lg flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
+        <div className="p-3 rounded-card flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
           <div>
             <div className="flex items-center gap-1.5">
               <Timer size={12} style={{ color: 'var(--texto-terciario)' }} />
@@ -179,7 +179,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
 
       {/* Tiempo de resolución */}
       {resumen.tiempo_resolucion_promedio_hrs > 0 && (
-        <div className="p-3 rounded-lg flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
+        <div className="p-3 rounded-card flex items-center justify-between" style={{ background: 'var(--superficie-hover)' }}>
           <div>
             <div className="flex items-center gap-1.5">
               <Clock size={12} style={{ color: 'var(--texto-terciario)' }} />
@@ -212,7 +212,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-3 p-2.5 rounded-lg"
+                  className="flex items-center gap-3 p-2.5 rounded-card"
                   style={{ background: 'var(--superficie-hover)' }}
                 >
                   <div
