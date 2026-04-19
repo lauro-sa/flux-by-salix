@@ -17,7 +17,7 @@ import {
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Trash2, X, UserCheck, Merge, FileDown, KanbanSquare, History,
+  Trash2, X, FileDown, KanbanSquare, History,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalImportar } from './ModalImportar'
@@ -159,7 +159,10 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     window.history.replaceState(null, '', nuevaUrl)
   }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas, filtroCanales, filtroPresupuesto, filtroEstadoPres, filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, pagina, vinculadoDe, origenUrl, pathname])
 
-  // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
+  // Solo usar datosInicialesJson (SSR) cuando NINGÚN filtro está activo.
+  // Si alguno cambia → useListado hace request con params y el SSR se descarta.
+  // ¡Importante! Debe incluir TODOS los filtros y la búsqueda, sino el SSR gana
+  // y el listado no refleja los filtros activos (bug típico al agregar filtros nuevos).
   const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !filtroResponsable && filtroEtiquetas.length === 0 && filtroCanales.length === 0 && !filtroPresupuesto && filtroEstadoPres.length === 0 && !filtroActividades && !filtroProvincia && !filtroCiudad && !filtroCreadoRango && !filtroUltimaInteraccion && !vinculadoDe && pagina === 1
 
   // ── Listado de contactos con React Query ──

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Reorder } from 'framer-motion'
 import { X, Search, Keyboard, Star, Check } from 'lucide-react'
@@ -14,7 +14,18 @@ import type { VistaGuardada, ResultadoDetector } from '@/hooks/useVistasGuardada
 /* ════════════════════════════════════════════
    PanelFiltrosAvanzado — Layout de 3 columnas
    (navegación | detalle | contexto) + footer
+
    Inspirado en command centers tipo Linear/Notion.
+
+   Se activa automáticamente desde TablaDinamica cuando se pasa la prop
+   `gruposFiltros`. Sin grupos, TablaDinamica usa su layout default
+   (dos columnas, más simple). Ver CLAUDE.md sección "Filtros avanzados"
+   para la guía de implementación en un módulo nuevo.
+
+   Responsive:
+   - Móvil  (< sm 640):  nav → detalle → contexto apilados
+   - Tablet (sm - lg):   [nav | detalle] + contexto debajo
+   - Desktop (≥ lg):     nav | detalle | contexto (3 columnas)
    ════════════════════════════════════════════ */
 
 interface Props {
@@ -85,14 +96,24 @@ export function PanelFiltrosAvanzado({
 
   const filtroSel = mapaFiltros.get(filtroSelId)
 
-  // Función auxiliar: ¿está activo este filtro?
+  // Función auxiliar: ¿está activo este filtro? (compara contra valorDefault si existe)
   const estaActivo = (f: FiltroTabla): boolean => {
+    // Si tiene valorDefault, comparar contra él
+    if (f.valorDefault !== undefined) {
+      if (Array.isArray(f.valor) && Array.isArray(f.valorDefault)) {
+        if (f.valor.length !== f.valorDefault.length) return true
+        return !f.valorDefault.every(d => (f.valor as string[]).includes(d))
+      }
+      return f.valor !== f.valorDefault
+    }
+    // Sin default: activo si tiene valor no vacío
     if (Array.isArray(f.valor)) return f.valor.length > 0
-    return !!f.valor && f.valor !== f.valorDefault
+    return f.valor !== ''
   }
 
-  // Conteo de valores seleccionados por filtro (para el badge)
+  // Conteo de valores seleccionados por filtro — solo cuenta si está realmente activo
   const conteoFiltro = (f: FiltroTabla): number => {
+    if (!estaActivo(f)) return 0
     if (Array.isArray(f.valor)) return f.valor.length
     return f.valor ? 1 : 0
   }
@@ -161,14 +182,14 @@ export function PanelFiltrosAvanzado({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.98 }}
-      transition={{ type: 'spring', duration: 0.3 }}
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       className="absolute top-full left-0 right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover rounded-t-none! shadow-2xl z-50 overflow-hidden"
     >
       {/* ─── Header ─── */}
-      <div className="px-5 py-3 border-b border-borde-sutil">
+      <div className="px-4 py-2.5 border-b border-borde-sutil">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-texto-primario">Filtros</span>
@@ -239,7 +260,7 @@ export function PanelFiltrosAvanzado({
         <div className="flex-1 min-w-0 flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-borde-sutil">
 
         {/* ═══ Columna 1: Navegación ═══ */}
-        <div className="w-full sm:w-[240px] flex flex-col overflow-hidden shrink-0 max-h-[220px] sm:max-h-none">
+        <div className="w-full sm:w-[180px] flex flex-col overflow-hidden shrink-0 max-h-[220px] sm:max-h-none">
           {/* Buscador de filtros (⌘F) */}
           <div className="p-2.5 border-b border-borde-sutil">
             {buscadorAbierto ? (
@@ -316,13 +337,13 @@ export function PanelFiltrosAvanzado({
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-[240px] sm:min-h-0">
           {filtroSel ? (
             <>
-              <div className="px-5 pt-4 pb-2">
-                <h3 className="text-base font-semibold text-texto-primario truncate">{filtroSel.etiqueta}</h3>
+              <div className="px-4 pt-3 pb-1.5">
+                <h3 className="text-sm font-semibold text-texto-primario truncate">{filtroSel.etiqueta}</h3>
                 {filtroSel.descripcion && (
-                  <p className="text-xs text-texto-terciario mt-0.5">{filtroSel.descripcion}</p>
+                  <p className="text-[11px] leading-snug text-texto-terciario mt-0.5">{filtroSel.descripcion}</p>
                 )}
               </div>
-              <div className="flex-1 overflow-y-auto px-5 pb-4">
+              <div className="flex-1 overflow-y-auto px-4 pb-3">
                 <RenderDetalleFiltro filtro={filtroSel} />
               </div>
             </>
@@ -337,12 +358,12 @@ export function PanelFiltrosAvanzado({
         {/* /Grupo Nav + Detalle */}
 
         {/* ═══ Columna 3: Contexto (vistas + orden + atajos) ═══
-             En móvil y tablet: ancho completo abajo. En desktop: 240px a la derecha. */}
-        <div className="w-full lg:w-[240px] flex flex-col overflow-y-auto shrink-0 p-3 gap-3">
+             En móvil y tablet: ancho completo abajo. En desktop: 200px a la derecha. */}
+        <div className="w-full lg:w-[200px] flex flex-col overflow-y-auto shrink-0 p-2.5 gap-2.5">
 
           {/* Vistas guardadas — tarjeta (arriba de orden) */}
           {idModulo && (
-            <div className="rounded-card bg-superficie-tarjeta border border-borde-sutil p-3">
+            <div className="rounded-card bg-superficie-tarjeta border border-borde-sutil p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Star size={11} className="text-texto-terciario" />
                 <span className="text-xxs font-bold text-texto-primario uppercase tracking-[0.08em]">
@@ -393,7 +414,7 @@ export function PanelFiltrosAvanzado({
 
           {/* Orden — tarjeta */}
           {opcionesOrden && opcionesOrden.length > 0 && (
-            <div className="rounded-card bg-superficie-tarjeta border border-borde-sutil p-3">
+            <div className="rounded-card bg-superficie-tarjeta border border-borde-sutil p-2.5">
               <span className="text-xxs font-bold text-texto-primario uppercase tracking-[0.08em] block mb-2">
                 Orden
               </span>
@@ -420,7 +441,7 @@ export function PanelFiltrosAvanzado({
           )}
 
           {/* Atajos — tarjeta (solo desktop, sin sentido en mobile touch) */}
-          <div className="hidden sm:flex rounded-card bg-superficie-tarjeta border border-borde-sutil p-3 mt-auto flex-col">
+          <div className="hidden sm:flex rounded-card bg-superficie-tarjeta border border-borde-sutil p-2.5 mt-auto flex-col">
             <div className="flex items-center gap-1.5 mb-2">
               <Keyboard size={11} className="text-texto-terciario" />
               <span className="text-xxs font-bold text-texto-primario uppercase tracking-[0.08em]">
@@ -437,7 +458,7 @@ export function PanelFiltrosAvanzado({
       </div>
 
       {/* ─── Footer ─── */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-borde-sutil bg-superficie-tarjeta/30">
+      <div className="flex items-center justify-between px-4 py-2 border-t border-borde-sutil bg-superficie-tarjeta/30">
         <span className="text-xs text-texto-terciario">
           Los cambios se aplican en tiempo real
         </span>

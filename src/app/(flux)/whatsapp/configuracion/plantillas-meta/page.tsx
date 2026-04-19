@@ -24,6 +24,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { useAuth } from '@/hooks/useAuth'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type { PlantillaWhatsApp, EstadoMeta } from '@/tipos/whatsapp'
 
@@ -200,11 +201,11 @@ export default function PaginaListadoPlantillasMeta() {
   // ─── Filtrado ───
   const plantillasFiltradas = plantillas.filter(p => {
     if (busquedaDebounced) {
-      const q = busquedaDebounced.toLowerCase()
+      const q = normalizarBusqueda(busquedaDebounced)
       const cuerpo = p.componentes?.cuerpo?.texto || ''
-      if (!p.nombre.toLowerCase().includes(q)
-        && !p.nombre_api.toLowerCase().includes(q)
-        && !cuerpo.toLowerCase().includes(q)) return false
+      if (!normalizarBusqueda(p.nombre).includes(q)
+        && !normalizarBusqueda(p.nombre_api).includes(q)
+        && !normalizarBusqueda(cuerpo).includes(q)) return false
     }
     if (filtroEstado && p.estado_meta !== filtroEstado) return false
     if (filtroCategoria && p.categoria !== filtroCategoria) return false
@@ -389,6 +390,7 @@ export default function PaginaListadoPlantillasMeta() {
                 { valor: 'REJECTED', etiqueta: 'Rechazadas' },
                 { valor: 'ERROR', etiqueta: 'Error' },
               ],
+              descripcion: 'Estado de aprobación de la plantilla en Meta Business.',
             },
             {
               id: 'categoria', etiqueta: 'Categoría', tipo: 'pills' as const,
@@ -398,6 +400,7 @@ export default function PaginaListadoPlantillasMeta() {
                 { valor: 'UTILITY', etiqueta: 'Utilidad' },
                 { valor: 'AUTHENTICATION', etiqueta: 'Autenticación' },
               ],
+              descripcion: 'Clasificación declarada a Meta al crear la plantilla.',
             },
             {
               id: 'autor', etiqueta: 'Autor', tipo: 'pills' as const,
@@ -406,12 +409,18 @@ export default function PaginaListadoPlantillasMeta() {
                 { valor: 'yo', etiqueta: 'Creadas por mí' },
                 { valor: 'otros', etiqueta: 'Creadas por otros' },
               ],
+              descripcion: 'Quién creó la plantilla dentro de la empresa.',
             },
             {
               id: 'modulos', etiqueta: 'Disponible en', tipo: 'multiple-compacto' as const,
               valor: filtroModulos, onChange: (v) => setFiltroModulos(v as string[]),
               opciones: MODULOS_DISPONIBLES,
+              descripcion: 'Módulos donde la plantilla puede usarse al enviar mensajes.',
             },
+          ]}
+          gruposFiltros={[
+            { id: 'estado_meta', etiqueta: 'Estado Meta', filtros: ['estado', 'categoria'] },
+            { id: 'uso', etiqueta: 'Uso', filtros: ['autor', 'modulos'] },
           ]}
           onLimpiarFiltros={() => {
             setFiltroEstado(''); setFiltroCategoria(''); setFiltroAutor(''); setFiltroModulos([])

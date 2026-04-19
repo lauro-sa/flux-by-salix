@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
+import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -136,16 +137,80 @@ interface Props {
 
 export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const queryClient = useQueryClient()
   const { formatoHora, locale } = useFormato()
   const { preferencias, guardar: guardarPrefs } = usePreferencias()
-  const [busqueda, setBusqueda] = useState('')
-  const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
   const [matrizKey, setMatrizKey] = useState(0)
   const [seccion, setSeccion] = useState<'fichajes' | 'nomina'>('fichajes')
   const nominaRef = useRef<VistaNominaHandle>(null)
+
+  // ── Filtros — restaurar desde URL ──
+  const [filtroMiembros, setFiltroMiembros] = useState<string[]>(() => {
+    const v = searchParams.get('miembros')
+    return v ? v.split(',') : []
+  })
+  const [filtroEstados, setFiltroEstados] = useState<string[]>(() => {
+    const v = searchParams.get('estados')
+    return v ? v.split(',') : []
+  })
+  const [filtroTipos, setFiltroTipos] = useState<string[]>(() => {
+    const v = searchParams.get('tipos')
+    return v ? v.split(',') : []
+  })
+  const [filtroMetodos, setFiltroMetodos] = useState<string[]>(() => {
+    const v = searchParams.get('metodos')
+    return v ? v.split(',') : []
+  })
+  const [filtroSectores, setFiltroSectores] = useState<string[]>(() => {
+    const v = searchParams.get('sectores')
+    return v ? v.split(',') : []
+  })
+  const [filtroTurnos, setFiltroTurnos] = useState<string[]>(() => {
+    const v = searchParams.get('turnos')
+    return v ? v.split(',') : []
+  })
+  const [filtroConTardanza, setFiltroConTardanza] = useState(searchParams.get('con_tardanza') === 'true')
+  const [filtroSinCerrar, setFiltroSinCerrar] = useState(searchParams.get('sin_cerrar') === 'true')
+  const [filtroPresetFecha, setFiltroPresetFecha] = useState(searchParams.get('preset_fecha') || '')
+  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
+
+  // Búsqueda con debounce (igual que otros módulos)
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
+    searchParams.get('q') || '',
+    Number(searchParams.get('pagina')) || 1,
+    [
+      filtroMiembros, filtroEstados, filtroTipos, filtroMetodos, filtroSectores, filtroTurnos,
+      filtroConTardanza, filtroSinCerrar, filtroPresetFecha, filtroCreadoPor,
+    ],
+    true,
+  )
+
+  // Sincronizar filtros → URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroMiembros.length > 0) params.set('miembros', filtroMiembros.join(','))
+    if (filtroEstados.length > 0) params.set('estados', filtroEstados.join(','))
+    if (filtroTipos.length > 0) params.set('tipos', filtroTipos.join(','))
+    if (filtroMetodos.length > 0) params.set('metodos', filtroMetodos.join(','))
+    if (filtroSectores.length > 0) params.set('sectores', filtroSectores.join(','))
+    if (filtroTurnos.length > 0) params.set('turnos', filtroTurnos.join(','))
+    if (filtroConTardanza) params.set('con_tardanza', 'true')
+    if (filtroSinCerrar) params.set('sin_cerrar', 'true')
+    if (filtroPresetFecha) params.set('preset_fecha', filtroPresetFecha)
+    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
+  }, [
+    busquedaDebounced, filtroMiembros, filtroEstados, filtroTipos, filtroMetodos,
+    filtroSectores, filtroTurnos, filtroConTardanza, filtroSinCerrar,
+    filtroPresetFecha, filtroCreadoPor, pagina, pathname,
+  ])
 
   // Vista persistida por usuario+dispositivo
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
@@ -162,13 +227,36 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   }, [preferencias.config_tablas, guardarPrefs])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const sinFiltros = pagina === 1
+  const sinFiltros =
+    !busquedaDebounced &&
+    filtroMiembros.length === 0 &&
+    filtroEstados.length === 0 &&
+    filtroTipos.length === 0 &&
+    filtroMetodos.length === 0 &&
+    filtroSectores.length === 0 &&
+    filtroTurnos.length === 0 &&
+    !filtroConTardanza &&
+    !filtroSinCerrar &&
+    !filtroPresetFecha &&
+    !filtroCreadoPor &&
+    pagina === 1
 
   // useListado reemplaza el fetch manual
   const { datos: registros, total, cargando, recargar } = useListado<RegistroAsistencia>({
     clave: 'asistencias',
     url: '/api/asistencias',
     parametros: {
+      busqueda: busquedaDebounced,
+      miembros: filtroMiembros.length > 0 ? filtroMiembros.join(',') : undefined,
+      estados: filtroEstados.length > 0 ? filtroEstados.join(',') : undefined,
+      tipos: filtroTipos.length > 0 ? filtroTipos.join(',') : undefined,
+      metodos: filtroMetodos.length > 0 ? filtroMetodos.join(',') : undefined,
+      sectores: filtroSectores.length > 0 ? filtroSectores.join(',') : undefined,
+      turnos: filtroTurnos.length > 0 ? filtroTurnos.join(',') : undefined,
+      con_tardanza: filtroConTardanza ? 'true' : undefined,
+      sin_cerrar: filtroSinCerrar ? 'true' : undefined,
+      preset_fecha: filtroPresetFecha || undefined,
+      creado_por: filtroCreadoPor || undefined,
       pagina,
       limite: 50,
     },
@@ -176,6 +264,47 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     extraerTotal: (json) => (json.total || 0) as number,
     datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
   })
+
+  // ── Cargar opciones para los filtros ──
+
+  /** Miembros de la empresa (para selectores Empleados y Creado por) */
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesMiembrosAll = useMemo(() => {
+    return ((miembrosData?.miembros || []) as { id: string; usuario_id: string; nombre: string | null; apellido: string | null }[])
+  }, [miembrosData])
+  const opcionesMiembros = useMemo(() => {
+    return opcionesMiembrosAll.map(m => ({
+      valor: m.id, // id de la tabla miembros (no usuario_id)
+      etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
+    }))
+  }, [opcionesMiembrosAll])
+  const opcionesMiembrosCreador = useMemo(() => {
+    // Para "Creado por" usamos miembro.id también (creado_por apunta a miembros.id)
+    return opcionesMiembros
+  }, [opcionesMiembros])
+
+  /** Config de asistencias — trae sectores, turnos y terminales dinámicos */
+  const { data: configData } = useQuery({
+    queryKey: ['asistencias-config'],
+    queryFn: () => fetch('/api/asistencias/config').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+
+  /** Sectores dinámicos de la estructura de la empresa */
+  const opcionesSectores = useMemo(() => {
+    const items = (configData?.sectores || []) as { id: string; nombre: string }[]
+    return items.map(s => ({ valor: s.id, etiqueta: s.nombre }))
+  }, [configData])
+
+  /** Turnos laborales — de la config */
+  const opcionesTurnos = useMemo(() => {
+    const items = (configData?.turnos || []) as { id: string; nombre: string }[]
+    return items.map(t => ({ valor: t.id, etiqueta: t.nombre }))
+  }, [configData])
 
   // Abrir modal de detalle si viene ?detalle=<id> desde el dashboard
   useEffect(() => {
@@ -387,12 +516,144 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
           seleccionables
           busqueda={busqueda}
           onBusqueda={setBusqueda}
-          placeholder="Buscar empleado..."
+          placeholder="Buscar por empleado o notas..."
           idModulo="asistencias"
           totalRegistros={total}
           registrosPorPagina={50}
           paginaExterna={pagina}
           onCambiarPagina={setPagina}
+          filtros={[
+            // ── Empleados ──
+            {
+              id: 'miembros', etiqueta: 'Empleado', tipo: 'multiple-compacto' as const,
+              valor: filtroMiembros,
+              onChange: (v) => setFiltroMiembros(Array.isArray(v) ? v : []),
+              opciones: opcionesMiembros,
+              descripcion: 'Filtrá por uno o más empleados específicos.',
+            },
+            {
+              id: 'sectores', etiqueta: 'Sector', tipo: 'multiple-compacto' as const,
+              valor: filtroSectores,
+              onChange: (v) => setFiltroSectores(Array.isArray(v) ? v : []),
+              opciones: opcionesSectores,
+              descripcion: 'Filtrá por sector al que pertenecen los empleados.',
+            },
+            {
+              id: 'turnos', etiqueta: 'Turno', tipo: 'multiple-compacto' as const,
+              valor: filtroTurnos,
+              onChange: (v) => setFiltroTurnos(Array.isArray(v) ? v : []),
+              opciones: opcionesTurnos,
+              descripcion: 'Filtrá por turno laboral aplicado al fichaje.',
+            },
+            // ── Estado y tipo ──
+            {
+              id: 'estados', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
+              valor: filtroEstados,
+              onChange: (v) => setFiltroEstados(Array.isArray(v) ? v : []),
+              opciones: [
+                { valor: 'activo', etiqueta: 'Activo (en curso)' },
+                { valor: 'almuerzo', etiqueta: 'En almuerzo' },
+                { valor: 'particular', etiqueta: 'Salida particular' },
+                { valor: 'cerrado', etiqueta: 'Cerrado' },
+                { valor: 'auto_cerrado', etiqueta: 'Auto-cerrado' },
+                { valor: 'ausente', etiqueta: 'Ausente' },
+                { valor: 'feriado', etiqueta: 'Feriado' },
+              ],
+              descripcion: 'Estado del registro de asistencia.',
+            },
+            {
+              id: 'tipos', etiqueta: 'Tipo', tipo: 'multiple-compacto' as const,
+              valor: filtroTipos,
+              onChange: (v) => setFiltroTipos(Array.isArray(v) ? v : []),
+              opciones: [
+                { valor: 'normal', etiqueta: 'Normal' },
+                { valor: 'tardanza', etiqueta: 'Tardanza' },
+                { valor: 'flexible', etiqueta: 'Flexible' },
+                { valor: 'ausencia', etiqueta: 'Ausencia' },
+                { valor: 'feriado', etiqueta: 'Feriado' },
+              ],
+              descripcion: 'Tipo de asistencia según puntualidad o evento especial.',
+            },
+            {
+              id: 'metodos', etiqueta: 'Método de fichaje', tipo: 'multiple-compacto' as const,
+              valor: filtroMetodos,
+              onChange: (v) => setFiltroMetodos(Array.isArray(v) ? v : []),
+              opciones: [
+                { valor: 'manual', etiqueta: 'Manual (admin)' },
+                { valor: 'rfid', etiqueta: 'RFID' },
+                { valor: 'nfc', etiqueta: 'NFC' },
+                { valor: 'pin', etiqueta: 'PIN' },
+                { valor: 'automatico', etiqueta: 'Automático (PWA)' },
+                { valor: 'solicitud', etiqueta: 'Solicitud aprobada' },
+                { valor: 'sistema', etiqueta: 'Sistema (cron)' },
+              ],
+              descripcion: 'Cómo se registró el fichaje.',
+            },
+            // ── Flags ──
+            {
+              id: 'con_tardanza', etiqueta: 'Con tardanza', tipo: 'pills' as const,
+              valor: filtroConTardanza ? 'true' : '',
+              onChange: (v) => setFiltroConTardanza(v === 'true'),
+              opciones: [{ valor: 'true', etiqueta: 'Sí' }],
+              descripcion: 'Fichajes marcados como tardanza o con puntualidad > 0 minutos.',
+            },
+            {
+              id: 'sin_cerrar', etiqueta: 'Sin cerrar', tipo: 'pills' as const,
+              valor: filtroSinCerrar ? 'true' : '',
+              onChange: (v) => setFiltroSinCerrar(v === 'true'),
+              opciones: [{ valor: 'true', etiqueta: 'Sí' }],
+              descripcion: 'Fichajes con entrada pero sin salida (activos, en almuerzo o con salida particular).',
+            },
+            // ── Período ──
+            {
+              id: 'preset_fecha', etiqueta: 'Período', tipo: 'pills' as const,
+              valor: filtroPresetFecha, onChange: (v) => setFiltroPresetFecha(v as string),
+              opciones: [
+                { valor: 'hoy', etiqueta: 'Hoy' },
+                { valor: 'ayer', etiqueta: 'Ayer' },
+                { valor: '7d', etiqueta: '7 días' },
+                { valor: 'esta_semana', etiqueta: 'Esta semana' },
+                { valor: 'semana_pasada', etiqueta: 'Semana pasada' },
+                { valor: 'este_mes', etiqueta: 'Este mes' },
+                { valor: 'mes_pasado', etiqueta: 'Mes pasado' },
+                { valor: 'este_anio', etiqueta: 'Este año' },
+              ],
+              descripcion: 'Rango de fechas predefinido para el fichaje.',
+            },
+            // ── Auditoría ──
+            {
+              id: 'creado_por', etiqueta: 'Cargado por', tipo: 'seleccion-compacto' as const,
+              valor: filtroCreadoPor, onChange: (v) => setFiltroCreadoPor(v as string),
+              opciones: opcionesMiembrosCreador,
+              descripcion: 'Admin que cargó manualmente el fichaje (útil para auditoría).',
+            },
+          ]}
+          gruposFiltros={[
+            { id: 'empleados', etiqueta: 'Empleados', filtros: ['miembros', 'sectores', 'turnos'] },
+            { id: 'estado', etiqueta: 'Estado y tipo', filtros: ['estados', 'tipos', 'metodos'] },
+            { id: 'flags', etiqueta: 'Situaciones', filtros: ['con_tardanza', 'sin_cerrar'] },
+            { id: 'periodo', etiqueta: 'Período', filtros: ['preset_fecha'] },
+            { id: 'auditoria', etiqueta: 'Auditoría', filtros: ['creado_por'] },
+          ]}
+          onLimpiarFiltros={() => {
+            setFiltroMiembros([])
+            setFiltroEstados([])
+            setFiltroTipos([])
+            setFiltroMetodos([])
+            setFiltroSectores([])
+            setFiltroTurnos([])
+            setFiltroConTardanza(false)
+            setFiltroSinCerrar(false)
+            setFiltroPresetFecha('')
+            setFiltroCreadoPor('')
+          }}
+          opcionesOrden={[
+            { etiqueta: 'Más recientes', clave: 'fecha', direccion: 'desc' },
+            { etiqueta: 'Más antiguas', clave: 'fecha', direccion: 'asc' },
+            { etiqueta: 'Entrada ↑', clave: 'hora_entrada', direccion: 'asc' },
+            { etiqueta: 'Entrada ↓', clave: 'hora_entrada', direccion: 'desc' },
+            { etiqueta: 'Puntualidad ↓', clave: 'puntualidad_min', direccion: 'desc' },
+          ]}
           onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
           vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
           contenidoCustom={vista === 'matriz' ? <VistaMatriz

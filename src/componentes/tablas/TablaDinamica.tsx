@@ -930,17 +930,17 @@ function TablaDinamica<T>({
       {!ocultarBarraHerramientas && (
       <div className={`flex items-center gap-2 pt-5 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
 
-        {/* Buscador — ancho adaptativo según breakpoint:
+        {/* Buscador — ancho adaptativo:
              - Cerrado: mobile w-full, desktop dinámico según texto (max 700px)
-             - Abierto: w-full hasta 820px máx. (se ajusta al viewport si es menor) */}
-        <div className={`min-w-0 relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''} ${panelFiltrosAbierto ? 'w-full sm:max-w-[820px]' : 'w-full sm:w-auto sm:max-w-[700px]'}`} style={(esMobil || panelFiltrosAbierto) ? undefined : { width: anchoBuscador > 0 ? anchoBuscador : undefined }}>
+             - Abierto: crece a 660px para recibir el panel como grupo unificado */}
+        <div className={`min-w-0 relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''} ${panelFiltrosAbierto ? 'w-full sm:max-w-[660px]' : 'w-full sm:w-auto sm:max-w-[700px]'}`} style={(esMobil || panelFiltrosAbierto) ? undefined : { width: anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
             'flex items-center gap-1.5 px-3 h-9 rounded-card border bg-superficie-tarjeta transition-all duration-200',
             inputEnfocado ? 'border-borde-foco shadow-foco' : 'border-borde-sutil hover:border-borde-fuerte',
-            // Al abrir el panel de filtros, las caras inferiores quedan
-            // planas para que buscador + panel se vean como grupo segmentado.
+            // Al abrir el panel de filtros, las caras inferiores quedan planas
+            // para que buscador + panel se vean como grupo segmentado.
             panelFiltrosAbierto ? 'rounded-b-none!' : '',
           ].join(' ')}>
             {/* Lupa */}

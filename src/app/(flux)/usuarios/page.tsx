@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -12,6 +12,7 @@ import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -19,10 +20,8 @@ import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
-import { Pildora } from '@/componentes/ui/Pildora'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { TextArea } from '@/componentes/ui/TextArea'
-import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { calcularEstadoMiembro, ESTADOS_MIEMBRO, type EstadoMiembro } from '@/lib/miembros/estado'
 import { useAuth } from '@/hooks/useAuth'
@@ -532,8 +531,25 @@ export default function PaginaUsuarios() {
   const [sectoresDisponibles, setSectoresDisponibles] = useState<{ id: string; nombre: string }[]>([])
   const [puestosDisponibles, setPuestosDisponibles] = useState<{ id: string; nombre: string }[]>([])
 
-  // Filtro de estado en el listado
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoMiembro>('todos')
+  // ── Filtros del listado ──
+  // Estado ciclo de vida (multi): activo, pendiente, fichaje, desactivado
+  const [filtroEstadoCiclo, setFiltroEstadoCiclo] = useState<EstadoMiembro[]>([])
+  // Rol (multi)
+  const [filtroRoles, setFiltroRoles] = useState<string[]>([])
+  // Sector/puesto (multi, por nombre)
+  const [filtroSectores, setFiltroSectores] = useState<string[]>([])
+  const [filtroPuestos, setFiltroPuestos] = useState<string[]>([])
+  // Horario y fichaje
+  const [filtroHorarioTipo, setFiltroHorarioTipo] = useState<string[]>([])
+  const [filtroHorarioFlexible, setFiltroHorarioFlexible] = useState('')
+  const [filtroMetodoFichaje, setFiltroMetodoFichaje] = useState<string[]>([])
+  // Compensación
+  const [filtroCompensacionTipo, setFiltroCompensacionTipo] = useState<string[]>([])
+  // Tipo de cuenta
+  const [filtroTipoCuenta, setFiltroTipoCuenta] = useState('')
+  // Presets de fecha
+  const [filtroUnidoRango, setFiltroUnidoRango] = useState('')
+  const [filtroCumpleRango, setFiltroCumpleRango] = useState('')
 
   // Importación CSV
   const [modalImportar, setModalImportar] = useState(false)
@@ -871,17 +887,96 @@ export default function PaginaUsuarios() {
     setImportando(false)
   }
 
-  /* ── Filtrado por estado del ciclo de vida ── */
-  const miembrosFiltrados = miembros.filter(m => filtroEstado === 'todos' ? true : m.estado === filtroEstado)
+  /* ── Helpers para filtrado client-side ── */
 
-  /* ── Conteo por estado (para mostrar en los chips del filtro) ── */
-  const conteoEstado: Record<EstadoMiembro | 'todos', number> = {
-    todos: miembros.length,
-    fichaje: miembros.filter(m => m.estado === 'fichaje').length,
-    pendiente: miembros.filter(m => m.estado === 'pendiente').length,
-    activo: miembros.filter(m => m.estado === 'activo').length,
-    desactivado: miembros.filter(m => m.estado === 'desactivado').length,
+  /** Días desde/hasta fecha para presets de "Unido en" */
+  const dentroRango = (iso: string | null, rango: string): boolean => {
+    if (!iso) return false
+    const fecha = new Date(iso)
+    const ahora = new Date()
+    const diff = (ahora.getTime() - fecha.getTime()) / 86400000 // días
+    switch (rango) {
+      case 'hoy': return diff < 1 && fecha.toDateString() === ahora.toDateString()
+      case '7d': return diff <= 7
+      case '30d': return diff <= 30
+      case '90d': return diff <= 90
+      case 'este_ano': return fecha.getFullYear() === ahora.getFullYear()
+      default: return true
+    }
   }
+
+  /* ── Filtrado de miembros (búsqueda + todos los filtros) ── */
+  const miembrosFiltrados = useMemo(() => {
+    const q = busqueda.trim() ? normalizarBusqueda(busqueda) : ''
+    return miembros.filter(m => {
+      // Búsqueda: nombre, apellido, correo, rol, puesto, sector — accent-insensitive
+      if (q) {
+        const campos = [m.nombre, m.apellido, m.correo, m.rol, m.puesto, m.sector]
+          .filter(Boolean)
+          .map(v => normalizarBusqueda(String(v)))
+        if (!campos.some(c => c.includes(q))) return false
+      }
+      // Estado ciclo de vida (multi)
+      if (filtroEstadoCiclo.length > 0 && !filtroEstadoCiclo.includes(m.estado)) return false
+      // Rol (multi)
+      if (filtroRoles.length > 0 && !filtroRoles.includes(m.rol)) return false
+      // Sector (multi, por nombre)
+      if (filtroSectores.length > 0 && !filtroSectores.includes(m.sector)) return false
+      // Puesto (multi, por nombre)
+      if (filtroPuestos.length > 0 && !filtroPuestos.includes(m.puesto)) return false
+      // Horario tipo
+      if (filtroHorarioTipo.length > 0 && !filtroHorarioTipo.includes(m.horario_tipo || '')) return false
+      // Horario flexible (Sí/No)
+      if (filtroHorarioFlexible === 'true' && !m.horario_flexible) return false
+      if (filtroHorarioFlexible === 'false' && m.horario_flexible) return false
+      // Método de fichaje (multi)
+      if (filtroMetodoFichaje.length > 0 && !filtroMetodoFichaje.includes(m.metodo_fichaje || '')) return false
+      // Compensación tipo (multi)
+      if (filtroCompensacionTipo.length > 0 && !filtroCompensacionTipo.includes(m.compensacion_tipo || '')) return false
+      // Tipo de cuenta: con_flux / solo_kiosco
+      if (filtroTipoCuenta === 'con_flux' && !m.usuario_id) return false
+      if (filtroTipoCuenta === 'solo_kiosco' && m.usuario_id) return false
+      // Unido en (preset)
+      if (filtroUnidoRango && !dentroRango(m.unido_en, filtroUnidoRango)) return false
+      // Cumple próximo
+      if (filtroCumpleRango) {
+        const dias = diasHastaCumple(m.fecha_nacimiento)
+        if (dias < 0) return false
+        if (filtroCumpleRango === 'hoy' && dias !== 0) return false
+        if (filtroCumpleRango === '7d' && dias > 7) return false
+        if (filtroCumpleRango === '30d' && dias > 30) return false
+      }
+      return true
+    })
+  }, [
+    miembros, busqueda,
+    filtroEstadoCiclo, filtroRoles, filtroSectores, filtroPuestos,
+    filtroHorarioTipo, filtroHorarioFlexible, filtroMetodoFichaje,
+    filtroCompensacionTipo, filtroTipoCuenta,
+    filtroUnidoRango, filtroCumpleRango,
+  ])
+
+  /* ── Opciones dinámicas extraídas de los miembros cargados ── */
+  const opcionesRoles = useMemo(() => {
+    const set = new Set<string>()
+    miembros.forEach(m => m.rol && set.add(m.rol))
+    return [...set].sort().map(r => ({
+      valor: r,
+      etiqueta: t(`usuarios.rol_${r}` as Parameters<typeof t>[0]) || r,
+    }))
+  }, [miembros, t])
+
+  const opcionesSectoresMiembros = useMemo(() => {
+    const set = new Set<string>()
+    miembros.forEach(m => m.sector && set.add(m.sector))
+    return [...set].sort().map(s => ({ valor: s, etiqueta: s }))
+  }, [miembros])
+
+  const opcionesPuestosMiembros = useMemo(() => {
+    const set = new Set<string>()
+    miembros.forEach(m => m.puesto && set.add(m.puesto))
+    return [...set].sort().map(p => ({ valor: p, etiqueta: p }))
+  }, [miembros])
 
   /* ── Acciones en lote ── */
   const accionesLote = puedeGestionar ? [
@@ -918,28 +1013,6 @@ export default function PaginaUsuarios() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/usuarios/configuracion')}
     >
-      {/* ══════ FILTRO POR ESTADO DEL CICLO DE VIDA ══════ */}
-      <div className="flex items-center gap-1.5 flex-wrap mb-4 px-1">
-        {([
-          { clave: 'todos' as const, etiqueta: t('usuarios.filtro_todos') },
-          { clave: 'activo' as const, etiqueta: t('usuarios.estado_activo') },
-          { clave: 'pendiente' as const, etiqueta: t('usuarios.estado_pendiente') },
-          { clave: 'fichaje' as const, etiqueta: t('usuarios.estado_fichaje') },
-          { clave: 'desactivado' as const, etiqueta: t('usuarios.estado_desactivado') },
-        ]).map(chip => (
-          <Pildora
-            key={chip.clave}
-            activa={filtroEstado === chip.clave}
-            onClick={() => setFiltroEstado(chip.clave)}
-          >
-            {chip.etiqueta}
-            <span className={filtroEstado === chip.clave ? 'opacity-70' : 'text-texto-terciario/60'}>
-              {conteoEstado[chip.clave]}
-            </span>
-          </Pildora>
-        ))}
-      </div>
-
       <TablaDinamica<MiembroTabla>
         idModulo="usuarios"
         columnas={columnas}
@@ -949,6 +1022,8 @@ export default function PaginaUsuarios() {
           { etiqueta: t('comun.mas_antiguos'), clave: 'unido_en', direccion: 'asc' },
           { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
           { etiqueta: t('comun.nombre_za'), clave: 'nombre', direccion: 'desc' },
+          { etiqueta: 'Compensación ↓', clave: 'compensacion_monto', direccion: 'desc' },
+          { etiqueta: 'Legajo ↑', clave: 'numero_empleado', direccion: 'asc' },
         ]}
         datos={miembrosFiltrados}
         claveFila={(r) => r.id}
@@ -956,8 +1031,140 @@ export default function PaginaUsuarios() {
         seleccionables={puedeGestionar}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
-        placeholder={`${t('comun.buscar')} por nombre, correo, rol...`}
+        placeholder="Buscar por nombre, correo, rol, puesto, sector..."
         accionesLote={accionesLote}
+        filtros={[
+          // ── Identidad ──
+          {
+            id: 'rol', etiqueta: 'Rol', tipo: 'multiple-compacto' as const,
+            valor: filtroRoles,
+            onChange: (v) => setFiltroRoles(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: opcionesRoles,
+            descripcion: 'Nivel de acceso y permisos dentro de la empresa.',
+          },
+          {
+            id: 'estado_ciclo', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
+            valor: filtroEstadoCiclo,
+            onChange: (v) => setFiltroEstadoCiclo((Array.isArray(v) ? v : (v ? [v] : [])) as EstadoMiembro[]),
+            opciones: [
+              { valor: 'activo', etiqueta: t('usuarios.estado_activo') },
+              { valor: 'pendiente', etiqueta: t('usuarios.estado_pendiente') },
+              { valor: 'fichaje', etiqueta: t('usuarios.estado_fichaje') },
+              { valor: 'desactivado', etiqueta: t('usuarios.estado_desactivado') },
+            ],
+            descripcion: 'Activo: con cuenta Flux y acceso. Pendiente: invitación enviada sin aceptar. Solo fichaje: sin cuenta pero activo en kiosco. Desactivado: sin acceso.',
+          },
+          {
+            id: 'tipo_cuenta', etiqueta: 'Tipo de cuenta', tipo: 'pills' as const,
+            valor: filtroTipoCuenta, onChange: (v) => setFiltroTipoCuenta(v as string),
+            opciones: [
+              { valor: 'con_flux', etiqueta: 'Con cuenta Flux' },
+              { valor: 'solo_kiosco', etiqueta: 'Solo kiosco' },
+            ],
+            descripcion: 'Con cuenta Flux = usa la app. Solo kiosco = solo ficha desde terminal.',
+          },
+          // ── Laboral ──
+          {
+            id: 'sector', etiqueta: 'Sector', tipo: 'multiple-compacto' as const,
+            valor: filtroSectores,
+            onChange: (v) => setFiltroSectores(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: opcionesSectoresMiembros,
+            descripcion: 'Filtrá por uno o más sectores de la estructura de la empresa.',
+          },
+          {
+            id: 'puesto', etiqueta: 'Puesto', tipo: 'multiple-compacto' as const,
+            valor: filtroPuestos,
+            onChange: (v) => setFiltroPuestos(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: opcionesPuestosMiembros,
+            descripcion: 'Cargo específico del empleado.',
+          },
+          {
+            id: 'compensacion_tipo', etiqueta: 'Compensación', tipo: 'multiple-compacto' as const,
+            valor: filtroCompensacionTipo,
+            onChange: (v) => setFiltroCompensacionTipo(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: [
+              { valor: 'fijo', etiqueta: 'Salario fijo' },
+              { valor: 'por_dia', etiqueta: 'Por día' },
+              { valor: 'por_hora', etiqueta: 'Por hora' },
+            ],
+            descripcion: 'Esquema de cálculo de la compensación del miembro.',
+          },
+          // ── Fichaje ──
+          {
+            id: 'horario_tipo', etiqueta: 'Horario', tipo: 'multiple-compacto' as const,
+            valor: filtroHorarioTipo,
+            onChange: (v) => setFiltroHorarioTipo(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: [
+              { valor: 'lunes_viernes', etiqueta: 'Lunes a Viernes' },
+              { valor: 'lunes_sabado', etiqueta: 'Lunes a Sábado' },
+              { valor: 'todos', etiqueta: 'Todos los días' },
+              { valor: 'custom', etiqueta: 'Personalizado' },
+            ],
+            descripcion: 'Régimen de días laborales del miembro.',
+          },
+          {
+            id: 'horario_flexible', etiqueta: 'Horario flexible', tipo: 'pills' as const,
+            valor: filtroHorarioFlexible, onChange: (v) => setFiltroHorarioFlexible(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Miembros con horario flexible (sin penalizar tardanzas).',
+          },
+          {
+            id: 'metodo_fichaje', etiqueta: 'Método de fichaje', tipo: 'multiple-compacto' as const,
+            valor: filtroMetodoFichaje,
+            onChange: (v) => setFiltroMetodoFichaje(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: [
+              { valor: 'kiosco', etiqueta: 'Kiosco' },
+              { valor: 'automatico', etiqueta: 'Automático (PWA)' },
+              { valor: 'manual', etiqueta: 'Manual' },
+            ],
+            descripcion: 'Cómo registra habitualmente entradas y salidas.',
+          },
+          // ── Período ──
+          {
+            id: 'unido_rango', etiqueta: 'Ingresó', tipo: 'pills' as const,
+            valor: filtroUnidoRango, onChange: (v) => setFiltroUnidoRango(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: '7d', etiqueta: '7 días' },
+              { valor: '30d', etiqueta: '30 días' },
+              { valor: '90d', etiqueta: '90 días' },
+              { valor: 'este_ano', etiqueta: 'Este año' },
+            ],
+            descripcion: 'Fecha de ingreso del empleado a la empresa.',
+          },
+          {
+            id: 'cumple_rango', etiqueta: 'Cumpleaños próximo', tipo: 'pills' as const,
+            valor: filtroCumpleRango, onChange: (v) => setFiltroCumpleRango(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: '7d', etiqueta: 'Próximos 7 días' },
+              { valor: '30d', etiqueta: 'Próximos 30 días' },
+            ],
+            descripcion: 'Miembros que cumplen años en el rango elegido.',
+          },
+        ]}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['rol', 'estado_ciclo', 'tipo_cuenta'] },
+          { id: 'laboral', etiqueta: 'Laboral', filtros: ['sector', 'puesto', 'compensacion_tipo'] },
+          { id: 'fichaje', etiqueta: 'Fichaje', filtros: ['horario_tipo', 'horario_flexible', 'metodo_fichaje'] },
+          { id: 'periodo', etiqueta: 'Período', filtros: ['unido_rango', 'cumple_rango'] },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroEstadoCiclo([])
+          setFiltroRoles([])
+          setFiltroSectores([])
+          setFiltroPuestos([])
+          setFiltroHorarioTipo([])
+          setFiltroHorarioFlexible('')
+          setFiltroMetodoFichaje([])
+          setFiltroCompensacionTipo([])
+          setFiltroTipoCuenta('')
+          setFiltroUnidoRango('')
+          setFiltroCumpleRango('')
+        }}
         mostrarResumen
         onClickFila={(fila) => router.push(`/usuarios/${fila.id}`)}
         renderTarjeta={(fila) => {
@@ -1052,12 +1259,8 @@ export default function PaginaUsuarios() {
         estadoVacio={
           <EstadoVacio
             icono={<UserRoundSearch size={52} strokeWidth={1} />}
-            titulo={filtroEstado === 'todos'
-              ? t('usuarios.sin_usuarios')
-              : t('usuarios.sin_miembros_estado').replace('{{estado}}', t(`usuarios.estado_${filtroEstado}` as Parameters<typeof t>[0]) || filtroEstado)}
-            descripcion={filtroEstado === 'todos'
-              ? t('usuarios.sin_miembros_desc')
-              : t('usuarios.sin_miembros_estado_desc')}
+            titulo={t('usuarios.sin_usuarios')}
+            descripcion={t('usuarios.sin_miembros_desc')}
             accion={puedeGestionar ? <Boton icono={<UserPlus size={14} />} onClick={() => { resetFormularioEmpleado(); setModalAgregar(true) }}>{t('usuarios.agregar_empleado')}</Boton> : undefined}
           />
         }

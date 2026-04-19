@@ -114,6 +114,18 @@ export function normalizarAcentos(texto: string): string {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
+/**
+ * Normaliza un texto para búsqueda client-side:
+ * quita acentos + lowercase en un solo paso.
+ * Úsalo cuando filtrás listas en memoria (ej: filtros de configuración).
+ *
+ * Ejemplo:
+ *   normalizarBusqueda('José Pérez') === 'jose perez'
+ */
+export function normalizarBusqueda(texto: string): string {
+  return normalizarAcentos(texto).toLowerCase()
+}
+
 /** Retorna true si no hay errores */
 export function sinErrores(errores: ErroresContacto): boolean {
   return Object.keys(errores).length === 0

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-import { sanitizarBusqueda } from '@/lib/validaciones'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
@@ -25,11 +25,20 @@ export async function GET(request: NextRequest) {
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
-    const estado = params.get('estado')
-    const prioridad = params.get('prioridad')
+    const estado = params.get('estado') // CSV
+    const prioridad = params.get('prioridad') // CSV
     const contacto_id = params.get('contacto_id')
+    const tipo_contacto = params.get('tipo_contacto') // CSV: persona,empresa,edificio
+    // 'asignado_a' ahora soporta CSV (multi)
     const asignado_a = params.get('asignado_a')
+    const sin_asignar = params.get('sin_asignar') === 'true'
+    const creado_por = params.get('creado_por')
     const presupuesto_id = params.get('presupuesto_id')
+    const con_presupuesto = params.get('con_presupuesto') // 'true' | 'false'
+    const vencida = params.get('vencida') // 'true' | 'false'
+    const publicada = params.get('publicada') // 'true' | 'false'
+    const fecha = params.get('fecha') // 'hoy' | 'semana' | 'vencidas' | 'futuras'
+    const anio = params.get('anio')
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'numero'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
@@ -38,6 +47,32 @@ export async function GET(request: NextRequest) {
     const desde = (pagina - 1) * por_pagina
 
     const admin = crearClienteAdmin()
+
+    // Filtro por tipo_contacto — JOIN implícito (ver nota en /api/presupuestos/route.ts).
+    // Pre-query: clave → tipo_contacto.id → contacto.id → in().
+    let idsPorTipoContacto: string[] | null = null
+    if (tipo_contacto) {
+      const tipos = tipo_contacto.split(',').filter(Boolean)
+      const { data: tiposCt } = await admin
+        .from('tipos_contacto')
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .in('clave', tipos)
+      const tipoIds = (tiposCt || []).map(t => t.id)
+      if (tipoIds.length > 0) {
+        const { data: contactosFiltrados } = await admin
+          .from('contactos')
+          .select('id')
+          .eq('empresa_id', empresaId)
+          .in('tipo_contacto_id', tipoIds)
+        idsPorTipoContacto = (contactosFiltrados || []).map(c => c.id)
+        if (idsPorTipoContacto.length === 0) {
+          return NextResponse.json({ ordenes: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+        }
+      } else {
+        return NextResponse.json({ ordenes: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      }
+    }
 
     let query = admin
       .from('ordenes_trabajo')
@@ -66,9 +101,11 @@ export async function GET(request: NextRequest) {
       } else {
         query = query.eq('creado_por', user.id)
       }
+    }
 
-      // Si no es admin, solo ver publicadas (excepto las que creó)
-      // Esto se filtra después o en el frontend
+    // Filtro por tipo de contacto (vía contactos.tipo_contacto_id)
+    if (idsPorTipoContacto) {
+      query = query.in('contacto_id', idsPorTipoContacto)
     }
 
     // Filtro por estado
@@ -84,12 +121,111 @@ export async function GET(request: NextRequest) {
     }
 
     if (contacto_id) query = query.eq('contacto_id', contacto_id)
-    if (asignado_a) query = query.eq('asignado_a', asignado_a)
+
+    // Filtro por asignado (CSV multi)
+    if (asignado_a) {
+      const ids = asignado_a.split(',').filter(Boolean)
+      query = ids.length === 1 ? query.eq('asignado_a', ids[0]) : query.in('asignado_a', ids)
+    }
+
+    // Filtro "sin asignar"
+    if (sin_asignar) {
+      query = query.is('asignado_a', null)
+    }
+
+    // Filtro por creador
+    if (creado_por) query = query.eq('creado_por', creado_por)
+
     if (presupuesto_id) query = query.eq('presupuesto_id', presupuesto_id)
 
-    // Búsqueda por numero, titulo o contacto
+    // Filtro "con presupuesto"
+    if (con_presupuesto === 'true') {
+      query = query.not('presupuesto_id', 'is', null)
+    } else if (con_presupuesto === 'false') {
+      query = query.is('presupuesto_id', null)
+    }
+
+    // Filtro "publicada"
+    if (publicada === 'true') {
+      query = query.eq('publicada', true)
+    } else if (publicada === 'false') {
+      query = query.eq('publicada', false)
+    }
+
+    // Filtro "vencida" — fecha_fin_estimada < hoy AND estado activo
+    if (vencida === 'true') {
+      const ahora = new Date().toISOString()
+      query = query.lt('fecha_fin_estimada', ahora).in('estado', ['abierta', 'en_progreso', 'esperando'])
+    } else if (vencida === 'false') {
+      const ahora = new Date().toISOString()
+      query = query.or(`fecha_fin_estimada.gte.${ahora},fecha_fin_estimada.is.null,estado.in.(completada,cancelada)`)
+    }
+
+    // Filtro por fecha programada (preset)
+    if (fecha) {
+      const ahora = new Date()
+      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
+      const finSemana = new Date(hoy); finSemana.setDate(finSemana.getDate() + 7)
+      switch (fecha) {
+        case 'hoy':
+          query = query.gte('fecha_inicio', hoy.toISOString()).lt('fecha_inicio', manana.toISOString())
+          break
+        case 'semana':
+          query = query.gte('fecha_inicio', hoy.toISOString()).lt('fecha_inicio', finSemana.toISOString())
+          break
+        case 'vencidas':
+          query = query.lt('fecha_fin_estimada', hoy.toISOString()).in('estado', ['abierta', 'en_progreso', 'esperando'])
+          break
+        case 'futuras':
+          query = query.gte('fecha_inicio', manana.toISOString())
+          break
+      }
+    }
+
+    // Filtro por año (de creado_en)
+    if (anio) {
+      const a = parseInt(anio)
+      if (!isNaN(a)) {
+        const inicio = new Date(a, 0, 1).toISOString()
+        const fin = new Date(a + 1, 0, 1).toISOString()
+        query = query.gte('creado_en', inicio).lt('creado_en', fin)
+      }
+    }
+
+    // Búsqueda accent-insensitive en múltiples campos + match por etiqueta de estado
     if (busqueda.trim()) {
-      query = query.or(`numero.ilike.%${busqueda}%,titulo.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%`)
+      const busquedaNorm = normalizarAcentos(busqueda).toLowerCase()
+
+      // Detectar si el término coincide con alguna etiqueta de estado de OT
+      const ESTADO_KEYWORDS: Record<string, string[]> = {
+        abierta: ['abierta', 'abrir', 'open'],
+        en_progreso: ['progreso', 'en progreso', 'curso'],
+        esperando: ['esperando', 'espera', 'pausa'],
+        completada: ['completada', 'completa', 'finalizada', 'cerrada'],
+        cancelada: ['cancelada', 'cancel'],
+      }
+      const estadosCoincidentes: string[] = []
+      for (const [estadoClave, palabras] of Object.entries(ESTADO_KEYWORDS)) {
+        if (palabras.some(p => p.startsWith(busquedaNorm) || busquedaNorm.startsWith(p))) {
+          estadosCoincidentes.push(estadoClave)
+        }
+      }
+
+      const filtroBase = [
+        `numero.ilike.%${busquedaNorm}%`,
+        `titulo.ilike.%${busquedaNorm}%`,
+        `descripcion.ilike.%${busquedaNorm}%`,
+        `contacto_nombre.ilike.%${busquedaNorm}%`,
+        `contacto_direccion.ilike.%${busquedaNorm}%`,
+        `asignado_nombre.ilike.%${busquedaNorm}%`,
+        `creado_por_nombre.ilike.%${busquedaNorm}%`,
+        `presupuesto_numero.ilike.%${busquedaNorm}%`,
+      ]
+      if (estadosCoincidentes.length > 0) {
+        filtroBase.push(`estado.in.(${estadosCoincidentes.join(',')})`)
+      }
+      query = query.or(filtroBase.join(','))
     }
 
     query = query

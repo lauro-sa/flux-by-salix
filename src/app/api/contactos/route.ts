@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
@@ -253,22 +254,10 @@ export async function GET(request: NextRequest) {
       else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
     }
 
-    // Filtro por rango de creación (presets).
+    // Filtro por rango de creación (ver src/lib/presets-fecha.ts)
     if (creado_rango) {
-      const ahora = new Date()
-      let desdeFecha: Date | null = null
-      if (creado_rango === 'hoy') {
-        desdeFecha = new Date(ahora); desdeFecha.setHours(0, 0, 0, 0)
-      } else if (creado_rango === '7d') {
-        desdeFecha = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000)
-      } else if (creado_rango === '30d') {
-        desdeFecha = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000)
-      } else if (creado_rango === '90d') {
-        desdeFecha = new Date(ahora.getTime() - 90 * 24 * 60 * 60 * 1000)
-      } else if (creado_rango === 'este_ano') {
-        desdeFecha = new Date(ahora.getFullYear(), 0, 1)
-      }
-      if (desdeFecha) query = query.gte('creado_en', desdeFecha.toISOString())
+      const desdeISO = inicioRangoFechaISO(creado_rango)
+      if (desdeISO) query = query.gte('creado_en', desdeISO)
     }
 
     // Filtro por última interacción — usa MAX(conversaciones.ultimo_mensaje_en) por contacto.

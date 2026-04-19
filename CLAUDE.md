@@ -99,6 +99,50 @@ Referencia visual: `ModalTipoActividad` — aplicar este patrón a todos los mod
 - Sin over-engineering: solo lo necesario ahora
 - Imports con alias `@/*` apuntando a `src/`
 
+## Filtros avanzados (patrón estándar para listados)
+
+Todos los listados principales (contactos, actividades, visitas, productos, presupuestos,
+órdenes, asistencias, usuarios) usan `TablaDinamica` + `PanelFiltrosAvanzado` con `gruposFiltros`.
+
+### Componentes y helpers clave
+- `src/componentes/tablas/TablaDinamica.tsx` — tabla base con prop `filtros` + `gruposFiltros`
+- `src/componentes/tablas/PanelFiltrosAvanzado.tsx` — panel de 3 columnas (nav | detalle | contexto)
+- `src/lib/validaciones.ts` → `normalizarBusqueda(s)` — quita acentos + lowercase (client-side)
+- `src/lib/validaciones.ts` → `normalizarAcentos(s)` — solo quita acentos (backend + FTS)
+- `src/lib/presets-fecha.ts` → `resolverRangoFecha(preset)` / `inicioRangoFechaISO(preset)`
+
+### Checklist para agregar filtros a un módulo nuevo
+
+**Backend (`/api/<modulo>/route.ts`):**
+1. Importar `sanitizarBusqueda`, `normalizarAcentos` y si usás presets `inicioRangoFechaISO`.
+2. Leer params: filtros CSV con `params.get('x')` y `.split(',')` cuando multi.
+3. Aplicar `.in(col, arr)` si `arr.length > 1`, sino `.eq(col, arr[0])`.
+4. Búsqueda: `normalizarAcentos(busqueda)` + `ilike` en múltiples campos con `.or(...)`.
+5. Para JOINs (ej. `tipo_contacto` vía tabla contactos): pre-query que devuelve IDs y después `.in('contacto_id', ids)`. Si devuelve vacío, retornar respuesta vacía.
+6. Compat hacia atrás: aceptar tanto `x_id` (single) como `x_ids` / `x` CSV (multi) si ya existen consumidores.
+
+**Frontend (`ContenidoXxx.tsx` o `page.tsx`):**
+1. States de filtros con restore desde URL: `useState(() => searchParams.get('...'))`.
+2. `useBusquedaDebounce(q, pagina, [TODOS los filtros])` — los filtros como deps para resetear página.
+3. `useEffect` que sincroniza filtros → URL con `window.history.replaceState`.
+4. `sinFiltros` debe chequear **TODOS** los filtros (si olvidás uno, el SSR gana y no filtra).
+5. `useListado({ parametros: { ... TODOS los filtros con `undefined` si vacío } })`.
+6. Declarar `filtros: FiltroTabla[]` + `gruposFiltros` en props de `TablaDinamica`.
+7. Agregar `descripcion` a cada filtro (el panel avanzado lo muestra al seleccionarlo).
+8. `onLimpiarFiltros` que resetea todos los states.
+
+**Tipos de filtro** (ver `FiltroTabla.tipo` en `tipos-tabla.ts`):
+- `pills` — 2-5 opciones cortas (ej: Sí/No, tri-state)
+- `seleccion-compacto` — single-select con popover (lista larga)
+- `multiple-compacto` — multi-select con popover (lista larga)
+- `fecha` — selector de fecha
+- `seleccion` / `multiple` — listas verticales (usar solo para pocas opciones dentro de grupos)
+
+### Criterio de cuándo usar `gruposFiltros`
+- **≥ 3 filtros** → definir grupos (ej: Identidad, Comercial, Fechas) para mejor UX
+- **1-2 filtros** → sin grupos, el panel usa layout default simple
+- **Listados stub sin backend** → saltear hasta que se implemente el API
+
 ## Multi-tenant
 - Toda tabla tiene columna `empresa_id`
 - RLS con política `USING (empresa_id = (auth.jwt() ->> 'empresa_id')::uuid)`

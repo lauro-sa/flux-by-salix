@@ -18,6 +18,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import type { TipoEventoCalendario } from '../_tipos'
 
@@ -125,7 +126,7 @@ export default function PaginaListadoTiposEvento() {
 
   const tiposFiltrados = tipos.filter(t => {
     if (!busquedaDebounced) return true
-    return t.etiqueta.toLowerCase().includes(busquedaDebounced.toLowerCase())
+    return normalizarBusqueda(t.etiqueta).includes(normalizarBusqueda(busquedaDebounced))
   })
 
   const columnas: ColumnaDinamica<TipoEventoCalendario>[] = [

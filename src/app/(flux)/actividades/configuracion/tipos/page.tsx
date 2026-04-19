@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import {
-  Plus, Tag, Trash2, RotateCcw, Calendar, Type, Zap, Eye, EyeOff,
+  Plus, Tag, Trash2, RotateCcw, Calendar, Type, Zap,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -21,6 +21,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import type { TipoActividad } from '../_tipos'
 
@@ -135,8 +136,8 @@ export default function PaginaListadoTiposActividad() {
   // ─── Filtrado ───
   const tiposFiltrados = tipos.filter(t => {
     if (busquedaDebounced) {
-      const q = busquedaDebounced.toLowerCase()
-      if (!t.etiqueta.toLowerCase().includes(q) && !t.clave.toLowerCase().includes(q)) return false
+      const q = normalizarBusqueda(busquedaDebounced)
+      if (!normalizarBusqueda(t.etiqueta).includes(q) && !normalizarBusqueda(t.clave).includes(q)) return false
     }
     if (filtroActivo === 'activo' && !t.activo) return false
     if (filtroActivo === 'inactivo' && t.activo) return false

@@ -12,6 +12,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -365,12 +366,12 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
     ? elementos
     : elementos.filter(e => e.eliminado_por === usuario?.id)
 
-  // Filtrar por tab y búsqueda
+  // Filtrar por tab y búsqueda (case + accent insensitive)
   const elementosFiltrados = elementosVisibles.filter(e => {
     if (filtro !== 'todos' && e.tipo !== filtro) return false
     if (busqueda) {
-      const q = busqueda.toLowerCase()
-      return e.nombre.toLowerCase().includes(q) || (e.subtitulo?.toLowerCase().includes(q) ?? false)
+      const q = normalizarBusqueda(busqueda)
+      return normalizarBusqueda(e.nombre).includes(q) || (e.subtitulo ? normalizarBusqueda(e.subtitulo).includes(q) : false)
     }
     return true
   })

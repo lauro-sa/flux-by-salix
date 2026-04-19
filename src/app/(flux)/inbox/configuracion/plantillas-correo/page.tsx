@@ -25,6 +25,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { useAuth } from '@/hooks/useAuth'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { OPCIONES_DISPONIBLE } from '@/componentes/entidad/_editor_plantilla/constantes'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
 
@@ -217,10 +218,10 @@ export default function PaginaListadoPlantillasCorreo() {
   }
 
   const plantillasFiltradas = plantillas.filter(p => {
-    // Búsqueda por nombre o asunto
+    // Búsqueda por nombre o asunto (case + accent insensitive)
     if (busquedaDebounced) {
-      const q = busquedaDebounced.toLowerCase()
-      if (!p.nombre.toLowerCase().includes(q) && !(p.asunto || '').toLowerCase().includes(q)) {
+      const q = normalizarBusqueda(busquedaDebounced)
+      if (!normalizarBusqueda(p.nombre).includes(q) && !normalizarBusqueda(p.asunto || '').includes(q)) {
         return false
       }
     }
@@ -446,6 +447,7 @@ export default function PaginaListadoPlantillasCorreo() {
                 { valor: 'sistema', etiqueta: 'Sistema' },
                 { valor: 'personal', etiqueta: 'Personal' },
               ],
+              descripcion: 'Plantillas del sistema (predefinidas) vs personales (creadas por usuarios).',
             },
             {
               id: 'autor', etiqueta: 'Autor', tipo: 'pills' as const,
@@ -454,6 +456,7 @@ export default function PaginaListadoPlantillasCorreo() {
                 { valor: 'yo', etiqueta: 'Creadas por mí' },
                 { valor: 'otros', etiqueta: 'Creadas por otros' },
               ],
+              descripcion: 'Quién creó la plantilla. No aplica a las del sistema.',
             },
             {
               id: 'modulos', etiqueta: 'Disponible en', tipo: 'multiple-compacto' as const,
@@ -461,6 +464,7 @@ export default function PaginaListadoPlantillasCorreo() {
               opciones: OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => ({
                 valor: o.valor, etiqueta: o.etiqueta,
               })),
+              descripcion: 'Módulos donde la plantilla puede usarse (contactos, presupuestos, etc.).',
             },
             {
               id: 'estado', etiqueta: 'Estado', tipo: 'pills' as const,
@@ -470,7 +474,12 @@ export default function PaginaListadoPlantillasCorreo() {
                 { valor: 'modificada', etiqueta: 'Modificadas' },
                 { valor: 'original', etiqueta: 'Originales' },
               ],
+              descripcion: 'Por defecto: usadas automáticamente. Modificadas: del sistema con cambios. Originales: del sistema sin cambios.',
             },
+          ]}
+          gruposFiltros={[
+            { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'autor'] },
+            { id: 'uso', etiqueta: 'Uso', filtros: ['modulos', 'estado'] },
           ]}
           onLimpiarFiltros={() => {
             setFiltroTipo('')

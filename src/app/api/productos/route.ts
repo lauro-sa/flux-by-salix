@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarReciente } from '@/lib/recientes'
 import { registrarChatter } from '@/lib/chatter'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
@@ -25,11 +26,19 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const tipo = params.get('tipo')
+    // 'categoria' ahora soporta CSV (multi)
     const categoria = params.get('categoria')
     const activo = params.get('activo')
     const puede_venderse = params.get('puede_venderse')
     const puede_comprarse = params.get('puede_comprarse')
     const favorito = params.get('favorito')
+    // Nuevos filtros
+    const origen = params.get('origen') // 'manual' | 'asistente_salix'
+    const precio_min = params.get('precio_min')
+    const precio_max = params.get('precio_max')
+    const presupuestado_min = params.get('presupuestado_min') // entero: 5, 10, 25...
+    const vendido_min = params.get('vendido_min')
+    const creado_rango = params.get('creado_rango') // 'hoy' | '7d' | '30d' | '90d' | 'este_ano'
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'creado_en'
     const orden_dir = params.get('orden_dir') === 'asc'
@@ -48,11 +57,41 @@ export async function GET(request: NextRequest) {
 
     // Filtros
     if (tipo) query = query.eq('tipo', tipo)
-    if (categoria) query = query.eq('categoria', categoria)
+    if (categoria) {
+      const cats = categoria.split(',').filter(Boolean)
+      query = cats.length === 1 ? query.eq('categoria', cats[0]) : query.in('categoria', cats)
+    }
     if (activo !== null && activo !== undefined) query = query.eq('activo', activo === 'true')
     if (puede_venderse) query = query.eq('puede_venderse', puede_venderse === 'true')
     if (puede_comprarse) query = query.eq('puede_comprarse', puede_comprarse === 'true')
     if (favorito === 'true') query = query.eq('favorito', true)
+    if (origen) query = query.eq('origen', origen)
+
+    // Filtros por rango de precio
+    if (precio_min) {
+      const min = Number(precio_min)
+      if (!isNaN(min)) query = query.gte('precio_unitario', min)
+    }
+    if (precio_max) {
+      const max = Number(precio_max)
+      if (!isNaN(max)) query = query.lte('precio_unitario', max)
+    }
+
+    // Filtros por uso (cantidad de veces presupuestado/vendido)
+    if (presupuestado_min) {
+      const n = parseInt(presupuestado_min)
+      if (!isNaN(n) && n > 0) query = query.gte('veces_presupuestado', n)
+    }
+    if (vendido_min) {
+      const n = parseInt(vendido_min)
+      if (!isNaN(n) && n > 0) query = query.gte('veces_vendido', n)
+    }
+
+    // Filtro por preset de fecha de creación (ver src/lib/presets-fecha.ts)
+    if (creado_rango) {
+      const desdeISO = inicioRangoFechaISO(creado_rango)
+      if (desdeISO) query = query.gte('creado_en', desdeISO)
+    }
 
     // Búsqueda full-text (normalizada sin acentos)
     if (busqueda.trim()) {

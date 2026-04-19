@@ -22,6 +22,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { useAuth } from '@/hooks/useAuth'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import { OPCIONES_DISPONIBLE } from '@/componentes/entidad/_editor_plantilla/constantes'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
 
@@ -149,8 +150,8 @@ export default function PaginaListadoRespuestasWhatsApp() {
 
   const plantillasFiltradas = plantillas.filter(p => {
     if (busquedaDebounced) {
-      const q = busquedaDebounced.toLowerCase()
-      if (!p.nombre.toLowerCase().includes(q) && !p.contenido.toLowerCase().includes(q)) return false
+      const q = normalizarBusqueda(busquedaDebounced)
+      if (!normalizarBusqueda(p.nombre).includes(q) && !normalizarBusqueda(p.contenido).includes(q)) return false
     }
     if (filtroAutor === 'yo' && p.creado_por !== usuarioId) return false
     if (filtroAutor === 'otros' && p.creado_por === usuarioId) return false
@@ -313,6 +314,7 @@ export default function PaginaListadoRespuestasWhatsApp() {
                 { valor: 'yo', etiqueta: 'Creadas por mí' },
                 { valor: 'otros', etiqueta: 'Creadas por otros' },
               ],
+              descripcion: 'Quién creó la respuesta rápida.',
             },
             {
               id: 'modulos', etiqueta: 'Disponible en', tipo: 'multiple-compacto' as const,
@@ -320,6 +322,7 @@ export default function PaginaListadoRespuestasWhatsApp() {
               opciones: OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => ({
                 valor: o.valor, etiqueta: o.etiqueta,
               })),
+              descripcion: 'Módulos donde la respuesta puede usarse.',
             },
           ]}
           onLimpiarFiltros={() => { setFiltroAutor(''); setFiltroModulos([]) }}

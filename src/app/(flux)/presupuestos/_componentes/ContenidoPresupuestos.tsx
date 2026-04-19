@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
@@ -14,10 +14,9 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
-  Clock, CircleDot, FilePen, Trash2, X, FileDown, Copy, RefreshCw, History,
+  Clock, CircleDot, FilePen, Trash2, X, FileDown, RefreshCw, History,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -85,14 +84,42 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
   const origenUrl = searchParams.get('origen')
 
   // Filtros server-side — restaurar desde URL
-  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') || '')
-  const [filtroMoneda, setFiltroMoneda] = useState(searchParams.get('moneda') || '')
+  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
+    const v = searchParams.get('estado')
+    return v ? v.split(',') : []
+  })
+  const [filtroTipoContacto, setFiltroTipoContacto] = useState<string[]>(() => {
+    const v = searchParams.get('tipo_contacto')
+    return v ? v.split(',') : []
+  })
+  const [filtroEnOrdenVenta, setFiltroEnOrdenVenta] = useState(searchParams.get('en_orden_venta') || '')
+  const [filtroVencido, setFiltroVencido] = useState(searchParams.get('vencido') || '')
+  const [filtroConDescuento, setFiltroConDescuento] = useState(searchParams.get('con_descuento') || '')
+  const [filtroConObservaciones, setFiltroConObservaciones] = useState(searchParams.get('con_observaciones') || '')
+  const [filtroMontoRango, setFiltroMontoRango] = useState(searchParams.get('monto_rango') || '')
+  const [filtroAnio, setFiltroAnio] = useState(searchParams.get('anio') || '')
+  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
 
-  // Búsqueda con debounce + reset de página automático (restaura desde URL, salta primer reset)
+  // Mapeo del preset de monto a min/max
+  const { montoMin, montoMax } = (() => {
+    switch (filtroMontoRango) {
+      case 'low': return { montoMin: undefined, montoMax: '10000' }
+      case 'mid': return { montoMin: '10000', montoMax: '100000' }
+      case 'high': return { montoMin: '100000', montoMax: '1000000' }
+      case 'top': return { montoMin: '1000000', montoMax: undefined }
+      default: return { montoMin: undefined, montoMax: undefined }
+    }
+  })()
+
+  // Búsqueda con debounce + reset de página automático
   const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
     searchParams.get('q') || '',
     Number(searchParams.get('pagina')) || 1,
-    [filtroEstado, filtroMoneda],
+    [
+      filtroEstado, filtroTipoContacto, filtroEnOrdenVenta, filtroVencido,
+      filtroConDescuento, filtroConObservaciones, filtroMontoRango,
+      filtroAnio, filtroCreadoPor,
+    ],
     true,
   )
 
@@ -105,18 +132,41 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
   useEffect(() => {
     const params = new URLSearchParams()
     if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroEstado) params.set('estado', filtroEstado)
-    if (filtroMoneda) params.set('moneda', filtroMoneda)
+    if (filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
+    if (filtroTipoContacto.length > 0) params.set('tipo_contacto', filtroTipoContacto.join(','))
+    if (filtroEnOrdenVenta) params.set('en_orden_venta', filtroEnOrdenVenta)
+    if (filtroVencido) params.set('vencido', filtroVencido)
+    if (filtroConDescuento) params.set('con_descuento', filtroConDescuento)
+    if (filtroConObservaciones) params.set('con_observaciones', filtroConObservaciones)
+    if (filtroMontoRango) params.set('monto_rango', filtroMontoRango)
+    if (filtroAnio) params.set('anio', filtroAnio)
+    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
     if (pagina > 1) params.set('pagina', String(pagina))
     if (contactoIdFiltro) params.set('contacto_id', contactoIdFiltro)
     if (origenUrl) params.set('origen', origenUrl)
     const qs = params.toString()
     const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
     window.history.replaceState(null, '', nuevaUrl)
-  }, [busquedaDebounced, filtroEstado, filtroMoneda, pagina, contactoIdFiltro, origenUrl, pathname])
+  }, [
+    busquedaDebounced, filtroEstado, filtroTipoContacto, filtroEnOrdenVenta, filtroVencido,
+    filtroConDescuento, filtroConObservaciones, filtroMontoRango, filtroAnio, filtroCreadoPor,
+    pagina, contactoIdFiltro, origenUrl, pathname,
+  ])
 
-  // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const sinFiltros = !busquedaDebounced && !filtroEstado && !filtroMoneda && !contactoIdFiltro && pagina === 1
+  // Solo usar datos iniciales cuando NO hay filtros activos
+  const sinFiltros =
+    !busquedaDebounced &&
+    filtroEstado.length === 0 &&
+    filtroTipoContacto.length === 0 &&
+    !filtroEnOrdenVenta &&
+    !filtroVencido &&
+    !filtroConDescuento &&
+    !filtroConObservaciones &&
+    !filtroMontoRango &&
+    !filtroAnio &&
+    !filtroCreadoPor &&
+    !contactoIdFiltro &&
+    pagina === 1
 
   const { datos: presupuestos, total, cargando, cargandoInicial, recargar } = useListado<FilaPresupuesto>({
     clave: 'presupuestos',
@@ -124,8 +174,16 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
     parametros: {
       busqueda: busquedaDebounced,
       contacto_id: contactoIdFiltro || undefined,
-      estado: filtroEstado || undefined,
-      moneda: filtroMoneda || undefined,
+      estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
+      tipo_contacto: filtroTipoContacto.length > 0 ? filtroTipoContacto.join(',') : undefined,
+      en_orden_venta: filtroEnOrdenVenta || undefined,
+      vencido: filtroVencido || undefined,
+      con_descuento: filtroConDescuento || undefined,
+      con_observaciones: filtroConObservaciones || undefined,
+      monto_min: montoMin,
+      monto_max: montoMax,
+      anio: filtroAnio || undefined,
+      creado_por: filtroCreadoPor || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -150,6 +208,44 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
   }, [contactoIdFiltro, origenUrl, setMigajaDinamica])
 
   const { mostrar: mostrarToast } = useToast()
+
+  // ── Cargar opciones para los filtros (cache largo) ──
+
+  /** Tipos de contacto de la empresa para el filtro "Tipo de contacto" */
+  const { data: tiposContactoData } = useQuery({
+    queryKey: ['presupuestos-filtros-tipos-contacto'],
+    queryFn: () => fetch('/api/contactos/tipos').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesTiposContacto = useMemo(() => {
+    const items = (tiposContactoData?.tipos_contacto || []) as { clave: string; etiqueta: string }[]
+    return items.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))
+  }, [tiposContactoData])
+
+  /** Miembros para el filtro "Creado por" */
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesMiembros = useMemo(() => {
+    const items = (miembrosData?.miembros || []) as { usuario_id: string; nombre: string | null; apellido: string | null }[]
+    return items.map(m => ({
+      valor: m.usuario_id,
+      etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
+    }))
+  }, [miembrosData])
+
+  /** Años disponibles — los últimos 5 años + el actual */
+  const opcionesAnios = useMemo(() => {
+    const actual = new Date().getFullYear()
+    const anios: { valor: string; etiqueta: string }[] = []
+    for (let i = 0; i <= 5; i++) {
+      const a = actual - i
+      anios.push({ valor: String(a), etiqueta: String(a) })
+    }
+    return anios
+  }, [])
 
   // Enviar a papelera en lote
   const enviarAPapeleraLote = useCallback(async (ids: Set<string>) => {
@@ -194,24 +290,6 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
       mostrarToast('exito', `Estado cambiado a "${estado.trim()}" en ${ids.size} presupuesto${ids.size !== 1 ? 's' : ''}`)
     } catch {
       mostrarToast('error', 'Error al cambiar estado')
-    }
-  }, [mostrarToast, queryClient])
-
-  // Duplicar presupuestos en lote
-  const duplicarLote = useCallback(async (ids: Set<string>) => {
-    try {
-      const resultados = await Promise.all(
-        Array.from(ids).map(id =>
-          fetch(`/api/presupuestos/${id}/duplicar`, { method: 'POST' }).then(r => r.json())
-        )
-      )
-      const nuevos = resultados.filter(r => r.id)
-      if (nuevos.length > 0) {
-        mostrarToast('exito', `${nuevos.length} presupuesto${nuevos.length !== 1 ? 's' : ''} duplicado${nuevos.length !== 1 ? 's' : ''}`)
-        queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
-      }
-    } catch {
-      mostrarToast('error', 'Error al duplicar presupuestos')
     }
   }, [mostrarToast, queryClient])
 
@@ -551,14 +629,6 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
             grupo: 'edicion' as const,
           },
           {
-            id: 'duplicar',
-            etiqueta: 'Duplicar',
-            icono: <Copy size={14} />,
-            onClick: duplicarLote,
-            atajo: 'D',
-            grupo: 'edicion' as const,
-          },
-          {
             id: 'exportar',
             etiqueta: 'Exportar',
             icono: <FileDown size={14} />,
@@ -579,30 +649,113 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."
         filtros={[
+          // ── Identidad ──
           {
-            id: 'estado', etiqueta: 'Estado', tipo: 'pills' as const,
-            valor: filtroEstado, onChange: (v) => setFiltroEstado(v as string),
+            id: 'estado', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
+            valor: filtroEstado,
+            onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: Object.entries(ETIQUETAS_ESTADO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
+            descripcion: 'Filtrá por uno o más estados del presupuesto.',
           },
           {
-            id: 'moneda', etiqueta: 'Moneda', tipo: 'pills' as const,
-            valor: filtroMoneda, onChange: (v) => setFiltroMoneda(v as string),
+            id: 'tipo_contacto', etiqueta: 'Tipo de cliente', tipo: 'multiple-compacto' as const,
+            valor: filtroTipoContacto,
+            onChange: (v) => setFiltroTipoContacto(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: opcionesTiposContacto,
+            descripcion: 'Filtrá presupuestos según el tipo del contacto vinculado (persona, empresa, edificio, etc.).',
+          },
+          {
+            id: 'creado_por', etiqueta: 'Creado por', tipo: 'seleccion-compacto' as const,
+            valor: filtroCreadoPor, onChange: (v) => setFiltroCreadoPor(v as string),
+            opciones: opcionesMiembros,
+            descripcion: 'Mostrá solo los presupuestos creados por el miembro elegido.',
+          },
+          // ── Comercial ──
+          {
+            id: 'en_orden_venta', etiqueta: 'En orden de venta', tipo: 'pills' as const,
+            valor: filtroEnOrdenVenta, onChange: (v) => setFiltroEnOrdenVenta(v as string),
             opciones: [
-              { valor: 'ARS', etiqueta: 'ARS' },
-              { valor: 'USD', etiqueta: 'USD' },
-              { valor: 'EUR', etiqueta: 'EUR' },
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
             ],
+            descripcion: 'Presupuestos que ya fueron aceptados y convertidos a orden de venta.',
+          },
+          {
+            id: 'vencido', etiqueta: 'Vencido', tipo: 'pills' as const,
+            valor: filtroVencido, onChange: (v) => setFiltroVencido(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Presupuestos enviados cuya fecha de vencimiento ya pasó (sin aceptar ni cancelar).',
+          },
+          {
+            id: 'con_descuento', etiqueta: 'Con descuento', tipo: 'pills' as const,
+            valor: filtroConDescuento, onChange: (v) => setFiltroConDescuento(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Presupuestos que tienen aplicado un descuento global.',
+          },
+          // ── Montos ──
+          {
+            id: 'monto_rango', etiqueta: 'Rango de total', tipo: 'pills' as const,
+            valor: filtroMontoRango, onChange: (v) => setFiltroMontoRango(v as string),
+            opciones: [
+              { valor: 'low', etiqueta: '< $10k' },
+              { valor: 'mid', etiqueta: '$10k–$100k' },
+              { valor: 'high', etiqueta: '$100k–$1M' },
+              { valor: 'top', etiqueta: '> $1M' },
+            ],
+            descripcion: 'Filtrá por rango de monto total del presupuesto.',
+          },
+          // ── Período ──
+          {
+            id: 'anio', etiqueta: 'Año', tipo: 'seleccion-compacto' as const,
+            valor: filtroAnio, onChange: (v) => setFiltroAnio(v as string),
+            opciones: opcionesAnios,
+            descripcion: 'Presupuestos emitidos durante el año seleccionado.',
+          },
+          // ── Otros ──
+          {
+            id: 'con_observaciones', etiqueta: 'Con observaciones', tipo: 'pills' as const,
+            valor: filtroConObservaciones, onChange: (v) => setFiltroConObservaciones(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Presupuestos que tienen notas u observaciones cargadas.',
           },
         ]}
-        onLimpiarFiltros={() => { setFiltroEstado(''); setFiltroMoneda('') }}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['estado', 'tipo_contacto', 'creado_por'] },
+          { id: 'comercial', etiqueta: 'Comercial', filtros: ['en_orden_venta', 'vencido', 'con_descuento'] },
+          { id: 'montos', etiqueta: 'Montos', filtros: ['monto_rango'] },
+          { id: 'periodo', etiqueta: 'Período', filtros: ['anio'] },
+          { id: 'otros', etiqueta: 'Otros', filtros: ['con_observaciones'] },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroEstado([])
+          setFiltroTipoContacto([])
+          setFiltroEnOrdenVenta('')
+          setFiltroVencido('')
+          setFiltroConDescuento('')
+          setFiltroConObservaciones('')
+          setFiltroMontoRango('')
+          setFiltroAnio('')
+          setFiltroCreadoPor('')
+        }}
         idModulo="presupuestos"
         opcionesOrden={[
           { etiqueta: t('comun.mas_recientes'), clave: 'numero', direccion: 'desc' },
           { etiqueta: t('comun.mas_antiguos'), clave: 'numero', direccion: 'asc' },
-          { etiqueta: t('documentos.cliente_az'), clave: 'contacto', direccion: 'asc' },
-          { etiqueta: t('documentos.cliente_za'), clave: 'contacto', direccion: 'desc' },
+          { etiqueta: t('documentos.cliente_az'), clave: 'contacto_nombre', direccion: 'asc' },
+          { etiqueta: t('documentos.cliente_za'), clave: 'contacto_nombre', direccion: 'desc' },
           { etiqueta: t('documentos.total_mayor'), clave: 'total_final', direccion: 'desc' },
           { etiqueta: t('documentos.total_menor'), clave: 'total_final', direccion: 'asc' },
+          { etiqueta: 'Por vencer (más próximos)', clave: 'fecha_vencimiento', direccion: 'asc' },
+          { etiqueta: 'Recién aceptados', clave: 'fecha_aceptacion', direccion: 'desc' },
         ]}
         onClickFila={(fila) => router.push(`/presupuestos/${fila.id}`)}
         mostrarResumen

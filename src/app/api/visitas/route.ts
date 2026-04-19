@@ -7,6 +7,8 @@ import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -25,16 +27,21 @@ export async function GET(request: NextRequest) {
     const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
-    const busqueda = params.get('busqueda') || ''
+    const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const estado = params.get('estado')
     const prioridad = params.get('prioridad')
+    // 'asignado_a' ahora soporta CSV (multi-select)
     const asignado_a = params.get('asignado_a')
+    // Nuevos filtros
+    const sin_asignado = params.get('sin_asignado') === 'true'
+    const creado_por = params.get('creado_por')
+    const creado_rango = params.get('creado_rango') // 'hoy' | '7d' | '30d' | '90d' | 'este_ano'
+    const temperatura = params.get('temperatura') // CSV: 'frio,tibio,caliente'
     const contacto_id = params.get('contacto_id')
     const actividad_id = params.get('actividad_id')
     const vista = params.get('vista') || 'todas'
     const fecha = params.get('fecha')
     const en_papelera = params.get('en_papelera') === 'true'
-    const archivadas = params.get('archivadas') === 'true'
     const orden_campo = params.get('orden_campo') || 'fecha_programada'
     const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
     const pagina = parseInt(params.get('pagina') || '1')
@@ -70,14 +77,32 @@ export async function GET(request: NextRequest) {
       query = estados.length === 1 ? query.eq('estado', estados[0]) : query.in('estado', estados)
     }
 
-    // Filtro por prioridad
+    // Filtro por prioridad (CSV multi)
     if (prioridad) {
-      query = query.eq('prioridad', prioridad)
+      const prios = prioridad.split(',').filter(Boolean)
+      query = prios.length === 1 ? query.eq('prioridad', prios[0]) : query.in('prioridad', prios)
     }
 
-    // Filtro por asignado
+    // Filtro por asignado (CSV multi)
     if (asignado_a) {
-      query = query.eq('asignado_a', asignado_a)
+      const ids = asignado_a.split(',').filter(Boolean)
+      query = ids.length === 1 ? query.eq('asignado_a', ids[0]) : query.in('asignado_a', ids)
+    }
+
+    // Filtro "sin asignar"
+    if (sin_asignado) {
+      query = query.is('asignado_a', null)
+    }
+
+    // Filtro por creador
+    if (creado_por) {
+      query = query.eq('creado_por', creado_por)
+    }
+
+    // Filtro por temperatura (CSV multi)
+    if (temperatura) {
+      const temps = temperatura.split(',').filter(Boolean)
+      query = temps.length === 1 ? query.eq('temperatura', temps[0]) : query.in('temperatura', temps)
     }
 
     // Filtro por contacto
@@ -119,9 +144,22 @@ export async function GET(request: NextRequest) {
     if (fecha_desde) query = query.gte('actualizado_en', fecha_desde)
     if (fecha_hasta) query = query.lt('actualizado_en', fecha_hasta)
 
-    // Búsqueda
+    // Filtro por preset de fecha de creación (ver src/lib/presets-fecha.ts)
+    if (creado_rango) {
+      const desdeISO = inicioRangoFechaISO(creado_rango)
+      if (desdeISO) query = query.gte('creado_en', desdeISO)
+    }
+
+    // Búsqueda case + accent insensitive en múltiples campos
     if (busqueda.trim()) {
-      query = query.or(`contacto_nombre.ilike.%${busqueda}%,asignado_nombre.ilike.%${busqueda}%,motivo.ilike.%${busqueda}%,direccion_texto.ilike.%${busqueda}%`)
+      const busquedaNorm = normalizarAcentos(busqueda)
+      query = query.or([
+        `contacto_nombre.ilike.%${busquedaNorm}%`,
+        `asignado_nombre.ilike.%${busquedaNorm}%`,
+        `motivo.ilike.%${busquedaNorm}%`,
+        `direccion_texto.ilike.%${busquedaNorm}%`,
+        `creado_por_nombre.ilike.%${busquedaNorm}%`,
+      ].join(','))
     }
 
     // Ordenamiento y paginación

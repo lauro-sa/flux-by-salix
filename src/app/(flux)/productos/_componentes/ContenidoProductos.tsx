@@ -23,7 +23,7 @@ import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalProducto } from './ModalProducto'
-import type { Producto, TipoProducto, ConfigProductos } from '@/tipos/producto'
+import type { Producto, ConfigProductos } from '@/tipos/producto'
 
 /**
  * Contenido interactivo de productos — Client Component.
@@ -60,12 +60,68 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const { mostrar: mostrarToast } = useToast()
 
   // ---- Estado ----
-  // Filtros server-side
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroCategoria, setFiltroCategoria] = useState('')
+  // Filtros server-side — restaurar desde URL si existen
+  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
+  const [filtroCategoria, setFiltroCategoria] = useState<string[]>(() => {
+    const v = searchParams.get('categoria')
+    return v ? v.split(',') : []
+  })
+  // Nuevos
+  const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen') || '')
+  const [filtroFavorito, setFiltroFavorito] = useState(searchParams.get('favorito') === 'true')
+  const [filtroActivo, setFiltroActivo] = useState(searchParams.get('activo') || '')
+  const [filtroVendible, setFiltroVendible] = useState(searchParams.get('puede_venderse') || '')
+  const [filtroComprable, setFiltroComprable] = useState(searchParams.get('puede_comprarse') || '')
+  const [filtroPrecioRango, setFiltroPrecioRango] = useState(searchParams.get('precio_rango') || '')
+  const [filtroPresupuestadoMin, setFiltroPresupuestadoMin] = useState(searchParams.get('presupuestado_min') || '')
+  const [filtroVendidoMin, setFiltroVendidoMin] = useState(searchParams.get('vendido_min') || '')
+  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
 
-  // Búsqueda con debounce + reset de página automático
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroTipo, filtroCategoria])
+  // Mapeo del preset de "rango precio" a min/max para el backend
+  const { precioMin, precioMax } = (() => {
+    switch (filtroPrecioRango) {
+      case 'low': return { precioMin: undefined, precioMax: '1000' }
+      case 'mid': return { precioMin: '1000', precioMax: '10000' }
+      case 'high': return { precioMin: '10000', precioMax: '100000' }
+      case 'top': return { precioMin: '100000', precioMax: undefined }
+      default: return { precioMin: undefined, precioMax: undefined }
+    }
+  })()
+
+  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros)
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
+    searchParams.get('q') || '',
+    Number(searchParams.get('pagina')) || 1,
+    [
+      filtroTipo, filtroCategoria, filtroOrigen, filtroFavorito,
+      filtroActivo, filtroVendible, filtroComprable, filtroPrecioRango,
+      filtroPresupuestadoMin, filtroVendidoMin, filtroCreadoRango,
+    ],
+  )
+
+  // Sincronizar filtros → URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroTipo) params.set('tipo', filtroTipo)
+    if (filtroCategoria.length > 0) params.set('categoria', filtroCategoria.join(','))
+    if (filtroOrigen) params.set('origen', filtroOrigen)
+    if (filtroFavorito) params.set('favorito', 'true')
+    if (filtroActivo) params.set('activo', filtroActivo)
+    if (filtroVendible) params.set('puede_venderse', filtroVendible)
+    if (filtroComprable) params.set('puede_comprarse', filtroComprable)
+    if (filtroPrecioRango) params.set('precio_rango', filtroPrecioRango)
+    if (filtroPresupuestadoMin) params.set('presupuestado_min', filtroPresupuestadoMin)
+    if (filtroVendidoMin) params.set('vendido_min', filtroVendidoMin)
+    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `/productos?${qs}` : '/productos')
+  }, [
+    busquedaDebounced, filtroTipo, filtroCategoria, filtroOrigen, filtroFavorito,
+    filtroActivo, filtroVendible, filtroComprable, filtroPrecioRango,
+    filtroPresupuestadoMin, filtroVendidoMin, filtroCreadoRango, pagina,
+  ])
 
   // Modal
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -89,7 +145,20 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<{ valor: string; etiqueta: string }[]>([])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroCategoria && pagina === 1
+  const sinFiltros =
+    !busquedaDebounced &&
+    !filtroTipo &&
+    filtroCategoria.length === 0 &&
+    !filtroOrigen &&
+    !filtroFavorito &&
+    !filtroActivo &&
+    !filtroVendible &&
+    !filtroComprable &&
+    !filtroPrecioRango &&
+    !filtroPresupuestadoMin &&
+    !filtroVendidoMin &&
+    !filtroCreadoRango &&
+    pagina === 1
 
   // ---- useListado reemplaza fetch manual ----
   const { datos: productos, total, cargando, recargar: recargarProductos } = useListado<FilaProducto>({
@@ -98,7 +167,17 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
     parametros: {
       busqueda: busquedaDebounced,
       tipo: filtroTipo || undefined,
-      categoria: filtroCategoria || undefined,
+      categoria: filtroCategoria.length > 0 ? filtroCategoria.join(',') : undefined,
+      origen: filtroOrigen || undefined,
+      favorito: filtroFavorito ? 'true' : undefined,
+      activo: filtroActivo || undefined,
+      puede_venderse: filtroVendible || undefined,
+      puede_comprarse: filtroComprable || undefined,
+      precio_min: precioMin,
+      precio_max: precioMax,
+      presupuestado_min: filtroPresupuestadoMin || undefined,
+      vendido_min: filtroVendidoMin || undefined,
+      creado_rango: filtroCreadoRango || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -457,6 +536,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
           onBusqueda={setBusqueda}
           placeholder="Buscar por nombre, codigo, referencia, categoria..."
           filtros={[
+            // ── Identidad ──
             {
               id: 'tipo', etiqueta: 'Tipo', tipo: 'pills' as const,
               valor: filtroTipo, onChange: (v) => setFiltroTipo(v as string),
@@ -464,14 +544,128 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
                 { valor: 'producto', etiqueta: 'Productos' },
                 { valor: 'servicio', etiqueta: 'Servicios' },
               ],
+              descripcion: 'Productos físicos vs servicios.',
             },
             {
-              id: 'categoria', etiqueta: 'Categoria', tipo: 'seleccion' as const,
-              valor: filtroCategoria, onChange: (v) => setFiltroCategoria(v as string),
+              id: 'categoria', etiqueta: 'Categoría', tipo: 'multiple-compacto' as const,
+              valor: filtroCategoria,
+              onChange: (v) => setFiltroCategoria(Array.isArray(v) ? v : (v ? [v] : [])),
               opciones: categoriasDisponibles,
+              descripcion: 'Filtrá por una o varias categorías de la configuración.',
+            },
+            {
+              id: 'origen', etiqueta: 'Origen', tipo: 'pills' as const,
+              valor: filtroOrigen, onChange: (v) => setFiltroOrigen(v as string),
+              opciones: [
+                { valor: 'manual', etiqueta: 'Manual' },
+                { valor: 'asistente_salix', etiqueta: 'Asistente Salix (IA)' },
+              ],
+              descripcion: 'Cómo se creó el producto: cargado por un usuario o sugerido por la IA.',
+            },
+            {
+              id: 'favorito', etiqueta: 'Favoritos', tipo: 'pills' as const,
+              valor: filtroFavorito ? 'true' : '',
+              onChange: (v) => setFiltroFavorito(v === 'true'),
+              opciones: [{ valor: 'true', etiqueta: 'Solo favoritos' }],
+              descripcion: 'Productos marcados como favoritos (estrella).',
+            },
+            // ── Comercial ──
+            {
+              id: 'activo', etiqueta: 'Estado', tipo: 'pills' as const,
+              valor: filtroActivo, onChange: (v) => setFiltroActivo(v as string),
+              opciones: [
+                { valor: 'true', etiqueta: 'Activos' },
+                { valor: 'false', etiqueta: 'Inactivos' },
+              ],
+              descripcion: 'Productos habilitados o deshabilitados para uso.',
+            },
+            {
+              id: 'puede_venderse', etiqueta: 'Vendible', tipo: 'pills' as const,
+              valor: filtroVendible, onChange: (v) => setFiltroVendible(v as string),
+              opciones: [
+                { valor: 'true', etiqueta: 'Sí' },
+                { valor: 'false', etiqueta: 'No' },
+              ],
+              descripcion: 'Si el producto se puede incluir en presupuestos y facturas de venta.',
+            },
+            {
+              id: 'puede_comprarse', etiqueta: 'Comprable', tipo: 'pills' as const,
+              valor: filtroComprable, onChange: (v) => setFiltroComprable(v as string),
+              opciones: [
+                { valor: 'true', etiqueta: 'Sí' },
+                { valor: 'false', etiqueta: 'No' },
+              ],
+              descripcion: 'Si el producto se puede comprar a proveedores.',
+            },
+            // ── Precio ──
+            {
+              id: 'precio_rango', etiqueta: 'Rango de precio', tipo: 'pills' as const,
+              valor: filtroPrecioRango, onChange: (v) => setFiltroPrecioRango(v as string),
+              opciones: [
+                { valor: 'low', etiqueta: '< $1k' },
+                { valor: 'mid', etiqueta: '$1k–$10k' },
+                { valor: 'high', etiqueta: '$10k–$100k' },
+                { valor: 'top', etiqueta: '> $100k' },
+              ],
+              descripcion: 'Filtrá por rango de precio unitario de venta.',
+            },
+            // ── Uso ──
+            {
+              id: 'presupuestado_min', etiqueta: 'Veces presupuestado', tipo: 'pills' as const,
+              valor: filtroPresupuestadoMin, onChange: (v) => setFiltroPresupuestadoMin(v as string),
+              opciones: [
+                { valor: '1', etiqueta: '≥ 1' },
+                { valor: '5', etiqueta: '≥ 5' },
+                { valor: '20', etiqueta: '≥ 20' },
+                { valor: '50', etiqueta: '≥ 50' },
+              ],
+              descripcion: 'Productos que aparecieron al menos N veces en presupuestos.',
+            },
+            {
+              id: 'vendido_min', etiqueta: 'Veces vendido', tipo: 'pills' as const,
+              valor: filtroVendidoMin, onChange: (v) => setFiltroVendidoMin(v as string),
+              opciones: [
+                { valor: '1', etiqueta: '≥ 1' },
+                { valor: '5', etiqueta: '≥ 5' },
+                { valor: '20', etiqueta: '≥ 20' },
+                { valor: '50', etiqueta: '≥ 50' },
+              ],
+              descripcion: 'Productos que se vendieron al menos N veces (presupuestos aceptados).',
+            },
+            // ── Fechas ──
+            {
+              id: 'creado_rango', etiqueta: 'Creado en', tipo: 'pills' as const,
+              valor: filtroCreadoRango, onChange: (v) => setFiltroCreadoRango(v as string),
+              opciones: [
+                { valor: 'hoy', etiqueta: 'Hoy' },
+                { valor: '7d', etiqueta: '7 días' },
+                { valor: '30d', etiqueta: '30 días' },
+                { valor: '90d', etiqueta: '90 días' },
+                { valor: 'este_ano', etiqueta: 'Este año' },
+              ],
+              descripcion: 'Productos creados dentro del rango elegido.',
             },
           ]}
-          onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroCategoria('') }}
+          gruposFiltros={[
+            { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'categoria', 'origen', 'favorito'] },
+            { id: 'comercial', etiqueta: 'Comercial', filtros: ['activo', 'puede_venderse', 'puede_comprarse'] },
+            { id: 'precios', etiqueta: 'Precios', filtros: ['precio_rango'] },
+            { id: 'uso', etiqueta: 'Uso', filtros: ['presupuestado_min', 'vendido_min'] },
+            { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango'] },
+          ]}
+          onLimpiarFiltros={() => {
+            setFiltroTipo('')
+            setFiltroCategoria([])
+            setFiltroOrigen('')
+            setFiltroFavorito(false)
+            setFiltroActivo('')
+            setFiltroVendible('')
+            setFiltroComprable('')
+            setFiltroPrecioRango('')
+            setFiltroPresupuestadoMin('')
+            setFiltroVendidoMin('')
+            setFiltroCreadoRango('')
+          }}
           idModulo="productos"
           columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
           opcionesOrden={[

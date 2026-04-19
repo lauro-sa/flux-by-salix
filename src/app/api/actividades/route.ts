@@ -5,6 +5,8 @@ import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -24,15 +26,23 @@ export async function GET(request: NextRequest) {
     const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
-    const busqueda = params.get('busqueda') || ''
+    const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const estado = params.get('estado')
     const tipo = params.get('tipo')
     const prioridad = params.get('prioridad')
+    // 'asignado_a' ahora soporta CSV (multi-select)
     const asignado_a = params.get('asignado_a')
+    // 'sin_asignado' = 'true' filtra actividades sin ningún asignado
+    const sin_asignado = params.get('sin_asignado') === 'true'
+    // 'creado_por' = ID del usuario creador
+    const creado_por = params.get('creado_por')
+    // 'creado_rango' = 'hoy' | '7d' | '30d' | '90d' | 'este_ano'
+    const creado_rango = params.get('creado_rango')
     const vista = params.get('vista') || 'todas' // 'todas' | 'mias' | 'enviadas'
     const fecha = params.get('fecha') // 'hoy' | 'semana' | 'vencidas' | 'sin_fecha' | 'futuras'
     const contacto_id = params.get('contacto_id') // filtrar por vínculo a contacto
     const orden_trabajo_id = params.get('orden_trabajo_id') // filtrar por vínculo a orden de trabajo
+    const presupuesto_id = params.get('presupuesto_id') // filtrar por vínculo a presupuesto
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'fecha_vencimiento'
     const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
@@ -80,9 +90,26 @@ export async function GET(request: NextRequest) {
       query = query.eq('prioridad', prioridad)
     }
 
-    // Filtro por asignado (busca dentro del array de IDs)
+    // Filtro por asignado (CSV → multi-select). Match si CUALQUIER asignado coincide.
     if (asignado_a) {
-      query = query.contains('asignados_ids', [asignado_a])
+      const ids = asignado_a.split(',').filter(Boolean)
+      if (ids.length === 1) {
+        query = query.contains('asignados_ids', ids)
+      } else if (ids.length > 1) {
+        // overlaps: actividades cuyo array asignados_ids tenga al menos uno de estos IDs
+        query = query.overlaps('asignados_ids', ids)
+      }
+    }
+
+    // Filtro "sin asignado" — actividades que no tienen ningún responsable
+    if (sin_asignado) {
+      // Postgres: array vacío o NULL. Más simple: usar .or
+      query = query.or('asignados_ids.is.null,asignados_ids.eq.{}')
+    }
+
+    // Filtro por creador
+    if (creado_por) {
+      query = query.eq('creado_por', creado_por)
     }
 
     // Filtro por contacto vinculado
@@ -93,6 +120,11 @@ export async function GET(request: NextRequest) {
     // Filtro por orden de trabajo vinculada
     if (orden_trabajo_id) {
       query = query.contains('vinculo_ids', [orden_trabajo_id])
+    }
+
+    // Filtro por presupuesto vinculado
+    if (presupuesto_id) {
+      query = query.contains('vinculo_ids', [presupuesto_id])
     }
 
     // Filtro por fecha
@@ -127,9 +159,25 @@ export async function GET(request: NextRequest) {
     if (fecha_desde) query = query.gte('actualizado_en', fecha_desde)
     if (fecha_hasta) query = query.lt('actualizado_en', fecha_hasta)
 
-    // Búsqueda
+    // Filtro por preset de fecha de creación (ver src/lib/presets-fecha.ts)
+    if (creado_rango) {
+      const desdeISO = inicioRangoFechaISO(creado_rango)
+      if (desdeISO) query = query.gte('creado_en', desdeISO)
+    }
+
+    // Búsqueda case + accent insensitive en múltiples campos:
+    // titulo, descripcion, creado_por_nombre, y nombres de asignados/vínculos (jsonb)
     if (busqueda.trim()) {
-      query = query.ilike('titulo', `%${busqueda}%`)
+      const busquedaNorm = normalizarAcentos(busqueda)
+      // ilike es case-insensitive. Para acent-insensitive, normalizamos el patrón
+      // (los datos en BD se guardan con acentos pero el normalizarAcentos del input
+      //  permite buscar "jose" → encuentra "José" si la BD tiene índice unaccent;
+      //  caso contrario, ilike sigue funcionando para mayúsculas/minúsculas)
+      query = query.or([
+        `titulo.ilike.%${busquedaNorm}%`,
+        `descripcion.ilike.%${busquedaNorm}%`,
+        `creado_por_nombre.ilike.%${busquedaNorm}%`,
+      ].join(','))
     }
 
     // Ordenamiento y paginación

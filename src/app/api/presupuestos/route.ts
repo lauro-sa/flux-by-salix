@@ -26,11 +26,21 @@ export async function GET(request: NextRequest) {
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
-    const estado = params.get('estado')
+    const estado = params.get('estado') // CSV
     const contacto_id = params.get('contacto_id')
+    const tipo_contacto = params.get('tipo_contacto') // CSV: persona,empresa,edificio...
     const moneda = params.get('moneda')
     const fecha_desde = params.get('fecha_desde')
     const fecha_hasta = params.get('fecha_hasta')
+    // Nuevos filtros
+    const en_orden_venta = params.get('en_orden_venta') // 'true' | 'false'
+    const vencido = params.get('vencido') // 'true' | 'false'
+    const con_descuento = params.get('con_descuento') // 'true' | 'false'
+    const con_observaciones = params.get('con_observaciones') // 'true' | 'false'
+    const monto_min = params.get('monto_min')
+    const monto_max = params.get('monto_max')
+    const anio = params.get('anio') // entero (ej. 2026)
+    const creado_por = params.get('creado_por')
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'numero'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
@@ -39,6 +49,35 @@ export async function GET(request: NextRequest) {
     const desde = (pagina - 1) * por_pagina
 
     const admin = crearClienteAdmin()
+
+    // Filtro por tipo_contacto — JOIN implícito vía pre-query.
+    // Supabase/PostgREST no permite JOINs en WHERE en una sola query, entonces:
+    // 1) buscamos tipo_contacto.id por clave  → 2) contacto.id por tipo  → 3) in()
+    // Si alguna capa devuelve vacío, cortocircuitamos con respuesta vacía.
+    let idsPorTipoContacto: string[] | null = null
+    if (tipo_contacto) {
+      const tipos = tipo_contacto.split(',').filter(Boolean)
+      // Buscar los IDs de tipos_contacto que coincidan con las claves
+      const { data: tiposCt } = await admin
+        .from('tipos_contacto')
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .in('clave', tipos)
+      const tipoIds = (tiposCt || []).map(t => t.id)
+      if (tipoIds.length > 0) {
+        const { data: contactosFiltrados } = await admin
+          .from('contactos')
+          .select('id')
+          .eq('empresa_id', empresaId)
+          .in('tipo_contacto_id', tipoIds)
+        idsPorTipoContacto = (contactosFiltrados || []).map(c => c.id)
+        if (idsPorTipoContacto.length === 0) {
+          return NextResponse.json({ presupuestos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+        }
+      } else {
+        return NextResponse.json({ presupuestos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      }
+    }
 
     let query = admin
       .from('presupuestos')
@@ -49,8 +88,9 @@ export async function GET(request: NextRequest) {
         contacto_condicion_iva, contacto_direccion,
         atencion_contacto_id, atencion_nombre, atencion_correo, atencion_cargo,
         moneda, condicion_pago_label,
-        fecha_emision, fecha_vencimiento, dias_vencimiento,
-        subtotal_neto, total_impuestos, descuento_global, total_final,
+        fecha_emision, fecha_vencimiento, dias_vencimiento, fecha_aceptacion,
+        subtotal_neto, total_impuestos, descuento_global, descuento_global_monto, total_final,
+        notas_html,
         origen_documento_numero,
         creado_por, creado_por_nombre, creado_en, actualizado_en
       `, { count: 'exact' })
@@ -60,6 +100,11 @@ export async function GET(request: NextRequest) {
     // Si solo tiene ver_propio, filtrar por presupuestos creados por él
     if (soloPropio) {
       query = query.eq('creado_por', user.id)
+    }
+
+    // Filtro por tipo de contacto (vía contactos.tipo_contacto_id)
+    if (idsPorTipoContacto) {
+      query = query.in('contacto_id', idsPorTipoContacto)
     }
 
     // Filtro por estado (puede ser múltiple separado por comas)
@@ -82,7 +127,63 @@ export async function GET(request: NextRequest) {
       query = query.eq('moneda', moneda)
     }
 
-    // Filtro por rango de fechas
+    // Filtro por creador
+    if (creado_por) {
+      query = query.eq('creado_por', creado_por)
+    }
+
+    // Filtro "en orden de venta" — estado='orden_venta' (aceptado y convertido)
+    if (en_orden_venta === 'true') {
+      query = query.eq('estado', 'orden_venta')
+    } else if (en_orden_venta === 'false') {
+      query = query.neq('estado', 'orden_venta')
+    }
+
+    // Filtro "vencido" — fecha_vencimiento < hoy AND estado IN ('enviado','vencido')
+    if (vencido === 'true') {
+      const ahora = new Date().toISOString()
+      query = query.lt('fecha_vencimiento', ahora).in('estado', ['enviado', 'vencido'])
+    } else if (vencido === 'false') {
+      // No vencido = fecha_vencimiento >= hoy o estado terminal (aceptado/cancelado/rechazado)
+      const ahora = new Date().toISOString()
+      query = query.or(`fecha_vencimiento.gte.${ahora},estado.in.(borrador,confirmado_cliente,orden_venta,rechazado,cancelado)`)
+    }
+
+    // Filtro "con descuento" — descuento_global > 0
+    if (con_descuento === 'true') {
+      query = query.gt('descuento_global', 0)
+    } else if (con_descuento === 'false') {
+      query = query.or('descuento_global.eq.0,descuento_global.is.null')
+    }
+
+    // Filtro "con observaciones" — notas_html no nulo y no vacío
+    if (con_observaciones === 'true') {
+      query = query.not('notas_html', 'is', null).neq('notas_html', '')
+    } else if (con_observaciones === 'false') {
+      query = query.or('notas_html.is.null,notas_html.eq.')
+    }
+
+    // Filtro por rango de monto
+    if (monto_min) {
+      const min = Number(monto_min)
+      if (!isNaN(min)) query = query.gte('total_final', min)
+    }
+    if (monto_max) {
+      const max = Number(monto_max)
+      if (!isNaN(max)) query = query.lte('total_final', max)
+    }
+
+    // Filtro por año (rango de fecha_emision dentro del año)
+    if (anio) {
+      const a = parseInt(anio)
+      if (!isNaN(a)) {
+        const inicio = new Date(a, 0, 1).toISOString()
+        const fin = new Date(a + 1, 0, 1).toISOString()
+        query = query.gte('fecha_emision', inicio).lt('fecha_emision', fin)
+      }
+    }
+
+    // Filtro por rango de fechas (custom — sigue funcionando para "finalizadas hoy" y demás)
     if (fecha_desde) {
       query = query.gte('fecha_emision', fecha_desde)
     }
@@ -90,15 +191,41 @@ export async function GET(request: NextRequest) {
       query = query.lte('fecha_emision', fecha_hasta)
     }
 
-    // Búsqueda full-text (normalizada sin acentos)
+    // ── Búsqueda case + accent insensitive en múltiples campos
+    // (incluye búsqueda por etiqueta de estado: "aceptado" → estado IN aceptados, etc.)
     if (busqueda.trim()) {
-      const busquedaNorm = normalizarAcentos(busqueda)
-      if (busqueda.length <= 2) {
-        query = query.or(`numero.ilike.%${busquedaNorm}%,contacto_nombre.ilike.%${busquedaNorm}%,contacto_apellido.ilike.%${busquedaNorm}%,atencion_nombre.ilike.%${busquedaNorm}%,referencia.ilike.%${busquedaNorm}%`)
-      } else {
-        const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
+      const busquedaNorm = normalizarAcentos(busqueda).toLowerCase()
+
+      // Detectar si el término coincide con alguna etiqueta de estado
+      const ESTADO_KEYWORDS: Record<string, string[]> = {
+        borrador: ['borrador'],
+        enviado: ['enviado', 'enviar'],
+        confirmado_cliente: ['confirmado', 'aceptado', 'acept'],
+        orden_venta: ['orden', 'venta', 'ov'],
+        rechazado: ['rechazado', 'rechaz'],
+        vencido: ['vencido', 'venc'],
+        cancelado: ['cancelado', 'cancel'],
       }
+      const estadosCoincidentes: string[] = []
+      for (const [estadoClave, palabras] of Object.entries(ESTADO_KEYWORDS)) {
+        if (palabras.some(p => p.startsWith(busquedaNorm) || busquedaNorm.startsWith(p))) {
+          estadosCoincidentes.push(estadoClave)
+        }
+      }
+
+      const filtroBase = [
+        `numero.ilike.%${busquedaNorm}%`,
+        `contacto_nombre.ilike.%${busquedaNorm}%`,
+        `contacto_apellido.ilike.%${busquedaNorm}%`,
+        `atencion_nombre.ilike.%${busquedaNorm}%`,
+        `referencia.ilike.%${busquedaNorm}%`,
+        `contacto_direccion.ilike.%${busquedaNorm}%`,
+        `creado_por_nombre.ilike.%${busquedaNorm}%`,
+      ]
+      if (estadosCoincidentes.length > 0) {
+        filtroBase.push(`estado.in.(${estadosCoincidentes.join(',')})`)
+      }
+      query = query.or(filtroBase.join(','))
     }
 
     // Ordenamiento y paginación

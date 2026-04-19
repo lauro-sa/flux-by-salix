@@ -10,8 +10,8 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, MapPin, MapPinOff,
-  CheckCircle, Clock, User, Trash2, History,
-  Navigation, Eye, CalendarClock, AlertTriangle, Route, List,
+  CheckCircle, User, Trash2, History,
+  CalendarClock, Route, List,
   RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -24,7 +24,7 @@ import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
 import PanelPlanificacion from './PanelPlanificacion'
-import { ModalDetalleVisita, type DatosVisitaDetalle } from '@/componentes/entidad/_panel_chatter/ModalDetalleVisita'
+import { ModalDetalleVisita } from '@/componentes/entidad/_panel_chatter/ModalDetalleVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
@@ -112,15 +112,72 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     }
   }, [])
 
-  // Filtros
-  const [filtroEstado, setFiltroEstado] = useState<string[]>(ESTADOS_ACTIVOS)
-  const [filtroPrioridad, setFiltroPrioridad] = useState('')
   // Admins ven todas las visitas por defecto; usuarios con permisos restringidos ven solo propias
   const vistaDefault = soloPropio ? 'propias' : 'todas'
-  const [filtroVista, setFiltroVista] = useState(vistaDefault)
 
-  // Búsqueda con debounce + reset de página automático
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroEstado, filtroPrioridad, filtroVista])
+  // Filtros — restaurar desde URL si existen
+  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
+    const v = searchParams.get('estado')
+    return v ? v.split(',') : ESTADOS_ACTIVOS
+  })
+  const [filtroPrioridad, setFiltroPrioridad] = useState<string[]>(() => {
+    const v = searchParams.get('prioridad')
+    return v ? v.split(',') : []
+  })
+  const [filtroVista, setFiltroVista] = useState(searchParams.get('vista') || vistaDefault)
+  // Nuevos
+  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
+    const v = searchParams.get('asignado_a')
+    return v ? v.split(',') : []
+  })
+  const [filtroSinAsignado, setFiltroSinAsignado] = useState(searchParams.get('sin_asignado') === 'true')
+  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
+  const [filtroTemperatura, setFiltroTemperatura] = useState<string[]>(() => {
+    const v = searchParams.get('temperatura')
+    return v ? v.split(',') : []
+  })
+  const [filtroFecha, setFiltroFecha] = useState(searchParams.get('fecha') || '')
+  const [filtroContacto, setFiltroContacto] = useState(searchParams.get('contacto_id') || '')
+  const [filtroActividad, setFiltroActividad] = useState(searchParams.get('actividad_id') || '')
+  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
+
+  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros)
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
+    searchParams.get('q') || '',
+    Number(searchParams.get('pagina')) || 1,
+    [
+      filtroEstado, filtroPrioridad, filtroVista,
+      filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroTemperatura,
+      filtroFecha, filtroContacto, filtroActividad, filtroCreadoRango,
+    ],
+  )
+
+  // Sincronizar filtros → URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroEstado.length > 0 && !(filtroEstado.length === ESTADOS_ACTIVOS.length && ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e)))) {
+      params.set('estado', filtroEstado.join(','))
+    }
+    if (filtroPrioridad.length > 0) params.set('prioridad', filtroPrioridad.join(','))
+    if (filtroVista && filtroVista !== vistaDefault) params.set('vista', filtroVista)
+    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
+    if (filtroSinAsignado) params.set('sin_asignado', 'true')
+    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
+    if (filtroTemperatura.length > 0) params.set('temperatura', filtroTemperatura.join(','))
+    if (filtroFecha) params.set('fecha', filtroFecha)
+    if (filtroContacto) params.set('contacto_id', filtroContacto)
+    if (filtroActividad) params.set('actividad_id', filtroActividad)
+    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `/visitas?${qs}` : '/visitas')
+  }, [
+    busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista,
+    filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroTemperatura,
+    filtroFecha, filtroContacto, filtroActividad, filtroCreadoRango,
+    pagina, vistaDefault,
+  ])
 
   // Config de visitas (cache largo)
   const { datos: configData } = useConfig<Record<string, unknown>>(
@@ -129,10 +186,23 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     (json) => json as Record<string, unknown>,
   )
 
-  // Solo usar datos iniciales cuando no hay filtros activos
+  // Solo usar datos iniciales cuando NO hay filtros activos (chequea TODOS)
   const estadoEsDefault = filtroEstado.length === ESTADOS_ACTIVOS.length &&
     ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e))
-  const sinFiltros = !busquedaDebounced && estadoEsDefault && !filtroPrioridad && filtroVista === vistaDefault && pagina === 1
+  const sinFiltros =
+    !busquedaDebounced &&
+    estadoEsDefault &&
+    filtroPrioridad.length === 0 &&
+    filtroVista === vistaDefault &&
+    filtroAsignados.length === 0 &&
+    !filtroSinAsignado &&
+    !filtroCreadoPor &&
+    filtroTemperatura.length === 0 &&
+    !filtroFecha &&
+    !filtroContacto &&
+    !filtroActividad &&
+    !filtroCreadoRango &&
+    pagina === 1
 
 
   // Datos con React Query
@@ -142,8 +212,16 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     parametros: {
       busqueda: busquedaDebounced,
       estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
-      prioridad: filtroPrioridad || undefined,
+      prioridad: filtroPrioridad.length > 0 ? filtroPrioridad.join(',') : undefined,
       vista: filtroVista || undefined,
+      asignado_a: filtroAsignados.length > 0 ? filtroAsignados.join(',') : undefined,
+      sin_asignado: filtroSinAsignado ? 'true' : undefined,
+      creado_por: filtroCreadoPor || undefined,
+      temperatura: filtroTemperatura.length > 0 ? filtroTemperatura.join(',') : undefined,
+      fecha: filtroFecha || undefined,
+      contacto_id: filtroContacto || undefined,
+      actividad_id: filtroActividad || undefined,
+      creado_rango: filtroCreadoRango || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -185,6 +263,43 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     staleTime: 5 * 60_000,
   })
   const miembros = (miembrosData || []) as Miembro[]
+
+  // Opciones de miembros para filtros (asignado a, creado por)
+  const opcionesMiembros = useMemo(
+    () => miembros.map(m => ({
+      valor: m.usuario_id,
+      etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
+    })),
+    [miembros],
+  )
+
+  /** Contactos para filtro "Vinculado a contacto" */
+  const { data: contactosOpcionesData } = useQuery({
+    queryKey: ['visitas-filtros-contactos'],
+    queryFn: () => fetch('/api/contactos?por_pagina=200').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesContactos = useMemo(() => {
+    const items = (contactosOpcionesData?.contactos || []) as { id: string; nombre: string; apellido: string | null }[]
+    return items.map(c => ({
+      valor: c.id,
+      etiqueta: `${c.nombre}${c.apellido ? ` ${c.apellido}` : ''}`,
+    }))
+  }, [contactosOpcionesData])
+
+  /** Actividades para filtro */
+  const { data: actividadesOpcionesData } = useQuery({
+    queryKey: ['visitas-filtros-actividades'],
+    queryFn: () => fetch('/api/actividades?por_pagina=200').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesActividades = useMemo(() => {
+    const items = (actividadesOpcionesData?.actividades || []) as { id: string; titulo: string }[]
+    return items.map(a => ({
+      valor: a.id,
+      etiqueta: a.titulo || 'Sin título',
+    }))
+  }, [actividadesOpcionesData])
 
   // Deep link: ?visita_id=UUID
   const visitaIdParam = searchParams.get('visita_id')
@@ -592,12 +707,51 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         onBusqueda={setBusqueda}
         placeholder="Buscar visitas..."
         filtros={[
+          // ── Identidad ──
           {
-            id: 'estado',
-            etiqueta: 'Estado',
-            tipo: 'multiple',
+            id: 'creado_por', etiqueta: 'Creado por', tipo: 'seleccion-compacto' as const,
+            valor: filtroCreadoPor, onChange: (v) => setFiltroCreadoPor(v as string),
+            opciones: opcionesMiembros,
+            descripcion: 'Mostrá solo las visitas creadas por el miembro elegido.',
+          },
+          {
+            id: 'contacto', etiqueta: 'Contacto', tipo: 'seleccion-compacto' as const,
+            valor: filtroContacto, onChange: (v) => setFiltroContacto(v as string),
+            opciones: opcionesContactos,
+            descripcion: 'Visitas asociadas al contacto elegido.',
+          },
+          // ── Asignación ──
+          {
+            id: 'asignado_a', etiqueta: 'Visitador', tipo: 'multiple-compacto' as const,
+            valor: filtroAsignados,
+            onChange: (v) => setFiltroAsignados(Array.isArray(v) ? v : []),
+            opciones: opcionesMiembros,
+            descripcion: 'Visitas asignadas a uno o más visitadores (cumple si al menos uno coincide).',
+          },
+          {
+            id: 'sin_asignado', etiqueta: 'Sin asignar', tipo: 'pills' as const,
+            valor: filtroSinAsignado ? 'true' : '',
+            onChange: (v) => setFiltroSinAsignado(v === 'true'),
+            opciones: [{ valor: 'true', etiqueta: 'Sí' }],
+            descripcion: 'Visitas que no tienen ningún visitador asignado.',
+          },
+          {
+            id: 'vista', etiqueta: 'Perspectiva', tipo: 'pills' as const,
+            valor: filtroVista, onChange: (v) => setFiltroVista(v as string),
+            opciones: [
+              { valor: 'todas', etiqueta: 'Todas' },
+              { valor: 'propias', etiqueta: 'Propias' },
+              { valor: 'mias', etiqueta: 'Mías' },
+              { valor: 'enviadas', etiqueta: 'Enviadas' },
+            ],
+            valorDefault: vistaDefault,
+            descripcion: 'Propias = creadas o asignadas a mí. Mías = solo asignadas a mí. Enviadas = solo creadas por mí.',
+          },
+          // ── Estado ──
+          {
+            id: 'estado', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
             valor: filtroEstado,
-            onChange: (v) => setFiltroEstado(v as string[]),
+            onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: [
               { valor: 'programada', etiqueta: t('visitas.estados.programada') },
               { valor: 'en_camino', etiqueta: t('visitas.estados.en_camino') },
@@ -607,31 +761,91 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
               { valor: 'reprogramada', etiqueta: t('visitas.estados.reprogramada') },
             ],
             valorDefault: ESTADOS_ACTIVOS,
+            descripcion: 'Por defecto se muestran las visitas activas (excluye completadas y canceladas).',
           },
           {
-            id: 'prioridad',
-            etiqueta: 'Prioridad',
-            tipo: 'pills',
+            id: 'prioridad', etiqueta: 'Prioridad', tipo: 'multiple-compacto' as const,
             valor: filtroPrioridad,
-            onChange: (v) => setFiltroPrioridad(v as string),
+            onChange: (v) => setFiltroPrioridad(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: [
               { valor: 'baja', etiqueta: t('visitas.prioridades.baja') },
               { valor: 'normal', etiqueta: t('visitas.prioridades.normal') },
               { valor: 'alta', etiqueta: t('visitas.prioridades.alta') },
               { valor: 'urgente', etiqueta: t('visitas.prioridades.urgente') },
             ],
+            descripcion: 'Nivel de prioridad de la visita.',
           },
+          {
+            id: 'temperatura', etiqueta: 'Temperatura', tipo: 'multiple-compacto' as const,
+            valor: filtroTemperatura,
+            onChange: (v) => setFiltroTemperatura(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: [
+              { valor: 'frio', etiqueta: 'Frío' },
+              { valor: 'tibio', etiqueta: 'Tibio' },
+              { valor: 'caliente', etiqueta: 'Caliente' },
+            ],
+            descripcion: 'Factibilidad comercial percibida en la visita.',
+          },
+          // ── Fechas ──
+          {
+            id: 'fecha', etiqueta: 'Fecha programada', tipo: 'pills' as const,
+            valor: filtroFecha, onChange: (v) => setFiltroFecha(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: 'semana', etiqueta: 'Esta semana' },
+              { valor: 'vencidas', etiqueta: 'Vencidas' },
+              { valor: 'futuras', etiqueta: 'Futuras' },
+            ],
+            descripcion: 'Filtrá por proximidad de la fecha programada.',
+          },
+          {
+            id: 'creado_rango', etiqueta: 'Creado en', tipo: 'pills' as const,
+            valor: filtroCreadoRango, onChange: (v) => setFiltroCreadoRango(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: '7d', etiqueta: '7 días' },
+              { valor: '30d', etiqueta: '30 días' },
+              { valor: '90d', etiqueta: '90 días' },
+              { valor: 'este_ano', etiqueta: 'Este año' },
+            ],
+            descripcion: 'Visitas creadas dentro del rango elegido.',
+          },
+          // ── Vínculos ──
+          {
+            id: 'actividad', etiqueta: 'Actividad', tipo: 'seleccion-compacto' as const,
+            valor: filtroActividad, onChange: (v) => setFiltroActividad(v as string),
+            opciones: opcionesActividades,
+            descripcion: 'Visitas vinculadas a la actividad elegida.',
+          },
+        ]}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['creado_por', 'contacto'] },
+          { id: 'asignacion', etiqueta: 'Asignación', filtros: ['asignado_a', 'sin_asignado', 'vista'] },
+          { id: 'estado', etiqueta: 'Estado', filtros: ['estado', 'prioridad', 'temperatura'] },
+          { id: 'fechas', etiqueta: 'Fechas', filtros: ['fecha', 'creado_rango'] },
+          { id: 'vinculos', etiqueta: 'Vínculos', filtros: ['actividad'] },
         ]}
         onLimpiarFiltros={() => {
           setFiltroEstado(ESTADOS_ACTIVOS)
-          setFiltroPrioridad('')
+          setFiltroPrioridad([])
           setFiltroVista(vistaDefault)
+          setFiltroAsignados([])
+          setFiltroSinAsignado(false)
+          setFiltroCreadoPor('')
+          setFiltroTemperatura([])
+          setFiltroFecha('')
+          setFiltroContacto('')
+          setFiltroActividad('')
+          setFiltroCreadoRango('')
         }}
         opcionesOrden={[
           { etiqueta: 'Fecha ↑', clave: 'fecha_programada', direccion: 'asc' },
           { etiqueta: 'Fecha ↓', clave: 'fecha_programada', direccion: 'desc' },
+          { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
+          { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },
           { etiqueta: 'Contacto A-Z', clave: 'contacto_nombre', direccion: 'asc' },
-          { etiqueta: 'Prioridad', clave: 'prioridad', direccion: 'desc' },
+          { etiqueta: 'Contacto Z-A', clave: 'contacto_nombre', direccion: 'desc' },
+          { etiqueta: 'Prioridad ↓', clave: 'prioridad', direccion: 'desc' },
         ]}
         idModulo="visitas"
         renderTarjeta={renderTarjeta}

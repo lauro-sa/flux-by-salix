@@ -22,7 +22,7 @@ import { Tooltip } from '@/componentes/ui/Tooltip'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalActividad } from './ModalActividad'
-import type { Actividad, Miembro, Vinculo } from './ModalActividad'
+import type { Actividad, Vinculo } from './ModalActividad'
 import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -123,14 +123,63 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     }
   }, [])
 
-  // Filtros server-side
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<string[] | null>(null) // null = pendiente de config
-  const [filtroPrioridad, setFiltroPrioridad] = useState('')
-  const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
+  // Filtros server-side — restaurar desde URL si existen
+  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
+  const [filtroEstado, setFiltroEstado] = useState<string[] | null>(() => {
+    const v = searchParams.get('estado')
+    return v ? v.split(',') : null
+  })
+  const [filtroPrioridad, setFiltroPrioridad] = useState(searchParams.get('prioridad') || '')
+  const [filtroVista, setFiltroVista] = useState(searchParams.get('vista') || VISTA_DEFAULT)
+  // Nuevos filtros
+  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
+    const v = searchParams.get('asignado_a')
+    return v ? v.split(',') : []
+  })
+  const [filtroSinAsignado, setFiltroSinAsignado] = useState(searchParams.get('sin_asignado') === 'true')
+  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
+  const [filtroVencimiento, setFiltroVencimiento] = useState(searchParams.get('fecha') || '')
+  const [filtroContacto, setFiltroContacto] = useState(searchParams.get('contacto_id') || '')
+  const [filtroOrden, setFiltroOrden] = useState(searchParams.get('orden_trabajo_id') || '')
+  const [filtroPresupuesto, setFiltroPresupuesto] = useState(searchParams.get('presupuesto_id') || '')
+  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
 
-  // Búsqueda con debounce + reset de página automático
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
+  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros como deps)
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
+    searchParams.get('q') || '',
+    Number(searchParams.get('pagina')) || 1,
+    [
+      filtroTipo, filtroEstado, filtroPrioridad, filtroVista,
+      filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroVencimiento,
+      filtroContacto, filtroOrden, filtroPresupuesto, filtroCreadoRango,
+    ],
+  )
+
+  // Sincronizar filtros → URL (replaceState para no contaminar historial)
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroTipo) params.set('tipo', filtroTipo)
+    if (filtroEstado && filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
+    if (filtroPrioridad) params.set('prioridad', filtroPrioridad)
+    if (filtroVista && filtroVista !== VISTA_DEFAULT) params.set('vista', filtroVista)
+    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
+    if (filtroSinAsignado) params.set('sin_asignado', 'true')
+    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
+    if (filtroVencimiento) params.set('fecha', filtroVencimiento)
+    if (filtroContacto) params.set('contacto_id', filtroContacto)
+    if (filtroOrden) params.set('orden_trabajo_id', filtroOrden)
+    if (filtroPresupuesto) params.set('presupuesto_id', filtroPresupuesto)
+    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    const qs = params.toString()
+    const nuevaUrl = qs ? `/actividades?${qs}` : '/actividades'
+    window.history.replaceState(null, '', nuevaUrl)
+  }, [
+    busquedaDebounced, filtroTipo, filtroEstado, filtroPrioridad, filtroVista,
+    filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroVencimiento,
+    filtroContacto, filtroOrden, filtroPresupuesto, filtroCreadoRango, pagina,
+  ])
 
   // ═══════ Configuración (antes del listado para calcular filtros default) ═══════
 
@@ -165,7 +214,21 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
   const estadoEsDefault = filtroEstadoActual.length === estadosDefaultCalculados.length &&
     estadosDefaultCalculados.every(e => filtroEstadoActual.includes(e))
-  const sinFiltros = !busquedaDebounced && !filtroTipo && estadoEsDefault && !filtroPrioridad && filtroVista === VISTA_DEFAULT && pagina === 1
+  const sinFiltros =
+    !busquedaDebounced &&
+    !filtroTipo &&
+    estadoEsDefault &&
+    !filtroPrioridad &&
+    filtroVista === VISTA_DEFAULT &&
+    filtroAsignados.length === 0 &&
+    !filtroSinAsignado &&
+    !filtroCreadoPor &&
+    !filtroVencimiento &&
+    !filtroContacto &&
+    !filtroOrden &&
+    !filtroPresupuesto &&
+    !filtroCreadoRango &&
+    pagina === 1
 
   // ═══════ Datos con React Query ═══════
 
@@ -179,6 +242,14 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       estado: filtroEstadoActual.length > 0 ? filtroEstadoActual.join(',') : undefined,
       prioridad: filtroPrioridad || undefined,
       vista: filtroVista || undefined,
+      asignado_a: filtroAsignados.length > 0 ? filtroAsignados.join(',') : undefined,
+      sin_asignado: filtroSinAsignado ? 'true' : undefined,
+      creado_por: filtroCreadoPor || undefined,
+      fecha: filtroVencimiento || undefined,
+      contacto_id: filtroContacto || undefined,
+      orden_trabajo_id: filtroOrden || undefined,
+      presupuesto_id: filtroPresupuesto || undefined,
+      creado_rango: filtroCreadoRango || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -212,6 +283,57 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     staleTime: 5 * 60_000,
   })
   const miembros = miembrosData || []
+
+  // Opciones de miembros para filtros (asignado a, creado por)
+  const opcionesMiembros = useMemo(
+    () => miembros.map(m => ({
+      valor: m.usuario_id,
+      etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
+    })),
+    [miembros],
+  )
+
+  /** Contactos para el filtro "Vinculado a contacto" — limitamos a los más recientes */
+  const { data: contactosOpcionesData } = useQuery({
+    queryKey: ['actividades-filtros-contactos'],
+    queryFn: () => fetch('/api/contactos?por_pagina=200').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesContactos = useMemo(() => {
+    const items = (contactosOpcionesData?.contactos || []) as { id: string; nombre: string; apellido: string | null }[]
+    return items.map(c => ({
+      valor: c.id,
+      etiqueta: `${c.nombre}${c.apellido ? ` ${c.apellido}` : ''}`,
+    }))
+  }, [contactosOpcionesData])
+
+  /** Órdenes de trabajo para el filtro */
+  const { data: ordenesOpcionesData } = useQuery({
+    queryKey: ['actividades-filtros-ordenes'],
+    queryFn: () => fetch('/api/ordenes?por_pagina=200').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesOrdenes = useMemo(() => {
+    const items = (ordenesOpcionesData?.ordenes || []) as { id: string; codigo: string | null; titulo: string | null }[]
+    return items.map(o => ({
+      valor: o.id,
+      etiqueta: `${o.codigo || ''} ${o.titulo || ''}`.trim() || 'Sin título',
+    }))
+  }, [ordenesOpcionesData])
+
+  /** Presupuestos para el filtro */
+  const { data: presupuestosOpcionesData } = useQuery({
+    queryKey: ['actividades-filtros-presupuestos'],
+    queryFn: () => fetch('/api/presupuestos?por_pagina=200').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesPresupuestos = useMemo(() => {
+    const items = (presupuestosOpcionesData?.presupuestos || []) as { id: string; numero: string | null; titulo: string | null; contacto_nombre?: string | null }[]
+    return items.map(p => ({
+      valor: p.id,
+      etiqueta: `${p.numero || ''} ${p.titulo || p.contacto_nombre || ''}`.trim() || 'Sin título',
+    }))
+  }, [presupuestosOpcionesData])
 
   // Mapas memoizados
   const tiposPorId = useMemo(() => Object.fromEntries(tipos.map(t => [t.id, t])), [tipos])
@@ -864,16 +986,52 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         onBusqueda={setBusqueda}
         placeholder="Buscar actividades..."
         filtros={configData ? [
+          // ── Identidad ──
           {
-            id: 'tipo', etiqueta: 'Tipo', tipo: 'pills' as const,
+            id: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion-compacto' as const,
             valor: filtroTipo, onChange: (v) => setFiltroTipo(v as string),
             opciones: tipos.filter(t => t.activo).map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
+            descripcion: 'Filtrá por categoría de actividad (llamada, reunión, tarea, visita, etc.).',
           },
           {
-            id: 'estado', etiqueta: 'Estado', tipo: 'multiple' as const,
+            id: 'creado_por', etiqueta: 'Creado por', tipo: 'seleccion-compacto' as const,
+            valor: filtroCreadoPor, onChange: (v) => setFiltroCreadoPor(v as string),
+            opciones: opcionesMiembros,
+            descripcion: 'Mostrá solo las actividades creadas por el miembro elegido.',
+          },
+          // ── Asignación ──
+          {
+            id: 'asignado_a', etiqueta: 'Asignado a', tipo: 'multiple-compacto' as const,
+            valor: filtroAsignados,
+            onChange: (v) => setFiltroAsignados(Array.isArray(v) ? v : []),
+            opciones: opcionesMiembros,
+            descripcion: 'Actividades asignadas a uno o más miembros (cumple si al menos uno coincide).',
+          },
+          {
+            id: 'sin_asignado', etiqueta: 'Sin asignar', tipo: 'pills' as const,
+            valor: filtroSinAsignado ? 'true' : '',
+            onChange: (v) => setFiltroSinAsignado(v === 'true'),
+            opciones: [{ valor: 'true', etiqueta: 'Sí' }],
+            descripcion: 'Actividades que no tienen ningún responsable asignado.',
+          },
+          {
+            id: 'vista', etiqueta: 'Perspectiva', tipo: 'pills' as const,
+            valor: filtroVista, onChange: (v) => setFiltroVista(v as string),
+            opciones: [
+              { valor: 'propias', etiqueta: 'Propias' },
+              { valor: 'mias', etiqueta: 'Mías' },
+              { valor: 'enviadas', etiqueta: 'Enviadas' },
+            ],
+            valorDefault: VISTA_DEFAULT,
+            descripcion: 'Propias = creadas o asignadas a mí. Mías = solo asignadas a mí. Enviadas = solo creadas por mí.',
+          },
+          // ── Estado ──
+          {
+            id: 'estado', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
             valor: filtroEstadoActual, onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: estados.filter(e => e.activo).map(e => ({ valor: e.clave, etiqueta: e.etiqueta })),
             valorDefault: estadosDefaultCalculados,
+            descripcion: 'Por defecto se muestran los estados del grupo "activo" (excluye completadas y canceladas).',
           },
           {
             id: 'prioridad', etiqueta: 'Prioridad', tipo: 'pills' as const,
@@ -883,14 +1041,82 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
               { valor: 'normal', etiqueta: 'Normal' },
               { valor: 'alta', etiqueta: 'Alta' },
             ],
+            descripcion: 'Nivel de prioridad asignado a la actividad.',
+          },
+          // ── Vencimiento ──
+          {
+            id: 'vencimiento', etiqueta: 'Vencimiento', tipo: 'pills' as const,
+            valor: filtroVencimiento, onChange: (v) => setFiltroVencimiento(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: 'semana', etiqueta: 'Esta semana' },
+              { valor: 'vencidas', etiqueta: 'Vencidas' },
+              { valor: 'futuras', etiqueta: 'Futuras' },
+              { valor: 'sin_fecha', etiqueta: 'Sin fecha' },
+            ],
+            descripcion: 'Filtrá por proximidad de la fecha de vencimiento.',
+          },
+          // ── Vínculos ──
+          {
+            id: 'contacto', etiqueta: 'Contacto', tipo: 'seleccion-compacto' as const,
+            valor: filtroContacto, onChange: (v) => setFiltroContacto(v as string),
+            opciones: opcionesContactos,
+            descripcion: 'Actividades vinculadas al contacto elegido.',
+          },
+          {
+            id: 'orden_trabajo', etiqueta: 'Orden de trabajo', tipo: 'seleccion-compacto' as const,
+            valor: filtroOrden, onChange: (v) => setFiltroOrden(v as string),
+            opciones: opcionesOrdenes,
+            descripcion: 'Actividades vinculadas a la orden de trabajo elegida.',
+          },
+          {
+            id: 'presupuesto', etiqueta: 'Presupuesto', tipo: 'seleccion-compacto' as const,
+            valor: filtroPresupuesto, onChange: (v) => setFiltroPresupuesto(v as string),
+            opciones: opcionesPresupuestos,
+            descripcion: 'Actividades vinculadas al presupuesto elegido.',
+          },
+          // ── Fechas ──
+          {
+            id: 'creado_rango', etiqueta: 'Creado en', tipo: 'pills' as const,
+            valor: filtroCreadoRango, onChange: (v) => setFiltroCreadoRango(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: '7d', etiqueta: '7 días' },
+              { valor: '30d', etiqueta: '30 días' },
+              { valor: '90d', etiqueta: '90 días' },
+              { valor: 'este_ano', etiqueta: 'Este año' },
+            ],
+            descripcion: 'Actividades creadas dentro del rango elegido.',
           },
         ] : []}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(estadosDefaultCalculados); setFiltroPrioridad(''); setFiltroVista('') }}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'creado_por'] },
+          { id: 'asignacion', etiqueta: 'Asignación', filtros: ['asignado_a', 'sin_asignado', 'vista'] },
+          { id: 'estado', etiqueta: 'Estado', filtros: ['estado', 'prioridad'] },
+          { id: 'vencimiento', etiqueta: 'Vencimiento', filtros: ['vencimiento'] },
+          { id: 'vinculos', etiqueta: 'Vínculos', filtros: ['contacto', 'orden_trabajo', 'presupuesto'] },
+          { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango'] },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroTipo('')
+          setFiltroEstado(estadosDefaultCalculados)
+          setFiltroPrioridad('')
+          setFiltroVista(VISTA_DEFAULT)
+          setFiltroAsignados([])
+          setFiltroSinAsignado(false)
+          setFiltroCreadoPor('')
+          setFiltroVencimiento('')
+          setFiltroContacto('')
+          setFiltroOrden('')
+          setFiltroPresupuesto('')
+          setFiltroCreadoRango('')
+        }}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },
           { etiqueta: 'Vencimiento ↑', clave: 'fecha_vencimiento', direccion: 'asc' },
           { etiqueta: 'Vencimiento ↓', clave: 'fecha_vencimiento', direccion: 'desc' },
+          { etiqueta: 'Prioridad ↓', clave: 'prioridad', direccion: 'desc' },
           { etiqueta: 'Título A-Z', clave: 'titulo', direccion: 'asc' },
           { etiqueta: 'Título Z-A', clave: 'titulo', direccion: 'desc' },
         ]}

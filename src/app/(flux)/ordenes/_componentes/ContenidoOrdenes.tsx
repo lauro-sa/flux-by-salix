@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
@@ -62,14 +62,40 @@ export default function ContenidoOrdenes() {
   const queryClient = useQueryClient()
   const { mostrar: mostrarToast } = useToast()
 
-  // Filtros
-  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') || '')
-  const [filtroPrioridad, setFiltroPrioridad] = useState(searchParams.get('prioridad') || '')
+  // Filtros — restaurar desde URL
+  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
+    const v = searchParams.get('estado')
+    return v ? v.split(',') : []
+  })
+  const [filtroPrioridad, setFiltroPrioridad] = useState<string[]>(() => {
+    const v = searchParams.get('prioridad')
+    return v ? v.split(',') : []
+  })
+  const [filtroTipoContacto, setFiltroTipoContacto] = useState<string[]>(() => {
+    const v = searchParams.get('tipo_contacto')
+    return v ? v.split(',') : []
+  })
+  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
+    const v = searchParams.get('asignado_a')
+    return v ? v.split(',') : []
+  })
+  const [filtroSinAsignar, setFiltroSinAsignar] = useState(searchParams.get('sin_asignar') === 'true')
+  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
+  const [filtroConPresupuesto, setFiltroConPresupuesto] = useState(searchParams.get('con_presupuesto') || '')
+  const [filtroVencida, setFiltroVencida] = useState(searchParams.get('vencida') || '')
+  const [filtroPublicada, setFiltroPublicada] = useState(searchParams.get('publicada') || '')
+  const [filtroFecha, setFiltroFecha] = useState(searchParams.get('fecha') || '')
+  const [filtroAnio, setFiltroAnio] = useState(searchParams.get('anio') || '')
 
   const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
     searchParams.get('q') || '',
     Number(searchParams.get('pagina')) || 1,
-    [filtroEstado, filtroPrioridad],
+    [
+      filtroEstado, filtroPrioridad, filtroTipoContacto,
+      filtroAsignados, filtroSinAsignar, filtroCreadoPor,
+      filtroConPresupuesto, filtroVencida, filtroPublicada,
+      filtroFecha, filtroAnio,
+    ],
     true,
   )
 
@@ -77,26 +103,85 @@ export default function ContenidoOrdenes() {
   useEffect(() => {
     const params = new URLSearchParams()
     if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroEstado) params.set('estado', filtroEstado)
-    if (filtroPrioridad) params.set('prioridad', filtroPrioridad)
+    if (filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
+    if (filtroPrioridad.length > 0) params.set('prioridad', filtroPrioridad.join(','))
+    if (filtroTipoContacto.length > 0) params.set('tipo_contacto', filtroTipoContacto.join(','))
+    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
+    if (filtroSinAsignar) params.set('sin_asignar', 'true')
+    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
+    if (filtroConPresupuesto) params.set('con_presupuesto', filtroConPresupuesto)
+    if (filtroVencida) params.set('vencida', filtroVencida)
+    if (filtroPublicada) params.set('publicada', filtroPublicada)
+    if (filtroFecha) params.set('fecha', filtroFecha)
+    if (filtroAnio) params.set('anio', filtroAnio)
     if (pagina > 1) params.set('pagina', String(pagina))
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
-  }, [busquedaDebounced, filtroEstado, filtroPrioridad, pagina, pathname])
+  }, [
+    busquedaDebounced, filtroEstado, filtroPrioridad, filtroTipoContacto,
+    filtroAsignados, filtroSinAsignar, filtroCreadoPor,
+    filtroConPresupuesto, filtroVencida, filtroPublicada,
+    filtroFecha, filtroAnio, pagina, pathname,
+  ])
 
   const { datos: ordenes, total, cargando, cargandoInicial } = useListado<FilaOrden>({
     clave: 'ordenes',
     url: '/api/ordenes',
     parametros: {
       busqueda: busquedaDebounced,
-      estado: filtroEstado || undefined,
-      prioridad: filtroPrioridad || undefined,
+      estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
+      prioridad: filtroPrioridad.length > 0 ? filtroPrioridad.join(',') : undefined,
+      tipo_contacto: filtroTipoContacto.length > 0 ? filtroTipoContacto.join(',') : undefined,
+      asignado_a: filtroAsignados.length > 0 ? filtroAsignados.join(',') : undefined,
+      sin_asignar: filtroSinAsignar ? 'true' : undefined,
+      creado_por: filtroCreadoPor || undefined,
+      con_presupuesto: filtroConPresupuesto || undefined,
+      vencida: filtroVencida || undefined,
+      publicada: filtroPublicada || undefined,
+      fecha: filtroFecha || undefined,
+      anio: filtroAnio || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
     extraerDatos: (json) => (json.ordenes || []) as FilaOrden[],
     extraerTotal: (json) => (json.total || 0) as number,
   })
+
+  // ── Cargar opciones para los filtros ──
+
+  /** Tipos de contacto para el filtro "Tipo de cliente" */
+  const { data: tiposContactoData } = useQuery({
+    queryKey: ['ordenes-filtros-tipos-contacto'],
+    queryFn: () => fetch('/api/contactos/tipos').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesTiposContacto = useMemo(() => {
+    const items = (tiposContactoData?.tipos_contacto || []) as { clave: string; etiqueta: string }[]
+    return items.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))
+  }, [tiposContactoData])
+
+  /** Miembros para "Asignado" y "Creado por" */
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesMiembros = useMemo(() => {
+    const items = (miembrosData?.miembros || []) as { usuario_id: string; nombre: string | null; apellido: string | null }[]
+    return items.map(m => ({
+      valor: m.usuario_id,
+      etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
+    }))
+  }, [miembrosData])
+
+  /** Años disponibles — los últimos 6 años */
+  const opcionesAnios = useMemo(() => {
+    const actual = new Date().getFullYear()
+    return Array.from({ length: 6 }, (_, i) => {
+      const a = actual - i
+      return { valor: String(a), etiqueta: String(a) }
+    })
+  }, [])
 
   // Enviar a papelera en lote
   const enviarAPapeleraLote = useCallback(async (ids: Set<string>) => {
@@ -258,12 +343,132 @@ export default function ContenidoOrdenes() {
         seleccionables
         busqueda={busqueda}
         onBusqueda={setBusqueda}
-        placeholder="Buscar por número, título o cliente..."
+        placeholder="Buscar por número, título, cliente, dirección..."
         idModulo="ordenes"
         totalRegistros={total}
         registrosPorPagina={POR_PAGINA}
         paginaExterna={pagina}
         onCambiarPagina={setPagina}
+        filtros={[
+          // ── Identidad ──
+          {
+            id: 'estado', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
+            valor: filtroEstado,
+            onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: Object.entries(ETIQUETAS_ESTADO_OT).map(([valor, etiqueta]) => ({ valor, etiqueta })),
+            descripcion: 'Filtrá por uno o más estados de la orden de trabajo.',
+          },
+          {
+            id: 'prioridad', etiqueta: 'Prioridad', tipo: 'multiple-compacto' as const,
+            valor: filtroPrioridad,
+            onChange: (v) => setFiltroPrioridad(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: Object.entries(ETIQUETAS_PRIORIDAD_OT).map(([valor, etiqueta]) => ({ valor, etiqueta })),
+            descripcion: 'Nivel de prioridad asignado a la orden.',
+          },
+          {
+            id: 'tipo_contacto', etiqueta: 'Tipo de cliente', tipo: 'multiple-compacto' as const,
+            valor: filtroTipoContacto,
+            onChange: (v) => setFiltroTipoContacto(Array.isArray(v) ? v : (v ? [v] : [])),
+            opciones: opcionesTiposContacto,
+            descripcion: 'Órdenes según el tipo del contacto vinculado (persona, empresa, edificio, etc.).',
+          },
+          // ── Asignación ──
+          {
+            id: 'asignado_a', etiqueta: 'Asignado a', tipo: 'multiple-compacto' as const,
+            valor: filtroAsignados,
+            onChange: (v) => setFiltroAsignados(Array.isArray(v) ? v : []),
+            opciones: opcionesMiembros,
+            descripcion: 'Órdenes asignadas a uno o más miembros (cumple si al menos uno coincide).',
+          },
+          {
+            id: 'sin_asignar', etiqueta: 'Sin asignar', tipo: 'pills' as const,
+            valor: filtroSinAsignar ? 'true' : '',
+            onChange: (v) => setFiltroSinAsignar(v === 'true'),
+            opciones: [{ valor: 'true', etiqueta: 'Sí' }],
+            descripcion: 'Órdenes que no tienen ningún miembro asignado todavía.',
+          },
+          {
+            id: 'creado_por', etiqueta: 'Creado por', tipo: 'seleccion-compacto' as const,
+            valor: filtroCreadoPor, onChange: (v) => setFiltroCreadoPor(v as string),
+            opciones: opcionesMiembros,
+            descripcion: 'Mostrá solo las órdenes creadas por el miembro elegido.',
+          },
+          // ── Comercial ──
+          {
+            id: 'con_presupuesto', etiqueta: 'Con presupuesto', tipo: 'pills' as const,
+            valor: filtroConPresupuesto, onChange: (v) => setFiltroConPresupuesto(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Órdenes generadas a partir de un presupuesto vs creadas manualmente.',
+          },
+          {
+            id: 'vencida', etiqueta: 'Vencida', tipo: 'pills' as const,
+            valor: filtroVencida, onChange: (v) => setFiltroVencida(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No' },
+            ],
+            descripcion: 'Órdenes con fecha estimada de fin pasada y aún no completadas ni canceladas.',
+          },
+          {
+            id: 'publicada', etiqueta: 'Publicada', tipo: 'pills' as const,
+            valor: filtroPublicada, onChange: (v) => setFiltroPublicada(v as string),
+            opciones: [
+              { valor: 'true', etiqueta: 'Sí' },
+              { valor: 'false', etiqueta: 'No (borrador)' },
+            ],
+            descripcion: 'Órdenes ya publicadas (visibles para los asignados) vs borradores internos.',
+          },
+          // ── Período ──
+          {
+            id: 'fecha', etiqueta: 'Fecha programada', tipo: 'pills' as const,
+            valor: filtroFecha, onChange: (v) => setFiltroFecha(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: 'semana', etiqueta: 'Esta semana' },
+              { valor: 'vencidas', etiqueta: 'Vencidas' },
+              { valor: 'futuras', etiqueta: 'Futuras' },
+            ],
+            descripcion: 'Filtrá por proximidad de la fecha de inicio o vencimiento.',
+          },
+          {
+            id: 'anio', etiqueta: 'Año', tipo: 'seleccion-compacto' as const,
+            valor: filtroAnio, onChange: (v) => setFiltroAnio(v as string),
+            opciones: opcionesAnios,
+            descripcion: 'Órdenes creadas durante el año seleccionado.',
+          },
+        ]}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['estado', 'prioridad', 'tipo_contacto'] },
+          { id: 'asignacion', etiqueta: 'Asignación', filtros: ['asignado_a', 'sin_asignar', 'creado_por'] },
+          { id: 'comercial', etiqueta: 'Comercial', filtros: ['con_presupuesto', 'vencida', 'publicada'] },
+          { id: 'periodo', etiqueta: 'Período', filtros: ['fecha', 'anio'] },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroEstado([])
+          setFiltroPrioridad([])
+          setFiltroTipoContacto([])
+          setFiltroAsignados([])
+          setFiltroSinAsignar(false)
+          setFiltroCreadoPor('')
+          setFiltroConPresupuesto('')
+          setFiltroVencida('')
+          setFiltroPublicada('')
+          setFiltroFecha('')
+          setFiltroAnio('')
+        }}
+        opcionesOrden={[
+          { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
+          { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },
+          { etiqueta: 'N° ↑', clave: 'numero', direccion: 'asc' },
+          { etiqueta: 'N° ↓', clave: 'numero', direccion: 'desc' },
+          { etiqueta: 'Cliente A-Z', clave: 'contacto_nombre', direccion: 'asc' },
+          { etiqueta: 'Cliente Z-A', clave: 'contacto_nombre', direccion: 'desc' },
+          { etiqueta: 'Próximas a vencer', clave: 'fecha_fin_estimada', direccion: 'asc' },
+          { etiqueta: 'Recién iniciadas', clave: 'fecha_inicio', direccion: 'desc' },
+        ]}
         accionesLote={[
           {
             id: 'eliminar',

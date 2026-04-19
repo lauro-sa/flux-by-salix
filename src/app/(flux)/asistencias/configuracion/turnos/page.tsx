@@ -19,6 +19,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import type { TurnoLaboral, DiasConfig } from '@/componentes/entidad/_editor_turno_laboral/PaginaEditorTurnoLaboral'
 
 const I = 13
@@ -115,7 +116,7 @@ export default function PaginaListadoTurnos() {
     .filter(t => !t.es_default)
     .filter(t => {
       if (!busquedaDebounced) return true
-      return t.nombre.toLowerCase().includes(busquedaDebounced.toLowerCase())
+      return normalizarBusqueda(t.nombre).includes(normalizarBusqueda(busquedaDebounced))
     })
 
   // ─── Resumen de horario ───

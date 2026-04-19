@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import {
-  Plus, Clock, Trash2, RotateCcw, Star, Calendar, Tag, Type, Check,
+  Plus, Clock, Trash2, RotateCcw, Star, Calendar, Tag, Type,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -22,6 +22,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { normalizarBusqueda } from '@/lib/validaciones'
 import type { CondicionPago } from '@/tipos/presupuesto'
 
 const I = 13
@@ -111,8 +112,8 @@ export default function PaginaListadoCondicionesPago() {
   // ─── Filtrado ───
   const condicionesFiltradas = condiciones.filter(c => {
     if (busquedaDebounced) {
-      const q = busquedaDebounced.toLowerCase()
-      if (!c.label.toLowerCase().includes(q) && !(c.notaPlanPago || '').toLowerCase().includes(q)) return false
+      const q = normalizarBusqueda(busquedaDebounced)
+      if (!normalizarBusqueda(c.label).includes(q) && !normalizarBusqueda(c.notaPlanPago || '').includes(q)) return false
     }
     if (filtroTipo && c.tipo !== filtroTipo) return false
     return true
