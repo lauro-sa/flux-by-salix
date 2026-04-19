@@ -156,7 +156,12 @@ function MultipleCompactoTrigger({ filtro }: { filtro: FiltroTabla }) {
 
   useEffect(() => { setMontado(true) }, [])
 
-  const valores = Array.isArray(filtro.valor) ? filtro.valor : []
+  // Modo single-select (seleccion-compacto) o multi (multiple-compacto).
+  const esSingle = filtro.tipo === 'seleccion-compacto'
+  const valorSingle = typeof filtro.valor === 'string' ? filtro.valor : ''
+  const valores = esSingle
+    ? (valorSingle ? [valorSingle] : [])
+    : (Array.isArray(filtro.valor) ? filtro.valor : [])
   const opciones = filtro.opciones || []
   const opcionesFiltradas = opciones.filter(op =>
     !busqueda || op.etiqueta.toLowerCase().includes(busqueda.toLowerCase()),
@@ -214,6 +219,18 @@ function MultipleCompactoTrigger({ filtro }: { filtro: FiltroTabla }) {
   }, [abierto])
 
   const toggle = (valor: string) => {
+    if (esSingle) {
+      // Single-select: seleccionar deselecciona si ya estaba, y cierra popover al elegir uno nuevo.
+      if (valorSingle === valor) {
+        filtro.onChange('')
+      } else {
+        filtro.onChange(valor)
+        setAbierto(false)
+        setBusqueda('')
+      }
+      return
+    }
+    // Multi-select: toggle normal.
     if (valores.includes(valor)) {
       filtro.onChange(valores.filter(v => v !== valor))
     } else {
@@ -376,8 +393,9 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
     )
   }
 
-  // Múltiple compacto: botón con popover (ideal para 10+ opciones o etiquetas largas).
-  if (filtro.tipo === 'multiple-compacto' && filtro.opciones) {
+  // Múltiple compacto / Selección compacta: botón con popover
+  // (ideal para 10+ opciones o etiquetas largas; o single-select que no queremos apilar verticalmente).
+  if ((filtro.tipo === 'multiple-compacto' || filtro.tipo === 'seleccion-compacto') && filtro.opciones) {
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>

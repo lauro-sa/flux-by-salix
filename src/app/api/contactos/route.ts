@@ -34,6 +34,24 @@ export async function GET(request: NextRequest) {
     const origen_filtro = params.get('origen_filtro')
     const condicion_iva = params.get('condicion_iva')
     const etapa_id = params.get('etapa_id')
+    // Filtros nuevos ——
+    // etiquetas_multi: multi-select de etiquetas (cualquiera coincide). Formato: csv.
+    const etiquetas_multi = params.get('etiquetas_multi')?.split(',').filter(Boolean) || []
+    // tiene_canales: contactos con alguno/todos los canales indicados. Formato: csv (correo,telefono,whatsapp,direccion).
+    const tiene_canales = params.get('tiene_canales')?.split(',').filter(Boolean) || []
+    // presupuesto: 'con_aceptado' | 'sin_aceptado' — filtra por existencia de presupuesto aceptado del contacto.
+    const presupuesto = params.get('presupuesto')
+    // estado_presupuesto: csv de estados (borrador,enviado,aceptado,rechazado,vencido,cancelado) — filtra contactos con presupuestos en esos estados.
+    const estado_presupuesto = params.get('estado_presupuesto')?.split(',').filter(Boolean) || []
+    // actividades: 'con_pendientes' | 'sin_pendientes' — filtra por existencia de actividad pendiente del contacto.
+    const actividades = params.get('actividades')
+    // provincia / ciudad — filtra por match en alguna direccion del contacto.
+    const provincia = params.get('provincia')
+    const ciudad = params.get('ciudad')
+    // creado_rango: 'hoy' | '7d' | '30d' | '90d' | 'este_ano'
+    const creado_rango = params.get('creado_rango')
+    // ultima_interaccion: '7d' | '30d' | 'dormidos_30' | 'dormidos_90'
+    const ultima_interaccion = params.get('ultima_interaccion')
     const orden_campo = params.get('orden_campo') || 'codigo'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
@@ -136,6 +154,157 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filtro por etiquetas múltiples (overlap — el contacto tiene al menos una de las etiquetas).
+    if (etiquetas_multi.length > 0) {
+      query = query.overlaps('etiquetas', etiquetas_multi)
+    }
+
+    // Filtro por canales disponibles — el contacto DEBE tener TODOS los canales marcados
+    // (si marco correo+whatsapp, quiero contactos con ambos).
+    if (tiene_canales.length > 0) {
+      if (tiene_canales.includes('correo')) query = query.not('correo', 'is', null)
+      if (tiene_canales.includes('telefono')) query = query.not('telefono', 'is', null)
+      if (tiene_canales.includes('whatsapp')) query = query.not('whatsapp', 'is', null)
+      if (tiene_canales.includes('direccion')) {
+        // Ver si tiene al menos 1 dirección asociada a un contacto de la empresa activa.
+        // Hacemos join implícito via contactos.empresa_id para evitar data leak entre empresas.
+        const { data: conDireccion } = await admin
+          .from('contacto_direcciones')
+          .select('contacto_id, contactos!inner(empresa_id)')
+          .eq('contactos.empresa_id', empresaId)
+        const idsDir = [...new Set((conDireccion || []).map(d => d.contacto_id))]
+        if (idsDir.length > 0) query = query.in('id', idsDir)
+        else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      }
+    }
+
+    // Filtro por presupuesto aceptado (con_aceptado / sin_aceptado).
+    if (presupuesto === 'con_aceptado') {
+      const { data: conPresAcept } = await admin
+        .from('presupuestos')
+        .select('contacto_id')
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'aceptado')
+        .eq('en_papelera', false)
+        .not('contacto_id', 'is', null)
+      const ids = [...new Set((conPresAcept || []).map(p => p.contacto_id).filter(Boolean))]
+      if (ids.length > 0) query = query.in('id', ids)
+      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+    } else if (presupuesto === 'sin_aceptado') {
+      const { data: conPresAcept } = await admin
+        .from('presupuestos')
+        .select('contacto_id')
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'aceptado')
+        .eq('en_papelera', false)
+        .not('contacto_id', 'is', null)
+      const ids = [...new Set((conPresAcept || []).map(p => p.contacto_id).filter(Boolean))]
+      if (ids.length > 0) query = query.not('id', 'in', `(${ids.join(',')})`)
+    }
+
+    // Filtro por estado de presupuesto — contactos con presupuestos en los estados indicados.
+    if (estado_presupuesto.length > 0) {
+      const { data: conPres } = await admin
+        .from('presupuestos')
+        .select('contacto_id')
+        .eq('empresa_id', empresaId)
+        .in('estado', estado_presupuesto)
+        .eq('en_papelera', false)
+        .not('contacto_id', 'is', null)
+      const ids = [...new Set((conPres || []).map(p => p.contacto_id).filter(Boolean))]
+      if (ids.length > 0) query = query.in('id', ids)
+      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+    }
+
+    // Filtro por actividades pendientes (con_pendientes / sin_pendientes).
+    // Las actividades usan vinculo_ids (text array) con GIN index.
+    if (actividades === 'con_pendientes') {
+      const { data: actPend } = await admin
+        .from('actividades')
+        .select('vinculo_ids')
+        .eq('empresa_id', empresaId)
+        .eq('estado_clave', 'pendiente')
+        .eq('en_papelera', false)
+      const idsContacto = [...new Set((actPend || []).flatMap(a => (a.vinculo_ids || []) as string[]))]
+      if (idsContacto.length > 0) query = query.in('id', idsContacto)
+      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+    } else if (actividades === 'sin_pendientes') {
+      const { data: actPend } = await admin
+        .from('actividades')
+        .select('vinculo_ids')
+        .eq('empresa_id', empresaId)
+        .eq('estado_clave', 'pendiente')
+        .eq('en_papelera', false)
+      const idsContacto = [...new Set((actPend || []).flatMap(a => (a.vinculo_ids || []) as string[]))]
+      if (idsContacto.length > 0) query = query.not('id', 'in', `(${idsContacto.join(',')})`)
+    }
+
+    // Filtro por provincia / ciudad (match en cualquier dirección del contacto, acotado a la empresa).
+    if (provincia || ciudad) {
+      let qDir = admin
+        .from('contacto_direcciones')
+        .select('contacto_id, contactos!inner(empresa_id)')
+        .eq('contactos.empresa_id', empresaId)
+      if (provincia) qDir = qDir.ilike('provincia', `%${provincia}%`)
+      if (ciudad) qDir = qDir.ilike('ciudad', `%${ciudad}%`)
+      const { data: dirs } = await qDir
+      const idsUbic = [...new Set((dirs || []).map(d => d.contacto_id))]
+      if (idsUbic.length > 0) query = query.in('id', idsUbic)
+      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+    }
+
+    // Filtro por rango de creación (presets).
+    if (creado_rango) {
+      const ahora = new Date()
+      let desdeFecha: Date | null = null
+      if (creado_rango === 'hoy') {
+        desdeFecha = new Date(ahora); desdeFecha.setHours(0, 0, 0, 0)
+      } else if (creado_rango === '7d') {
+        desdeFecha = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000)
+      } else if (creado_rango === '30d') {
+        desdeFecha = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000)
+      } else if (creado_rango === '90d') {
+        desdeFecha = new Date(ahora.getTime() - 90 * 24 * 60 * 60 * 1000)
+      } else if (creado_rango === 'este_ano') {
+        desdeFecha = new Date(ahora.getFullYear(), 0, 1)
+      }
+      if (desdeFecha) query = query.gte('creado_en', desdeFecha.toISOString())
+    }
+
+    // Filtro por última interacción — usa MAX(conversaciones.ultimo_mensaje_en) por contacto.
+    // Para dormidos: contactos con última actividad ANTES de X días (o sin actividad).
+    if (ultima_interaccion) {
+      const ahora = Date.now()
+      const MS_DIA = 24 * 60 * 60 * 1000
+      const { data: ultimasConv } = await admin
+        .from('conversaciones')
+        .select('contacto_id, ultimo_mensaje_en')
+        .eq('empresa_id', empresaId)
+        .not('contacto_id', 'is', null)
+        .not('ultimo_mensaje_en', 'is', null)
+      // Map contacto_id -> timestamp más reciente
+      const ultimaPorContacto = new Map<string, number>()
+      for (const c of (ultimasConv || [])) {
+        if (!c.contacto_id || !c.ultimo_mensaje_en) continue
+        const ts = new Date(c.ultimo_mensaje_en).getTime()
+        const prev = ultimaPorContacto.get(c.contacto_id) || 0
+        if (ts > prev) ultimaPorContacto.set(c.contacto_id, ts)
+      }
+      if (ultima_interaccion === '7d' || ultima_interaccion === '30d') {
+        const dias = ultima_interaccion === '7d' ? 7 : 30
+        const limite = ahora - dias * MS_DIA
+        const ids = [...ultimaPorContacto.entries()].filter(([, ts]) => ts >= limite).map(([id]) => id)
+        if (ids.length > 0) query = query.in('id', ids)
+        else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      } else if (ultima_interaccion === 'dormidos_30' || ultima_interaccion === 'dormidos_90') {
+        const dias = ultima_interaccion === 'dormidos_30' ? 30 : 90
+        const limite = ahora - dias * MS_DIA
+        // Dormidos = interacción anterior al límite, o contactos sin conversaciones activas
+        const idsActivos = [...ultimaPorContacto.entries()].filter(([, ts]) => ts >= limite).map(([id]) => id)
+        if (idsActivos.length > 0) query = query.not('id', 'in', `(${idsActivos.join(',')})`)
+      }
+    }
+
     // Filtro por vinculaciones (directas e inversas)
     if (vinculado_de) {
       const [{ data: directas }, { data: inversas }] = await Promise.all([
@@ -158,10 +327,11 @@ export async function GET(request: NextRequest) {
     if (busqueda.trim()) {
       const busquedaNorm = normalizarAcentos(busqueda)
 
-      // Buscar en direcciones (calle, ciudad, provincia) para obtener IDs de contactos
+      // Buscar en direcciones (calle, ciudad, provincia) para obtener IDs de contactos, acotado a la empresa.
       const { data: dirMatches } = await admin
         .from('contacto_direcciones')
-        .select('contacto_id')
+        .select('contacto_id, contactos!inner(empresa_id)')
+        .eq('contactos.empresa_id', empresaId)
         .or(`calle.ilike.%${busquedaNorm}%,ciudad.ilike.%${busquedaNorm}%,provincia.ilike.%${busquedaNorm}%,barrio.ilike.%${busquedaNorm}%,texto.ilike.%${busquedaNorm}%`)
 
       const idsDirecciones = [...new Set((dirMatches || []).map(d => d.contacto_id))]

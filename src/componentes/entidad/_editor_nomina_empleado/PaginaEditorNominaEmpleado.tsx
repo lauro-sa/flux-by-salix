@@ -1,0 +1,1208 @@
+'use client'
+
+/**
+ * PaginaEditorNominaEmpleado — Editor pantalla completa de nómina por empleado.
+ * Reemplaza al ModalDetalleNomina manteniendo toda la funcionalidad.
+ *
+ * Layout:
+ * - Cabecero: nombre + insignias de compensación + flechas entre empleados + Enviar recibo / Pagar
+ * - Panel izq: navegador de período + stats + desglose + saldo
+ * - Main: compensación (editable inline) + descuentos/adelantos + historial de pagos
+ */
+
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import {
+  Banknote, CalendarDays, Plus, X, Pencil, Trash2,
+  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
+} from 'lucide-react'
+import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
+import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
+import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
+import { InputMoneda } from '@/componentes/ui/InputMoneda'
+import { Input } from '@/componentes/ui/Input'
+import { Insignia } from '@/componentes/ui/Insignia'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { ModalEnviarReciboNomina } from '@/app/(flux)/asistencias/_componentes/ModalEnviarReciboNomina'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useFormato } from '@/hooks/useFormato'
+import { useNavegacion } from '@/hooks/useNavegacion'
+
+// ─── Tipos ───
+
+export interface ResultadoNomina {
+  miembro_id: string
+  nombre: string
+  correo: string
+  telefono: string
+  compensacion_tipo: string
+  compensacion_monto: number
+  compensacion_frecuencia?: string
+  dias_laborales: number
+  dias_trabajados: number
+  dias_ausentes: number
+  dias_tardanza: number
+  horas_netas: number
+  horas_totales: number
+  promedio_horas_diario: number
+  horas_brutas: number
+  horas_almuerzo: number
+  horas_particular: number
+  dias_con_almuerzo: number
+  dias_con_salida_particular: number
+  descuenta_almuerzo: boolean
+  duracion_almuerzo_config: number
+  dias_feriados: number
+  dias_trabajados_feriado: number
+  monto_pagar: number
+  monto_detalle: string
+  descuento_adelanto: number
+  cuotas_adelanto: number
+  saldo_anterior: number
+  monto_neto: number
+}
+
+export interface EmpleadoLista {
+  miembro_id: string
+  nombre: string
+}
+
+interface Props {
+  empleadoInicial: ResultadoNomina
+  periodoInicial: { desde: string; hasta: string; etiqueta: string }
+  nombreEmpresa: string
+  empleadosPeriodoInicial: EmpleadoLista[]
+  rutaVolver: string
+  textoVolver?: string
+}
+
+// ─── Formatos ───
+
+const fmtMonto = (n: number) =>
+  `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+
+const fmtHoras = (h: number) => {
+  const hrs = Math.floor(h)
+  const min = Math.round((h - hrs) * 60)
+  return min > 0 ? `${hrs}h ${min}m` : `${hrs}h`
+}
+
+// ─── Tipos y helpers de período ───
+
+type TipoPeriodo = 'semana' | 'quincena' | 'mes'
+
+/** Calcula desde/hasta/etiqueta a partir de una fecha de referencia y tipo */
+function calcularPeriodo(
+  fechaRef: Date,
+  tipo: TipoPeriodo,
+): { desde: string; hasta: string; etiqueta: string } {
+  const d = new Date(fechaRef)
+  const mes = d.getMonth()
+  const anio = d.getFullYear()
+
+  if (tipo === 'semana') {
+    const dia = d.getDay()
+    const lunes = new Date(d)
+    lunes.setDate(d.getDate() - (dia === 0 ? 6 : dia - 1))
+    const domingo = new Date(lunes)
+    domingo.setDate(lunes.getDate() + 6)
+    return {
+      desde: lunes.toISOString().split('T')[0],
+      hasta: domingo.toISOString().split('T')[0],
+      etiqueta: `Semana ${lunes.getDate()}-${domingo.getDate()} de ${lunes.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+    }
+  }
+
+  if (tipo === 'quincena') {
+    if (d.getDate() <= 15) {
+      return {
+        desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
+        hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-15`,
+        etiqueta: `Quincena 1-15 de ${d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+      }
+    }
+    const ultimoQ = new Date(anio, mes + 1, 0).getDate()
+    return {
+      desde: `${anio}-${String(mes + 1).padStart(2, '0')}-16`,
+      hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimoQ}`,
+      etiqueta: `Quincena 16-${ultimoQ} de ${d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+    }
+  }
+
+  // mes
+  const ultimo = new Date(anio, mes + 1, 0).getDate()
+  return {
+    desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
+    hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`,
+    etiqueta: d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase()),
+  }
+}
+
+/** Avanza o retrocede la fecha de referencia según el tipo */
+function navegarFecha(fecha: Date, tipo: TipoPeriodo, dir: 'prev' | 'next'): Date {
+  const d = new Date(fecha)
+  const delta = dir === 'next' ? 1 : -1
+  if (tipo === 'semana') d.setDate(d.getDate() + 7 * delta)
+  else if (tipo === 'quincena') {
+    // Alterna entre Q1 y Q2 del mes correspondiente
+    const esQ1 = d.getDate() <= 15
+    if (dir === 'next') {
+      if (esQ1) d.setDate(16)
+      else d.setMonth(d.getMonth() + 1, 1)
+    } else {
+      if (esQ1) d.setMonth(d.getMonth() - 1, 16)
+      else d.setDate(1)
+    }
+  } else d.setMonth(d.getMonth() + delta, 1)
+  return d
+}
+
+/** Deriva el tipo de período a partir de un rango de fechas */
+function inferirTipoPeriodo(desde: string, hasta: string): TipoPeriodo {
+  const d = new Date(desde + 'T12:00:00')
+  const h = new Date(hasta + 'T12:00:00')
+  const diasMs = 24 * 60 * 60 * 1000
+  const duracion = Math.round((h.getTime() - d.getTime()) / diasMs) + 1
+  if (duracion <= 8) return 'semana'
+  if (duracion <= 16) return 'quincena'
+  return 'mes'
+}
+
+/**
+ * NumeroAnimado — envuelve un número/monto y hace fade-in + slide sutil cuando cambia.
+ * Usa `claveAnim` como key para re-montar y disparar la animación ante cada cambio real.
+ */
+function NumeroAnimado({ claveAnim, children }: { claveAnim: string | number; children: ReactNode }) {
+  return (
+    <motion.span
+      key={String(claveAnim)}
+      initial={{ opacity: 0.2, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      style={{ display: 'inline-block' }}
+    >
+      {children}
+    </motion.span>
+  )
+}
+
+// ─── Componente ───
+
+export function PaginaEditorNominaEmpleado({
+  empleadoInicial,
+  periodoInicial,
+  nombreEmpresa,
+  empleadosPeriodoInicial,
+  rutaVolver,
+  textoVolver = 'Nómina',
+}: Props) {
+  const router = useRouter()
+  const supabase = crearClienteNavegador()
+  const { locale } = useFormato()
+  const { setMigajaDinamica } = useNavegacion()
+
+  /** Formatea fecha según config de la empresa */
+  const fmtFecha = useCallback((fecha: string) => {
+    const d = new Date(fecha + 'T12:00:00')
+    return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+  }, [locale])
+
+  // Empleado activo (cambia al navegar entre empleados sin re-mount del page)
+  const [datosEmpleado, setDatosEmpleado] = useState<ResultadoNomina>(empleadoInicial)
+  const [empleadosPeriodo, setEmpleadosPeriodo] = useState<EmpleadoLista[]>(empleadosPeriodoInicial)
+  const [periodoActual, setPeriodoActual] = useState(periodoInicial)
+  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>(() => inferirTipoPeriodo(periodoInicial.desde, periodoInicial.hasta))
+  const [fechaRef, setFechaRef] = useState(() => new Date(periodoInicial.desde + 'T12:00:00'))
+  const [recalculando, setRecalculando] = useState(false)
+
+  // Adelantos y pagos del período
+  const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
+  const [pagos, setPagos] = useState<Record<string, unknown>[]>([])
+
+  // Compensación editable
+  const [compTipo, setCompTipo] = useState(empleadoInicial.compensacion_tipo)
+  const [compMonto, setCompMonto] = useState(String(empleadoInicial.compensacion_monto))
+  const [compFrecuencia, setCompFrecuencia] = useState(empleadoInicial.compensacion_frecuencia || 'mensual')
+  const [compDias, setCompDias] = useState(5)
+  const [compEditando, setCompEditando] = useState(false)
+
+  // Confirmación de pago (ahora en ModalAdaptable)
+  const [confirmandoPago, setConfirmandoPago] = useState(false)
+  const [montoAPagar, setMontoAPagar] = useState('')
+  const [notasPago, setNotasPago] = useState('')
+  const [pagando, setPagando] = useState(false)
+
+  // Adelanto nuevo
+  const [mostrarFormAdelanto, setMostrarFormAdelanto] = useState(false)
+  const [adelantoMonto, setAdelantoMonto] = useState('')
+  const [adelantoCuotas, setAdelantoCuotas] = useState('1')
+  const [adelantoNotas, setAdelantoNotas] = useState('')
+  const [adelantoFecha, setAdelantoFecha] = useState('')
+  const [creandoAdelanto, setCreandoAdelanto] = useState(false)
+
+  // Edición de pago
+  const [editandoPago, setEditandoPago] = useState<string | null>(null)
+  const [editMontoAbonado, setEditMontoAbonado] = useState('')
+
+  // Edición de adelanto
+  const [editandoAdelanto, setEditandoAdelanto] = useState<string | null>(null)
+  const [editAdelantoMonto, setEditAdelantoMonto] = useState('')
+  const [editAdelantoCuotas, setEditAdelantoCuotas] = useState('')
+  const [editAdelantoNotas, setEditAdelantoNotas] = useState('')
+  const [guardandoEditAdelanto, setGuardandoEditAdelanto] = useState(false)
+
+  // Envío de recibo
+  const [modalEnvio, setModalEnvio] = useState(false)
+
+  // Registrar migaja dinámica con nombre del empleado
+  useEffect(() => {
+    setMigajaDinamica(`/asistencias/nomina/${datosEmpleado.miembro_id}`, datosEmpleado.nombre)
+  }, [datosEmpleado.miembro_id, datosEmpleado.nombre, setMigajaDinamica])
+
+  // Cargar días de trabajo del miembro (no viene en el resultado de nómina)
+  useEffect(() => {
+    supabase.from('miembros').select('dias_trabajo').eq('id', datosEmpleado.miembro_id).single()
+      .then(({ data }) => {
+        if (data) setCompDias((data as Record<string, unknown>).dias_trabajo as number || 5)
+      })
+  }, [datosEmpleado.miembro_id, supabase])
+
+  // Cargar pagos y adelantos del período actual
+  const cargarPagosYAdelantos = useCallback(async (miembroId: string, desde: string, hasta: string) => {
+    const { data: pagosData } = await supabase
+      .from('pagos_nomina')
+      .select('id, concepto, monto_sugerido, monto_abonado, fecha_inicio_periodo, fecha_fin_periodo, creado_en, creado_por_nombre, notas')
+      .eq('miembro_id', miembroId)
+      .eq('eliminado', false)
+      .lte('fecha_inicio_periodo', hasta)
+      .gte('fecha_fin_periodo', desde)
+      .order('creado_en', { ascending: false })
+    setPagos(pagosData || [])
+
+    const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
+    const dataAdel = await resAdel.json()
+    const todosAdelantos = (dataAdel.adelantos || []) as Record<string, unknown>[]
+    const adelantosFiltrados = todosAdelantos.filter((a) => {
+      if (a.estado === 'cancelado') return false
+      const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+      return cuotas.some(c =>
+        (c.fecha_programada as string) >= desde &&
+        (c.fecha_programada as string) <= hasta
+      )
+    })
+    setAdelantos(adelantosFiltrados)
+  }, [supabase])
+
+  // Carga inicial de pagos/adelantos (una sola vez, al montar). Las actualizaciones
+  // posteriores las dispara `aplicarPeriodo` e `irAEmpleado` manualmente.
+  useEffect(() => {
+    cargarPagosYAdelantos(empleadoInicial.miembro_id, periodoInicial.desde, periodoInicial.hasta)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Aplicar un nuevo período (llamado al navegar con ← Hoy → o al cambiar Semana/Quincena/Mes)
+  const aplicarPeriodo = useCallback(async (nuevaFecha: Date, nuevoTipo: TipoPeriodo) => {
+    const nuevo = calcularPeriodo(nuevaFecha, nuevoTipo)
+    setFechaRef(nuevaFecha)
+    setTipoPeriodo(nuevoTipo)
+    setPeriodoActual(nuevo)
+    setRecalculando(true)
+
+    // Sync URL sin re-ejecutar el page.tsx (evita flash de "Cargando...")
+    if (typeof window !== 'undefined') {
+      const nuevoQuery = `?desde=${nuevo.desde}&hasta=${nuevo.hasta}`
+      window.history.replaceState(null, '', `/asistencias/nomina/${datosEmpleado.miembro_id}${nuevoQuery}`)
+    }
+
+    try {
+      const res = await fetch(`/api/asistencias/nomina?desde=${nuevo.desde}&hasta=${nuevo.hasta}&empleados=${datosEmpleado.miembro_id}`)
+      const data = await res.json()
+      const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
+      if (resultado) setDatosEmpleado(resultado)
+    } catch { /* silenciar */ }
+    finally { setRecalculando(false) }
+
+    cargarPagosYAdelantos(datosEmpleado.miembro_id, nuevo.desde, nuevo.hasta)
+  }, [datosEmpleado.miembro_id, cargarPagosYAdelantos])
+
+  // Recargar datos del período actual tras una acción (pagar, adelanto, etc.)
+  const recargarDatos = useCallback(async () => {
+    setRecalculando(true)
+    try {
+      const res = await fetch(`/api/asistencias/nomina?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${datosEmpleado.miembro_id}`)
+      const data = await res.json()
+      const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
+      if (resultado) setDatosEmpleado(resultado)
+    } catch { /* silenciar */ }
+    finally { setRecalculando(false) }
+    await cargarPagosYAdelantos(datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta)
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta, cargarPagosYAdelantos])
+
+  // ─── Navegación entre empleados ───
+
+  const indiceEmpleado = empleadosPeriodo.findIndex(e => e.miembro_id === datosEmpleado.miembro_id)
+  const empleadoPrev = indiceEmpleado > 0 ? empleadosPeriodo[indiceEmpleado - 1] : null
+  const empleadoNext = indiceEmpleado >= 0 && indiceEmpleado < empleadosPeriodo.length - 1
+    ? empleadosPeriodo[indiceEmpleado + 1]
+    : null
+
+  // Navegar a otro empleado sin re-montar el page (evita el loading.tsx de /asistencias)
+  const irAEmpleado = useCallback(async (id: string) => {
+    setRecalculando(true)
+
+    // Sync URL sin disparar loading.tsx ni re-ejecutar el page
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `/asistencias/nomina/${id}?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}`)
+    }
+
+    try {
+      const res = await fetch(`/api/asistencias/nomina?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${id}`)
+      const data = await res.json()
+      const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === id)
+      if (resultado) {
+        setDatosEmpleado(resultado)
+        // Sincronizar compensación editable con el nuevo empleado
+        setCompTipo(resultado.compensacion_tipo)
+        setCompMonto(String(resultado.compensacion_monto))
+        setCompFrecuencia(resultado.compensacion_frecuencia || 'mensual')
+        // Reset de estados de UI transitorios
+        setCompEditando(false)
+        setConfirmandoPago(false)
+        setMostrarFormAdelanto(false)
+        setEditandoPago(null)
+        setEditandoAdelanto(null)
+        // días_trabajo se recarga automáticamente por el useEffect que observa datosEmpleado.miembro_id
+      }
+    } catch { /* silenciar */ }
+    finally { setRecalculando(false) }
+
+    cargarPagosYAdelantos(id, periodoActual.desde, periodoActual.hasta)
+  }, [periodoActual.desde, periodoActual.hasta, supabase, cargarPagosYAdelantos])
+
+  // ─── Guardar compensación + historial ───
+
+  const guardarCompensacion = useCallback(async (campo: string, valor: unknown, valorAnterior?: unknown) => {
+    const [, { data: user }, { data: miembroData }] = await Promise.all([
+      supabase.from('miembros').update({ [campo]: valor }).eq('id', datosEmpleado.miembro_id),
+      supabase.auth.getUser(),
+      supabase.from('miembros').select('empresa_id').eq('id', datosEmpleado.miembro_id).single(),
+    ])
+
+    if (miembroData && user.user) {
+      const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', user.user.id).single()
+      let porcentajeCambio: number | null = null
+      if (campo === 'compensacion_monto' && valorAnterior && Number(valorAnterior) > 0) {
+        porcentajeCambio = Math.round(((Number(valor) - Number(valorAnterior)) / Number(valorAnterior)) * 10000) / 100
+      }
+      supabase.from('historial_compensacion').insert({
+        empresa_id: (miembroData as Record<string, unknown>).empresa_id,
+        miembro_id: datosEmpleado.miembro_id,
+        campo,
+        valor_anterior: valorAnterior != null ? String(valorAnterior) : null,
+        valor_nuevo: String(valor),
+        porcentaje_cambio: porcentajeCambio,
+        creado_por: user.user.id,
+        creado_por_nombre: perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema',
+      }).then(() => {})
+    }
+    recargarDatos()
+  }, [datosEmpleado.miembro_id, supabase, recargarDatos])
+
+  // ─── Confirmar pago ───
+
+  const handleConfirmarPago = async () => {
+    setPagando(true)
+    const montoReal = parseFloat(montoAPagar) || emp.monto_neto
+
+    const [{ data: user }, { data: miembroData }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from('miembros').select('empresa_id').eq('id', datosEmpleado.miembro_id).single(),
+    ])
+
+    const empresaId = (miembroData as Record<string, unknown>)?.empresa_id as string
+    const userId = user.user?.id || ''
+
+    const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', userId).single()
+    const nombreCreador = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema'
+
+    const { data: pagoInsertado } = await supabase.from('pagos_nomina').insert({
+      empresa_id: empresaId,
+      miembro_id: datosEmpleado.miembro_id,
+      fecha_inicio_periodo: periodoActual.desde,
+      fecha_fin_periodo: periodoActual.hasta,
+      concepto: periodoActual.etiqueta,
+      monto_sugerido: emp.monto_neto,
+      monto_abonado: montoReal,
+      dias_habiles: emp.dias_laborales,
+      dias_trabajados: emp.dias_trabajados,
+      dias_ausentes: emp.dias_ausentes,
+      tardanzas: emp.dias_tardanza,
+      notas: notasPago || null,
+      creado_por: userId,
+      creado_por_nombre: nombreCreador,
+    }).select('id').single()
+
+    if (pagoInsertado) {
+      fetch('/api/adelantos/descontar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pago_nomina_id: (pagoInsertado as Record<string, unknown>).id,
+          miembro_id: datosEmpleado.miembro_id,
+          fecha_fin_periodo: periodoActual.hasta,
+        }),
+      }).catch(() => {})
+    }
+
+    await recargarDatos()
+    setPagando(false)
+    setConfirmandoPago(false)
+    setMontoAPagar('')
+    setNotasPago('')
+  }
+
+  // Editar / eliminar pago — registra auditoría de editor
+  const handleEditarPago = async (pagoId: string) => {
+    const monto = parseFloat(editMontoAbonado)
+    if (!monto || monto <= 0) return
+    const { data: user } = await supabase.auth.getUser()
+    const userId = user.user?.id || null
+    let nombreEditor: string | null = null
+    if (userId) {
+      const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', userId).single()
+      nombreEditor = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : null
+    }
+    await supabase.from('pagos_nomina').update({
+      monto_abonado: monto,
+      editado_por: userId,
+      editado_por_nombre: nombreEditor,
+      editado_en: new Date().toISOString(),
+    }).eq('id', pagoId)
+    setEditandoPago(null)
+    await recargarDatos()
+  }
+
+  const handleEliminarPago = async (pagoId: string) => {
+    const { data: user } = await supabase.auth.getUser()
+    const userId = user.user?.id || null
+    let nombreEliminador: string | null = null
+    if (userId) {
+      const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', userId).single()
+      nombreEliminador = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : null
+    }
+    await supabase.from('pagos_nomina').update({
+      eliminado: true,
+      eliminado_en: new Date().toISOString(),
+      eliminado_por: userId,
+      eliminado_por_nombre: nombreEliminador,
+    }).eq('id', pagoId)
+    await recargarDatos()
+  }
+
+  // Crear / editar / cancelar adelantos
+  const handleCrearAdelanto = async () => {
+    const monto = parseFloat(adelantoMonto)
+    if (!monto || monto <= 0) return
+    setCreandoAdelanto(true)
+
+    const frecuencia = compFrecuencia === 'eventual' ? 'mensual' : compFrecuencia
+    await fetch('/api/adelantos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        miembro_id: datosEmpleado.miembro_id,
+        monto_total: monto,
+        cuotas_totales: parseInt(adelantoCuotas) || 1,
+        fecha_solicitud: new Date().toISOString().split('T')[0],
+        fecha_inicio_descuento: adelantoFecha || new Date().toISOString().split('T')[0],
+        frecuencia_descuento: frecuencia,
+        notas: adelantoNotas || null,
+      }),
+    })
+
+    await recargarDatos()
+    setCreandoAdelanto(false)
+    setMostrarFormAdelanto(false)
+    setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
+  }
+
+  const handleEditarAdelanto = async (id: string) => {
+    setGuardandoEditAdelanto(true)
+    await fetch(`/api/adelantos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        monto_total: parseFloat(editAdelantoMonto) || undefined,
+        cuotas_totales: parseInt(editAdelantoCuotas) || undefined,
+        notas: editAdelantoNotas,
+      }),
+    })
+    await recargarDatos()
+    setGuardandoEditAdelanto(false)
+    setEditandoAdelanto(null)
+  }
+
+  const handleCancelarAdelanto = async (id: string) => {
+    await fetch(`/api/adelantos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'cancelado' }),
+    })
+    setAdelantos(prev => prev.filter(a => a.id !== id))
+  }
+
+  // ─── Cálculos derivados ───
+
+  const emp = datosEmpleado
+  const diasAHorario = Math.max(0, emp.dias_trabajados - emp.dias_tardanza)
+  const pctAsistencia = emp.dias_laborales > 0
+    ? Math.round((emp.dias_trabajados / emp.dias_laborales) * 100) : 0
+  const proyeccionMensual = compTipo === 'por_dia'
+    ? (parseFloat(compMonto) || 0) * compDias * 4.33
+    : parseFloat(compMonto) || 0
+
+  const cuotasInfoPeriodo = useMemo(() => {
+    return adelantos.map(a => {
+      const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+      const cuotaDelPeriodo = cuotas.find(c =>
+        (c.fecha_programada as string) >= periodoActual.desde &&
+        (c.fecha_programada as string) <= periodoActual.hasta
+      )
+      if (!cuotaDelPeriodo) return null
+      return {
+        numeroCuota: cuotaDelPeriodo.numero_cuota as number,
+        cuotasTotales: a.cuotas_totales as number,
+        monto: parseFloat(cuotaDelPeriodo.monto_cuota as string),
+        notas: a.notas as string,
+      }
+    }).filter(Boolean) as { numeroCuota: number; cuotasTotales: number; monto: number; notas: string }[]
+  }, [adelantos, periodoActual.desde, periodoActual.hasta])
+
+  const pagoDelPeriodo = pagos.length > 0 ? pagos[0] : null
+  const montoAbonadoPeriodo = pagoDelPeriodo ? parseFloat(pagoDelPeriodo.monto_abonado as string) : 0
+  const hayPago = pagoDelPeriodo != null
+  const diferenciaPago = hayPago ? montoAbonadoPeriodo - emp.monto_neto : 0
+
+  // Clave común para re-disparar la animación de los números en cada cambio de
+  // período o empleado (aunque el valor visible sea el mismo).
+  const animKey = `${datosEmpleado.miembro_id}-${periodoActual.desde}-${periodoActual.hasta}`
+
+  // ─── Render ───
+
+  // Insignias del cabecero (navegación entre empleados + tipo de compensación)
+  const insigniasCabecero = (
+    <div className="flex items-center gap-2">
+      {empleadosPeriodo.length > 1 && (
+        <div className="flex items-center gap-1 mr-1">
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<ChevronLeft size={14} />}
+            onClick={() => empleadoPrev && irAEmpleado(empleadoPrev.miembro_id)}
+            disabled={!empleadoPrev}
+            titulo={empleadoPrev ? `Anterior: ${empleadoPrev.nombre}` : 'Sin empleado anterior'}
+          />
+          <span className="text-xxs text-texto-terciario tabular-nums">
+            {indiceEmpleado + 1}/{empleadosPeriodo.length}
+          </span>
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<ChevronRight size={14} />}
+            onClick={() => empleadoNext && irAEmpleado(empleadoNext.miembro_id)}
+            disabled={!empleadoNext}
+            titulo={empleadoNext ? `Siguiente: ${empleadoNext.nombre}` : 'Sin empleado siguiente'}
+          />
+        </div>
+      )}
+      <Insignia color={compTipo === 'por_dia' ? 'info' : compTipo === 'por_hora' ? 'cyan' : 'primario'}>
+        {compTipo === 'por_dia' ? 'Por día' : compTipo === 'por_hora' ? 'Por hora' : 'Sueldo fijo'}
+      </Insignia>
+      <Insignia color="neutro">
+        {compFrecuencia === 'semanal' ? 'Semanal' : compFrecuencia === 'quincenal' ? 'Quincenal' : 'Mensual'}
+      </Insignia>
+    </div>
+  )
+
+  // ─── Banner editorial (hero) ───
+
+  const desdeDate = useMemo(() => new Date(periodoActual.desde + 'T12:00:00'), [periodoActual.desde])
+  const hastaDate = useMemo(() => new Date(periodoActual.hasta + 'T12:00:00'), [periodoActual.hasta])
+
+  const enPeriodoActual = useMemo(() => {
+    const hoy = calcularPeriodo(new Date(), tipoPeriodo)
+    return hoy.desde === periodoActual.desde && hoy.hasta === periodoActual.hasta
+  }, [tipoPeriodo, periodoActual.desde, periodoActual.hasta])
+
+  const banner = (
+    <CabezaloHero
+      titulo={<HeroRango desde={desdeDate} hasta={hastaDate} periodo={tipoPeriodo} />}
+      onAnterior={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
+      onSiguiente={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
+      onHoy={() => aplicarPeriodo(new Date(), tipoPeriodo)}
+      hoyDeshabilitado={enPeriodoActual}
+      slotControles={
+        <GrupoBotones>
+          {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
+            <Boton
+              key={t}
+              variante="secundario"
+              tamano="sm"
+              onClick={() => aplicarPeriodo(fechaRef, t)}
+              className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+            >
+              {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
+            </Boton>
+          ))}
+        </GrupoBotones>
+      }
+    />
+  )
+
+  // Panel izq: stats + desglose (sin navegador de período — ya está en el banner)
+  const panelConfig = (
+    <div className="space-y-5">
+      {/* Stats principales del período */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Asistencia</p>
+          {recalculando && <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="text-xl font-bold text-texto-primario">
+              <NumeroAnimado claveAnim={animKey}>
+                {emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span>
+              </NumeroAnimado>
+            </p>
+            <p className="text-xxs text-texto-terciario">Trabajados</p>
+          </div>
+          <div>
+            <p className="text-xl font-bold text-insignia-exito">
+              <NumeroAnimado claveAnim={animKey}>{diasAHorario}</NumeroAnimado>
+            </p>
+            <p className="text-xxs text-texto-terciario">A horario</p>
+          </div>
+          <div>
+            <p className="text-xl font-bold text-insignia-advertencia">
+              <NumeroAnimado claveAnim={animKey}>{emp.dias_tardanza}</NumeroAnimado>
+            </p>
+            <p className="text-xxs text-texto-terciario">Tardanzas</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap mt-2">
+          {emp.dias_ausentes > 0 && (
+            <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
+          )}
+          {emp.dias_feriados > 0 && (
+            <>
+              {emp.dias_ausentes > 0 && <span className="text-xxs text-texto-terciario">·</span>}
+              <p className="text-xs text-insignia-info">
+                {emp.dias_feriados} feriado{emp.dias_feriados !== 1 ? 's' : ''}
+                {emp.dias_trabajados_feriado > 0 ? ` (vino ${emp.dias_trabajados_feriado})` : ''}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Desglose del período */}
+      <div>
+        <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Desglose</p>
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span className="text-texto-terciario">Horas netas</span>
+            <span className="text-texto-primario">
+              <NumeroAnimado claveAnim={animKey}>{fmtHoras(emp.horas_netas)}</NumeroAnimado>
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-texto-terciario">Bruto</span>
+            <span className="text-texto-primario font-medium">
+              <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
+            </span>
+          </div>
+          {cuotasInfoPeriodo.map((ci, idx) => (
+            <div key={idx} className="flex justify-between text-sm">
+              <span className="text-insignia-advertencia">
+                Adelanto ({ci.numeroCuota}/{ci.cuotasTotales})
+              </span>
+              <span className="text-insignia-advertencia">-{fmtMonto(ci.monto)}</span>
+            </div>
+          ))}
+          {emp.saldo_anterior !== 0 && (
+            <div className="flex justify-between text-sm">
+              <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                {emp.saldo_anterior > 0 ? 'A favor (ant.)' : 'Debe (ant.)'}
+              </span>
+              <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                {emp.saldo_anterior > 0 ? '-' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5">
+            <span className="text-texto-primario font-semibold">Neto a pagar</span>
+            <span className="text-insignia-exito font-bold text-base">
+              <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
+            </span>
+          </div>
+
+          {hayPago && (
+            <>
+              <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5 mt-1.5">
+                <span className="text-texto-terciario">Se pagó</span>
+                <span className="text-texto-primario font-semibold">{fmtMonto(montoAbonadoPeriodo)}</span>
+              </div>
+              {diferenciaPago !== 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className={diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                    {diferenciaPago > 0 ? 'A favor' : 'Quedó debiendo'}
+                  </span>
+                  <span className={`font-semibold ${diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                    {diferenciaPago > 0 ? '+' : ''}{fmtMonto(diferenciaPago)}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <p className="text-xxs text-texto-terciario mt-2">{emp.monto_detalle} · {pctAsistencia}% asistencia</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <PlantillaEditor
+        titulo={datosEmpleado.nombre}
+        insignias={insigniasCabecero}
+        volverTexto={textoVolver}
+        onVolver={() => router.push(rutaVolver)}
+        acciones={[
+          {
+            id: 'enviar-recibo',
+            etiqueta: 'Enviar recibo',
+            icono: <Send size={13} />,
+            variante: 'secundario',
+            onClick: () => setModalEnvio(true),
+          },
+          {
+            id: 'pagar',
+            etiqueta: 'Pagar',
+            icono: <Banknote size={14} />,
+            variante: 'primario',
+            onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
+          },
+        ]}
+        banner={banner}
+        panelConfig={panelConfig}
+      >
+        <div className="max-w-3xl space-y-6">
+
+          {/* ── COMPENSACIÓN ── */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Compensación</p>
+              {!compEditando && (
+                <Boton variante="fantasma" tamano="xs" icono={<Pencil size={12} />} onClick={() => setCompEditando(true)}>Editar</Boton>
+              )}
+            </div>
+
+            {!compEditando ? (
+              <div>
+                {(parseFloat(compMonto) || 0) > 0 ? (
+                  <div>
+                    <p className="text-3xl font-bold text-texto-primario">
+                      <NumeroAnimado claveAnim={animKey}>
+                        {compTipo === 'fijo' ? fmtMonto(parseFloat(compMonto)) : (
+                          <>{fmtMonto(proyeccionMensual)}<span className="text-base font-normal text-texto-terciario">/mes</span></>
+                        )}
+                      </NumeroAnimado>
+                    </p>
+                    {compTipo !== 'fijo' && (
+                      <p className="text-xs text-texto-terciario mt-1">
+                        {fmtMonto(parseFloat(compMonto))}/{compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4.33 sem
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <Insignia color="neutro">
+                        {compDias === 7 ? '7/7' : compDias === 6 ? 'L-S' : compDias === 5 ? 'L-V' : `${compDias} días`}
+                      </Insignia>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-texto-terciario">Sin monto configurado</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-5 rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
+                {/* Tipo de pago */}
+                <div>
+                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cómo se le paga?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { valor: 'por_dia', titulo: 'Cobra por día', desc: 'Gana un monto por cada día que trabaja.', icono: <CalendarDays size={20} /> },
+                      { valor: 'fijo', titulo: 'Sueldo fijo', desc: 'Cobra un monto fijo por período completo.', icono: <Landmark size={20} /> },
+                    ].map(op => (
+                      <button key={op.valor}
+                        onClick={() => { const prev = compTipo; setCompTipo(op.valor); guardarCompensacion('compensacion_tipo', op.valor, prev) }}
+                        className={`flex items-start gap-3 p-3 rounded-card border text-left cursor-pointer transition-all ${
+                          compTipo === op.valor
+                            ? 'border-texto-marca bg-texto-marca/5'
+                            : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
+                        }`}
+                      >
+                        <div className={`size-10 rounded-card flex items-center justify-center shrink-0 ${
+                          compTipo === op.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
+                        }`}>
+                          {op.icono}
+                        </div>
+                        <div>
+                          <p className={`text-sm font-semibold ${compTipo === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                            {op.titulo}
+                          </p>
+                          <p className="text-xs text-texto-terciario mt-0.5">{op.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Monto */}
+                <div>
+                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">
+                    {compTipo === 'por_dia' ? '¿Cuánto gana por día trabajado?' : '¿Cuánto gana por período completo?'}
+                  </p>
+                  <div className="max-w-sm">
+                    <InputMoneda value={compMonto} onChange={setCompMonto} moneda="ARS" placeholder="40.000" />
+                  </div>
+                  {compTipo !== 'fijo' && (parseFloat(compMonto) || 0) > 0 && (
+                    <p className="text-xs text-texto-terciario mt-2">
+                      Proyección mensual: <span className="text-insignia-exito font-medium">{fmtMonto(proyeccionMensual)}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Frecuencia */}
+                <div>
+                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cada cuánto cobra?</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { valor: 'semanal', etiqueta: 'Semanal' },
+                      { valor: 'quincenal', etiqueta: 'Quincenal' },
+                      { valor: 'mensual', etiqueta: 'Mensual' },
+                    ].map(f => (
+                      <Boton key={f.valor}
+                        variante={compFrecuencia === f.valor ? 'primario' : 'secundario'}
+                        tamano="sm"
+                        onClick={() => { const prev = compFrecuencia; setCompFrecuencia(f.valor); guardarCompensacion('compensacion_frecuencia', f.valor, prev) }}
+                        className={compFrecuencia === f.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
+                      >{f.etiqueta}</Boton>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Días por semana */}
+                <div>
+                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">Días por semana</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { valor: 5, etiqueta: 'L-V', sub: 'Lunes a Viernes' },
+                      { valor: 6, etiqueta: 'L-S', sub: 'Lunes a Sábado' },
+                      { valor: 7, etiqueta: '7/7', sub: 'Todos los días' },
+                    ].map(d => (
+                      <Boton key={d.valor}
+                        variante={compDias === d.valor ? 'primario' : 'secundario'}
+                        tamano="sm"
+                        onClick={() => { const prev = compDias; setCompDias(d.valor); guardarCompensacion('dias_trabajo', d.valor, prev) }}
+                        className={`min-w-[80px] ${compDias === d.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}`}
+                      >
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm font-bold">{d.etiqueta}</span>
+                          <span className="text-xxs text-texto-terciario mt-0.5">{d.sub}</span>
+                        </div>
+                      </Boton>
+                    ))}
+                  </div>
+                </div>
+
+                <Boton variante="fantasma" tamano="sm" onClick={() => {
+                  const montoNuevo = parseFloat(compMonto) || 0
+                  if (montoNuevo !== datosEmpleado.compensacion_monto) {
+                    guardarCompensacion('compensacion_monto', montoNuevo, datosEmpleado.compensacion_monto)
+                  }
+                  setCompEditando(false)
+                }}>Listo</Boton>
+              </div>
+            )}
+          </section>
+
+          {/* ── DESCUENTOS / ADELANTOS ── */}
+          <section className="border-t border-borde-sutil pt-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Descuentos</p>
+              {!mostrarFormAdelanto && (
+                <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />}
+                  onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+              )}
+            </div>
+
+            {/* Saldo a favor del período anterior */}
+            {emp.saldo_anterior > 0 && (
+              <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-info/10 border border-insignia-info/20 mb-2">
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-insignia-info">A favor período anterior</span>
+                  <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de más, se descuenta este período</p>
+                </div>
+                <span className="text-sm font-bold text-insignia-info">-{fmtMonto(emp.saldo_anterior)}</span>
+              </div>
+            )}
+
+            {emp.saldo_anterior < 0 && (
+              <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 mb-2">
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-insignia-peligro">Debe del período anterior</span>
+                  <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de menos, se suma a este período</p>
+                </div>
+                <span className="text-sm font-bold text-insignia-peligro">+{fmtMonto(Math.abs(emp.saldo_anterior))}</span>
+              </div>
+            )}
+
+            {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
+              <p className="text-xs text-texto-terciario py-2">Sin descuentos en este período</p>
+            )}
+
+            <div className="space-y-1">
+              {adelantos.map(a => {
+                const aid = a.id as string
+                const cuotasT = a.cuotas_totales as number
+                const cuotasD = a.cuotas_descontadas as number
+                const saldo = parseFloat(a.saldo_pendiente as string)
+                const total = parseFloat(a.monto_total as string)
+                const progreso = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
+                const esEditando = editandoAdelanto === aid
+
+                const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+                const cuotaDelPeriodo = cuotas.find(c =>
+                  (c.fecha_programada as string) >= periodoActual.desde &&
+                  (c.fecha_programada as string) <= periodoActual.hasta
+                )
+                const numeroCuotaPeriodo = cuotaDelPeriodo ? (cuotaDelPeriodo.numero_cuota as number) : null
+                const montoCuotaPeriodo = cuotaDelPeriodo ? parseFloat(cuotaDelPeriodo.monto_cuota as string) : 0
+
+                if (esEditando) {
+                  return (
+                    <div key={aid} className="space-y-2 p-3 rounded-card border border-texto-marca/30 bg-texto-marca/5">
+                      <InputMoneda value={editAdelantoMonto} onChange={setEditAdelantoMonto} moneda="ARS" etiqueta="Monto" />
+                      <div>
+                        <label className="text-xs text-texto-terciario mb-1 block">Cuotas totales</label>
+                        <select value={editAdelantoCuotas} onChange={e => setEditAdelantoCuotas(e.target.value)}
+                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
+                          {Array.from({ length: 12 }, (_, i) => i + 1).filter(n => n >= cuotasD).map(n => (
+                            <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}{n === cuotasD ? ' (mínimo, ya descontadas)' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <Input tipo="text" value={editAdelantoNotas} onChange={e => setEditAdelantoNotas(e.target.value)} placeholder="Notas" />
+                      <div className="flex gap-2">
+                        <Boton tamano="xs" onClick={() => handleEditarAdelanto(aid)} cargando={guardandoEditAdelanto}>Guardar</Boton>
+                        <Boton variante="fantasma" tamano="xs" onClick={() => setEditandoAdelanto(null)}>Cancelar</Boton>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={aid} className="flex items-center gap-3 py-2 border-b border-white/[0.05] last:border-0">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-texto-primario">{fmtMonto(montoCuotaPeriodo || total)}</span>
+                        {numeroCuotaPeriodo ? (
+                          <Insignia color="advertencia" tamano="sm">Cuota {numeroCuotaPeriodo}/{cuotasT}</Insignia>
+                        ) : (
+                          <Insignia color="neutro" tamano="sm">{cuotasD}/{cuotasT} pagadas</Insignia>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1 bg-superficie-hover rounded-full overflow-hidden max-w-[80px]">
+                          <div className="h-full bg-insignia-advertencia rounded-full" style={{ width: `${progreso}%` }} />
+                        </div>
+                        <span className="text-xxs text-texto-terciario">
+                          Total: {fmtMonto(total)} · Saldo: {fmtMonto(saldo)}
+                        </span>
+                      </div>
+                      <p className="text-xxs text-texto-terciario mt-0.5">
+                        {fmtFecha(a.fecha_solicitud as string)}
+                        {(a.notas as string) ? ` · ${String(a.notas)}` : ''}
+                      </p>
+                    </div>
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
+                      icono={<Pencil size={11} />} onClick={() => {
+                        setEditandoAdelanto(aid)
+                        setEditAdelantoMonto(String(total))
+                        setEditAdelantoCuotas(String(cuotasT))
+                        setEditAdelantoNotas((a.notas as string) || '')
+                      }} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar adelanto"
+                      icono={<X size={12} />} onClick={() => handleCancelarAdelanto(aid)} />
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Formulario nuevo adelanto */}
+            {mostrarFormAdelanto && (
+              <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
+                <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
+                    className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
+                    ))}
+                  </select>
+                  <SelectorFecha valor={adelantoFecha || null} onChange={v => setAdelantoFecha(v || '')} placeholder="Inicio" />
+                </div>
+                <Input tipo="text" value={adelantoNotas} onChange={e => setAdelantoNotas(e.target.value)} placeholder="Nota (opcional)" />
+                <div className="flex gap-2">
+                  <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
+                    disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
+                  <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ── HISTORIAL DE PAGOS ── */}
+          <section className="border-t border-borde-sutil pt-6">
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Pagos del período</p>
+            {pagos.length === 0 ? (
+              <p className="text-xs text-texto-terciario">Sin pagos registrados en este período</p>
+            ) : (
+              <div className="space-y-1.5">
+                {pagos.map(p => {
+                  const pagoId = p.id as string
+                  const montoAbonado = p.monto_abonado as number
+                  const montoSugerido = p.monto_sugerido as number
+                  const esEditando = editandoPago === pagoId
+
+                  return (
+                    <div key={pagoId} className="flex items-center gap-3 py-2 border-b border-white/[0.05] last:border-0">
+                      <Receipt size={13} className="text-texto-terciario shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-texto-secundario truncate">{p.concepto as string}</p>
+                        <p className="text-xxs text-texto-terciario">
+                          {new Date(p.creado_en as string).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {p.creado_por_nombre ? <> · {String(p.creado_por_nombre)}</> : null}
+                        </p>
+                        {p.notas ? <p className="text-xxs text-texto-terciario truncate mt-0.5">{String(p.notas)}</p> : null}
+                      </div>
+
+                      {esEditando ? (
+                        <div className="flex items-center gap-1.5">
+                          <InputMoneda value={editMontoAbonado} onChange={setEditMontoAbonado} moneda="ARS" />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Guardar"
+                            icono={<Check size={12} />} onClick={() => handleEditarPago(pagoId)} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar"
+                            icono={<X size={12} />} onClick={() => setEditandoPago(null)} />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="text-sm font-semibold text-insignia-exito">{fmtMonto(montoAbonado)}</span>
+                            {montoSugerido && montoAbonado !== montoSugerido && (
+                              <p className={`text-xxs ${montoAbonado > montoSugerido ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                                {montoAbonado > montoSugerido
+                                  ? `+${fmtMonto(montoAbonado - montoSugerido)} a favor → se descuenta`
+                                  : `${fmtMonto(montoAbonado - montoSugerido)} quedó debiendo`
+                                }
+                              </p>
+                            )}
+                          </div>
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
+                            icono={<Pencil size={11} />}
+                            onClick={() => { setEditandoPago(pagoId); setEditMontoAbonado(String(montoAbonado)) }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar pago"
+                            icono={<Trash2 size={11} />}
+                            onClick={() => handleEliminarPago(pagoId)} />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      </PlantillaEditor>
+
+      {/* Modal de confirmación de pago */}
+      <Modal
+        abierto={confirmandoPago}
+        onCerrar={() => { if (!pagando) setConfirmandoPago(false) }}
+        titulo="Confirmar pago"
+        tamano="md"
+        acciones={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Boton variante="fantasma" tamano="sm" onClick={() => setConfirmandoPago(false)} disabled={pagando}>Cancelar</Boton>
+            <Boton tamano="sm" icono={<Check size={14} />} onClick={handleConfirmarPago} cargando={pagando}
+              disabled={!montoAPagar || parseFloat(montoAPagar) <= 0}>
+              Confirmar pago de {montoAPagar ? fmtMonto(parseFloat(montoAPagar)) : '...'}
+            </Boton>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-texto-terciario">Neto sugerido</span>
+            <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_neto)}</span>
+          </div>
+          {emp.descuento_adelanto > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-texto-terciario">Incluye descuento adelanto</span>
+              <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+            </div>
+          )}
+          <InputMoneda
+            etiqueta="Monto a pagar"
+            value={montoAPagar}
+            onChange={setMontoAPagar}
+            moneda="ARS"
+          />
+          {parseFloat(montoAPagar) !== emp.monto_neto && parseFloat(montoAPagar) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-texto-terciario">Diferencia</span>
+              <span className={parseFloat(montoAPagar) > emp.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
+                {parseFloat(montoAPagar) > emp.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - emp.monto_neto)}
+                {parseFloat(montoAPagar) > emp.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
+              </span>
+            </div>
+          )}
+          <Input
+            tipo="text"
+            etiqueta="Notas (opcional)"
+            value={notasPago}
+            onChange={e => setNotasPago(e.target.value)}
+            placeholder="Observaciones del pago..."
+          />
+        </div>
+      </Modal>
+
+      {/* Modal de envío de recibo */}
+      <ModalEnviarReciboNomina
+        abierto={modalEnvio}
+        onCerrar={() => setModalEnvio(false)}
+        resultados={[datosEmpleado]}
+        etiquetaPeriodo={periodoActual.etiqueta}
+        nombreEmpresa={nombreEmpresa}
+      />
+    </>
+  )
+}

@@ -5,7 +5,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Search, X, Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Columns3, SlidersHorizontal, Bookmark, BookmarkPlus,
+  Columns3, SlidersHorizontal, Bookmark,
   List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star, MoreVertical,
   GripVertical,
 } from 'lucide-react'
@@ -33,6 +33,7 @@ import { Tooltip } from '@/componentes/ui/Tooltip'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { PanelColumnas } from '@/componentes/tablas/PanelColumnas'
 import { SeccionFiltroPanel, GuardarVistaInline, FilaVista } from '@/componentes/tablas/PanelFiltros'
+import { PanelFiltrosAvanzado } from '@/componentes/tablas/PanelFiltrosAvanzado'
 import { PieResumenFila } from '@/componentes/tablas/PieResumen'
 import { BarraAccionesLote } from '@/componentes/tablas/BarraAccionesLote'
 
@@ -63,6 +64,7 @@ function TablaDinamica<T>({
   placeholder = 'Buscar...',
   filtros = [],
   onLimpiarFiltros,
+  gruposFiltros,
   accionesLote = [],
   onClickFila,
   onVistaExterna,
@@ -928,8 +930,10 @@ function TablaDinamica<T>({
       {!ocultarBarraHerramientas && (
       <div className={`flex items-center gap-2 pt-5 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
 
-        {/* Buscador — mobile: 100%, desktop: adaptable (oculto en contenidoCustom) */}
-        <div className={`min-w-0 w-full sm:w-auto sm:max-w-[700px] relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''}`} style={esMobil ? undefined : { width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
+        {/* Buscador — ancho adaptativo según breakpoint:
+             - Cerrado: mobile w-full, desktop dinámico según texto (max 700px)
+             - Abierto: w-full hasta 820px máx. (se ajusta al viewport si es menor) */}
+        <div className={`min-w-0 relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''} ${panelFiltrosAbierto ? 'w-full sm:max-w-[820px]' : 'w-full sm:w-auto sm:max-w-[700px]'}`} style={(esMobil || panelFiltrosAbierto) ? undefined : { width: anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
@@ -942,7 +946,7 @@ function TablaDinamica<T>({
             {/* Lupa */}
             <Search size={15} className="text-texto-terciario shrink-0" />
 
-            {/* Chip de filtro activo */}
+            {/* Chip de filtro activo (externo, ej: vinculado_de) */}
             {chipFiltro}
 
             {/* Input */}
@@ -969,7 +973,7 @@ function TablaDinamica<T>({
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder"
             />
 
-            {/* Detector de vistas */}
+            {/* Indicador de vista activa (solo muestra, no guarda) */}
             <AnimatePresence mode="popLayout">
               {detector.tipo === 'vista_activa' && detector.vistaActiva && (
                 <motion.span
@@ -984,32 +988,26 @@ function TablaDinamica<T>({
                   {detector.vistaActiva.nombre}
                 </motion.span>
               )}
-
-              {detector.tipo === 'sin_guardar' && idModulo && (
-                <motion.button
-                  key="sin-guardar"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
-                  type="button"
-                  onClick={() => { setPanelFiltrosAbierto(true); setPanelColumnasAbierto(false) }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-texto-marca hover:bg-superficie-seleccionada whitespace-nowrap shrink-0 cursor-pointer border border-texto-marca/20 bg-transparent transition-colors"
-                >
-                  <BookmarkPlus size={12} />
-                  Guardar vista
-                </motion.button>
-              )}
             </AnimatePresence>
 
             {/* Limpiar todo */}
             {hayBusquedaOFiltros && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiarTodo} titulo={t('paginacion.limpiar_todo')} className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={limpiarTodo} titulo={t('paginacion.limpiar_todo')} className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
             )}
 
-            {/* Botón filtros + vistas */}
+            {/* Botón filtros — se transforma en píldora con contador cuando hay filtros activos */}
             {(todosLosFiltros.length > 0 || idModulo) && (
-              <div className="relative shrink-0">
+              numFiltrosActivos > 0 && detector.tipo !== 'vista_activa' ? (
+                <button
+                  type="button"
+                  onClick={() => { setPanelFiltrosAbierto(!panelFiltrosAbierto); setPanelColumnasAbierto(false) }}
+                  className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-xs font-medium bg-superficie-seleccionada text-texto-marca whitespace-nowrap shrink-0 border border-texto-marca/20 cursor-pointer hover:bg-texto-marca/15 transition-colors"
+                  title="Ver filtros aplicados"
+                >
+                  <SlidersHorizontal size={12} />
+                  {numFiltrosActivos} {numFiltrosActivos === 1 ? 'filtro' : 'filtros'}
+                </button>
+              ) : (
                 <Boton
                   variante="fantasma"
                   tamano="xs"
@@ -1018,10 +1016,7 @@ function TablaDinamica<T>({
                   titulo="Filtros y vistas"
                   onClick={() => { setPanelFiltrosAbierto(!panelFiltrosAbierto); setPanelColumnasAbierto(false) }}
                 />
-                {numFiltrosActivos > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-peligro" />
-                )}
-              </div>
+              )
             )}
 
             {/* Botón columnas — siempre al final derecho */}
@@ -1081,47 +1076,36 @@ function TablaDinamica<T>({
             )}
           </div>
 
-          {/* Pills de filtros activos — debajo de la cápsula para no comprimir botones */}
-          {detector.tipo !== 'vista_activa' && (() => {
-            const filtrosActivos = todosLosFiltros.filter(filtroEstaActivo)
-            if (filtrosActivos.length === 0) return null
-            return (
-              <div className="flex flex-wrap items-center gap-1.5 mt-1.5 px-0.5">
-                {filtrosActivos.map((f) => {
-                  const valorTexto = Array.isArray(f.valor)
-                    ? f.valor.map(v => f.opciones?.find(o => o.valor === v)?.etiqueta || v).slice(0, 3).join(', ') + (f.valor.length > 3 ? ` +${f.valor.length - 3}` : '')
-                    : f.opciones?.find((o) => o.valor === f.valor)?.etiqueta || f.valor
-                  return (
-                    <motion.span
-                      key={f.id}
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-insignia-primario-fondo text-insignia-primario-texto whitespace-nowrap"
-                    >
-                      <span className="text-xxs opacity-70">{f.etiqueta}:</span>
-                      <span>{valorTexto}</span>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); f.onChange(Array.isArray(f.valor) ? [] : '') }}
-                        className="inline-flex items-center justify-center size-3.5 rounded-full hover:bg-black/10 cursor-pointer border-none bg-transparent text-current p-0"
-                      >
-                        <X size={10} />
-                      </button>
-                    </motion.span>
-                  )
-                })}
-              </div>
-            )
-          })()}
-
           {/* Panel de filtros + vistas (desplegable) */}
           <AnimatePresence>
             {panelFiltrosAbierto && (todosLosFiltros.length > 0 || idModulo) && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setPanelFiltrosAbierto(false)} />
                 <div className="relative z-50">
+                  {/* ── MODO AVANZADO: panel estilo command center (se activa al pasar gruposFiltros) ── */}
+                  {gruposFiltros && gruposFiltros.length > 0 && todosLosFiltros.length > 0 ? (
+                    <PanelFiltrosAvanzado
+                      filtros={todosLosFiltros}
+                      gruposFiltros={gruposFiltros}
+                      opcionesOrden={opcionesOrden}
+                      ordenamiento={ordenamiento}
+                      setOrdenamiento={setOrdenamiento}
+                      vistasGuardadas={vistasGuardadas}
+                      detector={detector}
+                      onAplicarVista={manejarAplicarVista}
+                      onGuardarVista={manejarGuardarVista}
+                      onRenombrarVista={manejarRenombrarVista}
+                      onCambiarIconoVista={manejarCambiarIconoVista}
+                      onMarcarPredefinida={manejarMarcarPredefinida}
+                      onEliminarVista={manejarEliminarVista}
+                      onReordenarVistas={manejarReordenarVistas}
+                      idModulo={idModulo}
+                      numFiltrosActivos={numFiltrosActivos}
+                      totalResultados={totalRegistros}
+                      onLimpiarTodo={limpiarTodo}
+                      onCerrar={() => setPanelFiltrosAbierto(false)}
+                    />
+                  ) : (
                   <motion.div
                     initial={{ opacity: 0, y: -8, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1129,12 +1113,140 @@ function TablaDinamica<T>({
                     transition={{ type: 'spring', duration: 0.3 }}
                     className="absolute top-full left-0 right-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover rounded-t-none! shadow-lg z-50 overflow-hidden"
                   >
-                    <div className="max-h-[460px] overflow-y-auto">
-                      {/* Layout 3 columnas: Filtros | Orden | Favoritos */}
-                      <div className="flex divide-x divide-borde-sutil">
+                    <div className="max-h-[520px] overflow-y-auto">
+                      {/* Layout — modo agrupado: 2 columnas (Filtros amplio | Orden+Favoritos apilados) */}
+                      {todosLosFiltros.length > 0 && gruposFiltros && gruposFiltros.length > 0 && (() => {
+                        const mapaFiltros = new Map(todosLosFiltros.map(f => [f.id, f]))
+                        const idsEnGrupos = new Set(gruposFiltros.flatMap(g => g.filtros))
+                        const filtrosHuerfanos = todosLosFiltros.filter(f => !idsEnGrupos.has(f.id))
+                        return (
+                          <div className="flex divide-x divide-borde-sutil">
+                            {/* ── Columna izquierda: Filtros agrupados ── */}
+                            <div className="flex-[2] p-4 flex flex-col gap-4 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                  <SlidersHorizontal size={12} />
+                                  Filtros
+                                </span>
+                                {numFiltrosActivos > 0 && (
+                                  <Boton variante="peligro" tamano="xs" redondeado onClick={limpiarTodo}>
+                                    Limpiar ({numFiltrosActivos})
+                                  </Boton>
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-4">
+                                {gruposFiltros.map((grupo, idx) => {
+                                  const filtrosDelGrupo = grupo.filtros.map(id => mapaFiltros.get(id)).filter(Boolean) as FiltroTabla[]
+                                  if (filtrosDelGrupo.length === 0) return null
+                                  return (
+                                    <div key={grupo.id} className="flex flex-col gap-2.5">
+                                      {idx > 0 && <div className="border-t border-borde-sutil -mx-4" />}
+                                      <div className="flex items-center gap-1.5 text-xxs font-bold text-texto-primario uppercase tracking-wider pt-1">
+                                        {grupo.icono}
+                                        {grupo.etiqueta}
+                                      </div>
+                                      <div className="flex flex-wrap gap-x-5 gap-y-3">
+                                        {filtrosDelGrupo.map(filtro => (
+                                          <div key={filtro.id} className="min-w-[180px] flex-1 max-w-[260px]">
+                                            <SeccionFiltroPanel filtro={filtro} />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                                {filtrosHuerfanos.length > 0 && (
+                                  <div className="flex flex-col gap-2.5">
+                                    <div className="border-t border-borde-sutil -mx-4" />
+                                    <div className="flex flex-wrap gap-x-5 gap-y-3">
+                                      {filtrosHuerfanos.map(filtro => (
+                                        <div key={filtro.id} className="min-w-[180px] flex-1 max-w-[260px]">
+                                          <SeccionFiltroPanel filtro={filtro} />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
 
-                        {/* ── Columna 1: Filtros (primeros 3) ── */}
-                        {todosLosFiltros.length > 0 && (() => {
+                            {/* ── Columna derecha: ORDEN arriba + FAVORITOS abajo ── */}
+                            <div className="flex-1 flex flex-col divide-y divide-borde-sutil min-w-0">
+                              {opcionesOrden && opcionesOrden.length > 0 && (
+                                <div className="p-4 flex flex-col gap-3">
+                                  <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                    <ArrowUpDown size={12} />
+                                    Orden
+                                  </span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {opcionesOrden.map(op => {
+                                      const activo = ordenamiento.length > 0 && ordenamiento[0].clave === op.clave && ordenamiento[0].direccion === op.direccion
+                                      return (
+                                        <button key={`${op.clave}-${op.direccion}`} type="button"
+                                          onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
+                                          className={[
+                                            'px-3 py-1.5 rounded-boton text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                                            activo ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
+                                          ].join(' ')}>
+                                          {op.etiqueta}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {idModulo && (() => {
+                                const vistasSistema = (vistasGuardadas || []).filter(v => v.es_sistema)
+                                const vistasPersonales = (vistasGuardadas || []).filter(v => !v.es_sistema)
+                                return (
+                                  <div className="p-4 flex flex-col gap-2">
+                                    <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                      <Star size={12} />
+                                      Favoritos
+                                    </span>
+                                    {(!vistasGuardadas || vistasGuardadas.length === 0) && (
+                                      <p className="text-xs text-texto-terciario">Sin vistas guardadas</p>
+                                    )}
+                                    {vistasSistema.length > 0 && (
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider px-1.5 mb-1">Del sistema</span>
+                                        {vistasSistema.map(v => (
+                                          <FilaVista key={v.id} vista={v} esActiva={detector?.vistaActiva?.id === v.id} puedeArrastrar={false} onAplicar={() => manejarAplicarVista(v.id)} />
+                                        ))}
+                                      </div>
+                                    )}
+                                    {vistasPersonales.length > 0 && (
+                                      <div className="flex flex-col gap-0.5">
+                                        {vistasSistema.length > 0 && (
+                                          <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider px-1.5 mb-1">Mis vistas</span>
+                                        )}
+                                        <Reorder.Group axis="y" values={vistasPersonales} onReorder={(nuevoOrden) => manejarReordenarVistas(nuevoOrden.map(v => v.id))} className="flex flex-col gap-0.5">
+                                          {vistasPersonales.map(v => (
+                                            <Reorder.Item key={v.id} value={v} className="list-none">
+                                              <FilaVista vista={v} esActiva={detector?.vistaActiva?.id === v.id} puedeArrastrar onAplicar={() => manejarAplicarVista(v.id)} onRenombrar={(n) => manejarRenombrarVista(v.id, n)} onCambiarIcono={(i) => manejarCambiarIconoVista(v.id, i)} onMarcarPredefinida={() => manejarMarcarPredefinida(v.id)} onEliminar={() => manejarEliminarVista(v.id)} />
+                                            </Reorder.Item>
+                                          ))}
+                                        </Reorder.Group>
+                                      </div>
+                                    )}
+                                    {manejarGuardarVista && detector?.tipo !== 'default' && (
+                                      <GuardarVistaInline onGuardar={manejarGuardarVista} />
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* Layout default — SOLO se usa cuando NO hay gruposFiltros */}
+                      <div className={`flex divide-x divide-borde-sutil ${gruposFiltros && gruposFiltros.length > 0 ? 'hidden' : ''}`}>
+
+
+                        {/* ── Columna 1/2: Filtros (modo default, split "primeros 3 + resto") ── */}
+                        {todosLosFiltros.length > 0 && (!gruposFiltros || gruposFiltros.length === 0) && (() => {
                           const filtrosCol1 = todosLosFiltros.slice(0, 3)
                           const filtrosCol2 = todosLosFiltros.slice(3)
                           return (
@@ -1199,6 +1311,31 @@ function TablaDinamica<T>({
                             </>
                           )
                         })()}
+
+                        {/* ── Columna Orden (solo en modo agrupado, cuando hay grupos) ── */}
+                        {gruposFiltros && gruposFiltros.length > 0 && opcionesOrden && opcionesOrden.length > 0 && (
+                          <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
+                            <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                              <ArrowUpDown size={12} />
+                              Orden
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {opcionesOrden.map(op => {
+                                const activo = ordenamiento.length > 0 && ordenamiento[0].clave === op.clave && ordenamiento[0].direccion === op.direccion
+                                return (
+                                  <button key={`${op.clave}-${op.direccion}`} type="button"
+                                    onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
+                                    className={[
+                                      'px-3 py-1.5 rounded-boton text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                                      activo ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
+                                    ].join(' ')}>
+                                    {op.etiqueta}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         {/* ── Columna 3: Favoritos / Vistas ── */}
                         {idModulo && (() => {
@@ -1273,6 +1410,7 @@ function TablaDinamica<T>({
                       </div>
                     </div>
                   </motion.div>
+                  )}
                 </div>
               </>
             )}

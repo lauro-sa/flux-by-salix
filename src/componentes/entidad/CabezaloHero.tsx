@@ -82,12 +82,12 @@ export function HeroRango({ desde, hasta, periodo, subtitulo, etiqueta }: Propie
       </div>
       {/* Mes/etiqueta + subtítulo — misma altura que los números, centrado */}
       <div className="flex flex-col justify-center gap-1 min-w-0 py-1">
-        <span className="text-sm sm:text-base font-semibold text-texto-marca uppercase tracking-[0.15em] leading-none">
+        <span className="text-sm sm:text-base font-semibold text-texto-marca uppercase tracking-[0.15em] leading-none whitespace-nowrap truncate">
           {etiqueta ?? (mismoMes
             ? MESES[desde.getMonth()]
             : `${MESES_CORTOS[desde.getMonth()]} — ${MESES_CORTOS[hasta.getMonth()]}`)}
         </span>
-        <span className="text-xs sm:text-[13px] text-texto-terciario uppercase tracking-wider leading-none truncate">
+        <span className="text-xs sm:text-[13px] text-texto-terciario uppercase tracking-wider leading-none whitespace-nowrap truncate">
           {subtitulo ?? (
             <>
               {hasta.getFullYear()}
@@ -142,9 +142,9 @@ export function CabezaloHero({
   return (
     <div className={`flex flex-col shrink-0 ${className}`}>
       {/* Fila hero */}
-      <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 flex items-center justify-between gap-4">
+      <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         {titulo}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
           {mostrarNavegacion && (
           <GrupoBotones className="shrink-0">
             {onAnterior && (

@@ -314,6 +314,18 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
   // Vista semanal: celdas amplias con duración visible
   const esSemanal = !esUltra && !esCompacto && !esIntermedio
 
+  // Altura común de celdas según modo — todos los tipos (ausente, feriado, vacío,
+  // finde, fichaje) usan la misma para que las filas no tengan espacios muertos
+  const altoCelda = esUltra
+    ? 'h-[20px]'
+    : esCompacto
+      ? 'h-[52px]'
+      : esIntermedio
+        ? 'h-[62px]'
+        : esSemanal
+          ? 'h-[90px]'
+          : 'h-[74px]'
+
   return (
     <div className="flex flex-col h-full">
       <CabezaloHero
@@ -670,7 +682,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                       if (esFinde) {
                         return (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil bg-superficie-elevada/20`}>
-                            <div className={`flex items-center justify-center ${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'}`}>
+                            <div className={`flex items-center justify-center ${altoCelda}`}>
                               <span className={`text-texto-terciario/30 ${esUltra ? 'text-xxs' : 'text-xs'}`}>—</span>
                             </div>
                           </td>
@@ -701,7 +713,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                                 </div>
                               </div>
                             ) : (
-                            <div className={`mx-auto rounded-card ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
+                            <div className={`mx-auto rounded-card ${altoCelda} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
                               <span className={`text-asistencia-feriado ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold`}>Feriado</span>
                               {!esCompacto && <span className="text-xxs text-asistencia-feriado/60 truncate max-w-[80px]">{nombreFer}</span>}
                             </div>
@@ -728,7 +740,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                                 </div>
                               </div>
                             ) : (
-                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-card ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-card ${altoCelda} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
                               <span className={`text-asistencia-ausente ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
@@ -738,7 +750,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                         celda = (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             <div
-                              className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-card transition-colors' : ''}`}
+                              className={`${altoCelda} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-card transition-colors' : ''}`}
                               {...(!esFinde ? { role: 'gridcell' as const, tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } } : {})}
                               onClick={() => { if (!esFinde) { if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }}
                             />

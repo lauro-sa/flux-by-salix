@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Users, Loader2, Banknote } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -14,7 +15,6 @@ import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
-import { ModalDetalleNomina } from './ModalDetalleNomina'
 
 // ─── Tipos ───
 
@@ -138,13 +138,13 @@ interface VistaNominaProps {
 }
 
 export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(function VistaNomina({ slotTabs }, ref) {
+  const router = useRouter()
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
   const [fechaRef, setFechaRef] = useState(new Date())
   const [cargando, setCargando] = useState(false)
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [nombreEmpresa, setNombreEmpresa] = useState('')
   const [modalEnvio, setModalEnvio] = useState(false)
-  const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<ResultadoNomina | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
@@ -296,7 +296,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
             {resultados.map(r => (
               <div
                 key={r.miembro_id}
-                onClick={() => setEmpleadoSeleccionado(r)}
+                onClick={() => router.push(`/asistencias/nomina/${r.miembro_id}?desde=${periodo.desde}&hasta=${periodo.hasta}`)}
                 className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group"
               >
                 {/* Nombre */}
@@ -350,16 +350,6 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         </div>
       )}
       </div>
-
-      {/* Modal detalle de empleado */}
-      <ModalDetalleNomina
-        abierto={!!empleadoSeleccionado}
-        onCerrar={() => setEmpleadoSeleccionado(null)}
-        empleado={empleadoSeleccionado}
-        periodo={periodo}
-        nombreEmpresa={nombreEmpresa}
-        onActualizado={() => { cacheRef.current.clear(); cargarNomina() }}
-      />
 
       {/* Modal envío de recibos */}
       <ModalEnviarReciboNomina

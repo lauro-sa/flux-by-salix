@@ -103,13 +103,24 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
   const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
   const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen_filtro') || '')
   const [filtroIva, setFiltroIva] = useState(searchParams.get('condicion_iva') || '')
-  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') || '')
+  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa_id') || '')
+  // Filtros nuevos (multi-select se persiste como csv)
+  const [filtroResponsable, setFiltroResponsable] = useState(searchParams.get('responsable_id') || '')
+  const [filtroEtiquetas, setFiltroEtiquetas] = useState<string[]>(searchParams.get('etiquetas_multi')?.split(',').filter(Boolean) || [])
+  const [filtroCanales, setFiltroCanales] = useState<string[]>(searchParams.get('tiene_canales')?.split(',').filter(Boolean) || [])
+  const [filtroPresupuesto, setFiltroPresupuesto] = useState(searchParams.get('presupuesto') || '')
+  const [filtroEstadoPres, setFiltroEstadoPres] = useState<string[]>(searchParams.get('estado_presupuesto')?.split(',').filter(Boolean) || [])
+  const [filtroActividades, setFiltroActividades] = useState(searchParams.get('actividades') || '')
+  const [filtroProvincia, setFiltroProvincia] = useState(searchParams.get('provincia') || '')
+  const [filtroCiudad, setFiltroCiudad] = useState(searchParams.get('ciudad') || '')
+  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
+  const [filtroUltimaInteraccion, setFiltroUltimaInteraccion] = useState(searchParams.get('ultima_interaccion') || '')
 
   // Búsqueda con debounce + reset de página automático (restaura desde URL, salta primer reset)
   const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
     searchParams.get('q') || '',
     Number(searchParams.get('pagina')) || 1,
-    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa],
+    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas.join(','), filtroCanales.join(','), filtroPresupuesto, filtroEstadoPres.join(','), filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion],
     true,
   )
 
@@ -129,17 +140,27 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     if (filtroTipo) params.set('tipo', filtroTipo)
     if (filtroOrigen) params.set('origen_filtro', filtroOrigen)
     if (filtroIva) params.set('condicion_iva', filtroIva)
-    if (filtroEtapa) params.set('etapa', filtroEtapa)
+    if (filtroEtapa) params.set('etapa_id', filtroEtapa)
+    if (filtroResponsable) params.set('responsable_id', filtroResponsable)
+    if (filtroEtiquetas.length) params.set('etiquetas_multi', filtroEtiquetas.join(','))
+    if (filtroCanales.length) params.set('tiene_canales', filtroCanales.join(','))
+    if (filtroPresupuesto) params.set('presupuesto', filtroPresupuesto)
+    if (filtroEstadoPres.length) params.set('estado_presupuesto', filtroEstadoPres.join(','))
+    if (filtroActividades) params.set('actividades', filtroActividades)
+    if (filtroProvincia) params.set('provincia', filtroProvincia)
+    if (filtroCiudad) params.set('ciudad', filtroCiudad)
+    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
+    if (filtroUltimaInteraccion) params.set('ultima_interaccion', filtroUltimaInteraccion)
     if (pagina > 1) params.set('pagina', String(pagina))
     if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
     if (origenUrl) params.set('origen', origenUrl)
     const qs = params.toString()
     const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
     window.history.replaceState(null, '', nuevaUrl)
-  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, pagina, vinculadoDe, origenUrl, pathname])
+  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas, filtroCanales, filtroPresupuesto, filtroEstadoPres, filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, pagina, vinculadoDe, origenUrl, pathname])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !vinculadoDe && pagina === 1
+  const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !filtroResponsable && filtroEtiquetas.length === 0 && filtroCanales.length === 0 && !filtroPresupuesto && filtroEstadoPres.length === 0 && !filtroActividades && !filtroProvincia && !filtroCiudad && !filtroCreadoRango && !filtroUltimaInteraccion && !vinculadoDe && pagina === 1
 
   // ── Listado de contactos con React Query ──
   const { datos: contactos, total, cargando, cargandoInicial, recargar: recargarContactos } = useListado<FilaContacto>({
@@ -152,6 +173,16 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
       origen_filtro: filtroOrigen || undefined,
       condicion_iva: filtroIva || undefined,
       etapa_id: filtroEtapa || undefined,
+      responsable_id: filtroResponsable || undefined,
+      etiquetas_multi: filtroEtiquetas.length ? filtroEtiquetas.join(',') : undefined,
+      tiene_canales: filtroCanales.length ? filtroCanales.join(',') : undefined,
+      presupuesto: filtroPresupuesto || undefined,
+      estado_presupuesto: filtroEstadoPres.length ? filtroEstadoPres.join(',') : undefined,
+      actividades: filtroActividades || undefined,
+      provincia: filtroProvincia || undefined,
+      ciudad: filtroCiudad || undefined,
+      creado_rango: filtroCreadoRango || undefined,
+      ultima_interaccion: filtroUltimaInteraccion || undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -184,6 +215,34 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     const etapas = (etapasCorreoData?.etapas || etapasCorreoData || []) as { id: string; etiqueta: string }[]
     return etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta }))
   }, [etapasCorreoData])
+
+  // ── Miembros de la empresa (para filtro Responsable) ──
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const opcionesResponsables = useMemo(() => {
+    const arr = (miembrosData?.miembros || miembrosData || []) as Array<{ usuario_id?: string; id?: string; nombre?: string; apellido?: string; perfil?: { nombre?: string; apellido?: string } }>
+    return arr.map(m => {
+      const id = m.usuario_id || m.id || ''
+      const nombre = m.perfil?.nombre || m.nombre || ''
+      const apellido = m.perfil?.apellido || m.apellido || ''
+      return { valor: id, etiqueta: `${nombre} ${apellido}`.trim() || 'Sin nombre' }
+    }).filter(o => o.valor)
+  }, [miembrosData])
+
+  // ── Etiquetas existentes en los contactos actualmente cargados (derivadas de datos) ──
+  // Opción pragmática: tomarlas del listado actual. Para un set completo habría un endpoint dedicado.
+  const opcionesEtiquetas = useMemo(() => {
+    const set = new Set<string>()
+    // Siempre agregar las seleccionadas para que se muestren aunque no estén en la página actual
+    filtroEtiquetas.forEach(e => set.add(e))
+    // Intentar derivar de datos iniciales
+    const filas = (datosInicialesJson?.contactos as FilaContacto[] | undefined) || []
+    filas.forEach(f => (f.etiquetas || []).forEach(e => set.add(e)))
+    return [...set].sort().map(e => ({ valor: e, etiqueta: e }))
+  }, [datosInicialesJson, filtroEtiquetas])
 
   // Resolver nombre del contacto filtrado + migaja
   useEffect(() => {
@@ -774,13 +833,86 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
         onBusqueda={setBusqueda}
         placeholder={t('contactos.buscar_placeholder')}
         filtros={[
+          // ─ Identidad ─
           {
-            id: 'tipo', etiqueta: 'Tipo', tipo: 'pills' as const,
+            id: 'tipo', etiqueta: 'Tipo de contacto', tipo: 'seleccion-compacto' as const,
             valor: filtroTipo, onChange: (v) => setFiltroTipo(v as string),
             opciones: tiposContacto.map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
+            descripcion: 'Filtrá por persona, empresa, edificio, proveedor, lead o equipo.',
           },
           {
-            id: 'origen', etiqueta: 'Origen', tipo: 'pills' as const,
+            id: 'responsable', etiqueta: 'Responsable', tipo: 'seleccion-compacto' as const,
+            valor: filtroResponsable, onChange: (v) => setFiltroResponsable(v as string),
+            opciones: opcionesResponsables,
+            descripcion: 'Mostrá solo los contactos asignados al miembro seleccionado.',
+          },
+          ...(opcionesEtiquetas.length > 0 ? [{
+            id: 'etiquetas_multi', etiqueta: 'Etiquetas', tipo: 'multiple-compacto' as const,
+            valor: filtroEtiquetas,
+            onChange: (v: string | string[]) => setFiltroEtiquetas(Array.isArray(v) ? v : []),
+            opciones: opcionesEtiquetas,
+            descripcion: 'Elegí una o más etiquetas. Muestra contactos que tengan al menos una.',
+          }] : []),
+
+          // ─ Estado comercial ─
+          ...((etapasWA.length > 0 || etapasCorreo.length > 0) ? [{
+            id: 'etapa', etiqueta: 'Etapa de conversación', tipo: 'seleccion-compacto' as const,
+            valor: filtroEtapa,
+            onChange: (v: string | string[]) => setFiltroEtapa(v as string),
+            opciones: [
+              ...etapasWA.map(e => ({ valor: e.valor, etiqueta: `WA · ${e.etiqueta}` })),
+              ...etapasCorreo.map(e => ({ valor: e.valor, etiqueta: `Correo · ${e.etiqueta}` })),
+            ],
+            descripcion: 'Etapa actual de la conversación más reciente del contacto (WhatsApp o correo).',
+          }] : []),
+          {
+            id: 'presupuesto', etiqueta: 'Presupuesto aceptado', tipo: 'pills' as const,
+            valor: filtroPresupuesto, onChange: (v) => setFiltroPresupuesto(v as string),
+            opciones: [
+              { valor: 'con_aceptado', etiqueta: 'Sí' },
+              { valor: 'sin_aceptado', etiqueta: 'No' },
+            ],
+            descripcion: 'Contactos con al menos un presupuesto en estado aceptado (orden de venta).',
+          },
+          {
+            id: 'estado_presupuesto', etiqueta: 'Estado de presupuesto', tipo: 'multiple-compacto' as const,
+            valor: filtroEstadoPres,
+            onChange: (v) => setFiltroEstadoPres(Array.isArray(v) ? v : []),
+            opciones: [
+              { valor: 'borrador', etiqueta: 'Borrador' },
+              { valor: 'enviado', etiqueta: 'Enviado' },
+              { valor: 'aceptado', etiqueta: 'Aceptado' },
+              { valor: 'rechazado', etiqueta: 'Rechazado' },
+              { valor: 'vencido', etiqueta: 'Vencido' },
+              { valor: 'cancelado', etiqueta: 'Cancelado' },
+            ],
+            descripcion: 'Contactos con presupuestos en alguno de los estados seleccionados.',
+          },
+          {
+            id: 'actividades', etiqueta: 'Actividades pendientes', tipo: 'pills' as const,
+            valor: filtroActividades, onChange: (v) => setFiltroActividades(v as string),
+            opciones: [
+              { valor: 'con_pendientes', etiqueta: 'Sí' },
+              { valor: 'sin_pendientes', etiqueta: 'No' },
+            ],
+            descripcion: 'Contactos con al menos una actividad en estado pendiente.',
+          },
+
+          // ─ Datos & ubicación ─
+          {
+            id: 'canales', etiqueta: 'Canales disponibles', tipo: 'multiple-compacto' as const,
+            valor: filtroCanales,
+            onChange: (v) => setFiltroCanales(Array.isArray(v) ? v : []),
+            opciones: [
+              { valor: 'correo', etiqueta: 'Con correo' },
+              { valor: 'telefono', etiqueta: 'Con teléfono' },
+              { valor: 'whatsapp', etiqueta: 'Con WhatsApp' },
+              { valor: 'direccion', etiqueta: 'Con dirección' },
+            ],
+            descripcion: 'Contactos que tengan TODOS los canales marcados (útil para depurar datos incompletos).',
+          },
+          {
+            id: 'origen', etiqueta: 'Origen', tipo: 'seleccion-compacto' as const,
             valor: filtroOrigen, onChange: (v) => setFiltroOrigen(v as string),
             opciones: [
               { valor: 'manual', etiqueta: 'Manual' },
@@ -788,18 +920,10 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
               { valor: 'ia_captador', etiqueta: 'IA' },
               { valor: 'usuario', etiqueta: 'Usuario' },
             ],
+            descripcion: 'Cómo se creó el contacto: manualmente, por importación, por la IA o desde un usuario.',
           },
-          ...((etapasWA.length > 0 || etapasCorreo.length > 0) ? [{
-            id: 'etapa', etiqueta: 'Etapa', tipo: 'pills' as const,
-            valor: filtroEtapa,
-            onChange: (v: string | string[]) => setFiltroEtapa(v as string),
-            opciones: [
-              ...etapasWA.map(e => ({ valor: e.valor, etiqueta: `WA: ${e.etiqueta}` })),
-              ...etapasCorreo.map(e => ({ valor: e.valor, etiqueta: `✉ ${e.etiqueta}` })),
-            ],
-          }] : []),
           {
-            id: 'condicion_iva', etiqueta: 'Cond. IVA', tipo: 'pills' as const,
+            id: 'condicion_iva', etiqueta: 'Condición IVA', tipo: 'seleccion-compacto' as const,
             valor: filtroIva, onChange: (v) => setFiltroIva(v as string),
             opciones: [
               { valor: 'responsable_inscripto', etiqueta: 'Resp. Inscripto' },
@@ -808,9 +932,56 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
               { valor: 'consumidor_final', etiqueta: 'Cons. Final' },
               { valor: 'no_responsable', etiqueta: 'No Resp.' },
             ],
+            descripcion: 'Categoría fiscal del contacto ante AFIP.',
+          },
+
+          // ─ Fechas ─
+          {
+            id: 'creado_rango', etiqueta: 'Fecha de creación', tipo: 'pills' as const,
+            valor: filtroCreadoRango, onChange: (v) => setFiltroCreadoRango(v as string),
+            opciones: [
+              { valor: 'hoy', etiqueta: 'Hoy' },
+              { valor: '7d', etiqueta: '7 días' },
+              { valor: '30d', etiqueta: '30 días' },
+              { valor: '90d', etiqueta: '90 días' },
+              { valor: 'este_ano', etiqueta: 'Este año' },
+            ],
+            descripcion: 'Contactos creados dentro del rango elegido.',
+          },
+          {
+            id: 'ultima_interaccion', etiqueta: 'Última interacción', tipo: 'pills' as const,
+            valor: filtroUltimaInteraccion, onChange: (v) => setFiltroUltimaInteraccion(v as string),
+            opciones: [
+              { valor: '7d', etiqueta: 'Últimos 7 días' },
+              { valor: '30d', etiqueta: 'Últimos 30 días' },
+              { valor: 'dormidos_30', etiqueta: '+30 días dormidos' },
+              { valor: 'dormidos_90', etiqueta: '+90 días dormidos' },
+            ],
+            descripcion: 'Basado en el último mensaje de conversación. "Dormidos" son contactos sin interacción reciente.',
           },
         ]}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroOrigen(''); setFiltroIva(''); setFiltroEtapa('') }}
+        gruposFiltros={[
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'responsable', 'etiquetas_multi'] },
+          { id: 'comercial', etiqueta: 'Comercial', filtros: ['etapa', 'presupuesto', 'estado_presupuesto', 'actividades'] },
+          { id: 'fiscal', etiqueta: 'Fiscal', filtros: ['canales', 'origen', 'condicion_iva'] },
+          { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango', 'ultima_interaccion'] },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroTipo('')
+          setFiltroOrigen('')
+          setFiltroIva('')
+          setFiltroEtapa('')
+          setFiltroResponsable('')
+          setFiltroEtiquetas([])
+          setFiltroCanales([])
+          setFiltroPresupuesto('')
+          setFiltroEstadoPres([])
+          setFiltroActividades('')
+          setFiltroProvincia('')
+          setFiltroCiudad('')
+          setFiltroCreadoRango('')
+          setFiltroUltimaInteraccion('')
+        }}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
         opcionesOrden={[

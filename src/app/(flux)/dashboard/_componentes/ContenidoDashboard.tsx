@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Users, FileText, MessageSquare, CheckSquare,
-  Plus, ArrowRight, Mail,
+  ArrowRight, Mail,
   Image, Mic, File, Video,
   BarChart3, LayoutDashboard,
-  Receipt, ClipboardList, Calendar, Megaphone, ShieldCheck,
+  ClipboardList, Calendar,
+  AlertTriangle, Clock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useAuth } from '@/hooks/useAuth'
@@ -30,9 +31,9 @@ import { WidgetInbox } from './WidgetInbox'
 import { WidgetIngresos } from './WidgetIngresos'
 import { WidgetComparativa } from './WidgetComparativa'
 import { WidgetClientes } from './WidgetClientes'
-import { ResumenInteligente } from './ResumenInteligente'
 import { ResumenMetricas } from './ResumenMetricas'
 import { WidgetRecientes } from './WidgetRecientes'
+import { WidgetDetalleMes } from './WidgetDetalleMes'
 
 /**
  * ContenidoDashboard — Client Component con toda la lógica del dashboard.
@@ -82,6 +83,7 @@ interface DatosDashboard {
   ingresos: {
     por_mes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
     por_anio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
+    detalle_mes_actual: Array<{ id: string; numero: string; estado: string; contacto_nombre: string | null; contacto_apellido: string | null; total: number; fecha: string }>
   }
   comparativa: {
     presupuestos_por_mes: Record<string, { creados: number; monto_total: number }>
@@ -222,16 +224,20 @@ export default function ContenidoDashboard() {
     )
   }
 
+  // Fichaje del usuario actual (si existe) para mostrar estado arriba
+  const miFichaje = datos?.asistencia?.detalle_hoy?.find(d => d.usuario_id === datos.asistencia.usuario_id) ?? null
+
   return (
     <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-12">
-      {/* ─── Header: Saludo + Pestañas ─── */}
+      {/* ─── Header: Saludo + estado de jornada + Pestañas ─── */}
       <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-texto-primario">
             {t(claveSaludo)}{nombre ? `, ${nombre}` : ''}
           </h1>
-          <p className="text-sm text-texto-terciario mt-1">
-            {empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}
+          <p className="text-sm text-texto-terciario mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
+            <span>{empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}</span>
+            {miFichaje && <LineaJornada fichaje={miFichaje} />}
           </p>
         </div>
 
@@ -298,7 +304,7 @@ export default function ContenidoDashboard() {
 // ═══════════════════════════════════════════════════════
 
 function PestanaGeneral({
-  datos, metricas, t, moneda, fechaRelativa, formatoFecha, formatoLocale, router,
+  datos, metricas: _metricas, t, moneda, fechaRelativa, formatoFecha, formatoLocale: _formatoLocale, router,
 }: {
   datos: DatosDashboard | null
   metricas: MetricasInbox | null
@@ -309,69 +315,35 @@ function PestanaGeneral({
   formatoLocale: string
   router: ReturnType<typeof useRouter>
 }) {
+  // Alertas accionables: solo las que tienen datos
+  const actividadesVencidas = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
+  const borradores = datos?.presupuestos.por_estado.borrador ?? 0
+  const sinLeer = datos?.conversaciones.sin_leer ?? 0
+  const porVencer = datos?.presupuestos.por_vencer?.length ?? 0
+
+  const chips: Array<{ icono: React.ReactNode; texto: string; color: string; onClick: () => void }> = []
+  if (actividadesVencidas > 0) chips.push({ icono: <AlertTriangle size={12} />, texto: `${actividadesVencidas} vencida${actividadesVencidas > 1 ? 's' : ''}`, color: 'text-insignia-peligro-texto bg-insignia-peligro-fondo border-insignia-peligro-fondo', onClick: () => router.push('/actividades?filtro=vencidas') })
+  if (porVencer > 0) chips.push({ icono: <Clock size={12} />, texto: `${porVencer} por vencer`, color: 'text-insignia-advertencia-texto bg-insignia-advertencia-fondo border-insignia-advertencia-fondo', onClick: () => router.push('/presupuestos?filtro=por_vencer') })
+  if (sinLeer > 0) chips.push({ icono: <Mail size={12} />, texto: `${sinLeer} sin leer`, color: 'text-insignia-violeta-texto bg-insignia-violeta-fondo border-insignia-violeta-fondo', onClick: () => router.push('/inbox') })
+  if (borradores > 0) chips.push({ icono: <FileText size={12} />, texto: `${borradores} borrador${borradores > 1 ? 'es' : ''}`, color: 'text-texto-terciario bg-superficie-hover/50 border-borde-sutil', onClick: () => router.push('/presupuestos?estado=borrador') })
+
   return (
     <>
-      {/* Resumen inteligente */}
-      {datos && (
-        <motion.div variants={itemVariantes}>
-          <ResumenInteligente
-            contactosTotal={datos.contactos.total}
-            contactosNuevosMes={datos.comparativa?.contactos_por_mes?.[claveMesActual()] ?? 0}
-            contactosNuevosMesAnterior={datos.comparativa?.contactos_por_mes?.[claveMesAnterior()] ?? 0}
-            presupuestosTotal={datos.presupuestos.total}
-            presupuestosNuevosMes={datos.comparativa?.presupuestos_por_mes?.[claveMesActual()]?.creados ?? 0}
-            presupuestosNuevosMesAnterior={datos.comparativa?.presupuestos_por_mes?.[claveMesAnterior()]?.creados ?? 0}
-            presupuestosBorradores={datos.presupuestos.por_estado.borrador ?? 0}
-            ordenesMontoMes={datos.ingresos?.por_mes?.[claveMesActual()]?.ordenes_monto ?? 0}
-            ordenesMontoMesAnterior={datos.ingresos?.por_mes?.[claveMesAnterior()]?.ordenes_monto ?? 0}
-            ordenesCantidadMes={datos.ingresos?.por_mes?.[claveMesActual()]?.ordenes_cantidad ?? 0}
-            ordenesCantidadMesAnterior={datos.ingresos?.por_mes?.[claveMesAnterior()]?.ordenes_cantidad ?? 0}
-            actividadesPendientes={datos.actividades?.total_pendientes ?? 0}
-            actividadesVencidas={datos.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0}
-            actividadesCompletadasHoy={datos.actividades?.completadas_hoy ?? 0}
-            conversacionesAbiertas={datos.conversaciones.abiertas}
-            conversacionesSinLeer={datos.conversaciones.sin_leer}
-            presupuestosPorVencer={datos.presupuestos.por_vencer?.length ?? 0}
-            formatoMoneda={moneda}
-          />
+      {/* Chips de alerta accionables */}
+      {chips.length > 0 && (
+        <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
+          {chips.map((c, i) => (
+            <button
+              key={i}
+              onClick={c.onClick}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-boton border ${c.color} hover:opacity-80 transition-opacity cursor-pointer`}
+            >
+              {c.icono}
+              {c.texto}
+            </button>
+          ))}
         </motion.div>
       )}
-
-      {/* KPIs compactos */}
-      <motion.div variants={itemVariantes} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCompacto
-          titulo={t('contactos.titulo')}
-          valor={datos?.contactos.total ?? 0}
-          icono={<Users size={16} strokeWidth={1.5} />}
-          color="primario"
-          detalle={(() => { const n = datos?.comparativa?.contactos_por_mes?.[claveMesActual()] ?? 0; return n > 0 ? `+${n} este mes` : undefined })()}
-          onClick={() => router.push('/contactos')}
-        />
-        <KpiCompacto
-          titulo={t('navegacion.presupuestos')}
-          valor={datos?.presupuestos.total ?? 0}
-          icono={<FileText size={16} strokeWidth={1.5} />}
-          color="info"
-          detalle={(() => { const n = datos?.comparativa?.presupuestos_por_mes?.[claveMesActual()]?.creados ?? 0; return n > 0 ? `+${n} este mes` : undefined })()}
-          onClick={() => router.push('/presupuestos')}
-        />
-        <KpiCompacto
-          titulo="Actividades"
-          valor={datos?.actividades?.total_pendientes ?? 0}
-          icono={<CheckSquare size={16} strokeWidth={1.5} />}
-          color="exito"
-          detalle={(() => { const v = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0; return v > 0 ? `${v} vencida${v > 1 ? 's' : ''}` : undefined })()}
-          onClick={() => router.push('/actividades')}
-        />
-        <KpiCompacto
-          titulo="Inbox"
-          valor={datos?.conversaciones.abiertas ?? 0}
-          icono={<MessageSquare size={16} strokeWidth={1.5} />}
-          color="violeta"
-          detalle={(() => { const s = datos?.conversaciones.sin_leer ?? 0; return s > 0 ? `${s} sin leer` : undefined })()}
-          onClick={() => router.push('/inbox')}
-        />
-      </motion.div>
 
       {/* Accesos rápidos */}
       <motion.div variants={itemVariantes} className="flex flex-wrap justify-center gap-2">
@@ -469,20 +441,6 @@ function PestanaGeneral({
 
         <TarjetaMensajesRecientes mensajes={datos?.mensajes_recientes || []} />
       </motion.div>
-
-      {/* Pipeline + Por vencer */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.presupuestos && (
-          <motion.div variants={itemVariantes}>
-            <WidgetPipeline porEstado={datos.presupuestos.por_estado} pipelineMontos={datos.presupuestos.pipeline_montos} formatoMoneda={moneda} />
-          </motion.div>
-        )}
-        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
-          </motion.div>
-        )}
-      </div>
     </>
   )
 }
@@ -526,6 +484,27 @@ function PestanaMetricas({
           />
         </motion.div>
       )}
+
+      {/* Detalle del mes actual: presupuestos cerrados con número, cliente y monto */}
+      {datos?.ingresos?.detalle_mes_actual && (
+        <motion.div variants={itemVariantes}>
+          <WidgetDetalleMes items={datos.ingresos.detalle_mes_actual} formatoMoneda={moneda} />
+        </motion.div>
+      )}
+
+      {/* Pipeline + Por vencer */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.presupuestos && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPipeline porEstado={datos.presupuestos.por_estado} pipelineMontos={datos.presupuestos.pipeline_montos} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+      </div>
 
       {/* Comparativa + Clientes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -575,37 +554,12 @@ function PestanaMetricas({
             <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
           </motion.div>
         )}
-      </div>
-
-      {/* Productos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.productos.top && datos.productos.top.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
           </motion.div>
         )}
       </div>
-
-      {/* ─── Próximamente ─── */}
-      <motion.div variants={itemVariantes}>
-        <div className="border border-borde-sutil border-dashed rounded-card p-6">
-          <h3 className="text-sm font-semibold text-texto-secundario mb-4">Próximamente</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {[
-              { icono: <Receipt size={16} />, nombre: 'Facturación' },
-              { icono: <ClipboardList size={16} />, nombre: 'Órdenes de trabajo' },
-              { icono: <Calendar size={16} />, nombre: 'Calendario' },
-              { icono: <Megaphone size={16} />, nombre: 'Marketing' },
-              { icono: <ShieldCheck size={16} />, nombre: 'Auditoría' },
-            ].map(m => (
-              <div key={m.nombre} className="flex items-center gap-2.5 py-2.5 px-3 rounded-card bg-superficie-hover/30 text-texto-terciario">
-                {m.icono}
-                <span className="text-xs">{m.nombre}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
     </>
   )
 }
@@ -614,30 +568,47 @@ function PestanaMetricas({
 // SUBCOMPONENTES
 // ═══════════════════════════════════════════════════════
 
-function KpiCompacto({
-  titulo, valor, icono, color, detalle, onClick,
-}: {
-  titulo: string; valor: number | string; icono: React.ReactNode
-  color: 'primario' | 'info' | 'exito' | 'violeta'; detalle?: string; onClick?: () => void
-}) {
+/**
+ * LineaJornada — Indicador compacto de fichaje del usuario junto al saludo.
+ * Muestra estado (En turno / Almorzando / ...) + hora de entrada + duración trabajada.
+ */
+function LineaJornada({ fichaje }: { fichaje: DatosDashboard['asistencia']['detalle_hoy'][number] }) {
+  const ahora = Date.now()
+  const min = fichaje.hora_entrada
+    ? Math.max(0, Math.round(((['activo', 'almuerzo', 'particular'].includes(fichaje.estado) ? ahora : (fichaje.hora_salida ? new Date(fichaje.hora_salida).getTime() : ahora)) - new Date(fichaje.hora_entrada).getTime()) / 60000))
+    : 0
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  const duracion = h === 0 ? `${m}m` : m > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${h}h`
+
+  const etiquetaEstado =
+    fichaje.estado === 'activo' ? 'En turno'
+    : fichaje.estado === 'almuerzo' ? 'Almorzando'
+    : fichaje.estado === 'particular' ? 'Trámite'
+    : fichaje.estado === 'cerrado' ? 'Cerrado'
+    : fichaje.estado === 'ausente' ? 'Ausente'
+    : fichaje.estado
+
+  const colorPunto =
+    fichaje.estado === 'activo' ? 'bg-asistencia-presente'
+    : fichaje.estado === 'almuerzo' ? 'bg-asistencia-almuerzo'
+    : fichaje.estado === 'cerrado' ? 'bg-texto-terciario'
+    : 'bg-asistencia-ausente'
+
+  const hora = fichaje.hora_entrada
+    ? (() => { const d = new Date(fichaje.hora_entrada!); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })()
+    : null
+
   return (
-    <div
-      onClick={onClick}
-      className="bg-superficie-tarjeta border border-borde-sutil rounded-card py-3 px-4 cursor-pointer hover:border-borde-fuerte hover:shadow-sm transition-all duration-150"
-    >
-      <div className="flex items-center gap-3">
-        <div className={`size-8 rounded-card flex items-center justify-center shrink-0 bg-insignia-${color}-fondo text-insignia-${color}-texto`}>
-          {icono}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-texto-primario leading-tight">{valor}</span>
-            <span className="text-xxs text-texto-terciario truncate">{titulo}</span>
-          </div>
-          {detalle && <p className="text-xxs text-texto-terciario truncate">{detalle}</p>}
-        </div>
-      </div>
-    </div>
+    <>
+      <span className="text-texto-terciario/40">·</span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className={`size-[6px] rounded-full ${colorPunto}`} />
+        <span className="text-texto-secundario">{etiquetaEstado}</span>
+        {hora && <span className="text-texto-terciario tabular-nums">desde {hora}</span>}
+        {min > 0 && <span className="text-texto-terciario/70 tabular-nums">· {duracion}</span>}
+      </span>
+    </>
   )
 }
 

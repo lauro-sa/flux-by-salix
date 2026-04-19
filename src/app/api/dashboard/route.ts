@@ -185,10 +185,11 @@ export async function GET() {
         .gte('fecha', inicioSemana.toISOString().split('T')[0])
         .lte('fecha', hoyStr),
 
-      // ─── Ingresos: presupuestos confirmados/orden_venta con fecha y monto ───
+      // ─── Ingresos: presupuestos confirmados/orden_venta con fecha, monto y contacto ───
+      // FK desambiguada: presupuestos tiene dos FKs hacia contactos (contacto_id y atencion_contacto_id)
       admin
         .from('presupuestos')
-        .select('estado, total_final, fecha_aceptacion, fecha_emision, creado_en')
+        .select('id, numero, estado, total_final, fecha_aceptacion, fecha_emision, creado_en, contacto:contactos!presupuestos_contacto_id_fkey(nombre, apellido)')
         .eq('empresa_id', empresaId)
         .in('estado', ['confirmado_cliente', 'orden_venta']),
 
@@ -372,8 +373,11 @@ export async function GET() {
     // ─── Ingresos por mes — separando orden_venta (100% cerrado) de confirmado_cliente ───
     // Usa fecha_aceptacion (cuando el cliente aceptó), con fallback a fecha_emision para registros anteriores
     const ingresosPorMes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }> = {}
+    const claveMesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
+    const detalleMesActual: Array<{ id: string; numero: string; estado: string; contacto_nombre: string | null; contacto_apellido: string | null; total: number; fecha: string }> = []
     for (const p of resIngresosConfirmados.data || []) {
-      const fecha = new Date(p.fecha_aceptacion || p.fecha_emision || p.creado_en)
+      const fechaUsada = p.fecha_aceptacion || p.fecha_emision || p.creado_en
+      const fecha = new Date(fechaUsada)
       const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
       if (!ingresosPorMes[clave]) ingresosPorMes[clave] = { cantidad: 0, monto: 0, ordenes_cantidad: 0, ordenes_monto: 0 }
       const monto = parseFloat(p.total_final) || 0
@@ -383,7 +387,21 @@ export async function GET() {
         ingresosPorMes[clave].ordenes_cantidad++
         ingresosPorMes[clave].ordenes_monto += monto
       }
+      if (clave === claveMesActual) {
+        const contacto = Array.isArray(p.contacto) ? p.contacto[0] : p.contacto
+        detalleMesActual.push({
+          id: p.id,
+          numero: p.numero,
+          estado: p.estado,
+          contacto_nombre: (contacto as Record<string, string> | null)?.nombre || null,
+          contacto_apellido: (contacto as Record<string, string> | null)?.apellido || null,
+          total: monto,
+          fecha: fechaUsada,
+        })
+      }
     }
+    // Ordenar detalle del mes por fecha desc
+    detalleMesActual.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
     // Ingresos por año
     const ingresosPorAnio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }> = {}
@@ -515,6 +533,7 @@ export async function GET() {
       ingresos: {
         por_mes: ingresosPorMes,
         por_anio: ingresosPorAnio,
+        detalle_mes_actual: detalleMesActual,
       },
       comparativa: {
         presupuestos_por_mes: presupuestosPorMesAnio,

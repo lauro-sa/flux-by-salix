@@ -55,16 +55,32 @@ export interface FiltroTabla {
   /**
    * - 'pills': botones horizontales (mejor para 2-5 opciones cortas).
    * - 'seleccion': lista vertical, una sola opción.
+   * - 'seleccion-compacto': botón compacto con popover (single-select, ideal cuando hay muchas opciones pero solo una se elige).
    * - 'multiple': lista vertical con checkboxes (mejor para <10 opciones).
    * - 'multiple-compacto': botón compacto con popover (mejor para 10+ opciones o etiquetas largas).
    * - 'fecha': selector de fecha.
    */
-  tipo: 'seleccion' | 'multiple' | 'multiple-compacto' | 'fecha' | 'pills'
+  tipo: 'seleccion' | 'seleccion-compacto' | 'multiple' | 'multiple-compacto' | 'fecha' | 'pills'
   valor: string | string[]
   onChange: (valor: string | string[]) => void
   opciones?: { valor: string; etiqueta: string }[]
   /** Valor por defecto: cuando el valor actual coincide, no se muestra badge de filtro activo */
   valorDefault?: string | string[]
+  /** Descripción contextual mostrada en el PanelFiltrosAvanzado (panel central al seleccionar el filtro) */
+  descripcion?: string
+}
+
+/**
+ * Grupo de filtros — para organizar filtros en secciones temáticas dentro del panel expandido.
+ * Cada grupo renderiza un subtítulo y agrupa sus filtros en flex-wrap.
+ * Uso: pasar a TablaDinamica.gruposFiltros cuando hay muchos filtros y se necesita jerarquía visual.
+ */
+export interface GrupoFiltros {
+  id: string
+  etiqueta: string
+  icono?: ReactNode
+  /** IDs de filtros (FiltroTabla.id) a incluir en este grupo */
+  filtros: string[]
 }
 
 /** Acción en lote */
@@ -116,6 +132,12 @@ export interface PropiedadesTablaDinamica<T> {
   /* Filtros */
   filtros?: FiltroTabla[]
   onLimpiarFiltros?: () => void
+  /**
+   * Agrupación visual de filtros en el panel expandido.
+   * Si se pasa, reemplaza el layout "primeros 3 + resto" por secciones con subtítulo.
+   * Los filtros que no aparecen en ningún grupo se muestran en un grupo final "Otros".
+   */
+  gruposFiltros?: GrupoFiltros[]
 
   /* Acciones en lote (el botón de acción principal va en el cabecero de la página, fuera de la tabla) */
   accionesLote?: AccionLote[]

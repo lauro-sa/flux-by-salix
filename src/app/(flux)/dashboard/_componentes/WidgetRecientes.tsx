@@ -212,7 +212,7 @@ export function WidgetRecientes() {
         <Clock size={15} className="text-texto-terciario" />
         <h3 className="text-sm font-semibold text-texto-primario">Tu actividad reciente</h3>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4 gap-x-3 gap-y-0.5">
+      <div className="grid grid-flow-row md:grid-flow-col grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4 grid-rows-6 gap-x-3 gap-y-0.5">
         {visibles.map((item, i) => {
           const config = CONFIG_ENTIDAD[item.tipo_entidad]
           if (!config) return null

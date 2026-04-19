@@ -39,6 +39,12 @@ interface PropiedadesPlantillaEditor {
   acciones?: AccionEditor[]
 
   /**
+   * Banner opcional entre el cabecero sticky y el split panel/main.
+   * Ideal para: CabezaloHero editorial, paginador de período, alertas de estado.
+   */
+  banner?: ReactNode
+
+  /**
    * Panel lateral de configuración (columna izquierda en desktop).
    * Ideal para: nombre, asunto, config avanzada, variables.
    */
@@ -69,6 +75,7 @@ function PlantillaEditor({
   volverTexto = 'Volver',
   onVolver,
   acciones = [],
+  banner,
   panelConfig,
   children,
   className = '',
@@ -149,6 +156,13 @@ function PlantillaEditor({
           </div>
         )}
       </div>
+
+      {/* ═══ BANNER OPCIONAL (hero editorial, alertas) ═══ */}
+      {banner && (
+        <div className="shrink-0 border-b border-borde-sutil">
+          {banner}
+        </div>
+      )}
 
       {/* ═══ CONTENIDO — 2 columnas en desktop, 1 en mobile ═══ */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
