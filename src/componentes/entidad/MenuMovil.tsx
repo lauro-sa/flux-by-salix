@@ -185,10 +185,11 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
     <>
       {abierto && (
           <div
-            className="md:hidden fixed inset-0 z-[var(--z-modal)] bg-superficie-app flex flex-col"
+            className="md:hidden fixed top-0 left-0 right-0 z-[var(--z-modal)] bg-superficie-app flex flex-col"
             style={{
               paddingTop: 'var(--safe-area-top)',
-              paddingBottom: 'var(--safe-area-bottom)',
+              height: 'calc(var(--vh, 1vh) * 100)',
+              minHeight: '-webkit-fill-available',
             }}
           >
             {/* ═══ HEADER ═══ */}
@@ -315,7 +316,8 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.3 }}
-              className="shrink-0 border-t border-borde-sutil bg-superficie-app px-3 pt-2 pb-2"
+              className="shrink-0 border-t border-borde-sutil bg-superficie-app px-3 pt-2"
+              style={{ paddingBottom: 'max(0.5rem, var(--safe-area-bottom))' }}
             >
               {/* Fila superior: avatar + nombre + salir */}
               <div className="flex items-center gap-2">
