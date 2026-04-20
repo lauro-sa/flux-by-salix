@@ -1072,7 +1072,7 @@ export const en: Traducciones = {
     auditoria: 'Audit',
     configuracion: 'Settings',
     vitrina: 'Showcase',
-    recorrido: 'My Route',
+    recorrido: 'Route',
     presupuestos: 'Quotes',
     informes: 'Reports',
     papelera: 'Trash',

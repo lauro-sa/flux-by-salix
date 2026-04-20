@@ -2118,6 +2118,10 @@ export const config_chatbot = pgTable('config_chatbot', {
   modo: text('modo').notNull().default('siempre'), // 'siempre', 'fuera_horario', 'manual'
   // Variables disponibles para plantillas
   variables_disponibles: jsonb('variables_disponibles').notNull().default(sql`'[{"clave":"nombre","etiqueta":"Nombre del contacto"},{"clave":"empresa","etiqueta":"Nombre de tu empresa"}]'`),
+  // Patrones que saltean el chatbot (case-insensitive, substring). Si el primer mensaje
+  // del cliente matchea alguno, el chatbot NO responde y va directo al agente IA.
+  // Útil para formularios de la web que ya envían solicitudes estructuradas.
+  saltar_chatbot_patrones: text('saltar_chatbot_patrones').array().notNull().default(sql`'{}'`),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })

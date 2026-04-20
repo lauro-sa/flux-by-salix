@@ -113,13 +113,10 @@ function ItemSortable({
           activo ? 'font-semibold bg-superficie-activa' : 'font-normal hover:bg-superficie-hover hover:opacity-90!',
         ].join(' ')}
       >
-        {/* Zona izquierda: badge / indicador / grip */}
+        {/* Zona izquierda: indicador (dot sutil cuando hay pendientes) / grip en hover */}
         {esSortable && !colapsado && (
           <span className="shrink-0 w-5 h-5 flex items-center justify-center mr-1.5 rounded-full" {...attributes} {...listeners} onClick={(e) => e.stopPropagation()}>
-            {item.badge != null && item.badge > 0 ? (<>
-              <span className="group-hover:hidden flex items-center justify-center"><span className="size-2 rounded-full bg-texto-marca" /></span>
-              <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/50"><GripIcon /></span>
-            </>) : item.indicador ? (<>
+            {item.indicador && !(item.badge != null && item.badge > 0) ? (<>
               <span className="group-hover:hidden flex items-center justify-center"><span className="size-1.5 rounded-full bg-texto-marca" /></span>
               <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/40"><GripIcon /></span>
             </>) : (
@@ -132,7 +129,9 @@ function ItemSortable({
         {!colapsado && <span className="flex-1 truncate sidebar-texto-fade">{item.etiqueta}</span>}
 
         {colapsado && item.badge != null && item.badge > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-texto-marca" />
+          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full bg-texto-marca text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none">
+            {item.badge > 9 ? '9+' : item.badge}
+          </span>
         )}
         {colapsado && !(item.badge != null && item.badge > 0) && item.indicador && (
           <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-texto-marca" />
@@ -141,6 +140,18 @@ function ItemSortable({
           <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-boton bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>
         )}
       </div>
+
+      {/* Badge numerico (expandido) — en el mismo lugar que los 3 puntos. Se oculta en hover para que aparezca el menu */}
+      {!colapsado && item.badge != null && item.badge > 0 && (
+        <span
+          className={[
+            'absolute right-1 top-1/2 -translate-y-1/2 min-w-[18px] h-[18px] rounded-full bg-texto-marca/15 text-texto-marca text-[10px] font-bold flex items-center justify-center px-1.5 leading-none pointer-events-none z-20',
+            !item.fijo ? 'group-hover:opacity-0 transition-opacity' : '',
+          ].join(' ')}
+        >
+          {item.badge > 99 ? '99+' : item.badge}
+        </span>
+      )}
 
       {/* Boton 3 puntos */}
       {!item.fijo && !colapsado && (

@@ -11,7 +11,6 @@ import {
   Route, Wrench,
   Zap, LayoutDashboard,
   Megaphone, FileBarChart,
-  Monitor,
 } from 'lucide-react'
 import { createElement } from 'react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -38,7 +37,6 @@ export function crearItemsNav(t: (c: string) => string): ItemNav[] {
     { id: 'asistencias', etiqueta: t('navegacion.asistencias'), icono: icono(Clock), ruta: '/asistencias', seccion: 'admin', modulo: 'asistencias', moduloCatalogo: 'asistencias' },
     { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: icono(Shield), ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria', moduloCatalogo: 'auditoria' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: icono(Trash2), ruta: '/papelera', seccion: 'otros' },
-    { id: 'prueba-pantalla', etiqueta: 'Prueba Pantalla', icono: icono(Monitor), ruta: '/prueba-pantalla', fijo: true, seccion: 'otros' },
   ]
 }
 

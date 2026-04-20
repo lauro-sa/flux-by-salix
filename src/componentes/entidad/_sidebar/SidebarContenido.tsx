@@ -282,28 +282,30 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
 
       {/* Seccion inferior — fija abajo, fuera del scroll */}
       <div className="shrink-0 px-1.5 py-1.5 border-t border-borde-sutil">
-        {/* Aplicaciones — separado */}
-        <ItemSortable
-          item={ITEM_APLICACIONES}
-          sortable={false}
-          colapsado={colapsado}
-          activo={esActivo(ITEM_APLICACIONES.ruta)}
-          animandoSalida={false}
-          menuAbierto={false}
-          menuPos={menuPos}
-          onNavegar={() => navegar(ITEM_APLICACIONES.ruta)}
-          onAbrirMenu={abrirMenu}
-          onCerrarMenu={() => setMenuItemId(null)}
-          onOcultar={ocultarItem}
-          onDeshabilitar={deshabilitarItem}
-        />
+        {/* Aplicaciones — contenedor con fondo sutil para diferenciar del resto */}
+        <div className={colapsado ? '' : 'bg-superficie-hover/40 rounded-card p-1 mb-2'}>
+          <ItemSortable
+            item={ITEM_APLICACIONES}
+            sortable={false}
+            colapsado={colapsado}
+            activo={esActivo(ITEM_APLICACIONES.ruta)}
+            animandoSalida={false}
+            menuAbierto={false}
+            menuPos={menuPos}
+            onNavegar={() => navegar(ITEM_APLICACIONES.ruta)}
+            onAbrirMenu={abrirMenu}
+            onCerrarMenu={() => setMenuItemId(null)}
+            onOcultar={ocultarItem}
+            onDeshabilitar={deshabilitarItem}
+          />
+        </div>
         {/* Empresa + Usuarios */}
         {ITEMS_EMPRESA.length > 0 && (
           <>
-            <div className="px-2 mt-2 mb-1 text-xxs font-semibold uppercase tracking-wider flex items-center" style={{ minHeight: '1rem' }}>
+            <div className="px-2 mt-2 mb-1 text-[10px] font-medium uppercase tracking-wider flex items-center" style={{ minHeight: '0.875rem' }}>
               {colapsado
                 ? <div className="h-px bg-borde-sutil w-full" />
-                : <span className="sidebar-texto-fade text-texto-secundario/60">{t('sidebar.secciones.empresa')}</span>
+                : <span className="sidebar-texto-fade text-texto-terciario/70">{t('sidebar.secciones.empresa')}</span>
               }
             </div>
             {ITEMS_EMPRESA.map(i => (

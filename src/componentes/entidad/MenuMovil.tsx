@@ -12,7 +12,6 @@ import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
 import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
 import { Avatar } from '@/componentes/ui/Avatar'
-import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Modulo } from '@/tipos'
 import {
@@ -20,7 +19,7 @@ import {
   FileText, Package, Shield, Trash2, Route, Wrench,
   FileBarChart, LayoutDashboard, Blocks, Building2,
   CircleUserRound, X, LogOut, ChevronRight, Check, Plus,
-  Circle, Megaphone, Monitor,
+  Circle, Megaphone,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
@@ -68,7 +67,6 @@ function crearItemsMovil(t: (c: string) => string): ItemNav[] {
     { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={20} strokeWidth={1.7} />, ruta: '/configuracion', seccion: 'empresa', modulo: 'empresa' },
     { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <CircleUserRound size={20} strokeWidth={1.7} />, ruta: '/usuarios', seccion: 'empresa', modulo: 'usuarios' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={20} strokeWidth={1.7} />, ruta: '/papelera', seccion: 'otros' },
-    { id: 'prueba-pantalla', etiqueta: 'Prueba Pantalla', icono: <Monitor size={20} strokeWidth={1.7} />, ruta: '/prueba-pantalla', seccion: 'otros' },
   ]
 }
 
@@ -224,7 +222,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
             </div>
 
             {/* ═══ CONTENIDO SCROLLEABLE ═══ */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4">
               {/* Secciones de navegación */}
               {seccionesConItems.map(seccion => (
                 <div key={seccion.id} className="mb-5">
@@ -279,96 +277,96 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                 </div>
               ))}
 
-              {/* ═══ SEPARADOR ═══ */}
-              <div className="h-px bg-borde-sutil my-4" />
-
-              {/* ═══ PERFIL ═══ */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25, duration: 0.3 }}
-              >
-                {/* Avatar + nombre */}
-                <button
-                  onClick={() => navegar('/mi-cuenta')}
-                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-                >
-                  <div className="relative shrink-0">
-                    <Avatar nombre={nombreUsuario} tamano="md" />
-                    <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-app ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-md font-semibold text-texto-primario truncate">{nombreUsuario}</div>
-                    <div className="text-xs text-texto-terciario capitalize">{estado === 'no_molestar' ? 'No molestar' : estado}</div>
-                  </div>
-                  <ChevronRight size={16} className="text-texto-terciario/50 shrink-0" />
-                </button>
-
-                {/* Estado rápido */}
-                <div className="flex items-center gap-2 px-3 mt-2 mb-3">
-                  {([
-                    { id: 'online', color: 'bg-insignia-exito' },
-                    { id: 'ausente', color: 'bg-insignia-advertencia' },
-                    { id: 'no_molestar', color: 'bg-insignia-peligro' },
-                  ] as const).map(est => (
+              {/* Switcher empresa (si hay más de una) */}
+              {empresas.length > 1 && (
+                <div className="mb-4">
+                  <div className="px-1 mb-2 text-xxs font-semibold text-texto-terciario/60 uppercase tracking-wider">Empresas</div>
+                  {empresas.map(emp => (
                     <button
-                      key={est.id}
-                      onClick={() => { vibrar(); setEstado(est.id) }}
-                      className={[
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
-                        estado === est.id
-                          ? 'border-texto-marca/30 bg-texto-marca/10 text-texto-marca'
-                          : 'border-borde-sutil bg-transparent text-texto-secundario',
-                      ].join(' ')}
+                      key={emp.id}
+                      onClick={async () => {
+                        if (emp.id !== empresa?.id) {
+                          await cambiarEmpresa(emp.id)
+                          router.push('/dashboard')
+                        }
+                      }}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                     >
-                      <span className={`size-2 rounded-full ${est.color}`} />
-                      {est.id === 'no_molestar' ? 'No molestar' : est.id.charAt(0).toUpperCase() + est.id.slice(1)}
+                      <div className={`size-8 rounded-card flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
+                        {emp.logo_url ? (
+                          <Image src={emp.logo_url} alt={emp.nombre} width={32} height={32} className="size-8 rounded-card object-cover" />
+                        ) : (
+                          emp.nombre[0]
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-texto-primario truncate">{emp.nombre}</div>
+                        <div className="text-xxs text-texto-terciario capitalize">{emp.rol}</div>
+                      </div>
+                      {emp.id === empresa?.id && <Check size={16} className="text-texto-marca shrink-0" />}
                     </button>
                   ))}
                 </div>
-
-                {/* Switcher empresa (si hay más de una) */}
-                {empresas.length > 1 && (
-                  <div className="mb-3">
-                    <div className="px-3 mb-1.5 text-xxs font-semibold text-texto-terciario/60 uppercase tracking-wider">Empresas</div>
-                    {empresas.map(emp => (
-                      <button
-                        key={emp.id}
-                        onClick={async () => {
-                          if (emp.id !== empresa?.id) {
-                            await cambiarEmpresa(emp.id)
-                            router.push('/dashboard')
-                          }
-                        }}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-                      >
-                        <div className={`size-8 rounded-card flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
-                          {emp.logo_url ? (
-                            <Image src={emp.logo_url} alt={emp.nombre} width={32} height={32} className="size-8 rounded-card object-cover" />
-                          ) : (
-                            emp.nombre[0]
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-texto-primario truncate">{emp.nombre}</div>
-                          <div className="text-xxs text-texto-terciario capitalize">{emp.rol}</div>
-                        </div>
-                        {emp.id === empresa?.id && <Check size={16} className="text-texto-marca shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Cerrar sesión */}
-                <OpcionMenu
-                  icono={<LogOut size={20} strokeWidth={1.7} />}
-                  peligro
-                  onClick={() => { onCerrar(); setModalCerrarSesion(true) }}
-                >
-                  {t('auth.cerrar_sesion')}
-                </OpcionMenu>
-              </motion.div>
+              )}
             </div>
+
+            {/* ═══ FOOTER FIJO — PERFIL + ESTADO + SALIR ═══ */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+              className="shrink-0 border-t border-borde-sutil bg-superficie-app px-3 pt-2 pb-2"
+            >
+              {/* Fila superior: avatar + nombre + salir */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navegar('/mi-cuenta')}
+                  className="flex items-center gap-3 flex-1 min-w-0 px-2 py-2 rounded-card bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98]"
+                >
+                  <div className="relative shrink-0">
+                    <Avatar nombre={nombreUsuario} tamano="sm" />
+                    <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-app ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-texto-primario truncate leading-tight">{nombreUsuario}</div>
+                    <div className="text-xxs text-texto-terciario capitalize leading-tight mt-0.5">{estado === 'no_molestar' ? 'No molestar' : estado}</div>
+                  </div>
+                  <ChevronRight size={14} className="text-texto-terciario/50 shrink-0" />
+                </button>
+
+                <button
+                  onClick={() => { onCerrar(); setModalCerrarSesion(true) }}
+                  className="size-9 rounded-full flex items-center justify-center bg-insignia-peligro/10 text-insignia-peligro border-none cursor-pointer active:scale-90 transition-transform shrink-0"
+                  title={t('auth.cerrar_sesion')}
+                  aria-label={t('auth.cerrar_sesion')}
+                >
+                  <LogOut size={16} strokeWidth={1.8} />
+                </button>
+              </div>
+
+              {/* Fila inferior: pills de estado */}
+              <div className="flex items-center gap-1.5 mt-1.5 px-1">
+                {([
+                  { id: 'online', color: 'bg-insignia-exito', etiqueta: 'Online' },
+                  { id: 'ausente', color: 'bg-insignia-advertencia', etiqueta: 'Ausente' },
+                  { id: 'no_molestar', color: 'bg-insignia-peligro', etiqueta: 'No molestar' },
+                ] as const).map(est => (
+                  <button
+                    key={est.id}
+                    onClick={() => { vibrar(); setEstado(est.id) }}
+                    className={[
+                      'flex items-center justify-center gap-1.5 flex-1 px-2 py-1.5 rounded-full border text-xxs font-medium cursor-pointer transition-all active:scale-95',
+                      estado === est.id
+                        ? 'border-texto-marca/30 bg-texto-marca/10 text-texto-marca'
+                        : 'border-borde-sutil bg-transparent text-texto-secundario',
+                    ].join(' ')}
+                  >
+                    <span className={`size-1.5 rounded-full ${est.color} shrink-0`} />
+                    <span className="truncate">{est.etiqueta}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           </div>
       )}
 

@@ -45,6 +45,9 @@ interface ConfigChatbot {
   palabra_transferir: string
   mensaje_transferencia: string
   modo: 'siempre' | 'fuera_horario'
+  /** Patrones (substring case-insensitive) que, si aparecen en el mensaje del cliente,
+   *  saltean el chatbot y derivan directo al agente IA. Ej: "SOLICITUD HERREELEC" */
+  saltar_chatbot_patrones: string[]
 }
 
 const CHATBOT_DEFAULTS: ConfigChatbot = {
@@ -67,6 +70,7 @@ const CHATBOT_DEFAULTS: ConfigChatbot = {
   palabra_transferir: 'asesor',
   mensaje_transferencia: 'Te estoy derivando con un asesor. En breve te van a atender. 🙏',
   modo: 'siempre',
+  saltar_chatbot_patrones: [],
 }
 
 /**
@@ -587,6 +591,54 @@ export function SeccionChatbot() {
                 formato={null}
               />
             </div>
+          </div>
+        </div>
+
+        {/* ── Saltar chatbot por patrón (derivar al agente IA) ── */}
+        <div className="rounded-card p-4 space-y-3" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              Saltear chatbot por palabra clave
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+              Si el mensaje del cliente contiene alguno de estos textos, el chatbot no responde y se deriva directo al agente IA. Útil para formularios de la web que ya mandan solicitudes con toda la info.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {config.saltar_chatbot_patrones.map((patron, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  value={patron}
+                  onChange={(e) => {
+                    const copia = [...config.saltar_chatbot_patrones]
+                    copia[i] = e.target.value
+                    guardar({ saltar_chatbot_patrones: copia })
+                  }}
+                  placeholder="Ej: SOLICITUD HERREELEC"
+                  compacto
+                  formato={null}
+                />
+                <button
+                  onClick={() => guardar({
+                    saltar_chatbot_patrones: config.saltar_chatbot_patrones.filter((_, idx) => idx !== i)
+                  })}
+                  className="shrink-0 p-1.5 rounded hover:bg-insignia-peligro/10 text-texto-terciario hover:text-insignia-peligro transition-colors"
+                  title="Quitar"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => guardar({
+                saltar_chatbot_patrones: [...config.saltar_chatbot_patrones, '']
+              })}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium text-texto-terciario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
+            >
+              <Plus size={12} />
+              Agregar patrón
+            </button>
           </div>
         </div>
       </div>

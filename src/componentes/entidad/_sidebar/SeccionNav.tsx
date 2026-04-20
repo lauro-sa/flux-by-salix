@@ -51,10 +51,10 @@ function SeccionNav({
   return (
     <div className="mt-4 first:mt-0">
       {/* Mismo alto en ambos estados: titulo visible o linea centrada */}
-      <div className="px-2 mb-1.5 text-xxs font-semibold uppercase tracking-wider flex items-center" style={{ minHeight: '1rem' }}>
+      <div className="px-2 mb-1.5 text-[10px] font-medium uppercase tracking-wider flex items-center" style={{ minHeight: '0.875rem' }}>
         {colapsado
           ? <div className="h-px bg-borde-sutil w-full" />
-          : <span className="sidebar-texto-fade text-texto-secundario/60">{etiqueta}</span>
+          : <span className="sidebar-texto-fade text-texto-terciario/70">{etiqueta}</span>
         }
       </div>
       <DndContext id={`sidebar-dnd-${seccionId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>

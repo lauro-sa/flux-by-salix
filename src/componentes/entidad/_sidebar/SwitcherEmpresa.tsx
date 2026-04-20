@@ -64,8 +64,8 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
   }, [])
 
   return (
-    <div ref={ref} className={`relative py-4 shrink-0 ${colapsado ? 'px-0' : 'px-3'}`} style={{ height: 72 }}>
-      <div className={`flex items-center w-full rounded-boton h-10 ${colapsado ? 'justify-center' : 'gap-2.5 px-2'}`}>
+    <div ref={ref} className={`relative py-4 shrink-0 ${colapsado ? 'px-0' : 'px-2'}`} style={{ height: 72 }}>
+      <div className={`flex items-center w-full rounded-boton h-10 ${colapsado ? 'justify-center' : 'gap-2.5'}`}>
         {/* Logo — toggle sidebar en expandido, abre switcher en colapsado */}
         <button
           onClick={colapsado ? abrirMenu : onToggle}
@@ -77,17 +77,17 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
             inicialEmpresa
           )}
         </button>
-        {/* Nombre + flecha — abre switcher empresa */}
+        {/* Nombre + flecha — abre switcher empresa. Chevron pegado al nombre para mejor legibilidad cuando hay truncado */}
         {!colapsado && (
           <button
             onClick={() => setAbierto(!abierto)}
-            className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-card hover:bg-superficie-hover px-2.5 py-0 transition-colors sidebar-texto-fade focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+            className="flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-card hover:bg-superficie-hover px-1.5 py-1 transition-colors sidebar-texto-fade focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 text-left"
           >
-            <div className="flex-1 text-left min-w-0">
-              <div className="text-md font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
-              <div className="text-xxs text-texto-terciario truncate leading-tight">Flux by Salix</div>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-md font-semibold text-texto-primario truncate">{nombreEmpresa}</span>
+              <ChevronDown size={14} className={`shrink-0 text-texto-terciario transition-transform ${abierto ? 'rotate-180' : ''}`} />
             </div>
-            <ChevronDown size={14} className={`text-texto-terciario transition-transform ${abierto ? 'rotate-180' : ''}`} />
+            <div className="text-xxs text-texto-terciario truncate leading-tight">Flux by Salix</div>
           </button>
         )}
       </div>

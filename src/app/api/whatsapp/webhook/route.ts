@@ -1123,6 +1123,23 @@ async function procesarChatbot(
 
   if (!conv?.chatbot_activo) return false
 
+  // 2.5. Saltear chatbot si el mensaje matchea alguno de los patrones configurados
+  // (ej: solicitudes del formulario web tipo "*SOLICITUD EMPRESA*"). Si matchea,
+  // desactivamos el chatbot para toda la conversación y dejamos que responda el agente IA.
+  const patrones = (configBot.saltar_chatbot_patrones || []) as string[]
+  if (patrones.length > 0 && textoCliente) {
+    const textoLower = textoCliente.toLowerCase()
+    const matchea = patrones.some(p => p && textoLower.includes(p.toLowerCase()))
+    if (matchea) {
+      await admin
+        .from('conversaciones')
+        .update({ chatbot_activo: false })
+        .eq('id', conversacionId)
+      console.log('[CHATBOT] Patrón configurado detectado — chatbot salteado, deriva al agente IA')
+      return false
+    }
+  }
+
   // 3. Si modo fuera_horario, verificar horario
   if (configBot.modo === 'fuera_horario') {
     const { data: configInbox } = await admin

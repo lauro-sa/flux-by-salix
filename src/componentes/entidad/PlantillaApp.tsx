@@ -191,7 +191,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
 
   // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
-  const esPantallaCompleta = pathname === '/aplicaciones' || pathname === '/prueba-pantalla'
+  const esPantallaCompleta = pathname === '/aplicaciones'
 
   // Rutas que necesitan layout fijo (height fijo, overflow: hidden) incluso en móvil.
   // Paneles con scroll interno que no deben scrollear el documento.
@@ -294,7 +294,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           </div>
 
           {/* ── Móvil: botón Flux unificado que expande notas + IA ── */}
-          <BotonesFlotantesMovil notasRapidas={notasRapidas} />
+          {!mobilMenuAbierto && <BotonesFlotantesMovil notasRapidas={notasRapidas} />}
         </>
       )}
 

@@ -1097,7 +1097,7 @@ export const es: Traducciones = {
     auditoria: 'Auditoría',
     configuracion: 'Configuración',
     vitrina: 'Vitrina',
-    recorrido: 'Mi Recorrido',
+    recorrido: 'Recorrido',
     presupuestos: 'Presupuestos',
     informes: 'Informes',
     papelera: 'Papelera',
