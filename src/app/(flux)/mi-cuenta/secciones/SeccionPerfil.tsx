@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Mail, Phone, CreditCard, Briefcase, Heart,
   Pencil, X, Building, Calendar, Cake, MapPin,
@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { useFormato } from '@/hooks/useFormato'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 import { useMiCuenta } from '../page'
 import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
@@ -76,7 +77,9 @@ export function SeccionPerfil() {
   }, [telLocal, ctx])
 
   const iniciarEdicionEm = () => { setEmLocal({ ...ctx.emergencia }); setErroresEm({}); setEditandoEm(true) }
-  const cancelarEdicionEm = () => { setEmLocal({ ...ctx.emergencia }); setErroresEm({}); setEditandoEm(false) }
+  const cancelarEdicionEm = useCallback(() => {
+    setEmLocal({ ...ctx.emergencia }); setErroresEm({}); setEditandoEm(false)
+  }, [ctx.emergencia])
 
   const guardarEm = useCallback(async () => {
     const e: Record<string, string> = {}
@@ -92,6 +95,32 @@ export function SeccionPerfil() {
     setGuardandoEm(false)
     if (ok) setEditandoEm(false)
   }, [emLocal, ctx])
+
+  // Detectar si el form de emergencia tiene cambios respecto al dato persistido.
+  const cambiosEmergencia = useMemo(() => {
+    if (!editandoEm) return []
+    const diffs: { campo: string; valor?: string }[] = []
+    if ((emLocal.nombre || '') !== (ctx.emergencia.nombre || '')) {
+      diffs.push({ campo: 'Nombre de contacto de emergencia', valor: emLocal.nombre || '(vacío)' })
+    }
+    if ((emLocal.relacion || '') !== (ctx.emergencia.relacion || '')) {
+      diffs.push({ campo: 'Relación', valor: emLocal.relacion || '(vacío)' })
+    }
+    if ((emLocal.telefono || '') !== (ctx.emergencia.telefono || '')) {
+      diffs.push({ campo: 'Teléfono de emergencia', valor: emLocal.telefono || '(vacío)' })
+    }
+    return diffs
+  }, [editandoEm, emLocal, ctx.emergencia])
+
+  // Al editar contacto de emergencia con cambios sin guardar, pedir confirmación al navegar.
+  useCambiosSinGuardar({
+    id: 'perfil-emergencia',
+    dirty: cambiosEmergencia.length > 0,
+    titulo: 'Contacto de emergencia',
+    cambios: cambiosEmergencia,
+    onGuardar: async () => { await guardarEm() },
+    onDescartar: () => { cancelarEdicionEm() },
+  })
 
   const nombreCompleto = [ctx.nombre, ctx.apellido].filter(Boolean).join(' ') || 'Usuario'
   const edad = calcularEdad(ctx.fechaNacimiento)

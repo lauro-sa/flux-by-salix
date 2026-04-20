@@ -10,7 +10,7 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import {
   Plus, Trash2, X, Check, MapPin, Clock,
-  CheckCircle, Navigation, User, PenLine,
+  CheckCircle, Navigation, User, PenLine, Sparkles, XCircle,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -41,6 +41,10 @@ interface PropiedadesModal {
   onGuardar: (datos: Record<string, unknown>) => Promise<unknown>
   onCompletar?: (id: string) => Promise<void>
   onCancelar?: (id: string) => Promise<void>
+  /** Si está seteado y la visita está en estado "provisoria", muestra el botón Confirmar (abre el modal de plantilla) */
+  onConfirmarProvisoria?: (id: string) => void
+  /** Si está seteado y la visita está en estado "provisoria", muestra el botón Rechazar */
+  onRechazarProvisoria?: (id: string) => void
   onCerrar: () => void
 }
 
@@ -75,6 +79,8 @@ function ModalVisita({
   onGuardar,
   onCompletar,
   onCancelar,
+  onConfirmarProvisoria,
+  onRechazarProvisoria,
   onCerrar,
 }: PropiedadesModal) {
   const formato = useFormato()
@@ -418,7 +424,8 @@ function ModalVisita({
     }
   }
 
-  const esActiva = visita && !['completada', 'cancelada'].includes(visita.estado)
+  const esProvisoria = visita?.estado === 'provisoria'
+  const esActiva = visita && !['completada', 'cancelada', 'provisoria'].includes(visita.estado)
 
   return (
     <Modal
@@ -439,7 +446,59 @@ function ModalVisita({
         onClick: onCerrar,
       }}
     >
-      {/* Acciones rápidas en edición */}
+      {/* Banner prominente — visita provisoria creada por el agente IA */}
+      {esEdicion && visita && esProvisoria && (
+        <div
+          className="px-7 py-4 border-b flex flex-col md:flex-row md:items-center gap-3"
+          style={{
+            background: 'var(--insignia-advertencia-fondo)',
+            borderBottomColor: 'var(--insignia-advertencia-borde, var(--borde-sutil))',
+            borderLeftWidth: 4,
+            borderLeftStyle: 'solid',
+            borderLeftColor: 'var(--insignia-advertencia)',
+          }}
+        >
+          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+            <Sparkles
+              size={18}
+              className="shrink-0 mt-0.5"
+              style={{ color: 'var(--insignia-advertencia-texto)' }}
+            />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold" style={{ color: 'var(--insignia-advertencia-texto)' }}>
+                Visita pendiente de confirmación
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--insignia-advertencia-texto)', opacity: 0.85 }}>
+                Creada automáticamente por el agente IA desde WhatsApp. Revisá los datos y confirmala al cliente.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onRechazarProvisoria && (
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                onClick={() => { onRechazarProvisoria(visita.id); onCerrar() }}
+              >
+                <XCircle size={14} className="mr-1.5" />
+                Rechazar
+              </Boton>
+            )}
+            {onConfirmarProvisoria && (
+              <Boton
+                variante="exito"
+                tamano="sm"
+                onClick={() => { onConfirmarProvisoria(visita.id); onCerrar() }}
+              >
+                <CheckCircle size={14} className="mr-1.5" />
+                Confirmar visita
+              </Boton>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Acciones rápidas en edición — activa: completar/cancelar */}
       {esEdicion && visita && esActiva && (
         <div className="flex flex-wrap gap-2 px-7 py-3 border-b border-white/[0.07]">
           {onCompletar && (

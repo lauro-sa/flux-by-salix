@@ -23,6 +23,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
+import { ModalConfirmarVisita } from './ModalConfirmarVisita'
 import PanelPlanificacion from './PanelPlanificacion'
 import { ModalDetalleVisita } from '@/componentes/entidad/_panel_chatter/ModalDetalleVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -37,6 +38,7 @@ import { useTraduccion } from '@/lib/i18n'
 
 // Colores de estado según tokens CSS del proyecto
 const COLORES_ESTADO: Record<string, { color: string; variable: string; etiqueta: string }> = {
+  provisoria: { color: 'advertencia', variable: 'var(--insignia-advertencia)', etiqueta: 'A confirmar' },
   programada: { color: 'advertencia', variable: 'var(--estado-pendiente)', etiqueta: 'Programada' },
   en_camino: { color: 'exito', variable: 'var(--canal-whatsapp)', etiqueta: 'En camino' },
   en_sitio: { color: 'info', variable: 'var(--insignia-info)', etiqueta: 'En sitio' },
@@ -72,7 +74,7 @@ function fechaCorta(iso: string | null, locale: string): string {
 }
 
 const POR_PAGINA = 50
-const ESTADOS_ACTIVOS = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
+const ESTADOS_ACTIVOS = ['provisoria', 'programada', 'en_camino', 'en_sitio', 'reprogramada']
 
 interface Props {
   datosInicialesJson?: Record<string, unknown>
@@ -94,6 +96,8 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   const [modalAbierto, setModalAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
   const [visitaArchivedaDetalle, setVisitaArchivedaDetalle] = useState<Visita | null>(null)
+  // Modal confirmar visita provisoria (agente IA)
+  const [visitaConfirmando, setVisitaConfirmando] = useState<Visita | null>(null)
 
   // Abrir modal si viene ?crear=true desde el dashboard o desde actividades
   const vieneDeDashboardRef = useRef(false)
@@ -118,7 +122,15 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   // Filtros — restaurar desde URL si existen
   const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
     const v = searchParams.get('estado')
-    return v ? v.split(',') : ESTADOS_ACTIVOS
+    if (!v) return ESTADOS_ACTIVOS
+    const fromUrl = v.split(',')
+    // Migración automática: si la URL tiene los 4 estados activos "viejos" (sin provisoria),
+    // asumir default nuevo y sumar provisoria. Si el usuario la quitó explícitamente no va a tener los 4.
+    const viejosActivos = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
+    if (viejosActivos.every(e => fromUrl.includes(e)) && !fromUrl.includes('provisoria') && fromUrl.length === viejosActivos.length) {
+      return ESTADOS_ACTIVOS
+    }
+    return fromUrl
   })
   const [filtroPrioridad, setFiltroPrioridad] = useState<string[]>(() => {
     const v = searchParams.get('prioridad')
@@ -430,6 +442,22 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     }
   }
 
+  // Rechazar visita provisoria (estado provisoria → cancelada)
+  const rechazarVisita = async (id: string) => {
+    try {
+      const res = await fetch(`/api/visitas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'rechazar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('info', 'Visita rechazada')
+      recargarVisitas()
+    } catch {
+      mostrar('error', 'Error al rechazar la visita')
+    }
+  }
+
   // ── Acciones en lote ──
   const [confirmEliminarLote, setConfirmEliminarLote] = useState<Set<string> | null>(null)
 
@@ -571,11 +599,30 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
     {
       clave: 'acciones',
       etiqueta: '',
-      ancho: 80,
+      ancho: 120,
       render: (fila) => {
-        const esActiva = !['completada', 'cancelada'].includes(fila.estado)
+        const esProvisoria = fila.estado === 'provisoria'
+        const esActiva = !['completada', 'cancelada', 'provisoria'].includes(fila.estado)
         return (
           <div className="flex items-center gap-1">
+            {esProvisoria && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setVisitaConfirmando(fila) }}
+                  className="p-1.5 rounded hover:bg-white/[0.06] text-texto-terciario hover:text-insignia-exito transition-colors"
+                  title="Confirmar"
+                >
+                  <CheckCircle size={14} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); rechazarVisita(fila.id) }}
+                  className="p-1.5 rounded hover:bg-white/[0.06] text-texto-terciario hover:text-insignia-peligro transition-colors"
+                  title="Rechazar"
+                >
+                  <XCircle size={14} />
+                </button>
+              </>
+            )}
             {esActiva && (
               <button
                 onClick={(e) => { e.stopPropagation(); completarVisita(fila.id) }}
@@ -604,7 +651,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         />
       ),
     },
-  ], [t, formato.locale, completarVisita])
+  ], [t, formato.locale, completarVisita, rechazarVisita])
 
   // ── Render tarjeta (vista tarjetas) ──
   const renderTarjeta = useCallback((fila: Visita) => {
@@ -643,9 +690,25 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         {fila.motivo && (
           <p className="text-sm text-texto-secundario truncate">{fila.motivo}</p>
         )}
+        {fila.estado === 'provisoria' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-white/[0.06]">
+            <button
+              onClick={(e) => { e.stopPropagation(); setVisitaConfirmando(fila) }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-insignia-exito/10 text-insignia-exito hover:bg-insignia-exito/20 transition-colors"
+            >
+              <CheckCircle size={12} /> Confirmar
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); rechazarVisita(fila.id) }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors"
+            >
+              <XCircle size={12} /> Rechazar
+            </button>
+          </div>
+        )}
       </div>
     )
-  }, [formato.locale])
+  }, [formato.locale, rechazarVisita])
 
   return (
     <PlantillaListado
@@ -677,18 +740,32 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
       </div>
 
       {vistaActiva === 'planificacion' ? (
-        <PanelPlanificacion onAbrirVisita={(visitaId) => {
-          // Buscar en las visitas ya cargadas o cargar por API
-          const encontrada = visitas.find(v => v.id === visitaId)
-          if (encontrada) {
-            setVisitaEditando(encontrada)
-            setModalAbierto(true)
-          } else {
-            fetch(`/api/visitas/${visitaId}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(data => { if (data) { setVisitaEditando(data); setModalAbierto(true) } })
-          }
-        }} />
+        <PanelPlanificacion
+          onAbrirVisita={(visitaId) => {
+            // Buscar en las visitas ya cargadas o cargar por API
+            const encontrada = visitas.find(v => v.id === visitaId)
+            if (encontrada) {
+              setVisitaEditando(encontrada)
+              setModalAbierto(true)
+            } else {
+              fetch(`/api/visitas/${visitaId}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { if (data) { setVisitaEditando(data); setModalAbierto(true) } })
+            }
+          }}
+          onConfirmarProvisoria={(visitaId) => {
+            // Abrir el modal de confirmación (misma UX que en el listado)
+            const encontrada = visitas.find(v => v.id === visitaId)
+            if (encontrada) {
+              setVisitaConfirmando(encontrada)
+            } else {
+              fetch(`/api/visitas/${visitaId}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { if (data) setVisitaConfirmando(data) })
+            }
+          }}
+          onRechazarProvisoria={rechazarVisita}
+        />
       ) : (
       <>
       <TablaDinamica
@@ -753,6 +830,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
             valor: filtroEstado,
             onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: [
+              { valor: 'provisoria', etiqueta: t('visitas.estados.provisoria') },
               { valor: 'programada', etiqueta: t('visitas.estados.programada') },
               { valor: 'en_camino', etiqueta: t('visitas.estados.en_camino') },
               { valor: 'en_sitio', etiqueta: t('visitas.estados.en_sitio') },
@@ -928,6 +1006,14 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
       </>
       )}
 
+      {/* Modal confirmar visita provisoria (agente IA) */}
+      <ModalConfirmarVisita
+        visita={visitaConfirmando}
+        abierto={!!visitaConfirmando}
+        onCerrar={() => setVisitaConfirmando(null)}
+        onConfirmado={() => { setVisitaConfirmando(null); recargarVisitas() }}
+      />
+
       {/* Modal crear/editar */}
       <ModalVisita
         abierto={modalAbierto}
@@ -937,6 +1023,14 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         onGuardar={visitaEditando ? editarVisita : crearVisita}
         onCompletar={async (id) => { await completarVisita(id); setModalAbierto(false); setVisitaEditando(null) }}
         onCancelar={async (id) => { await cancelarVisita(id); setModalAbierto(false); setVisitaEditando(null) }}
+        onConfirmarProvisoria={(id) => {
+          // Cerramos el modal de edición y abrimos el de confirmación (con plantilla)
+          const v = visitas.find(x => x.id === id) || visitaEditando
+          setModalAbierto(false)
+          setVisitaEditando(null)
+          if (v) setVisitaConfirmando(v)
+        }}
+        onRechazarProvisoria={async (id) => { await rechazarVisita(id); setModalAbierto(false); setVisitaEditando(null) }}
         onCerrar={() => {
           setModalAbierto(false)
           setVisitaEditando(null)

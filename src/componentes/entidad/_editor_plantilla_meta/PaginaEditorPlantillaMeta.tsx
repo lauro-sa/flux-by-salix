@@ -14,8 +14,7 @@ import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'rea
 import { useRouter } from 'next/navigation'
 import {
   Save, Send, Plus, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle,
-  Ban, Pause, Bold, Italic, Strikethrough, Code, Variable, X, User,
-  FileText as FileTextIcon,
+  Ban, Pause, Bold, Italic, Strikethrough, Code, Variable,
 } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { Input } from '@/componentes/ui/Input'
@@ -27,11 +26,19 @@ import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
-import { BuscadorContactoPreview } from '@/componentes/entidad/_editor_plantilla/BuscadorContactoPreview'
-import { BuscadorDocumentoPreview } from '@/componentes/entidad/_editor_plantilla/BuscadorDocumentoPreview'
-import { DATOS_EJEMPLO } from '@/componentes/entidad/_editor_plantilla/constantes'
-import { formatoMoneda, formatoFecha } from '@/componentes/entidad/_editor_plantilla/utilidades'
-import type { DocumentoResultado } from '@/componentes/entidad/_editor_plantilla/tipos'
+import { useEmpresa } from '@/hooks/useEmpresa'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
+import {
+  BuscadorEntidadPreview,
+  type EntidadSeleccionada,
+} from './BuscadorEntidadPreview'
+import {
+  construirDatosPlantilla,
+  resolverTextoPlantilla,
+  opcionesMapeoVariables,
+  EJEMPLOS_POR_CAMPO,
+  type EntidadPlantillaWA,
+} from '@/lib/whatsapp/variables'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -67,12 +74,13 @@ const TIPOS_ENCABEZADO: { valor: TipoEncabezadoWA; etiqueta: string }[] = [
   { valor: 'DOCUMENT', etiqueta: 'Documento' },
 ]
 
-const MODULOS_DISPONIBLES: { valor: string; etiqueta: string }[] = [
+const MODULOS_DISPONIBLES: { valor: string; etiqueta: string; entidad?: EntidadPlantillaWA }[] = [
   { valor: 'inbox', etiqueta: 'Inbox (chat)' },
-  { valor: 'presupuestos', etiqueta: 'Presupuestos' },
-  { valor: 'contactos', etiqueta: 'Contactos' },
-  { valor: 'ordenes', etiqueta: 'Órdenes' },
-  { valor: 'actividades', etiqueta: 'Actividades' },
+  { valor: 'presupuestos', etiqueta: 'Presupuestos', entidad: 'presupuesto' },
+  { valor: 'contactos', etiqueta: 'Contactos', entidad: 'contacto' },
+  { valor: 'ordenes', etiqueta: 'Órdenes', entidad: 'orden' },
+  { valor: 'actividades', etiqueta: 'Actividades', entidad: 'actividad' },
+  { valor: 'visitas', etiqueta: 'Visitas', entidad: 'visita' },
 ]
 
 const TIPOS_BOTON: { valor: TipoBotonWA; etiqueta: string }[] = [
@@ -89,27 +97,6 @@ const ESTADOS_META: Record<EstadoMeta, { color: 'exito' | 'peligro' | 'advertenc
   DISABLED: { color: 'peligro', icono: Ban, etiqueta: 'Deshabilitada' },
   PAUSED: { color: 'advertencia', icono: Pause, etiqueta: 'Pausada' },
   ERROR: { color: 'peligro', icono: AlertTriangle, etiqueta: 'Error' },
-}
-
-const OPCIONES_MAPEO_VARIABLES = [
-  { valor: '', etiqueta: 'Sin asignar' },
-  { valor: 'contacto_nombre', etiqueta: 'Contacto — Nombre completo' },
-  { valor: 'contacto_telefono', etiqueta: 'Contacto — Teléfono' },
-  { valor: 'contacto_correo', etiqueta: 'Contacto — Correo' },
-  { valor: 'documento_numero', etiqueta: 'Documento — Número' },
-  { valor: 'documento_total', etiqueta: 'Documento — Total' },
-  { valor: 'documento_fecha', etiqueta: 'Documento — Fecha emisión' },
-  { valor: 'empresa_nombre', etiqueta: 'Empresa — Nombre' },
-]
-
-const EJEMPLOS_POR_CAMPO: Record<string, string> = {
-  contacto_nombre: 'Juan García',
-  contacto_telefono: '+54 11 1234-5678',
-  contacto_correo: 'juan@ejemplo.com',
-  documento_numero: 'PRE-00042',
-  documento_total: '$150.000,00',
-  documento_fecha: '05/04/2026',
-  empresa_nombre: 'Mi Empresa S.A.',
 }
 
 interface Props {
@@ -130,6 +117,7 @@ export function PaginaEditorPlantillaMeta({
   const router = useRouter()
   const { locale, formatoHora: fmtHora } = useFormato()
   const { mostrar } = useToast()
+  const { empresa } = useEmpresa()
   const esEdicion = !!plantilla
 
   const [guardando, setGuardando] = useState(false)
@@ -145,9 +133,14 @@ export function PaginaEditorPlantillaMeta({
   const [componentes, setComponentes] = useState<ComponentesPlantillaWA>(plantilla?.componentes || { cuerpo: { texto: '' } })
   const [modulos, setModulos] = useState<string[]>(plantilla?.modulos || [])
 
+  // Previsualización con datos reales: cada entidad se carga una sola vez y se
+  // mantiene en memoria para alimentar `construirDatosPlantilla`.
+  const [entidadSeleccionada, setEntidadSeleccionada] = useState<EntidadSeleccionada | null>(null)
   const [contactoPreview, setContactoPreview] = useState<Record<string, unknown> | null>(null)
-  const [documentoPreview, setDocumentoPreview] = useState<DocumentoResultado | null>(null)
-  const [cargandoContacto, setCargandoContacto] = useState(false)
+  const [visitaPreview, setVisitaPreview] = useState<Record<string, unknown> | null>(null)
+  const [presupuestoPreview, setPresupuestoPreview] = useState<Record<string, unknown> | null>(null)
+  const [ordenPreview, setOrdenPreview] = useState<Record<string, unknown> | null>(null)
+  const [actividadPreview, setActividadPreview] = useState<Record<string, unknown> | null>(null)
 
   const esEditable = !plantilla || ['BORRADOR', 'ERROR'].includes(plantilla.estado_meta)
 
@@ -246,48 +239,104 @@ export function PaginaEditorPlantillaMeta({
   }
 
   // ─── Preview con datos reales ───
-  const seleccionarContactoPreview = useCallback(async (id: string) => {
-    setCargandoContacto(true)
+  // Al seleccionar una entidad (contacto/visita/presupuesto/orden/actividad),
+  // carga su detalle y también las FKs relacionadas (ej: contacto asociado a
+  // una visita) para que todas las variables del catálogo puedan resolverse.
+  const limpiarEntidades = useCallback(() => {
+    setEntidadSeleccionada(null)
+    setContactoPreview(null)
+    setVisitaPreview(null)
+    setPresupuestoPreview(null)
+    setOrdenPreview(null)
+    setActividadPreview(null)
+  }, [])
+
+  const cargarContactoRelacionado = useCallback(async (contactoId: string | null | undefined) => {
+    if (!contactoId) return
     try {
-      const res = await fetch(`/api/contactos/${id}`)
+      const res = await fetch(`/api/contactos/${contactoId}`)
       const data = await res.json()
-      if (data?.id) { setContactoPreview(data); setDocumentoPreview(null) }
+      if (data?.id) setContactoPreview(data)
     } catch { /* silenciar */ }
-    finally { setCargandoContacto(false) }
   }, [])
 
-  const seleccionarDocumentoPreview = useCallback(async (doc: DocumentoResultado) => {
+  const seleccionarEntidadPreview = useCallback(async (sel: EntidadSeleccionada) => {
+    setEntidadSeleccionada(sel)
+    // Reset de las demás entidades para no mezclar datos entre selecciones
+    setContactoPreview(null)
+    setVisitaPreview(null)
+    setPresupuestoPreview(null)
+    setOrdenPreview(null)
+    setActividadPreview(null)
+
     try {
-      const res = await fetch(`/api/presupuestos/${doc.id}`)
+      const endpoint = {
+        contacto: `/api/contactos/${sel.id}`,
+        visita: `/api/visitas/${sel.id}`,
+        presupuesto: `/api/presupuestos/${sel.id}`,
+        orden: `/api/ordenes/${sel.id}`,
+        actividad: `/api/actividades/${sel.id}`,
+      }[sel.tipo]
+      const res = await fetch(endpoint)
       const data = await res.json()
-      if (data) {
-        setDocumentoPreview({ ...doc, ...data })
-        if (data.contacto_id) {
-          setCargandoContacto(true)
-          const resC = await fetch(`/api/contactos/${data.contacto_id}`)
-          const contacto = await resC.json()
-          if (contacto?.id) setContactoPreview(contacto)
-          setCargandoContacto(false)
-        }
-      } else {
-        setDocumentoPreview(doc)
-      }
-    } catch { setDocumentoPreview(doc) }
-  }, [])
+      if (!data || data.error) return
 
-  const datosPreview = useMemo(() => ({
-    contacto_nombre: contactoPreview
-      ? `${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim()
-      : String(DATOS_EJEMPLO.contacto.nombre_completo),
-    contacto_telefono: contactoPreview ? String(contactoPreview.telefono || '') : String(DATOS_EJEMPLO.contacto.telefono),
-    contacto_correo: contactoPreview ? String(contactoPreview.correo || '') : String(DATOS_EJEMPLO.contacto.correo),
-    documento_numero: documentoPreview ? documentoPreview.numero : String(DATOS_EJEMPLO.presupuesto.numero),
-    documento_total: documentoPreview
-      ? formatoMoneda(documentoPreview.total_final, documentoPreview.moneda)
-      : String(DATOS_EJEMPLO.presupuesto.total_final),
-    documento_fecha: documentoPreview ? formatoFecha(documentoPreview.fecha_emision) : String(DATOS_EJEMPLO.presupuesto.fecha_emision),
-    empresa_nombre: String(DATOS_EJEMPLO.empresa.nombre),
-  }), [contactoPreview, documentoPreview])
+      switch (sel.tipo) {
+        case 'contacto':
+          setContactoPreview(data)
+          break
+        case 'visita':
+          setVisitaPreview(data)
+          await cargarContactoRelacionado(data.contacto_id)
+          break
+        case 'presupuesto':
+          setPresupuestoPreview(data)
+          await cargarContactoRelacionado(data.contacto_id)
+          break
+        case 'orden':
+          setOrdenPreview(data)
+          await cargarContactoRelacionado(data.contacto_id)
+          break
+        case 'actividad':
+          setActividadPreview(data)
+          // Las actividades vinculan contactos a través de `vinculos[]`; si
+          // encontramos uno de tipo contacto lo usamos como contacto principal.
+          {
+            const vinculos = (data.vinculos || []) as Array<{ tipo: string; id: string }>
+            const vincContacto = vinculos.find(v => v.tipo === 'contacto')
+            if (vincContacto) await cargarContactoRelacionado(vincContacto.id)
+          }
+          break
+      }
+    } catch { /* silenciar */ }
+  }, [cargarContactoRelacionado])
+
+  // Tipos de entidad para el buscador de preview y para filtrar opciones de
+  // mapeo. Si la plantilla no declara módulos, se habilitan todos.
+  const tiposEntidadesPermitidas = useMemo<EntidadPlantillaWA[] | undefined>(() => {
+    if (modulos.length === 0) return undefined
+    const mapa = new Map(MODULOS_DISPONIBLES.filter(m => m.entidad).map(m => [m.valor, m.entidad!]))
+    const tipos = modulos.map(m => mapa.get(m)).filter(Boolean) as EntidadPlantillaWA[]
+    // Contacto siempre útil como base
+    if (!tipos.includes('contacto')) tipos.push('contacto')
+    return Array.from(new Set(tipos))
+  }, [modulos])
+
+  const opcionesMapeo = useMemo(() => opcionesMapeoVariables(modulos), [modulos])
+
+  const datosPreview = useMemo(() => {
+    const datos = construirDatosPlantilla({
+      contacto: contactoPreview,
+      visita: visitaPreview,
+      presupuesto: presupuestoPreview,
+      orden: ordenPreview,
+      actividad: actividadPreview,
+      empresa: { nombre: empresa?.nombre || null },
+    }, locale)
+    // Fallback: para cualquier variable del catálogo sin dato real cargado,
+    // usar el ejemplo genérico — así la vista previa nunca queda con `{{N}}`.
+    return { ...EJEMPLOS_POR_CAMPO, ...datos }
+  }, [contactoPreview, visitaPreview, presupuestoPreview, ordenPreview, actividadPreview, empresa, locale])
 
   // ─── Acciones ───
   const guardar = useCallback(async () => {
@@ -315,6 +364,33 @@ export function PaginaEditorPlantillaMeta({
       setGuardando(false)
     }
   }, [nombre, nombreApi, categoria, idioma, componentes, modulos, plantilla, canalId, tieneErrores, mostrar, router, rutaVolver])
+
+  // Detectar cambios sin guardar (form vs valores iniciales de la plantilla).
+  const cambiosPendientes = useMemo(() => {
+    const diffs: { campo: string; valor?: string }[] = []
+    if (nombre !== (plantilla?.nombre || '')) diffs.push({ campo: 'Nombre', valor: nombre || '(vacío)' })
+    if (nombreApi !== (plantilla?.nombre_api || '')) diffs.push({ campo: 'Identificador API', valor: nombreApi || '(vacío)' })
+    if (categoria !== (plantilla?.categoria || 'UTILITY')) diffs.push({ campo: 'Categoría', valor: categoria })
+    if (idioma !== (plantilla?.idioma || 'es')) diffs.push({ campo: 'Idioma', valor: idioma })
+    if (JSON.stringify(componentes) !== JSON.stringify(plantilla?.componentes || { cuerpo: { texto: '' } })) {
+      diffs.push({ campo: 'Contenido de la plantilla' })
+    }
+    if (JSON.stringify(modulos.slice().sort()) !== JSON.stringify((plantilla?.modulos || []).slice().sort())) {
+      diffs.push({ campo: 'Módulos disponibles' })
+    }
+    if (canalId !== (plantilla?.canal_id || canalIdInicial || canales[0]?.id || '')) {
+      diffs.push({ campo: 'Cuenta de WhatsApp' })
+    }
+    return diffs
+  }, [plantilla, nombre, nombreApi, categoria, idioma, componentes, modulos, canalId, canalIdInicial, canales])
+
+  useCambiosSinGuardar({
+    id: `plantilla-meta-${plantilla?.id || 'nueva'}`,
+    dirty: cambiosPendientes.length > 0 && esEditable,
+    titulo: esEdicion ? `Plantilla WhatsApp: ${plantilla?.nombre || ''}` : 'Nueva plantilla de WhatsApp',
+    cambios: cambiosPendientes,
+    onGuardar: async () => { await guardar() },
+  })
 
   const enviarAMeta = useCallback(async () => {
     if (tieneErrores) return
@@ -421,47 +497,17 @@ export function PaginaEditorPlantillaMeta({
         </div>
       )}
 
-      {/* Selectores para preview */}
+      {/* Selector universal para preview */}
       <div className="space-y-2">
         <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
           Previsualizar con datos reales
         </label>
-        {contactoPreview ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-card border border-borde-sutil bg-superficie-tarjeta">
-            <User size={13} className="text-texto-terciario" />
-            <span className="text-sm flex-1 truncate text-texto-primario">
-              {`${(contactoPreview.nombre as string) || ''} ${(contactoPreview.apellido as string) || ''}`.trim()}
-            </span>
-            <button
-              onClick={() => { setContactoPreview(null); setDocumentoPreview(null) }}
-              className="p-0.5 rounded hover:bg-superficie-hover transition-colors cursor-pointer"
-            >
-              <X size={13} className="text-texto-terciario" />
-            </button>
-          </div>
-        ) : (
-          <BuscadorContactoPreview onSeleccionar={seleccionarContactoPreview} cargando={cargandoContacto} />
-        )}
-
-        {documentoPreview ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-card border border-borde-sutil bg-superficie-tarjeta">
-            <FileTextIcon size={13} className="text-texto-terciario" />
-            <span className="text-sm flex-1 truncate text-texto-primario">
-              {documentoPreview.numero}
-            </span>
-            <button
-              onClick={() => setDocumentoPreview(null)}
-              className="p-0.5 rounded hover:bg-superficie-hover transition-colors cursor-pointer"
-            >
-              <X size={13} className="text-texto-terciario" />
-            </button>
-          </div>
-        ) : (
-          <BuscadorDocumentoPreview
-            contactoId={contactoPreview ? String(contactoPreview.id || '') : null}
-            onSeleccionar={seleccionarDocumentoPreview}
-          />
-        )}
+        <BuscadorEntidadPreview
+          tiposPermitidos={tiposEntidadesPermitidas}
+          seleccionado={entidadSeleccionada}
+          onSeleccionar={seleccionarEntidadPreview}
+          onLimpiar={limpiarEntidades}
+        />
       </div>
 
       {/* Preview estilo WhatsApp */}
@@ -655,7 +701,7 @@ export function PaginaEditorPlantillaMeta({
                   <Select
                     placeholder="Campo de Flux..."
                     valor={componentes.cuerpo?.mapeo_variables?.[idx] || ''}
-                    opciones={OPCIONES_MAPEO_VARIABLES}
+                    opciones={opcionesMapeo}
                     onChange={(v) => {
                       const mapeo = [...(componentes.cuerpo?.mapeo_variables || [])]
                       mapeo[idx] = v
@@ -771,17 +817,6 @@ function formatearTextoWA(texto: string): string {
   return html
 }
 
-interface DatosPreviewTipo {
-  [key: string]: string
-  contacto_nombre: string
-  contacto_telefono: string
-  contacto_correo: string
-  documento_numero: string
-  documento_total: string
-  documento_fecha: string
-  empresa_nombre: string
-}
-
 function PreviewWhatsApp({
   componentes,
   datosPreview,
@@ -789,32 +824,22 @@ function PreviewWhatsApp({
   fmtHora,
 }: {
   componentes: ComponentesPlantillaWA
-  datosPreview?: DatosPreviewTipo
+  datosPreview: Record<string, string>
   locale: string
   fmtHora: string
 }) {
   const cuerpoHtml = useMemo(() => {
-    let texto = componentes.cuerpo?.texto || ''
-    const ejemplos = componentes.cuerpo?.ejemplos || []
-    const mapeo = componentes.cuerpo?.mapeo_variables || []
-
-    texto = texto.replace(/\{\{(\d+)\}\}/g, (_, n) => {
-      const idx = parseInt(n) - 1
-      if (datosPreview && mapeo[idx]) {
-        const val = (datosPreview as Record<string, string>)[mapeo[idx]]
-        if (val) return val
-      }
-      return ejemplos[idx] || `{{${n}}}`
-    })
-    return formatearTextoWA(texto)
+    const texto = componentes.cuerpo?.texto || ''
+    return formatearTextoWA(resolverTextoPlantilla(texto, componentes.cuerpo, datosPreview))
   }, [componentes.cuerpo, datosPreview])
 
   const encabezadoHtml = useMemo(() => {
     if (componentes.encabezado?.tipo !== 'TEXT' || !componentes.encabezado.texto) return ''
-    let texto = componentes.encabezado.texto
-    if (datosPreview) texto = texto.replace(/\{\{1\}\}/g, datosPreview.contacto_nombre)
-    else texto = texto.replace(/\{\{1\}\}/g, componentes.encabezado.ejemplo || '{{1}}')
-    return formatearTextoWA(texto)
+    const texto = componentes.encabezado.texto
+    // El encabezado sólo admite {{1}}; usamos el ejemplo del usuario si lo hay,
+    // si no, caemos al nombre de contacto cuando hay datos reales.
+    const reemplazo = componentes.encabezado.ejemplo || datosPreview.contacto_nombre || '{{1}}'
+    return formatearTextoWA(texto.replace(/\{\{1\}\}/g, reemplazo))
   }, [componentes.encabezado, datosPreview])
 
   return (

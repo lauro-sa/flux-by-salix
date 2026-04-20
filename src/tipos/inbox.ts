@@ -156,6 +156,8 @@ export interface Conversacion {
   etapa_id: string | null
   etapa_etiqueta?: string | null
   etapa_color?: string | null
+  // Visita provisoria pendiente de confirmación (creada por agente IA)
+  tiene_visita_provisoria?: boolean
   // Sector asignado
   sector_id: string | null
   sector_nombre: string | null
@@ -681,7 +683,7 @@ export type LargoRespuesta = 'corto' | 'medio' | 'largo'
 export type AccionAgente =
   | 'responder' | 'clasificar' | 'enrutar' | 'resumir'
   | 'sentimiento' | 'etiquetar' | 'escalar'
-  | 'crear_actividad' | 'actualizar_contacto'
+  | 'crear_actividad' | 'actualizar_contacto' | 'crear_visita'
 
 export interface ConfigAgenteIA {
   id: string

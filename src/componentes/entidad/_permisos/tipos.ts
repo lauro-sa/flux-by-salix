@@ -5,6 +5,7 @@
 
 import type { Rol, Modulo, Accion, PermisosMapa } from '@/tipos'
 import type { PermisoAuditoria } from '@/tipos/permisos_auditoria'
+import type { CambioDescrito } from '@/hooks/useCambiosPendientes'
 
 /** Props publicas de SeccionPermisos */
 export interface PropiedadesSeccionPermisos {
@@ -12,6 +13,8 @@ export interface PropiedadesSeccionPermisos {
   rol: Rol
   permisosCustomIniciales: PermisosMapa | null
   auditoriaInicial?: PermisoAuditoria[]
+  /** Nombre legible del miembro (para el modal "cambios sin guardar"). */
+  nombreMiembro?: string
   onGuardar: (permisos: PermisosMapa | null) => Promise<void>
   onRevocar: (motivo: string) => Promise<void>
 }
@@ -29,6 +32,10 @@ export interface RetornoUsePermisos {
   permisos: PermisosMapa
   usaCustom: boolean
   guardando: boolean
+  /** Hay cambios locales que no están persistidos. */
+  dirty: boolean
+  /** Lista legible de cambios pendientes (para el modal "cambios sin guardar"). */
+  cambios: CambioDescrito[]
   estadisticas: EstadisticasPermisos
   toggleAccion: (modulo: Modulo, accion: Accion) => void
   todoModulo: (modulo: Modulo) => void
@@ -38,4 +45,6 @@ export interface RetornoUsePermisos {
   aplicarPresetCategoria: (categoriaKey: string, tipo: 'todo' | 'lectura' | 'nada') => void
   restablecer: () => Promise<void>
   guardar: () => Promise<void>
+  /** Descarta los cambios locales y vuelve al estado persistido. */
+  descartar: () => void
 }

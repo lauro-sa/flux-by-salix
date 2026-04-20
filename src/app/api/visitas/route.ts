@@ -56,15 +56,18 @@ export async function GET(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 
-    // Si solo tiene ver_propio, forzar filtro
+    // Si solo tiene ver_propio, forzar filtro.
+    // Las provisorias (creadas por el agente IA) siempre se muestran: son trabajo pendiente
+    // de confirmar/asignar y cualquiera con acceso a visitas debe poder tomarlas.
     if (soloPropio) {
-      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id},estado.eq.provisoria`)
     }
 
-    // Vista: propias = creadas por mí O asignadas a mí (default del sistema)
+    // Vista: propias = creadas por mí O asignadas a mí (default del sistema).
+    // Provisorias también caen acá aunque no estén asignadas aún.
     // mias = solo asignadas a mí, enviadas = solo creadas por mí
     if (vista === 'propias') {
-      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id},estado.eq.provisoria`)
     } else if (vista === 'mias') {
       query = query.eq('asignado_a', user.id)
     } else if (vista === 'enviadas') {

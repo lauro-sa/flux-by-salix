@@ -16,6 +16,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useModulos } from '@/hooks/useModulos'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { PanelUsoIA } from '@/componentes/ia/PanelUsoIA'
@@ -963,6 +964,16 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
     onActualizar({ prompt_asistente: PROMPT_DEFAULT } as Partial<ConfigIA>)
     setModalReset(false)
   }
+
+  // Si se edita el prompt y se intenta navegar sin guardar, pedir confirmación.
+  useCambiosSinGuardar({
+    id: 'asistente-general-prompt',
+    dirty: modificado,
+    titulo: 'Asistente General',
+    cambios: [{ campo: 'Prompt del asistente', valor: 'modificado' }],
+    onGuardar: async () => { guardar() },
+    onDescartar: () => { setPrompt(config.prompt_asistente || PROMPT_DEFAULT) },
+  })
 
   return (
     <div className="space-y-5">

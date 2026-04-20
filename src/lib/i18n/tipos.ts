@@ -345,6 +345,7 @@ export interface Traducciones {
     tecnico: string
     estado: string
     estados: {
+      provisoria: string
       programada: string
       en_camino: string
       en_sitio: string

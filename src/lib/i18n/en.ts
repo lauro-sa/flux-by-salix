@@ -333,6 +333,7 @@ export const en: Traducciones = {
     tecnico: 'Technician',
     estado: 'Status',
     estados: {
+      provisoria: 'To confirm',
       programada: 'Scheduled',
       en_camino: 'On the way',
       en_sitio: 'On site',

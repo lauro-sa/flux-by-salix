@@ -595,6 +595,18 @@ export function ListaConversaciones({
                       {tipoCanal === 'whatsapp' && iaHabilitada && conv.agente_ia_activo && (
                         <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-insignia-violeta-fondo text-insignia-violeta-texto">IA</span>
                       )}
+                      {conv.tiene_visita_provisoria && (
+                        <span
+                          className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center gap-1"
+                          style={{
+                            background: 'var(--insignia-advertencia-fondo)',
+                            color: 'var(--insignia-advertencia-texto)',
+                          }}
+                          title="Hay una visita pendiente de confirmar"
+                        >
+                          Visita a confirmar
+                        </span>
+                      )}
                     </div>
                   </div>
 

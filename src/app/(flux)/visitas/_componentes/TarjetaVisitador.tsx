@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
-import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight, Map, ExternalLink, Play, Check } from 'lucide-react'
+import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight, Map, ExternalLink, Play, Check, CheckCircle, XCircle, Sparkles } from 'lucide-react'
 import { MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
@@ -56,6 +56,8 @@ interface Props {
   onMoverColumna?: (usuarioId: string, direccion: -1 | 1) => void
   onAbrirRecorrido?: (usuarioId: string, fecha: string) => void
   onAbrirVisita?: (visitaId: string) => void
+  onConfirmarProvisoria?: (visitaId: string) => void
+  onRechazarProvisoria?: (visitaId: string) => void
   optimizando?: boolean
   esSinAsignar?: boolean
 }
@@ -64,6 +66,7 @@ interface Props {
 type ColorInsignia = 'exito' | 'peligro' | 'advertencia' | 'info' | 'primario' | 'neutro'
 
 const COLORES_ESTADO: Record<string, ColorInsignia> = {
+  provisoria: 'advertencia',
   programada: 'advertencia',
   en_camino: 'exito',
   en_sitio: 'info',
@@ -80,7 +83,19 @@ const COLORES_PRIORIDAD: Record<string, ColorInsignia> = {
 }
 
 // Componente sortable para cada visita dentro de la columna
-function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaPlanificacion; indice: number; onAbrirVisita?: (id: string) => void }) {
+function ItemVisitaSortable({
+  visita,
+  indice,
+  onAbrirVisita,
+  onConfirmarProvisoria,
+  onRechazarProvisoria,
+}: {
+  visita: VisitaPlanificacion
+  indice: number
+  onAbrirVisita?: (id: string) => void
+  onConfirmarProvisoria?: (visitaId: string) => void
+  onRechazarProvisoria?: (visitaId: string) => void
+}) {
   const formato = useFormato()
   const {
     attributes,
@@ -107,9 +122,13 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
   const esCancelada = visita.estado === 'cancelada'
   const esInactiva = esCompletada || esCancelada
   const esActiva = visita.estado === 'en_camino' || visita.estado === 'en_sitio'
+  const esProvisoria = visita.estado === 'provisoria'
+  const fueCreadaPorIA = !!(visita.motivo && /agente\s*ia|whatsapp/i.test(visita.motivo))
+    || esProvisoria // por ahora, toda provisoria viene del agente
 
   const colorBorde = esCancelada ? 'border-l-insignia-peligro/40'
     : esCompletada ? 'border-l-insignia-exito/40'
+    : esProvisoria ? 'border-l-insignia-advertencia'
     : visita.prioridad === 'urgente' ? 'border-l-insignia-peligro'
     : visita.prioridad === 'alta' ? 'border-l-insignia-advertencia'
     : 'border-l-texto-marca/40'
@@ -121,6 +140,7 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
       className={`relative rounded-card border border-l-2 ${colorBorde} transition-colors ${
         esInactiva ? 'border-white/[0.04] bg-white/[0.01] opacity-50' :
         esActiva ? 'border-texto-marca/30 bg-texto-marca/5' :
+        esProvisoria ? 'border-insignia-advertencia/30 bg-insignia-advertencia/5 hover:bg-insignia-advertencia/10' :
         'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'
       }`}
     >
@@ -163,6 +183,12 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
               {visita.estado === 'en_camino' ? 'en camino' : 'en sitio'}
             </span>
           )}
+          {esProvisoria && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 bg-insignia-advertencia/15 text-insignia-advertencia flex items-center gap-1">
+              {fueCreadaPorIA && <Sparkles size={9} />}
+              A confirmar
+            </span>
+          )}
           {onAbrirVisita && (
             <button
               className="shrink-0 rounded p-1 text-texto-terciario hover:bg-texto-marca/10 hover:text-texto-marca transition-colors"
@@ -202,6 +228,28 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
             )}
           </div>
         )}
+
+        {/* Acciones provisoria: Confirmar / Rechazar */}
+        {esProvisoria && (onConfirmarProvisoria || onRechazarProvisoria) && (
+          <div className="flex items-center gap-1.5 pl-7 pt-1">
+            {onConfirmarProvisoria && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onConfirmarProvisoria(visita.id) }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-insignia-exito/10 text-insignia-exito hover:bg-insignia-exito/20 transition-colors"
+              >
+                <CheckCircle size={10} /> Confirmar
+              </button>
+            )}
+            {onRechazarProvisoria && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRechazarProvisoria(visita.id) }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors"
+              >
+                <XCircle size={10} /> Rechazar
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -219,6 +267,8 @@ export default function TarjetaVisitador({
   onMoverColumna,
   onAbrirRecorrido,
   onAbrirVisita,
+  onConfirmarProvisoria,
+  onRechazarProvisoria,
   optimizando,
   esSinAsignar,
 }: Props) {
@@ -427,7 +477,13 @@ export default function TarjetaVisitador({
                       )}
                     </div>
                   )}
-                  <ItemVisitaSortable visita={visita} indice={contadorGlobal - 1} onAbrirVisita={onAbrirVisita} />
+                  <ItemVisitaSortable
+                    visita={visita}
+                    indice={contadorGlobal - 1}
+                    onAbrirVisita={onAbrirVisita}
+                    onConfirmarProvisoria={onConfirmarProvisoria}
+                    onRechazarProvisoria={onRechazarProvisoria}
+                  />
                 </div>
               )
             })

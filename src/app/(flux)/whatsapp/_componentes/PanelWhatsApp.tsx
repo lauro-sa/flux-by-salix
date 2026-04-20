@@ -19,6 +19,7 @@ import { PanelIA } from '@/componentes/mensajeria/PanelIA'
 import { PopoverSnooze } from '@/componentes/mensajeria/PopoverSnooze'
 import { SelectorPlantillasWA } from './SelectorPlantillasWA'
 import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
+import { construirDatosPlantilla, resolverParametrosCuerpo } from '@/lib/whatsapp/variables'
 // PopoverProgramar ahora vive dentro de CompositorMensaje
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
@@ -413,33 +414,14 @@ export function PanelWhatsApp({
     if (!conversacion) return
     setEnviandoPlantilla(true)
     try {
-      // Construir components en formato Meta API a partir de componentes Flux
+      // Resolver variables con datos reales del contacto asociado a la conversación
+      const datos = construirDatosPlantilla({
+        contacto: conversacion.contacto as Record<string, unknown> | undefined,
+      })
       const componentesMeta: Record<string, unknown>[] = []
       const cuerpo = plantilla.componentes?.cuerpo
-      if (cuerpo?.texto) {
-        // Contar variables {{N}} en el cuerpo
-        const matches = cuerpo.texto.match(/\{\{\d+\}\}/g)
-        if (matches && matches.length > 0) {
-          // Resolver cada variable con datos reales del contacto
-          const contacto = conversacion.contacto
-          const nombreCompleto = [contacto?.nombre, contacto?.apellido].filter(Boolean).join(' ')
-          const parametros = matches.map((_, i) => {
-            const mapeo = cuerpo.mapeo_variables?.[i]
-            const ejemplo = cuerpo.ejemplos?.[i]
-            let valor = ejemplo || ''
-            // Mapeo explícito
-            if (mapeo === 'contacto_nombre' && nombreCompleto) valor = nombreCompleto
-            else if (mapeo === 'contacto_telefono' && contacto?.telefono) valor = contacto.telefono
-            else if (mapeo === 'contacto_correo' && contacto?.correo) valor = contacto.correo
-            // Detección automática: si el ejemplo parece nombre genérico, usar nombre real
-            else if (!mapeo && ejemplo && /^(juan garcía|juan garcia|maría lópez|maria lopez|nombre)$/i.test(ejemplo.trim()) && nombreCompleto) {
-              valor = nombreCompleto
-            }
-            return { type: 'text', text: valor }
-          })
-          componentesMeta.push({ type: 'body', parameters: parametros })
-        }
-      }
+      const parametros = resolverParametrosCuerpo(cuerpo, datos)
+      if (parametros) componentesMeta.push({ type: 'body', parameters: parametros })
       // Encabezado con variable
       const encabezado = plantilla.componentes?.encabezado
       if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
@@ -686,7 +668,7 @@ export function PanelWhatsApp({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative min-h-0"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 relative min-h-0"
         style={{
           backgroundImage: 'radial-gradient(circle at 25% 25%, var(--superficie-hover) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
@@ -741,7 +723,7 @@ export function PanelWhatsApp({
           </div>
         ) : (
           secciones.map((seccion) => (
-            <div key={seccion.key}>
+            <div key={seccion.key} className="flex flex-col gap-3">
               {/* Píldora de fecha sticky — limitada al scope de esta sección,
                   así la siguiente sección la empuja hacia arriba (estilo WhatsApp) */}
               <div
@@ -1030,7 +1012,7 @@ export function PanelWhatsApp({
                   key={elem.key}
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="flex justify-end"
+                  className="flex justify-end pb-3"
                 >
                   <div
                     className="max-w-[75%] rounded-card px-3 py-1.5 relative"
@@ -2102,18 +2084,23 @@ function ContenidoMensaje({
       return adjuntos.length > 0 ? (
         <div className="space-y-1">
           {adjuntos.map((adj) => (
-            <Boton key={adj.id} variante="fantasma" tamano="sm" onClick={() => onAbrirVisor(adj.url)} className="block p-0">
-              <div className="relative" style={{ maxHeight: 300, overflow: 'hidden' }}>
+            <button
+              key={adj.id}
+              type="button"
+              onClick={() => onAbrirVisor(adj.url)}
+              className="block p-0 border-0 bg-transparent cursor-pointer rounded-boton overflow-hidden hover:opacity-90 transition-opacity"
+              style={{ width: 260, height: 260 }}
+            >
+              <div className="relative w-full h-full">
                 <NextImage
                   src={adj.url}
                   alt={caption || ''}
-                  width={400}
-                  height={300}
-                  sizes="(max-width: 768px) 80vw, 400px"
-                  className="rounded-boton object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                  fill
+                  sizes="260px"
+                  className="object-cover"
                 />
               </div>
-            </Boton>
+            </button>
           ))}
           {caption && (
             <HtmlSeguro

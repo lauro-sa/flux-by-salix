@@ -9,12 +9,50 @@ import { GOOGLE_PLACES_API, GOOGLE_PLACES_AUTOCOMPLETE } from '@/lib/constantes/
 const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY
 
 interface DireccionValidada {
-  calle: string
+  calle: string        // "Juncal" (sin número)
+  numero: string       // "1724"
+  calleCompleta: string // "Juncal 1724" (para mostrar en confirmación)
   barrio: string
   ciudad: string
   provincia: string
   textoCompleto: string
   coordenadas: { lat: number; lng: number } | null
+}
+
+/**
+ * Fetch con reintentos y backoff exponencial.
+ * Reintenta en errores de red (catch) o en 5xx/429. No reintenta en 4xx salvo 429.
+ */
+async function fetchConRetry(
+  url: string,
+  opciones: RequestInit,
+  intentos = 3,
+  delayInicial = 400,
+): Promise<Response | null> {
+  let delay = delayInicial
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const res = await fetch(url, opciones)
+      // Éxito o error no recuperable (4xx que no sea 429) → devolver directo
+      if (res.ok) return res
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) return res
+      // 5xx o 429 → reintentar
+      if (i < intentos - 1) {
+        await new Promise(r => setTimeout(r, delay))
+        delay *= 2
+        continue
+      }
+      return res
+    } catch (err) {
+      if (i === intentos - 1) {
+        console.warn('[DIRECCION] fetch falló tras reintentos:', err)
+        return null
+      }
+      await new Promise(r => setTimeout(r, delay))
+      delay *= 2
+    }
+  }
+  return null
 }
 
 /**
@@ -25,8 +63,8 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
   if (!GOOGLE_API_KEY || !textoRaw || textoRaw.length < 5) return null
 
   try {
-    // Paso 1: Autocompletar para encontrar el place
-    const resAuto = await fetch(GOOGLE_PLACES_AUTOCOMPLETE, {
+    // Paso 1: Autocompletar para encontrar el place (con retry en 5xx/red)
+    const resAuto = await fetchConRetry(GOOGLE_PLACES_AUTOCOMPLETE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,15 +77,15 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
       }),
     })
 
-    if (!resAuto.ok) return null
+    if (!resAuto || !resAuto.ok) return null
     const datosAuto = await resAuto.json()
 
     const sugerencia = datosAuto.suggestions?.[0]?.placePrediction
     if (!sugerencia?.placeId) return null
 
-    // Paso 2: Detalle del lugar
+    // Paso 2: Detalle del lugar (con retry en 5xx/red)
     const campos = 'addressComponents,location,formattedAddress'
-    const resDetalle = await fetch(
+    const resDetalle = await fetchConRetry(
       `${GOOGLE_PLACES_API}/${sugerencia.placeId}?languageCode=es`,
       {
         headers: {
@@ -57,7 +95,7 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
       }
     )
 
-    if (!resDetalle.ok) return null
+    if (!resDetalle || !resDetalle.ok) return null
     const datosDetalle = await resDetalle.json()
 
     // Paso 3: Parsear componentes
@@ -85,29 +123,31 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
       ciudad = provincia
     }
 
-    const calleCompleta = numero ? `${calle} ${numero}` : calle
+    let calleCompleta = numero ? `${calle} ${numero}` : calle
 
     // Usar formattedAddress de Google pero limpiarlo (quitar país y código postal)
-    let textoCompleto = ''
+    // Si la calle de Google es más completa (ej: "Avenida Directorio" vs "Directorio"), usarla
     if (datosDetalle.formattedAddress) {
-      // Google devuelve "Av. Córdoba 1535, C1055 AAF, Buenos Aires, Argentina"
-      // Queremos: "Av. Córdoba 1535, Recoleta, CABA"
-      textoCompleto = [calleCompleta, barrio, ciudad].filter(Boolean).join(', ')
-      // Si la calle de Google es más completa (ej: "Avenida" vs "Av."), usar la de Google
       const formattedParts = datosDetalle.formattedAddress.split(',').map((p: string) => p.trim())
       if (formattedParts[0] && formattedParts[0].length > calleCompleta.length) {
-        textoCompleto = [formattedParts[0], barrio, ciudad].filter(Boolean).join(', ')
+        calleCompleta = formattedParts[0]
       }
-    } else {
-      textoCompleto = [calleCompleta, barrio, ciudad].filter(Boolean).join(', ')
     }
+
+    // Texto completo para mostrar/confirmar: calle número, barrio, ciudad, provincia
+    const textoCompleto = [calleCompleta, barrio, ciudad, provincia]
+      .filter(Boolean)
+      .filter((v, i, arr) => arr.indexOf(v) === i) // evitar duplicados (ej: CABA como ciudad y provincia)
+      .join(', ')
 
     const coordenadas = datosDetalle.location
       ? { lat: datosDetalle.location.latitude, lng: datosDetalle.location.longitude }
       : null
 
     return {
-      calle: calleCompleta,
+      calle,
+      numero,
+      calleCompleta,
       barrio,
       ciudad,
       provincia,

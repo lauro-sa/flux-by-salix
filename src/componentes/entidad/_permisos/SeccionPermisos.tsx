@@ -9,6 +9,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRol } from '@/hooks/useRol'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 import { CATEGORIAS_MODULOS } from '@/tipos'
 import type { PermisosMapa } from '@/tipos'
 import { usePermisos } from './usePermisos'
@@ -24,6 +25,7 @@ function SeccionPermisos({
   rol,
   permisosCustomIniciales,
   auditoriaInicial = [],
+  nombreMiembro,
   onGuardar,
   onRevocar,
 }: PropiedadesSeccionPermisos) {
@@ -34,6 +36,8 @@ function SeccionPermisos({
     permisos,
     usaCustom,
     guardando,
+    dirty,
+    cambios,
     estadisticas,
     toggleAccion,
     todoModulo,
@@ -43,7 +47,19 @@ function SeccionPermisos({
     aplicarPresetCategoria,
     restablecer,
     guardar,
+    descartar,
   } = usePermisos({ miembroId, rol, permisosCustomIniciales, onGuardar })
+
+  // Registrar estado dirty en el sistema global de "cambios sin guardar".
+  // Si el usuario intenta navegar (sidebar, perfil, cerrar pestaña), se le avisa.
+  useCambiosSinGuardar({
+    id: `permisos-${miembroId}`,
+    dirty,
+    titulo: nombreMiembro ? `Permisos de ${nombreMiembro}` : 'Permisos',
+    cambios,
+    onGuardar: guardar,
+    onDescartar: descartar,
+  })
 
   // Revocar todo: delega al padre y limpia estado local
   const confirmarRevocacion = useCallback(async (motivo: string) => {

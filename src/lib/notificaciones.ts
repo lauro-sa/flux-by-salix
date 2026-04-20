@@ -40,40 +40,6 @@ export async function crearNotificacion({
 }: CrearNotificacionParams) {
   const admin = crearClienteAdmin()
 
-  // Anti-duplicación: buscar notificación existente no leída con misma referencia
-  if (referenciaTipo && referenciaId) {
-    const { data: existente } = await admin
-      .from('notificaciones')
-      .select('id, titulo, cuerpo')
-      .eq('empresa_id', empresaId)
-      .eq('usuario_id', usuarioId)
-      .eq('referencia_tipo', referenciaTipo)
-      .eq('referencia_id', referenciaId)
-      .eq('leida', false)
-      .limit(1)
-      .maybeSingle()
-
-    if (existente) {
-      // Verificar si el contenido realmente cambió (nuevo mensaje en conversación vs mismo evento re-procesado)
-      const contenidoCambio = existente.titulo !== titulo || existente.cuerpo !== (cuerpo || null)
-
-      // Actualizar la notificación existente
-      await admin
-        .from('notificaciones')
-        .update({ titulo, cuerpo: cuerpo || null, creada_en: new Date().toISOString() })
-        .eq('id', existente.id)
-
-      // Solo enviar push si el contenido cambió (nuevo mensaje real, no el mismo evento re-procesado)
-      if (contenidoCambio) {
-        console.log(`[Push] crearNotificacion (dedup, contenido nuevo): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
-        enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
-      } else {
-        console.log(`[Push] crearNotificacion (dedup, mismo contenido): omitiendo push para usuario ${usuarioId.slice(0, 8)}`)
-      }
-      return
-    }
-  }
-
   // Limpiar notificaciones viejas leídas de la misma referencia para no acumular basura
   if (referenciaTipo && referenciaId) {
     admin
@@ -87,6 +53,10 @@ export async function crearNotificacion({
       .then(() => {})
   }
 
+  // Intento principal: INSERT. El índice único parcial
+  // `notificaciones_dedup_no_leida_idx` garantiza que no haya dos filas
+  // no leídas con la misma (empresa, usuario, referencia_tipo, referencia_id).
+  // Si ya existe una, el INSERT falla con 23505 y caemos al UPDATE.
   const { error } = await admin
     .from('notificaciones')
     .insert({
@@ -102,6 +72,39 @@ export async function crearNotificacion({
       referencia_tipo: referenciaTipo || null,
       referencia_id: referenciaId || null,
     })
+
+  // 23505 = unique_violation: ya existe una notificación no leída para la misma
+  // referencia. Actualizamos en lugar de insertar (dedup atómica garantizada por DB).
+  if (error && error.code === '23505' && referenciaTipo && referenciaId) {
+    const { data: existente } = await admin
+      .from('notificaciones')
+      .select('id, titulo, cuerpo')
+      .eq('empresa_id', empresaId)
+      .eq('usuario_id', usuarioId)
+      .eq('referencia_tipo', referenciaTipo)
+      .eq('referencia_id', referenciaId)
+      .eq('leida', false)
+      .limit(1)
+      .maybeSingle()
+
+    if (existente) {
+      const contenidoCambio = existente.titulo !== titulo || existente.cuerpo !== (cuerpo || null)
+
+      await admin
+        .from('notificaciones')
+        .update({ titulo, cuerpo: cuerpo || null, creada_en: new Date().toISOString() })
+        .eq('id', existente.id)
+
+      // Solo re-enviar push si el contenido cambió (nuevo evento real, no re-procesado)
+      if (contenidoCambio) {
+        console.log(`[Push] crearNotificacion (dedup, contenido nuevo): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
+        enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
+      } else {
+        console.log(`[Push] crearNotificacion (dedup, mismo contenido): omitiendo push para usuario ${usuarioId.slice(0, 8)}`)
+      }
+    }
+    return
+  }
 
   if (error) {
     console.error('Error al crear notificación:', error)

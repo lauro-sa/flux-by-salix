@@ -56,7 +56,7 @@ export function MatrizCategoria({
       }
     }
     // Ordenar en un orden logico consistente
-    const orden: Accion[] = ['ver', 'ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'completar_etapa', 'enviar', 'invitar', 'aprobar', 'marcar', 'autoasignar', 'coordinar']
+    const orden: Accion[] = ['ver', 'ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'completar_etapa', 'enviar', 'invitar', 'aprobar', 'marcar', 'asignar', 'autoasignar', 'coordinar']
     return orden.filter(a => set.has(a))
   }, [modulos])
 

@@ -48,6 +48,9 @@ export interface RespuestaLLM {
     direccion: string | null
     email: string | null
     telefono: string | null
+    // Fecha/franja acordadas con el cliente (para crear visita provisoria)
+    fecha_acordada: string | null  // ISO date YYYY-MM-DD
+    franja_horaria: string | null  // texto libre ej: "11 a 16hs", "mañana"
   } | null
   etiquetas_sugeridas: string[]
   acciones_sugeridas: { tipo: string; datos: Record<string, unknown> }[]
@@ -411,6 +414,107 @@ export const nodoResumir: NodoAgenteIA = {
       }
 
       return { exito: true, datos: { resumen } }
+    } catch (err) {
+      return { exito: false, error: String(err) }
+    }
+  },
+}
+
+// ─── Nodo: Crear visita provisoria (pendiente de confirmación humana) ───
+
+export const nodoCrearVisita: NodoAgenteIA = {
+  tipo: 'crear_visita',
+  async ejecutar(ctx, admin, datos) {
+    try {
+      // Obtener contacto_id de la conversación
+      const { data: conv } = await admin
+        .from('conversaciones')
+        .select('contacto_id, contacto_nombre')
+        .eq('id', ctx.conversacion_id)
+        .single()
+
+      if (!conv?.contacto_id) {
+        return { exito: false, error: 'Sin contacto vinculado a la conversación' }
+      }
+
+      // Evitar duplicados: si ya hay una visita provisoria reciente (< 24h) del mismo contacto, no crear otra
+      const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data: existente } = await admin
+        .from('visitas')
+        .select('id')
+        .eq('contacto_id', conv.contacto_id)
+        .eq('estado', 'provisoria')
+        .gte('creado_en', hace24h)
+        .limit(1)
+        .maybeSingle()
+
+      if (existente) {
+        return { exito: true, datos: { ya_existente: true, visita_id: existente.id } }
+      }
+
+      // Resolver fecha programada desde datos_capturados
+      const fechaAcordadaRaw = datos.fecha_acordada as string | undefined
+      const franjaHoraria = (datos.franja_horaria as string | undefined) || null
+      const tipoTrabajo = (datos.tipo_trabajo as string | undefined) || null
+
+      // Si no hay fecha, usar el inicio del próximo día hábil como placeholder (el humano la ajusta al confirmar)
+      let fechaProgramada: Date
+      if (fechaAcordadaRaw && /^\d{4}-\d{2}-\d{2}/.test(fechaAcordadaRaw)) {
+        // Intentar parsear ISO. Si sólo viene fecha (sin hora), asumir 11:00 local
+        const conHora = fechaAcordadaRaw.length > 10
+          ? fechaAcordadaRaw
+          : `${fechaAcordadaRaw}T11:00:00`
+        fechaProgramada = new Date(conHora)
+        if (Number.isNaN(fechaProgramada.getTime())) {
+          fechaProgramada = new Date(Date.now() + 24 * 60 * 60 * 1000)
+          fechaProgramada.setHours(11, 0, 0, 0)
+        }
+      } else {
+        fechaProgramada = new Date(Date.now() + 24 * 60 * 60 * 1000)
+        fechaProgramada.setHours(11, 0, 0, 0)
+      }
+
+      // Buscar dirección principal del contacto (si existe)
+      const { data: direccion } = await admin
+        .from('contacto_direcciones')
+        .select('id, texto, lat, lng')
+        .eq('contacto_id', conv.contacto_id)
+        .eq('es_principal', true)
+        .maybeSingle()
+
+      // Construir notas con resumen del contexto
+      const notasPartes: string[] = []
+      notasPartes.push('[Creada por agente IA desde WhatsApp]')
+      if (franjaHoraria) notasPartes.push(`Franja acordada: ${franjaHoraria}`)
+      if (tipoTrabajo) notasPartes.push(`Trabajo: ${tipoTrabajo}`)
+      notasPartes.push('Pendiente de confirmación por el equipo.')
+
+      const { data: nuevaVisita, error } = await admin
+        .from('visitas')
+        .insert({
+          empresa_id: ctx.empresa_id,
+          contacto_id: conv.contacto_id,
+          contacto_nombre: conv.contacto_nombre || 'Cliente',
+          direccion_id: direccion?.id || null,
+          direccion_texto: direccion?.texto || null,
+          direccion_lat: direccion?.lat ?? null,
+          direccion_lng: direccion?.lng ?? null,
+          fecha_programada: fechaProgramada.toISOString(),
+          duracion_estimada_min: 15,
+          estado: 'provisoria',
+          motivo: tipoTrabajo || 'Solicitud por WhatsApp',
+          notas: notasPartes.join('\n'),
+          prioridad: 'normal',
+          checklist: [],
+          creado_por: '00000000-0000-0000-0000-000000000000',
+          creado_por_nombre: 'Agente IA',
+        })
+        .select('id')
+        .single()
+
+      if (error) throw error
+
+      return { exito: true, datos: { visita_id: nuevaVisita?.id, fecha: fechaProgramada.toISOString() } }
     } catch (err) {
       return { exito: false, error: String(err) }
     }

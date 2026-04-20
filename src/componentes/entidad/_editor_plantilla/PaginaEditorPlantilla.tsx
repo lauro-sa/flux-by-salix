@@ -7,7 +7,7 @@
  * + área principal con tabs (Editar/Código) a la derecha. Vista previa es un modal aparte.
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
@@ -21,6 +21,7 @@ import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Braces, Eye, Code2, PenLine, RotateCcw, Save } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 
 import { useEditorPlantilla } from './useEditorPlantilla'
 import { OPCIONES_DISPONIBLE, OPCIONES_VISIBILIDAD } from './constantes'
@@ -92,6 +93,33 @@ export function PaginaEditorPlantilla({ plantilla, rutaVolver, textoVolver = 'Pl
     htmlCrudo, setHtmlCrudo,
     handleGuardar,
   } = estado
+
+  // ─── Detección de cambios sin guardar ───
+  // Compara cada campo del form con la plantilla original (o valor vacío si es "nueva").
+  const cambiosPendientes = useMemo(() => {
+    const diffs: { campo: string; valor?: string }[] = []
+    const origNombre = plantilla?.nombre || ''
+    const origAsunto = plantilla?.asunto || ''
+    const origContenido = plantilla?.contenido_html || plantilla?.contenido || ''
+    const origModulos = JSON.stringify((plantilla?.modulos || []).slice().sort())
+    const origVisibilidad = plantilla?.disponible_para || 'todos'
+    const origUsuarios = JSON.stringify((plantilla?.usuarios_permitidos || []).slice().sort())
+    if (nombre !== origNombre) diffs.push({ campo: 'Nombre', valor: nombre || '(vacío)' })
+    if (asunto !== origAsunto) diffs.push({ campo: 'Asunto' })
+    if (contenidoHtml !== origContenido) diffs.push({ campo: 'Contenido HTML' })
+    if (JSON.stringify(modulos.slice().sort()) !== origModulos) diffs.push({ campo: 'Módulos disponibles' })
+    if (visibilidad !== origVisibilidad) diffs.push({ campo: 'Visibilidad', valor: visibilidad })
+    if (JSON.stringify(usuariosSeleccionados.slice().sort()) !== origUsuarios) diffs.push({ campo: 'Usuarios asignados' })
+    return diffs
+  }, [plantilla, nombre, asunto, contenidoHtml, modulos, visibilidad, usuariosSeleccionados])
+
+  useCambiosSinGuardar({
+    id: `plantilla-correo-${plantilla?.id || 'nueva'}`,
+    dirty: cambiosPendientes.length > 0,
+    titulo: esEdicion ? `Plantilla: ${plantilla?.nombre || 'sin nombre'}` : 'Nueva plantilla de correo',
+    cambios: cambiosPendientes,
+    onGuardar: async () => { await handleGuardar() },
+  })
 
   // ─── Plantilla de sistema: verificar si fue modificada ───
   const esSistema = plantilla?.es_sistema ?? false

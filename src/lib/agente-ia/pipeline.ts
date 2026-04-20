@@ -11,6 +11,7 @@ import {
   nodoSentimiento,
   nodoEnrutar,
   nodoResumir,
+  nodoCrearVisita,
   type RespuestaLLM,
 } from './nodos'
 import Anthropic from '@anthropic-ai/sdk'
@@ -57,8 +58,13 @@ export async function ejecutarPipelineAgente(params: {
 
   const textoMsg = mensajeActual?.texto || ''
   const esAudio = mensajeActual?.tipo_contenido === 'audio'
-  const esMuyCorto = textoMsg.length <= 20 && !esAudio
-  const esRespuestaSimple = /^(si|sí|no|ok|dale|listo|bueno|caba|capital|provincia|particular|empresa|edificio|consorcio)$/i.test(textoMsg.trim())
+  const textoTrim = textoMsg.trim()
+  const esMuyCorto = textoTrim.length <= 20 && !esAudio
+  // Afirmación/negación/cortesía universal en español (sin términos empresa-específicos)
+  const afirmacionesUniversales = /^(si|sí|sii+|no|nop|ok|oka?y?|dale|listo|bueno|claro|correcto|perfecto|gracias|genial|bárbaro|barbaro|seguro|confirmo|ya está|ya esta)[.!]?$/i
+  // Respuesta simple = afirmación universal O una sola palabra corta (≤12 chars) sin signos de pregunta
+  const esUnaPalabra = /^[a-záéíóúñü0-9]{1,12}$/i.test(textoTrim)
+  const esRespuestaSimple = !esAudio && (afirmacionesUniversales.test(textoTrim) || (esUnaPalabra && !textoTrim.includes('?')))
 
   let delayInicial: number
   let delaySegundo: number
@@ -161,11 +167,13 @@ export async function ejecutarPipelineAgente(params: {
 
     for (const msg of mensajesCliente.reverse()) {
       const texto = msg.texto || ''
-      // Detectar si parece dirección: tiene un número de calle (2-5 dígitos)
-      const pareceDir = /\d{2,5}/.test(texto) &&
+      // Detectar si parece dirección: tiene número de calle O palabra clave de vía
+      const tieneNumero = /\d{2,5}/.test(texto)
+      const tieneViaExplicita = /\b(calle|avenida|av\.?|boulevard|blvd|bulevar|ruta|autopista|camino|pasaje|diagonal|km\s*\d|altura)\b/i.test(texto)
+      const pareceDir = (tieneNumero || tieneViaExplicita) &&
         texto.length >= 5 && texto.length <= 150 &&
-        // Excluir mensajes que son claramente otra cosa
-        !/\$|pesos|hora|día|lunes|martes|miércoles|jueves|viernes/i.test(texto)
+        // Excluir mensajes que son claramente otra cosa (precios, horarios, días)
+        !/\$|pesos|\bhs\b|horas?\b|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo/i.test(texto)
 
       if (pareceDir) {
         // Limpiar prefijos conversacionales antes de buscar en Google
@@ -195,10 +203,16 @@ export async function ejecutarPipelineAgente(params: {
 
         const { validarDireccion } = await import('./validar-direccion')
         const validada = await validarDireccion(textoLimpio)
-        if (validada?.textoCompleto && validada.calle) {
+        if (validada?.textoCompleto && validada.calleCompleta) {
           contexto.resultados_previos.direccion_validada = validada.textoCompleto
+          contexto.resultados_previos.direccion_calle = validada.calle
+          contexto.resultados_previos.direccion_numero = validada.numero
+          contexto.resultados_previos.direccion_calle_completa = validada.calleCompleta
           contexto.resultados_previos.direccion_barrio = validada.barrio
           contexto.resultados_previos.direccion_ciudad = validada.ciudad
+          contexto.resultados_previos.direccion_provincia = validada.provincia
+          contexto.resultados_previos.direccion_lat = validada.coordenadas?.lat ?? null
+          contexto.resultados_previos.direccion_lng = validada.coordenadas?.lng ?? null
           console.log(`[AGENTE_IA] Dirección validada OK: "${textoLimpio}" → "${validada.textoCompleto}"`)
           break
         } else {
@@ -336,10 +350,13 @@ export async function ejecutarPipelineAgente(params: {
             .eq('id', contactoId)
         }
 
-        // Guardar/actualizar dirección validada en contacto_direcciones
-        const direccionTexto = (contexto.resultados_previos.direccion_validada as string)
-          || datos.direccion
-        if (direccionTexto) {
+        // Guardar/actualizar dirección en contacto_direcciones.
+        // PRIORIDAD: usar los componentes validados por Google (si los hay).
+        // Sólo caer al texto crudo del cliente si Google no validó.
+        const tieneValidacion = !!contexto.resultados_previos.direccion_validada
+        const textoFormateado = (contexto.resultados_previos.direccion_validada as string) || datos.direccion
+
+        if (textoFormateado) {
           // Ver si ya tiene una dirección principal
           const { data: dirExistente } = await admin
             .from('contacto_direcciones')
@@ -348,15 +365,28 @@ export async function ejecutarPipelineAgente(params: {
             .eq('es_principal', true)
             .maybeSingle()
 
-          const datosDir = {
+          // Si Google validó, usamos los componentes separados.
+          // Si no, guardamos el texto crudo sólo en `calle` y `texto` para no perder la info.
+          const datosDir: Record<string, unknown> = {
             contacto_id: contactoId,
             tipo: 'principal',
-            calle: direccionTexto,
-            barrio: (contexto.resultados_previos.direccion_barrio as string) || datos.zona || '',
-            ciudad: (contexto.resultados_previos.direccion_ciudad as string) || '',
-            provincia: '',
-            texto: direccionTexto,
             es_principal: true,
+            texto: textoFormateado,
+          }
+
+          if (tieneValidacion) {
+            datosDir.calle = (contexto.resultados_previos.direccion_calle as string) || ''
+            datosDir.numero = (contexto.resultados_previos.direccion_numero as string) || null
+            datosDir.barrio = (contexto.resultados_previos.direccion_barrio as string) || datos.zona || ''
+            datosDir.ciudad = (contexto.resultados_previos.direccion_ciudad as string) || ''
+            datosDir.provincia = (contexto.resultados_previos.direccion_provincia as string) || ''
+            datosDir.lat = contexto.resultados_previos.direccion_lat ?? null
+            datosDir.lng = contexto.resultados_previos.direccion_lng ?? null
+          } else {
+            datosDir.calle = textoFormateado
+            datosDir.barrio = datos.zona || ''
+            datosDir.ciudad = ''
+            datosDir.provincia = ''
           }
 
           if (dirExistente) {
@@ -426,8 +456,8 @@ export async function ejecutarPipelineAgente(params: {
     await nodoEscalar.ejecutar(contexto, admin, { razon_escalamiento: respuestaLLM.razon_escalamiento })
     accionesEjecutadas.push('escalar')
     escalado = true
-  } else if (config.puede_responder && respuestaLLM.respuesta) {
-    // Enviar/guardar respuesta según modo
+  } else if (config.puede_responder && respuestaLLM.respuesta && respuestaLLM.respuesta.trim()) {
+    // Enviar/guardar respuesta según modo (solo si hay texto real, no basura)
     await procesarRespuesta(admin, config, conversacion_id, respuestaLLM.respuesta, empresa_id, canal_id)
     accionesEjecutadas.push('responder')
   }
@@ -460,6 +490,17 @@ export async function ejecutarPipelineAgente(params: {
       if (accion.tipo === 'actualizar_contacto' && config.puede_actualizar_contacto) {
         await nodoActualizarContacto.ejecutar(contexto, admin, accion.datos)
         accionesEjecutadas.push('actualizar_contacto')
+      }
+      if (accion.tipo === 'crear_visita') {
+        // Pasar datos_capturados del LLM para que el nodo arme la visita con fecha/franja/tipo_trabajo
+        const datosVisita: Record<string, unknown> = {
+          ...accion.datos,
+          fecha_acordada: respuestaLLM.datos_capturados?.fecha_acordada || accion.datos?.fecha_acordada,
+          franja_horaria: respuestaLLM.datos_capturados?.franja_horaria || accion.datos?.franja_horaria,
+          tipo_trabajo: respuestaLLM.datos_capturados?.tipo_trabajo || accion.datos?.tipo_trabajo,
+        }
+        await nodoCrearVisita.ejecutar(contexto, admin, datosVisita)
+        accionesEjecutadas.push('crear_visita')
       }
     }
   }
@@ -521,11 +562,17 @@ async function verificarDebeActuar(
   // Verificar agente_ia_activo en la conversación
   const { data: conv } = await admin
     .from('conversaciones')
-    .select('agente_ia_activo, chatbot_activo')
+    .select('agente_ia_activo, chatbot_activo, ia_pausado_hasta')
     .eq('id', conversacionId)
     .single()
 
   if (!conv?.agente_ia_activo) return false
+
+  // Respetar pausa temporal (seteada desde UI o por escalamiento programado)
+  if (conv.ia_pausado_hasta) {
+    const pausadoHasta = new Date(conv.ia_pausado_hasta as string).getTime()
+    if (pausadoHasta > Date.now()) return false
+  }
 
   // Modo de activación
   if (config.modo_activacion === 'despues_chatbot') {
@@ -618,18 +665,42 @@ async function llamarLLM(
   sistema: string,
   usuario: string,
 ): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
-  if (proveedor === 'openai') {
-    return llamarOpenAI(apiKey, modelo, sistema, usuario)
+  const llamar = async (sys: string, usr: string) => {
+    if (proveedor === 'openai') return llamarOpenAIRaw(apiKey, modelo, sys, usr)
+    return llamarAnthropicRaw(apiKey, modelo, sys, usr)
   }
-  return llamarAnthropic(apiKey, modelo, sistema, usuario)
+
+  // 1ra pasada
+  const primera = await llamar(sistema, usuario)
+  const parseada = parsearRespuestaLLM(primera.texto)
+
+  // Si el parse fue exitoso (JSON válido con respuesta), listo
+  if (parseada.__parseado) {
+    return { respuesta: parseada, tokensEntrada: primera.tokensEntrada, tokensSalida: primera.tokensSalida }
+  }
+
+  // 2da pasada: pedirle al LLM que corrija el formato (sin reiniciar contexto)
+  console.warn('[AGENTE_IA] JSON inválido en 1ra pasada, reintentando con prompt de corrección')
+  const sistemaCorreccion = sistema +
+    '\n\n=== CORRECCIÓN CRÍTICA ===\nTu respuesta anterior no fue JSON válido. ' +
+    'RESPONDÉ ÚNICAMENTE con un objeto JSON válido, sin markdown, sin ```, sin texto antes ni después. ' +
+    'El objeto DEBE tener el campo "respuesta" como string. Escapá comillas internas con \\" y saltos de línea con \\n.'
+  const segunda = await llamar(sistemaCorreccion, usuario)
+  const reparseada = parsearRespuestaLLM(segunda.texto)
+
+  return {
+    respuesta: reparseada,
+    tokensEntrada: primera.tokensEntrada + segunda.tokensEntrada,
+    tokensSalida: primera.tokensSalida + segunda.tokensSalida,
+  }
 }
 
-async function llamarAnthropic(
+async function llamarAnthropicRaw(
   apiKey: string,
   modelo: string,
   sistema: string,
   usuario: string,
-): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
+): Promise<{ texto: string; tokensEntrada: number; tokensSalida: number }> {
   const anthropic = new Anthropic({ apiKey })
   const resultado = await anthropic.messages.create({
     model: modelo,
@@ -639,21 +710,19 @@ async function llamarAnthropic(
   })
 
   const texto = resultado.content[0].type === 'text' ? resultado.content[0].text : ''
-  const respuesta = parsearRespuestaLLM(texto)
-
   return {
-    respuesta,
+    texto,
     tokensEntrada: resultado.usage.input_tokens,
     tokensSalida: resultado.usage.output_tokens,
   }
 }
 
-async function llamarOpenAI(
+async function llamarOpenAIRaw(
   apiKey: string,
   modelo: string,
   sistema: string,
   usuario: string,
-): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
+): Promise<{ texto: string; tokensEntrada: number; tokensSalida: number }> {
   const res = await fetch(OPENAI_CHAT_URL, {
     method: 'POST',
     headers: {
@@ -680,10 +749,8 @@ async function llamarOpenAI(
     usage: { prompt_tokens: number; completion_tokens: number }
   }
   const texto = data.choices?.[0]?.message?.content || ''
-  const respuesta = parsearRespuestaLLM(texto)
-
   return {
-    respuesta,
+    texto,
     tokensEntrada: data.usage?.prompt_tokens || 0,
     tokensSalida: data.usage?.completion_tokens || 0,
   }
@@ -718,6 +785,9 @@ function extraerJSON(texto: string): string | null {
 
 // ─── Parsear respuesta JSON del LLM ───
 
+// RespuestaLLM + flag interno para distinguir parse exitoso vs fallback
+type RespuestaLLMInterno = RespuestaLLM & { __parseado?: boolean }
+
 const RESPUESTA_FALLBACK: RespuestaLLM = {
   respuesta: '',
   tipo_contacto: 'desconocido',
@@ -731,17 +801,18 @@ const RESPUESTA_FALLBACK: RespuestaLLM = {
   acciones_sugeridas: [],
 }
 
-function parsearRespuestaLLM(texto: string): RespuestaLLM {
+function parsearRespuestaLLM(texto: string): RespuestaLLMInterno {
   const jsonStr = extraerJSON(texto)
   if (!jsonStr) {
-    return { ...RESPUESTA_FALLBACK, respuesta: texto }
+    // No se encontró JSON: dejamos respuesta vacía (NO mandar texto crudo al cliente)
+    return { ...RESPUESTA_FALLBACK, respuesta: '', __parseado: false }
   }
 
   try {
     const parsed = JSON.parse(jsonStr) as Partial<RespuestaLLM>
     // Validar que tenga al menos el campo respuesta
-    if (typeof parsed.respuesta !== 'string') {
-      return { ...RESPUESTA_FALLBACK, respuesta: texto }
+    if (typeof parsed.respuesta !== 'string' || !parsed.respuesta.trim()) {
+      return { ...RESPUESTA_FALLBACK, respuesta: '', __parseado: false }
     }
     return {
       respuesta: parsed.respuesta,
@@ -754,9 +825,10 @@ function parsearRespuestaLLM(texto: string): RespuestaLLM {
       datos_capturados: parsed.datos_capturados ?? null,
       etiquetas_sugeridas: Array.isArray(parsed.etiquetas_sugeridas) ? parsed.etiquetas_sugeridas : [],
       acciones_sugeridas: Array.isArray(parsed.acciones_sugeridas) ? parsed.acciones_sugeridas : [],
+      __parseado: true,
     }
   } catch {
-    return { ...RESPUESTA_FALLBACK, respuesta: texto }
+    return { ...RESPUESTA_FALLBACK, respuesta: '', __parseado: false }
   }
 }
 
@@ -850,29 +922,53 @@ async function enviarMensajeBot(
   }
 
   let enviadoPorWhatsApp = false
+  let ultimoError: unknown = null
   if (canal && telefonoContacto) {
     const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
     if (configWa.phoneNumberId && configWa.tokenAcceso) {
-      try {
-        const { enviarTextoWhatsApp } = await import('@/lib/whatsapp')
-        await enviarTextoWhatsApp(
-          {
-            phoneNumberId: configWa.phoneNumberId,
-            wabaId: configWa.wabaId || '',
-            tokenAcceso: configWa.tokenAcceso,
-            numeroTelefono: '',
-          },
-          telefonoContacto,
-          texto,
-        )
-        enviadoPorWhatsApp = true
-      } catch (err) {
-        console.error('[AGENTE_IA] Error enviando WhatsApp:', err)
+      const { enviarTextoWhatsApp } = await import('@/lib/whatsapp')
+      // Reintentos con backoff exponencial (400ms, 800ms, 1600ms)
+      const maxIntentos = 3
+      let delay = 400
+      for (let i = 0; i < maxIntentos; i++) {
+        try {
+          await enviarTextoWhatsApp(
+            {
+              phoneNumberId: configWa.phoneNumberId,
+              wabaId: configWa.wabaId || '',
+              tokenAcceso: configWa.tokenAcceso,
+              numeroTelefono: '',
+            },
+            telefonoContacto,
+            texto,
+          )
+          enviadoPorWhatsApp = true
+          break
+        } catch (err) {
+          ultimoError = err
+          const msg = String(err)
+          // No reintentar en errores 4xx (token inválido, número bloqueado, etc.)
+          if (/\b(400|401|403|404)\b/.test(msg)) {
+            console.error('[AGENTE_IA] Error 4xx enviando WhatsApp, no se reintenta:', err)
+            break
+          }
+          if (i < maxIntentos - 1) {
+            console.warn(`[AGENTE_IA] Error enviando WhatsApp (intento ${i + 1}/${maxIntentos}):`, err)
+            await new Promise(r => setTimeout(r, delay))
+            delay *= 2
+          } else {
+            console.error('[AGENTE_IA] Error final enviando WhatsApp:', err)
+          }
+        }
       }
     }
   }
 
   // Guardar mensaje en BD (marcar estado según si se envió o no)
+  const metadataError = !enviadoPorWhatsApp && ultimoError
+    ? { error_envio: String(ultimoError).slice(0, 500) }
+    : {}
+
   const { error: errorInsert } = await admin.from('mensajes').insert({
     conversacion_id: conversacionId,
     empresa_id: empresaId,
@@ -883,6 +979,7 @@ async function enviarMensajeBot(
     remitente_tipo: 'bot',
     remitente_nombre: 'Agente IA',
     estado: enviadoPorWhatsApp ? 'enviado' : 'error',
+    ...(Object.keys(metadataError).length > 0 ? { metadata: metadataError } : {}),
   })
 
   if (errorInsert) {
@@ -897,6 +994,7 @@ async function enviarMensajeBot(
       remitente_tipo: 'bot',
       remitente_nombre: 'Agente IA',
       estado: enviadoPorWhatsApp ? 'enviado' : 'error',
+      ...(Object.keys(metadataError).length > 0 ? { metadata: metadataError } : {}),
     })
     if (errorRetry) console.error('[AGENTE_IA] Error en retry sin canal_id:', errorRetry)
   }

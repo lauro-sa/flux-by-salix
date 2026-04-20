@@ -8,6 +8,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
+import { VARIABLES_POR_VALOR } from '@/lib/whatsapp/variables'
 
 /**
  * ModalNuevoWhatsApp — Modal para iniciar una nueva conversación de WhatsApp.
@@ -57,16 +58,12 @@ function contarVariables(texto?: string): number {
   return matches ? matches.length : 0
 }
 
-/** Detectar label para la variable según mapeo o ejemplo */
+/** Detectar label para la variable según mapeo (catálogo centralizado) o ejemplo */
 function labelVariable(indice: number, mapeo?: string[], ejemplos?: string[]): string {
   const m = mapeo?.[indice]
   if (m) {
-    switch (m) {
-      case 'contacto_nombre': return 'Nombre del contacto'
-      case 'contacto_telefono': return 'Teléfono'
-      case 'contacto_correo': return 'Correo'
-      case 'empresa_nombre': return 'Nombre de empresa'
-    }
+    const def = VARIABLES_POR_VALOR[m]
+    if (def) return def.etiqueta
   }
   if (ejemplos?.[indice]) return `Variable ${indice + 1} (ej: ${ejemplos[indice]})`
   return `Variable ${indice + 1}`

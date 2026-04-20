@@ -1062,6 +1062,7 @@ export default function PaginaPerfilUsuario() {
               miembroId={miembro.id as string}
               rol={rolActual}
               permisosCustomIniciales={miembro.permisos_custom ? (miembro.permisos_custom as PermisosMapa) : null}
+              nombreMiembro={nombreCompleto}
               onGuardar={async (permisos) => {
                 await guardarMiembroInmediato({ permisos_custom: permisos })
                 setMiembro(prev => prev ? { ...prev, permisos_custom: permisos } : null)

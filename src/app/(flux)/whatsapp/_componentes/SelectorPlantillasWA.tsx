@@ -7,8 +7,9 @@ import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
+import type { PlantillaWhatsApp, CuerpoPlantillaWA } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
+import { construirDatosPlantilla, resolverTextoPlantilla, type EntidadesPlantilla } from '@/lib/whatsapp/variables'
 
 /**
  * SelectorPlantillasWA — Panel para seleccionar y enviar plantillas de WhatsApp aprobadas.
@@ -36,57 +37,15 @@ interface PropiedadesSelectorPlantillas {
   contacto?: DatosContactoPreview | null
   /** Nombre de la empresa para preview de {{empresa_nombre}} */
   empresaNombre?: string | null
+  /** Entidades adicionales (visita, presupuesto, orden, actividad) para resolver variables.
+   *  Si no se pasan, sólo contacto + empresa están disponibles. */
+  entidades?: EntidadesPlantilla
 }
 
-/** Nombres genéricos usados como ejemplo en plantillas — si el ejemplo es uno de estos,
- *  se reemplaza por el nombre real del contacto */
-const NOMBRES_EJEMPLO = new Set(['juan garcía', 'juan garcia', 'maría lópez', 'maria lopez', 'nombre'])
-
-/** Obtiene el nombre completo del contacto */
-function nombreContacto(contacto?: DatosContactoPreview | null): string | null {
-  if (!contacto) return null
-  const nombre = [contacto.nombre, contacto.apellido].filter(Boolean).join(' ')
-  return nombre || null
-}
-
-/** Resuelve una variable usando: mapeo explícito, detección por ejemplo, o el ejemplo crudo */
-function resolverVariable(
-  mapeo: string | undefined,
-  ejemplo: string | undefined,
-  contacto?: DatosContactoPreview | null,
-  empresaNombre?: string | null,
-): string | null {
-  // 1. Mapeo explícito configurado en la plantilla
-  if (mapeo) {
-    switch (mapeo) {
-      case 'contacto_nombre': return nombreContacto(contacto)
-      case 'contacto_telefono': return contacto?.telefono || null
-      case 'contacto_correo': return contacto?.correo || null
-      case 'empresa_nombre': return empresaNombre || null
-    }
-  }
-  // 2. Sin mapeo — detectar automáticamente si el ejemplo parece un nombre de persona
-  if (ejemplo && NOMBRES_EJEMPLO.has(ejemplo.toLowerCase().trim())) {
-    return nombreContacto(contacto)
-  }
-  return null
-}
-
-/** Reemplaza {{N}} usando: dato real del contacto > ejemplo > placeholder */
-function previewCuerpo(
-  texto: string,
-  mapeo?: string[],
-  ejemplos?: string[],
-  contacto?: DatosContactoPreview | null,
-  empresaNombre?: string | null,
-): string {
-  return texto.replace(/\{\{(\d+)\}\}/g, (_, num) => {
-    const idx = parseInt(num) - 1
-    const valorReal = resolverVariable(mapeo?.[idx], ejemplos?.[idx], contacto, empresaNombre)
-    if (valorReal) return valorReal
-    if (ejemplos?.[idx]) return ejemplos[idx]
-    return `[variable ${num}]`
-  })
+function previewCuerpo(cuerpo: CuerpoPlantillaWA, datos: Record<string, string>): string {
+  return resolverTextoPlantilla(cuerpo.texto, cuerpo, datos)
+    // Reemplazar variables sin resolver por un placeholder legible
+    .replace(/\{\{(\d+)\}\}/g, (_, n) => `[variable ${n}]`)
 }
 
 /** Parsear formato WhatsApp (*negrita*, _cursiva_, ~tachado~, ```código```) a HTML */
@@ -131,11 +90,20 @@ export function SelectorPlantillasWA({
   contexto,
   contacto,
   empresaNombre,
+  entidades,
 }: PropiedadesSelectorPlantillas) {
   const { t } = useTraduccion()
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargando, setCargando] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+
+  // Datos para resolver variables: se construyen desde el catálogo único.
+  // `entidades` gana sobre contacto/empresa por si el caller pasa ambos.
+  const datosPlantilla = construirDatosPlantilla({
+    contacto: (contacto as Record<string, unknown> | undefined) || undefined,
+    empresa: empresaNombre ? { nombre: empresaNombre } : null,
+    ...(entidades || {}),
+  })
 
   // Cargar plantillas aprobadas al abrir
   useEffect(() => {
@@ -243,10 +211,8 @@ export function SelectorPlantillasWA({
           ) : (
             plantillasFiltradas.map(plantilla => {
               const cat = colorCategoria(plantilla.categoria)
-              const mapeo = plantilla.componentes?.cuerpo?.mapeo_variables
-              const ejemplos = plantilla.componentes?.cuerpo?.ejemplos
               const cuerpoPreview = plantilla.componentes?.cuerpo
-                ? previewCuerpo(plantilla.componentes.cuerpo.texto, mapeo, ejemplos, contacto, empresaNombre)
+                ? previewCuerpo(plantilla.componentes.cuerpo, datosPlantilla)
                 : ''
               const piePagina = plantilla.componentes?.pie_pagina?.texto
               const botones = plantilla.componentes?.botones

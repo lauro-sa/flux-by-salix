@@ -18,11 +18,16 @@ import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/whatsapp'
+import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 import type { ContactoChatter, DatosDocumentoChatter } from './tipos'
 import { formatearTextoWA } from './constantes'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 import { useTraduccion } from '@/lib/i18n'
+import {
+  construirDatosPlantilla,
+  resolverTextoPlantilla,
+  resolverParametrosCuerpo,
+} from '@/lib/whatsapp/variables'
 
 interface PropsModalWhatsApp {
   abierto: boolean
@@ -61,16 +66,20 @@ export function ModalWhatsAppChatter({
 
   const numero = contacto?.whatsapp || contacto?.telefono || ''
 
-  // Datos para resolución de variables (mismo formato que el editor de plantillas)
-  const datosPreview = useMemo<Record<string, string>>(() => ({
-    contacto_nombre: contacto?.nombre || 'Cliente',
-    contacto_telefono: contacto?.telefono || contacto?.whatsapp || '',
-    contacto_correo: contacto?.correo || '',
-    documento_numero: datosDocumento?.numero || '',
-    documento_total: datosDocumento?.total || '',
-    documento_fecha: datosDocumento?.fecha || '',
-    empresa_nombre: datosDocumento?.empresaNombre || '',
-  }), [contacto, datosDocumento])
+  // Datos para resolución de variables. Se construyen desde el catálogo único y
+  // se mergean con los valores pre-formateados que llegan en `datosDocumento`.
+  const datosPreview = useMemo<Record<string, string>>(() => {
+    const base = construirDatosPlantilla({
+      contacto: contacto as Record<string, unknown> | undefined,
+      empresa: datosDocumento?.empresaNombre ? { nombre: datosDocumento.empresaNombre } : null,
+    })
+    if (!base.contacto_nombre) base.contacto_nombre = contacto?.nombre || 'Cliente'
+    if (datosDocumento?.numero) base.documento_numero = datosDocumento.numero
+    if (datosDocumento?.total) base.documento_total = datosDocumento.total
+    if (datosDocumento?.fecha) base.documento_fecha = datosDocumento.fecha
+    if (datosDocumento?.estado) base.documento_estado = datosDocumento.estado
+    return base
+  }, [contacto, datosDocumento])
 
   // Cargar plantillas
   const cargarPlantillas = useCallback(async () => {
@@ -121,62 +130,27 @@ export function ModalWhatsAppChatter({
     return () => document.removeEventListener('mousedown', handler)
   }, [selectorAbierto])
 
-  // Resolver texto de la plantilla con datos reales
-  const resolverTexto = useCallback((texto: string, componentes?: ComponentesPlantillaWA['cuerpo']): string => {
-    const mapeo = componentes?.mapeo_variables || []
-    const ejemplos = componentes?.ejemplos || []
-
-    return texto.replace(/\{\{(\d+)\}\}/g, (match, n) => {
-      const idx = parseInt(n) - 1
-
-      // 1. Mapeo explícito → dato real
-      if (mapeo[idx] && datosPreview[mapeo[idx]]) {
-        return datosPreview[mapeo[idx]]
-      }
-
-      // 2. Heurística por contexto del texto
-      const antes = texto.substring(0, texto.indexOf(`{{${n}}}`)).toLowerCase()
-      if (idx === 0 && (antes.includes('hola') || antes.includes('estimad') || antes.includes('querido') || antes.includes('buenos'))) {
-        return datosPreview.contacto_nombre
-      }
-      if (antes.includes('referencia') || antes.includes('número') || antes.includes('#') || antes.includes('pedido') || antes.includes('presupuesto')) {
-        return datosPreview.documento_numero || match
-      }
-      if (antes.includes('total') || antes.includes('monto') || antes.includes('importe')) {
-        return datosPreview.documento_total || match
-      }
-
-      // 3. Fallback a ejemplo
-      return ejemplos[idx] || match
-    })
-  }, [datosPreview])
-
   // Preview del cuerpo
   const cuerpoHtml = useMemo(() => {
-    if (!plantillaSeleccionada?.componentes?.cuerpo?.texto) return ''
-    const resuelto = resolverTexto(
-      plantillaSeleccionada.componentes.cuerpo.texto,
-      plantillaSeleccionada.componentes.cuerpo,
-    )
-    return formatearTextoWA(resuelto)
-  }, [plantillaSeleccionada, resolverTexto])
+    const cuerpo = plantillaSeleccionada?.componentes?.cuerpo
+    if (!cuerpo?.texto) return ''
+    return formatearTextoWA(resolverTextoPlantilla(cuerpo.texto, cuerpo, datosPreview))
+  }, [plantillaSeleccionada, datosPreview])
 
-  // Preview del encabezado
+  // Preview del encabezado (admite {{1}} → nombre de contacto)
   const encabezadoHtml = useMemo(() => {
     const enc = plantillaSeleccionada?.componentes?.encabezado
     if (!enc?.texto) return ''
-    const resuelto = enc.texto.replace(/\{\{1\}\}/g, datosPreview.contacto_nombre)
-    return formatearTextoWA(resuelto)
+    const reemplazo = datosPreview.contacto_nombre || enc.ejemplo || '{{1}}'
+    return formatearTextoWA(enc.texto.replace(/\{\{1\}\}/g, reemplazo))
   }, [plantillaSeleccionada, datosPreview])
 
   // Texto plano para registrar en chatter
   const textoPlanoPreview = useMemo(() => {
-    if (!plantillaSeleccionada?.componentes?.cuerpo?.texto) return ''
-    return resolverTexto(
-      plantillaSeleccionada.componentes.cuerpo.texto,
-      plantillaSeleccionada.componentes.cuerpo,
-    )
-  }, [plantillaSeleccionada, resolverTexto])
+    const cuerpo = plantillaSeleccionada?.componentes?.cuerpo
+    if (!cuerpo?.texto) return ''
+    return resolverTextoPlantilla(cuerpo.texto, cuerpo, datosPreview)
+  }, [plantillaSeleccionada, datosPreview])
 
   // Componentes resueltos para Meta API (body + buttons)
   const componentesResueltos = useMemo(() => {
@@ -186,29 +160,8 @@ export function ModalWhatsAppChatter({
 
     // Body parameters
     const cuerpo = plantillaSeleccionada.componentes.cuerpo
-    if (cuerpo?.texto) {
-      const variablesMatch = cuerpo.texto.match(/\{\{\d+\}\}/g)
-      if (variablesMatch?.length) {
-        const mapeo = cuerpo.mapeo_variables || []
-        const ejemplos = cuerpo.ejemplos || []
-
-        const parametros = variablesMatch.map((_, idx) => {
-          if (mapeo[idx] && datosPreview[mapeo[idx]]) return { type: 'text', text: datosPreview[mapeo[idx]] }
-
-          const antes = cuerpo.texto.substring(0, cuerpo.texto.indexOf(`{{${idx + 1}}}`)).toLowerCase()
-          if (idx === 0 && (antes.includes('hola') || antes.includes('estimad'))) {
-            return { type: 'text', text: datosPreview.contacto_nombre }
-          }
-          if (antes.includes('referencia') || antes.includes('número') || antes.includes('#')) {
-            return { type: 'text', text: datosPreview.documento_numero || ejemplos[idx] || '—' }
-          }
-
-          return { type: 'text', text: ejemplos[idx] || datosPreview.contacto_nombre || '—' }
-        })
-
-        componentes.push({ type: 'body', parameters: parametros })
-      }
-    }
+    const parametros = resolverParametrosCuerpo(cuerpo, datosPreview)
+    if (parametros) componentes.push({ type: 'body', parameters: parametros })
 
     // Button parameters (botones URL con {{1}} necesitan su parámetro)
     const botones = plantillaSeleccionada.componentes.botones

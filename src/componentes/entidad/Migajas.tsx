@@ -1,9 +1,9 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useNavegacion, type Migaja } from '@/hooks/useNavegacion'
+import { useNavegarProtegido } from '@/hooks/useCambiosPendientes'
 import { ChevronRight } from 'lucide-react'
 import {
   Users, MapPin, FileText, Package,
@@ -54,6 +54,8 @@ interface PropiedadesMigajas {
 
 function MigajasInterno({ extras }: PropiedadesMigajas) {
   const pathname = usePathname()
+  const router = useRouter()
+  const intentarNavegar = useNavegarProtegido()
   const { migajas: migajasBase, volverAtras, puedeVolver, obtenerMigajasParaRuta } = useNavegacion()
 
   // Si hay extras, recalcular con ellas
@@ -62,6 +64,11 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
     : migajasBase
 
   if (migajas.length === 0) return null
+
+  // Click en migaja intermedia: respeta el sistema global de "cambios sin guardar".
+  const navegarAMigaja = (ruta: string) => {
+    intentarNavegar(() => router.push(ruta))
+  }
 
   return (
     <>
@@ -107,16 +114,22 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
                   {migaja.etiqueta}
                 </span>
               ) : (
-                <Link
-                  href={migaja.ruta}
+                <button
+                  type="button"
+                  onClick={() => navegarAMigaja(migaja.ruta)}
                   style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    font: 'inherit',
                     color: 'var(--texto-terciario)',
                     textDecoration: 'none',
                     transition: `color var(--transicion-rapida)`,
                   }}
                 >
                   {migaja.etiqueta}
-                </Link>
+                </button>
               )}
             </span>
           )

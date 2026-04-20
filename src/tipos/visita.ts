@@ -6,7 +6,7 @@
 
 // ── Estados y prioridades ──
 
-export type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
+export type EstadoVisita = 'provisoria' | 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
 
 export type PrioridadVisita = 'baja' | 'normal' | 'alta' | 'urgente'
 

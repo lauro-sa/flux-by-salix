@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Circle, Check, UserCog, LogOut } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
@@ -15,6 +15,7 @@ import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
+import { useNavegarProtegido } from '@/hooks/useCambiosPendientes'
 
 interface PropiedadesPerfilSidebar {
   colapsado: boolean
@@ -23,6 +24,13 @@ interface PropiedadesPerfilSidebar {
 function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
   const { t } = useTraduccion()
   const { usuario, cerrarSesion } = useAuth()
+  const router = useRouter()
+  const intentarNavegar = useNavegarProtegido()
+
+  const irAMiCuenta = () => {
+    setPerfilAbierto(false)
+    intentarNavegar(() => router.push('/mi-cuenta'))
+  }
 
   const [perfilAbierto, setPerfilAbierto] = useState(false)
   const [estado, setEstado] = useState<'online' | 'ausente' | 'no_molestar'>('online')
@@ -107,7 +115,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
                       </OpcionMenu>
                     ))}
                     <div className="h-px bg-borde-sutil my-1" />
-                    <Link href="/mi-cuenta" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Mi cuenta</Link>
+                    <button onClick={irAMiCuenta} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-left"><UserCog size={13} /> Mi cuenta</button>
                     <div className="h-px bg-borde-sutil my-1" />
                     <OpcionMenu icono={<LogOut size={13} />} peligro onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }}>{t('auth.cerrar_sesion')}</OpcionMenu>
                   </motion.div>
@@ -133,7 +141,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
                   </OpcionMenu>
                 ))}
                 <div className="h-px bg-borde-sutil my-1" />
-                <Link href="/mi-cuenta" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Mi cuenta</Link>
+                <button onClick={irAMiCuenta} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-left"><UserCog size={13} /> Mi cuenta</button>
                 <div className="h-px bg-borde-sutil my-1" />
                 <OpcionMenu icono={<LogOut size={13} />} peligro onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }}>{t('auth.cerrar_sesion')}</OpcionMenu>
               </motion.div>

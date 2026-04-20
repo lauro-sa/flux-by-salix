@@ -106,6 +106,91 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json(data)
     }
 
+    // ── Acción: confirmar (provisoria → programada) ──
+    if (body.accion === 'confirmar') {
+      const campos: Record<string, unknown> = {
+        estado: 'programada',
+        editado_por: user.id,
+        editado_por_nombre: nombreEditor,
+        actualizado_en: ahora,
+      }
+      // Permitir ajustar fecha/franja al confirmar
+      if (body.fecha_programada) campos.fecha_programada = body.fecha_programada
+      if (body.duracion_estimada_min !== undefined) campos.duracion_estimada_min = body.duracion_estimada_min
+      if (body.asignado_a !== undefined) {
+        campos.asignado_a = body.asignado_a
+        campos.asignado_nombre = body.asignado_nombre || null
+      }
+
+      const { data, error } = await admin
+        .from('visitas')
+        .update(campos)
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'provisoria')
+        .select()
+        .single()
+
+      if (error || !data) return NextResponse.json({ error: 'Error al confirmar (¿ya estaba confirmada?)' }, { status: 500 })
+
+      registrarChatter({
+        empresaId,
+        entidadTipo: 'contacto',
+        entidadId: data.contacto_id,
+        contenido: `${nombreEditor} confirmó la visita provisoria del agente IA`,
+        autorId: user.id,
+        autorNombre: nombreEditor,
+        metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'programada' },
+      })
+
+      // Sincronizar actividad + evento calendario (ahora que es real)
+      const tiposConf = await obtenerTiposVisita(empresaId)
+      if (tiposConf) {
+        await sincronizarRegistrosVinculados({
+          id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
+          contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
+          asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
+          fecha_programada: data.fecha_programada, duracion_estimada_min: data.duracion_estimada_min || 30,
+          estado: 'programada', motivo: data.motivo, prioridad: data.prioridad,
+          actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
+        }, tiposConf)
+      }
+
+      return NextResponse.json(data)
+    }
+
+    // ── Acción: rechazar (provisoria → cancelada, sin notificar al creador sistema) ──
+    if (body.accion === 'rechazar') {
+      const { data, error } = await admin
+        .from('visitas')
+        .update({
+          estado: 'cancelada',
+          resultado: body.resultado || 'Rechazada por el equipo',
+          editado_por: user.id,
+          editado_por_nombre: nombreEditor,
+          actualizado_en: ahora,
+        })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'provisoria')
+        .select()
+        .single()
+
+      if (error || !data) return NextResponse.json({ error: 'Error al rechazar' }, { status: 500 })
+
+      registrarChatter({
+        empresaId,
+        entidadTipo: 'contacto',
+        entidadId: data.contacto_id,
+        contenido: `${nombreEditor} rechazó la visita provisoria del agente IA${body.resultado ? `: ${body.resultado}` : ''}`,
+        autorId: user.id,
+        autorNombre: nombreEditor,
+        metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'cancelada' },
+      })
+
+      return NextResponse.json(data)
+    }
+
     // ── Acción: en_camino ──
     if (body.accion === 'en_camino') {
       const { data, error } = await admin

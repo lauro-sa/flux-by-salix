@@ -10,6 +10,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { PERMISOS_POR_ROL } from '@/hooks/useRol'
 import type { Rol, Modulo, Accion, PermisosMapa } from '@/tipos'
 import { CATEGORIAS_MODULOS, ACCIONES_POR_MODULO } from '@/tipos'
+import { ETIQUETAS_MODULO, ETIQUETAS_ACCION } from '@/tipos/permisos'
+import type { CambioDescrito } from '@/hooks/useCambiosPendientes'
 import type { EstadisticasPermisos, RetornoUsePermisos } from './tipos'
 
 interface ParametrosUsePermisos {
@@ -43,6 +45,42 @@ export function usePermisos({
       setUsaCustom(false)
     }
   }, [miembroId, rol, permisosCustomIniciales])
+
+  // Baseline: estado persistido con el que comparamos para dirty + cambios.
+  // Si el miembro no tiene custom, baseline = defaults del rol.
+  const baseline = useMemo<PermisosMapa>(() => {
+    return permisosCustomIniciales
+      ? structuredClone(permisosCustomIniciales)
+      : structuredClone(PERMISOS_POR_ROL[rol] || {})
+  }, [permisosCustomIniciales, rol])
+
+  // Diff entre estado local y baseline. Genera lista legible de cambios.
+  const cambios = useMemo<CambioDescrito[]>(() => {
+    const lista: CambioDescrito[] = []
+    const modulos = new Set<Modulo>([
+      ...(Object.keys(baseline) as Modulo[]),
+      ...(Object.keys(permisos) as Modulo[]),
+    ])
+    for (const modulo of modulos) {
+      const antes = new Set(baseline[modulo] || [])
+      const ahora = new Set(permisos[modulo] || [])
+      const accionesPosibles = ACCIONES_POR_MODULO[modulo] || []
+      for (const accion of accionesPosibles) {
+        const estabaAntes = antes.has(accion)
+        const estaAhora = ahora.has(accion)
+        if (estabaAntes === estaAhora) continue
+        const etiquetaModulo = ETIQUETAS_MODULO[modulo] || modulo
+        const etiquetaAccion = ETIQUETAS_ACCION[accion] || accion
+        lista.push({
+          campo: `${etiquetaModulo} · ${etiquetaAccion}`,
+          valor: estaAhora ? 'activado' : 'desactivado',
+        })
+      }
+    }
+    return lista
+  }, [permisos, baseline])
+
+  const dirty = cambios.length > 0
 
   // Calcular estadisticas
   const estadisticas = useMemo<EstadisticasPermisos>(() => {
@@ -180,10 +218,17 @@ export function usePermisos({
     }
   }, [onGuardar, permisos])
 
+  // Descartar cambios locales: vuelve al baseline sin persistir.
+  const descartar = useCallback(() => {
+    setPermisos(structuredClone(baseline))
+  }, [baseline])
+
   return {
     permisos,
     usaCustom,
     guardando,
+    dirty,
+    cambios,
     estadisticas,
     toggleAccion,
     todoModulo,
@@ -193,5 +238,6 @@ export function usePermisos({
     aplicarPresetCategoria,
     restablecer,
     guardar,
+    descartar,
   }
 }

@@ -153,36 +153,28 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', turnoHoy.id)
 
-        // Notificación diferida: si el turno se creó hace ≥3 min y aún no se notificó, crear ahora
+        // Notificación diferida: si el turno se creó hace ≥3 min, pedimos crearla.
+        // La dedup es atómica en crearNotificacion() vía índice único parcial en DB:
+        // heartbeats simultáneos no pueden producir duplicados.
         const minutosDesdeEntrada = (Date.now() - new Date(turnoHoy.hora_entrada).getTime()) / 60000
         if (minutosDesdeEntrada >= 3 && turnoHoy.hora_entrada) {
-          // Verificar si ya existe notificación para este fichaje
-          const { count } = await admin
-            .from('notificaciones')
-            .select('*', { count: 'exact', head: true })
-            .eq('usuario_id', user.id)
-            .eq('tipo', 'fichaje_automatico')
-            .eq('referencia_id', turnoHoy.id)
+          const horaFormateada = new Date(turnoHoy.hora_entrada).toLocaleTimeString('es-AR', {
+            hour: '2-digit', minute: '2-digit', hour12: false,
+            timeZone: zona,
+          })
 
-          if (!count || count === 0) {
-            const horaFormateada = new Date(turnoHoy.hora_entrada).toLocaleTimeString('es-AR', {
-              hour: '2-digit', minute: '2-digit', hour12: false,
-              timeZone: zona,
-            })
-
-            crearNotificacion({
-              empresaId,
-              usuarioId: user.id,
-              tipo: 'fichaje_automatico',
-              titulo: `Entrada fichada a las ${horaFormateada}`,
-              cuerpo: 'Tu jornada fue registrada automáticamente al detectar actividad.',
-              icono: 'clock',
-              color: 'var(--insignia-exito)',
-              url: '/asistencias',
-              referenciaTipo: 'asistencia',
-              referenciaId: turnoHoy.id,
-            }).catch(() => {})
-          }
+          crearNotificacion({
+            empresaId,
+            usuarioId: user.id,
+            tipo: 'fichaje_automatico',
+            titulo: `Entrada fichada a las ${horaFormateada}`,
+            cuerpo: 'Tu jornada fue registrada automáticamente al detectar actividad.',
+            icono: 'clock',
+            color: 'var(--insignia-exito)',
+            url: '/asistencias',
+            referenciaTipo: 'asistencia',
+            referenciaId: turnoHoy.id,
+          }).catch(() => {})
         }
 
         return NextResponse.json({

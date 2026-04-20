@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Settings2, MapPin, FileText, Clock, ListChecks,
@@ -13,6 +13,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 
 /**
  * Página de configuración de Visitas.
@@ -36,6 +37,7 @@ export default function PaginaConfiguracionVisitas() {
 
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [config, setConfig] = useState<ConfigVisitas | null>(null)
+  const [configOriginal, setConfigOriginal] = useState<ConfigVisitas | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
 
@@ -43,7 +45,7 @@ export default function PaginaConfiguracionVisitas() {
   useEffect(() => {
     fetch('/api/visitas/config')
       .then(r => r.json())
-      .then(data => { setConfig(data); setCargando(false) })
+      .then(data => { setConfig(data); setConfigOriginal(data); setCargando(false) })
       .catch(() => setCargando(false))
   }, [])
 
@@ -60,6 +62,7 @@ export default function PaginaConfiguracionVisitas() {
       if (!res.ok) throw new Error()
       const data = await res.json()
       setConfig(data)
+      setConfigOriginal(data)
       mostrar('exito', 'Configuración guardada')
     } catch {
       mostrar('error', 'Error al guardar')
@@ -67,6 +70,51 @@ export default function PaginaConfiguracionVisitas() {
       setGuardando(false)
     }
   }
+
+  // Diff granular entre config actual y el último guardado, para el modal "cambios sin guardar".
+  const cambiosConfig = useMemo(() => {
+    if (!config || !configOriginal) return []
+    const diffs: { campo: string; valor?: string }[] = []
+    if (config.duracion_estimada_default !== configOriginal.duracion_estimada_default) {
+      diffs.push({ campo: 'Duración estimada default', valor: `${config.duracion_estimada_default} min` })
+    }
+    if (config.requiere_geolocalizacion !== configOriginal.requiere_geolocalizacion) {
+      diffs.push({ campo: 'Requerir geolocalización', valor: config.requiere_geolocalizacion ? 'activado' : 'desactivado' })
+    }
+    if (config.distancia_maxima_m !== configOriginal.distancia_maxima_m) {
+      diffs.push({ campo: 'Distancia máxima', valor: `${config.distancia_maxima_m} m` })
+    }
+    if (JSON.stringify(config.motivos_predefinidos) !== JSON.stringify(configOriginal.motivos_predefinidos)) {
+      diffs.push({ campo: 'Motivos predefinidos', valor: `${config.motivos_predefinidos.length} items` })
+    }
+    if (JSON.stringify(config.resultados_predefinidos) !== JSON.stringify(configOriginal.resultados_predefinidos)) {
+      diffs.push({ campo: 'Resultados predefinidos', valor: `${config.resultados_predefinidos.length} items` })
+    }
+    if (JSON.stringify(config.checklist_predeterminado) !== JSON.stringify(configOriginal.checklist_predeterminado)) {
+      diffs.push({ campo: 'Checklist predeterminado', valor: `${config.checklist_predeterminado.length} items` })
+    }
+    return diffs
+  }, [config, configOriginal])
+
+  // Registrar cambios pendientes para que el modal global intercepte la navegación.
+  useCambiosSinGuardar({
+    id: 'visitas-configuracion',
+    dirty: cambiosConfig.length > 0,
+    titulo: 'Configuración de Visitas',
+    cambios: cambiosConfig,
+    onGuardar: async () => {
+      if (!config) return
+      await guardar({
+        duracion_estimada_default: config.duracion_estimada_default,
+        requiere_geolocalizacion: config.requiere_geolocalizacion,
+        distancia_maxima_m: config.distancia_maxima_m,
+        motivos_predefinidos: config.motivos_predefinidos,
+        resultados_predefinidos: config.resultados_predefinidos,
+        checklist_predeterminado: config.checklist_predeterminado,
+      })
+    },
+    onDescartar: () => { if (configOriginal) setConfig(configOriginal) },
+  })
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },

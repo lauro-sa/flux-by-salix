@@ -357,6 +357,8 @@ ${config.respuesta_si_bot ? `Si te preguntan si sos persona o bot: "${config.res
 - Si ya confirmaste algo (dirección, nombre, etc.), NO volver a preguntar "¿es correcto?" sobre lo mismo
 - Si ya hiciste una pregunta y el cliente la respondió, AVANZAR. No quedarte preguntando lo mismo de distintas formas
 - NUNCA mandar 2 mensajes seguidos preguntando lo mismo
+- CHECK OBLIGATORIO antes de preguntar un dato: revisá si ese dato ya está en "DATOS DEL CONTACTO ACTUAL" o en el historial (mensajes previos del cliente). Si está → NO preguntar, usarlo directamente
+- Si ves que tus mensajes anteriores ya hicieron una pregunta y el cliente no respondió ESA pregunta específica pero sí mandó otra info → asumir que ignoró esa pregunta y avanzar con la info que mandó
 
 === REGLA #5: NATURALIDAD ===
 - No uses frases de call center ("estimado cliente", "en virtud de su consulta", "le informamos")
@@ -433,14 +435,29 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
     "tipo_facturacion": null,
     "direccion": null,
     "email": null,
-    "telefono": null
+    "telefono": null,
+    "fecha_acordada": null,
+    "franja_horaria": null
   },
   "etiquetas_sugeridas": [],
   "acciones_sugeridas": [
     {"tipo": "crear_actividad", "datos": {"titulo": "...", "descripcion": "..."}},
-    {"tipo": "actualizar_contacto", "datos": {"campo": "...", "valor": "..."}}
+    {"tipo": "actualizar_contacto", "datos": {"campo": "...", "valor": "..."}},
+    {"tipo": "crear_visita", "datos": {}}
   ]
-}`
+}
+
+=== CUÁNDO CREAR VISITA ===
+Emití la acción "crear_visita" UNA SOLA VEZ cuando TODAS estas condiciones se cumplan en la conversación:
+- Se acordó un DÍA concreto con el cliente (ej: "martes", "el jueves", "pasado mañana", una fecha específica)
+- Hay dirección conocida (capturada o ya registrada en el contacto)
+- El cliente confirmó (dijo "sí", "dale", "ok", "perfecto")
+
+Cuando emitas "crear_visita":
+- En "datos_capturados.fecha_acordada" poné la fecha en formato YYYY-MM-DD (hoy es ${fechaHoy}, usala para resolver "mañana", "el martes", etc.)
+- En "datos_capturados.franja_horaria" poné la franja en lenguaje natural ("11 a 16hs", "por la mañana", "tarde")
+- Si ya emitiste "crear_visita" en un turno previo (revisá el historial), NO la vuelvas a emitir.
+- La visita queda como PROVISORIA y un humano la confirma después. No le digas al cliente "tu visita está confirmada" — decile "le paso al equipo para confirmarte" o similar.`
 
   // ── User prompt: historial de la conversación actual ──
   const historial = mensajes
@@ -469,7 +486,19 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
   // Info adicional pre-procesada (ej: dirección validada por Google)
   const infoExtra: string[] = []
   if (ctx.resultados_previos.direccion_validada) {
-    infoExtra.push(`[SISTEMA: La dirección completa es: ${ctx.resultados_previos.direccion_validada}${ctx.resultados_previos.direccion_barrio ? `, barrio ${ctx.resultados_previos.direccion_barrio}` : ''}${ctx.resultados_previos.direccion_ciudad ? `, ${ctx.resultados_previos.direccion_ciudad}` : ''}. Confirmá esta dirección con el cliente de forma natural, sin mencionar Google ni ningún sistema. Ejemplo: "¿La dirección sería Av. Directorio 1835, Flores, CABA?"]`)
+    const dirVal = ctx.resultados_previos.direccion_validada as string
+    infoExtra.push(
+      `[SISTEMA — DIRECCIÓN VALIDADA POR EL MAPA]\n` +
+      `El cliente mencionó una dirección. El mapa la normalizó a:\n` +
+      `"${dirVal}"\n\n` +
+      `REGLA CRÍTICA:\n` +
+      `1. En tu "respuesta", confirmá ESTA dirección (la del mapa), NO la que tipeó el cliente. ` +
+      `El cliente suele escribir incompleto o con errores de barrio/ciudad; la del mapa es la correcta.\n` +
+      `2. En "datos_capturados.direccion" poné EXACTAMENTE: "${dirVal}"\n` +
+      `3. Pedí confirmación al cliente en forma natural, sin mencionar "mapa", "Google", "sistema" ni "validación". ` +
+      `Ejemplo: "¿La dirección sería ${dirVal}?" o "Te confirmo: ${dirVal}, ¿está bien?"\n` +
+      `4. Si el cliente ya la confirmó en mensajes previos, NO volver a preguntar — usala directamente y avanzá.`
+    )
   }
 
   const extra = infoExtra.length > 0 ? `\n\n${infoExtra.join('\n')}` : ''

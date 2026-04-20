@@ -26,8 +26,8 @@ export default async function PaginaVisitas() {
 
   const admin = crearClienteAdmin()
 
-  // Estados por defecto: programada + reprogramada (excluir completadas/canceladas)
-  const estadosActivos = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
+  // Estados por defecto: provisoria (pendiente confirmar) + activos (excluir completadas/canceladas)
+  const estadosActivos = ['provisoria', 'programada', 'en_camino', 'en_sitio', 'reprogramada']
 
   // Vista por defecto: admins ven todas, usuarios con soloPropio ven propias
   const vistaDefault = visibilidad.soloPropio ? 'propias' : 'todas'
@@ -39,9 +39,10 @@ export default async function PaginaVisitas() {
     .eq('en_papelera', false)
     .in('estado', estadosActivos)
 
-  // Solo filtrar por propiedad si el usuario tiene visibilidad restringida
+  // Solo filtrar por propiedad si el usuario tiene visibilidad restringida.
+  // Las provisorias se incluyen siempre (trabajo pendiente de tomar por el equipo).
   if (visibilidad.soloPropio) {
-    query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+    query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id},estado.eq.provisoria`)
   }
 
   const { data, count } = await query

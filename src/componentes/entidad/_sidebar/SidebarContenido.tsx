@@ -18,6 +18,7 @@ import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
 import { usePendientes } from '@/hooks/usePendientes'
+import { useNavegarProtegido } from '@/hooks/useCambiosPendientes'
 import type { Modulo } from '@/tipos'
 import type { ItemNav } from './tipos'
 import { crearItemsNav, crearItemsEmpresa, crearItemAplicaciones, crearSecciones, crearItemInicio } from './itemsNav'
@@ -42,6 +43,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
   const { hayPendientes } = usePendientes()
+  const intentarNavegar = useNavegarProtegido()
   const sonido = useSonido()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
@@ -213,9 +215,11 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   }, [pathname, onCerrarMobil])
 
   const navegar = (ruta: string) => {
-    vibrar()
-    navegando.current = true
-    router.push(ruta)
+    intentarNavegar(() => {
+      vibrar()
+      navegando.current = true
+      router.push(ruta)
+    })
   }
 
   return (

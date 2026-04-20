@@ -22,6 +22,7 @@ import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -377,6 +378,23 @@ export default function EditorPlantillaPdf() {
     setGuardado(false)
     guardarPlantilla('')
   }, [guardarPlantilla])
+
+  // Si hay edits no guardados (fuera de la ventana de debounce), pedir confirmación al navegar.
+  useCambiosSinGuardar({
+    id: 'presupuestos-plantilla-pdf',
+    dirty: !guardado,
+    titulo: 'Plantilla PDF de presupuestos',
+    cambios: [{ campo: 'HTML de la plantilla', valor: 'modificado' }],
+    onGuardar: async () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      await guardarPlantilla(codigo)
+    },
+    onDescartar: () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      setCodigo(codigoOriginal)
+      setGuardado(true)
+    },
+  })
 
   // ─── Keyboard shortcuts ───
 

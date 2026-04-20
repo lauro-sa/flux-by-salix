@@ -75,6 +75,8 @@ const ID_SIN_ASIGNAR = '__sin_asignar__'
 
 interface PropsPanelPlanificacion {
   onAbrirVisita?: (visitaId: string) => void
+  onConfirmarProvisoria?: (visitaId: string) => void
+  onRechazarProvisoria?: (visitaId: string) => void
 }
 
 /** Genera YYYY-MM para un Date */
@@ -89,7 +91,7 @@ function nombreMes(mesStr: string, locale: string): string {
   return fecha.toLocaleDateString(locale, { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
 }
 
-export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanificacion) {
+export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisoria, onRechazarProvisoria }: PropsPanelPlanificacion) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
@@ -148,31 +150,44 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])
   const [sinAsignarLocal, setSinAsignarLocal] = useState<VisitaPlan[]>([])
 
-  // Peso por estado: activas arriba, pendientes en medio, completadas abajo
+  // Peso por estado: en curso → provisorias (a confirmar) → programadas → completadas → canceladas
   const pesoEstado = useCallback((estado: string) => {
     if (estado === 'en_camino' || estado === 'en_sitio') return 0
-    if (estado === 'completada') return 2
-    if (estado === 'cancelada') return 3
-    return 1 // programada, reprogramada
+    if (estado === 'provisoria') return 1
+    if (estado === 'completada') return 3
+    if (estado === 'cancelada') return 4
+    return 2 // programada, reprogramada
   }, [])
 
-  // Ordenar visitas: agrupar por día, dentro de cada día ordenar por estado (activas arriba, completadas abajo)
-  const ordenarPorFecha = useCallback((arr: VisitaPlan[]) =>
-    [...arr].sort((a, b) => {
-      // Primero agrupar por día (sin hora)
+  // Ordenar visitas:
+  //   1) Futuras (hoy incluido) arriba, en orden ascendente (la más próxima primero)
+  //   2) Pasadas al final, ordenadas descendente (la más reciente primero)
+  //   3) Dentro del mismo día, por estado (activas → pendientes → completadas) y después por hora
+  const ordenarPorFecha = useCallback((arr: VisitaPlan[]) => {
+    const hoy = new Date()
+    const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    return [...arr].sort((a, b) => {
       const diaA = a.fecha_programada?.split('T')[0] || '9999'
       const diaB = b.fecha_programada?.split('T')[0] || '9999'
-      if (diaA !== diaB) return diaA.localeCompare(diaB)
-      // Dentro del mismo día, por estado: activas → pendientes → completadas
+      const pasadaA = diaA < hoyISO
+      const pasadaB = diaB < hoyISO
+      // Futuras arriba, pasadas abajo
+      if (pasadaA !== pasadaB) return pasadaA ? 1 : -1
+      // Mismo grupo (ambas futuras o ambas pasadas)
+      if (diaA !== diaB) {
+        // Futuras: asc (más próxima arriba) | Pasadas: desc (más reciente arriba)
+        return pasadaA ? diaB.localeCompare(diaA) : diaA.localeCompare(diaB)
+      }
+      // Mismo día: por estado (en_camino > provisoria > programada > completada > cancelada)
       const pa = pesoEstado(a.estado)
       const pb = pesoEstado(b.estado)
       if (pa !== pb) return pa - pb
-      // Mismo estado, por hora
+      // Mismo estado: por hora
       const fa = a.fecha_programada ? new Date(a.fecha_programada).getTime() : Infinity
       const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
-      return fa - fb
+      return pasadaA ? fb - fa : fa - fb
     })
-  , [pesoEstado])
+  }, [pesoEstado])
 
   useEffect(() => {
     if (datos) {
@@ -522,6 +537,8 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               visitas={sinAsignarLocal} recorrido={null}
               onOptimizarRuta={() => {}} onGuardarConfig={async () => {}}
               onAbrirVisita={onAbrirVisita}
+              onConfirmarProvisoria={onConfirmarProvisoria}
+              onRechazarProvisoria={onRechazarProvisoria}
             />
           )}
           {tabMobile >= 0 && visitadoresLocal[tabMobile] && (
@@ -536,6 +553,8 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               onOptimizarRuta={optimizarRuta} onGuardarConfig={guardarConfig}
               onAbrirRecorrido={abrirRecorrido}
               onAbrirVisita={onAbrirVisita}
+              onConfirmarProvisoria={onConfirmarProvisoria}
+              onRechazarProvisoria={onRechazarProvisoria}
               optimizando={optimizandoUsuario === visitadoresLocal[tabMobile].usuario_id}
             />
           )}
@@ -554,6 +573,8 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
             onOptimizarRuta={() => {}}
             onGuardarConfig={async () => {}}
             onAbrirVisita={onAbrirVisita}
+            onConfirmarProvisoria={onConfirmarProvisoria}
+            onRechazarProvisoria={onRechazarProvisoria}
             esSinAsignar
           />
 
@@ -572,6 +593,8 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               onMoverColumna={moverColumna}
               onAbrirRecorrido={abrirRecorrido}
               onAbrirVisita={onAbrirVisita}
+              onConfirmarProvisoria={onConfirmarProvisoria}
+              onRechazarProvisoria={onRechazarProvisoria}
               optimizando={optimizandoUsuario === visitador.usuario_id}
             />
           ))}

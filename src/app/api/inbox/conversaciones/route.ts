@@ -157,6 +157,20 @@ export async function GET(request: NextRequest) {
     // Enriquecer con flags del usuario actual (fijada, silenciada, seguida)
     const convIds = resultados.map(c => c.id)
     if (convIds.length > 0) {
+      // Visitas provisorias por contacto (indicador visual en la lista)
+      const contactoIds = [...new Set(resultados.map(c => c.contacto_id).filter(Boolean))] as string[]
+      const visitasProvisoriasSet = new Set<string>()
+      if (contactoIds.length > 0) {
+        const { data: visitasProv } = await admin
+          .from('visitas')
+          .select('contacto_id')
+          .eq('empresa_id', empresaId)
+          .eq('estado', 'provisoria')
+          .eq('en_papelera', false)
+          .in('contacto_id', contactoIds)
+        for (const v of visitasProv || []) visitasProvisoriasSet.add(v.contacto_id)
+      }
+
       const [pinsData, silenciosData, seguidoresData] = await Promise.all([
         admin.from('conversacion_pins').select('conversacion_id').eq('usuario_id', user.id).in('conversacion_id', convIds),
         admin.from('conversacion_silencios').select('conversacion_id').eq('usuario_id', user.id).in('conversacion_id', convIds),
@@ -174,6 +188,7 @@ export async function GET(request: NextRequest) {
           canal: c.canal_id ? canalesMap.get(c.canal_id) || null : null,
           etapa_etiqueta: etapaJoin?.etiqueta || null,
           etapa_color: etapaJoin?.color || null,
+          tiene_visita_provisoria: c.contacto_id ? visitasProvisoriasSet.has(c.contacto_id) : false,
           _fijada: pinsSet.has(c.id),
           _silenciada: silenciosSet.has(c.id),
           _seguida: seguidoresSet.has(c.id),
