@@ -15,7 +15,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     // Operacionales — acceso total
     contactos: ['ver_todos', 'crear', 'editar', 'eliminar'],
     actividades: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
-    visitas: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
+    visitas: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'asignar'],
     calendario: ['ver_todos', 'crear', 'editar', 'eliminar'],
     recorrido: ['ver_todos'],
     asistencias: ['ver_todos', 'marcar', 'editar', 'eliminar'],
@@ -55,7 +55,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
   gestor: {
     contactos: ['ver_todos', 'crear', 'editar', 'eliminar'],
     actividades: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
-    visitas: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
+    visitas: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'asignar'],
     calendario: ['ver_todos', 'crear', 'editar', 'eliminar'],
     presupuestos: ['ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
     facturas: ['ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
@@ -86,7 +86,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
   supervisor: {
     contactos: ['ver_todos', 'crear', 'editar'],
     actividades: ['ver_todos', 'crear', 'editar', 'completar'],
-    visitas: ['ver_todos', 'crear', 'editar'],
+    visitas: ['ver_todos', 'crear', 'editar', 'asignar'],
     calendario: ['ver_todos'],
     asistencias: ['ver_todos'],
     informes: ['ver_todos'],

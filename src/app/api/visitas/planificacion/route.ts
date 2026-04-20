@@ -60,13 +60,17 @@ export async function GET(request: NextRequest) {
 
     // Filtrar visitadores base:
     // - Propietario: siempre puede ser visitador
-    // - Otros: solo si tienen ver_propio o registrar en recorrido en permisos_custom
-    const permisosVisitador = ['ver_propio', 'registrar']
+    // - Quien tiene permisos de recorrido (ver_propio / registrar) → visitador de campo
+    // - Quien tiene visitas.asignar o visitas.ver_todos → coordinador/admin (también puede tomar visitas)
+    const permisosRecorrido = ['ver_propio', 'registrar']
+    const permisosCoordinador = ['asignar', 'ver_todos']
     const miembrosVisitadores = (miembros || []).filter(m => {
       if (m.rol === 'propietario') return true
       if (!m.permisos_custom) return false
       const permisos = m.permisos_custom as Record<string, string[]>
-      return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+      const esVisitador = permisos.recorrido?.some((p: string) => permisosRecorrido.includes(p)) ?? false
+      const esCoordinador = permisos.visitas?.some((p: string) => permisosCoordinador.includes(p)) ?? false
+      return esVisitador || esCoordinador
     })
 
     // Agrupar visitas por asignado_a
