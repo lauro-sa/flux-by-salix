@@ -43,11 +43,13 @@ export async function ejecutarConsultarEquipo(
   }
 
   // Obtener perfiles (nombre, apellido, correo) — queries separadas
-  const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
-  const { data: perfiles } = await ctx.admin
-    .from('perfiles')
-    .select('id, nombre, apellido, correo, telefono, avatar_url')
-    .in('id', usuarioIds)
+  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x): x is string => !!x)
+  const { data: perfiles } = usuarioIds.length > 0
+    ? await ctx.admin
+        .from('perfiles')
+        .select('id, nombre, apellido, correo, telefono, avatar_url')
+        .in('id', usuarioIds)
+    : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null; correo: string | null; telefono: string | null }> }
 
   const perfilesMap = new Map<string, { nombre: string; apellido: string; correo: string | null; telefono: string | null }>()
   for (const p of (perfiles || [])) {
@@ -56,6 +58,27 @@ export async function ejecutarConsultarEquipo(
       apellido: p.apellido || '',
       correo: p.correo || null,
       telefono: p.telefono || null,
+    })
+  }
+
+  // Fallback a contacto equipo para miembros sin cuenta Flux (kiosco)
+  const miembroIds = miembros.map((m: { id: string }) => m.id)
+  const { data: contactosEquipo } = miembroIds.length > 0
+    ? await ctx.admin
+        .from('contactos')
+        .select('miembro_id, nombre, apellido, correo, telefono')
+        .in('miembro_id', miembroIds)
+        .eq('en_papelera', false)
+    : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null; correo: string | null; telefono: string | null }> }
+
+  const contactoEquipoMap = new Map<string, { nombre: string; apellido: string; correo: string | null; telefono: string | null }>()
+  for (const c of (contactosEquipo || [])) {
+    if (!c.miembro_id) continue
+    contactoEquipoMap.set(c.miembro_id, {
+      nombre: c.nombre || '',
+      apellido: c.apellido || '',
+      correo: c.correo || null,
+      telefono: c.telefono || null,
     })
   }
 
@@ -86,9 +109,11 @@ export async function ejecutarConsultarEquipo(
     fecha_nacimiento: string | null
     unido_en: string
   }) => {
-    const perfil = perfilesMap.get(m.usuario_id)
-    const nombreCompleto = perfil
-      ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ')
+    const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : undefined
+    const contactoEquipo = contactoEquipoMap.get(m.id)
+    const fuenteNombre = perfil && (perfil.nombre || perfil.apellido) ? perfil : contactoEquipo
+    const nombreCompleto = fuenteNombre
+      ? [fuenteNombre.nombre, fuenteNombre.apellido].filter(Boolean).join(' ') || 'Sin nombre'
       : 'Sin nombre'
 
     return {
@@ -99,8 +124,8 @@ export async function ejecutarConsultarEquipo(
       rol_clave: m.rol,
       puesto: m.puesto_nombre || null,
       sector: m.sector || null,
-      correo: perfil?.correo || null,
-      telefono: perfil?.telefono || null,
+      correo: perfil?.correo || contactoEquipo?.correo || null,
+      telefono: perfil?.telefono || contactoEquipo?.telefono || null,
       numero_empleado: m.numero_empleado,
       compensacion: m.compensacion_monto ? {
         tipo: m.compensacion_tipo,

@@ -93,7 +93,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al crear la empresa' }, { status: 500 })
     }
 
-    // Crear miembro propietario (activo = true, el propietario siempre está activo)
+    // Seed de tipos de contacto y secuencia (idempotente: hace nada si ya existen).
+    // Garantiza que el tipo "empresa" y "equipo" estén disponibles para los inserts
+    // siguientes, y que la secuencia de contactos arranque en 1.
+    await admin.rpc('seed_tipos_contacto', { p_empresa_id: empresa.id })
+
+    // C-0001 → contacto tipo empresa con el nombre de la empresa recién creada.
+    // Convención: el primer contacto siempre es la empresa misma. Se crea antes
+    // que el miembro propietario para que tome el código 0001 de la secuencia.
+    const { data: tipoEmpresa } = await admin
+      .from('tipos_contacto')
+      .select('id')
+      .eq('empresa_id', empresa.id)
+      .eq('clave', 'empresa')
+      .single()
+
+    if (tipoEmpresa) {
+      const { data: codigoEmpresa } = await admin
+        .rpc('siguiente_codigo', { p_empresa_id: empresa.id, p_entidad: 'contacto' })
+
+      if (codigoEmpresa) {
+        await admin.from('contactos').insert({
+          empresa_id: empresa.id,
+          tipo_contacto_id: tipoEmpresa.id,
+          codigo: codigoEmpresa,
+          nombre: empresa.nombre,
+          origen: 'sistema',
+          creado_por: user.id,
+          activo: true,
+          en_papelera: false,
+          es_provisorio: false,
+          etiquetas: [],
+          datos_fiscales: {},
+        })
+      }
+    }
+
+    // Crear miembro propietario (activo=true, numero_empleado=1).
     const { data: miembro, error: errorMiembro } = await admin
       .from('miembros')
       .insert({
@@ -101,6 +137,7 @@ export async function POST(request: NextRequest) {
         empresa_id: empresa.id,
         rol: 'propietario',
         activo: true,
+        numero_empleado: 1,
       })
       .select('id')
       .single()
@@ -109,7 +146,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al crear membresía' }, { status: 500 })
     }
 
-    // Crear contacto tipo "equipo" para el propietario
+    // Contacto tipo "equipo" para el propietario → tomará C-0002 de la secuencia.
     await vincularOCrearContactoEquipo(admin, {
       miembroId: miembro.id,
       empresaId: empresa.id,

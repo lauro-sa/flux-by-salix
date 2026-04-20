@@ -102,6 +102,19 @@ export async function GET(request: NextRequest) {
 
     const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
 
+    // Fallback para empleados sin cuenta Flux: nombre desde contacto equipo
+    const miembrosIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
+    const { data: contactosEquipo } = miembrosIds.length > 0
+      ? await admin
+          .from('contactos')
+          .select('miembro_id, nombre, apellido')
+          .in('miembro_id', miembrosIds)
+          .eq('en_papelera', false)
+      : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> }
+    const contactoMapNomina = new Map(
+      (contactosEquipo || []).filter(c => c.miembro_id).map(c => [c.miembro_id as string, c])
+    )
+
     // ─── Asistencias del período ───
     const { data: asistencias } = await admin
       .from('asistencias')
@@ -209,7 +222,12 @@ export async function GET(request: NextRequest) {
     const resultados = (miembrosData || []).map((miembro) => {
       const m = miembro as Record<string, unknown>
       const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
-      const nombre = perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre'
+      const contactoEquipo = contactoMapNomina.get(m.id as string)
+      const nombre = perfil && (perfil.nombre || perfil.apellido)
+        ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
+        : contactoEquipo && (contactoEquipo.nombre || contactoEquipo.apellido)
+          ? `${contactoEquipo.nombre || ''} ${contactoEquipo.apellido || ''}`.trim()
+          : 'Sin nombre'
       const correo = (perfil?.correo_empresa as string) || (perfil?.correo as string) || ''
       const telefono = (perfil?.telefono as string) || ''
 

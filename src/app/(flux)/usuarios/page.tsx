@@ -597,7 +597,7 @@ export default function PaginaUsuarios() {
     const miembroIdsParaContactos = miembrosData.map(m => m.id)
     const { data: contactosData } = await supabase
       .from('contactos')
-      .select('miembro_id, nombre, apellido, correo, telefono, fecha_nacimiento, documento_numero')
+      .select('miembro_id, nombre, apellido, correo, telefono')
       .in('miembro_id', miembroIdsParaContactos)
       .eq('en_papelera', false)
 
@@ -753,67 +753,71 @@ export default function PaginaUsuarios() {
   /* ── Agregar empleado — crea el miembro (con o sin invitación) ── */
   const agregarEmpleado = async () => {
     setInvError('')
-    const { nombre, apellido, correo, telefono, fecha_ingreso, rol, numero_empleado, sector_id, puesto_id, metodo_fichaje, kiosco_rfid, kiosco_pin, enviar_invitacion } = nuevoEmpleado
+    const { nombre, apellido, correo, telefono, fecha_ingreso, rol, numero_empleado, sector_id, puesto_id, metodo_fichaje, kiosco_rfid, kiosco_pin } = nuevoEmpleado
+    // Sin correo no puede enviarse invitación: el estado se ignora
+    const enviar_invitacion = nuevoEmpleado.enviar_invitacion && !!correo.trim()
 
     if (!nombre.trim() || !apellido.trim()) {
       setInvError('Nombre y apellido son obligatorios')
       return
     }
-    if (enviar_invitacion && !correo.trim()) {
-      setInvError('Para enviar invitación, el correo es obligatorio')
-      return
-    }
     setInvitando(true)
 
-    // 1. Crear el miembro (usuario_id=null, activo=true)
-    const resCrear = await fetch('/api/miembros/crear', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
-        correo: correo.trim() || null,
-        telefono: telefono.trim() || null,
-        rol,
-        numero_empleado: numero_empleado ? parseInt(numero_empleado, 10) : null,
-        puesto_id: puesto_id || null,
-        puesto_nombre: puesto_id ? (puestosDisponibles.find(p => p.id === puesto_id)?.nombre || null) : null,
-        sector: sector_id ? (sectoresDisponibles.find(s => s.id === sector_id)?.nombre || null) : null,
-        metodo_fichaje: metodo_fichaje || 'kiosco',
-        kiosco_rfid: kiosco_rfid.trim() || null,
-        kiosco_pin: kiosco_pin.trim() || null,
-        fecha_ingreso: fecha_ingreso || null,
-      }),
-    })
-
-    if (!resCrear.ok) {
-      const datos = await resCrear.json()
-      setInvError(datos.error || 'Error al crear el empleado')
-      setInvitando(false)
-      return
-    }
-
-    // 2. Si marcó "enviar invitación" y hay correo → disparar invitación
-    if (enviar_invitacion && correo.trim()) {
-      const resInv = await fetch('/api/invitaciones/crear', {
+    try {
+      // 1. Crear el miembro (usuario_id=null, activo=true)
+      const resCrear = await fetch('/api/miembros/crear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correo: correo.trim(), rol }),
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          apellido: apellido.trim(),
+          correo: correo.trim() || null,
+          telefono: telefono.trim() || null,
+          rol,
+          numero_empleado: numero_empleado ? parseInt(numero_empleado, 10) : null,
+          puesto_id: puesto_id || null,
+          puesto_nombre: puesto_id ? (puestosDisponibles.find(p => p.id === puesto_id)?.nombre || null) : null,
+          sector_id: sector_id || null,
+          sector: sector_id ? (sectoresDisponibles.find(s => s.id === sector_id)?.nombre || null) : null,
+          metodo_fichaje: metodo_fichaje || 'kiosco',
+          kiosco_rfid: kiosco_rfid.trim() || null,
+          kiosco_pin: kiosco_pin.trim() || null,
+          fecha_ingreso: fecha_ingreso || null,
+        }),
       })
-      if (resInv.ok) {
-        const datos = await resInv.json()
-        setLinkCopiado(datos.link)
-        setCorreoEnviadoExitoso(!!datos.correo_enviado)
-      }
-    }
 
-    setInvitando(false)
-    if (!enviar_invitacion) {
-      // Sin invitación: cerrar modal y refrescar
-      setModalAgregar(false)
-      resetFormularioEmpleado()
+      if (!resCrear.ok) {
+        const datos = await resCrear.json().catch(() => ({}))
+        setInvError(datos.error || 'Error al crear el empleado')
+        return
+      }
+
+      // 2. Si marcó "enviar invitación" y hay correo → disparar invitación
+      if (enviar_invitacion && correo.trim()) {
+        const resInv = await fetch('/api/invitaciones/crear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo: correo.trim(), rol }),
+        })
+        if (resInv.ok) {
+          const datos = await resInv.json()
+          setLinkCopiado(datos.link)
+          setCorreoEnviadoExitoso(!!datos.correo_enviado)
+        }
+      }
+
+      if (!enviar_invitacion) {
+        // Sin invitación: cerrar modal y refrescar
+        setModalAgregar(false)
+        resetFormularioEmpleado()
+      }
+      cargarDatos()
+    } catch (error) {
+      console.error('Error al crear empleado:', error)
+      setInvError('Error de red al crear el empleado. Intentá de nuevo.')
+    } finally {
+      setInvitando(false)
     }
-    cargarDatos()
   }
 
   /* ── Activar/desactivar ── */
@@ -1424,7 +1428,7 @@ export default function PaginaUsuarios() {
             <div className="flex items-start gap-3 p-3 rounded-card bg-superficie-elevada/40 border border-borde-sutil">
               <div className="pt-0.5">
                 <Checkbox
-                  marcado={nuevoEmpleado.enviar_invitacion}
+                  marcado={nuevoEmpleado.enviar_invitacion && !!nuevoEmpleado.correo.trim()}
                   onChange={(v) => setNuevoEmpleado(p => ({ ...p, enviar_invitacion: v }))}
                   deshabilitado={!nuevoEmpleado.correo.trim()}
                 />

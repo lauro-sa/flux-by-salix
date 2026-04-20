@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 /**
  * GET /api/asistencias/matriz — Datos para vista calendario.
@@ -25,26 +26,19 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Obtener miembros activos con nombres
+    // Miembros activos con nombres (perfil con fallback a contacto equipo)
     const { data: miembrosData } = await admin
       .from('miembros')
-      .select('id, usuario_id, activo')
+      .select('id, activo')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
 
-    const { data: perfilesData } = await admin
-      .from('perfiles')
-      .select('id, nombre, apellido')
+    const nombresMapa = await resolverNombresMiembros(admin, empresaId)
 
-    const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
-
-    const miembros = (miembrosData || []).map((m: Record<string, unknown>) => {
-      const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
-      return {
-        id: m.id,
-        nombre: perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre',
-      }
-    }).sort((a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre))
+    const miembros = (miembrosData || []).map((m: Record<string, unknown>) => ({
+      id: m.id as string,
+      nombre: nombresMapa.get(m.id as string) || 'Sin nombre',
+    })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
     // Obtener asistencias del rango
     const { data: asistencias } = await admin

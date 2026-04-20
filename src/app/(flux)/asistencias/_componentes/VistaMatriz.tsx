@@ -740,8 +740,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                                 </div>
                               </div>
                             ) : (
-                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-card ${altoCelda} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
-                              <span className={`text-asistencia-ausente ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
+                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-card ${altoCelda} flex items-center justify-center px-1 overflow-hidden ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`} title="Ausente">
+                              <span className={`text-asistencia-ausente ${esCompacto || esIntermedio ? 'text-xxs' : 'text-xs'} font-semibold uppercase whitespace-nowrap leading-none`}>{esCompacto || esIntermedio ? 'Aus.' : 'Ausente'}</span>
                             </div>
                             )}
                           </td>

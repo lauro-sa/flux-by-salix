@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     if (!registro) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
-    // Obtener nombre del miembro
+    // Obtener nombre del miembro (perfil con fallback a contacto equipo)
     const { data: miembro } = await admin
       .from('miembros')
       .select('usuario_id')
@@ -37,12 +37,27 @@ export async function GET(request: NextRequest) {
 
     let miembroNombre = 'Sin nombre'
     if (miembro) {
-      const { data: perfil } = await admin
-        .from('perfiles')
-        .select('nombre, apellido')
-        .eq('id', miembro.usuario_id)
-        .single()
-      if (perfil) miembroNombre = `${perfil.nombre} ${perfil.apellido}`
+      if (miembro.usuario_id) {
+        const { data: perfil } = await admin
+          .from('perfiles')
+          .select('nombre, apellido')
+          .eq('id', miembro.usuario_id)
+          .single()
+        if (perfil && (perfil.nombre || perfil.apellido)) {
+          miembroNombre = `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
+        }
+      }
+      if (miembroNombre === 'Sin nombre') {
+        const { data: contacto } = await admin
+          .from('contactos')
+          .select('nombre, apellido')
+          .eq('miembro_id', registro.miembro_id)
+          .eq('en_papelera', false)
+          .maybeSingle()
+        if (contacto && (contacto.nombre || contacto.apellido)) {
+          miembroNombre = `${contacto.nombre || ''} ${contacto.apellido || ''}`.trim()
+        }
+      }
     }
 
     // Calcular tiempo activo real desde heartbeats.

@@ -103,42 +103,63 @@ export async function detectarEmpleado(
     return { es_empleado: false }
   }
 
-  // Obtener perfiles de todos los miembros
-  const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
-  const { data: perfiles } = await admin
-    .from('perfiles')
-    .select('id, nombre, apellido, telefono, telefono_empresa')
-    .in('id', usuarioIds)
+  // Obtener perfiles de miembros con cuenta Flux
+  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x): x is string => !!x)
+  const { data: perfiles } = usuarioIds.length > 0
+    ? await admin.from('perfiles').select('id, nombre, apellido, telefono, telefono_empresa').in('id', usuarioIds)
+    : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null; telefono: string | null; telefono_empresa: string | null }> }
 
-  // Crear mapa de perfiles por usuario_id
   const perfilesMap = new Map<string, { nombre: string; apellido: string; telefono: string | null; telefono_empresa: string | null }>()
   for (const p of (perfiles || [])) {
-    perfilesMap.set(p.id, p)
+    perfilesMap.set(p.id, {
+      nombre: p.nombre || '',
+      apellido: p.apellido || '',
+      telefono: p.telefono,
+      telefono_empresa: p.telefono_empresa,
+    })
   }
 
-  console.info(`[DETECTAR] ${miembros.length} miembros, ${perfilesMap.size} perfiles cargados`)
+  // Fallback contacto equipo: nombre + teléfono para empleados sin cuenta Flux
+  const miembrosIdsArr = miembros.map((m: { id: string }) => m.id)
+  const { data: contactosEq } = miembrosIdsArr.length > 0
+    ? await admin
+        .from('contactos')
+        .select('miembro_id, nombre, apellido, telefono')
+        .in('miembro_id', miembrosIdsArr)
+        .eq('en_papelera', false)
+    : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null; telefono: string | null }> }
+  const contactoEqMap = new Map<string, { nombre: string; apellido: string; telefono: string | null }>()
+  for (const c of (contactosEq || [])) {
+    if (!c.miembro_id) continue
+    contactoEqMap.set(c.miembro_id, {
+      nombre: c.nombre || '',
+      apellido: c.apellido || '',
+      telefono: c.telefono,
+    })
+  }
+
+  console.info(`[DETECTAR] ${miembros.length} miembros, ${perfilesMap.size} perfiles, ${contactoEqMap.size} contactos equipo`)
 
   // Buscar coincidencia con prioridad: telefono_empresa > telefono
   for (const m of miembros) {
-    const perfil = perfilesMap.get(m.usuario_id)
+    const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : undefined
+    const contactoEq = contactoEqMap.get(m.id)
+    const datos = perfil || (contactoEq ? { nombre: contactoEq.nombre, apellido: contactoEq.apellido, telefono: contactoEq.telefono, telefono_empresa: null } : null)
 
-    if (!perfil) {
-      console.info(`[DETECTAR] Miembro ${m.id} sin perfil, saltando`)
+    if (!datos) {
+      console.info(`[DETECTAR] Miembro ${m.id} sin perfil ni contacto, saltando`)
       continue
     }
 
-    const telEmpresa = normalizarTelefono(perfil.telefono_empresa)
-    const telPersonal = normalizarTelefono(perfil.telefono)
-    console.info(`[DETECTAR] ${perfil.nombre}: telEmpresa="${telEmpresa}", telPersonal="${telPersonal}", comparando con "${telefonoNormalizado}"`)
-
+    const telEmpresa = normalizarTelefono(datos.telefono_empresa)
+    const telPersonal = normalizarTelefono(datos.telefono)
+    console.info(`[DETECTAR] ${datos.nombre}: telEmpresa="${telEmpresa}", telPersonal="${telPersonal}", comparando con "${telefonoNormalizado}"`)
 
     let coincide = false
 
     if (telEmpresa) {
-      // Si tiene teléfono empresa, SOLO matchear con ese
       coincide = telefonosCoinciden(telEmpresa, telefonoNormalizado)
     } else if (telPersonal) {
-      // Si NO tiene teléfono empresa, usar el personal
       coincide = telefonosCoinciden(telPersonal, telefonoNormalizado)
     }
 
@@ -155,10 +176,10 @@ export async function detectarEmpleado(
           sector: m.sector,
         },
         perfil: {
-          nombre: perfil.nombre,
-          apellido: perfil.apellido,
-          telefono: perfil.telefono,
-          telefono_empresa: perfil.telefono_empresa,
+          nombre: datos.nombre,
+          apellido: datos.apellido,
+          telefono: datos.telefono,
+          telefono_empresa: datos.telefono_empresa,
         },
       }
     }

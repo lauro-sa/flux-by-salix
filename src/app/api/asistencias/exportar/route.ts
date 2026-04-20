@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import ExcelJS from 'exceljs'
 import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
+import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 // i18n: estos headers deberían respetar el idioma del usuario cuando se implemente i18n server-side
 const ENCABEZADOS_EXCEL = ['Empleado', 'Fecha', 'Entrada', 'Salida', 'Duración', 'Estado', 'Tipo', 'Método', 'Notas'] as const
@@ -35,22 +36,8 @@ export async function GET(request: NextRequest) {
     const nombreEmpresa = empresa?.nombre || 'Empresa'
     const fmt24 = empresa?.formato_hora !== '12h'
 
-    // Miembros
-    const { data: miembrosData } = await admin
-      .from('miembros')
-      .select('id, usuario_id')
-      .eq('empresa_id', empresaId)
-      .eq('activo', true)
-
-    const { data: perfilesData } = await admin
-      .from('perfiles')
-      .select('id, nombre, apellido')
-
-    const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
-    const miembroNombres = new Map((miembrosData || []).map((m: Record<string, unknown>) => {
-      const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
-      return [m.id, perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre']
-    }))
+    // Nombres de miembros (perfil con fallback a contacto equipo)
+    const miembroNombres = await resolverNombresMiembros(admin, empresaId)
 
     // Asistencias
     let query = admin

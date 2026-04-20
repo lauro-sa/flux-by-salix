@@ -5,6 +5,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 const POR_PAGINA = 50
 
@@ -21,20 +22,7 @@ export default async function PaginaAsistencias() {
 
   const admin = crearClienteAdmin()
 
-  const { data: miembrosData } = await admin
-    .from('miembros')
-    .select('id, usuario_id')
-    .eq('empresa_id', empresaId)
-
-  const { data: perfilesData } = await admin
-    .from('perfiles')
-    .select('id, nombre, apellido')
-
-  const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
-  const miembroNombres = new Map((miembrosData || []).map((m: Record<string, unknown>) => {
-    const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
-    return [m.id, perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre']
-  }))
+  const miembroNombres = await resolverNombresMiembros(admin, empresaId)
 
   const { data, count } = await admin
     .from('asistencias')

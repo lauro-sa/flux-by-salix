@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       puesto_id,
       puesto_nombre,
       sector,
+      sector_id,
       compensacion_tipo,
       compensacion_monto,
       compensacion_frecuencia,
@@ -89,12 +90,26 @@ export async function POST(request: NextRequest) {
       ? new Date(`${fecha_ingreso}T00:00:00`).toISOString()
       : undefined
 
+    // Si no llega número de empleado, auto-asignar el siguiente disponible
+    // para la empresa (max + 1). Los legajos arrancan en 1 (propietario).
+    let numeroEmpleadoFinal: number = numero_empleado ?? 0
+    if (!numeroEmpleadoFinal) {
+      const { data: ultimoMiembro } = await admin
+        .from('miembros')
+        .select('numero_empleado')
+        .eq('empresa_id', empresaId)
+        .order('numero_empleado', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle()
+      numeroEmpleadoFinal = (ultimoMiembro?.numero_empleado ?? 0) + 1
+    }
+
     const insertMiembro: Record<string, unknown> = {
       usuario_id: null,
       empresa_id: empresaId,
       rol,
       activo: true,
-      numero_empleado: numero_empleado ?? null,
+      numero_empleado: numeroEmpleadoFinal,
       puesto_id: puesto_id ?? null,
       puesto_nombre: puesto_nombre ?? null,
       sector: sector ?? null,
@@ -118,7 +133,18 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (errorMiembro || !nuevoMiembro) {
-      return NextResponse.json({ error: 'Error al crear el empleado' }, { status: 500 })
+      console.error('[/api/miembros/crear] Error al insertar miembro:', errorMiembro)
+      return NextResponse.json({ error: errorMiembro?.message || 'Error al crear el empleado' }, { status: 500 })
+    }
+
+    // Vincular el sector en la tabla relación (miembros_sectores).
+    // La UI lista sectores por esta tabla — el texto en miembros.sector no basta.
+    if (sector_id) {
+      await admin.from('miembros_sectores').insert({
+        miembro_id: nuevoMiembro.id,
+        sector_id,
+        es_primario: true,
+      })
     }
 
     // Crear contacto tipo equipo con los datos — así se muestra en /contactos,
@@ -150,7 +176,9 @@ export async function POST(request: NextRequest) {
       miembro_id: nuevoMiembro.id,
       mensaje: 'Empleado creado. Puede fichar en kiosco; envialé una invitación para que acceda a Flux.',
     })
-  } catch {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  } catch (error) {
+    console.error('[/api/miembros/crear] Error inesperado:', error)
+    const mensaje = error instanceof Error ? error.message : 'Error interno del servidor'
+    return NextResponse.json({ error: mensaje }, { status: 500 })
   }
 }

@@ -119,6 +119,55 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Cumpleaños de empleados sin cuenta Flux (kiosco): fecha_nacimiento vive en
+    // miembros, nombre en el contacto equipo. Solo notifica a los compañeros con
+    // cuenta — el propio empleado de kiosco no tiene app para recibirla.
+    const { data: miembrosSinCuentaCumple } = await admin
+      .from('miembros')
+      .select('id, empresa_id, fecha_nacimiento')
+      .is('usuario_id', null)
+      .eq('activo', true)
+      .not('fecha_nacimiento', 'is', null)
+
+    const miembrosCumpleHoy = (miembrosSinCuentaCumple || []).filter((m) => {
+      if (!m.fecha_nacimiento) return false
+      const partes = String(m.fecha_nacimiento).split('-')
+      if (partes.length < 3) return false
+      return partes[1] === mes && partes[2] === dia
+    })
+
+    if (miembrosCumpleHoy.length > 0) {
+      const ids = miembrosCumpleHoy.map(m => m.id)
+      const { data: contactosEq } = await admin
+        .from('contactos')
+        .select('miembro_id, nombre, apellido')
+        .in('miembro_id', ids)
+        .eq('en_papelera', false)
+      const contactoEqMap = new Map<string, string>()
+      for (const c of (contactosEq || [])) {
+        if (!c.miembro_id) continue
+        contactoEqMap.set(c.miembro_id, `${c.nombre || ''} ${c.apellido || ''}`.trim())
+      }
+
+      for (const m of miembrosCumpleHoy) {
+        const nombreCompleto = contactoEqMap.get(m.id) || 'Un compañero'
+        const companeros = miembrosPorEmpresa.get(m.empresa_id) || []
+        for (const usuarioId of companeros) {
+          notificaciones.push({
+            empresaId: m.empresa_id,
+            usuarioId,
+            tipo: 'cumpleanios_colega',
+            titulo: `🎂 Hoy cumple años ${nombreCompleto}`,
+            cuerpo: '¡No olvides saludarlo!',
+            icono: 'PartyPopper',
+            color: 'var(--insignia-rosa-texto)',
+            referenciaTipo: 'cumpleanios',
+            referenciaId: m.id,
+          })
+        }
+      }
+    }
+
     if (notificaciones.length > 0) {
       await crearNotificacionesBatch(notificaciones)
     }

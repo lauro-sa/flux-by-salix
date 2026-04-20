@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { resolverRangoFecha } from '@/lib/presets-fecha'
+import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 /**
  * GET /api/asistencias — Listar asistencias con filtros.
@@ -54,25 +55,8 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Precargar miembros con nombre + usuario_id (para búsqueda de nombres)
-    const { data: miembrosData } = await admin
-      .from('miembros')
-      .select('id, usuario_id')
-      .eq('empresa_id', empresaId)
-
-    const { data: perfilesData } = await admin
-      .from('perfiles')
-      .select('id, nombre, apellido')
-
-    const perfilMap = new Map<string, { nombre?: string; apellido?: string }>(
-      (perfilesData || []).map((p: Record<string, unknown>) => [String(p.id), p as { nombre?: string; apellido?: string }])
-    )
-    const miembroNombres = new Map<string, string>(
-      (miembrosData || []).map((m: Record<string, unknown>) => {
-        const perfil = perfilMap.get(String(m.usuario_id))
-        return [String(m.id), perfil ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() : 'Sin nombre']
-      })
-    )
+    // Precargar nombres de miembros (perfil con fallback a contacto equipo)
+    const miembroNombres = await resolverNombresMiembros(admin, empresaId)
 
     // Resolver IDs de miembros a partir de búsqueda o filtros de sector
     const idsPorBusqueda = new Set<string>()
