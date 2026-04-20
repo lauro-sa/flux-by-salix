@@ -34,9 +34,9 @@ export default async function PaginaAsistencias() {
 
   const registros = (data || []).map((r: Record<string, unknown>) => ({
     ...r,
-    miembro_nombre: miembroNombres.get(r.miembro_id) || 'Sin nombre',
-    creador_nombre: r.creado_por ? (miembroNombres.get(r.creado_por) || null) : null,
-    editor_nombre: r.editado_por ? (miembroNombres.get(r.editado_por) || null) : null,
+    miembro_nombre: miembroNombres.get(r.miembro_id as string) || 'Sin nombre',
+    creador_nombre: r.creado_por ? (miembroNombres.get(r.creado_por as string) || null) : null,
+    editor_nombre: r.editado_por ? (miembroNombres.get(r.editado_por as string) || null) : null,
   }))
 
   const datosInicialesJson = {

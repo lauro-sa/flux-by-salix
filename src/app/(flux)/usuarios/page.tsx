@@ -683,7 +683,7 @@ export default function PaginaUsuarios() {
         sector: miembroSectorMapa.get(m.id) || '',
         puesto: m.puesto_id ? (puestosMapa.get(m.puesto_id) || '') : '',
         numero_empleado: m.numero_empleado ?? null,
-        documento_numero: perfil?.documento_numero || contacto?.documento_numero || '',
+        documento_numero: perfil?.documento_numero || '',
         genero: perfil?.genero || '',
         domicilio: perfil?.domicilio || '',
         compensacion_tipo: m.compensacion_tipo || 'fijo',
@@ -695,7 +695,7 @@ export default function PaginaUsuarios() {
         turno: m.turno || '',
         metodo_fichaje: m.metodo_fichaje || '',
         unido_en: m.unido_en,
-        fecha_nacimiento: perfil?.fecha_nacimiento || contacto?.fecha_nacimiento || null,
+        fecha_nacimiento: perfil?.fecha_nacimiento || null,
       }
     })
 

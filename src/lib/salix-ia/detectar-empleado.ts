@@ -104,7 +104,7 @@ export async function detectarEmpleado(
   }
 
   // Obtener perfiles de miembros con cuenta Flux
-  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x): x is string => !!x)
+  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x: string | null): x is string => !!x)
   const { data: perfiles } = usuarioIds.length > 0
     ? await admin.from('perfiles').select('id, nombre, apellido, telefono, telefono_empresa').in('id', usuarioIds)
     : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null; telefono: string | null; telefono_empresa: string | null }> }

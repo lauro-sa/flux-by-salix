@@ -43,7 +43,7 @@ export async function ejecutarConsultarEquipo(
   }
 
   // Obtener perfiles (nombre, apellido, correo) — queries separadas
-  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x): x is string => !!x)
+  const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x: string | null): x is string => !!x)
   const { data: perfiles } = usuarioIds.length > 0
     ? await ctx.admin
         .from('perfiles')

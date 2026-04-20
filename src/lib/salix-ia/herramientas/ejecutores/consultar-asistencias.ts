@@ -88,7 +88,7 @@ export async function ejecutarConsultarAsistencias(
       .in('id', miembroIds)
 
     if (miembros) {
-      const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x): x is string => !!x)
+      const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x: string | null): x is string => !!x)
       const { data: perfiles } = usuarioIds.length > 0
         ? await ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIds)
         : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null }> }
@@ -145,7 +145,7 @@ export async function ejecutarConsultarAsistencias(
     if (miembrosSinRegistro.length > 0) {
       const usuarioIdsAusentes = miembrosSinRegistro
         .map((m: { usuario_id: string | null }) => m.usuario_id)
-        .filter((x): x is string => !!x)
+        .filter((x: string | null): x is string => !!x)
       const { data: perfilesAusentes } = usuarioIdsAusentes.length > 0
         ? await ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIdsAusentes)
         : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null }> }
