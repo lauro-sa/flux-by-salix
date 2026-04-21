@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronDown, CheckCircle2, Ban, RotateCcw, Play, Pause, Send, PenLine } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { useTraduccion } from '@/lib/i18n'
 import {
   ETIQUETAS_ESTADO_OT, COLORES_ESTADO_OT,
@@ -141,56 +142,59 @@ export default function CabeceraOrden({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Botón Publicar / Despublicar (solo admin/cabecilla) */}
-        {puedeGestionar && (
-          publicada ? (
+        {/* Grupo de acciones (segmented control: redondeado solo en las puntas) */}
+        <GrupoBotones>
+          {/* Botón Publicar / Despublicar (solo admin/cabecilla) */}
+          {puedeGestionar && (
+            publicada ? (
+              <Boton
+                variante="secundario"
+                tamano="sm"
+                icono={<Pause size={15} />}
+                onClick={onDespublicar}
+                disabled={guardando}
+              >
+                <span className="hidden sm:inline">Despublicar</span>
+              </Boton>
+            ) : (
+              <Boton
+                variante="primario"
+                tamano="sm"
+                icono={<Send size={15} />}
+                onClick={onPublicar}
+                disabled={guardando}
+              >
+                <span className="hidden sm:inline">Publicar</span>
+              </Boton>
+            )
+          )}
+
+          {/* Botón acción principal */}
+          {accionPrincipal && (
             <Boton
-              variante="secundario"
+              variante={accionPrincipal.variante}
               tamano="sm"
-              icono={<Pause size={15} />}
-              onClick={onDespublicar}
+              icono={<accionPrincipal.icono size={15} />}
+              onClick={() => onCambiarEstado(accionPrincipal.estado)}
               disabled={guardando}
             >
-              <span className="hidden sm:inline">Despublicar</span>
+              <span className="hidden sm:inline">{accionPrincipal.label}</span>
             </Boton>
-          ) : (
+          )}
+
+          {/* Cancelar */}
+          {puedeCancelar && (
             <Boton
-              variante="primario"
+              variante="peligro"
               tamano="sm"
-              icono={<Send size={15} />}
-              onClick={onPublicar}
+              icono={<Ban size={15} />}
+              onClick={() => onCambiarEstado('cancelada')}
               disabled={guardando}
             >
-              <span className="hidden sm:inline">Publicar</span>
+              <span className="hidden sm:inline">{t('ordenes.cancelar_orden')}</span>
             </Boton>
-          )
-        )}
-
-        {/* Botón acción principal */}
-        {accionPrincipal && (
-          <Boton
-            variante={accionPrincipal.variante}
-            tamano="sm"
-            icono={<accionPrincipal.icono size={15} />}
-            onClick={() => onCambiarEstado(accionPrincipal.estado)}
-            disabled={guardando}
-          >
-            <span className="hidden sm:inline">{accionPrincipal.label}</span>
-          </Boton>
-        )}
-
-        {/* Cancelar */}
-        {puedeCancelar && (
-          <Boton
-            variante="peligro"
-            tamano="sm"
-            icono={<Ban size={15} />}
-            onClick={() => onCambiarEstado('cancelada')}
-            disabled={guardando}
-          >
-            <span className="hidden sm:inline">{t('ordenes.cancelar_orden')}</span>
-          </Boton>
-        )}
+          )}
+        </GrupoBotones>
       </div>
     </div>
   )
