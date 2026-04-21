@@ -17,11 +17,13 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
+import { ModalEnviarDocumento, type CanalCorreoEmpresa, type PlantillaCorreo, type DatosEnvioDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { BannerContacto } from '../_componentes/BannerContacto'
 import { ModalAceptarProvisorio } from '../_componentes/ModalAceptarProvisorio'
 import { BarraKPIs } from '../_componentes/BarraKPIs'
@@ -139,6 +141,14 @@ export default function PaginaContacto() {
   const [resultadosVinculo, setResultadosVinculo] = useState<ContactoBusqueda[]>([])
   const [buscandoVinculo, setBuscandoVinculo] = useState(false)
   const creadoRef = useRef(false)
+
+  // ─── Estado chatter — envío de correo ───
+  const [modalCorreoAbierto, setModalCorreoAbierto] = useState(false)
+  const [selectorDestinatariosAbierto, setSelectorDestinatariosAbierto] = useState(false)
+  const [destinatariosIniciales, setDestinatariosIniciales] = useState<string[]>([])
+  const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
+  const [plantillasCorreo, setPlantillasCorreo] = useState<PlantillaCorreo[]>([])
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false)
 
   // ─── Derivados ───
   const tipoActivo = tiposContacto.find(t => t.id === tipoContactoId)
@@ -600,6 +610,122 @@ export default function PaginaContacto() {
     }
   }, [esNuevo, cambiarPaisContactoNuevo, guardar])
 
+  // ─── Cargar canales y plantillas de correo (para el chatter) ───
+  // Solo en edición: si el contacto existe y tiene correo, habilitamos el botón
+  useEffect(() => {
+    if (esNuevo) return
+    fetch('/api/correo/canales?modulo=contactos')
+      .then(r => r.json())
+      .then(data => {
+        const canales = (data.canales || [])
+          .filter((c: { activo: boolean }) => c.activo)
+          .map((c: { id: string; nombre: string; config_conexion: Record<string, string>; es_principal?: boolean }) => ({
+            id: c.id,
+            nombre: c.nombre,
+            email: c.config_conexion?.email || c.config_conexion?.usuario || c.nombre,
+            predeterminado: !!c.es_principal,
+          }))
+        setCanalesCorreo(canales)
+      })
+      .catch(() => {})
+
+    fetch('/api/correo/plantillas')
+      .then(r => r.json())
+      .then(data => {
+        const pls = (data.plantillas || []).map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string }) => ({
+          id: p.id,
+          nombre: p.nombre,
+          asunto: p.asunto || '',
+          contenido_html: p.contenido_html || '',
+          canal_id: p.canal_id || null,
+          creado_por: p.creado_por || '',
+        }))
+        setPlantillasCorreo(pls)
+      })
+      .catch(() => {})
+  }, [esNuevo])
+
+  // ─── Candidatos de destinatario para correo desde el chatter ───
+  // Incluye al contacto actual (si tiene correo) y a todos los vinculados
+  // en cualquier dirección que tengan correo. Útil para empresas/edificios
+  // sin correo propio que delegan en personas vinculadas.
+  const candidatosCorreo = useMemo(() => {
+    const items: { id: string; nombre: string; correo: string; relacion: string | null }[] = []
+    const vistos = new Set<string>()
+
+    const agregar = (id: string, nombre: string, correo: string | null, relacion: string | null) => {
+      if (!correo) return
+      const clave = correo.toLowerCase()
+      if (vistos.has(clave)) return
+      vistos.add(clave)
+      items.push({ id, nombre: nombre.trim() || correo, correo, relacion })
+    }
+
+    if (campos.correo && contactoId) {
+      agregar(contactoId, nombreCompleto, campos.correo, null)
+    }
+
+    for (const v of mapearVinculaciones(vinculaciones)) {
+      const nombreV = [v.nombre, v.apellido].filter(Boolean).join(' ')
+      const rel = v.tipo_relacion_etiqueta || v.puesto || v.tipo_etiqueta
+      agregar(v.vinculado_id, nombreV, v.correo, rel)
+    }
+    for (const v of mapearVinculacionesInversas(vinculacionesInversas)) {
+      const nombreV = [v.nombre, v.apellido].filter(Boolean).join(' ')
+      const rel = v.tipo_relacion_etiqueta || v.puesto || v.tipo_etiqueta
+      agregar(v.vinculado_id, nombreV, v.correo, rel)
+    }
+    return items
+  }, [campos.correo, contactoId, nombreCompleto, vinculaciones, vinculacionesInversas])
+
+  // Al hacer clic en "Correo" del chatter:
+  //   Si hay al menos un candidato (contacto o vinculado con correo), mostrar
+  //   el selector para elegir destinatarios (+ campo libre para otro correo).
+  //   Sin candidatos → abrir modal directo, el usuario escribe el correo.
+  const abrirCorreoDesdeChatter = useCallback(() => {
+    if (candidatosCorreo.length === 0) {
+      setDestinatariosIniciales([])
+      setModalCorreoAbierto(true)
+    } else {
+      setSelectorDestinatariosAbierto(true)
+    }
+  }, [candidatosCorreo])
+
+  // ─── Enviar correo desde el chatter del contacto ───
+  // POST a /api/inbox/correo/enviar con entidad_tipo='contacto' para que
+  // el endpoint registre la entrada en el chatter automáticamente y
+  // aplique threading (In-Reply-To/References) con el último correo de este contacto.
+  const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
+    if (!contactoId) return
+    setEnviandoCorreo(true)
+    try {
+      const res = await fetch('/api/inbox/correo/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canal_id: datos.canal_id,
+          correo_para: datos.correo_para,
+          correo_cc: datos.correo_cc.length > 0 ? datos.correo_cc : undefined,
+          correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
+          correo_asunto: datos.asunto,
+          texto: datos.texto,
+          html: datos.html,
+          adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
+          tipo: 'nuevo',
+          programado_para: datos.programado_para,
+          entidad_tipo: 'contacto',
+          entidad_id: contactoId,
+        }),
+      })
+      if (res.ok) {
+        setModalCorreoAbierto(false)
+        // El chatter se actualiza solo por realtime (suscripción a tabla chatter)
+      }
+    } finally {
+      setEnviandoCorreo(false)
+    }
+  }, [contactoId])
+
   // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
@@ -937,6 +1063,7 @@ export default function PaginaContacto() {
                 telefono: campos.telefono || undefined,
               }}
               modo="inferior"
+              onAbrirCorreo={canalesCorreo.length > 0 ? abrirCorreoDesdeChatter : undefined}
             />
           )}
 
@@ -1045,7 +1172,197 @@ export default function PaginaContacto() {
           }}
         />
       )}
+
+      {/* Selector de destinatarios (empresa/contacto con vinculados) */}
+      {!esNuevo && (
+        <ModalSeleccionarDestinatarios
+          abierto={selectorDestinatariosAbierto}
+          onCerrar={() => setSelectorDestinatariosAbierto(false)}
+          candidatos={candidatosCorreo}
+          onConfirmar={(emails) => {
+            setSelectorDestinatariosAbierto(false)
+            setDestinatariosIniciales(emails)
+            setModalCorreoAbierto(true)
+          }}
+        />
+      )}
+
+      {/* Modal de envío de correo desde el chatter del contacto */}
+      {!esNuevo && (
+        <ModalEnviarDocumento
+          abierto={modalCorreoAbierto}
+          onCerrar={() => setModalCorreoAbierto(false)}
+          onEnviar={handleEnviarCorreo}
+          canales={canalesCorreo}
+          plantillas={plantillasCorreo}
+          correosDestinatario={destinatariosIniciales}
+          nombreDestinatario={nombreCompleto}
+          tipoDocumento="Correo"
+          enviando={enviandoCorreo}
+        />
+      )}
     </div>
+  )
+}
+
+// ─── Modal: seleccionar destinatarios entre candidatos ───
+// Muestra el contacto actual + todos sus vinculados con correo como
+// checkboxes, además de un campo libre para agregar cualquier otro correo.
+function ModalSeleccionarDestinatarios({
+  abierto,
+  onCerrar,
+  candidatos,
+  onConfirmar,
+}: {
+  abierto: boolean
+  onCerrar: () => void
+  candidatos: { id: string; nombre: string; correo: string; relacion: string | null }[]
+  onConfirmar: (emails: string[]) => void
+}) {
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+  const [extras, setExtras] = useState<string[]>([]) // correos libres agregados
+  const [inputLibre, setInputLibre] = useState('')
+  const [errorLibre, setErrorLibre] = useState('')
+
+  useEffect(() => {
+    if (abierto) {
+      const inicial = new Set<string>()
+      if (candidatos.length > 0) inicial.add(candidatos[0].correo)
+      setSeleccionados(inicial)
+      setExtras([])
+      setInputLibre('')
+      setErrorLibre('')
+    }
+  }, [abierto, candidatos])
+
+  const toggle = (correo: string) => {
+    setSeleccionados(prev => {
+      const next = new Set(prev)
+      if (next.has(correo)) next.delete(correo); else next.add(correo)
+      return next
+    })
+  }
+
+  const agregarLibre = () => {
+    const valor = inputLibre.trim().toLowerCase()
+    if (!valor) return
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(valor)) {
+      setErrorLibre('Correo no válido')
+      return
+    }
+    // Evitar duplicados con candidatos o extras existentes
+    const yaEnCandidatos = candidatos.some(c => c.correo.toLowerCase() === valor)
+    const yaEnExtras = extras.includes(valor)
+    if (yaEnCandidatos) {
+      setSeleccionados(prev => new Set(prev).add(candidatos.find(c => c.correo.toLowerCase() === valor)!.correo))
+    } else if (!yaEnExtras) {
+      setExtras(prev => [...prev, valor])
+      setSeleccionados(prev => new Set(prev).add(valor))
+    }
+    setInputLibre('')
+    setErrorLibre('')
+  }
+
+  const confirmar = () => {
+    const emails: string[] = []
+    for (const c of candidatos) if (seleccionados.has(c.correo)) emails.push(c.correo)
+    for (const e of extras) if (seleccionados.has(e)) emails.push(e)
+    if (emails.length > 0) onConfirmar(emails)
+  }
+
+  return (
+    <Modal abierto={abierto} onCerrar={onCerrar} tamano="md">
+      <div className="p-6 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-texto-primario">Enviar correo a</h3>
+          <p className="text-xs text-texto-terciario mt-0.5">
+            Elegí uno o más destinatarios. Podés agregar otro correo si no está en la lista.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1 max-h-[40vh] overflow-y-auto">
+          {candidatos.map(c => (
+            <label
+              key={c.id + c.correo}
+              className="flex items-center gap-3 px-3 py-2 rounded-card border border-borde-sutil hover:bg-superficie-hover cursor-pointer transition-colors"
+            >
+              <Checkbox
+                marcado={seleccionados.has(c.correo)}
+                onChange={() => toggle(c.correo)}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-texto-primario truncate">{c.nombre}</div>
+                <div className="text-xs text-texto-terciario truncate">{c.correo}</div>
+              </div>
+              {c.relacion && (
+                <span className="text-xs text-texto-terciario shrink-0">{c.relacion}</span>
+              )}
+            </label>
+          ))}
+
+          {extras.map(e => (
+            <label
+              key={e}
+              className="flex items-center gap-3 px-3 py-2 rounded-card border border-borde-sutil hover:bg-superficie-hover cursor-pointer transition-colors"
+            >
+              <Checkbox
+                marcado={seleccionados.has(e)}
+                onChange={() => toggle(e)}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-texto-primario truncate">{e}</div>
+                <div className="text-xs text-texto-terciario">Correo agregado</div>
+              </div>
+              <button
+                type="button"
+                onClick={(ev) => {
+                  ev.preventDefault()
+                  setExtras(prev => prev.filter(x => x !== e))
+                  setSeleccionados(prev => {
+                    const next = new Set(prev)
+                    next.delete(e)
+                    return next
+                  })
+                }}
+                className="text-texto-terciario hover:text-texto-primario text-xs shrink-0"
+              >
+                Quitar
+              </button>
+            </label>
+          ))}
+        </div>
+
+        <div className="pt-2 border-t border-borde-sutil">
+          <label className="block text-xs text-texto-terciario mb-1">Agregar otro correo</label>
+          <div className="flex gap-2">
+            <Input
+              value={inputLibre}
+              onChange={e => { setInputLibre(e.target.value); setErrorLibre('') }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); agregarLibre() } }}
+              placeholder="alguien@ejemplo.com"
+              className="flex-1"
+            />
+            <Boton variante="secundario" tamano="sm" onClick={agregarLibre} disabled={!inputLibre.trim()}>
+              Agregar
+            </Boton>
+          </div>
+          {errorLibre && <div className="text-xs text-[var(--insignia-peligro)] mt-1">{errorLibre}</div>}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-borde-sutil">
+          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton
+            variante="primario"
+            tamano="sm"
+            onClick={confirmar}
+            disabled={seleccionados.size === 0}
+          >
+            Continuar ({seleccionados.size})
+          </Boton>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

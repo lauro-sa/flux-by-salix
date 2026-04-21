@@ -26,23 +26,14 @@ export default async function PaginaActividades() {
 
   const admin = crearClienteAdmin()
 
-  // Obtener estados del grupo 'activo' para filtrar por defecto (excluir completados y cancelados)
-  const { data: estadosActivos } = await admin
-    .from('estados_actividad')
-    .select('clave')
-    .eq('empresa_id', empresaId)
-    .eq('activo', true)
-    .eq('grupo', 'activo')
-
-  const clavesActivas = estadosActivos?.map(e => e.clave) || ['pendiente', 'vencida']
-
+  // Default: ocultar completadas y canceladas (mismo criterio que la API).
+  // Permisos: si el usuario solo puede ver lo propio, filtrar por creador/asignado.
   let query = admin
     .from('actividades')
     .select('*', { count: 'exact' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
-    .in('estado_clave', clavesActivas)
-    .or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
+    .not('estado_clave', 'in', '(completada,cancelada)')
 
   if (visibilidad.soloPropio) {
     query = query.or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
@@ -52,10 +43,12 @@ export default async function PaginaActividades() {
     .order('creado_en', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  // Orden inteligente: Hoy → Vencidas → Futuras → Sin fecha
+  // Orden: Activas (Hoy → Vencidas → Futuras → Sin fecha) → Completadas/Canceladas al final
   const ahora = new Date()
   const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
   const mananaInicio = new Date(hoyInicio); mananaInicio.setDate(mananaInicio.getDate() + 1)
+  const esCerrada = (estadoClave: string | null): boolean =>
+    estadoClave === 'completada' || estadoClave === 'cancelada'
   const pesoGrupo = (fecha: string | null): number => {
     if (!fecha) return 4
     const f = new Date(fecha)
@@ -65,6 +58,10 @@ export default async function PaginaActividades() {
   }
   const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
   const actividades = (data || []).sort((a, b) => {
+    // Las cerradas (completadas/canceladas) siempre al final
+    const ca = esCerrada(a.estado_clave) ? 1 : 0
+    const cb = esCerrada(b.estado_clave) ? 1 : 0
+    if (ca !== cb) return ca - cb
     const ga = pesoGrupo(a.fecha_vencimiento)
     const gb = pesoGrupo(b.fecha_vencimiento)
     if (ga !== gb) return ga - gb
@@ -90,7 +87,7 @@ export default async function PaginaActividades() {
 
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
-    ['actividades', { estado: clavesActivas.join(','), vista: 'propias', pagina: '1', por_pagina: '50' }],
+    ['actividades', { vista: 'todas', pagina: '1', por_pagina: '50' }],
     datosInicialesJson
   )
 

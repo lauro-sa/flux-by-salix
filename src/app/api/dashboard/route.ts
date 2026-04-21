@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarError } from '@/lib/logger'
+import { formatearFechaISO, obtenerComponentesFecha } from '@/lib/formato-fecha'
 
 /**
  * GET /api/dashboard — Estadísticas completas para la página de inicio.
@@ -18,15 +19,20 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    // Fechas de referencia
+    // Cargar zona horaria de la empresa para que todos los "hoy/esta semana" del dashboard
+    // coincidan con el día local del usuario, no con UTC.
+    const { data: empDash } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zonaDash = (empDash?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+
+    // Fechas de referencia (calculadas en zona de empresa)
     const hoy = new Date()
-    const hace12Semanas = new Date(hoy)
-    hace12Semanas.setDate(hace12Semanas.getDate() - 84)
-    const en7Dias = new Date(hoy)
-    en7Dias.setDate(en7Dias.getDate() + 7)
-    const hoyStr = hoy.toISOString().split('T')[0]
-    const inicioSemana = new Date(hoy)
-    inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1) // Lunes
+    const hace12Semanas = new Date(hoy.getTime() - 84 * 24 * 60 * 60 * 1000)
+    const en7Dias = new Date(hoy.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const hoyStr = formatearFechaISO(hoy, zonaDash)
+    const { diaSemana: dowLocal } = obtenerComponentesFecha(hoy, zonaDash)
+    // Offset al lunes (0=domingo...6=sábado) → si es domingo, retrocedemos 6 días; sino, (dow-1).
+    const diasAlLunes = dowLocal === 0 ? 6 : dowLocal - 1
+    const inicioSemana = new Date(hoy.getTime() - diasAlLunes * 24 * 60 * 60 * 1000)
 
     // Ejecutar todas las consultas en paralelo
     const [
@@ -166,7 +172,7 @@ export async function GET() {
         .eq('empresa_id', empresaId)
         .eq('estado', 'enviado')
         .gte('fecha_vencimiento', hoyStr)
-        .lte('fecha_vencimiento', en7Dias.toISOString().split('T')[0])
+        .lte('fecha_vencimiento', formatearFechaISO(en7Dias, zonaDash))
         .order('fecha_vencimiento', { ascending: true })
         .limit(10),
 
@@ -182,7 +188,7 @@ export async function GET() {
         .from('asistencias')
         .select('miembro_id, estado, tipo, fecha')
         .eq('empresa_id', empresaId)
-        .gte('fecha', inicioSemana.toISOString().split('T')[0])
+        .gte('fecha', formatearFechaISO(inicioSemana, zonaDash))
         .lte('fecha', hoyStr),
 
       // ─── Ingresos: presupuestos confirmados/orden_venta con fecha, monto y contacto ───
@@ -264,17 +270,17 @@ export async function GET() {
     const mapaSemanasContactos: Record<string, number> = {}
     for (const c of resContactosCrecimiento.data || []) {
       const fecha = new Date(c.creado_en)
-      // Obtener lunes de esa semana
+      // Obtener lunes de esa semana (en zona de empresa)
       const lunes = new Date(fecha)
       lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7))
-      const clave = lunes.toISOString().split('T')[0]
+      const clave = formatearFechaISO(lunes, zonaDash)
       mapaSemanasContactos[clave] = (mapaSemanasContactos[clave] || 0) + 1
     }
     // Generar 12 semanas completas
     for (let i = 11; i >= 0; i--) {
       const lunes = new Date(hoy)
       lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7) - i * 7)
-      const clave = lunes.toISOString().split('T')[0]
+      const clave = formatearFechaISO(lunes, zonaDash)
       contactosPorSemana.push({
         semana: clave,
         cantidad: mapaSemanasContactos[clave] || 0,

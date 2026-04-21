@@ -131,10 +131,10 @@ export async function ejecutarObtenerPresupuesto(
   // Fechas
   partes.push('')
   if (presupuesto.fecha_emision) {
-    partes.push(`📅 Emitido: ${new Date(presupuesto.fecha_emision as string).toLocaleDateString('es')}`)
+    partes.push(`📅 Emitido: ${new Date(presupuesto.fecha_emision as string).toLocaleDateString('es', { timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires' })}`)
   }
   if (presupuesto.fecha_vencimiento) {
-    partes.push(`⏰ Vence: ${new Date(presupuesto.fecha_vencimiento as string).toLocaleDateString('es')}`)
+    partes.push(`⏰ Vence: ${new Date(presupuesto.fecha_vencimiento as string).toLocaleDateString('es', { timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires' })}`)
   }
   if (presupuesto.condicion_pago_label) {
     partes.push(`💳 Condición: ${presupuesto.condicion_pago_label}`)

@@ -47,6 +47,22 @@ interface Terminal {
   creado_en: string
 }
 
+// Zonas horarias disponibles por terminal (cuando difiere de la empresa)
+const OPCIONES_ZONA_HORARIA = [
+  { valor: '', etiqueta: 'Zona de la empresa (predeterminada)' },
+  { valor: 'America/Argentina/Buenos_Aires', etiqueta: 'Argentina (Buenos Aires)' },
+  { valor: 'America/Argentina/Cordoba', etiqueta: 'Argentina (Córdoba)' },
+  { valor: 'America/Montevideo', etiqueta: 'Uruguay' },
+  { valor: 'America/Santiago', etiqueta: 'Chile' },
+  { valor: 'America/Bogota', etiqueta: 'Colombia' },
+  { valor: 'America/Lima', etiqueta: 'Perú' },
+  { valor: 'America/Mexico_City', etiqueta: 'México (CDMX)' },
+  { valor: 'America/Sao_Paulo', etiqueta: 'Brasil (São Paulo)' },
+  { valor: 'Europe/Madrid', etiqueta: 'España' },
+  { valor: 'America/New_York', etiqueta: 'EE.UU. (Este)' },
+  { valor: 'America/Los_Angeles', etiqueta: 'EE.UU. (Pacífico)' },
+]
+
 // ─── Página principal ────────────────────────────────────────
 
 export default function PaginaConfiguracionAsistencias() {
@@ -428,24 +444,13 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                   {/* Zona horaria */}
                   {editandoZona === t.id ? (
                     <div className="flex items-center gap-2 mt-1.5">
-                      <select
-                        className="text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1 text-texto-primario"
-                        defaultValue={t.zona_horaria || ''}
-                        onChange={(e) => guardarZona(t.id, e.target.value || null)}
-                      >
-                        <option value="">Zona de la empresa (predeterminada)</option>
-                        <option value="America/Argentina/Buenos_Aires">Argentina (Buenos Aires)</option>
-                        <option value="America/Argentina/Cordoba">Argentina (Córdoba)</option>
-                        <option value="America/Montevideo">Uruguay</option>
-                        <option value="America/Santiago">Chile</option>
-                        <option value="America/Bogota">Colombia</option>
-                        <option value="America/Lima">Perú</option>
-                        <option value="America/Mexico_City">México (CDMX)</option>
-                        <option value="America/Sao_Paulo">Brasil (São Paulo)</option>
-                        <option value="Europe/Madrid">España</option>
-                        <option value="America/New_York">EE.UU. (Este)</option>
-                        <option value="America/Los_Angeles">EE.UU. (Pacífico)</option>
-                      </select>
+                      <div className="min-w-[240px]">
+                        <Select
+                          opciones={OPCIONES_ZONA_HORARIA}
+                          valor={t.zona_horaria || ''}
+                          onChange={(v) => guardarZona(t.id, v || null)}
+                        />
+                      </div>
                       <button onClick={() => setEditandoZona(null)} className="text-xs text-texto-terciario hover:text-texto-secundario">
                         Cancelar
                       </button>

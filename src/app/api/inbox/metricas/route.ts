@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * GET /api/inbox/metricas — Métricas del inbox para dashboard.
@@ -15,13 +16,18 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    const admin = crearClienteAdmin()
+    // Cargar zona horaria de la empresa para que "hoy" y "hace 30 días" se calculen
+    // en la zona local, no en UTC (que después de las 21 AR da el día siguiente).
+    const { data: empMetr } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zonaMetr = (empMetr?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+
     const params = request.nextUrl.searchParams
-    const desde = params.get('desde') || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-    const hasta = params.get('hasta') || new Date().toISOString().split('T')[0]
+    const desde = params.get('desde') || formatearFechaISO(new Date(Date.now() - 30 * 86400000), zonaMetr)
+    const hasta = params.get('hasta') || formatearFechaISO(new Date(), zonaMetr)
     const canalId = params.get('canal_id')
     const tipoCanal = params.get('tipo_canal') // 'whatsapp', 'correo', o null para todos
 
-    const admin = crearClienteAdmin()
     const fechaDesde = `${desde}T00:00:00Z`
     const fechaHasta = `${hasta}T23:59:59Z`
 

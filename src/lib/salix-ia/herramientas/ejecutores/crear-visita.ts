@@ -96,6 +96,7 @@ export async function ejecutarCrearVisita(
 
   const fechaFormateada = new Date(fecha_programada).toLocaleDateString('es', {
     weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+    timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires',
   })
 
   let mensaje = `Visita a ${contactoNombre} programada para ${fechaFormateada}.`

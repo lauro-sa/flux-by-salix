@@ -9,6 +9,7 @@ import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -118,25 +119,28 @@ export async function GET(request: NextRequest) {
       query = query.eq('actividad_id', actividad_id)
     }
 
-    // Filtro por fecha
+    // Filtro por fecha — en zona de empresa (no UTC del server).
     if (fecha) {
+      const { data: empFecha } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const zonaFecha = (empFecha?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
       const ahora = new Date()
-      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
-      const finSemana = new Date(hoy); finSemana.setDate(finSemana.getDate() + 7)
+      const rangoHoy = obtenerInicioFinDiaEnZona(zonaFecha, ahora)
+      const hoyISO = rangoHoy.inicio
+      const mananaISO = rangoHoy.fin
+      const finSemanaISO = obtenerInicioFinDiaEnZona(zonaFecha, new Date(ahora.getTime() + 7 * 24 * 3600_000)).inicio
 
       switch (fecha) {
         case 'hoy':
-          query = query.gte('fecha_programada', hoy.toISOString()).lt('fecha_programada', manana.toISOString())
+          query = query.gte('fecha_programada', hoyISO).lt('fecha_programada', mananaISO)
           break
         case 'semana':
-          query = query.gte('fecha_programada', hoy.toISOString()).lt('fecha_programada', finSemana.toISOString())
+          query = query.gte('fecha_programada', hoyISO).lt('fecha_programada', finSemanaISO)
           break
         case 'vencidas':
-          query = query.lt('fecha_programada', hoy.toISOString()).in('estado', ['programada'])
+          query = query.lt('fecha_programada', hoyISO).in('estado', ['programada'])
           break
         case 'futuras':
-          query = query.gte('fecha_programada', manana.toISOString())
+          query = query.gte('fecha_programada', mananaISO)
           break
       }
     }
@@ -149,7 +153,8 @@ export async function GET(request: NextRequest) {
 
     // Filtro por preset de fecha de creación (ver src/lib/presets-fecha.ts)
     if (creado_rango) {
-      const desdeISO = inicioRangoFechaISO(creado_rango)
+      const { data: emp } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const desdeISO = inicioRangoFechaISO(creado_rango, new Date(), (emp?.zona_horaria as string) || undefined)
       if (desdeISO) query = query.gte('creado_en', desdeISO)
     }
 

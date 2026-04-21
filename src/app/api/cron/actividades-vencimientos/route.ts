@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
 import { COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/cron/actividades-vencimientos — Cron de vencimientos de actividades.
@@ -23,18 +24,26 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Calcular rangos de fecha
+    // Calcular rangos de fecha en la zona horaria default (Argentina) — el cron está
+    // calibrado para disparar a las 8 AM AR. Calcular con `new Date(year,month,day)` directo
+    // usa el server (UTC) y rompe el corte "hoy/ayer" después de las 21hs AR.
+    // TODO: cuando haya más empresas con zonas distintas, iterar por empresa.
     const ahora = new Date()
-    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-    const hoyFin = new Date(hoyInicio); hoyFin.setDate(hoyFin.getDate() + 1)
-    const ayerInicio = new Date(hoyInicio); ayerInicio.setDate(ayerInicio.getDate() - 1)
+    const zonaDefault = 'America/Argentina/Buenos_Aires'
+    const rangoHoy = obtenerInicioFinDiaEnZona(zonaDefault, ahora)
+    const rangoAyer = obtenerInicioFinDiaEnZona(zonaDefault, new Date(ahora.getTime() - 24 * 3600_000))
+    const hoyInicioISO = rangoHoy.inicio
+    const hoyFinISO = rangoHoy.fin
+    const ayerInicioISO = rangoAyer.inicio
+    // `hoyInicio` como Date sigue siendo necesario para el cálculo de `diasVencida`.
+    const hoyInicio = new Date(hoyInicioISO)
 
     // 1. Actividades que vencen HOY (pendientes, con asignados o creador)
     const { data: vencenHoy } = await admin
       .from('actividades')
       .select('id, titulo, empresa_id, asignados, creado_por, tipo_id')
-      .gte('fecha_vencimiento', hoyInicio.toISOString())
-      .lt('fecha_vencimiento', hoyFin.toISOString())
+      .gte('fecha_vencimiento', hoyInicioISO)
+      .lt('fecha_vencimiento', hoyFinISO)
       .in('estado_clave', ['pendiente'])
       .eq('en_papelera', false)
 
@@ -42,8 +51,8 @@ export async function GET(request: NextRequest) {
     const { data: vencieronAyer } = await admin
       .from('actividades')
       .select('id, titulo, empresa_id, asignados, creado_por, tipo_id')
-      .gte('fecha_vencimiento', ayerInicio.toISOString())
-      .lt('fecha_vencimiento', hoyInicio.toISOString())
+      .gte('fecha_vencimiento', ayerInicioISO)
+      .lt('fecha_vencimiento', hoyInicioISO)
       .in('estado_clave', ['pendiente'])
       .eq('en_papelera', false)
 
@@ -63,7 +72,7 @@ export async function GET(request: NextRequest) {
     const { data: paraMarcar } = await admin
       .from('actividades')
       .select('id, empresa_id')
-      .lt('fecha_vencimiento', hoyInicio.toISOString())
+      .lt('fecha_vencimiento', hoyInicioISO)
       .eq('estado_clave', 'pendiente')
       .eq('en_papelera', false)
 
@@ -93,7 +102,7 @@ export async function GET(request: NextRequest) {
     const { data: vencidasPendientes } = await admin
       .from('actividades')
       .select('id, titulo, empresa_id, asignados, creado_por, fecha_vencimiento, tipo_id')
-      .lt('fecha_vencimiento', ayerInicio.toISOString())
+      .lt('fecha_vencimiento', ayerInicioISO)
       .in('estado_clave', ['pendiente', 'vencida'])
       .eq('en_papelera', false)
 
@@ -181,8 +190,8 @@ export async function GET(request: NextRequest) {
     const { data: tareasVencenHoy } = await admin
       .from('tareas_orden')
       .select('id, titulo, empresa_id, asignados, creado_por, orden_trabajo_id')
-      .gte('fecha_vencimiento', hoyInicio.toISOString())
-      .lt('fecha_vencimiento', hoyFin.toISOString())
+      .gte('fecha_vencimiento', hoyInicioISO)
+      .lt('fecha_vencimiento', hoyFinISO)
       .eq('estado', 'pendiente')
 
     for (const tarea of tareasVencenHoy || []) {
@@ -209,7 +218,7 @@ export async function GET(request: NextRequest) {
     const { data: tareasVencidas } = await admin
       .from('tareas_orden')
       .select('id, titulo, empresa_id, asignados, creado_por, orden_trabajo_id, fecha_vencimiento')
-      .lt('fecha_vencimiento', hoyInicio.toISOString())
+      .lt('fecha_vencimiento', hoyInicioISO)
       .eq('estado', 'pendiente')
 
     for (const tarea of tareasVencidas || []) {

@@ -566,18 +566,25 @@ registrarEntidad({
 // FECHA — Variables de fecha/hora actual (útiles en plantillas)
 // ─────────────────────────────────────────────────────
 
-/** Helper para crear variables de fecha calculadas */
+/**
+ * Helper para crear variables de fecha calculadas.
+ * IMPORTANTE: pasamos `timeZone` explícito en todos los toLocale*. Si no, en Vercel (server UTC)
+ * después de las 21:00 Argentina el día mostrado ya sería el siguiente en UTC.
+ */
+const zonaHorariaDe = (d?: Record<string, unknown>): string =>
+  (d?._zonaHoraria as string) || 'America/Argentina/Buenos_Aires'
+
 const variablesFecha: DefinicionVariable[] = [
   { clave: 'hoy', etiqueta: 'Fecha de hoy', tipo_dato: 'fecha', origen: 'calculado', grupo: 'basico',
     calcular: () => new Date() },
   { clave: 'hora', etiqueta: 'Hora actual', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
-    calcular: (d) => new Date().toLocaleTimeString((d?._locale as string) || 'es-AR', { hour: '2-digit', minute: '2-digit', hour12: (d?._formatoHora as string) === '12h' }) },
+    calcular: (d) => new Date().toLocaleTimeString((d?._locale as string) || 'es-AR', { hour: '2-digit', minute: '2-digit', hour12: (d?._formatoHora as string) === '12h', timeZone: zonaHorariaDe(d) }) },
   { clave: 'dia_semana', etiqueta: 'Día de la semana', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
-    calcular: (d) => new Date().toLocaleDateString((d?._locale as string) || 'es-AR', { weekday: 'long' }) },
+    calcular: (d) => new Date().toLocaleDateString((d?._locale as string) || 'es-AR', { weekday: 'long', timeZone: zonaHorariaDe(d) }) },
   { clave: 'mes', etiqueta: 'Mes actual', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
-    calcular: (d) => new Date().toLocaleDateString((d?._locale as string) || 'es-AR', { month: 'long' }) },
+    calcular: (d) => new Date().toLocaleDateString((d?._locale as string) || 'es-AR', { month: 'long', timeZone: zonaHorariaDe(d) }) },
   { clave: 'ano', etiqueta: 'Año actual', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
-    calcular: () => new Date().getFullYear().toString() },
+    calcular: (d) => new Intl.DateTimeFormat('en-CA', { year: 'numeric', timeZone: zonaHorariaDe(d) }).format(new Date()) },
 ]
 
 registrarEntidad({

@@ -66,6 +66,10 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
   const nombresHerramientas = herramientasPermitidas.map((h) => h.nombre)
   const systemPrompt = construirSystemPrompt(ctx, configSalix, nombresHerramientas, zonaHoraria)
 
+  // Propagar la zona horaria al ctx para que los ejecutores formateen fechas con la zona de la empresa.
+  // Necesario porque Vercel corre en UTC y sin zona explícita el día/hora formateado queda desfasado.
+  const ctxConZona: ContextoSalixIA = { ...ctx, zona_horaria: zonaHoraria }
+
   // 4. Preparar tools para Anthropic
   const tools = herramientasPermitidas.map((h) => h.definicion)
 
@@ -170,7 +174,7 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
         resultado = JSON.stringify({ exito: false, error: `Herramienta "${bloque.name}" no encontrada` })
       } else {
         try {
-          const res = await ejecutor(ctx, bloque.input as Record<string, unknown>)
+          const res = await ejecutor(ctxConZona, bloque.input as Record<string, unknown>)
           resultado = JSON.stringify(res)
         } catch (err) {
           resultado = JSON.stringify({

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/pendientes — Items pendientes del usuario con detalle.
@@ -16,10 +17,14 @@ export async function GET() {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const admin = crearClienteAdmin()
-    const ahora = new Date()
-    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-    const hoyFin = new Date(hoyInicio)
-    hoyFin.setDate(hoyFin.getDate() + 1)
+
+    // Rango "hoy" en la zona de la empresa — sin esto, a la noche AR el endpoint
+    // devolvía actividades del día siguiente (UTC ya es mañana).
+    const { data: empresaTz } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zona = (empresaTz?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const rango = obtenerInicioFinDiaEnZona(zona)
+    const hoyInicioISO = rango.inicio
+    const hoyFinISO = rango.fin
 
     const camposActividad = 'id, titulo, fecha_vencimiento, estado_clave, tipo_clave, prioridad'
 
@@ -31,8 +36,8 @@ export async function GET() {
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .eq('estado_clave', 'pendiente')
-        .gte('fecha_vencimiento', hoyInicio.toISOString())
-        .lt('fecha_vencimiento', hoyFin.toISOString())
+        .gte('fecha_vencimiento', hoyInicioISO)
+        .lt('fecha_vencimiento', hoyFinISO)
         .or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
         .order('fecha_vencimiento', { ascending: true })
         .limit(10),
@@ -44,7 +49,7 @@ export async function GET() {
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado_clave', ['pendiente', 'vencida'])
-        .lt('fecha_vencimiento', hoyInicio.toISOString())
+        .lt('fecha_vencimiento', hoyInicioISO)
         .or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
         .order('fecha_vencimiento', { ascending: false })
         .limit(10),
@@ -55,8 +60,8 @@ export async function GET() {
         .select('*', { count: 'exact', head: true })
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
-        .gte('fecha_programada', hoyInicio.toISOString())
-        .lt('fecha_programada', hoyFin.toISOString())
+        .gte('fecha_programada', hoyInicioISO)
+        .lt('fecha_programada', hoyFinISO)
         .in('estado', ['programada', 'en_camino', 'en_sitio'])
         .or(`asignado_a.eq.${user.id},creado_por.eq.${user.id}`),
     ])

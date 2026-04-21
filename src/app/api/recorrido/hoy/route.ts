@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerInicioFinDiaEnZona, obtenerComponentesFecha } from '@/lib/formato-fecha'
 
 /**
  * GET /api/recorrido/hoy — Obtener o crear el recorrido de un día del usuario.
@@ -19,10 +20,17 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Fecha: ?fecha=YYYY-MM-DD o hoy por defecto
+    // Cargar zona horaria de la empresa — para que "hoy" coincida con el día local del usuario.
+    // Sin esto, después de las 21hs AR devolvíamos el recorrido de mañana.
+    const { data: empresaTz } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zonaEmpresa = (empresaTz?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+
+    // Fecha: ?fecha=YYYY-MM-DD o hoy por defecto (en la zona de la empresa)
     const { searchParams } = new URL(request.url)
     const fechaParam = searchParams.get('fecha')
-    const hoy = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : new Date().toISOString().split('T')[0]
+    const hoyComp = obtenerComponentesFecha(new Date(), zonaEmpresa)
+    const hoyLocal = `${hoyComp.anio}-${String(hoyComp.mes).padStart(2, '0')}-${String(hoyComp.dia).padStart(2, '0')}`
+    const hoy = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : hoyLocal
 
     // Buscar recorrido existente (excluir borradores — solo el coordinador los ve)
     const { data: recorrido } = await admin
@@ -60,8 +68,10 @@ export async function GET(request: NextRequest) {
       }
 
       // 2. Buscar visitas activas del día que no tienen parada en este recorrido
-      const inicioSync = `${hoy}T00:00:00.000Z`
-      const finSync = `${hoy}T23:59:59.999Z`
+      // Usar rango en la zona de la empresa para que "23hs AR" caiga en el día correcto.
+      const rangoSync = obtenerInicioFinDiaEnZona(zonaEmpresa, new Date(`${hoy}T12:00:00Z`))
+      const inicioSync = rangoSync.inicio
+      const finSync = rangoSync.fin
 
       const { data: visitasDelDia } = await admin
         .from('visitas')
@@ -126,9 +136,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ recorrido: null, paradas: [] })
     }
 
-    // No existe recorrido — buscar visitas del día para crearlo
-    const inicioDelDia = `${hoy}T00:00:00.000Z`
-    const finDelDia = `${hoy}T23:59:59.999Z`
+    // No existe recorrido — buscar visitas del día para crearlo (rango en zona de empresa)
+    const rangoDia = obtenerInicioFinDiaEnZona(zonaEmpresa, new Date(`${hoy}T12:00:00Z`))
+    const inicioDelDia = rangoDia.inicio
+    const finDelDia = rangoDia.fin
 
     const { data: visitasDelDia } = await admin
       .from('visitas')

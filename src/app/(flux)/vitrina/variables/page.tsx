@@ -584,6 +584,8 @@ export default function VitrinaVariables() {
       nuevoContexto.fecha = {
         hoy: new Date(),
         _locale: formato.locale,
+        _zonaHoraria: formato.zonaHoraria,
+        _formatoHora: formato.formatoHora,
       }
 
       setContexto(nuevoContexto)

@@ -6,6 +6,7 @@ import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/ordenes — Listar órdenes de trabajo de la empresa activa.
@@ -161,24 +162,27 @@ export async function GET(request: NextRequest) {
       query = query.or(`fecha_fin_estimada.gte.${ahora},fecha_fin_estimada.is.null,estado.in.(completada,cancelada)`)
     }
 
-    // Filtro por fecha programada (preset)
+    // Filtro por fecha programada (preset) — calculado en zona de la empresa, no UTC.
     if (fecha) {
+      const { data: empOrd } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const zonaOrd = (empOrd?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
       const ahora = new Date()
-      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
-      const finSemana = new Date(hoy); finSemana.setDate(finSemana.getDate() + 7)
+      const rangoHoy = obtenerInicioFinDiaEnZona(zonaOrd, ahora)
+      const hoyISO = rangoHoy.inicio
+      const mananaISO = rangoHoy.fin
+      const finSemanaISO = obtenerInicioFinDiaEnZona(zonaOrd, new Date(ahora.getTime() + 7 * 24 * 3600_000)).inicio
       switch (fecha) {
         case 'hoy':
-          query = query.gte('fecha_inicio', hoy.toISOString()).lt('fecha_inicio', manana.toISOString())
+          query = query.gte('fecha_inicio', hoyISO).lt('fecha_inicio', mananaISO)
           break
         case 'semana':
-          query = query.gte('fecha_inicio', hoy.toISOString()).lt('fecha_inicio', finSemana.toISOString())
+          query = query.gte('fecha_inicio', hoyISO).lt('fecha_inicio', finSemanaISO)
           break
         case 'vencidas':
-          query = query.lt('fecha_fin_estimada', hoy.toISOString()).in('estado', ['abierta', 'en_progreso', 'esperando'])
+          query = query.lt('fecha_fin_estimada', hoyISO).in('estado', ['abierta', 'en_progreso', 'esperando'])
           break
         case 'futuras':
-          query = query.gte('fecha_inicio', manana.toISOString())
+          query = query.gte('fecha_inicio', mananaISO)
           break
       }
     }

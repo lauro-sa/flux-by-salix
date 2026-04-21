@@ -96,6 +96,8 @@ export interface MetadataChatter {
   correo_de?: string
   correo_message_id?: string
   correo_html?: string
+  /** Otras entidades donde también está registrada esta entrada (chips "También en:") */
+  relacionado_con?: { tipo: string; id: string; nombre: string }[]
   // Para WhatsApp
   whatsapp_numero?: string
   whatsapp_destinatario?: string

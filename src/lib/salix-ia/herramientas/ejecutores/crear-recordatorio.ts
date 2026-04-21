@@ -104,6 +104,7 @@ export async function ejecutarCrearRecordatorio(
   // Formatear respuesta
   const fechaFormateada = fechaObj.toLocaleDateString('es', {
     weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+    timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires',
   })
 
   const repetirTexto: Record<string, string> = {

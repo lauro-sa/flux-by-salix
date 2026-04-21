@@ -15,7 +15,7 @@ import {
   type CursorSincronizacion,
 } from '@/lib/gmail'
 import type { ConfigIMAP } from '@/tipos/inbox'
-import { registrarCorreoRecibidoEnChatter } from '@/lib/chatter'
+import { registrarCorreoRecibidoEnChatter, obtenerNombreEntidad, type EntidadRelacionadaChatter } from '@/lib/chatter'
 
 /**
  * POST /api/inbox/correo/sincronizar — Sincroniza correos de un canal o todos.
@@ -498,6 +498,7 @@ async function procesarCorreoEntrante(
 
   // 4. Buscar/crear contacto si es entrante
   let contactoNombre = extraerNombreDeEmail(correo.de)
+  let contactoIdDetectado: string | null = null
   if (esEntrante) {
     const { data: contacto } = await admin
       .from('contactos')
@@ -507,6 +508,7 @@ async function procesarCorreoEntrante(
       .maybeSingle()
 
     if (contacto) {
+      contactoIdDetectado = contacto.id
       contactoNombre = `${contacto.nombre} ${contacto.apellido || ''}`.trim()
 
       // Vincular contacto a conversación si no está vinculado
@@ -636,12 +638,17 @@ async function procesarCorreoEntrante(
     }
   }
 
-  // ─── Vincular respuesta entrante al chatter del documento ───
-  // Si este correo responde a uno que fue enviado desde un documento,
-  // registrar la respuesta en el chatter de ese documento automáticamente
+  // ─── Vincular correo entrante al chatter de entidades relacionadas ───
+  // Se registra en:
+  //   a) Entidades vinculadas a correos previos del hilo (ej. presupuesto/factura enviados desde Flux).
+  //   b) Contacto detectado por email del remitente → su ficha tiene el hilo completo.
+  // Dedup por (entidad_tipo, entidad_id) para no insertar doble si el contacto
+  // coincide con la entidad previa.
   if (esEntrante && !syncInicial) {
     try {
-      // Buscar en chatter si algún correo previo de esta conversación está vinculado a un documento
+      const entidadesAVincular: { entidad_tipo: string; entidad_id: string }[] = []
+
+      // (a) Entidades previas por message_id del hilo
       const { data: mensajesPrevios } = await admin
         .from('mensajes')
         .select('correo_message_id')
@@ -652,45 +659,73 @@ async function procesarCorreoEntrante(
 
       if (mensajesPrevios?.length) {
         const messageIds = mensajesPrevios.map(m => m.correo_message_id).filter(Boolean)
-        // Buscar en chatter si alguno de esos message_ids está vinculado a un documento
-        const { data: chatterVinculado } = await admin
+        const { data: chatterVinculados } = await admin
           .from('chatter')
           .select('entidad_tipo, entidad_id')
           .eq('empresa_id', empresaId)
           .eq('tipo', 'correo')
           .in('metadata->>correo_message_id', messageIds)
-          .limit(1)
-          .maybeSingle()
 
-        if (chatterVinculado) {
-          // Obtener adjuntos del mensaje para vincularlos al chatter del documento
-          const { data: adjuntosMsg } = await admin
-            .from('mensaje_adjuntos')
-            .select('nombre_archivo, tipo_mime, tamano_bytes, url')
-            .eq('mensaje_id', mensaje.id)
+        for (const cv of chatterVinculados || []) {
+          entidadesAVincular.push({ entidad_tipo: cv.entidad_tipo, entidad_id: cv.entidad_id })
+        }
+      }
 
-          const adjuntosChatter = (adjuntosMsg || []).map(a => ({
-            url: a.url,
-            nombre: a.nombre_archivo,
-            tipo: a.tipo_mime,
-            tamano: a.tamano_bytes,
-          }))
+      // (b) Contacto detectado por email del remitente
+      if (contactoIdDetectado) {
+        entidadesAVincular.push({ entidad_tipo: 'contacto', entidad_id: contactoIdDetectado })
+      }
+
+      // Dedup
+      const dedupeadas = Array.from(
+        new Map(entidadesAVincular.map(e => [`${e.entidad_tipo}:${e.entidad_id}`, e])).values()
+      )
+
+      if (dedupeadas.length > 0) {
+        // Adjuntos del mensaje (se comparten entre todas las entidades vinculadas)
+        const { data: adjuntosMsg } = await admin
+          .from('mensaje_adjuntos')
+          .select('nombre_archivo, tipo_mime, tamano_bytes, url')
+          .eq('mensaje_id', mensaje.id)
+
+        const adjuntosChatter = (adjuntosMsg || []).map(a => ({
+          url: a.url,
+          nombre: a.nombre_archivo,
+          tipo: a.tipo_mime,
+          tamano: a.tamano_bytes,
+        }))
+
+        // Resolver nombres para los chips "También en:"
+        const nombresEntidades = new Map<string, string>()
+        await Promise.all(dedupeadas.map(async (ent) => {
+          const nombre = await obtenerNombreEntidad(admin, empresaId, ent.entidad_tipo, ent.entidad_id)
+          if (nombre) nombresEntidades.set(`${ent.entidad_tipo}:${ent.entidad_id}`, nombre)
+        }))
+
+        for (const entidad of dedupeadas) {
+          const relacionadoCon: EntidadRelacionadaChatter[] = dedupeadas
+            .filter(e => !(e.entidad_tipo === entidad.entidad_tipo && e.entidad_id === entidad.entidad_id))
+            .map(e => ({
+              tipo: e.entidad_tipo,
+              id: e.entidad_id,
+              nombre: nombresEntidades.get(`${e.entidad_tipo}:${e.entidad_id}`) || e.entidad_tipo,
+            }))
 
           await registrarCorreoRecibidoEnChatter({
             empresaId,
-            entidadTipo: chatterVinculado.entidad_tipo,
-            entidadId: chatterVinculado.entidad_id,
+            entidadTipo: entidad.entidad_tipo,
+            entidadId: entidad.entidad_id,
             asunto: correo.asunto,
             remitente: correo.de,
             messageId: correo.messageId || undefined,
             html: correo.html || undefined,
             adjuntos: adjuntosChatter,
+            relacionadoCon: relacionadoCon.length > 0 ? relacionadoCon : undefined,
           })
         }
       }
     } catch (err) {
-      // No bloquear la sincronización si falla el registro en chatter
-      console.error('Error vinculando respuesta a chatter de documento:', err)
+      console.error('Error vinculando correo entrante al chatter:', err)
     }
   }
 

@@ -48,7 +48,7 @@ export async function ejecutarModificarVisita(
   // Reprogramar
   if (params.fecha_programada) {
     cambios.fecha_programada = params.fecha_programada
-    descripcionCambios.push(`reprogramada → ${new Date(params.fecha_programada as string).toLocaleDateString('es')}`)
+    descripcionCambios.push(`reprogramada → ${new Date(params.fecha_programada as string).toLocaleDateString('es', { timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires' })}`)
   }
 
   // Cambiar notas/resultado

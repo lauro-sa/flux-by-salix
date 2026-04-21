@@ -242,7 +242,7 @@ export interface PromptsAgente {
   usuario: string
 }
 
-export function construirPrompts(ctx: ContextoPipeline, opciones?: { locale?: string }): PromptsAgente {
+export function construirPrompts(ctx: ContextoPipeline, opciones?: { locale?: string; zonaHoraria?: string }): PromptsAgente {
   const { config, contacto, empresa_nombre, base_conocimiento, mensajes, etiquetas_disponibles } = ctx
 
   // ── Secciones condicionales ──
@@ -315,8 +315,15 @@ export function construirPrompts(ctx: ContextoPipeline, opciones?: { locale?: st
     : ''
 
   // ── Fecha actual para reglas de agenda ──
+  // IMPORTANTE: en Vercel el servidor corre en UTC. Sin `timeZone` explícito, después de las 21:00
+  // Argentina `new Date().toLocaleDateString()` devuelve el día siguiente (UTC ya pasó medianoche).
+  // Por eso hay que pasar la zona horaria de la empresa para calcular el día real del cliente.
   const locale = opciones?.locale || 'es-AR'
-  const fechaHoy = new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
+  const zonaHoraria = opciones?.zonaHoraria || 'America/Argentina/Buenos_Aires'
+  const ahora = new Date()
+  const fechaHoy = ahora.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: zonaHoraria })
+  // Fecha ISO (YYYY-MM-DD) calculada también en la zona de la empresa, para que el LLM la use al armar fecha_acordada
+  const fechaHoyISO = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: zonaHoraria }).format(ahora)
 
   // ══════════════════════════════════════════
   // SYSTEM PROMPT
@@ -454,7 +461,7 @@ Emití la acción "crear_visita" UNA SOLA VEZ cuando TODAS estas condiciones se 
 - El cliente confirmó (dijo "sí", "dale", "ok", "perfecto")
 
 Cuando emitas "crear_visita":
-- En "datos_capturados.fecha_acordada" poné la fecha en formato YYYY-MM-DD (hoy es ${fechaHoy}, usala para resolver "mañana", "el martes", etc.)
+- En "datos_capturados.fecha_acordada" poné la fecha en formato YYYY-MM-DD (hoy es ${fechaHoy} = ${fechaHoyISO}, usala para resolver "mañana", "el martes", etc.)
 - En "datos_capturados.franja_horaria" poné la franja en lenguaje natural ("11 a 16hs", "por la mañana", "tarde")
 - Si ya emitiste "crear_visita" en un turno previo (revisá el historial), NO la vuelvas a emitir.
 - La visita queda como PROVISORIA y un humano la confirma después. No le digas al cliente "tu visita está confirmada" — decile "le paso al equipo para confirmarte" o similar.`

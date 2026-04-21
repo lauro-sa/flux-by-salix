@@ -6,6 +6,78 @@
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { AdjuntoChatter, MetadataChatter, TipoChatter } from '@/tipos/chatter'
 
+/**
+ * Entidad relacionada a una entrada de chatter — se usa para marcar
+ * que un correo/evento también está registrado en otras fichas (ej.
+ * un correo enviado a una persona vinculada a una empresa aparece en
+ * ambos chatters, y cada uno muestra chips con las otras entidades).
+ */
+export interface EntidadRelacionadaChatter {
+  tipo: string
+  id: string
+  nombre: string
+}
+
+/**
+ * Resuelve el nombre legible de una entidad para mostrar como chip en el chatter.
+ * Soporta los tipos más usados; si no encuentra, devuelve null y el chip
+ * se mostrará con un label genérico ("Presupuesto", "Factura", etc.).
+ */
+export async function obtenerNombreEntidad(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  empresaId: string,
+  tipo: string,
+  id: string,
+): Promise<string | null> {
+  try {
+    switch (tipo) {
+      case 'contacto': {
+        const { data } = await admin
+          .from('contactos')
+          .select('nombre, apellido')
+          .eq('empresa_id', empresaId)
+          .eq('id', id)
+          .maybeSingle()
+        if (!data) return null
+        return [data.nombre, data.apellido].filter(Boolean).join(' ').trim() || null
+      }
+      case 'presupuesto': {
+        const { data } = await admin
+          .from('presupuestos')
+          .select('numero')
+          .eq('empresa_id', empresaId)
+          .eq('id', id)
+          .maybeSingle()
+        return data?.numero ? `Presupuesto ${data.numero}` : null
+      }
+      case 'orden_trabajo': {
+        const { data } = await admin
+          .from('ordenes_trabajo')
+          .select('numero, titulo')
+          .eq('empresa_id', empresaId)
+          .eq('id', id)
+          .maybeSingle()
+        if (!data) return null
+        return data.numero ? `Orden ${data.numero}` : data.titulo || null
+      }
+      case 'visita': {
+        const { data } = await admin
+          .from('visitas')
+          .select('motivo, contacto_nombre')
+          .eq('empresa_id', empresaId)
+          .eq('id', id)
+          .maybeSingle()
+        if (!data) return null
+        return data.motivo || (data.contacto_nombre ? `Visita a ${data.contacto_nombre}` : null)
+      }
+      default:
+        return null
+    }
+  } catch {
+    return null
+  }
+}
+
 interface RegistrarChatterParams {
   empresaId: string
   entidadTipo: string
@@ -124,6 +196,7 @@ export async function registrarCorreoEnChatter({
   usuarioId,
   usuarioNombre,
   usuarioAvatarUrl,
+  relacionadoCon,
 }: {
   empresaId: string
   entidadTipo: string
@@ -139,6 +212,8 @@ export async function registrarCorreoEnChatter({
   usuarioId: string
   usuarioNombre: string
   usuarioAvatarUrl?: string | null
+  /** Otras entidades donde también se registra este correo (para mostrar chips "También en:") */
+  relacionadoCon?: EntidadRelacionadaChatter[]
 }) {
   // Construir contenido descriptivo con CC/CCO
   const partes = [`Correo enviado: ${asunto}`]
@@ -164,6 +239,7 @@ export async function registrarCorreoEnChatter({
       correo_de: remitente,
       correo_message_id: messageId,
       correo_html: html,
+      ...(relacionadoCon && relacionadoCon.length > 0 ? { relacionado_con: relacionadoCon } : {}),
     },
   })
 }
@@ -182,6 +258,7 @@ export async function registrarCorreoRecibidoEnChatter({
   messageId,
   html,
   adjuntos = [],
+  relacionadoCon,
 }: {
   empresaId: string
   entidadTipo: string
@@ -191,6 +268,7 @@ export async function registrarCorreoRecibidoEnChatter({
   messageId?: string
   html?: string
   adjuntos?: AdjuntoChatter[]
+  relacionadoCon?: EntidadRelacionadaChatter[]
 }) {
   await registrarChatter({
     empresaId,
@@ -207,6 +285,7 @@ export async function registrarCorreoRecibidoEnChatter({
       correo_de: remitente,
       correo_message_id: messageId,
       correo_html: html,
+      ...(relacionadoCon && relacionadoCon.length > 0 ? { relacionado_con: relacionadoCon } : {}),
     },
   })
 }

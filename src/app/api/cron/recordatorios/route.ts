@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
+import { obtenerComponentesFecha } from '@/lib/formato-fecha'
 
 /**
  * GET /api/cron/recordatorios — Cron que revisa recordatorios vencidos.
@@ -22,19 +23,27 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const ahora = new Date()
-    const hoyISO = ahora.toISOString().split('T')[0]
-    // Formato HH:MM en UTC para comparación consistente (sin depender de locale)
-    const horaActual = `${String(ahora.getUTCHours()).padStart(2, '0')}:${String(ahora.getUTCMinutes()).padStart(2, '0')}`
 
-    // Buscar recordatorios que ya vencieron:
-    // 1. Fecha pasada (cualquier hora)
-    // 2. Fecha de hoy con hora <= ahora
-    // 3. Fecha de hoy sin hora (todo el día) — se notifica temprano
+    // Cargar la zona horaria de cada empresa para comparar "hoy" y "hora" en la zona correcta.
+    // Sin esto, comparábamos contra UTC — en AR (-03) un recordatorio a las 14:30 se disparaba
+    // recién a las 14:30 UTC (11:30 AR), 3hs tarde.
+    const { data: empresasTz } = await admin.from('empresas').select('id, zona_horaria')
+    const zonaPorEmpresa = new Map<string, string>()
+    for (const e of empresasTz || []) {
+      zonaPorEmpresa.set(e.id, (e.zona_horaria as string) || 'America/Argentina/Buenos_Aires')
+    }
+    const zonaDefault = 'America/Argentina/Buenos_Aires'
+
+    // Usamos el "hoy" máximo posible en cualquier zona (hoy+1 en UTC) para traer candidatos,
+    // después filtramos por zona real.
+    const hoyMaxISO = obtenerComponentesFecha(new Date(ahora.getTime() + 14 * 3600_000), 'UTC')
+    const hoyMaxISOStr = `${hoyMaxISO.anio}-${String(hoyMaxISO.mes).padStart(2, '0')}-${String(hoyMaxISO.dia).padStart(2, '0')}`
+
     const { data: vencidos } = await admin
       .from('recordatorios')
       .select('*')
       .eq('completado', false)
-      .lte('fecha', hoyISO)
+      .lte('fecha', hoyMaxISOStr)
       .order('fecha', { ascending: true })
       .limit(200)
 
@@ -42,11 +51,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ procesados: 0, timestamp: ahora.toISOString() })
     }
 
-    // Filtrar: si tiene hora, solo notificar si la hora ya pasó
+    // Filtrar por la fecha/hora "ahora" en la zona de cada empresa.
     const paraNotificar = vencidos.filter((r) => {
-      if (r.fecha < hoyISO) return true // Fecha pasada → siempre notificar
-      if (!r.hora) return true // Hoy sin hora → notificar
-      return r.hora <= horaActual // Hoy con hora → solo si ya pasó
+      const zona = zonaPorEmpresa.get(r.empresa_id as string) || zonaDefault
+      const comp = obtenerComponentesFecha(ahora, zona)
+      const hoyEmpresa = `${comp.anio}-${String(comp.mes).padStart(2, '0')}-${String(comp.dia).padStart(2, '0')}`
+      const horaEmpresa = `${String(comp.hora).padStart(2, '0')}:${String(comp.minuto).padStart(2, '0')}`
+      if (r.fecha < hoyEmpresa) return true           // Fecha pasada → siempre notificar
+      if (r.fecha > hoyEmpresa) return false          // Fecha futura → no notificar aún
+      if (!r.hora) return true                        // Hoy sin hora → notificar
+      return (r.hora as string) <= horaEmpresa        // Hoy con hora → solo si ya pasó en la zona local
     })
 
     if (paraNotificar.length === 0) {

@@ -272,8 +272,10 @@ export async function GET() {
     if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
 
     // Paso 2: turnoHoy + config + turnoViejo + sector + horarioEmpresa + turnoDefault — todo en paralelo
+    // Día de la semana en zona de empresa (no UTC), para matchear el turno configurado.
     const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-    const diaSemanaIdx = new Date().getDay()
+    const ahoraEnZona = new Date(new Date().toLocaleString('en-US', { timeZone: zonaGet }))
+    const diaSemanaIdx = ahoraEnZona.getDay()
     const diaHoy = diasSemana[diaSemanaIdx]
 
     const [turnoHoyRes, configRes, turnoViejoRes, memSectorRes, horarioEmpresaRes, turnoDefaultRes, turnoMiembroRes] = await Promise.all([

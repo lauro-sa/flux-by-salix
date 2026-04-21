@@ -7,6 +7,7 @@ import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-s
 import { registrarReciente } from '@/lib/recientes'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -77,6 +78,9 @@ export async function GET(request: NextRequest) {
     if (estado) {
       const estados = estado.split(',')
       query = estados.length === 1 ? query.eq('estado_clave', estados[0]) : query.in('estado_clave', estados)
+    } else {
+      // Default: ocultar completadas y canceladas (el usuario las ve solo si las filtra explícitamente)
+      query = query.not('estado_clave', 'in', '(completada,cancelada)')
     }
 
     // Filtro por tipo
@@ -127,28 +131,34 @@ export async function GET(request: NextRequest) {
       query = query.contains('vinculo_ids', [presupuesto_id])
     }
 
-    // Filtro por fecha
+    // Filtro por fecha — calculado en la zona de la empresa para que "hoy/semana/vencidas"
+    // coincidan con el día local, no con UTC del server.
     if (fecha) {
+      const { data: empFecha } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const zonaFecha = (empFecha?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
       const ahora = new Date()
-      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
-      const finSemana = new Date(hoy); finSemana.setDate(finSemana.getDate() + 7)
+      const rangoHoy = obtenerInicioFinDiaEnZona(zonaFecha, ahora)
+      const hoyISO = rangoHoy.inicio
+      const mananaISO = rangoHoy.fin
+      // Fin de semana (+7 días desde hoy)
+      const rangoFinSemana = obtenerInicioFinDiaEnZona(zonaFecha, new Date(ahora.getTime() + 7 * 24 * 3600_000))
+      const finSemanaISO = rangoFinSemana.inicio
 
       switch (fecha) {
         case 'hoy':
-          query = query.gte('fecha_vencimiento', hoy.toISOString()).lt('fecha_vencimiento', manana.toISOString())
+          query = query.gte('fecha_vencimiento', hoyISO).lt('fecha_vencimiento', mananaISO)
           break
         case 'semana':
-          query = query.gte('fecha_vencimiento', hoy.toISOString()).lt('fecha_vencimiento', finSemana.toISOString())
+          query = query.gte('fecha_vencimiento', hoyISO).lt('fecha_vencimiento', finSemanaISO)
           break
         case 'vencidas':
-          query = query.lt('fecha_vencimiento', hoy.toISOString()).in('estado_clave', ['pendiente', 'vencida'])
+          query = query.lt('fecha_vencimiento', hoyISO).in('estado_clave', ['pendiente', 'vencida'])
           break
         case 'sin_fecha':
           query = query.is('fecha_vencimiento', null)
           break
         case 'futuras':
-          query = query.gte('fecha_vencimiento', manana.toISOString())
+          query = query.gte('fecha_vencimiento', mananaISO)
           break
       }
     }
@@ -161,7 +171,8 @@ export async function GET(request: NextRequest) {
 
     // Filtro por preset de fecha de creación (ver src/lib/presets-fecha.ts)
     if (creado_rango) {
-      const desdeISO = inicioRangoFechaISO(creado_rango)
+      const { data: emp } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const desdeISO = inicioRangoFechaISO(creado_rango, new Date(), (emp?.zona_horaria as string) || undefined)
       if (desdeISO) query = query.gte('creado_en', desdeISO)
     }
 
@@ -195,13 +206,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar actividades' }, { status: 500 })
     }
 
-    // Orden inteligente por fecha: Hoy → Vencidas → Futuras → Sin fecha
+    // Orden inteligente: Activas (Hoy → Vencidas → Futuras → Sin fecha) → Cerradas al final
     // Con prioridad como desempate dentro de cada grupo
     let actividades = data || []
     if (orden_campo === 'fecha_vencimiento') {
-      const ahora = new Date()
-      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
+      // "Hoy" en zona de empresa para clasificar correctamente las actividades del día local.
+      const { data: empOrden } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const zonaOrden = (empOrden?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+      const rangoOrden = obtenerInicioFinDiaEnZona(zonaOrden, new Date())
+      const hoy = new Date(rangoOrden.inicio)
+      const manana = new Date(rangoOrden.fin)
+
+      const esCerrada = (estadoClave: string | null): boolean =>
+        estadoClave === 'completada' || estadoClave === 'cancelada'
 
       const pesoGrupo = (fecha: string | null): number => {
         if (!fecha) return 4 // sin fecha al final
@@ -214,6 +231,11 @@ export async function GET(request: NextRequest) {
       const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
 
       actividades = actividades.sort((a, b) => {
+        // Cerradas (completadas/canceladas) siempre al final
+        const ca = esCerrada(a.estado_clave) ? 1 : 0
+        const cb = esCerrada(b.estado_clave) ? 1 : 0
+        if (ca !== cb) return ca - cb
+
         const ga = pesoGrupo(a.fecha_vencimiento)
         const gb = pesoGrupo(b.fecha_vencimiento)
         if (ga !== gb) return ga - gb

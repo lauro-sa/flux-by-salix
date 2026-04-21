@@ -191,7 +191,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
 }) {
   const [nominaAbierta, setNominaAbierta] = useState(false)
   const esMovil = useEsMovil()
-  const { formatoHora } = useFormato()
+  const { formatoHora, locale } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
@@ -796,7 +796,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                                         <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
                                       </div>
                                       <p className="text-[10px] text-texto-terciario/50 mt-0.5">
-                                        {new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                        {new Date(fecha + 'T12:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}
                                       </p>
                                     </div>
                                     {/* Horarios */}
@@ -841,7 +841,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                                         <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
                                       </div>
                                       <p className="text-[10px] text-texto-terciario/50 mt-0.5">
-                                        {new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                        {new Date(fecha + 'T12:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}
                                       </p>
                                     </div>
                                     <div className="px-3 py-2 border-b border-white/[0.07] text-center">

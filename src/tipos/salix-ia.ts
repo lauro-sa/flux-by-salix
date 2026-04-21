@@ -161,6 +161,8 @@ export interface ContextoSalixIA {
   miembro: MiembroSalixIA
   nombre_usuario: string
   nombre_empresa: string
+  /** Zona horaria IANA de la empresa (ej: 'America/Argentina/Buenos_Aires') — para formatear fechas al responder al usuario */
+  zona_horaria?: string
   /** Cliente admin de Supabase (service role) para queries sin RLS */
   admin: SupabaseAdmin
 }

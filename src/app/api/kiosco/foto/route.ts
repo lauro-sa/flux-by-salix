@@ -3,6 +3,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
 import { comprimirImagen } from '@/lib/comprimir-imagen'
 import { registrarUsoStorage, verificarCuotaStorage } from '@/lib/uso-storage'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/kiosco/foto — Subir foto silenciosa del fichaje.
@@ -33,7 +34,11 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = crearClienteAdmin()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+    // La fecha del path debe coincidir con el día local del fichaje (no UTC),
+    // para que todas las fotos del mismo turno queden en la misma carpeta.
+    const { data: empKio } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zonaKio = (empKio?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = formatearFechaISO(new Date(), zonaKio)
     const rutaArchivo = `asistencias/${empresaId}/${fechaHoy}/${asistenciaId}_${tipo}.webp`
 
     // Convertir Blob a Buffer y comprimir (max 800px, WebP, calidad 75)

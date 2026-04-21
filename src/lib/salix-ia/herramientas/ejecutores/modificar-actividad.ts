@@ -112,7 +112,7 @@ export async function ejecutarModificarActividad(
   // Cambiar fecha de vencimiento
   if (params.fecha_vencimiento) {
     cambios.fecha_vencimiento = params.fecha_vencimiento
-    descripcionCambios.push(`fecha → ${new Date(params.fecha_vencimiento as string).toLocaleDateString('es')}`)
+    descripcionCambios.push(`fecha → ${new Date(params.fecha_vencimiento as string).toLocaleDateString('es', { timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires' })}`)
   }
 
   // Reasignar

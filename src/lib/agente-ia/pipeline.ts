@@ -225,7 +225,7 @@ export async function ejecutarPipelineAgente(params: {
   }
 
   // 4. Construir prompts separados (system + user) y llamar al LLM
-  const { sistema, usuario } = construirPrompts(contexto, { locale })
+  const { sistema, usuario } = construirPrompts(contexto, { locale, zonaHoraria: zonaEmpresa })
   let respuestaLLM: RespuestaLLM
   let tokensEntrada = 0
   let tokensSalida = 0
@@ -409,7 +409,7 @@ export async function ejecutarPipelineAgente(params: {
             .eq('id', contactoId)
             .single()
 
-          const fecha = new Date().toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+          const fecha = new Date().toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: zonaEmpresa })
           const notaNueva = `[${fecha}] Consulta: ${datos.tipo_trabajo}${datos.direccion ? ` en ${datos.direccion}` : ''}`
           const notasExistentes = contactoActual?.notas || ''
           // No duplicar si ya tiene la misma nota

@@ -37,7 +37,7 @@ export async function ejecutarModificarEvento(
   // Cambiar fecha
   if (params.fecha_inicio) {
     cambios.fecha_inicio = params.fecha_inicio
-    descripcionCambios.push(`fecha → ${new Date(params.fecha_inicio as string).toLocaleDateString('es')}`)
+    descripcionCambios.push(`fecha → ${new Date(params.fecha_inicio as string).toLocaleDateString('es', { timeZone: ctx.zona_horaria || 'America/Argentina/Buenos_Aires' })}`)
   }
   if (params.fecha_fin) {
     cambios.fecha_fin = params.fecha_fin

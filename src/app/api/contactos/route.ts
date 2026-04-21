@@ -256,7 +256,8 @@ export async function GET(request: NextRequest) {
 
     // Filtro por rango de creación (ver src/lib/presets-fecha.ts)
     if (creado_rango) {
-      const desdeISO = inicioRangoFechaISO(creado_rango)
+      const { data: emp } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const desdeISO = inicioRangoFechaISO(creado_rango, new Date(), (emp?.zona_horaria as string) || undefined)
       if (desdeISO) query = query.gte('creado_en', desdeISO)
     }
 

@@ -9,7 +9,7 @@ import {
 } from '@/lib/gmail'
 import type { ConfigIMAP } from '@/tipos/inbox'
 import { generarNombreRemitente } from '@/lib/nombre-remitente'
-import { registrarCorreoEnChatter } from '@/lib/chatter'
+import { registrarCorreoEnChatter, obtenerNombreEntidad, type EntidadRelacionadaChatter } from '@/lib/chatter'
 
 /**
  * POST /api/inbox/correo/enviar — Enviar correo electrónico.
@@ -437,38 +437,95 @@ export async function POST(request: NextRequest) {
       console.error('Error actualizando conversación tras envío:', errorActConv)
     }
 
-    // ─── Registrar en chatter si hay entidad vinculada ───
-    if (entidad_tipo && entidad_id) {
-      try {
-        // Construir adjuntos del chatter con el PDF congelado (snapshot de la versión enviada)
-        const adjuntosChatter: import('@/tipos/chatter').AdjuntoChatter[] = []
-        if (pdf_congelado_url || pdf_url) {
-          adjuntosChatter.push({
-            url: (pdf_congelado_url || pdf_url) as string,
-            nombre: (pdf_nombre as string) || 'documento.pdf',
-            tipo: 'application/pdf',
-          })
-        }
-
-        await registrarCorreoEnChatter({
-          empresaId,
-          entidadTipo: entidad_tipo,
-          entidadId: entidad_id,
-          asunto: correo_asunto || '(Sin asunto)',
-          destinatario: correo_para.join(', '),
-          cc: correo_cc?.length > 0 ? correo_cc : undefined,
-          cco: correo_cco?.length > 0 ? correo_cco : undefined,
-          remitente: de,
-          messageId: correoMessageId || undefined,
-          html: html || undefined,
-          adjuntos: adjuntosChatter.length > 0 ? adjuntosChatter : undefined,
-          usuarioId: userId,
-          usuarioNombre: nombreRealUsuario,
+    // ─── Registrar en chatter: entidad emisora + destinatarios que sean contactos ───
+    // Emisora (si viene): presupuesto / factura / contacto / etc desde donde se envió.
+    // Destinatarios: cada correo en To/CC/CCO que coincida con un contacto del
+    // sistema recibe la entrada en su propio chatter → así un correo enviado
+    // desde la empresa aparece también en la ficha de la persona vinculada.
+    try {
+      const adjuntosChatter: import('@/tipos/chatter').AdjuntoChatter[] = []
+      if (pdf_congelado_url || pdf_url) {
+        adjuntosChatter.push({
+          url: (pdf_congelado_url || pdf_url) as string,
+          nombre: (pdf_nombre as string) || 'documento.pdf',
+          tipo: 'application/pdf',
         })
-      } catch (e) {
-        // No bloquear el envío si falla el registro en chatter
-        console.error('Error al registrar correo en chatter:', e)
       }
+
+      // Construir lista de entidades a vincular, con dedup por (tipo, id)
+      const entidadesChatter: { tipo: string; id: string }[] = []
+      const verClave = new Set<string>()
+      const agregarEntidad = (tipo: string, id: string) => {
+        const clave = `${tipo}:${id}`
+        if (verClave.has(clave)) return
+        verClave.add(clave)
+        entidadesChatter.push({ tipo, id })
+      }
+
+      if (entidad_tipo && entidad_id) {
+        agregarEntidad(entidad_tipo, entidad_id)
+      }
+
+      // Resolver contactos por correo entre todos los destinatarios (To + CC + CCO)
+      const emailsDestino = [
+        ...(correo_para as string[]),
+        ...((correo_cc as string[] | undefined) || []),
+        ...((correo_cco as string[] | undefined) || []),
+      ].map(e => extraerEmail(e).toLowerCase()).filter(Boolean)
+
+      if (emailsDestino.length > 0) {
+        const { data: contactosDestino } = await admin
+          .from('contactos')
+          .select('id, correo')
+          .eq('empresa_id', empresaId)
+          .in('correo', emailsDestino)
+
+        for (const c of contactosDestino || []) {
+          agregarEntidad('contacto', c.id as string)
+        }
+      }
+
+      // Resolver nombre de cada entidad para los chips "También en:"
+      const nombresEntidades = new Map<string, string>() // clave "tipo:id" → nombre
+      await Promise.all(entidadesChatter.map(async (ent) => {
+        const nombre = await obtenerNombreEntidad(admin, empresaId, ent.tipo, ent.id)
+        if (nombre) nombresEntidades.set(`${ent.tipo}:${ent.id}`, nombre)
+      }))
+
+      for (const ent of entidadesChatter) {
+        // Construir lista de OTRAS entidades (excluyendo a sí misma) para los chips
+        const relacionadoCon: EntidadRelacionadaChatter[] = entidadesChatter
+          .filter(e => !(e.tipo === ent.tipo && e.id === ent.id))
+          .map(e => ({
+            tipo: e.tipo,
+            id: e.id,
+            nombre: nombresEntidades.get(`${e.tipo}:${e.id}`) || e.tipo,
+          }))
+
+        try {
+          await registrarCorreoEnChatter({
+            empresaId,
+            entidadTipo: ent.tipo,
+            entidadId: ent.id,
+            asunto: correo_asunto || '(Sin asunto)',
+            destinatario: correo_para.join(', '),
+            cc: correo_cc?.length > 0 ? correo_cc : undefined,
+            cco: correo_cco?.length > 0 ? correo_cco : undefined,
+            remitente: de,
+            messageId: correoMessageId || undefined,
+            html: html || undefined,
+            adjuntos: adjuntosChatter.length > 0 ? adjuntosChatter : undefined,
+            usuarioId: userId,
+            usuarioNombre: nombreRealUsuario,
+            relacionadoCon: relacionadoCon.length > 0 ? relacionadoCon : undefined,
+          })
+        } catch (eInt) {
+          console.error(`Error al registrar correo en chatter de ${ent.tipo}:${ent.id}:`, eInt)
+        }
+      }
+    } catch (e) {
+      // No bloquear el envío si falla el registro en chatter
+      console.error('Error al registrar correo en chatter:', e)
     }
 
     return NextResponse.json({

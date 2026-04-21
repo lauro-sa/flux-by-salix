@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
+import { obtenerComponentesFecha } from '@/lib/formato-fecha'
 
 /**
  * GET /api/cron/cumpleanios — Cron diario de cumpleaños.
@@ -23,8 +24,12 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const ahora = new Date()
-    const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-    const dia = String(ahora.getDate()).padStart(2, '0')
+    // Calcular mes/día en la zona horaria real (no UTC del server). Si el cron dispara a las 9 AM AR
+    // (12 UTC) funciona; pero si por algún motivo dispara fuera de hora, evitamos comparar contra
+    // el día UTC que después de las 21 AR ya es el siguiente.
+    const { mes: mesN, dia: diaN } = obtenerComponentesFecha(ahora, 'America/Argentina/Buenos_Aires')
+    const mes = String(mesN).padStart(2, '0')
+    const dia = String(diaN).padStart(2, '0')
 
     // Buscar perfiles cuyo cumpleaños es hoy (match mes-día)
     // Usamos RPC o raw filter porque Supabase no soporta EXTRACT directamente

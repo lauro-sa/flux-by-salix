@@ -32,7 +32,7 @@ interface PropiedadesModal {
 
 export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miembroNombre, fecha: fechaProp }: PropiedadesModal) {
   const { t } = useTraduccion()
-  const { formatoHora } = useFormato()
+  const { formatoHora, locale } = useFormato()
   const [miembros, setMiembros] = useState<Miembro[]>([])
   const [miembroSeleccionado, setMiembroSeleccionado] = useState('')
   const [fecha, setFecha] = useState('')
@@ -165,7 +165,7 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
           <div>
             <label className="block text-xs font-medium text-texto-terciario uppercase tracking-wider mb-1">Fecha</label>
             <p className="text-sm text-texto-primario">
-              {new Date(fechaProp + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+              {new Date(fechaProp + 'T12:00:00').toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
             </p>
           </div>
         ) : (

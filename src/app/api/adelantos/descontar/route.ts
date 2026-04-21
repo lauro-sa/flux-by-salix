@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/adelantos/descontar — Descontar cuotas de adelantos al registrar un pago.
@@ -36,7 +37,10 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = crearClienteAdmin()
-    const hoy = new Date().toISOString().split('T')[0]
+    // "Hoy" en la zona horaria de la empresa — sin esto, a la noche AR se registraba como mañana.
+    const { data: empresaTz } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zona = (empresaTz?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const hoy = formatearFechaISO(new Date(), zona)
 
     // Buscar cuotas pendientes cuya fecha cae dentro del período
     const { data: cuotasPendientes, error: errBuscar } = await admin

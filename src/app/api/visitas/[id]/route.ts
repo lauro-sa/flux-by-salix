@@ -495,18 +495,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
       if (error) return NextResponse.json({ error: 'Error al reprogramar' }, { status: 500 })
 
+      // Cargar zona horaria de la empresa para formatear la fecha en la zona correcta
+      // (en Vercel el servidor corre en UTC, sin zona explícita mostraríamos el día equivocado)
+      const { data: empresaTz } = await admin
+        .from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+      const zonaEmpresa = empresaTz?.zona_horaria || 'America/Argentina/Buenos_Aires'
+
       registrarChatter({
         empresaId,
         entidadTipo: 'contacto',
         entidadId: data.contacto_id,
-        contenido: `Visita reprogramada para ${new Date(body.fecha_programada).toLocaleDateString('es-AR')}`,
+        contenido: `Visita reprogramada para ${new Date(body.fecha_programada).toLocaleDateString('es-AR', { timeZone: zonaEmpresa })}`,
         autorId: user.id,
         autorNombre: nombreEditor,
         metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'reprogramada' },
       })
 
       // Notificar al asignado si fue otro quien reprogramó
-      const fechaFormateada = new Date(body.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+      const fechaFormateada = new Date(body.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: zonaEmpresa })
       if (data.asignado_a && data.asignado_a !== user.id) {
         crearNotificacion({
           empresaId,

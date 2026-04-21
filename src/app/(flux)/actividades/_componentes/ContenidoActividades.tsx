@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
@@ -74,7 +74,41 @@ function fechaCorta(iso: string | null, locale: string): string {
 const POR_PAGINA = 50
 
 /** Vista por defecto: mías */
-const VISTA_DEFAULT = 'propias'
+const VISTA_DEFAULT = 'todas'
+
+/**
+ * Etiqueta que muestra el nombre completo si entra en el ancho disponible;
+ * si no, cae a la abreviatura. Se adapta dinámicamente al resize de la columna.
+ */
+function EtiquetaTipoAdaptable({ completo, abreviado }: { completo: string; abreviado: string }) {
+  const contenedorRef = useRef<HTMLSpanElement>(null)
+  const medidorRef = useRef<HTMLSpanElement>(null)
+  const [usarCompleto, setUsarCompleto] = useState(true)
+
+  useLayoutEffect(() => {
+    if (!abreviado) { setUsarCompleto(true); return }
+    const cont = contenedorRef.current
+    const med = medidorRef.current
+    if (!cont || !med) return
+    const medir = () => {
+      setUsarCompleto(med.offsetWidth <= cont.clientWidth)
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(cont)
+    return () => ro.disconnect()
+  }, [completo, abreviado])
+
+  return (
+    <span ref={contenedorRef} className="relative flex-1 text-xs font-semibold overflow-hidden whitespace-nowrap">
+      {usarCompleto || !abreviado ? completo : abreviado}
+      {/* Medidor invisible con el texto completo para detectar si cabe */}
+      <span ref={medidorRef} className="absolute -left-[9999px] top-0 whitespace-nowrap text-xs font-semibold" aria-hidden="true">
+        {completo}
+      </span>
+    </span>
+  )
+}
 
 interface Props {
   datosInicialesJson?: Record<string, unknown>
@@ -193,27 +227,11 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const tipos = configData?.tipos || []
   const estados = configData?.estados || []
 
-  // Estados por defecto: todos los del grupo 'activo' (excluye completados y cancelados)
-  const estadosDefaultCalculados = useMemo(
-    () => estados.filter(e => e.activo && e.grupo === 'activo').map(e => e.clave),
-    [estados],
-  )
+  // Filtro efectivo de estado — por defecto vacío (muestra todas, sin filtrar por estado)
+  const filtroEstadoActual = filtroEstado || []
 
-  // Inicializar filtro de estado cuando la config carga por primera vez
-  const configInicializada = useRef(false)
-  useEffect(() => {
-    if (estadosDefaultCalculados.length > 0 && !configInicializada.current) {
-      configInicializada.current = true
-      setFiltroEstado(estadosDefaultCalculados)
-    }
-  }, [estadosDefaultCalculados])
-
-  // Filtro efectivo de estado (usa default calculado mientras config carga)
-  const filtroEstadoActual = filtroEstado || estadosDefaultCalculados
-
-  // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const estadoEsDefault = filtroEstadoActual.length === estadosDefaultCalculados.length &&
-    estadosDefaultCalculados.every(e => filtroEstadoActual.includes(e))
+  // Sin filtro de estado cuenta como default (primera carga)
+  const estadoEsDefault = filtroEstadoActual.length === 0
   const sinFiltros =
     !busquedaDebounced &&
     !filtroTipo &&
@@ -276,8 +294,10 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       const empresaId = user.app_metadata?.empresa_activa_id
       if (!empresaId) return []
       const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-      if (!mRes?.length) return []
-      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
+      // Excluir miembros de kiosco (sin usuario_id) — no pueden asignarse responsables
+      const ids = (mRes || []).map(m => m.usuario_id).filter((id): id is string => !!id)
+      if (!ids.length) return []
+      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', ids)
       return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
     },
     staleTime: 5 * 60_000,
@@ -644,19 +664,19 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     {
       clave: 'tipo_clave',
       etiqueta: 'Tipo',
-      ancho: 110,
+      ancho: 160,
       ordenable: true,
       render: (fila) => {
         const tipo = tiposPorId[fila.tipo_id]
-        return tipo ? (
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-            style={{ backgroundColor: tipo.color + '12', color: tipo.color }}
-            title={tipo.etiqueta}
+        if (!tipo) return null
+        return (
+          <div
+            className="-mx-4 -my-2.5 px-3 py-2.5 flex items-center h-full"
+            style={{ backgroundColor: tipo.color + '24', color: tipo.color }}
           >
-            {tipo.abreviacion || tipo.etiqueta}
-          </span>
-        ) : null
+            <EtiquetaTipoAdaptable completo={tipo.etiqueta} abreviado={tipo.abreviacion || ''} />
+          </div>
+        )
       },
     },
     {
@@ -1030,8 +1050,8 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
             id: 'estado', etiqueta: 'Estado', tipo: 'multiple-compacto' as const,
             valor: filtroEstadoActual, onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: estados.filter(e => e.activo).map(e => ({ valor: e.clave, etiqueta: e.etiqueta })),
-            valorDefault: estadosDefaultCalculados,
-            descripcion: 'Por defecto se muestran los estados del grupo "activo" (excluye completadas y canceladas).',
+            valorDefault: [],
+            descripcion: 'Por defecto se muestran todos los estados. Elegí uno o más para filtrar.',
           },
           {
             id: 'prioridad', etiqueta: 'Prioridad', tipo: 'pills' as const,
@@ -1099,7 +1119,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         ]}
         onLimpiarFiltros={() => {
           setFiltroTipo('')
-          setFiltroEstado(estadosDefaultCalculados)
+          setFiltroEstado(null)
           setFiltroPrioridad('')
           setFiltroVista(VISTA_DEFAULT)
           setFiltroAsignados([])

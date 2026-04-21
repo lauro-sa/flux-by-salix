@@ -139,7 +139,11 @@ export async function POST(request: NextRequest) {
       // ── Cargar feriados de un país (usando date-holidays como semilla) ──
       case 'cargar_pais': {
         const paisCodigo = datos.pais_codigo
-        const anio = datos.anio || new Date().getFullYear()
+        // Si no se pasa `anio`, usar el año en la zona de la empresa (no UTC).
+        const { data: empFer } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+        const zonaFer = (empFer?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+        const anioLocal = parseInt(new Intl.DateTimeFormat('en-CA', { timeZone: zonaFer, year: 'numeric' }).format(new Date()), 10)
+        const anio = datos.anio || anioLocal
 
         if (!paisCodigo) return NextResponse.json({ error: 'pais_codigo requerido' }, { status: 400 })
 

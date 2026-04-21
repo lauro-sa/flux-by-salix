@@ -92,9 +92,12 @@ export async function GET(request: NextRequest) {
 
     // Rango de fechas (preset o custom). Asistencias usa la columna `fecha` (date,
     // no timestamp) → formateamos a YYYY-MM-DD antes de comparar.
-    const fmtDia = (d: Date) => d.toISOString().slice(0, 10)
+    // Cargamos la zona de la empresa para que "hoy/este mes" coincida con el día local.
+    const { data: empAs } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+    const zonaAs = (empAs?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fmtDia = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: zonaAs })
     if (preset_fecha) {
-      const { desde: d1, hasta: d2 } = resolverRangoFecha(preset_fecha)
+      const { desde: d1, hasta: d2 } = resolverRangoFecha(preset_fecha, new Date(), zonaAs)
       if (d1 && d2) {
         // Si es un solo día, usar eq. Si son varios, usar rango gte/lte.
         const mismoDia = fmtDia(d1) === fmtDia(d2)

@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
 import { ModalEnviarDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { resolverVariables } from '@/lib/variables/resolver'
 import {
@@ -30,6 +31,7 @@ import {
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -185,6 +187,7 @@ export function ModalEnviarReciboNomina({
   nombreEmpresa,
 }: PropiedadesModal) {
   const { t } = useTraduccion()
+  const fmt = useFormato()
 
   // Canal de envío: correo o whatsapp
   const [canalTipo, setCanalTipo] = useState<CanalEnvio>('correo')
@@ -570,18 +573,12 @@ export function ModalEnviarReciboNomina({
           {canalTipo === 'correo' && (
             <div className="space-y-4">
               {canalesCorreo.length > 1 && (
-                <div>
-                  <label className="text-xs font-medium text-texto-terciario mb-1 block">Enviar desde</label>
-                  <select
-                    value={canalCorreoSeleccionado}
-                    onChange={e => setCanalCorreoSeleccionado(e.target.value)}
-                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
-                  >
-                    {canalesCorreo.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre} ({c.email})</option>
-                    ))}
-                  </select>
-                </div>
+                <Select
+                  etiqueta="Enviar desde"
+                  opciones={canalesCorreo.map(c => ({ valor: c.id, etiqueta: `${c.nombre} (${c.email})` }))}
+                  valor={canalCorreoSeleccionado}
+                  onChange={setCanalCorreoSeleccionado}
+                />
               )}
 
               <div>
@@ -627,18 +624,12 @@ export function ModalEnviarReciboNomina({
               )}
 
               {canalesWA.length > 1 && (
-                <div>
-                  <label className="text-xs font-medium text-texto-terciario mb-1 block">Canal de WhatsApp</label>
-                  <select
-                    value={canalWASeleccionado}
-                    onChange={e => setCanalWASeleccionado(e.target.value)}
-                    className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
-                  >
-                    {canalesWA.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
-                  </select>
-                </div>
+                <Select
+                  etiqueta="Canal de WhatsApp"
+                  opciones={canalesWA.map(c => ({ valor: c.id, etiqueta: c.nombre }))}
+                  valor={canalWASeleccionado}
+                  onChange={setCanalWASeleccionado}
+                />
               )}
 
               {/* Preview WhatsApp */}
@@ -671,7 +662,7 @@ export function ModalEnviarReciboNomina({
                         )}
                         <div className="flex justify-end mt-1">
                           <span className="text-[10px] text-gray-400">
-                            {new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                            {fmt.hora(new Date())}
                           </span>
                         </div>
                       </div>

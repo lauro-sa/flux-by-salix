@@ -12,8 +12,9 @@ import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2, CheckCircle2, CalendarClock, Ban, Link,
-  Calendar, Users, AlertTriangle, Eye,
+  Calendar, Users, AlertTriangle, Eye, User, MapPin, Briefcase,
 } from 'lucide-react'
+import NextLink from 'next/link'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -515,6 +516,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
   const cc = entrada.metadata?.correo_cc
   const cco = entrada.metadata?.correo_cco
   const htmlCorreo = entrada.metadata?.correo_html
+  const relacionadoCon = entrada.metadata?.relacionado_con
 
   return (
     <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-card my-0.5">
@@ -596,6 +598,60 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
           </div>
         )}
       </div>
+
+      {/* Chips "También en:" — otras entidades donde quedó registrado este correo */}
+      {relacionadoCon && relacionadoCon.length > 0 && (
+        <ChipsRelacionados items={relacionadoCon} />
+      )}
+    </div>
+  )
+}
+
+// ─── Chips clickeables de entidades relacionadas ───
+// Muestra "También en: [Empresa X] [Presupuesto 001] ..."
+// Cada chip es un Link a la ficha de esa entidad.
+function ChipsRelacionados({ items }: { items: { tipo: string; id: string; nombre: string }[] }) {
+  const rutaEntidad = (tipo: string, id: string): string | null => {
+    switch (tipo) {
+      case 'contacto': return `/contactos/${id}`
+      case 'presupuesto': return `/presupuestos/${id}`
+      case 'orden_trabajo': return `/ordenes/${id}`
+      case 'visita': return `/visitas/${id}`
+      default: return null
+    }
+  }
+  const iconoEntidad = (tipo: string) => {
+    switch (tipo) {
+      case 'contacto': return <User size={10} />
+      case 'presupuesto': return <FileText size={10} />
+      case 'orden_trabajo': return <Briefcase size={10} />
+      case 'visita': return <MapPin size={10} />
+      default: return <Link size={10} />
+    }
+  }
+
+  return (
+    <div className="ml-8 mt-1.5 flex items-center gap-1.5 flex-wrap text-xxs">
+      <span className="text-texto-terciario">También en:</span>
+      {items.map((it, idx) => {
+        const ruta = rutaEntidad(it.tipo, it.id)
+        const contenido = (
+          <span
+            key={`${it.tipo}:${it.id}:${idx}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-borde-sutil text-texto-secundario hover:border-texto-marca/40 hover:text-texto-marca hover:bg-texto-marca/5 transition-colors"
+          >
+            {iconoEntidad(it.tipo)}
+            <span className="truncate max-w-[140px]">{it.nombre}</span>
+          </span>
+        )
+        return ruta ? (
+          <NextLink key={`${it.tipo}:${it.id}:${idx}`} href={ruta} className="no-underline">
+            {contenido}
+          </NextLink>
+        ) : (
+          <span key={`${it.tipo}:${it.id}:${idx}`}>{contenido}</span>
+        )
+      })}
     </div>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Select } from '@/componentes/ui/Select'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { Boton } from '@/componentes/ui/Boton'
 import {
@@ -580,16 +581,8 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">{etiqueta}</label>
-      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-card px-2.5 py-2 focus-within:border-texto-marca/50 transition-colors">
-        <Clock size={13} className="text-texto-terciario/30 shrink-0" />
-        <input
-          type="time"
-          value={valor || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder="HH:MM"
-          className="flex-1 bg-transparent border-none outline-none text-[13px] text-texto-primario/75 [color-scheme:dark]"
-        />
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">{etiqueta}</label>
         {valor && (
           <button
             type="button"
@@ -597,10 +590,15 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
             className="shrink-0 text-texto-terciario/30 hover:text-asistencia-ausente/70 transition-colors"
             title="Limpiar"
           >
-            <XCircle size={13} />
+            <XCircle size={12} />
           </button>
         )}
       </div>
+      <SelectorHora
+        valor={valor}
+        onChange={(v) => onChange(v || null)}
+        pasoMinutos={5}
+      />
     </div>
   )
 }

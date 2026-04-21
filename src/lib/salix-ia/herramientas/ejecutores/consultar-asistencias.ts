@@ -8,10 +8,10 @@
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { determinarVisibilidad } from '@/lib/salix-ia/permisos'
 
-/** Formatea un timestamp a hora legible (ej: "08:32") */
-function formatearHora(timestamp: string | null): string | null {
+/** Formatea un timestamp a hora legible (ej: "08:32") en la zona horaria de la empresa */
+function formatearHora(timestamp: string | null, zona: string): string | null {
   if (!timestamp) return null
-  return new Date(timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return new Date(timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zona })
 }
 
 /** Calcula horas trabajadas entre entrada y salida */
@@ -205,8 +205,8 @@ export async function ejecutarConsultarAsistencias(
     return {
       nombre: info?.nombre || 'Sin nombre',
       puesto: info?.puesto || null,
-      hora_entrada: formatearHora(a.hora_entrada),
-      hora_salida: formatearHora(a.hora_salida),
+      hora_entrada: formatearHora(a.hora_entrada, ctx.zona_horaria || 'America/Argentina/Buenos_Aires'),
+      hora_salida: formatearHora(a.hora_salida, ctx.zona_horaria || 'America/Argentina/Buenos_Aires'),
       estado: a.estado,
       estado_texto: traducirEstado(a.estado),
       tipo: a.tipo,
