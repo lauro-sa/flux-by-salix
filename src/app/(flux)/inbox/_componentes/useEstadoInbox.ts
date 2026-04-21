@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, CanalInterno, CanalMensajeria, ModuloEmpresa,
@@ -495,10 +496,17 @@ export function useEstadoInbox() {
     }
   }, [conversaciones, marcarNotificacionesLeidasDeConversacion, esMovil, tabActivo])
 
+  // Contador para forzar re-suscripción del canal al volver del background
+  const [reactivacion, setReactivacion] = useState(0)
+  useEscucharReactivacion(useCallback(() => {
+    setReactivacion(v => v + 1)
+  }, []))
+
   // ─── Realtime: escuchar mensajes nuevos ───
   useEffect(() => {
     const convId = conversacionSeleccionada?.id
     if (!convId) return
+    void reactivacion // fuerza re-suscripción al volver del background
 
     const canal = supabase
       .channel(`inbox-mensajes-${convId}`)
@@ -541,7 +549,7 @@ export function useEstadoInbox() {
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [conversacionSeleccionada?.id, supabase])
+  }, [conversacionSeleccionada?.id, supabase, reactivacion])
 
   // ─── Enviar mensaje (interno) ───
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {

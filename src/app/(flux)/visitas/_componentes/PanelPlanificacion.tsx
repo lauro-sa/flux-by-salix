@@ -17,6 +17,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
@@ -139,6 +140,13 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
     staleTime: 20_000,
   })
 
+  // Contador para forzar re-suscripción del canal al volver del background
+  const [reactivacion, setReactivacion] = useState(0)
+  useEscucharReactivacion(useCallback(() => {
+    setReactivacion(v => v + 1)
+    refetch()
+  }, [refetch]))
+
   // Realtime: recargar cuando cambian visitas (otro usuario reasigna o completa)
   useEffect(() => {
     const supabase = crearClienteNavegador()
@@ -152,7 +160,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
-  }, [refetch])
+  }, [refetch, reactivacion])
 
   // Estado local optimista
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])

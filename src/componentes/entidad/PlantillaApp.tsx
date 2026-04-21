@@ -21,6 +21,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
 import { useHeartbeatAsistencia } from '@/hooks/useHeartbeatAsistencia'
 import { useSyncCorreoBackground } from '@/hooks/useSyncCorreoBackground'
+import { useReactivacionPWA } from '@/hooks/useReactivacionPWA'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -58,22 +59,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const headerOculto = useHeaderAutoOculto()
   useHeartbeatAsistencia()
   useSyncCorreoBackground()
-
-  // iOS Safari miente con 100dvh hasta que hacés scroll.
-  // window.innerHeight siempre devuelve el alto visible real.
-  useEffect(() => {
-    const actualizarAltura = () => {
-      const vh = window.innerHeight * 0.01
-      document.documentElement.style.setProperty('--vh', `${vh}px`)
-    }
-    actualizarAltura()
-    window.addEventListener('resize', actualizarAltura)
-    window.visualViewport?.addEventListener('resize', actualizarAltura)
-    return () => {
-      window.removeEventListener('resize', actualizarAltura)
-      window.visualViewport?.removeEventListener('resize', actualizarAltura)
-    }
-  }, [])
+  // Recalcula --vh, invalida queries y avisa a canales Realtime al volver de background
+  // (iOS Safari: al volver de Google Maps, WhatsApp, tel:, etc. vía bfcache).
+  useReactivacionPWA()
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
@@ -430,22 +418,43 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
         )}
       </motion.button>
 
-      {/* Botones expandidos — Notas, Recordatorios, Salix IA */}
+      {/* Botones expandidos — de abajo hacia arriba: Salix IA → Notas → Recordatorios.
+          Con flex-col-reverse el primer child del JSX queda abajo (pegado al logo Flux). */}
       <AnimatePresence>
         {expandido && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.8 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             className="flex flex-col-reverse items-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Botón Notas (amber) */}
+            {/* 1) Salix IA (violet) — queda abajo, más cerca del logo Flux */}
+            {iaHabilitado && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.3, y: 40 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15, delay: 0.1 } }}
+                transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setPanelIA(true)}
+                className="size-11 rounded-full flex items-center justify-center text-violet-400 cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.2))',
+                  backdropFilter: 'blur(16px) saturate(1.4)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+                  border: '1px solid var(--borde-sutil)',
+                  boxShadow: 'var(--sombra-sm)',
+                }}
+                title="Salix IA"
+              >
+                <Sparkles className="size-5" />
+              </motion.button>
+            )}
+
+            {/* 2) Notas (amber) — en el medio */}
             <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.03 }}
+              initial={{ opacity: 0, scale: 0.3, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15, delay: 0.05 } }}
+              transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0.06 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setPanelNotas(true)}
               className="size-11 rounded-full flex items-center justify-center text-amber-400/80 relative cursor-pointer"
@@ -473,11 +482,12 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
               )}
             </motion.button>
 
-            {/* Botón Recordatorios (orange) */}
+            {/* 3) Recordatorios (orange) — queda arriba del todo */}
             <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06 }}
+              initial={{ opacity: 0, scale: 0.3, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15 } }}
+              transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0.12 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setPanelRecordatorios(true)}
               className="size-11 rounded-full flex items-center justify-center text-orange-400/85 relative cursor-pointer"
@@ -499,28 +509,6 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
                 </span>
               )}
             </motion.button>
-
-            {/* Botón Salix IA (violet) */}
-            {iaHabilitado && (
-              <motion.button
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.09 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setPanelIA(true)}
-                className="size-11 rounded-full flex items-center justify-center text-violet-400 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.2))',
-                  backdropFilter: 'blur(16px) saturate(1.4)',
-                  WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
-                  border: '1px solid var(--borde-sutil)',
-                  boxShadow: 'var(--sombra-sm)',
-                }}
-                title="Salix IA"
-              >
-                <Sparkles className="size-5" />
-              </motion.button>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

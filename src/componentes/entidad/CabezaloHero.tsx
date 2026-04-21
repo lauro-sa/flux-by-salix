@@ -116,6 +116,12 @@ interface PropiedadesCabezaloHero {
   onHoy?: () => void
   /** Deshabilitar "Hoy" cuando ya estamos en el período actual */
   hoyDeshabilitado?: boolean
+  /** Forzar renderizado de la flecha anterior aunque no haya onAnterior (muestra deshabilitada) */
+  mostrarAnterior?: boolean
+  /** Forzar renderizado de la flecha siguiente aunque no haya onSiguiente (muestra deshabilitada) */
+  mostrarSiguiente?: boolean
+  /** Contador opcional entre las flechas de navegación (ej. "1 de 5") */
+  contadorNavegacion?: ReactNode
   /** Acciones rápidas a la izquierda de la navegación ‹ Hoy › (ej. iconos de vista, toggles) */
   slotAcciones?: ReactNode
   /** Tabs opcionales — aparecen entre hero y controles (aprovecha su propio border-b) */
@@ -132,12 +138,17 @@ export function CabezaloHero({
   onSiguiente,
   onHoy,
   hoyDeshabilitado = false,
+  mostrarAnterior = false,
+  mostrarSiguiente = false,
+  contadorNavegacion,
   slotAcciones,
   slotTabs,
   slotControles,
   className = '',
 }: PropiedadesCabezaloHero) {
-  const mostrarNavegacion = onAnterior || onSiguiente || onHoy
+  const renderAnterior = !!onAnterior || mostrarAnterior
+  const renderSiguiente = !!onSiguiente || mostrarSiguiente
+  const mostrarNavegacion = renderAnterior || renderSiguiente || onHoy
 
   return (
     <div className={`flex flex-col shrink-0 ${className}`}>
@@ -147,15 +158,21 @@ export function CabezaloHero({
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
           {mostrarNavegacion && (
           <GrupoBotones className="shrink-0">
-            {onAnterior && (
+            {renderAnterior && (
               <button
                 type="button"
                 onClick={onAnterior}
+                disabled={!onAnterior}
                 title="Período anterior"
-                className="size-9 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                className="size-9 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-texto-secundario"
               >
                 <ChevronLeft size={18} />
               </button>
+            )}
+            {contadorNavegacion && (
+              <span className="h-9 px-3 flex items-center text-xs text-texto-terciario border-y border-borde-sutil whitespace-nowrap">
+                {contadorNavegacion}
+              </span>
             )}
             {onHoy && (
               <button
@@ -172,12 +189,13 @@ export function CabezaloHero({
                 Hoy
               </button>
             )}
-            {onSiguiente && (
+            {renderSiguiente && (
               <button
                 type="button"
                 onClick={onSiguiente}
+                disabled={!onSiguiente}
                 title="Período siguiente"
-                className="size-9 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                className="size-9 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-texto-secundario"
               >
                 <ChevronRight size={18} />
               </button>

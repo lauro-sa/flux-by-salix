@@ -1,35 +1,239 @@
 'use client'
 
 /**
- * PanelRecordatorios — Panel lateral flotante de recordatorios.
- * Desktop: panel lateral derecho (420px) con animación slide-in.
- * Mobile: pantalla completa con slide-up.
+ * PanelRecordatorios — Panel flotante de recordatorios.
+ * Desktop: panel lateral derecho (420px) con slide-in.
+ * Mobile: pantalla completa slide-up, respeta safe-areas (iOS notch + home indicator).
  *
- * Usa `useRecordatorios` internamente para reaprovechar toda la lógica
- * (crear/editar/completar/eliminar/recurrencia/alerta/whatsapp).
+ * Ahora con más espacio vertical:
+ *  - Hero con ícono grande + resumen (activos · vencidos · hoy).
+ *  - Tabs grandes y táctiles.
+ *  - Lista activa agrupada cronológicamente: Vencidos → Hoy → Mañana → Esta semana → Próximos.
+ *  - Formulario aireado con chips de fecha rápidos.
  *
- * Tabs: Crear | Activos | Completados.
- *
- * Se usa en: BotonFlotanteRecordatorios.
+ * Se usa en: PlantillaApp (speed-dial).
  */
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, AlarmClock, Plus, Clock, CheckCircle2 } from 'lucide-react'
-import { Tabs } from '@/componentes/ui/Tabs'
+import { X, AlarmClock, Plus, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useRecordatorios } from './useRecordatorios'
 import { FormularioRecordatorio } from './FormularioRecordatorio'
-import { ListaRecordatorios } from './ListaRecordatorios'
+import { ItemRecordatorio } from './ItemRecordatorio'
 import { PreviewRecordatorio } from './PreviewRecordatorio'
 import { ModalConfirmarEliminar } from './ModalConfirmarEliminar'
+import { type Recordatorio, hoyISO } from './tipos'
 
 interface PropiedadesPanelRecordatorios {
   abierto: boolean
   onCerrar: () => void
 }
+
+type ClaveTab = 'crear' | 'activos' | 'completados'
+
+/* ─── Agrupación cronológica para la lista de activos ─── */
+
+interface GrupoActivos {
+  clave: 'vencidos' | 'hoy' | 'manana' | 'semana' | 'proximos'
+  etiqueta: string
+  acento?: string
+  items: Recordatorio[]
+}
+
+function agruparActivos(recordatorios: Recordatorio[]): GrupoActivos[] {
+  const hoy = hoyISO()
+  const manana = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const finSemana = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().slice(0, 10)
+  })()
+
+  const grupos: Record<GrupoActivos['clave'], Recordatorio[]> = {
+    vencidos: [], hoy: [], manana: [], semana: [], proximos: [],
+  }
+
+  for (const r of recordatorios) {
+    if (r.fecha < hoy) grupos.vencidos.push(r)
+    else if (r.fecha === hoy) grupos.hoy.push(r)
+    else if (r.fecha === manana) grupos.manana.push(r)
+    else if (r.fecha < finSemana) grupos.semana.push(r)
+    else grupos.proximos.push(r)
+  }
+
+  const resultado: GrupoActivos[] = []
+  if (grupos.vencidos.length) resultado.push({ clave: 'vencidos', etiqueta: 'Vencidos', acento: 'var(--insignia-peligro-texto)', items: grupos.vencidos })
+  if (grupos.hoy.length) resultado.push({ clave: 'hoy', etiqueta: 'Hoy', acento: 'var(--texto-marca)', items: grupos.hoy })
+  if (grupos.manana.length) resultado.push({ clave: 'manana', etiqueta: 'Mañana', items: grupos.manana })
+  if (grupos.semana.length) resultado.push({ clave: 'semana', etiqueta: 'Esta semana', items: grupos.semana })
+  if (grupos.proximos.length) resultado.push({ clave: 'proximos', etiqueta: 'Próximos', items: grupos.proximos })
+  return resultado
+}
+
+/* ─── Tabs táctiles (aprovechan el ancho del panel) ─── */
+
+function TabsRecordatorios({
+  activo, onCambiar, editandoId, activos, completados,
+}: {
+  activo: ClaveTab
+  onCambiar: (t: ClaveTab) => void
+  editandoId: string | null
+  activos: number
+  completados: number
+}) {
+  const tabs: { clave: ClaveTab; etiqueta: string; icono: React.ReactNode; contador?: number }[] = [
+    { clave: 'crear', etiqueta: editandoId ? 'Editar' : 'Crear', icono: <Plus size={14} /> },
+    { clave: 'activos', etiqueta: 'Activos', icono: <Clock size={14} />, contador: activos },
+    { clave: 'completados', etiqueta: 'Hechos', icono: <CheckCircle2 size={14} />, contador: completados },
+  ]
+
+  return (
+    <div className="flex items-center gap-1 px-3 py-2 border-b border-white/[0.07] shrink-0">
+      {tabs.map(({ clave, etiqueta, icono, contador }) => {
+        const esActivo = activo === clave
+        return (
+          <button
+            key={clave}
+            onClick={() => onCambiar(clave)}
+            className={`relative flex-1 min-h-[40px] flex items-center justify-center gap-1.5 px-2.5 rounded-card text-sm font-medium transition-colors ${
+              esActivo
+                ? 'bg-white/[0.06] text-texto-primario'
+                : 'text-texto-terciario hover:text-texto-secundario hover:bg-white/[0.03]'
+            }`}
+          >
+            {icono}
+            <span>{etiqueta}</span>
+            {contador !== undefined && contador > 0 && (
+              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                esActivo ? 'bg-texto-marca text-white' : 'bg-white/[0.08] text-texto-terciario'
+              }`}>
+                {contador > 99 ? '99+' : contador}
+              </span>
+            )}
+            {esActivo && (
+              <motion.div
+                layoutId="tab-recordatorios-underline"
+                className="absolute bottom-0 left-3 right-3 h-0.5 bg-texto-marca rounded-full"
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Header hero ─── */
+
+function HeaderHero({
+  activos, vencidos, hoy, onCerrar,
+}: {
+  activos: number
+  vencidos: number
+  hoy: number
+  onCerrar: () => void
+}) {
+  return (
+    <div className="px-4 pt-4 pb-3 border-b border-white/[0.07] shrink-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
+            <AlarmClock className="size-5 text-white" strokeWidth={2} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-texto-primario leading-tight">Recordatorios</h3>
+            <p className="text-xs text-texto-terciario mt-0.5">
+              {activos === 0
+                ? 'Nada pendiente por ahora'
+                : `${activos} ${activos === 1 ? 'recordatorio activo' : 'recordatorios activos'}`}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onCerrar}
+          className="size-9 -mr-1 -mt-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex items-center justify-center shrink-0"
+          title="Cerrar"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      {/* Resumen en pills — solo si hay algo que mostrar */}
+      {(vencidos > 0 || hoy > 0) && (
+        <div className="flex items-center gap-2 mt-3">
+          {vencidos > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-insignia-peligro/10 text-insignia-peligro-texto border border-insignia-peligro/20">
+              <AlertTriangle size={12} strokeWidth={2} />
+              {vencidos} {vencidos === 1 ? 'vencido' : 'vencidos'}
+            </span>
+          )}
+          {hoy > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-texto-marca/10 text-texto-marca border border-texto-marca/20">
+              <Clock size={12} strokeWidth={2} />
+              {hoy} {hoy === 1 ? 'para hoy' : 'para hoy'}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Lista agrupada de activos ─── */
+
+function ListaAgrupada({
+  grupos, onToggleCompletar, onEliminar, onEditar,
+}: {
+  grupos: GrupoActivos[]
+  onToggleCompletar: (id: string, completado: boolean) => void
+  onEliminar: (r: Recordatorio) => void
+  onEditar: (r: Recordatorio) => void
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      {grupos.map((g) => (
+        <section key={g.clave}>
+          <div className="flex items-center gap-2 px-1 mb-1.5">
+            <span
+              className="text-[11px] font-semibold uppercase tracking-wider"
+              style={{ color: g.acento || 'var(--texto-terciario)' }}
+            >
+              {g.etiqueta}
+            </span>
+            <span className="text-[11px] font-medium text-texto-terciario/70">
+              {g.items.length}
+            </span>
+            <span className="flex-1 h-px bg-white/[0.05]" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <AnimatePresence>
+              {g.items.map((r, idx) => (
+                <ItemRecordatorio
+                  key={r.id}
+                  recordatorio={r}
+                  indice={idx}
+                  onToggleCompletar={onToggleCompletar}
+                  onEliminar={onEliminar}
+                  onEditar={onEditar}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+/* ─── Componente principal ─── */
 
 function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios) {
   const esMovil = useEsMovil()
@@ -38,7 +242,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
   const {
     setAbierto,
     tab, setTab,
-    activos, completados, cargando,
+    activos, completados, cargando, vencidos,
     titulo, fecha, creando, crear, editandoId, limpiarFormulario,
     toggleCompletar, intentarEliminar, eliminarDirecto, editarRecordatorio,
     previewModal, setPreviewModal,
@@ -46,91 +250,136 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
     confirmarEliminar, setConfirmarEliminar,
   } = estado
 
-  // Sincronizar `abierto` del hook con el prop para disparar la carga de datos
+  // Disparar la carga de datos cuando el panel se abre
   useEffect(() => {
     setAbierto(abierto)
   }, [abierto, setAbierto])
 
-  const contenido = (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07] shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-card bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center">
-            <AlarmClock className="size-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Recordatorios</h3>
-            <p className="text-[11px] text-texto-terciario">
-              {activos.length === 0
-                ? 'Sin recordatorios activos'
-                : `${activos.length} ${activos.length === 1 ? 'activo' : 'activos'}`}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onCerrar}
-          className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-          title="Cerrar"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
+  // Cuando el panel se abre vía evento global (chip del dashboard, etc.), mostrar
+  // la lista de activos (no el formulario de crear, que es el default del hook).
+  useEffect(() => {
+    const mostrarActivos = () => setTab('activos')
+    window.addEventListener('flux:abrir-recordatorios', mostrarActivos)
+    return () => window.removeEventListener('flux:abrir-recordatorios', mostrarActivos)
+  }, [setTab])
 
-      {/* Tabs */}
-      <div className="px-3 pt-2 shrink-0">
-        <Tabs
-          tabs={[
-            { clave: 'crear', etiqueta: editandoId ? 'Editar' : 'Crear', icono: <Plus size={13} /> },
-            { clave: 'activos', etiqueta: 'Activos', contador: activos.length, icono: <Clock size={13} /> },
-            { clave: 'completados', etiqueta: 'Completados', icono: <CheckCircle2 size={13} /> },
-          ]}
-          activo={tab}
-          onChange={(t) => { if (t !== 'crear') limpiarFormulario(); setTab(t) }}
-        />
-      </div>
+  // Cerrar con Escape en desktop
+  useEffect(() => {
+    if (!abierto || esMovil) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [abierto, esMovil, onCerrar])
+
+  const gruposActivos = useMemo(() => agruparActivos(activos), [activos])
+  const cantidadHoy = gruposActivos.find((g) => g.clave === 'hoy')?.items.length ?? 0
+
+  const contenido = (
+    <div className="flex flex-col h-full min-h-0">
+      <HeaderHero
+        activos={activos.length}
+        vencidos={vencidos}
+        hoy={cantidadHoy}
+        onCerrar={onCerrar}
+      />
+
+      <TabsRecordatorios
+        activo={tab as ClaveTab}
+        onCambiar={(t) => { if (t !== 'crear') limpiarFormulario(); setTab(t) }}
+        editandoId={editandoId}
+        activos={activos.length}
+        completados={completados.length}
+      />
 
       {/* Contenido del tab */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 scrollbar-auto-oculto">
-        {tab === 'crear' && <FormularioRecordatorio estado={estado} />}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-auto-oculto">
+        {tab === 'crear' && (
+          <div className="px-4 py-4">
+            <FormularioRecordatorio estado={estado} />
+          </div>
+        )}
 
         {tab === 'activos' && (
-          <ListaRecordatorios
-            tipo="activos"
-            recordatorios={activos}
-            cargando={cargando}
-            onToggleCompletar={toggleCompletar}
-            onEliminar={intentarEliminar}
-            onEditar={editarRecordatorio}
-            onIrACrear={() => setTab('crear')}
-          />
+          <div className="px-4 py-4">
+            {cargando ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="size-6 border-2 border-texto-terciario/25 border-t-texto-marca rounded-full animate-spin" />
+              </div>
+            ) : activos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <div className="size-14 rounded-2xl bg-white/[0.04] flex items-center justify-center">
+                  <AlarmClock size={28} strokeWidth={1.2} className="text-texto-terciario/60" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-texto-primario">Sin recordatorios activos</p>
+                  <p className="text-xs text-texto-terciario mt-1">Creá uno para no olvidar lo importante</p>
+                </div>
+                <Boton tamano="sm" variante="secundario" onClick={() => setTab('crear')} icono={<Plus size={14} />}>
+                  Crear recordatorio
+                </Boton>
+              </div>
+            ) : (
+              <ListaAgrupada
+                grupos={gruposActivos}
+                onToggleCompletar={toggleCompletar}
+                onEliminar={intentarEliminar}
+                onEditar={editarRecordatorio}
+              />
+            )}
+          </div>
         )}
 
         {tab === 'completados' && (
-          <ListaRecordatorios
-            tipo="completados"
-            recordatorios={completados}
-            cargando={cargando}
-            onToggleCompletar={toggleCompletar}
-            onEliminar={intentarEliminar}
-          />
+          <div className="px-4 py-4">
+            {cargando ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="size-6 border-2 border-texto-terciario/25 border-t-texto-marca rounded-full animate-spin" />
+              </div>
+            ) : completados.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <div className="size-14 rounded-2xl bg-white/[0.04] flex items-center justify-center">
+                  <CheckCircle2 size={28} strokeWidth={1.2} className="text-texto-terciario/60" />
+                </div>
+                <p className="text-sm font-medium text-texto-primario">Sin recordatorios completados</p>
+                <p className="text-xs text-texto-terciario -mt-2">Cuando marques uno como hecho, aparecerá acá</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                <AnimatePresence>
+                  {completados.map((r, idx) => (
+                    <ItemRecordatorio
+                      key={r.id}
+                      recordatorio={r}
+                      indice={idx}
+                      onToggleCompletar={toggleCompletar}
+                      onEliminar={intentarEliminar}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Pie — botón crear (solo en tab crear) */}
+      {/* Pie — botón crear/guardar (solo en tab crear) */}
       {tab === 'crear' && (
-        <div className="border-t border-white/[0.07] px-4 py-3 flex items-center gap-2 shrink-0">
+        <div
+          className="border-t border-white/[0.07] px-4 py-3 flex items-center gap-2 shrink-0"
+          style={{ paddingBottom: esMovil ? 'max(env(safe-area-inset-bottom, 0px), 12px)' : undefined }}
+        >
           <Boton
             onClick={crear}
             cargando={creando}
             disabled={!titulo.trim() || !fecha}
-            tamano="sm"
+            tamano="md"
+            className="flex-1"
           >
             {editandoId ? 'Guardar cambios' : 'Crear recordatorio'}
           </Boton>
           <Boton
             variante="fantasma"
-            tamano="sm"
+            tamano="md"
             onClick={() => { limpiarFormulario(); if (editandoId) setTab('activos'); else onCerrar() }}
           >
             Cancelar
@@ -155,7 +404,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
                 className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
                 style={{
                   paddingTop: 'env(safe-area-inset-top, 0px)',
-                  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                  height: 'calc(var(--vh, 1vh) * 100)',
                 }}
               >
                 {contenido}
@@ -165,15 +414,12 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
           document.body
         )}
 
-        {/* Previews de alerta */}
         <PreviewRecordatorio
           previewModal={previewModal}
           onCerrarModal={() => setPreviewModal(false)}
           previewToast={previewToast}
           onCerrarToast={() => setPreviewToast(false)}
         />
-
-        {/* Modal confirmación eliminar recurrente */}
         <ModalConfirmarEliminar
           recordatorio={confirmarEliminar}
           onCerrar={() => setConfirmarEliminar(null)}
@@ -202,7 +448,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: '100%', opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] bg-superficie-elevada border-l border-white/[0.07] shadow-2xl flex flex-col"
+                className="fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] bg-superficie-elevada border-l border-white/[0.07] shadow-2xl flex flex-col"
               >
                 {contenido}
               </motion.div>
@@ -212,15 +458,12 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
         document.body
       )}
 
-      {/* Previews de alerta */}
       <PreviewRecordatorio
         previewModal={previewModal}
         onCerrarModal={() => setPreviewModal(false)}
         previewToast={previewToast}
         onCerrarToast={() => setPreviewToast(false)}
       />
-
-      {/* Modal confirmación eliminar recurrente */}
       <ModalConfirmarEliminar
         recordatorio={confirmarEliminar}
         onCerrar={() => setConfirmarEliminar(null)}

@@ -25,7 +25,6 @@ import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
 import { ModalConfirmarVisita } from './ModalConfirmarVisita'
 import PanelPlanificacion from './PanelPlanificacion'
-import { ModalDetalleVisita } from '@/componentes/entidad/_panel_chatter/ModalDetalleVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
@@ -95,7 +94,6 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   // Estado UI
   const [modalAbierto, setModalAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
-  const [visitaArchivedaDetalle, setVisitaArchivedaDetalle] = useState<Visita | null>(null)
   // Modal confirmar visita provisoria (agente IA)
   const [visitaConfirmando, setVisitaConfirmando] = useState<Visita | null>(null)
 
@@ -927,14 +925,7 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
         ]}
         idModulo="visitas"
         renderTarjeta={renderTarjeta}
-        onClickFila={(fila) => {
-          if (fila.estado === 'completada' || fila.estado === 'cancelada') {
-            setVisitaArchivedaDetalle(fila)
-          } else {
-            setVisitaEditando(fila)
-            setModalAbierto(true)
-          }
-        }}
+        onClickFila={(fila) => router.push(`/visitas/${fila.id}`)}
         mostrarResumen
         estadoVacio={
           <EstadoVacio
@@ -1059,34 +1050,6 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
       )}
 
       {/* Modal detalle visita archivada (solo lectura) */}
-      {visitaArchivedaDetalle && (
-        <ModalDetalleVisita
-          abierto={!!visitaArchivedaDetalle}
-          onCerrar={() => setVisitaArchivedaDetalle(null)}
-          datosVisita={{
-            resultado: visitaArchivedaDetalle.resultado,
-            notas: visitaArchivedaDetalle.notas,
-            temperatura: visitaArchivedaDetalle.temperatura,
-            checklist: visitaArchivedaDetalle.checklist,
-            direccion_texto: visitaArchivedaDetalle.direccion_texto,
-            duracion_real_min: visitaArchivedaDetalle.duracion_real_min,
-            duracion_estimada_min: visitaArchivedaDetalle.duracion_estimada_min,
-            fecha_completada: visitaArchivedaDetalle.fecha_completada,
-            fecha_programada: visitaArchivedaDetalle.fecha_programada,
-            motivo: visitaArchivedaDetalle.motivo,
-            contacto_nombre: visitaArchivedaDetalle.contacto_nombre,
-            contacto_id: visitaArchivedaDetalle.contacto_id,
-            asignado_nombre: visitaArchivedaDetalle.asignado_nombre,
-            editado_por_nombre: visitaArchivedaDetalle.editado_por_nombre,
-            registro_lat: visitaArchivedaDetalle.registro_lat,
-            registro_lng: visitaArchivedaDetalle.registro_lng,
-            registro_precision_m: visitaArchivedaDetalle.registro_precision_m,
-            prioridad: visitaArchivedaDetalle.prioridad,
-            recibe_nombre: visitaArchivedaDetalle.recibe_nombre,
-            recibe_telefono: visitaArchivedaDetalle.recibe_telefono,
-          }}
-        />
-      )}
     </PlantillaListado>
   )
 }

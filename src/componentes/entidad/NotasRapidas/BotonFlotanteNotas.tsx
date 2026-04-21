@@ -10,7 +10,7 @@
  * Se usa en: PlantillaApp (dentro del contenedor de botones flotantes).
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from './PanelNotas'
 import type { useNotasRapidas } from '@/hooks/useNotasRapidas'
@@ -46,6 +46,14 @@ interface PropiedadesBotonNotas {
 
 function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
   const [panelAbierto, setPanelAbierto] = useState(false)
+
+  // Escucha evento global para abrir el panel desde otras partes de la app
+  // (ej: acceso rápido del dashboard → window.dispatchEvent(new Event('flux:abrir-notas')))
+  useEffect(() => {
+    const abrir = () => setPanelAbierto(true)
+    window.addEventListener('flux:abrir-notas', abrir)
+    return () => window.removeEventListener('flux:abrir-notas', abrir)
+  }, [])
 
   // Si no se pasa prop, no renderizar (necesita el hook del padre)
   if (!notasRapidas) return null

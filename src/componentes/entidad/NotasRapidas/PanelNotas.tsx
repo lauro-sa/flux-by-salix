@@ -146,6 +146,15 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
   const { fechaRelativa, fecha: fmtFecha, hora: fmtHora } = useFormato()
 
   const [pestana, setPestana] = useState<Pestana>('todas')
+
+  // Cuando el panel se abre vía evento global (chip de notas con cambios en
+  // el dashboard, etc.), cambiar a la pestaña de compartidas donde aparecen
+  // las notas con cambios no leídos.
+  useEffect(() => {
+    const mostrarCompartidas = () => setPestana('compartidas')
+    window.addEventListener('flux:abrir-notas', mostrarCompartidas)
+    return () => window.removeEventListener('flux:abrir-notas', mostrarCompartidas)
+  }, [])
   const [notaActiva, setNotaActiva] = useState<NotaRapida | null>(null)
   const [editando, setEditando] = useState(false)
   // Primera línea = título (bold/grande), resto = cuerpo (estilo Apple Notes)
@@ -972,6 +981,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
             style={{
               paddingTop: 'env(safe-area-inset-top, 0px)',
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              height: 'calc(var(--vh, 1vh) * 100)',
             }}
           >
             {contenidoPanel}

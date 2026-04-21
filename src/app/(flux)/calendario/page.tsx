@@ -25,6 +25,7 @@ import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useModalVisita } from '@/hooks/useModalVisita'
+import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
 
@@ -315,6 +316,13 @@ export default function PaginaCalendario() {
     cargarEventos()
   }, [cargarEventos])
 
+  // Contador para forzar re-suscripción del canal al volver del background
+  const [reactivacion, setReactivacion] = useState(0)
+  useEscucharReactivacion(useCallback(() => {
+    setReactivacion(v => v + 1)
+    cargarEventos()
+  }, [cargarEventos]))
+
   // --- Realtime: recargar cuando cambian eventos o visitas ---
   useEffect(() => {
     const supabase = crearClienteNavegador()
@@ -333,7 +341,7 @@ export default function PaginaCalendario() {
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
-  }, [cargarEventos])
+  }, [cargarEventos, reactivacion])
 
   // --- Navegación ---
   const navegar = useCallback((direccion: 'anterior' | 'siguiente' | 'hoy') => {

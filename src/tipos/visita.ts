@@ -40,6 +40,7 @@ export interface Visita {
   motivo: string | null
   resultado: string | null
   notas: string | null
+  notas_registro: string | null
   temperatura: string | null
   prioridad: PrioridadVisita | string
   checklist: ItemChecklist[]

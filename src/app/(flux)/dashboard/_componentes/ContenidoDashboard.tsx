@@ -8,7 +8,7 @@ import {
   ArrowRight, Mail,
   Image, Mic, File, Video,
   BarChart3, LayoutDashboard,
-  ClipboardList, Calendar,
+  ClipboardList, Calendar, StickyNote, BellRing,
   AlertTriangle, Clock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -34,6 +34,12 @@ import { WidgetClientes } from './WidgetClientes'
 import { ResumenMetricas } from './ResumenMetricas'
 import { WidgetRecientes } from './WidgetRecientes'
 import { WidgetDetalleMes } from './WidgetDetalleMes'
+import { WidgetMisOrdenes } from './WidgetMisOrdenes'
+import { WidgetOrdenesPorGestionar } from './WidgetOrdenesPorGestionar'
+import { WidgetMiRecorrido } from './WidgetMiRecorrido'
+import { WidgetLeadsNuevos } from './WidgetLeadsNuevos'
+import { WidgetVisitasPorPlanificar } from './WidgetVisitasPorPlanificar'
+import { Widget } from '@/componentes/entidad/Widget'
 
 /**
  * ContenidoDashboard — Client Component con toda la lógica del dashboard.
@@ -64,8 +70,13 @@ interface DatosDashboard {
   actividades: {
     pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignados: { id: string; nombre: string }[] }>
     total_pendientes: number
+    total_hoy: number
     completadas_hoy: number
     por_persona: Array<{ nombre: string; pendientes: number; completadas: number }>
+  }
+  alertas: {
+    recordatorios_hoy: number
+    notas_con_cambios: number
   }
   productos: {
     top: Array<{ id: string; nombre: string; tipo: string; precio_unitario: number | null; veces_presupuestado: number; veces_vendido: number }>
@@ -228,50 +239,55 @@ export default function ContenidoDashboard() {
   const miFichaje = datos?.asistencia?.detalle_hoy?.find(d => d.usuario_id === datos.asistencia.usuario_id) ?? null
 
   return (
-    <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-12">
+    <div className="px-4 sm:px-6 pt-3 sm:pt-5 pb-12">
       {/* ─── Header: Saludo + estado de jornada + Pestañas ─── */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-texto-primario">
+      <div className="mb-5 sm:mb-6">
+        {/* Fila superior: saludo a la izquierda, pestañas a la derecha */}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-lg sm:text-2xl font-bold text-texto-primario leading-tight min-w-0 truncate">
             {t(claveSaludo)}{nombre ? `, ${nombre}` : ''}
           </h1>
-          <p className="text-sm text-texto-terciario mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
-            <span>{empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}</span>
-            {miFichaje && <LineaJornada fichaje={miFichaje} />}
-          </p>
+
+          {/* Pestañas: en mobile solo iconos compactos, en desktop texto + icono */}
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-superficie-hover/50 rounded-card p-0.5 shrink-0">
+            <button
+              onClick={() => setPestana('general')}
+              className={`flex items-center gap-1.5 justify-center px-2 sm:px-3 h-8 text-xs font-medium rounded-boton transition-colors ${
+                pestana === 'general'
+                  ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
+                  : 'text-texto-terciario hover:text-texto-secundario'
+              }`}
+              aria-label="General"
+            >
+              <LayoutDashboard size={13} />
+              <span className="hidden sm:inline">General</span>
+            </button>
+            <button
+              onClick={() => setPestana('metricas')}
+              className={`flex items-center gap-1.5 justify-center px-2 sm:px-3 h-8 text-xs font-medium rounded-boton transition-colors ${
+                pestana === 'metricas'
+                  ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
+                  : 'text-texto-terciario hover:text-texto-secundario'
+              }`}
+              aria-label="Métricas"
+            >
+              <BarChart3 size={13} />
+              <span className="hidden sm:inline">Métricas</span>
+            </button>
+          </div>
         </div>
 
-        {/* Pestañas General / Métricas */}
-        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-card p-0.5 shrink-0">
-          <button
-            onClick={() => setPestana('general')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-boton transition-colors ${
-              pestana === 'general'
-                ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
-                : 'text-texto-terciario hover:text-texto-secundario'
-            }`}
-          >
-            <LayoutDashboard size={13} />
-            General
-          </button>
-          <button
-            onClick={() => setPestana('metricas')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-boton transition-colors ${
-              pestana === 'metricas'
-                ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
-                : 'text-texto-terciario hover:text-texto-secundario'
-            }`}
-          >
-            <BarChart3 size={13} />
-            Métricas
-          </button>
-        </div>
+        {/* Fila inferior: empresa + jornada */}
+        <p className="text-xs sm:text-sm text-texto-terciario mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
+          <span className="truncate">{empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}</span>
+          {miFichaje && <LineaJornada fichaje={miFichaje} />}
+        </p>
       </div>
 
       {/* ─── Contenido por pestaña ─── */}
       <motion.div
         key={pestana}
-        className="space-y-6"
+        className="space-y-4 lg:space-y-5"
         variants={contenedorVariantes}
         initial="oculto"
         animate="visible"
@@ -317,12 +333,19 @@ function PestanaGeneral({
 }) {
   // Alertas accionables: solo las que tienen datos
   const actividadesVencidas = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
+  const actividadesHoy = datos?.actividades?.total_hoy ?? 0
+  const recordatoriosHoy = datos?.alertas?.recordatorios_hoy ?? 0
+  const notasCambios = datos?.alertas?.notas_con_cambios ?? 0
   const borradores = datos?.presupuestos.por_estado.borrador ?? 0
   const sinLeer = datos?.conversaciones.sin_leer ?? 0
   const porVencer = datos?.presupuestos.por_vencer?.length ?? 0
 
   const chips: Array<{ icono: React.ReactNode; texto: string; color: string; onClick: () => void }> = []
+  // Orden: vencidas → hoy → recordatorios → notas cambios → por vencer → sin leer → borradores
   if (actividadesVencidas > 0) chips.push({ icono: <AlertTriangle size={12} />, texto: `${actividadesVencidas} vencida${actividadesVencidas > 1 ? 's' : ''}`, color: 'text-insignia-peligro-texto bg-insignia-peligro-fondo border-insignia-peligro-fondo', onClick: () => router.push('/actividades?filtro=vencidas') })
+  if (actividadesHoy > 0) chips.push({ icono: <CheckSquare size={12} />, texto: `${actividadesHoy} hoy`, color: 'text-insignia-exito-texto bg-insignia-exito-fondo border-insignia-exito-fondo', onClick: () => router.push('/actividades?fecha=hoy') })
+  if (recordatoriosHoy > 0) chips.push({ icono: <BellRing size={12} />, texto: `${recordatoriosHoy} recordatorio${recordatoriosHoy > 1 ? 's' : ''}`, color: 'text-insignia-naranja-texto bg-insignia-naranja-fondo border-insignia-naranja-fondo', onClick: () => window.dispatchEvent(new Event('flux:abrir-recordatorios')) })
+  if (notasCambios > 0) chips.push({ icono: <StickyNote size={12} />, texto: `${notasCambios} nota${notasCambios > 1 ? 's' : ''} con cambios`, color: 'text-insignia-primario-texto bg-insignia-primario-fondo border-insignia-primario-fondo', onClick: () => window.dispatchEvent(new Event('flux:abrir-notas')) })
   if (porVencer > 0) chips.push({ icono: <Clock size={12} />, texto: `${porVencer} por vencer`, color: 'text-insignia-advertencia-texto bg-insignia-advertencia-fondo border-insignia-advertencia-fondo', onClick: () => router.push('/presupuestos?filtro=por_vencer') })
   if (sinLeer > 0) chips.push({ icono: <Mail size={12} />, texto: `${sinLeer} sin leer`, color: 'text-insignia-violeta-texto bg-insignia-violeta-fondo border-insignia-violeta-fondo', onClick: () => router.push('/inbox') })
   if (borradores > 0) chips.push({ icono: <FileText size={12} />, texto: `${borradores} borrador${borradores > 1 ? 'es' : ''}`, color: 'text-texto-terciario bg-superficie-hover/50 border-borde-sutil', onClick: () => router.push('/presupuestos?estado=borrador') })
@@ -345,14 +368,47 @@ function PestanaGeneral({
         </motion.div>
       )}
 
-      {/* Accesos rápidos */}
-      <motion.div variants={itemVariantes} className="flex flex-wrap justify-center gap-2">
-        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={14} />} onClick={() => router.push('/contactos/nuevo?desde=dashboard')} />
-        <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={14} />} onClick={() => router.push('/presupuestos/nuevo?desde=dashboard')} />
-        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={14} />} onClick={() => router.push('/actividades?crear=true')} />
-        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={14} />} onClick={() => router.push('/productos?crear=true')} />
-        <BotonRapido etiqueta="Evento" icono={<Calendar size={14} />} onClick={() => router.push('/calendario?crear=true')} />
-        <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={14} />} onClick={() => router.push('/inbox')} />
+      {/* Bloque "Accionar ahora": widgets que dependen de rol/módulo */}
+      {/* Cada widget además se auto-oculta si no hay datos (ver total === 0 → null) */}
+      {/* Grid adaptable: aprovecha ancho en pantallas grandes para no scrollear de más */}
+      <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 lg:gap-4">
+        {/* Recorrido del día: cualquier rol con módulo visitas activo y visitas asignadas hoy */}
+        <Widget modulo="visitas">
+          <WidgetMiRecorrido />
+        </Widget>
+
+        {/* Visitas por planificar: provisorias (IA) + sin asignar. Admin/gestor/supervisor/propietario */}
+        <Widget modulo="visitas" rolEn={['propietario', 'administrador', 'gestor', 'supervisor']}>
+          <WidgetVisitasPorPlanificar />
+        </Widget>
+
+        {/* Órdenes por gestionar: sin asignar o sin publicar. Admin/gestor/propietario */}
+        <Widget modulo="ordenes_trabajo" rolEn={['propietario', 'administrador', 'gestor']}>
+          <WidgetOrdenesPorGestionar />
+        </Widget>
+
+        {/* Mis órdenes pendientes: cualquier rol con el módulo activo; el endpoint aplica soloPropio */}
+        <Widget modulo="ordenes_trabajo">
+          <WidgetMisOrdenes />
+        </Widget>
+
+        {/* Leads nuevos: roles que manejan contactos comerciales */}
+        <Widget rolEn={['propietario', 'administrador', 'gestor', 'supervisor', 'vendedor']}>
+          <WidgetLeadsNuevos />
+        </Widget>
+      </motion.div>
+
+      {/* Accesos rápidos: tarjetas con icono arriba + etiqueta abajo */}
+      {/* Mobile: tarjetas cuadradas para tap grande. Desktop: tarjetas bajas, más compactas */}
+      <motion.div variants={itemVariantes} className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={18} strokeWidth={1.5} />} colorIcono="text-insignia-primario-texto" colorFondo="bg-insignia-primario-fondo" onClick={() => router.push('/contactos/nuevo?desde=dashboard')} />
+        <BotonRapido etiqueta="Presupuesto" icono={<FileText size={18} strokeWidth={1.5} />} colorIcono="text-insignia-info-texto" colorFondo="bg-insignia-info-fondo" onClick={() => router.push('/presupuestos/nuevo?desde=dashboard')} />
+        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={18} strokeWidth={1.5} />} colorIcono="text-insignia-exito-texto" colorFondo="bg-insignia-exito-fondo" onClick={() => router.push('/actividades?crear=true')} />
+        <BotonRapido etiqueta="Nota" icono={<StickyNote size={18} strokeWidth={1.5} />} colorIcono="text-insignia-advertencia-texto" colorFondo="bg-insignia-advertencia-fondo" onClick={() => window.dispatchEvent(new Event('flux:abrir-notas'))} />
+        <BotonRapido etiqueta="Recordatorio" icono={<BellRing size={18} strokeWidth={1.5} />} colorIcono="text-insignia-naranja-texto" colorFondo="bg-insignia-naranja-fondo" onClick={() => window.dispatchEvent(new Event('flux:abrir-recordatorios'))} />
+        <BotonRapido etiqueta="Evento" icono={<Calendar size={18} strokeWidth={1.5} />} colorIcono="text-insignia-violeta-texto" colorFondo="bg-insignia-violeta-fondo" onClick={() => router.push('/calendario?crear=true')} />
+        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/productos?crear=true')} />
+        <BotonRapido etiqueta="Inbox" icono={<MessageSquare size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/inbox')} />
       </motion.div>
 
       {/* Historial reciente — ancho completo */}
@@ -374,59 +430,77 @@ function PestanaGeneral({
 
       {/* 4 tarjetas recientes */}
       <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <TarjetaReciente titulo="Últimos presupuestos" icono={<FileText size={14} />} verTodo={() => router.push('/presupuestos')}>
+        <TarjetaReciente
+          titulo="Últimos presupuestos"
+          icono={<FileText size={14} />}
+          colorFondo="bg-insignia-info-fondo"
+          colorIcono="text-insignia-info-texto"
+          verTodo={() => router.push('/presupuestos')}
+        >
           {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
             datos.presupuestos.recientes.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
-                <div className="min-w-0">
+              <div key={p.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
                     <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>{ETIQUETA_ESTADO[p.estado] || p.estado}</Insignia>
                   </div>
-                  <p className="text-xxs text-texto-terciario truncate">{[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}</p>
+                  <p className="text-xxs text-texto-terciario truncate mt-0.5">{[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}</p>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  {p.total != null && <p className="text-xs font-semibold text-texto-primario tabular-nums">{moneda(p.total)}</p>}
-                  <p className="text-xxs text-texto-terciario">{fechaRelativa(p.creado_en)}</p>
+                  {p.total != null && <p className="text-sm font-semibold text-texto-primario tabular-nums leading-tight">{moneda(p.total)}</p>}
+                  <p className="text-xxs text-texto-terciario mt-0.5">{fechaRelativa(p.creado_en)}</p>
                 </div>
               </div>
             ))
-          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin presupuestos</p>}
+          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin presupuestos</p>}
         </TarjetaReciente>
 
-        <TarjetaReciente titulo="Últimos contactos" icono={<Users size={14} />} verTodo={() => router.push('/contactos')}>
+        <TarjetaReciente
+          titulo="Últimos contactos"
+          icono={<Users size={14} />}
+          colorFondo="bg-insignia-primario-fondo"
+          colorIcono="text-insignia-primario-texto"
+          verTodo={() => router.push('/contactos')}
+        >
           {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
             datos.contactos.recientes.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="size-6 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
+              <div key={c.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="size-7 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
                     {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-medium text-texto-primario truncate">{[c.nombre, c.apellido].filter(Boolean).join(' ')}</p>
                       {c.tipo_etiqueta && <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>{c.tipo_etiqueta}</Insignia>}
                     </div>
-                    <p className="text-xxs text-texto-terciario truncate">{c.correo || c.telefono || ''}</p>
+                    <p className="text-xxs text-texto-terciario truncate mt-0.5">{c.correo || c.telefono || ''}</p>
                   </div>
                 </div>
                 <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
               </div>
             ))
-          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin contactos</p>}
+          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin contactos</p>}
         </TarjetaReciente>
 
-        <TarjetaReciente titulo="Próximas actividades" icono={<CheckSquare size={14} />} verTodo={() => router.push('/actividades')}>
+        <TarjetaReciente
+          titulo="Próximas actividades"
+          icono={<CheckSquare size={14} />}
+          colorFondo="bg-insignia-exito-fondo"
+          colorIcono="text-insignia-exito-texto"
+          verTodo={() => router.push('/actividades')}
+        >
           {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
             datos.actividades_proximas.map(act => (
-              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-boton hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
+              <div key={act.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
                     {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
                   </div>
                   {Array.isArray(act.asignados) && act.asignados.length > 0 && (
-                    <p className="text-xxs text-texto-terciario truncate">
+                    <p className="text-xxs text-texto-terciario truncate mt-0.5">
                       {act.asignados.length === 1 ? act.asignados[0].nombre : `${act.asignados.map(a => a.nombre).join(', ')}`}
                     </p>
                   )}
@@ -436,7 +510,7 @@ function PestanaGeneral({
                 </span>
               </div>
             ))
-          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin actividades próximas</p>}
+          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin actividades próximas</p>}
         </TarjetaReciente>
 
         <TarjetaMensajesRecientes mensajes={datos?.mensajes_recientes || []} />
@@ -613,22 +687,31 @@ function LineaJornada({ fichaje }: { fichaje: DatosDashboard['asistencia']['deta
 }
 
 function TarjetaReciente({
-  titulo, icono, verTodo, children,
+  titulo, icono, colorFondo = 'bg-superficie-hover', colorIcono = 'text-texto-secundario', verTodo, children,
 }: {
-  titulo: string; icono: React.ReactNode; verTodo: () => void; children: React.ReactNode
+  titulo: string
+  icono: React.ReactNode
+  colorFondo?: string
+  colorIcono?: string
+  verTodo: () => void
+  children: React.ReactNode
 }) {
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-texto-terciario">{icono}</span>
-          <h3 className="text-xs font-semibold text-texto-primario">{titulo}</h3>
-        </div>
-        <button onClick={verTodo} className="text-xxs text-texto-terciario hover:text-texto-secundario flex items-center gap-1 transition-colors">
-          Ver todo <ArrowRight size={10} />
-        </button>
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 sm:p-5 flex flex-col">
+      <div className="flex items-center gap-2.5 min-w-0 mb-3">
+        <span className={`size-7 rounded-card flex items-center justify-center ${colorFondo} ${colorIcono} shrink-0`}>
+          {icono}
+        </span>
+        <h3 className="text-sm font-semibold text-texto-primario truncate">{titulo}</h3>
       </div>
-      <div className="space-y-0.5">{children}</div>
+      <div className="space-y-0.5 flex-1">{children}</div>
+      <button
+        onClick={verTodo}
+        className="mt-3 pt-2.5 border-t border-borde-sutil/60 inline-flex items-center justify-center gap-1 text-xxs font-medium text-texto-terciario hover:text-texto-marca transition-colors cursor-pointer w-full"
+        aria-label={`Ver todo ${titulo}`}
+      >
+        Ver todo <ArrowRight size={10} />
+      </button>
     </div>
   )
 }
@@ -649,10 +732,12 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
   const filtrados = canal === 'todos' ? mensajes : mensajes.filter(m => m.tipo_canal === canal)
 
   return (
-    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-texto-terciario"><MessageSquare size={14} /></span>
-        <h3 className="text-xs font-semibold text-texto-primario">Últimos mensajes</h3>
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 sm:p-5">
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="size-7 rounded-card flex items-center justify-center bg-insignia-violeta-fondo text-insignia-violeta-texto shrink-0">
+          <MessageSquare size={14} />
+        </span>
+        <h3 className="text-sm font-semibold text-texto-primario">Últimos mensajes</h3>
       </div>
 
       {canalesDisponibles.length > 2 && (
@@ -674,7 +759,7 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
           filtrados.slice(0, 5).map(m => {
             const preview = m.correo_asunto || m.texto || `[${m.tipo_contenido}]`
             return (
-              <div key={m.id} className="flex items-start gap-2 py-1.5 px-1 rounded-boton hover:bg-superficie-hover transition-colors">
+              <div key={m.id} className="flex items-start gap-2 py-2 px-1.5 rounded-boton hover:bg-superficie-hover transition-colors">
                 <div className={`size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                   m.tipo_canal === 'whatsapp' ? 'bg-canal-whatsapp/15 text-canal-whatsapp'
                   : m.tipo_canal === 'correo' ? 'bg-canal-correo/15 text-canal-correo'
@@ -713,14 +798,30 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
   )
 }
 
-function BotonRapido({ etiqueta, icono, onClick }: { etiqueta: string; icono: React.ReactNode; onClick: () => void }) {
+/**
+ * BotonRapido — Tarjeta cuadrada con icono arriba + etiqueta abajo.
+ * Diseñada para tap target grande en mobile (mínimo 64px de alto).
+ */
+function BotonRapido({
+  etiqueta, icono, colorIcono, colorFondo, onClick,
+}: {
+  etiqueta: string
+  icono: React.ReactNode
+  colorIcono: string
+  colorFondo: string
+  onClick: () => void
+}) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-card border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-texto-primario transition-all cursor-pointer"
+      className="group flex flex-col items-center justify-center gap-1.5 aspect-square sm:aspect-auto sm:py-2.5 lg:py-2 rounded-card border border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte hover:bg-superficie-hover/40 transition-all cursor-pointer active:scale-[0.97]"
     >
-      <span className="text-texto-terciario/50">{icono}</span>
-      {etiqueta}
+      <span className={`size-9 sm:size-8 lg:size-7 rounded-card flex items-center justify-center ${colorFondo} ${colorIcono} group-hover:scale-105 transition-transform`}>
+        {icono}
+      </span>
+      <span className="text-[11px] font-medium text-texto-secundario group-hover:text-texto-primario transition-colors leading-tight text-center px-1">
+        {etiqueta}
+      </span>
     </button>
   )
 }

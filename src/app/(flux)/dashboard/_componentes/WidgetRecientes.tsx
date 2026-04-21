@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Clock, Users, FileText, Zap, File, MessageSquare, Package, Calendar, UserCircle,
+  MapPin, Wrench,
   Eye, Pencil, Plus, Trash2,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
@@ -107,6 +108,18 @@ const CONFIG_ENTIDAD: Record<string, {
     colorBorde: 'border-insignia-primario-fondo',
     ruta: (id) => `/usuarios/${id}`,
   },
+  visita: {
+    icono: <MapPin size={14} strokeWidth={1.5} />,
+    color: 'text-insignia-primario-texto bg-insignia-primario-fondo',
+    colorBorde: 'border-insignia-primario-fondo',
+    ruta: (id) => `/visitas/${id}`,
+  },
+  orden_trabajo: {
+    icono: <Wrench size={14} strokeWidth={1.5} />,
+    color: 'text-insignia-advertencia-texto bg-insignia-advertencia-fondo',
+    colorBorde: 'border-insignia-advertencia-fondo',
+    ruta: (id) => `/ordenes/${id}`,
+  },
 }
 
 // Acción: icono + etiqueta
@@ -164,8 +177,10 @@ export function WidgetRecientes() {
   const [cargando, setCargando] = useState(true)
   const columnas = useColumnas()
 
-  // 6 items por columna: 1col=6, 2col=12, 3col=18
-  const limite = columnas * 6
+  // Items por columna adaptables: menos filas en pantallas grandes para reducir alto vertical
+  // Mobile (1col): 6 items · Tablet (2col): 5 items · Desktop (3-4col): 4 items
+  const itemsPorColumna = columnas >= 3 ? 4 : columnas === 2 ? 5 : 6
+  const limite = columnas * itemsPorColumna
   const visibles = useMemo(() => recientes.slice(0, limite), [recientes, limite])
 
   useEffect(() => {
@@ -212,7 +227,10 @@ export function WidgetRecientes() {
         <Clock size={15} className="text-texto-terciario" />
         <h3 className="text-sm font-semibold text-texto-primario">Tu actividad reciente</h3>
       </div>
-      <div className="grid grid-flow-row md:grid-flow-col grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4 grid-rows-6 gap-x-3 gap-y-0.5">
+      <div
+        className="grid grid-flow-row md:grid-flow-col grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 min-[1920px]:grid-cols-4 gap-x-3 gap-y-0.5"
+        style={{ gridTemplateRows: `repeat(${itemsPorColumna}, minmax(0, auto))` }}
+      >
         {visibles.map((item, i) => {
           const config = CONFIG_ENTIDAD[item.tipo_entidad]
           if (!config) return null

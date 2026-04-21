@@ -27,6 +27,7 @@ import { useModalVisita } from '@/hooks/useModalVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useAuth } from '@/hooks/useAuth'
 import { useFormato } from '@/hooks/useFormato'
+import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import type { EntradaChatter, FiltroChatter } from '@/tipos/chatter'
 import { Popover } from '@/componentes/ui/Popover'
 import {
@@ -114,6 +115,13 @@ export function PanelChatter({
   const cargarRef = useRef(cargar)
   useEffect(() => { cargarRef.current = cargar }, [cargar])
 
+  // Contador que se incrementa al volver la PWA del background: fuerza re-suscripción del canal
+  const [reactivacion, setReactivacion] = useState(0)
+  useEscucharReactivacion(useCallback(() => {
+    setReactivacion(v => v + 1)
+    cargarRef.current()
+  }, []))
+
   useEffect(() => {
     if (!entidadId) return
 
@@ -134,7 +142,7 @@ export function PanelChatter({
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [entidadId, entidadTipo])
+  }, [entidadId, entidadTipo, reactivacion])
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {

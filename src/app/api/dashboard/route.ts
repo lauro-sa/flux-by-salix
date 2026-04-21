@@ -28,7 +28,9 @@ export async function GET() {
     const hoy = new Date()
     const hace12Semanas = new Date(hoy.getTime() - 84 * 24 * 60 * 60 * 1000)
     const en7Dias = new Date(hoy.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const manana = new Date(hoy.getTime() + 24 * 60 * 60 * 1000)
     const hoyStr = formatearFechaISO(hoy, zonaDash)
+    const mananaStr = formatearFechaISO(manana, zonaDash)
     const { diaSemana: dowLocal } = obtenerComponentesFecha(hoy, zonaDash)
     // Offset al lunes (0=domingo...6=sábado) → si es domingo, retrocedemos 6 días; sino, (dow-1).
     const diasAlLunes = dowLocal === 0 ? 6 : dowLocal - 1
@@ -60,6 +62,9 @@ export async function GET() {
       resContactosConTipo,
       resMensajesRecientes,
       resActividadesProximas,
+      resActividadesHoy,
+      resRecordatoriosHoy,
+      resNotasCompartidas,
     ] = await Promise.all([
       // ─── Consultas originales ───
 
@@ -244,6 +249,31 @@ export async function GET() {
         .gte('fecha_vencimiento', hoyStr)
         .order('fecha_vencimiento', { ascending: true })
         .limit(5),
+
+      // ─── Actividades de hoy (pendientes con vencimiento hoy) — para chip "hoy" ───
+      admin
+        .from('actividades')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .eq('estado_clave', 'pendiente')
+        .gte('fecha_vencimiento', hoyStr)
+        .lt('fecha_vencimiento', mananaStr),
+
+      // ─── Recordatorios del usuario pendientes o para hoy (vencidos + hoy) ───
+      admin
+        .from('recordatorios')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('asignado_a', user.id)
+        .eq('completado', false)
+        .lte('fecha', hoyStr),
+
+      // ─── Notas compartidas con el usuario: contamos en post-proceso (filtro _tiene_cambios) ───
+      admin
+        .from('notas_rapidas_compartidas')
+        .select('leido_en, nota:notas_rapidas(actualizado_en, en_papelera, archivada)')
+        .eq('usuario_id', user.id),
     ])
 
     // ─── Procesar datos originales ───
@@ -487,6 +517,21 @@ export async function GET() {
       clientesNuevosPorMes[claveMes][tipo] = (clientesNuevosPorMes[claveMes][tipo] || 0) + 1
     }
 
+    // ─── Notas compartidas con cambios no leídos ───
+    // Misma lógica que _tiene_cambios en /api/notas-rapidas: nunca leída, o
+    // actualizada después de la última lectura. Excluye archivadas y papelera.
+    let notasConCambios = 0
+    type FilaNotaCompartida = {
+      leido_en: string | null
+      nota: { actualizado_en: string | null; en_papelera: boolean; archivada: boolean } | null
+    }
+    for (const row of (resNotasCompartidas.data || []) as unknown as FilaNotaCompartida[]) {
+      const nota = Array.isArray(row.nota) ? row.nota[0] : row.nota
+      if (!nota || nota.en_papelera || nota.archivada) continue
+      const tieneCambios = !row.leido_en || (nota.actualizado_en && new Date(nota.actualizado_en) > new Date(row.leido_en))
+      if (tieneCambios) notasConCambios++
+    }
+
     return NextResponse.json({
       contactos: {
         total: resContactos.count || 0,
@@ -524,8 +569,13 @@ export async function GET() {
       actividades: {
         pendientes: resActividadesPendientes.data || [],
         total_pendientes: resActividadesTotal.count || 0,
+        total_hoy: resActividadesHoy.count || 0,
         completadas_hoy: resActividadesCompletadasHoy.count || 0,
         por_persona: actividadesPorPersona,
+      },
+      alertas: {
+        recordatorios_hoy: resRecordatoriosHoy.count || 0,
+        notas_con_cambios: notasConCambios,
       },
       productos: {
         top: resProductosTop.data || [],

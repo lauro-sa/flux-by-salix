@@ -35,6 +35,14 @@ function BotonFlotanteRecordatorios() {
     return () => clearInterval(interval)
   }, [])
 
+  // Escucha evento global para abrir el panel desde otras partes de la app
+  // (ej: acceso rápido del dashboard → window.dispatchEvent(new Event('flux:abrir-recordatorios')))
+  useEffect(() => {
+    const abrir = () => setPanelAbierto(true)
+    window.addEventListener('flux:abrir-recordatorios', abrir)
+    return () => window.removeEventListener('flux:abrir-recordatorios', abrir)
+  }, [])
+
   return (
     <>
       <AnimatePresence>

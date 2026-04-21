@@ -3,19 +3,18 @@
 /**
  * EntradaVisita — Bloque visual de visita completada en el chatter.
  * Muestra resultado, notas, checklist, fotos, temperatura, dirección y duración.
- * Botón "Ver detalle" abre ModalDetalleVisita con toda la info expandida.
+ * Botón "Ver detalle" navega a la página /visitas/[id] (migajas completas).
  * Se usa en: EntradaTimeline (cuando tipo === 'visita').
  */
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
-  MapPin, Clock, Thermometer, CheckSquare, Square,
-  ImageIcon, ChevronRight, Navigation, CalendarClock,
+  MapPin, Clock, CheckSquare, Square,
+  ImageIcon, ChevronRight, Navigation,
 } from 'lucide-react'
 import type { EntradaChatter, AdjuntoChatter } from '@/tipos/chatter'
 import { fechaRelativa, fechaCompleta } from './constantes'
-import { ModalDetalleVisita } from './ModalDetalleVisita'
 
 // ─── Colores de temperatura ───
 const COLORES_TEMPERATURA: Record<string, { bg: string; texto: string; etiqueta: string }> = {
@@ -71,8 +70,10 @@ export function EntradaVisita({
   formatoHora: string
   locale: string
 }) {
-  const [modalAbierto, setModalAbierto] = useState(false)
+  const router = useRouter()
   const m = entrada.metadata
+  const visitaId = m?.visita_id
+  const contactoId = m?.visita_contacto_id
 
   const resultado = m?.visita_resultado
   const notas = m?.visita_notas
@@ -187,22 +188,22 @@ export function EntradaVisita({
           )}
         </div>
 
-        {/* Footer — botón ver detalle */}
-        <button
-          onClick={() => setModalAbierto(true)}
-          className="w-full flex items-center justify-center gap-1 py-2 text-xs font-medium text-texto-marca border-t border-texto-marca/10 hover:bg-texto-marca/[0.06] transition-colors"
-        >
-          Ver detalle
-          <ChevronRight size={12} />
-        </button>
+        {/* Footer — navegar al detalle de la visita */}
+        {visitaId && (
+          <button
+            onClick={() => {
+              const ruta = contactoId
+                ? `/visitas/${visitaId}?desde=/contactos/${contactoId}`
+                : `/visitas/${visitaId}`
+              router.push(ruta)
+            }}
+            className="w-full flex items-center justify-center gap-1 py-2 text-xs font-medium text-texto-marca border-t border-texto-marca/10 hover:bg-texto-marca/[0.06] transition-colors"
+          >
+            Ver detalle
+            <ChevronRight size={12} />
+          </button>
+        )}
       </div>
-
-      {/* Modal de detalle expandido */}
-      <ModalDetalleVisita
-        abierto={modalAbierto}
-        onCerrar={() => setModalAbierto(false)}
-        entrada={entrada}
-      />
     </>
   )
 }

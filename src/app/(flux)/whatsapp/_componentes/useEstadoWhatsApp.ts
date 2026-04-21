@@ -6,6 +6,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { sonidos } from '@/hooks/useSonido'
+import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import type {
   EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, VistaMovilWA,
@@ -277,10 +278,17 @@ export function useEstadoWhatsApp() {
     }
   }, [conversaciones, marcarNotificacionesLeidasDeConversacion, esMovil])
 
+  // Contador para forzar re-suscripción del canal al volver del background
+  const [reactivacion, setReactivacion] = useState(0)
+  useEscucharReactivacion(useCallback(() => {
+    setReactivacion(v => v + 1)
+  }, []))
+
   // ─── Realtime: escuchar mensajes nuevos ───
   useEffect(() => {
     const convId = conversacionSeleccionada?.id
     if (!convId) return
+    void reactivacion // fuerza re-suscripción al volver del background
 
     const canal = supabase
       .channel(`wa-mensajes-${convId}`)
@@ -336,7 +344,7 @@ export function useEstadoWhatsApp() {
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [conversacionSeleccionada?.id, supabase])
+  }, [conversacionSeleccionada?.id, supabase, reactivacion])
 
   // ─── Cargar mensajes anteriores ───
   const conversacionIdRef = useRef<string | null>(null)
