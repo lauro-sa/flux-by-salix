@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+
+// Roles con poder de gestión sobre la OT (edición aunque no sean creador/cabecilla).
+const ROLES_ADMIN_OT = ['propietario', 'administrador', 'gerente']
 
 /**
  * GET /api/ordenes/[id]/tareas — Listar tareas de una orden de trabajo.
@@ -54,9 +56,6 @@ export async function POST(
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'editar')
-    if (!permitido) return NextResponse.json({ error: 'Sin permiso para editar órdenes' }, { status: 403 })
-
     const admin = crearClienteAdmin()
     const body = await request.json()
 
@@ -64,15 +63,42 @@ export async function POST(
       return NextResponse.json({ error: 'El título es obligatorio' }, { status: 400 })
     }
 
-    // Verificar que la orden existe
-    const { data: orden } = await admin
-      .from('ordenes_trabajo')
-      .select('id, numero')
-      .eq('id', id)
-      .eq('empresa_id', empresaId)
-      .single()
+    // Verificar que la orden existe y que el usuario puede gestionar
+    const [{ data: orden }, { data: asignadosOT }] = await Promise.all([
+      admin
+        .from('ordenes_trabajo')
+        .select('id, numero, creado_por, publicada')
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .single(),
+      admin
+        .from('asignados_orden_trabajo')
+        .select('usuario_id, es_cabecilla')
+        .eq('orden_trabajo_id', id),
+    ])
 
     if (!orden) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+
+    const rol = user.app_metadata?.rol
+    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
+    const esCreador = orden.creado_por === user.id
+    const esCabecilla = (asignadosOT || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
+    const puedeGestionar = esAdmin || esCreador || esCabecilla
+
+    if (!puedeGestionar) {
+      return NextResponse.json(
+        { error: 'Solo responsable, creador o administrador pueden crear tareas' },
+        { status: 403 }
+      )
+    }
+
+    // OT publicada = congelada. Para agregar tareas, despublicar primero.
+    if (orden.publicada) {
+      return NextResponse.json(
+        { error: 'La orden está publicada: despublicala para agregar tareas' },
+        { status: 409 }
+      )
+    }
 
     // Obtener nombre del creador
     const { data: perfil } = await admin

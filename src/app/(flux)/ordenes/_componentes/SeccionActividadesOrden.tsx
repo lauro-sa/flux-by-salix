@@ -43,12 +43,17 @@ interface PropiedadesSeccion {
   ordenNumero: string
   asignadosOT: AsignadoOrdenTrabajo[]
   usuarioActualId: string | null
-  puedeEditarEstado: boolean
+  /** True si el user es admin, creador o cabecilla. Determina si puede marcar cualquier tarea. */
+  puedeGestionar: boolean
+  /** True solo si es gestor Y la OT está en borrador: permite crear/editar/cancelar tareas. */
+  puedeEditar: boolean
+  /** Publicación de la OT. Asignados comunes solo marcan tareas en OTs publicadas. */
+  publicada: boolean
   onProgresoChange?: (completadas: number, total: number) => void
 }
 
 export default function SeccionActividadesOrden({
-  ordenId, ordenNumero, asignadosOT, usuarioActualId, puedeEditarEstado,
+  ordenId, ordenNumero, asignadosOT, usuarioActualId, puedeGestionar, puedeEditar, publicada,
   onProgresoChange,
 }: PropiedadesSeccion) {
   const { t } = useTraduccion()
@@ -202,10 +207,11 @@ export default function SeccionActividadesOrden({
   const responsablesOT = asignadosOT.filter(a => a.es_cabecilla)
   const esResponsableOT = responsablesOT.some(a => a.usuario_id === usuarioActualId)
 
-  // Determinar si el usuario actual puede marcar una tarea como hecha
+  // Determinar si el usuario actual puede marcar una tarea como hecha.
+  // Para no-gestores requiere OT publicada (coherente con backend).
   const puedeMarcarTarea = (tarea: TareaOrden): boolean => {
-    if (puedeEditarEstado) return true
-    if (!usuarioActualId) return false
+    if (puedeGestionar) return true
+    if (!usuarioActualId || !publicada) return false
 
     const asignadosTarea = tarea.asignados || []
     if (asignadosTarea.length > 0) {
@@ -216,8 +222,8 @@ export default function SeccionActividadesOrden({
 
   // Determinar si puede marcar una actividad
   const puedeMarcarActividad = (actividad: Actividad): boolean => {
-    if (puedeEditarEstado) return true
-    if (!usuarioActualId) return false
+    if (puedeGestionar) return true
+    if (!usuarioActualId || !publicada) return false
 
     const asignadosActividad = actividad.asignados || []
     if (asignadosActividad.length > 0) {
@@ -300,24 +306,26 @@ export default function SeccionActividadesOrden({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            icono={<PlusCircle size={13} />}
-            onClick={() => { setNuevaTarea(true); setModalAbierto(false) }}
-          >
-            Tarea
-          </Boton>
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            icono={<PlusCircle size={13} />}
-            onClick={() => { setModalAbierto(true); setNuevaTarea(false) }}
-          >
-            Actividad
-          </Boton>
-        </div>
+        {puedeEditar && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<PlusCircle size={13} />}
+              onClick={() => { setNuevaTarea(true); setModalAbierto(false) }}
+            >
+              Tarea
+            </Boton>
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<PlusCircle size={13} />}
+              onClick={() => { setModalAbierto(true); setNuevaTarea(false) }}
+            >
+              Actividad
+            </Boton>
+          </div>
+        )}
       </div>
 
       {/* Formulario inline para nueva tarea OT */}
@@ -398,6 +406,7 @@ export default function SeccionActividadesOrden({
               key={tarea.id}
               tarea={tarea}
               puedeMarcar={puedeMarcarTarea(tarea)}
+              puedeCancelar={puedeEditar}
               onCompletar={() => completarTarea(tarea.id)}
               onCancelar={() => abrirCancelar(tarea.id, 'tarea')}
             />
@@ -431,6 +440,7 @@ export default function SeccionActividadesOrden({
                   tarea={tarea}
                   completada
                   puedeMarcar={puedeMarcarTarea(tarea)}
+                  puedeCancelar={puedeEditar}
                   onReactivar={() => reactivarTarea(tarea.id)}
                 />
               ))}
@@ -609,6 +619,7 @@ function FilaTareaOrden({
   tarea,
   completada,
   puedeMarcar,
+  puedeCancelar,
   onCompletar,
   onCancelar,
   onReactivar,
@@ -616,6 +627,7 @@ function FilaTareaOrden({
   tarea: TareaOrden
   completada?: boolean
   puedeMarcar: boolean
+  puedeCancelar: boolean
   onCompletar?: () => void
   onCancelar?: () => void
   onReactivar?: () => void
@@ -666,7 +678,7 @@ function FilaTareaOrden({
             <span className="hidden sm:inline">Hecho</span>
           </button>
         )}
-        {!completada && puedeMarcar && onCancelar && (
+        {!completada && puedeCancelar && onCancelar && (
           <button
             type="button"
             onClick={onCancelar}

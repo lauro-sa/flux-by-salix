@@ -41,6 +41,7 @@ interface FilaOrden {
   presupuesto_numero: string | null
   asignado_a: string | null
   asignado_nombre: string | null
+  publicada: boolean
   fecha_inicio: string | null
   fecha_fin_estimada: string | null
   fecha_fin_real: string | null
@@ -276,6 +277,27 @@ export default function ContenidoOrdenes() {
       render: (fila) => (
         <span className="text-texto-secundario">{fila.asignado_nombre || '—'}</span>
       ),
+    },
+    {
+      clave: 'publicada',
+      etiqueta: 'Publicada',
+      ancho: 110,
+      filtrable: true,
+      opcionesFiltro: [
+        { valor: 'true', etiqueta: 'Publicadas' },
+        { valor: 'false', etiqueta: 'Sin publicar' },
+      ],
+      render: (fila) => {
+        // Estados terminales: la publicación ya fue consumida, se muestra apagada
+        const terminada = fila.estado === 'completada' || fila.estado === 'cancelada'
+        if (!fila.publicada) {
+          return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-insignia-naranja-fondo text-insignia-naranja-texto">Sin publicar</span>
+        }
+        if (terminada) {
+          return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-superficie-hover/60 text-texto-terciario">Publicada</span>
+        }
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-insignia-exito-fondo text-insignia-exito-texto">Publicada</span>
+      },
     },
     {
       clave: 'creado_en',

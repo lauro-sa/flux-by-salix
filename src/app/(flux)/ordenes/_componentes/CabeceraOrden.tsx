@@ -24,7 +24,7 @@ interface Props {
   estado: EstadoOrdenTrabajo
   prioridad: PrioridadOrdenTrabajo
   publicada: boolean
-  puedeEditarEstado: boolean
+  puedeGestionar: boolean
   onCambiarEstado: (estado: EstadoOrdenTrabajo) => void
   onPublicar: () => void
   onDespublicar: () => void
@@ -33,7 +33,7 @@ interface Props {
 
 export default function CabeceraOrden({
   numero, titulo, estado, prioridad,
-  publicada, puedeEditarEstado,
+  publicada, puedeGestionar,
   onCambiarEstado, onPublicar, onDespublicar,
   guardando,
 }: Props) {
@@ -57,7 +57,7 @@ export default function CabeceraOrden({
 
   // Botón de acción principal según estado
   const accionPrincipal = (() => {
-    if (!puedeEditarEstado) return null
+    if (!puedeGestionar) return null
     switch (estado) {
       case 'abierta':
         return { label: 'Iniciar', estado: 'en_progreso' as EstadoOrdenTrabajo, icono: Play, variante: 'primario' as const }
@@ -74,7 +74,7 @@ export default function CabeceraOrden({
     }
   })()
 
-  const puedeCancelar = puedeEditarEstado && transicionesValidas.includes('cancelada')
+  const puedeCancelar = puedeGestionar && transicionesValidas.includes('cancelada')
 
   return (
     <div className="px-4 sm:px-6 pt-4 pb-4 border-b border-borde-sutil">
@@ -106,14 +106,14 @@ export default function CabeceraOrden({
         <div ref={refMenu} className="relative">
           <button
             type="button"
-            onClick={() => puedeEditarEstado && transicionesValidas.length > 0 && setMenuEstadoAbierto(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto} ${!puedeEditarEstado ? 'cursor-default' : ''}`}
+            onClick={() => puedeGestionar && transicionesValidas.length > 0 && setMenuEstadoAbierto(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto} ${!puedeGestionar ? 'cursor-default' : ''}`}
           >
             {ETIQUETAS_ESTADO_OT[estado]}
-            {puedeEditarEstado && transicionesValidas.length > 0 && <ChevronDown size={14} />}
+            {puedeGestionar && transicionesValidas.length > 0 && <ChevronDown size={14} />}
           </button>
 
-          {menuEstadoAbierto && puedeEditarEstado && transicionesValidas.length > 0 && (
+          {menuEstadoAbierto && puedeGestionar && transicionesValidas.length > 0 && (
             <div className="absolute top-full mt-1 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
               {transicionesValidas.map(nuevoEstado => {
                 const colores = COLORES_ESTADO_OT[nuevoEstado]
@@ -142,7 +142,7 @@ export default function CabeceraOrden({
         <div className="flex-1" />
 
         {/* Botón Publicar / Despublicar (solo admin/cabecilla) */}
-        {puedeEditarEstado && (
+        {puedeGestionar && (
           publicada ? (
             <Boton
               variante="secundario"

@@ -2,10 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { TRANSICIONES_ESTADO_OT, ETIQUETAS_ESTADO_OT } from '@/tipos/orden-trabajo'
 import type { EstadoOrdenTrabajo } from '@/tipos/orden-trabajo'
+
+// Roles que tienen poder de gestión sobre la OT sin ser creador/cabecilla.
+const ROLES_ADMIN_OT = ['propietario', 'administrador', 'gerente']
 
 /**
  * GET /api/ordenes/[id] — Detalle completo de una orden de trabajo.
@@ -60,6 +63,30 @@ export async function GET(
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
     }
 
+    // ── Control de visibilidad por publicación ──
+    // Regla: borradores solo visibles para admin/creador/cabecilla.
+    // Publicadas visibles además para asignados comunes.
+    const asignadosLista = asignadosRes.data || []
+    const rol = user.app_metadata?.rol
+    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
+    const esCreador = ordenRes.data.creado_por === user.id
+    const esCabecilla = asignadosLista.some((a: { usuario_id: string; es_cabecilla: boolean }) => a.usuario_id === user.id && a.es_cabecilla)
+    const esAsignado = asignadosLista.some((a: { usuario_id: string }) => a.usuario_id === user.id)
+    const puedeGestionar = esAdmin || esCreador || esCabecilla
+
+    if (!ordenRes.data.publicada && !puedeGestionar) {
+      // Borrador oculto a quienes no gestionan — devolvemos 404 para no filtrar existencia.
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+    }
+
+    if (ordenRes.data.publicada && !puedeGestionar && !esAsignado) {
+      // Publicada pero el usuario no está asignado: validar que pueda ver todas.
+      const visibilidad = await verificarVisibilidad(user.id, empresaId, 'ordenes_trabajo')
+      if (!visibilidad || !visibilidad.verTodos) {
+        return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+      }
+    }
+
     // Calcular progreso de tareas
     const tareas = tareasRes.data || []
     const totalActividades = tareas.length
@@ -111,12 +138,14 @@ export async function GET(
       orden: ordenRes.data,
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
-      asignados: asignadosRes.data || [],
+      asignados: asignadosLista,
       progreso: {
         total_actividades: totalActividades,
         completadas,
         porcentaje: totalActividades > 0 ? Math.round((completadas / totalActividades) * 100) : 0,
       },
+      puedeGestionar,
+      esAsignado,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -163,10 +192,37 @@ export async function PATCH(
     // Verificar si es cabecilla, admin o creador para cambios de estado
     const esCabecilla = (asignadosActuales || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
     const rol = user.app_metadata?.rol
-    const esAdmin = ['propietario', 'administrador', 'gerente'].includes(rol) || user.app_metadata?.es_superadmin
+    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
 
     const esCreador = ordenActual.creado_por === user.id
     const puedeGestionar = esAdmin || esCabecilla || esCreador
+
+    // ── Control de acceso según publicación ──
+    // Borrador: solo gestores (admin/creador/cabecilla) pueden editar; a otros les devolvemos 404.
+    if (!ordenActual.publicada && !puedeGestionar) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+    }
+    // Publicada: solo gestores pueden modificar la orden en sí. Asignados comunes ven pero no editan.
+    if (ordenActual.publicada && !puedeGestionar) {
+      return NextResponse.json(
+        { error: 'Esta orden está publicada. Solo responsable, creador o administrador pueden editarla' },
+        { status: 403 }
+      )
+    }
+
+    // Publicada: incluso los gestores sólo pueden ejecutar acciones de "flujo"
+    // (cambio de estado, despublicar). Los campos de datos (fechas, asignados,
+    // contacto, etc.) quedan congelados hasta despublicar.
+    if (ordenActual.publicada) {
+      const CAMPOS_PERMITIDOS_PUBLICADA = new Set(['estado', 'publicada', 'notas_estado'])
+      const camposIntentados = Object.keys(body).filter(k => !CAMPOS_PERMITIDOS_PUBLICADA.has(k))
+      if (camposIntentados.length > 0) {
+        return NextResponse.json(
+          { error: 'La orden está publicada: despublicala para modificar sus datos' },
+          { status: 409 }
+        )
+      }
+    }
 
     // Si hay cambio de estado, validar transición + permisos
     if (body.estado && body.estado !== ordenActual.estado) {

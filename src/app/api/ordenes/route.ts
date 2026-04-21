@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
     const visibilidad = await verificarVisibilidad(user.id, empresaId, 'ordenes_trabajo')
     if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver órdenes' }, { status: 403 })
     const soloPropio = visibilidad.soloPropio
+    // Admins bypasean el filtro de publicación (ven borradores ajenos)
+    const rolUsuario = visibilidad.miembro?.rol
+    const esAdminOT = ['propietario', 'administrador', 'gerente'].includes(rolUsuario || '')
+      || Boolean(user.app_metadata?.es_superadmin)
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -88,19 +92,34 @@ export async function GET(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 
-    if (soloPropio) {
-      // Obtener IDs de OTs donde el usuario es asignado
+    // ── Filtro por publicación + visibilidad ──
+    // Regla: los asignados comunes NO ven borradores. Solo ven publicadas o donde son
+    // creador/cabecilla. Admins ven todo. soloPropio acota al universo propio primero.
+    if (!esAdminOT) {
+      // Cargar asignaciones del user para distinguir cabecilla vs común
       const { data: misAsignaciones } = await admin
         .from('asignados_orden_trabajo')
-        .select('orden_trabajo_id')
+        .select('orden_trabajo_id, es_cabecilla')
         .eq('empresa_id', empresaId)
         .eq('usuario_id', user.id)
-      const idsAsignado = (misAsignaciones || []).map(a => a.orden_trabajo_id)
+      const asigs = misAsignaciones || []
+      const idsCabecilla = asigs.filter(a => a.es_cabecilla).map(a => a.orden_trabajo_id)
+      const idsAsignadoComun = asigs.filter(a => !a.es_cabecilla).map(a => a.orden_trabajo_id)
 
-      if (idsAsignado.length > 0) {
-        query = query.or(`creado_por.eq.${user.id},id.in.(${idsAsignado.join(',')})`)
+      // Construir las cláusulas OR aplicables a este usuario.
+      const clausulas: string[] = [`creado_por.eq.${user.id}`]
+      if (idsCabecilla.length > 0) clausulas.push(`id.in.(${idsCabecilla.join(',')})`)
+      if (idsAsignadoComun.length > 0) {
+        // Asignado común: solo ve esas OTs si están publicadas
+        clausulas.push(`and(publicada.eq.true,id.in.(${idsAsignadoComun.join(',')}))`)
+      }
+
+      if (soloPropio) {
+        // Universo: solo las que le pertenecen (creador, cabecilla, o asignado común publicada)
+        query = query.or(clausulas.join(','))
       } else {
-        query = query.eq('creado_por', user.id)
+        // verTodos sin ser admin: ve publicadas ajenas + todas las propias/cabecillas
+        query = query.or([`publicada.eq.true`, ...clausulas].join(','))
       }
     }
 

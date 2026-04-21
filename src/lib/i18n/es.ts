@@ -893,7 +893,7 @@ export const es: Traducciones = {
     fecha_fin_real: 'Fin real',
     generar_ot: 'Generar Orden de Trabajo',
     ot_generada: 'Orden de trabajo generada',
-    progreso_actividades: 'Progreso de actividades',
+    progreso_actividades: 'Progreso de la OT',
     sin_actividades: 'Sin actividades vinculadas',
     agregar_actividad: 'Agregar actividad',
     contacto_seccion: 'Contacto',

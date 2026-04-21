@@ -868,7 +868,7 @@ export const pt: Traducciones = {
     fecha_fin_real: 'Fim real',
     generar_ot: 'Gerar Ordem de Serviço',
     ot_generada: 'Ordem de serviço gerada',
-    progreso_actividades: 'Progresso de atividades',
+    progreso_actividades: 'Progresso da OS',
     sin_actividades: 'Sem atividades vinculadas',
     agregar_actividad: 'Adicionar atividade',
     contacto_seccion: 'Contato',

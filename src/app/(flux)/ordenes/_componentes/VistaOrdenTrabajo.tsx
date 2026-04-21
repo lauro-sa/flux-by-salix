@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
+import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
@@ -36,6 +38,10 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const formato = useFormato()
   const router = useRouter()
   const { mostrar: mostrarToast } = useToast()
+  const { tienePermiso } = useRol()
+  // Si el usuario no tiene acceso a presupuestos, el número de origen
+  // se muestra como texto plano (sin link).
+  const puedeVerPresupuesto = tienePermiso('presupuestos', 'ver_todos') || tienePermiso('presupuestos', 'ver_propio')
 
   // Restaurar título de pestaña al salir
   useEffect(() => {
@@ -52,24 +58,34 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const [menuAsignadosAbierto, setMenuAsignadosAbierto] = useState(false)
   const refMenuAsignados = useRef<HTMLDivElement>(null)
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
-  const [rolUsuario, setRolUsuario] = useState<string | null>(null)
-  const [esSuperadmin, setEsSuperadmin] = useState(false)
+  // Flag calculado por el servidor: admin OR creador OR cabecilla.
+  // Determina si puede editar la orden (fechas, asignados, estado, publicar…).
+  const [puedeGestionar, setPuedeGestionar] = useState(false)
+  const [confirmarDespublicar, setConfirmarDespublicar] = useState(false)
 
   // Cargar miembros del equipo + datos del usuario actual
   useEffect(() => {
     (async () => {
+      // ID del usuario actual (para resaltar "tú" y calcular permisos derivados)
       const supabase = crearClienteNavegador()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setUsuarioActualId(user.id)
-      setRolUsuario(user.app_metadata?.rol || null)
-      setEsSuperadmin(user.app_metadata?.es_superadmin || false)
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return
-      const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-      if (!mRes?.length) return
-      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
-      setMiembros((perfiles || []).map(p => ({ id: p.id, nombre: `${p.nombre} ${p.apellido || ''}`.trim() })))
+      if (user) setUsuarioActualId(user.id)
+
+      // Miembros vía endpoint (evita problemas de RLS desde el cliente)
+      try {
+        const res = await fetch('/api/miembros')
+        if (!res.ok) return
+        const data = await res.json()
+        const lista = (data.miembros || [])
+          .filter((m: { usuario_id: string | null }) => m.usuario_id)
+          .map((m: { usuario_id: string; nombre: string; apellido: string | null }) => ({
+            id: m.usuario_id,
+            nombre: `${m.nombre} ${m.apellido || ''}`.trim(),
+          }))
+        setMiembros(lista)
+      } catch {
+        // silencioso: si falla, el selector de asignados aparece vacío
+      }
     })()
   }, [])
 
@@ -93,6 +109,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       setOrden(data.orden)
       setAsignados(data.asignados || [])
       setProgreso(data.progreso || { total_actividades: 0, completadas: 0, porcentaje: 0 })
+      setPuedeGestionar(Boolean(data.puedeGestionar))
       if (data.orden?.numero) document.title = `${data.orden.numero} — Flux`
     } catch {
       mostrarToast('error', 'Error al cargar la orden')
@@ -103,11 +120,10 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
 
   useEffect(() => { cargar() }, [cargar])
 
-  // ── Permisos derivados ──
-  const esResponsable = asignados.some(a => a.usuario_id === usuarioActualId && a.es_cabecilla)
-  const esCreador = orden?.creado_por === usuarioActualId
-  const esAdmin = ['propietario', 'administrador', 'gerente'].includes(rolUsuario || '') || esSuperadmin
-  const puedeEditarEstado = esAdmin || esResponsable || esCreador
+  // Publicada = congelada (vista previa de cómo la ve el asignado).
+  // Para editar datos (fechas, responsables, tareas) hay que despublicar.
+  // Solo quedan disponibles: cambio de publicada, cambio de estado, y marcar tareas hechas.
+  const puedeEditar = puedeGestionar && !orden?.publicada
 
   // ── Cambiar estado ──
   const cambiarEstado = async (nuevoEstado: EstadoOrdenTrabajo) => {
@@ -157,8 +173,13 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
     }
   }
 
+  // Abre un modal de confirmación antes de despublicar (hay asignados comunes
+  // que perderán la visibilidad de la OT al volver a borrador).
+  const solicitarDespublicar = () => setConfirmarDespublicar(true)
+
   const despublicar = async () => {
     if (!orden) return
+    setConfirmarDespublicar(false)
     setGuardando(true)
     try {
       const res = await fetch(`/api/ordenes/${ordenId}`, {
@@ -266,6 +287,9 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       if (res.ok) {
         const actualizada = await res.json()
         setOrden(actualizada)
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Error al guardar fecha' }))
+        mostrarToast('error', err.error || 'Error al guardar fecha')
       }
     } catch {
       mostrarToast('error', 'Error al guardar fecha')
@@ -303,10 +327,10 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         estado={orden.estado}
         prioridad={orden.prioridad}
         publicada={orden.publicada}
-        puedeEditarEstado={puedeEditarEstado}
+        puedeGestionar={puedeGestionar}
         onCambiarEstado={cambiarEstado}
         onPublicar={publicar}
-        onDespublicar={despublicar}
+        onDespublicar={solicitarDespublicar}
         guardando={guardando}
       />
 
@@ -329,7 +353,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
               />
             </div>
             <span className="text-sm text-texto-terciario shrink-0">
-              {progreso.completadas} de {progreso.total_actividades} actividad{progreso.total_actividades !== 1 ? 'es' : ''}
+              {progreso.completadas} de {progreso.total_actividades} completadas
             </span>
           </div>
         </div>
@@ -338,14 +362,25 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       {/* ── Ficha operativa ── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-        {/* Card principal: contacto + datos clave */}
-        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-5">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_auto] gap-5">
+        {/* Card principal: contacto (izq) + meta-datos (der) */}
+        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 sm:p-5">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_240px] gap-4 md:gap-6">
 
-            {/* Lado izquierdo: contacto + acciones rápidas */}
-            <div className="space-y-3">
+            {/* ── IZQUIERDA: contacto + acciones + asignados ── */}
+            <div className="space-y-4">
+              {/* Contacto (jerarquía principal) */}
               {orden.contacto_nombre && (
-                <p className="text-lg font-semibold text-texto-primario">{orden.contacto_nombre}</p>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-semibold text-texto-primario leading-tight">
+                    {orden.contacto_nombre}
+                  </h2>
+                  {orden.contacto_direccion && (
+                    <p className="text-sm text-texto-terciario mt-1 flex items-start gap-1.5">
+                      <MapPin size={13} className="shrink-0 mt-0.5" />
+                      <span>{orden.contacto_direccion}</span>
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Botones de acción rápida */}
@@ -376,7 +411,6 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 )}
                 {/* Avisar llegada — prioridad: atención (dirigido a) > contacto principal */}
                 {(orden.contacto_nombre || orden.atencion_nombre) && (() => {
-                  // Prioridad: si hay "dirigido a" con teléfono, usarlo. Sino, contacto principal.
                   const tieneAtencion = orden.atencion_nombre && orden.atencion_telefono
                   const nombreAviso = tieneAtencion ? orden.atencion_nombre! : orden.contacto_nombre
                   const telAviso = tieneAtencion
@@ -410,94 +444,68 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 })()}
               </div>
 
-              {/* Dirección */}
-              {orden.contacto_direccion && (
-                <p className="text-sm text-texto-terciario">{orden.contacto_direccion}</p>
-              )}
-            </div>
+              {/* ── Asignados ── */}
+              <div className="pt-3 border-t border-white/[0.06]">
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Asignados</p>
 
-            {/* Divisor vertical */}
-            <div className="hidden md:block bg-white/[0.07]" />
-
-            {/* Lado derecho: datos clave */}
-            <div className="space-y-3 md:min-w-[220px]">
-              {/* Presupuesto origen */}
-              {orden.presupuesto_id && (
-                <div>
-                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-0.5">{t('ordenes.presupuesto_origen')}</p>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/presupuestos/${orden.presupuesto_id}`)}
-                    className="flex items-center gap-1.5 text-sm text-texto-marca hover:underline cursor-pointer border-none bg-transparent p-0"
-                  >
-                    <FileText size={13} />
-                    {orden.presupuesto_numero}
-                    <ExternalLink size={11} />
-                  </button>
-                </div>
-              )}
-
-              {/* ── Asignados (múltiples con responsable) ── */}
-              <div>
-                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Asignados</p>
-
-                {/* Lista de asignados */}
-                <div className="space-y-1">
-                  {asignados.map(a => (
-                    <div key={a.usuario_id} className="flex items-center gap-2 group">
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                {asignados.length === 0 ? (
+                  <p className="text-sm text-texto-terciario italic">Sin asignar</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {asignados.map(a => (
+                      <div
+                        key={a.usuario_id}
+                        className={`group inline-flex items-center gap-1.5 pl-2 pr-2 py-1 rounded-full border text-sm ${
+                          a.es_cabecilla
+                            ? 'border-texto-marca/30 bg-texto-marca/10 text-texto-primario'
+                            : 'border-borde-sutil bg-white/[0.03] text-texto-secundario'
+                        }`}
+                      >
                         {a.es_cabecilla ? (
-                          <Crown size={13} className="text-texto-marca shrink-0" />
+                          <Crown size={12} className="text-texto-marca shrink-0" />
                         ) : (
-                          <User size={13} className="text-texto-terciario shrink-0" />
+                          <User size={12} className="text-texto-terciario shrink-0" />
                         )}
-                        <span className={`text-sm truncate ${a.es_cabecilla ? 'text-texto-primario font-medium' : 'text-texto-secundario'}`}>
-                          {a.usuario_nombre}
-                        </span>
+                        <span className={a.es_cabecilla ? 'font-medium' : ''}>{a.usuario_nombre}</span>
                         {a.es_cabecilla && (
-                          <span className="text-[10px] text-texto-marca font-medium">Responsable</span>
+                          <span className="text-[10px] text-texto-marca/80 ml-0.5">Responsable</span>
+                        )}
+                        {puedeEditar && (
+                          <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => toggleResponsable(a.usuario_id)}
+                              className={`p-0.5 rounded-full transition-colors cursor-pointer border-none bg-transparent ${
+                                a.es_cabecilla
+                                  ? 'text-texto-marca hover:bg-texto-marca/15'
+                                  : 'text-texto-terciario hover:text-texto-marca hover:bg-texto-marca/10'
+                              }`}
+                              title={a.es_cabecilla ? 'Quitar responsable' : 'Hacer responsable'}
+                            >
+                              <Crown size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => quitarAsignado(a.usuario_id)}
+                              className="p-0.5 rounded-full hover:bg-insignia-peligro/15 text-texto-terciario hover:text-insignia-peligro transition-colors cursor-pointer border-none bg-transparent"
+                              title="Quitar"
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
                         )}
                       </div>
-                      {/* Acciones (solo admin/responsable puede gestionar) */}
-                      {puedeEditarEstado && (
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleResponsable(a.usuario_id)}
-                            className={`p-1 rounded-boton transition-colors cursor-pointer border-none bg-transparent ${
-                              a.es_cabecilla
-                                ? 'text-texto-marca hover:bg-texto-marca/10'
-                                : 'text-texto-terciario hover:text-texto-marca hover:bg-texto-marca/10'
-                            }`}
-                            title={a.es_cabecilla ? 'Quitar responsable' : 'Hacer responsable'}
-                          >
-                            <Crown size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => quitarAsignado(a.usuario_id)}
-                            className="p-1 rounded-boton hover:bg-insignia-peligro/10 text-texto-terciario hover:text-insignia-peligro transition-colors cursor-pointer border-none bg-transparent"
-                            title="Quitar"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
 
-                  {asignados.length === 0 && (
-                    <p className="text-xs text-texto-terciario italic">Sin asignar</p>
-                  )}
-                </div>
-
-                {/* Botón para agregar asignado */}
-                {puedeEditarEstado && miembrosDisponibles.length > 0 && (
+                {/* Botón para agregar asignado (solo en borrador) */}
+                {puedeEditar && miembrosDisponibles.length > 0 && (
                   <div ref={refMenuAsignados} className="relative mt-2">
                     <button
                       type="button"
                       onClick={() => setMenuAsignadosAbierto(v => !v)}
-                      className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-marca transition-colors cursor-pointer border-none bg-transparent p-0"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-dashed border-borde-sutil text-xs text-texto-terciario hover:text-texto-marca hover:border-texto-marca/50 transition-colors cursor-pointer bg-transparent"
                     >
                       <Plus size={12} />
                       Agregar persona
@@ -527,19 +535,57 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Divisor vertical (solo desktop) */}
+            <div className="hidden md:block bg-white/[0.07]" />
+
+            {/* ── DERECHA: meta-datos (presupuesto + fechas) ── */}
+            {/* En móvil se muestra como fila de 2 columnas; en desktop columna estrecha */}
+            <div className="md:space-y-4 grid grid-cols-2 md:grid-cols-1 gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-white/[0.06]">
+              {/* Presupuesto origen */}
+              {orden.presupuesto_id && (
+                <div className="col-span-2 md:col-span-1">
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">
+                    {t('ordenes.presupuesto_origen')}
+                  </p>
+                  {puedeVerPresupuesto ? (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/presupuestos/${orden.presupuesto_id}`)}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-texto-marca hover:underline cursor-pointer border-none bg-transparent p-0"
+                    >
+                      <FileText size={13} />
+                      {orden.presupuesto_numero}
+                      <ExternalLink size={11} />
+                    </button>
+                  ) : (
+                    <p className="inline-flex items-center gap-1.5 text-sm font-medium text-texto-secundario">
+                      <FileText size={13} className="text-texto-terciario" />
+                      {orden.presupuesto_numero}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Fecha de inicio */}
               <div>
                 <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">
                   {t('ordenes.fecha_inicio')}
                 </p>
-                <SelectorFecha
-                  valor={orden.fecha_inicio ? orden.fecha_inicio.slice(0, 10) : null}
-                  onChange={(v) => guardarFecha('fecha_inicio', v)}
-                  placeholder="Sin fecha"
-                  limpiable
-                  className="text-sm"
-                />
+                {puedeEditar ? (
+                  <SelectorFecha
+                    valor={orden.fecha_inicio ? orden.fecha_inicio.slice(0, 10) : null}
+                    onChange={(v) => guardarFecha('fecha_inicio', v)}
+                    placeholder="Sin fecha"
+                    limpiable
+                    className="text-sm"
+                  />
+                ) : (
+                  <p className={`text-base font-medium ${orden.fecha_inicio ? 'text-texto-primario' : 'text-texto-terciario italic'}`}>
+                    {orden.fecha_inicio ? formato.fecha(orden.fecha_inicio, { corta: true }) : 'Sin fecha'}
+                  </p>
+                )}
               </div>
 
               {/* Fecha fin estimada */}
@@ -547,13 +593,19 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">
                   {t('ordenes.fecha_fin_estimada')}
                 </p>
-                <SelectorFecha
-                  valor={orden.fecha_fin_estimada ? orden.fecha_fin_estimada.slice(0, 10) : null}
-                  onChange={(v) => guardarFecha('fecha_fin_estimada', v)}
-                  placeholder="Sin fecha"
-                  limpiable
-                  className="text-sm"
-                />
+                {puedeEditar ? (
+                  <SelectorFecha
+                    valor={orden.fecha_fin_estimada ? orden.fecha_fin_estimada.slice(0, 10) : null}
+                    onChange={(v) => guardarFecha('fecha_fin_estimada', v)}
+                    placeholder="Sin fecha"
+                    limpiable
+                    className="text-sm"
+                  />
+                ) : (
+                  <p className={`text-base font-medium ${orden.fecha_fin_estimada ? 'text-texto-primario' : 'text-texto-terciario italic'}`}>
+                    {orden.fecha_fin_estimada ? formato.fecha(orden.fecha_fin_estimada, { corta: true }) : 'Sin fecha'}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -573,22 +625,38 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
             ordenNumero={orden.numero}
             asignadosOT={asignados}
             usuarioActualId={usuarioActualId}
-            puedeEditarEstado={puedeEditarEstado}
+            puedeGestionar={puedeGestionar}
+            puedeEditar={puedeEditar}
+            publicada={orden.publicada}
             onProgresoChange={handleProgresoChange}
           />
         </div>
 
-        {/* Chatter — abajo de todo */}
-        <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
-          <PanelChatter
-            entidadTipo="orden_trabajo"
-            entidadId={ordenId}
-            contactoPrincipal={orden.contacto_id && orden.contacto_nombre ? { id: orden.contacto_id, nombre: orden.contacto_nombre } : undefined}
-            tipoDocumento="OT"
-            datosDocumento={{ numero: orden.numero }}
-          />
-        </div>
+        {/* Chatter — solo para gestores (admin, creador, cabecilla).
+            Los asignados comunes ejecutan el trabajo, no necesitan la conversación interna. */}
+        {puedeGestionar && (
+          <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
+            <PanelChatter
+              entidadTipo="orden_trabajo"
+              entidadId={ordenId}
+              contactoPrincipal={orden.contacto_id && orden.contacto_nombre ? { id: orden.contacto_id, nombre: orden.contacto_nombre } : undefined}
+              tipoDocumento="OT"
+              datosDocumento={{ numero: orden.numero }}
+            />
+          </div>
+        )}
       </div>
+
+      <ModalConfirmacion
+        abierto={confirmarDespublicar}
+        onCerrar={() => setConfirmarDespublicar(false)}
+        onConfirmar={despublicar}
+        tipo="advertencia"
+        titulo="Despublicar orden"
+        descripcion="La orden volverá a modo borrador y dejará de ser visible para los asignados comunes. Solo responsable, creador y administradores podrán verla."
+        etiquetaConfirmar="Despublicar"
+        cargando={guardando}
+      />
     </div>
   )
 }

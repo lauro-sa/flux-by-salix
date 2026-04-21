@@ -868,7 +868,7 @@ export const en: Traducciones = {
     fecha_fin_real: 'Actual end',
     generar_ot: 'Generate Work Order',
     ot_generada: 'Work order generated',
-    progreso_actividades: 'Activity progress',
+    progreso_actividades: 'WO progress',
     sin_actividades: 'No linked activities',
     agregar_actividad: 'Add activity',
     contacto_seccion: 'Contact',
