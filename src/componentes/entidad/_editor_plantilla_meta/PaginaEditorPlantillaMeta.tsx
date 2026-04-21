@@ -32,6 +32,7 @@ import {
   BuscadorEntidadPreview,
   type EntidadSeleccionada,
 } from './BuscadorEntidadPreview'
+import { TimelinePlantilla } from './TimelinePlantilla'
 import {
   construirDatosPlantilla,
   resolverTextoPlantilla,
@@ -105,6 +106,11 @@ interface Props {
   canalIdInicial?: string
   rutaVolver: string
   textoVolver?: string
+  /** Callback opcional que re-fetchea la plantilla desde el server (el padre
+   *  actualiza su state). Se llama después de enviar a Meta exitosamente para
+   *  que el estado, timeline y banner de desincronización se actualicen sin
+   *  perder la página. */
+  onRecargar?: () => Promise<void> | void
 }
 
 export function PaginaEditorPlantillaMeta({
@@ -113,6 +119,7 @@ export function PaginaEditorPlantillaMeta({
   canalIdInicial,
   rutaVolver,
   textoVolver = 'Plantillas Meta',
+  onRecargar,
 }: Props) {
   const router = useRouter()
   const { locale, formatoHora: fmtHora } = useFormato()
@@ -122,6 +129,8 @@ export function PaginaEditorPlantillaMeta({
 
   const [guardando, setGuardando] = useState(false)
   const [enviandoAMeta, setEnviandoAMeta] = useState(false)
+  // Trigger para forzar el refetch del timeline después de un envío/re-envío.
+  const [refrescoTimeline, setRefrescoTimeline] = useState(0)
 
   // ─── Estado del formulario ───
   const [canalId, setCanalId] = useState<string>(plantilla?.canal_id || canalIdInicial || canales[0]?.id || '')
@@ -142,7 +151,17 @@ export function PaginaEditorPlantillaMeta({
   const [ordenPreview, setOrdenPreview] = useState<Record<string, unknown> | null>(null)
   const [actividadPreview, setActividadPreview] = useState<Record<string, unknown> | null>(null)
 
-  const esEditable = !plantilla || ['BORRADOR', 'ERROR'].includes(plantilla.estado_meta)
+  // Siempre editable: incluso si la plantilla ya está aprobada en Meta,
+  // el usuario puede hacer cambios locales. Los cambios quedan "desincronizados"
+  // hasta que pulse "Enviar a Meta" para solicitar una nueva aprobación.
+  const esEditable = true
+  // Flag que indica que la plantilla ya vive en Meta (aprobada/en revisión/etc.)
+  // — se usa para decidir textos y mostrar el aviso de re-aprobación.
+  const existeEnMeta = !!plantilla && !['BORRADOR', 'ERROR'].includes(plantilla.estado_meta)
+  // La plantilla está desincronizada: cambios locales que NO fueron enviados a Meta.
+  const estaDesincronizada = plantilla?.desincronizada === true
+  // Estado desconocido: plantilla pre-hash, no podemos afirmar que esté sincronizada.
+  const sincronizacionDesconocida = plantilla?.desincronizada === null
 
   // Auto-generar nombre_api desde el nombre si el usuario no lo tocó manualmente
   useEffect(() => {
@@ -187,6 +206,21 @@ export function PaginaEditorPlantillaMeta({
         if (b.texto.length > 25) e[`boton_${i}`] = 'Texto máximo 25 caracteres'
         if (b.tipo === 'URL' && b.url && !b.url.startsWith('https://')) e[`boton_url_${i}`] = 'Debe empezar con https://'
         if (b.tipo === 'PHONE_NUMBER' && b.telefono && !b.telefono.startsWith('+')) e[`boton_tel_${i}`] = 'Debe empezar con +'
+      }
+    }
+
+    // Validar que cada {{N}} del cuerpo esté mapeado a una variable del catálogo.
+    // Sin mapeo, al enviar la plantilla se sustituye con el "ejemplo para Meta"
+    // (texto literal) y el cliente recibe datos falsos — origen del bug que
+    // mandaba "Juan García" y "PRE-00042" literales.
+    const cuerpoTexto = componentes.cuerpo?.texto || ''
+    const matchesCuerpo = cuerpoTexto.match(/\{\{(\d+)\}\}/g) || []
+    const numsCuerpo = [...new Set(matchesCuerpo.map(m => parseInt(m.replace(/[{}]/g, ''))))]
+    const mapeoCuerpo = componentes.cuerpo?.mapeo_variables || []
+    for (const n of numsCuerpo) {
+      const idx = n - 1
+      if (!mapeoCuerpo[idx] || !mapeoCuerpo[idx].trim()) {
+        e[`mapeo_${n}`] = `Asigná una variable para {{${n}}}`
       }
     }
 
@@ -422,47 +456,50 @@ export function PaginaEditorPlantillaMeta({
       if (!res.ok) throw new Error(data.error)
 
       mostrar('exito', 'Plantilla enviada a Meta para revisión')
-      router.push(rutaVolver)
+      // Si es edición, refrescamos la vista actual para que el timeline, el
+      // estado y el aviso de desincronización se actualicen sin perder la página.
+      // Si es creación, volvemos al listado (no hay página estable a la que refrescar).
+      if (plantilla?.id) {
+        setRefrescoTimeline(v => v + 1)
+        if (onRecargar) await onRecargar()
+        else router.refresh()
+      } else {
+        router.push(rutaVolver)
+      }
     } catch (err) {
       mostrar('error', `Error al enviar: ${(err as Error).message}`)
     } finally {
       setEnviandoAMeta(false)
     }
-  }, [nombre, nombreApi, categoria, idioma, componentes, modulos, plantilla, canalId, tieneErrores, mostrar, router, rutaVolver])
+  }, [nombre, nombreApi, categoria, idioma, componentes, modulos, plantilla, canalId, tieneErrores, mostrar, router, rutaVolver, onRecargar])
 
   // ─── Acciones del cabecero ───
   const estadoInfo = plantilla ? ESTADOS_META[plantilla.estado_meta] : null
 
+  // Etiqueta del botón de envío según el contexto. Cuando la plantilla ya vive
+  // en Meta y hay cambios locales sin sincronizar, el botón destaca como
+  // "Re-enviar a Meta" para que el admin sepa que la acción es necesaria.
+  const etiquetaEnviar = existeEnMeta ? 'Re-enviar a Meta' : 'Enviar a Meta'
+
   const acciones = [
-    ...(esEditable ? [
-      {
-        id: 'guardar',
-        etiqueta: 'Guardar borrador',
-        icono: <Save size={14} />,
-        onClick: guardar,
-        variante: 'secundario' as const,
-        cargando: guardando,
-        deshabilitado: tieneErrores,
-      },
-      {
-        id: 'enviar',
-        etiqueta: 'Enviar a Meta',
-        icono: <Send size={14} />,
-        onClick: enviarAMeta,
-        variante: 'primario' as const,
-        cargando: enviandoAMeta,
-        deshabilitado: tieneErrores,
-      },
-    ] : [
-      {
-        id: 'guardar',
-        etiqueta: 'Guardar cambios',
-        icono: <Save size={14} />,
-        onClick: guardar,
-        variante: 'primario' as const,
-        cargando: guardando,
-      },
-    ]),
+    {
+      id: 'guardar',
+      etiqueta: existeEnMeta ? 'Guardar cambios' : 'Guardar borrador',
+      icono: <Save size={14} />,
+      onClick: guardar,
+      variante: 'secundario' as const,
+      cargando: guardando,
+      deshabilitado: tieneErrores,
+    },
+    {
+      id: 'enviar',
+      etiqueta: etiquetaEnviar,
+      icono: <Send size={14} />,
+      onClick: enviarAMeta,
+      variante: 'primario' as const,
+      cargando: enviandoAMeta,
+      deshabilitado: tieneErrores,
+    },
   ]
 
   // ─── Insignia de estado Meta ───
@@ -539,6 +576,37 @@ export function PaginaEditorPlantillaMeta({
       acciones={acciones}
       panelConfig={panelConfig}
     >
+      {/* ═══ AVISO DE DESINCRONIZACIÓN CON META ═══ */}
+      {plantilla && existeEnMeta && (estaDesincronizada || sincronizacionDesconocida) && (
+        <div
+          className={`rounded-card border px-4 py-3 flex items-start gap-3 ${
+            estaDesincronizada
+              ? 'bg-insignia-peligro/10 border-insignia-peligro/30'
+              : 'bg-insignia-advertencia/10 border-insignia-advertencia/30'
+          }`}
+        >
+          <AlertTriangle
+            size={16}
+            className={estaDesincronizada ? 'text-insignia-peligro shrink-0 mt-0.5' : 'text-insignia-advertencia shrink-0 mt-0.5'}
+          />
+          <div className="flex-1 text-xs">
+            <p className={`font-medium ${estaDesincronizada ? 'text-insignia-peligro' : 'text-insignia-advertencia'}`}>
+              {estaDesincronizada
+                ? 'Esta plantilla tiene cambios locales no enviados a Meta'
+                : 'Estado de sincronización desconocido'}
+            </p>
+            <p className="text-texto-secundario mt-1">
+              {estaDesincronizada
+                ? 'Lo que el cliente recibe por WhatsApp sigue siendo la versión aprobada por Meta, no los cambios que ves acá. Tenés que pulsar "Re-enviar a Meta" y esperar su aprobación para que impacte.'
+                : 'Esta plantilla fue creada antes de que existiera el control de sincronización. Si hiciste cambios después de la aprobación en Meta, re-enviala para regularizar. Si no, pulsá "Re-enviar a Meta" una vez para fijar la referencia.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ LÍNEA DE TIEMPO ═══ */}
+      {plantilla && <TimelinePlantilla plantillaId={plantilla.id} locale={locale} refrescoKey={refrescoTimeline} />}
+
       {/* ═══ IDENTIDAD ═══ */}
       <div className="space-y-4 pb-4 border-b border-borde-sutil">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -555,9 +623,11 @@ export function PaginaEditorPlantillaMeta({
             value={nombreApi}
             onChange={(e: ChangeEvent<HTMLInputElement>) => { setNombreApi(e.target.value); setNombreApiManual(true) }}
             placeholder="confirmacion_pedido"
-            ayuda="Solo minúsculas, números y _"
+            ayuda={existeEnMeta
+              ? 'No editable: es el identificador único registrado en Meta'
+              : 'Solo minúsculas, números y _'}
             error={errores.nombre_api}
-            disabled={!esEditable}
+            disabled={!esEditable || existeEnMeta}
           />
         </div>
 
@@ -572,7 +642,7 @@ export function PaginaEditorPlantillaMeta({
             etiqueta="Idioma"
             valor={idioma}
             opciones={IDIOMAS.map(i => ({ valor: i.valor, etiqueta: i.etiqueta }))}
-            onChange={(v) => setIdioma(v as IdiomaPlantillaWA)}
+            onChange={(v) => existeEnMeta ? undefined : setIdioma(v as IdiomaPlantillaWA)}
           />
         </div>
 
@@ -694,35 +764,46 @@ export function PaginaEditorPlantillaMeta({
             Variables — Asignar campo de Flux + ejemplo para Meta
           </label>
           <div className="space-y-2">
-            {variablesDetectadas.map((num, idx) => (
-              <div key={num} className="p-3 rounded-card space-y-2 border border-borde-sutil bg-superficie-tarjeta">
-                <div className="flex items-center gap-2">
-                  <Insignia color="primario" tamano="sm">{`{{${num}}}`}</Insignia>
-                  <Select
-                    placeholder="Campo de Flux..."
-                    valor={componentes.cuerpo?.mapeo_variables?.[idx] || ''}
-                    opciones={opcionesMapeo}
-                    onChange={(v) => {
-                      const mapeo = [...(componentes.cuerpo?.mapeo_variables || [])]
-                      mapeo[idx] = v
+            {variablesDetectadas.map((num, idx) => {
+              const errorMapeo = errores[`mapeo_${num}`]
+              return (
+                <div
+                  key={num}
+                  className={`p-3 rounded-card space-y-2 border bg-superficie-tarjeta ${
+                    errorMapeo ? 'border-estado-error' : 'border-borde-sutil'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Insignia color="primario" tamano="sm">{`{{${num}}}`}</Insignia>
+                    <Select
+                      placeholder="Campo de Flux..."
+                      valor={componentes.cuerpo?.mapeo_variables?.[idx] || ''}
+                      opciones={opcionesMapeo}
+                      onChange={(v) => {
+                        const mapeo = [...(componentes.cuerpo?.mapeo_variables || [])]
+                        mapeo[idx] = v
+                        const ejemplos = [...(componentes.cuerpo?.ejemplos || [])]
+                        if (!ejemplos[idx]) ejemplos[idx] = EJEMPLOS_POR_CAMPO[v] || ''
+                        actualizarCuerpo({ mapeo_variables: mapeo, ejemplos })
+                      }}
+                    />
+                  </div>
+                  {errorMapeo && (
+                    <p className="text-xxs text-estado-error">{errorMapeo}</p>
+                  )}
+                  <Input
+                    value={componentes.cuerpo?.ejemplos?.[idx] || ''}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       const ejemplos = [...(componentes.cuerpo?.ejemplos || [])]
-                      if (!ejemplos[idx]) ejemplos[idx] = EJEMPLOS_POR_CAMPO[v] || ''
-                      actualizarCuerpo({ mapeo_variables: mapeo, ejemplos })
+                      ejemplos[idx] = e.target.value
+                      actualizarCuerpo({ ejemplos })
                     }}
+                    placeholder={`Ejemplo para {{${num}}} (requerido por Meta)`}
+                    disabled={!esEditable}
                   />
                 </div>
-                <Input
-                  value={componentes.cuerpo?.ejemplos?.[idx] || ''}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const ejemplos = [...(componentes.cuerpo?.ejemplos || [])]
-                    ejemplos[idx] = e.target.value
-                    actualizarCuerpo({ ejemplos })
-                  }}
-                  placeholder={`Ejemplo para {{${num}}} (requerido por Meta)`}
-                  disabled={!esEditable}
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
           <p className="text-xxs text-texto-terciario">
             El campo de Flux se usa para la vista previa con datos reales y auto-completar al enviar. El ejemplo es requerido por Meta para aprobar.
@@ -779,13 +860,24 @@ export function PaginaEditorPlantillaMeta({
               disabled={!esEditable}
             />
             {boton.tipo === 'URL' && (
-              <Input
-                value={boton.url || ''}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => actualizarBoton(idx, { url: e.target.value })}
-                placeholder="https://ejemplo.com/pedido/{{1}}"
-                error={errores[`boton_url_${idx}`]}
-                disabled={!esEditable}
-              />
+              <>
+                <Input
+                  value={boton.url || ''}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => actualizarBoton(idx, { url: e.target.value })}
+                  placeholder="https://ejemplo.com/pedido/{{1}}"
+                  error={errores[`boton_url_${idx}`]}
+                  disabled={!esEditable}
+                />
+                {boton.url?.includes('{{') && (
+                  <Input
+                    value={boton.ejemplo || ''}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => actualizarBoton(idx, { ejemplo: e.target.value })}
+                    placeholder="Ej: https://ejemplo.com/pedido/abc123token"
+                    ayuda="URL de ejemplo resuelta (requerido por Meta para aprobar botones con variables)"
+                    disabled={!esEditable}
+                  />
+                )}
+              </>
             )}
             {boton.tipo === 'PHONE_NUMBER' && (
               <Input

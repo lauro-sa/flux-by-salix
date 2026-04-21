@@ -22,7 +22,7 @@ const funcionalidades: Funcionalidad[] = [
   {
     icono: <Code size={20} />,
     titulo: 'Snippet de instalación',
-    descripcion: 'Cada empresa recibe un código JavaScript único para pegar en su sitio web. Una sola línea tipo <script src="https://fluxsalix.com/t.js" data-flux="ID"></script>. Compatible con cualquier web: WordPress, Wix, HTML estático, React, etc.',
+    descripcion: 'Cada empresa recibe un código JavaScript único para pegar en su sitio web. Una sola línea tipo <script src="https://flux.salixweb.com/t.js" data-flux="ID"></script>. Compatible con cualquier web: WordPress, Wix, HTML estático, React, etc.',
   },
   {
     icono: <Eye size={20} />,
@@ -97,7 +97,7 @@ function SeccionTracking() {
           {' '}
           <span className="text-[#89dceb]">src</span>
           <span className="text-[#f38ba8]">=</span>
-          <span className="text-[#a6e3a1]">{'"https://fluxsalix.com/t.js"'}</span>
+          <span className="text-[#a6e3a1]">{'"https://flux.salixweb.com/t.js"'}</span>
           <br />
           {'  '}
           <span className="text-[#89dceb]">data-flux</span>

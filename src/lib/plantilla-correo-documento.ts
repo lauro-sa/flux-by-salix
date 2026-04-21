@@ -7,7 +7,7 @@
 // ─── Tipos ───
 
 interface DatosCtaPortal {
-  /** URL completa del portal (ej: https://app.fluxsalix.com/portal/presupuestos/abc123) */
+  /** URL completa del portal (ej: https://flux.salixweb.com/portal/presupuestos/abc123) */
   urlPortal: string
   /** Color de marca de la empresa (hex, ej: #4D2D42) */
   colorMarca: string

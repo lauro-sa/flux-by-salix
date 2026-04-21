@@ -1887,6 +1887,11 @@ export default function EditorPresupuesto({
             estado: presupuesto?.estado || '',
             empresaNombre: datosEmpresa?.nombre || empresa?.nombre || '',
             urlPortal: urlPortalReal || undefined,
+            // Entidades crudas para que el catálogo resuelva variables como
+            // documento_total, documento_fecha_vencimiento, etc. con datos reales.
+            entidades: presupuesto ? {
+              presupuesto: presupuesto as unknown as Record<string, unknown>,
+            } : undefined,
           }}
           onAbrirCorreo={() => { setCorreoLibre(true); setModalEnviarAbierto(true) }}
           adjuntosDocumento={presupuesto?.pdf_url ? [{

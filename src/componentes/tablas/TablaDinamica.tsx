@@ -251,11 +251,19 @@ function TablaDinamica<T>({
   /* Si hay config guardada, se merge con las columnas actuales del código para que
      columnas nuevas aparezcan automáticamente (al final, visibles por defecto) */
   const columnasIniciales = useMemo(() => columnas.map((c) => c.clave), [columnas])
+  // Columnas marcadas como obligatorias nunca pueden quedar ocultas — aunque la
+  // config guardada (potencialmente migrada de otro dispositivo) no las incluya.
+  const columnasObligatorias = useMemo(
+    () => columnas.filter(c => c.obligatoria).map(c => c.clave),
+    [columnas],
+  )
   const columnasDefaultResueltas = columnasVisiblesDefault?.filter(c => columnasIniciales.includes(c)) || columnasIniciales
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>(() => {
     if (!configGuardada?.columnasVisibles) return columnasDefaultResueltas
-    // Respetar exactamente lo que el usuario guardó (sin agregar nuevas como visibles)
-    return configGuardada.columnasVisibles.filter(c => columnasIniciales.includes(c))
+    // Respetar lo guardado, pero garantizar que las obligatorias estén siempre visibles.
+    const guardadas = configGuardada.columnasVisibles.filter(c => columnasIniciales.includes(c))
+    const faltantes = columnasObligatorias.filter(c => !guardadas.includes(c))
+    return faltantes.length > 0 ? [...faltantes, ...guardadas] : guardadas
   })
   const [ordenColumnas, setOrdenColumnas] = useState<string[]>(() => {
     if (!configGuardada?.ordenColumnas) return columnasIniciales
@@ -525,9 +533,11 @@ function TablaDinamica<T>({
     if (!cfg) { configCargadaRef.current = true; return }
 
     configCargadaRef.current = true
-    // Visibles: respetar exactamente lo guardado (no agregar nuevas como visibles)
+    // Visibles: respetar lo guardado, pero garantizar que las obligatorias siempre estén.
     if (cfg.columnasVisibles?.length) {
-      setColumnasVisibles(cfg.columnasVisibles.filter(c => columnasIniciales.includes(c)))
+      const guardadas = cfg.columnasVisibles.filter(c => columnasIniciales.includes(c))
+      const faltantes = columnasObligatorias.filter(c => !guardadas.includes(c))
+      setColumnasVisibles(faltantes.length > 0 ? [...faltantes, ...guardadas] : guardadas)
     }
     // Orden: agregar columnas nuevas al final (aparecen en "Disponibles" del panel)
     if (cfg.ordenColumnas?.length) {
@@ -571,6 +581,9 @@ function TablaDinamica<T>({
 
   /* ── Handlers de columnas ── */
   const toggleColumna = (clave: string) => {
+    // Columnas obligatorias no se pueden ocultar — evita que quede la tabla sin
+    // la columna identificadora principal (ej: Nombre).
+    if (columnasObligatorias.includes(clave)) return
     setColumnasVisibles((prev) =>
       prev.includes(clave) ? prev.filter((c) => c !== clave) : [...prev, clave]
     )
@@ -609,9 +622,10 @@ function TablaDinamica<T>({
   }, [columnasIniciales])
 
   const ocultarTodasColumnas = useCallback(() => {
-    // Dejar visible solo la primera columna
-    setColumnasVisibles([columnasIniciales[0]])
-  }, [columnasIniciales])
+    // Dejar visible solo la primera columna + todas las obligatorias
+    const base = new Set<string>([columnasIniciales[0], ...columnasObligatorias])
+    setColumnasVisibles(Array.from(base))
+  }, [columnasIniciales, columnasObligatorias])
 
   const alinearTodasColumnas = useCallback((alineacion: 'left' | 'center' | 'right') => {
     const nuevo: Record<string, 'left' | 'center' | 'right'> = {}

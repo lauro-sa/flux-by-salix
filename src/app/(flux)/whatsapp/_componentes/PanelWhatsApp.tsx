@@ -422,12 +422,18 @@ export function PanelWhatsApp({
       const cuerpo = plantilla.componentes?.cuerpo
       const parametros = resolverParametrosCuerpo(cuerpo, datos)
       if (parametros) componentesMeta.push({ type: 'body', parameters: parametros })
-      // Encabezado con variable
+      // Encabezado con variable: usar dato real, nunca el "ejemplo para Meta".
+      // Sin esto, Meta recibe "Juan García" literal en lugar del nombre del contacto.
       const encabezado = plantilla.componentes?.encabezado
       if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
+        const claveMapeo = encabezado.mapeo_variable
+        const valorHeader = (claveMapeo && datos[claveMapeo])
+          || datos.contacto_nombre
+          || encabezado.ejemplo
+          || ''
         componentesMeta.push({
           type: 'header',
-          parameters: [{ type: 'text', text: encabezado.ejemplo || '' }],
+          parameters: [{ type: 'text', text: valorHeader }],
         })
       }
 

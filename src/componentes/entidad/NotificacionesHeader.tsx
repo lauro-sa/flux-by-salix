@@ -7,7 +7,7 @@ import {
   MessageSquare, AtSign, AlertTriangle,
   CalendarClock, UserPlus, Eye, PartyPopper,
   Megaphone, FileCheck, Mail, Calendar,
-  AlarmClock, Plus, Clock, CheckCircle2,
+  Clock,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
@@ -22,12 +22,6 @@ import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { WidgetJornada } from './WidgetJornada'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { usePendientes, type ActividadPendiente } from '@/hooks/usePendientes'
-import { useRecordatorios } from './_recordatorios/useRecordatorios'
-import { FormularioRecordatorio } from './_recordatorios/FormularioRecordatorio'
-import { ListaRecordatorios } from './_recordatorios/ListaRecordatorios'
-import { PreviewRecordatorio } from './_recordatorios/PreviewRecordatorio'
-import { ModalConfirmarEliminar } from './_recordatorios/ModalConfirmarEliminar'
-import { Tabs } from '@/componentes/ui/Tabs'
 
 /**
  * NotificacionesHeader — Los 3 íconos de notificaciones del header + botón silenciar.
@@ -364,138 +358,6 @@ function PestanasInbox({
   )
 }
 
-/* ─── Componente principal ─── */
-
-/* ─── Pestañas del popover de Actividades (Actividades + Recordatorios) ─── */
-
-type TabActividades = 'actividades' | 'recordatorios'
-
-function PestanasActividades({
-  activa,
-  onChange,
-  noLeidas,
-  totalRecordatorios,
-}: {
-  activa: TabActividades
-  onChange: (t: TabActividades) => void
-  noLeidas: number
-  totalRecordatorios: number
-}) {
-  const tabs: { clave: TabActividades; etiqueta: string; icono: React.ReactNode; conteo: number }[] = [
-    { clave: 'actividades', etiqueta: 'Actividades', icono: <Zap size={12} strokeWidth={1.75} />, conteo: noLeidas },
-    { clave: 'recordatorios', etiqueta: 'Recordatorios', icono: <AlarmClock size={12} strokeWidth={1.75} />, conteo: totalRecordatorios },
-  ]
-
-  return (
-    <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-borde-sutil">
-      {tabs.map(({ clave, etiqueta, icono, conteo }) => {
-        const esActiva = activa === clave
-        return (
-          <button
-            key={clave}
-            onClick={() => onChange(clave)}
-            className={[
-              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-boton text-xs font-medium border-none cursor-pointer transition-colors',
-              esActiva
-                ? 'bg-superficie-hover text-texto-primario'
-                : 'bg-transparent text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
-            ].join(' ')}
-          >
-            {icono}
-            {etiqueta}
-            {conteo > 0 && (
-              <span className={[
-                'inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xxs font-bold',
-                esActiva ? 'bg-texto-marca text-white' : 'bg-superficie-hover text-texto-terciario',
-              ].join(' ')}>
-                {conteo > 99 ? '99+' : conteo}
-              </span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/* ─── Contenido de recordatorios dentro del popover de actividades ─── */
-
-function ContenidoRecordatorios({ estado }: { estado: ReturnType<typeof useRecordatorios> }) {
-  const {
-    tab, setTab,
-    activos, completados, cargando,
-    titulo, setTitulo, descripcion, setDescripcion,
-    fecha, creando, crear,
-    toggleCompletar, intentarEliminar,
-  } = estado
-
-  return (
-    <div className="flex flex-col" style={{ minHeight: 280 }}>
-      {/* Nota aclaratoria */}
-      <p className="text-xxs text-texto-terciario px-4 pt-2.5 pb-0.5">
-        Tus recordatorios personales — solo vos los ves.
-      </p>
-
-      {/* Sub-tabs: Crear | Activos | Completados */}
-      <div className="shrink-0">
-        <Tabs
-          tabs={[
-            { clave: 'crear', etiqueta: 'Crear', icono: <Plus size={13} /> },
-            { clave: 'activos', etiqueta: 'Activos', contador: activos.length, icono: <Clock size={13} /> },
-            { clave: 'completados', etiqueta: 'Completados', icono: <CheckCircle2 size={13} /> },
-          ]}
-          activo={tab}
-          onChange={setTab}
-        />
-      </div>
-
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
-        {tab === 'crear' && <FormularioRecordatorio estado={estado} />}
-        {tab === 'activos' && (
-          <ListaRecordatorios
-            tipo="activos"
-            recordatorios={activos}
-            cargando={cargando}
-            onToggleCompletar={toggleCompletar}
-            onEliminar={intentarEliminar}
-            onIrACrear={() => setTab('crear')}
-          />
-        )}
-        {tab === 'completados' && (
-          <ListaRecordatorios
-            tipo="completados"
-            recordatorios={completados}
-            cargando={cargando}
-            onToggleCompletar={toggleCompletar}
-            onEliminar={intentarEliminar}
-          />
-        )}
-      </div>
-
-      {/* Pie — botón crear (solo en tab crear) */}
-      {tab === 'crear' && (
-        <div className="border-t border-borde-sutil px-4 py-3 flex items-center gap-2 shrink-0">
-          <Boton
-            onClick={crear}
-            cargando={creando}
-            disabled={!titulo.trim() || !fecha}
-            tamano="sm"
-          >
-            Crear recordatorio
-          </Boton>
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            onClick={() => { setTitulo(''); setDescripcion('') }}
-          >
-            Limpiar
-          </Boton>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ─── Contenido de actividades pendientes (reemplaza PanelNotificaciones cuando no hay notificaciones) ─── */
 
 function tiempoRelativoCorto(fecha: string): string {
@@ -626,7 +488,6 @@ function NotificacionesHeader() {
   const { estaSilenciada } = useModoConcentracion()
   const [popoverAbierto, setPopoverAbierto] = useState<string | null>(null)
   const [filtroInbox, setFiltroInbox] = useState<FiltroInbox>('todo')
-  const [tabActividades, setTabActividades] = useState<TabActividades>('actividades')
 
   const {
     porCategoria,
@@ -641,21 +502,6 @@ function NotificacionesHeader() {
   } = useNotificaciones({ estaSilenciada })
 
   const pendientes = usePendientes()
-
-  /* Recordatorios — se activa cuando se abre el popover de actividades en tab recordatorios */
-  const estadoRecordatorios = useRecordatorios()
-
-  /* Sincronizar estado abierto de recordatorios con el popover */
-  const abrirPopoverActividades = useCallback((abierto: boolean) => {
-    setPopoverAbierto(abierto ? 'actividades' : null)
-    if (abierto) setTabActividades('actividades')
-    estadoRecordatorios.setAbierto(false)
-  }, [estadoRecordatorios])
-
-  const cambiarTabActividades = useCallback((tab: TabActividades) => {
-    setTabActividades(tab)
-    estadoRecordatorios.setAbierto(tab === 'recordatorios')
-  }, [estadoRecordatorios])
 
   const handleClickItem = useCallback((n: Notificacion, idsGrupo?: string[]) => {
     const ids = idsGrupo && idsGrupo.length > 0 ? idsGrupo : [n.id]
@@ -711,17 +557,11 @@ function NotificacionesHeader() {
             <Popover
               key={config.categoria}
               abierto={popoverAbierto === config.categoria}
-              onCambio={(v) => {
-                if (esActividades) {
-                  abrirPopoverActividades(v)
-                } else {
-                  setPopoverAbierto(v ? config.categoria : null)
-                }
-              }}
+              onCambio={(v) => setPopoverAbierto(v ? config.categoria : null)}
               alineacion="fin"
               ancho={400}
               offset={10}
-              tituloMovil={esActividades && tabActividades === 'recordatorios' ? 'Recordatorios' : config.titulo}
+              tituloMovil={config.titulo}
               contenido={
                 <>
                   {config.categoria === 'inbox' && (
@@ -731,17 +571,7 @@ function NotificacionesHeader() {
                       conteos={conteosInbox}
                     />
                   )}
-                  {esActividades && (
-                    <PestanasActividades
-                      activa={tabActividades}
-                      onChange={cambiarTabActividades}
-                      noLeidas={noLeidas}
-                      totalRecordatorios={estadoRecordatorios.activos.length}
-                    />
-                  )}
-                  {esActividades && tabActividades === 'recordatorios' ? (
-                    <ContenidoRecordatorios estado={estadoRecordatorios} />
-                  ) : esActividades && itemsMapeados.length === 0 && pendientes.totalActividades > 0 ? (
+                  {esActividades && itemsMapeados.length === 0 && pendientes.totalActividades > 0 ? (
                     /* Sin notificaciones pero con actividades pendientes → mostrar lista real */
                     <ContenidoActividadesPendientes
                       hoyItems={pendientes.actividades_hoy_items}
@@ -814,15 +644,8 @@ function NotificacionesHeader() {
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
-                {/* Indicador de recordatorios vencidos (puntito naranja) */}
-                {esActividades && estadoRecordatorios.vencidos > 0 && badgeCount === 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-advertencia-texto pointer-events-none" />
-                )}
-                {/* Indicador de pendientes (dot marca) — cuando no hay badge ni dot de recordatorios */}
-                {badgeCount === 0
-                  && !(esActividades && estadoRecordatorios.vencidos > 0)
-                  && pendientes.hayPendientes(config.categoria)
-                  && (
+                {/* Indicador de pendientes (dot marca) — cuando no hay badge */}
+                {badgeCount === 0 && pendientes.hayPendientes(config.categoria) && (
                   <span className="absolute top-0 right-0 size-2 rounded-full bg-texto-marca pointer-events-none" />
                 )}
                 {silenciada && (
@@ -841,19 +664,6 @@ function NotificacionesHeader() {
         {/* Jornada (chip compacto con timer) */}
         <WidgetJornada />
       </div>
-
-      {/* Recordatorios: modales de preview y confirmación de eliminar */}
-      <PreviewRecordatorio
-        previewModal={estadoRecordatorios.previewModal}
-        onCerrarModal={() => estadoRecordatorios.setPreviewModal(false)}
-        previewToast={estadoRecordatorios.previewToast}
-        onCerrarToast={() => estadoRecordatorios.setPreviewToast(false)}
-      />
-      <ModalConfirmarEliminar
-        recordatorio={estadoRecordatorios.confirmarEliminar}
-        onCerrar={() => estadoRecordatorios.setConfirmarEliminar(null)}
-        onConfirmar={estadoRecordatorios.eliminarDirecto}
-      />
     </>
   )
 }

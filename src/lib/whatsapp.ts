@@ -340,6 +340,41 @@ export async function crearPlantillaMeta(
   return res.json()
 }
 
+/**
+ * Editar plantilla existente en Meta.
+ * Meta NO permite cambiar `name` ni `language` — solo `category` y `components`.
+ * Al editar, la plantilla vuelve al estado PENDING y debe ser re-aprobada.
+ *
+ * Se usa cuando la plantilla ya existe en Meta (tiene `id_template_meta`) y el
+ * admin hizo cambios al contenido localmente. Si usáramos `crearPlantillaMeta`
+ * Meta responde error 2388024 "ya existe contenido en este idioma".
+ */
+export async function editarPlantillaMeta(
+  config: ConfigCuentaWhatsApp,
+  idTemplateMeta: string,
+  categoria: string,
+  componentes: ComponentePlantillaMeta[],
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${META_BASE_URL}/${idTemplateMeta}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.tokenAcceso}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      category: categoria,
+      components: componentes,
+    }),
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(`Error al editar plantilla: ${JSON.stringify(error)}`)
+  }
+
+  return res.json()
+}
+
 /** Eliminar plantilla de Meta */
 export async function eliminarPlantillaMeta(
   config: ConfigCuentaWhatsApp,

@@ -45,6 +45,14 @@ export interface DatosDocumentoChatter {
   estado?: string
   empresaNombre?: string
   urlPortal?: string
+  /** Objeto crudo del presupuesto/orden/visita/actividad para que las variables
+   *  del catálogo (documento_*, orden_*, visita_*, etc.) se resuelvan con datos reales. */
+  entidades?: {
+    presupuesto?: Record<string, unknown> | null
+    orden?: Record<string, unknown> | null
+    visita?: Record<string, unknown> | null
+    actividad?: Record<string, unknown> | null
+  }
 }
 
 // ─── Contacto simplificado para el chatter ───

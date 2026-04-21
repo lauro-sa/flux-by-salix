@@ -259,7 +259,7 @@ export default function PaginaOnboarding() {
                 value={slug}
                 onChange={(e) => manejarCambioSlug(e.target.value)}
                 icono={<Globe size={18} />}
-                ayuda={slug ? `${slug}.fluxsalix.com` : undefined}
+                ayuda={slug ? `${slug}.salixweb.com` : undefined}
                 required
               />
 
@@ -328,7 +328,7 @@ export default function PaginaOnboarding() {
               <Input
                 tipo="text"
                 etiqueta="Link o código de invitación"
-                placeholder="https://tuempresa.fluxsalix.com/invitacion?token=..."
+                placeholder="https://tuempresa.salixweb.com/invitacion?token=..."
                 value={codigoInvitacion}
                 onChange={(e) => setCodigoInvitacion(e.target.value)}
                 icono={<LinkIcon size={18} />}

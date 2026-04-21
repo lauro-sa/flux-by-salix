@@ -8,13 +8,12 @@ import { Header } from './Header'
 import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
-import { BotonFlotanteSalixIA } from '@/componentes/entidad/SalixIA/BotonFlotante'
-import { BotonFlotanteNotas } from '@/componentes/entidad/NotasRapidas/BotonFlotanteNotas'
 import IconoSalix from '@/componentes/marca/IconoSalix'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, AlarmClock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from '@/componentes/entidad/NotasRapidas/PanelNotas'
 import { PanelChat } from '@/componentes/entidad/SalixIA/PanelChat'
+import { PanelRecordatorios } from '@/componentes/entidad/_recordatorios/PanelRecordatorios'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotasRapidas } from '@/hooks/useNotasRapidas'
 import { useTema } from '@/hooks/useTema'
@@ -78,18 +77,12 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
-  // Botones flotantes: se esconden a la derecha, aparecen al acercar el mouse
-  const [botonesVisibles, setBotonesVisibles] = useState(true)
+  // Botones flotantes: se montan sólo en cliente para evitar hydration mismatch
   const [botonesMontados, setBotonesMontados] = useState(false)
-  const timerBotonesRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notasRapidas = useNotasRapidas()
-  const tieneAlertasNotas = notasRapidas.tiene_cambios_sin_leer
 
-  // Montar solo en cliente para evitar hydration mismatch + ocultar después de unos segundos
   useEffect(() => {
     setBotonesMontados(true)
-    const timerOcultar = setTimeout(() => setBotonesVisibles(false), 4000)
-    return () => { clearTimeout(timerOcultar) }
   }, [])
 
 
@@ -262,40 +255,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       {/* Banner de instalación PWA (solo si no está instalada) */}
       <BannerInstalacion />
 
-      {/* Botones flotantes — se montan solo en cliente para evitar hydration mismatch */}
-      {botonesMontados && (
-        <>
-          {/* ── Desktop: zona de detección + botones individuales ── */}
-          <div
-            className="fixed right-0 bottom-0 w-[30px] h-40 z-[69] hidden md:block"
-            onMouseEnter={() => {
-              setBotonesVisibles(true)
-              if (timerBotonesRef.current) clearTimeout(timerBotonesRef.current)
-            }}
-          />
-          <div
-            className="fixed right-4 bottom-6 z-[70] hidden md:flex flex-col items-center gap-1 transition-all duration-300 ease-in-out"
-            style={{
-              transform: (botonesVisibles || tieneAlertasNotas) ? 'translateX(0)' : 'translateX(calc(100% + 2rem))',
-              opacity: (botonesVisibles || tieneAlertasNotas) ? 1 : 0,
-            }}
-            onMouseEnter={() => {
-              setBotonesVisibles(true)
-              if (timerBotonesRef.current) clearTimeout(timerBotonesRef.current)
-            }}
-            onMouseLeave={() => {
-              if (!tieneAlertasNotas) {
-                timerBotonesRef.current = setTimeout(() => setBotonesVisibles(false), 3000)
-              }
-            }}
-          >
-            <BotonFlotanteNotas notasRapidas={notasRapidas} />
-            <BotonFlotanteSalixIA />
-          </div>
-
-          {/* ── Móvil: botón Flux unificado que expande notas + IA ── */}
-          {!mobilMenuAbierto && <BotonesFlotantesMovil notasRapidas={notasRapidas} />}
-        </>
+      {/* Botones flotantes unificados — un solo logo Flux que expande Notas, Recordatorios y Salix IA.
+          Mismo patrón en desktop y móvil. Se oculta cuando el menú móvil está abierto. */}
+      {botonesMontados && !mobilMenuAbierto && (
+        <BotonesFlotantes notasRapidas={notasRapidas} />
       )}
 
       <style suppressHydrationWarning>{`
@@ -311,17 +274,26 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 }
 
 /* ════════════════════════════════════════════
-   BotonesFlotantesMovil — Botón Flux unificado para móvil.
-   Un solo botón con el logo Flux. Al tocar, se expanden Notas e IA hacia arriba.
-   Si hay alertas de notas, muestra badge pulsante sobre el botón principal.
-   Solo se renderiza en < md (mobile).
+   BotonesFlotantes — Speed-dial unificado (desktop + móvil).
+   Un solo botón con el logo Flux. Al tocar, se expanden 3 botones hacia arriba:
+     1) Notas rápidas (amber)
+     2) Recordatorios (orange)
+     3) Salix IA (violet) — si está habilitado
+   Badge pulsante en el botón principal si hay cambios de notas o recordatorios vencidos.
+   Posición: bottom-right. En móvil se eleva para no chocar con la nav inferior.
    ════════════════════════════════════════════ */
 
-function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<typeof useNotasRapidas> }) {
+function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof useNotasRapidas> }) {
   const [expandido, setExpandido] = useState(false)
   const [panelNotas, setPanelNotas] = useState(false)
+  const [panelRecordatorios, setPanelRecordatorios] = useState(false)
   const [panelIA, setPanelIA] = useState(false)
   const [iaHabilitado, setIaHabilitado] = useState(false)
+  const [recordatoriosVencidos, setRecordatoriosVencidos] = useState(0)
+  // Auto-hide en desktop: el botón se esconde a los 4s, reaparece al acercar el mouse.
+  // Si hay alertas, permanece visible siempre.
+  const [visible, setVisible] = useState(true)
+  const timerVisibleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { usuario, cargando } = useAuth()
   const { temaActivo } = useTema()
 
@@ -329,7 +301,24 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
     ? 'rgba(255, 255, 255, 0.4)'
     : 'rgba(30, 30, 30, 0.35)'
 
-  const cantidadSinLeer = notasRapidas.compartidas.filter((n) => n._tiene_cambios).length
+  const cantidadNotasSinLeer = notasRapidas.compartidas.filter((n) => n._tiene_cambios).length
+  const totalAlertas = cantidadNotasSinLeer + recordatoriosVencidos
+  const fijarVisible = totalAlertas > 0 || expandido
+
+  // Ocultar a los 4s del mount (sólo si no hay alertas)
+  useEffect(() => {
+    if (fijarVisible) return
+    const t = setTimeout(() => setVisible(false), 4000)
+    return () => clearTimeout(t)
+  }, [fijarVisible])
+
+  const mostrarYReprogramarOcultar = useCallback(() => {
+    setVisible(true)
+    if (timerVisibleRef.current) clearTimeout(timerVisibleRef.current)
+    if (!fijarVisible) {
+      timerVisibleRef.current = setTimeout(() => setVisible(false), 3000)
+    }
+  }, [fijarVisible])
 
   // Verificar si Salix IA está habilitado
   useEffect(() => {
@@ -346,24 +335,59 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
     verificar()
   }, [usuario, cargando])
 
+  // Conteo liviano de recordatorios vencidos (refresca cada minuto)
+  useEffect(() => {
+    if (cargando || !usuario) return
+    const cargar = async () => {
+      try {
+        const res = await fetch('/api/recordatorios?estado=activos&limite=50')
+        if (!res.ok) return
+        const data = await res.json()
+        const hoy = new Date().toISOString().slice(0, 10)
+        const cantidad = (data.recordatorios || []).filter((r: { fecha: string }) => r.fecha < hoy).length
+        setRecordatoriosVencidos(cantidad)
+      } catch { /* silenciar */ }
+    }
+    cargar()
+    const interval = setInterval(cargar, 60000)
+    return () => clearInterval(interval)
+  }, [usuario, cargando])
+
   // Cerrar el menú expandido cuando se abre un panel
   useEffect(() => {
-    if (panelNotas || panelIA) setExpandido(false)
-  }, [panelNotas, panelIA])
+    if (panelNotas || panelRecordatorios || panelIA) setExpandido(false)
+  }, [panelNotas, panelRecordatorios, panelIA])
 
-  // Cerrar al tocar fuera
+  // Cerrar al hacer click fuera
   useEffect(() => {
     if (!expandido) return
     const cerrar = () => setExpandido(false)
-    // Timeout para no cerrar por el mismo tap que abrió
     const timer = setTimeout(() => document.addEventListener('click', cerrar), 10)
     return () => { clearTimeout(timer); document.removeEventListener('click', cerrar) }
   }, [expandido])
 
   return (
-    <div className="fixed right-4 z-[70] flex flex-col-reverse items-center gap-2 md:hidden"
-      style={{ bottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 76px), 76px)' }}
-    >
+    <>
+      {/* Zona de detección (desktop): 30px de ancho en el borde derecho + alto 160px abajo.
+          Al acercar el mouse, el speed-dial reaparece. */}
+      <div
+        className="fixed right-0 bottom-0 w-[30px] h-40 z-[69] hidden md:block"
+        onMouseEnter={mostrarYReprogramarOcultar}
+      />
+
+      <div
+        className={`fixed right-4 z-[70] flex flex-col-reverse items-center gap-2 bottom-[calc(env(safe-area-inset-bottom,_0px)_+_76px)] md:bottom-6 md:transition-all md:duration-300 md:ease-in-out ${
+          visible || fijarVisible
+            ? 'md:translate-x-0 md:opacity-100'
+            : 'md:translate-x-[calc(100%+2rem)] md:opacity-0'
+        }`}
+        onMouseEnter={mostrarYReprogramarOcultar}
+        onMouseLeave={() => {
+          if (fijarVisible) return
+          if (timerVisibleRef.current) clearTimeout(timerVisibleRef.current)
+          timerVisibleRef.current = setTimeout(() => setVisible(false), 1500)
+        }}
+      >
       {/* Botón principal — logo Flux */}
       <motion.button
         whileTap={{ scale: 0.9 }}
@@ -376,6 +400,7 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
           border: '1px solid var(--borde-sutil)',
           boxShadow: 'var(--sombra-md)',
         }}
+        title="Accesos rápidos"
       >
         <motion.div
           animate={{ rotate: expandido ? 45 : 0 }}
@@ -384,8 +409,8 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
           <IconoSalix tamano={24} variante="estatico" />
         </motion.div>
 
-        {/* Badge de alertas de notas */}
-        {cantidadSinLeer > 0 && !expandido && (
+        {/* Badge de alertas combinadas (notas + recordatorios) */}
+        {totalAlertas > 0 && !expandido && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{
@@ -399,13 +424,13 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
             className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-1 shadow-md shadow-insignia-peligro/40"
           >
             <span className="text-[10px] font-bold text-white leading-none">
-              {cantidadSinLeer > 9 ? '9+' : cantidadSinLeer}
+              {totalAlertas > 9 ? '9+' : totalAlertas}
             </span>
           </motion.span>
         )}
       </motion.button>
 
-      {/* Botones expandidos — Notas e IA */}
+      {/* Botones expandidos — Notas, Recordatorios, Salix IA */}
       <AnimatePresence>
         {expandido && (
           <motion.div
@@ -413,17 +438,17 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.8 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="flex flex-col items-center gap-2"
+            className="flex flex-col-reverse items-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Botón Notas */}
+            {/* Botón Notas (amber) */}
             <motion.button
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.03 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setPanelNotas(true)}
-              className="size-11 rounded-full flex items-center justify-center text-amber-400/70 relative cursor-pointer"
+              className="size-11 rounded-full flex items-center justify-center text-amber-400/80 relative cursor-pointer"
               style={{
                 backgroundColor: fondoCristal,
                 backdropFilter: 'blur(24px) saturate(1.5)',
@@ -439,21 +464,48 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
                 <line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 <line x1="8" y1="12" x2="13" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
-              {cantidadSinLeer > 0 && (
+              {cantidadNotasSinLeer > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-0.5">
                   <span className="text-[9px] font-bold text-white leading-none">
-                    {cantidadSinLeer > 9 ? '9+' : cantidadSinLeer}
+                    {cantidadNotasSinLeer > 9 ? '9+' : cantidadNotasSinLeer}
                   </span>
                 </span>
               )}
             </motion.button>
 
-            {/* Botón Salix IA */}
+            {/* Botón Recordatorios (orange) */}
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.06 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setPanelRecordatorios(true)}
+              className="size-11 rounded-full flex items-center justify-center text-orange-400/85 relative cursor-pointer"
+              style={{
+                backgroundColor: fondoCristal,
+                backdropFilter: 'blur(24px) saturate(1.5)',
+                WebkitBackdropFilter: 'blur(24px) saturate(1.5)',
+                border: '1px solid var(--borde-sutil)',
+                boxShadow: 'var(--sombra-sm)',
+              }}
+              title="Recordatorios"
+            >
+              <AlarmClock className="size-5" strokeWidth={1.75} />
+              {recordatoriosVencidos > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-0.5">
+                  <span className="text-[9px] font-bold text-white leading-none">
+                    {recordatoriosVencidos > 9 ? '9+' : recordatoriosVencidos}
+                  </span>
+                </span>
+              )}
+            </motion.button>
+
+            {/* Botón Salix IA (violet) */}
             {iaHabilitado && (
               <motion.button
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.06 }}
+                transition={{ delay: 0.09 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setPanelIA(true)}
                 className="size-11 rounded-full flex items-center justify-center text-violet-400 cursor-pointer"
@@ -479,11 +531,16 @@ function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<type
         onCerrar={() => setPanelNotas(false)}
         notas={notasRapidas}
       />
+      <PanelRecordatorios
+        abierto={panelRecordatorios}
+        onCerrar={() => setPanelRecordatorios(false)}
+      />
       <PanelChat
         abierto={panelIA}
         onCerrar={() => setPanelIA(false)}
       />
-    </div>
+      </div>
+    </>
   )
 }
 

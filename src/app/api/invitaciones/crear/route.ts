@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Construir link de invitación
-    const dominio = process.env.NEXT_PUBLIC_APP_DOMAIN || 'fluxsalix.com'
+    const dominio = process.env.NEXT_PUBLIC_APP_DOMAIN || 'salixweb.com'
     const link = empresa?.slug
       ? `https://${empresa.slug}.${dominio}/invitacion?token=${token}`
       : `${request.nextUrl.origin}/invitacion?token=${token}`

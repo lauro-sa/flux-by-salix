@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorPlantillaMeta } from '@/componentes/entidad/_editor_plantilla_meta/PaginaEditorPlantillaMeta'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -17,37 +17,42 @@ export default function PaginaEditarPlantillaMeta() {
   const [canales, setCanales] = useState<CanalMensajeria[]>([])
   const [cargando, setCargando] = useState(true)
 
+  // Fetcher compartido — se reusa para carga inicial y para el refresh tras
+  // re-enviar a Meta (así el timeline/badge/banner reflejan el nuevo estado
+  // sin que el usuario tenga que recargar la página).
+  const cargar = useCallback(async (mostrarErrores = true) => {
+    try {
+      const [resP, resC] = await Promise.all([
+        fetch('/api/whatsapp/plantillas'),
+        fetch('/api/whatsapp/canales'),
+      ])
+      const [dataP, dataC] = await Promise.all([resP.json(), resC.json()])
+
+      const encontrada: PlantillaWhatsApp | undefined = (dataP.plantillas || []).find(
+        (p: PlantillaWhatsApp) => p.id === id,
+      )
+      if (!encontrada) {
+        if (mostrarErrores) mostrar('error', 'Plantilla no encontrada')
+        router.replace('/whatsapp/configuracion/plantillas-meta')
+        return
+      }
+      setPlantilla(encontrada)
+      setCanales(dataC.canales || [])
+    } catch {
+      if (mostrarErrores) mostrar('error', 'Error al cargar la plantilla')
+    }
+  }, [id, mostrar, router])
+
   useEffect(() => {
     let cancelado = false
-    const cargar = async () => {
+    const cargarInicial = async () => {
       setCargando(true)
-      try {
-        const [resP, resC] = await Promise.all([
-          fetch('/api/whatsapp/plantillas'),
-          fetch('/api/whatsapp/canales'),
-        ])
-        const [dataP, dataC] = await Promise.all([resP.json(), resC.json()])
-        if (cancelado) return
-
-        const encontrada: PlantillaWhatsApp | undefined = (dataP.plantillas || []).find(
-          (p: PlantillaWhatsApp) => p.id === id,
-        )
-        if (!encontrada) {
-          mostrar('error', 'Plantilla no encontrada')
-          router.replace('/whatsapp/configuracion/plantillas-meta')
-          return
-        }
-        setPlantilla(encontrada)
-        setCanales(dataC.canales || [])
-      } catch {
-        if (!cancelado) mostrar('error', 'Error al cargar la plantilla')
-      } finally {
-        if (!cancelado) setCargando(false)
-      }
+      await cargar()
+      if (!cancelado) setCargando(false)
     }
-    if (id) cargar()
+    if (id) cargarInicial()
     return () => { cancelado = true }
-  }, [id, mostrar, router])
+  }, [id, cargar])
 
   if (cargando || !plantilla) {
     return (
@@ -63,6 +68,7 @@ export default function PaginaEditarPlantillaMeta() {
       canales={canales}
       rutaVolver="/whatsapp/configuracion/plantillas-meta"
       textoVolver="Plantillas de WhatsApp"
+      onRecargar={() => cargar(false)}
     />
   )
 }

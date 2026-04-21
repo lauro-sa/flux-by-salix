@@ -64,20 +64,33 @@ export function ModalWhatsAppChatter({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [posDropdown, setPosDropdown] = useState({ top: 0, left: 0, width: 0 })
 
+  // URL del portal generada on-demand si no vino por props (evita que el link
+  // del botón WA salga vacío cuando el usuario abre el chatter sin haber hecho
+  // "Vista previa" o "Descargar" antes).
+  const [urlPortalLocal, setUrlPortalLocal] = useState<string | null>(null)
+  const urlPortalEfectiva = datosDocumento?.urlPortal || urlPortalLocal || ''
+
   const numero = contacto?.whatsapp || contacto?.telefono || ''
 
-  // Datos para resolución de variables. Se construyen desde el catálogo único y
-  // se mergean con los valores pre-formateados que llegan en `datosDocumento`.
+  // Datos para resolución de variables. Se construyen desde el catálogo único,
+  // pasando las entidades crudas cuando están disponibles (para que
+  // documento_total, documento_fecha_vencimiento, etc. se resuelvan bien).
   const datosPreview = useMemo<Record<string, string>>(() => {
     const base = construirDatosPlantilla({
       contacto: contacto as Record<string, unknown> | undefined,
       empresa: datosDocumento?.empresaNombre ? { nombre: datosDocumento.empresaNombre } : null,
+      presupuesto: datosDocumento?.entidades?.presupuesto || null,
+      orden: datosDocumento?.entidades?.orden || null,
+      visita: datosDocumento?.entidades?.visita || null,
+      actividad: datosDocumento?.entidades?.actividad || null,
     })
     if (!base.contacto_nombre) base.contacto_nombre = contacto?.nombre || 'Cliente'
-    if (datosDocumento?.numero) base.documento_numero = datosDocumento.numero
-    if (datosDocumento?.total) base.documento_total = datosDocumento.total
-    if (datosDocumento?.fecha) base.documento_fecha = datosDocumento.fecha
-    if (datosDocumento?.estado) base.documento_estado = datosDocumento.estado
+    // Fallbacks con los valores pre-formateados que llegan por props
+    // (por si `entidades` no se pasó o no tiene ese campo).
+    if (!base.documento_numero && datosDocumento?.numero) base.documento_numero = datosDocumento.numero
+    if (!base.documento_total && datosDocumento?.total) base.documento_total = datosDocumento.total
+    if (!base.documento_fecha && datosDocumento?.fecha) base.documento_fecha = datosDocumento.fecha
+    if (!base.documento_estado && datosDocumento?.estado) base.documento_estado = datosDocumento.estado
     return base
   }, [contacto, datosDocumento])
 
@@ -106,6 +119,21 @@ export function ModalWhatsAppChatter({
       setError('')
     }
   }, [abierto, cargarPlantillas])
+
+  // Generar/reutilizar token del portal al abrir el modal si aún no lo tenemos.
+  // Sin esto, el botón "Ver presupuesto" de la plantilla llega con el token
+  // placeholder de Meta y el link no abre nada.
+  useEffect(() => {
+    if (!abierto) return
+    if (datosDocumento?.urlPortal) return
+    if (entidadTipo !== 'presupuesto' || !entidadId) return
+    let cancelado = false
+    fetch(`/api/presupuestos/${entidadId}/portal`, { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelado && data?.url) setUrlPortalLocal(data.url) })
+      .catch(() => { /* silencioso: el envío seguirá aun sin link */ })
+    return () => { cancelado = true }
+  }, [abierto, entidadTipo, entidadId, datosDocumento?.urlPortal])
 
   // Posición del dropdown
   useEffect(() => {
@@ -137,11 +165,16 @@ export function ModalWhatsAppChatter({
     return formatearTextoWA(resolverTextoPlantilla(cuerpo.texto, cuerpo, datosPreview))
   }, [plantillaSeleccionada, datosPreview])
 
-  // Preview del encabezado (admite {{1}} → nombre de contacto)
+  // Preview del encabezado (admite {{1}} → resuelto por mapeo_variables o contacto_nombre)
   const encabezadoHtml = useMemo(() => {
     const enc = plantillaSeleccionada?.componentes?.encabezado
     if (!enc?.texto) return ''
-    const reemplazo = datosPreview.contacto_nombre || enc.ejemplo || '{{1}}'
+    // Respetar el mapeo del encabezado si existe; si no, caer a contacto_nombre.
+    // NUNCA usar `enc.ejemplo` como valor real — ese es el placeholder de Meta.
+    const claveMapeo = enc.mapeo_variable as string | undefined
+    const reemplazo = (claveMapeo && datosPreview[claveMapeo])
+      || datosPreview.contacto_nombre
+      || '{{1}}'
     return formatearTextoWA(enc.texto.replace(/\{\{1\}\}/g, reemplazo))
   }, [plantillaSeleccionada, datosPreview])
 
@@ -152,11 +185,25 @@ export function ModalWhatsAppChatter({
     return resolverTextoPlantilla(cuerpo.texto, cuerpo, datosPreview)
   }, [plantillaSeleccionada, datosPreview])
 
-  // Componentes resueltos para Meta API (body + buttons)
+  // Componentes resueltos para Meta API (header + body + buttons)
   const componentesResueltos = useMemo(() => {
     if (!plantillaSeleccionada?.componentes) return undefined
 
     const componentes: Record<string, unknown>[] = []
+
+    // Header parameters (texto con {{1}}): usar dato real, nunca `enc.ejemplo`
+    const encabezado = plantillaSeleccionada.componentes.encabezado
+    if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
+      const claveMapeo = encabezado.mapeo_variable
+      const valorHeader = (claveMapeo && datosPreview[claveMapeo])
+        || datosPreview.contacto_nombre
+        || encabezado.ejemplo
+        || ''
+      componentes.push({
+        type: 'header',
+        parameters: [{ type: 'text', text: valorHeader }],
+      })
+    }
 
     // Body parameters
     const cuerpo = plantillaSeleccionada.componentes.cuerpo
@@ -168,44 +215,49 @@ export function ModalWhatsAppChatter({
     if (botones?.length) {
       botones.forEach((btn, idx) => {
         if (btn.tipo === 'URL' && btn.url?.includes('{{')) {
-          // El parámetro del botón URL es la parte dinámica de la URL
-          // Típicamente es el token del portal o un ID
-          const urlPortal = datosDocumento?.urlPortal || ''
-          // Extraer solo la parte dinámica (lo que reemplaza {{1}})
-          // Si la URL de la plantilla es "https://ejemplo.com/portal/{{1}}",
-          // el parámetro es el valor que reemplaza {{1}}
-          let valorParametro = urlPortal
-          if (urlPortal && btn.url) {
-            // Si tenemos URL completa del portal, extraer el token/path final
-            const partesFija = btn.url.split('{{')[0]
-            if (urlPortal.startsWith('http')) {
-              // Usar la URL completa del portal como parámetro
-              // Meta espera solo la parte variable, no la URL completa
-              try {
-                const urlObj = new URL(urlPortal)
-                valorParametro = urlObj.pathname.split('/').pop() || urlPortal
-              } catch {
-                valorParametro = urlPortal
-              }
+          // Meta espera solo la parte variable del path (lo que reemplaza {{1}}).
+          // Extraemos el último segmento de la URL del portal (el token).
+          let valorParametro = ''
+          if (urlPortalEfectiva) {
+            try {
+              const urlObj = new URL(urlPortalEfectiva)
+              valorParametro = urlObj.pathname.split('/').filter(Boolean).pop() || ''
+            } catch {
+              valorParametro = urlPortalEfectiva
             }
           }
-
-          componentes.push({
-            type: 'button',
-            sub_type: 'url',
-            index: String(idx),
-            parameters: [{ type: 'text', text: valorParametro || 'portal' }],
-          })
+          // Si no hay token disponible, no agregamos el componente de botón —
+          // Meta rechazará el envío con un error claro en lugar de mandar
+          // un link roto con placeholder al cliente.
+          if (valorParametro) {
+            componentes.push({
+              type: 'button',
+              sub_type: 'url',
+              index: String(idx),
+              parameters: [{ type: 'text', text: valorParametro }],
+            })
+          }
         }
       })
     }
 
     return componentes.length > 0 ? componentes : undefined
-  }, [plantillaSeleccionada, datosPreview, datosDocumento])
+  }, [plantillaSeleccionada, datosPreview, urlPortalEfectiva])
+
+  // ¿La plantilla tiene un botón URL dinámico que necesita token del portal?
+  const requiereToken = useMemo(() => {
+    return !!plantillaSeleccionada?.componentes?.botones?.some(
+      b => b.tipo === 'URL' && b.url?.includes('{{')
+    )
+  }, [plantillaSeleccionada])
 
   // Enviar
   const enviar = async () => {
     if (!plantillaSeleccionada || !numero || enviando) return
+    if (requiereToken && !urlPortalEfectiva) {
+      setError('No se pudo generar el enlace del portal. Recargá la página e intentá de nuevo.')
+      return
+    }
     setEnviando(true)
     setError('')
 
@@ -226,15 +278,13 @@ export function ModalWhatsAppChatter({
           plantilla_texto_preview: textoPlanoPreview,
           plantilla_botones: (plantillaSeleccionada.componentes?.botones || []).map(btn => {
             if (btn.tipo === 'URL' && btn.url?.includes('{{')) {
-              // Resolver la URL del botón con el token del portal
-              const urlPortal = datosDocumento?.urlPortal || ''
               let urlResuelta = btn.url
-              if (urlPortal) {
+              if (urlPortalEfectiva) {
                 try {
-                  const token = new URL(urlPortal).pathname.split('/').pop() || ''
+                  const token = new URL(urlPortalEfectiva).pathname.split('/').filter(Boolean).pop() || ''
                   urlResuelta = btn.url.replace(/\{\{1\}\}/, token)
                 } catch {
-                  urlResuelta = btn.url.replace(/\{\{1\}\}/, urlPortal)
+                  urlResuelta = urlPortalEfectiva
                 }
               }
               return { ...btn, url: urlResuelta }

@@ -2,10 +2,77 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
-  listarPlantillasMeta, crearPlantillaMeta, eliminarPlantillaMeta,
-  type ConfigCuentaWhatsApp, type ComponentePlantillaMeta,
+  listarPlantillasMeta, crearPlantillaMeta, editarPlantillaMeta, eliminarPlantillaMeta,
+  type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
+import {
+  transformarAMeta,
+  transformarDesdeMeta,
+  calcularHashMeta,
+} from '@/lib/whatsapp/plantillas-sync'
 import type { ComponentesPlantillaWA, EstadoMeta } from '@/tipos/whatsapp'
+
+/**
+ * Registra un evento en el historial de la plantilla (línea de tiempo del editor).
+ * Fire-and-forget: si falla, no bloquea la operación principal.
+ */
+async function registrarEventoHistorial(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  params: {
+    empresaId: string
+    plantillaId: string
+    evento: string
+    estadoPrevio?: string | null
+    estadoNuevo?: string | null
+    detalle?: string | null
+    usuarioId?: string | null
+    usuarioNombre?: string | null
+    metadata?: Record<string, unknown> | null
+  },
+) {
+  try {
+    await admin.from('historial_plantillas_whatsapp').insert({
+      empresa_id: params.empresaId,
+      plantilla_id: params.plantillaId,
+      evento: params.evento,
+      estado_previo: params.estadoPrevio ?? null,
+      estado_nuevo: params.estadoNuevo ?? null,
+      detalle: params.detalle ?? null,
+      usuario_id: params.usuarioId ?? null,
+      usuario_nombre: params.usuarioNombre ?? null,
+      metadata: params.metadata ?? null,
+    })
+  } catch (err) {
+    console.warn('No se pudo registrar historial de plantilla WA:', err)
+  }
+}
+
+/**
+ * Agrega al objeto plantilla los campos computados:
+ *  - `hash_actual`: hash del snapshot local (lo que viaja a Meta si se reenvía).
+ *  - `desincronizada`: true si hay cambios locales no sincronizados con Meta.
+ *    `null` significa "desconocido" (plantillas viejas sin hash guardado).
+ */
+function enriquecerPlantilla<T extends Record<string, unknown>>(
+  plantilla: T,
+): T & { hash_actual: string; desincronizada: boolean | null } {
+  const componentes = plantilla.componentes as ComponentesPlantillaWA
+  const hashActual = calcularHashMeta(componentes || { cuerpo: { texto: '' } })
+  const hashMeta = plantilla.hash_componentes_meta as string | null
+  const estado = plantilla.estado_meta as EstadoMeta
+  let desincronizada: boolean | null = false
+  if (estado === 'BORRADOR' || estado === 'ERROR') {
+    // Borrador/error: no hay nada que "desincronizar" — el usuario aún no envió.
+    desincronizada = false
+  } else if (hashMeta) {
+    desincronizada = hashMeta !== hashActual
+  } else {
+    // Plantilla aprobada/pendiente sin hash inicial → estado desconocido.
+    // Mostramos la etiqueta de aviso pero no como error rojo fuerte.
+    desincronizada = null
+  }
+  return { ...plantilla, hash_actual: hashActual, desincronizada }
+}
 
 /**
  * GET /api/whatsapp/plantillas — Listar plantillas locales.
@@ -39,7 +106,40 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    return NextResponse.json({ plantillas: data || [] })
+    // Auto-backfill: plantillas que ya viven en Meta (APPROVED/PENDING/DISABLED/
+    // PAUSED) pero nunca tuvieron hash — asumimos que el contenido actual en BD
+    // coincide con lo aprobado en Meta y guardamos el hash. Así desaparece el
+    // badge "Sin ref." de plantillas legacy sin tocar nada manualmente.
+    // IMPORTANTE: solo se backfillea si el contenido no fue editado DESPUÉS de
+    // la última sincronización con Meta. Si `actualizado_en > ultima_sincronizacion`
+    // hay cambios locales pendientes — en ese caso conservamos `null` y el UI
+    // lo marca como desincronizado correctamente.
+    const paraBackfill = (data || []).filter(p => {
+      const estado = p.estado_meta as EstadoMeta
+      const necesita = ['APPROVED', 'PENDING', 'DISABLED', 'PAUSED'].includes(estado)
+      if (!necesita || p.hash_componentes_meta) return false
+      const sync = p.ultima_sincronizacion ? new Date(p.ultima_sincronizacion as string).getTime() : 0
+      const upd = p.actualizado_en ? new Date(p.actualizado_en as string).getTime() : 0
+      // Si la plantilla fue editada después de la última sync, NO asumir sincronizada.
+      return sync >= upd
+    })
+    if (paraBackfill.length > 0) {
+      await Promise.all(paraBackfill.map(p => {
+        const componentes = p.componentes as ComponentesPlantillaWA
+        const hash = calcularHashMeta(componentes || { cuerpo: { texto: '' } })
+        // Escribimos el hash directo en la fila en memoria para que el enriquecimiento
+        // de abajo vea la plantilla como sincronizada sin una segunda lectura.
+        ;(p as Record<string, unknown>).hash_componentes_meta = hash
+        return admin
+          .from('plantillas_whatsapp')
+          .update({ hash_componentes_meta: hash })
+          .eq('id', p.id)
+          .eq('empresa_id', empresaId)
+      }))
+    }
+
+    const plantillas = (data || []).map(p => enriquecerPlantilla(p as Record<string, unknown>))
+    return NextResponse.json({ plantillas })
   } catch (err) {
     console.error('Error al obtener plantillas WA:', err)
     return NextResponse.json({ plantillas: [] })
@@ -125,16 +225,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Plantilla no encontrada' }, { status: 404 })
         }
 
-        // Si está aprobada/pendiente en Meta, solo permitir campos locales (modulos, disponibilidad)
-        const esEditableEnMeta = ['BORRADOR', 'ERROR'].includes(existente.estado_meta)
-        const datosUpdate: Record<string, unknown> = esEditableEnMeta ? datos : {
-          modulos: datos.modulos,
-          es_por_defecto: datos.es_por_defecto,
-          disponible_para: datos.disponible_para,
-          roles_permitidos: datos.roles_permitidos,
-          usuarios_permitidos: datos.usuarios_permitidos,
-          actualizado_en: datos.actualizado_en,
-        }
+        // Se permite editar TODOS los campos incluso si la plantilla ya está
+        // aprobada o en revisión en Meta: los cambios quedan locales hasta que
+        // el usuario haga "Enviar a Meta" otra vez. Mientras tanto, el flag
+        // `desincronizada` del GET avisa que lo que se envía al cliente puede
+        // no coincidir con lo que Meta tiene aprobado.
+        const datosUpdate: Record<string, unknown> = { ...datos }
 
         // Detectar cambios y registrar auditoría campo por campo
         const CAMPOS_AUDITABLES = [
@@ -168,6 +264,21 @@ export async function POST(request: NextRequest) {
               valor_nuevo: serializar(c.despues),
             })),
           )
+          // Registrar evento en el timeline. Si lo que cambió afecta al payload
+          // que viaja a Meta (componentes), lo indicamos en `metadata` para que
+          // el UI pueda mostrar "tiene cambios pendientes de re-enviar".
+          const afectaMeta = cambios.some(c => c.campo === 'componentes')
+          await registrarEventoHistorial(admin, {
+            empresaId,
+            plantillaId: id,
+            evento: 'editada',
+            estadoPrevio: existente.estado_meta,
+            estadoNuevo: existente.estado_meta,
+            detalle: cambios.map(c => c.campo).join(', '),
+            usuarioId: user.id,
+            usuarioNombre: nombreUsuario,
+            metadata: { afecta_meta: afectaMeta, campos: cambios.map(c => c.campo) },
+          })
         }
 
         datosUpdate.editado_por = user.id
@@ -182,7 +293,7 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (error) throw error
-        return NextResponse.json({ plantilla: data })
+        return NextResponse.json({ plantilla: enriquecerPlantilla(data as Record<string, unknown>) })
       } else {
         // Crear nueva
         const { data, error } = await admin
@@ -197,7 +308,15 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (error) throw error
-        return NextResponse.json({ plantilla: data }, { status: 201 })
+        await registrarEventoHistorial(admin, {
+          empresaId,
+          plantillaId: data.id,
+          evento: 'creada',
+          estadoNuevo: 'BORRADOR',
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario,
+        })
+        return NextResponse.json({ plantilla: enriquecerPlantilla(data as Record<string, unknown>) }, { status: 201 })
       }
     }
 
@@ -233,29 +352,68 @@ export async function POST(request: NextRequest) {
 
       // Transformar componentes a formato Meta
       const componentesMeta = transformarAMeta(comp)
+      const hashEnviado = calcularHashMeta(comp)
+
+      // Nombre del usuario para el timeline
+      const { data: perfil } = await admin
+        .from('perfiles')
+        .select('nombre, apellido')
+        .eq('id', user.id)
+        .single()
+      const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido || ''}`.trim() : 'Usuario'
 
       try {
-        const resultado = await crearPlantillaMeta(
-          config,
-          plantilla.nombre_api,
-          plantilla.idioma,
-          plantilla.categoria,
-          componentesMeta,
-        )
+        // Si la plantilla ya existe en Meta (tiene `id_template_meta`) usamos
+        // EDIT en lugar de CREATE. Meta rechaza crear una plantilla con mismo
+        // nombre + idioma que ya existe (error_subcode 2388024 "Ya existe
+        // contenido en este idioma"). EDIT actualiza el contenido y vuelve la
+        // plantilla a revisión (PENDING).
+        let idTemplateResultante: string
+        if (plantilla.id_template_meta) {
+          await editarPlantillaMeta(
+            config,
+            plantilla.id_template_meta,
+            plantilla.categoria,
+            componentesMeta,
+          )
+          idTemplateResultante = plantilla.id_template_meta
+        } else {
+          const resultado = await crearPlantillaMeta(
+            config,
+            plantilla.nombre_api,
+            plantilla.idioma,
+            plantilla.categoria,
+            componentesMeta,
+          )
+          idTemplateResultante = resultado.id
+        }
 
-        // Actualizar estado local
+        // Actualizar estado local + guardar hash del snapshot enviado
         await admin
           .from('plantillas_whatsapp')
           .update({
             estado_meta: 'PENDING' as EstadoMeta,
-            id_template_meta: resultado.id,
+            id_template_meta: idTemplateResultante,
             error_meta: null,
+            hash_componentes_meta: hashEnviado,
             ultima_sincronizacion: new Date().toISOString(),
             actualizado_en: new Date().toISOString(),
           })
           .eq('id', id)
 
-        return NextResponse.json({ ok: true, id_template_meta: resultado.id, estado: resultado.status })
+        await registrarEventoHistorial(admin, {
+          empresaId,
+          plantillaId: id,
+          evento: 'enviada_a_meta',
+          estadoPrevio: plantilla.estado_meta,
+          estadoNuevo: 'PENDING',
+          detalle: `Enviada a revisión en Meta (id: ${idTemplateResultante})`,
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario,
+          metadata: { id_template_meta: idTemplateResultante },
+        })
+
+        return NextResponse.json({ ok: true, id_template_meta: idTemplateResultante })
       } catch (err) {
         // Guardar error
         await admin
@@ -266,6 +424,17 @@ export async function POST(request: NextRequest) {
             actualizado_en: new Date().toISOString(),
           })
           .eq('id', id)
+
+        await registrarEventoHistorial(admin, {
+          empresaId,
+          plantillaId: id,
+          evento: 'error',
+          estadoPrevio: plantilla.estado_meta,
+          estadoNuevo: 'ERROR',
+          detalle: (err as Error).message,
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario,
+        })
 
         return NextResponse.json({ error: (err as Error).message }, { status: 500 })
       }
@@ -328,13 +497,20 @@ export async function POST(request: NextRequest) {
 
       if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
 
+      const { data: perfilSync } = await admin
+        .from('perfiles')
+        .select('nombre, apellido')
+        .eq('id', user.id)
+        .single()
+      const nombreUsuarioSync = perfilSync ? `${perfilSync.nombre} ${perfilSync.apellido || ''}`.trim() : 'Usuario'
+
       const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
       const plantillasMeta = await listarPlantillasMeta(config)
 
       // Obtener plantillas locales de este canal
       const { data: locales } = await admin
         .from('plantillas_whatsapp')
-        .select('id, nombre_api, estado_meta, id_template_meta')
+        .select('id, nombre_api, estado_meta, id_template_meta, componentes')
         .eq('empresa_id', empresaId)
         .eq('canal_id', canal_id)
 
@@ -348,22 +524,51 @@ export async function POST(request: NextRequest) {
         const estadoMeta = mapearEstadoMeta(pm.status)
 
         if (local) {
-          // Actualizar estado
+          // Si el estado cambió, registrar evento. Si la plantilla acaba de ser
+          // aprobada, guardar el hash actual — Meta aprobó lo que hay localmente.
+          const estadoCambio = local.estado_meta !== estadoMeta
+          const actualizacion: Record<string, unknown> = {
+            estado_meta: estadoMeta,
+            id_template_meta: pm.id,
+            error_meta: estadoMeta === 'REJECTED' ? (pm as unknown as Record<string, unknown>).rejected_reason as string || 'Rechazada por Meta' : null,
+            ultima_sincronizacion: ahora,
+            actualizado_en: ahora,
+          }
+          if (estadoCambio && estadoMeta === 'APPROVED') {
+            const comp = local.componentes as unknown as ComponentesPlantillaWA
+            actualizacion.hash_componentes_meta = calcularHashMeta(comp)
+          }
           await admin
             .from('plantillas_whatsapp')
-            .update({
-              estado_meta: estadoMeta,
-              id_template_meta: pm.id,
-              error_meta: estadoMeta === 'REJECTED' ? (pm as unknown as Record<string, unknown>).rejected_reason as string || 'Rechazada por Meta' : null,
-              ultima_sincronizacion: ahora,
-              actualizado_en: ahora,
-            })
+            .update(actualizacion)
             .eq('id', local.id)
+
+          if (estadoCambio) {
+            const mapaEvento: Record<string, string> = {
+              APPROVED: 'aprobada',
+              REJECTED: 'rechazada',
+              DISABLED: 'deshabilitada',
+              PAUSED: 'pausada',
+              PENDING: 'enviada_a_meta',
+            }
+            await registrarEventoHistorial(admin, {
+              empresaId,
+              plantillaId: local.id,
+              evento: mapaEvento[estadoMeta] || 'sincronizada',
+              estadoPrevio: local.estado_meta,
+              estadoNuevo: estadoMeta,
+              detalle: estadoMeta === 'REJECTED'
+                ? ((pm as unknown as Record<string, unknown>).rejected_reason as string || 'Rechazada por Meta')
+                : 'Sincronizado desde Meta',
+              usuarioId: user.id,
+              usuarioNombre: nombreUsuarioSync,
+            })
+          }
           sincronizadas++
         } else {
           // Crear registro local para plantilla que existe en Meta pero no localmente
           const componentes = transformarDesdeMeta(pm.components || [])
-          await admin
+          const { data: nueva } = await admin
             .from('plantillas_whatsapp')
             .insert({
               empresa_id: empresaId,
@@ -375,9 +580,23 @@ export async function POST(request: NextRequest) {
               componentes,
               estado_meta: estadoMeta,
               id_template_meta: pm.id,
+              hash_componentes_meta: estadoMeta === 'APPROVED' ? calcularHashMeta(componentes) : null,
               ultima_sincronizacion: ahora,
               creado_por: user.id,
             })
+            .select('id')
+            .single()
+          if (nueva) {
+            await registrarEventoHistorial(admin, {
+              empresaId,
+              plantillaId: nueva.id,
+              evento: 'sincronizada',
+              estadoNuevo: estadoMeta,
+              detalle: 'Importada desde Meta',
+              usuarioId: user.id,
+              usuarioNombre: nombreUsuarioSync,
+            })
+          }
           creadas++
         }
       }
@@ -390,94 +609,6 @@ export async function POST(request: NextRequest) {
     console.error('Error en gestión de plantillas WA:', err)
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }
-}
-
-// ─── Helpers ───
-
-/** Transforma componentes locales al formato Meta API */
-function transformarAMeta(comp: ComponentesPlantillaWA): ComponentePlantillaMeta[] {
-  const resultado: ComponentePlantillaMeta[] = []
-
-  if (comp.encabezado && comp.encabezado.tipo !== 'NONE') {
-    const header: ComponentePlantillaMeta = {
-      type: 'HEADER',
-      format: comp.encabezado.tipo,
-    }
-    if (comp.encabezado.tipo === 'TEXT' && comp.encabezado.texto) {
-      header.text = comp.encabezado.texto
-      if (comp.encabezado.ejemplo) {
-        header.example = { header_text: [comp.encabezado.ejemplo] }
-      }
-    }
-    resultado.push(header)
-  }
-
-  if (comp.cuerpo?.texto) {
-    const body: ComponentePlantillaMeta = {
-      type: 'BODY',
-      text: comp.cuerpo.texto,
-    }
-    if (comp.cuerpo.ejemplos && comp.cuerpo.ejemplos.length > 0) {
-      body.example = { body_text: [comp.cuerpo.ejemplos] }
-    }
-    resultado.push(body)
-  }
-
-  if (comp.pie_pagina?.texto) {
-    resultado.push({
-      type: 'FOOTER',
-      text: comp.pie_pagina.texto,
-    })
-  }
-
-  if (comp.botones && comp.botones.length > 0) {
-    resultado.push({
-      type: 'BUTTONS',
-      buttons: comp.botones.map(b => {
-        const btn: Record<string, unknown> = { type: b.tipo, text: b.texto }
-        if (b.tipo === 'URL' && b.url) btn.url = b.url
-        if (b.tipo === 'PHONE_NUMBER' && b.telefono) btn.phone_number = b.telefono
-        return btn as unknown as ComponentePlantillaMeta['buttons'] extends (infer T)[] | undefined ? T : never
-      }),
-    })
-  }
-
-  return resultado
-}
-
-/** Transforma componentes de Meta al formato local */
-function transformarDesdeMeta(components: ComponentePlantillaMeta[]): ComponentesPlantillaWA {
-  const resultado: ComponentesPlantillaWA = {
-    cuerpo: { texto: '' },
-  }
-
-  for (const c of components) {
-    if (c.type === 'HEADER') {
-      resultado.encabezado = {
-        tipo: (c.format || 'TEXT') as ComponentesPlantillaWA['encabezado'] extends { tipo: infer T } ? T : never,
-        texto: c.text,
-      }
-    }
-    if (c.type === 'BODY') {
-      resultado.cuerpo = {
-        texto: c.text || '',
-        ejemplos: (c.example as Record<string, string[][]>)?.body_text?.[0] || [],
-      }
-    }
-    if (c.type === 'FOOTER') {
-      resultado.pie_pagina = { texto: c.text || '' }
-    }
-    if (c.type === 'BUTTONS' && c.buttons) {
-      resultado.botones = c.buttons.map(b => ({
-        tipo: b.type,
-        texto: b.text,
-        url: b.url,
-        telefono: b.phone_number,
-      }))
-    }
-  }
-
-  return resultado
 }
 
 /** Mapea estado de Meta al estado local */

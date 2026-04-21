@@ -1,11 +1,11 @@
 /**
  * Utilidad para extraer el slug del subdominio desde el header host.
- * En producción: miempresa.fluxsalix.com → 'miempresa'
+ * En producción: miempresa.salixweb.com → 'miempresa'
  * En desarrollo: localhost:3000 → null (sin subdominio)
  * Se usa en: middleware, resolución de empresa por URL.
  */
 
-const DOMINIO_APP = process.env.NEXT_PUBLIC_APP_DOMAIN || 'fluxsalix.com'
+const DOMINIO_APP = process.env.NEXT_PUBLIC_APP_DOMAIN || 'salixweb.com'
 
 export function extraerSlug(host: string): string | null {
   // En desarrollo local no hay subdominios

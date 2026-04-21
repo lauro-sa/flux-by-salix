@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import {
   Plus, FileText, Trash2, Download, Calendar, History, RefreshCw,
-  Type, Send, Shield, Tag, Languages, Loader2,
+  Type, Send, Shield, Tag, Languages, Loader2, AlertTriangle,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -81,9 +81,11 @@ export default function PaginaListadoPlantillasMeta() {
   const [filtroCategoria, setFiltroCategoria] = useState<string>('')
   const [filtroAutor, setFiltroAutor] = useState<string>('')
   const [filtroModulos, setFiltroModulos] = useState<string[]>([])
+  const [filtroSync, setFiltroSync] = useState<string>('')
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
 
   const { busqueda, setBusqueda, busquedaDebounced } = useBusquedaDebounce('', 1, [
-    filtroEstado, filtroCategoria, filtroAutor, filtroModulos.join(','),
+    filtroEstado, filtroCategoria, filtroAutor, filtroModulos.join(','), filtroSync,
   ])
 
   // ─── Cargar ───
@@ -112,9 +114,11 @@ export default function PaginaListadoPlantillasMeta() {
       mostrar('info', 'Conectá una cuenta de WhatsApp primero')
       return
     }
+    // Feedback inmediato: el menú de acciones se cierra al clickear, así que si
+    // no mostramos un toast, el usuario no ve nada pasando durante la request.
     setSincronizando(true)
+    mostrar('info', 'Sincronizando plantillas con Meta…')
     try {
-      // Sincronizar todas las cuentas en paralelo
       const resultados = await Promise.all(
         canales.map(c =>
           fetch('/api/whatsapp/plantillas', {
@@ -125,12 +129,38 @@ export default function PaginaListadoPlantillasMeta() {
         ),
       )
       const total = resultados.reduce((s, r) => s + (r.sincronizadas || 0) + (r.creadas || 0), 0)
-      mostrar('exito', `${total} plantilla(s) sincronizada(s) con Meta`)
+      const creadas = resultados.reduce((s, r) => s + (r.creadas || 0), 0)
+      const msgExtra = creadas > 0 ? ` (${creadas} nueva${creadas !== 1 ? 's' : ''})` : ''
+      mostrar('exito', `Sincronización completa: ${total} plantilla${total !== 1 ? 's' : ''}${msgExtra}`)
       cargar()
     } catch {
       mostrar('error', 'Error al sincronizar con Meta')
     } finally {
       setSincronizando(false)
+    }
+  }
+
+  // ─── Re-enviar plantilla a Meta desde el listado ───
+  const handleReenviar = async (p: PlantillaWhatsApp) => {
+    if (!p.canal_id) {
+      mostrar('error', 'Esta plantilla no tiene canal de WhatsApp asignado')
+      return
+    }
+    setReenviandoId(p.id)
+    try {
+      const res = await fetch('/api/whatsapp/plantillas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'enviar_a_meta', id: p.id, canal_id: p.canal_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al enviar')
+      mostrar('exito', 'Plantilla enviada a Meta para revisión')
+      cargar()
+    } catch (err) {
+      mostrar('error', `Error: ${(err as Error).message}`)
+    } finally {
+      setReenviandoId(null)
     }
   }
 
@@ -215,6 +245,8 @@ export default function PaginaListadoPlantillasMeta() {
       const modulosP = p.modulos || []
       if (modulosP.length > 0 && !filtroModulos.some(m => modulosP.includes(m))) return false
     }
+    if (filtroSync === 'desincronizadas' && !(p.desincronizada === true || p.desincronizada === null)) return false
+    if (filtroSync === 'sincronizadas' && p.desincronizada !== false) return false
     return true
   })
 
@@ -222,6 +254,7 @@ export default function PaginaListadoPlantillasMeta() {
   const columnas: ColumnaDinamica<PlantillaWhatsApp>[] = [
     {
       clave: 'nombre', etiqueta: 'Nombre', ancho: 240, ordenable: true, grupo: 'Identidad', icono: <Type size={I} />,
+      obligatoria: true,
       render: (p) => (
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -260,11 +293,31 @@ export default function PaginaListadoPlantillasMeta() {
       },
     },
     {
-      clave: 'estado_meta', etiqueta: 'Estado Meta', ancho: 130, grupo: 'Clasificación', icono: <Shield size={I} />,
+      clave: 'estado_meta', etiqueta: 'Estado Meta', ancho: 170, grupo: 'Clasificación', icono: <Shield size={I} />,
       render: (p) => (
-        <Insignia color={ESTADO_META_COLOR[p.estado_meta]} tamano="sm">
-          {ESTADO_META_ETIQUETA[p.estado_meta]}
-        </Insignia>
+        <div className="flex items-center gap-1.5">
+          <Insignia color={ESTADO_META_COLOR[p.estado_meta]} tamano="sm">
+            {ESTADO_META_ETIQUETA[p.estado_meta]}
+          </Insignia>
+          {p.desincronizada === true && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border text-insignia-peligro border-insignia-peligro/40 bg-insignia-peligro/10"
+              title="La versión local tiene cambios que no fueron enviados a Meta"
+            >
+              <AlertTriangle size={10} />
+              Sin sync
+            </span>
+          )}
+          {p.desincronizada === null && p.estado_meta !== 'BORRADOR' && p.estado_meta !== 'ERROR' && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border text-insignia-advertencia border-insignia-advertencia/40 bg-insignia-advertencia/10"
+              title="Plantilla sin referencia de sincronización. Re-enviá para fijarla."
+            >
+              <AlertTriangle size={10} />
+              Sin ref.
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -329,18 +382,36 @@ export default function PaginaListadoPlantillasMeta() {
       ) : null,
     },
     {
-      clave: 'acciones', etiqueta: '', ancho: 50, grupo: 'Metadata',
-      render: (p) => (
-        <Boton
-          variante="fantasma"
-          tamano="xs"
-          soloIcono
-          icono={<Trash2 size={13} />}
-          titulo="Eliminar"
-          onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(p) }}
-          className="text-insignia-peligro"
-        />
-      ),
+      clave: 'acciones', etiqueta: '', ancho: 96, grupo: 'Metadata',
+      render: (p) => {
+        const puedeReenviar = !!p.canal_id && (p.desincronizada === true || p.desincronizada === null || p.estado_meta === 'ERROR' || p.estado_meta === 'REJECTED')
+        return (
+          <div className="flex items-center gap-1">
+            {puedeReenviar && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={reenviandoId === p.id
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Send size={13} />}
+                titulo="Re-enviar a Meta para revisión"
+                onClick={(e) => { e.stopPropagation(); handleReenviar(p) }}
+                disabled={reenviandoId === p.id}
+              />
+            )}
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<Trash2 size={13} />}
+              titulo="Eliminar"
+              onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(p) }}
+              className="text-insignia-peligro"
+            />
+          </div>
+        )
+      },
     },
   ]
 
@@ -417,13 +488,22 @@ export default function PaginaListadoPlantillasMeta() {
               opciones: MODULOS_DISPONIBLES,
               descripcion: 'Módulos donde la plantilla puede usarse al enviar mensajes.',
             },
+            {
+              id: 'sync', etiqueta: 'Sincronización', tipo: 'pills' as const,
+              valor: filtroSync, onChange: (v) => setFiltroSync(v as string),
+              opciones: [
+                { valor: 'desincronizadas', etiqueta: 'Con cambios sin enviar' },
+                { valor: 'sincronizadas', etiqueta: 'Sincronizadas con Meta' },
+              ],
+              descripcion: 'Plantillas cuyo contenido local difiere del último snapshot enviado a Meta.',
+            },
           ]}
           gruposFiltros={[
-            { id: 'estado_meta', etiqueta: 'Estado Meta', filtros: ['estado', 'categoria'] },
+            { id: 'estado_meta', etiqueta: 'Estado Meta', filtros: ['estado', 'sync', 'categoria'] },
             { id: 'uso', etiqueta: 'Uso', filtros: ['autor', 'modulos'] },
           ]}
           onLimpiarFiltros={() => {
-            setFiltroEstado(''); setFiltroCategoria(''); setFiltroAutor(''); setFiltroModulos([])
+            setFiltroEstado(''); setFiltroCategoria(''); setFiltroAutor(''); setFiltroModulos([]); setFiltroSync('')
           }}
           onClickFila={(p) => router.push(`/whatsapp/configuracion/plantillas-meta/${p.id}`)}
           idModulo="plantillas_meta"

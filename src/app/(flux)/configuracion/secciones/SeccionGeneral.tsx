@@ -248,7 +248,7 @@ export function SeccionGeneral() {
                     onClick={() => setSlugBloqueado(prev => !prev)}
                     titulo={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'} />
                 }
-                ayuda={slug ? `${slug}.fluxsalix.com` : ''}
+                ayuda={slug ? `${slug}.salixweb.com` : ''}
                 className={slugBloqueado ? 'opacity-70' : ''} />
             </div>
           </div>

@@ -479,6 +479,13 @@ export async function POST(request: NextRequest) {
       })
 
       await admin.from('lineas_presupuesto').insert(lineas)
+
+      // Recalcular totales del presupuesto (subtotal_neto, total_impuestos, total_final)
+      // sin esto, el portal público y el PDF leen $0 aunque el editor los calcula en vivo
+      await admin.rpc('recalcular_totales_presupuesto', {
+        p_presupuesto_id: presupuesto.id,
+        p_usuario_id: user.id,
+      })
     }
 
     // Registrar en historial de recientes (fire-and-forget)

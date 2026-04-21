@@ -38,6 +38,13 @@ export interface ColumnaDinamica<T> {
   tipoFiltro?: 'seleccion' | 'multiple' | 'fecha' | 'pills'
   /** Opciones del filtro (requerido para seleccion/multiple, ignorado en fecha) */
   opcionesFiltro?: { valor: string; etiqueta: string }[]
+  /**
+   * Si true, la columna siempre está visible aunque la configuración guardada
+   * del usuario no la incluya. Usar para columnas críticas (ej: Nombre) que
+   * no tiene sentido ocultar — protege contra preferencias corruptas o
+   * migradas desde otro dispositivo con un set de columnas distinto.
+   */
+  obligatoria?: boolean
 }
 
 /** Estado visual de la tabla */

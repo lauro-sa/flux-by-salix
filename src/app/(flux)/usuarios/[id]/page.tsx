@@ -256,7 +256,7 @@ export default function PaginaPerfilUsuario() {
           setInvitacionVigente(data)
           // Reconstruir link (usando slug si lo tiene la empresa)
           const slug = (empresa as { slug?: string }).slug
-          const dominio = process.env.NEXT_PUBLIC_APP_DOMAIN || 'fluxsalix.com'
+          const dominio = process.env.NEXT_PUBLIC_APP_DOMAIN || 'salixweb.com'
           const link = slug
             ? `https://${slug}.${dominio}/invitacion?token=${data.token}`
             : `${window.location.origin}/invitacion?token=${data.token}`

@@ -484,7 +484,7 @@ function SeccionEditorTexto({ id }: { id?: string }) {
         Seleccioná texto para ver el toolbar de formateo: negrita, itálica, tamaños, colores, alineación, listas y links.
       </p>
       <EditorTexto
-        contenido="<p>Este es un <strong>editor de texto enriquecido</strong> con toolbar flotante. Seleccioná cualquier parte del texto para ver las opciones de formateo.</p><p>Podés aplicar <em>itálica</em>, <u>subrayado</u>, cambiar el <span style='color: #3b82f6'>color del texto</span>, agregar <mark style='background-color: #fef08a'>resaltado</mark>, crear listas y mucho más.</p><h2>Títulos</h2><p>También soporta encabezados H1, H2 y H3 para organizar el contenido.</p><ul><li>Listas con viñetas</li><li>Numeradas</li></ul><p>Y <a href='https://fluxsalix.com'>enlaces</a> también.</p>"
+        contenido="<p>Este es un <strong>editor de texto enriquecido</strong> con toolbar flotante. Seleccioná cualquier parte del texto para ver las opciones de formateo.</p><p>Podés aplicar <em>itálica</em>, <u>subrayado</u>, cambiar el <span style='color: #3b82f6'>color del texto</span>, agregar <mark style='background-color: #fef08a'>resaltado</mark>, crear listas y mucho más.</p><h2>Títulos</h2><p>También soporta encabezados H1, H2 y H3 para organizar el contenido.</p><ul><li>Listas con viñetas</li><li>Numeradas</li></ul><p>Y <a href='https://salixweb.com'>enlaces</a> también.</p>"
         onChange={setHtml}
         placeholder="Escribí algo..."
         coloresMarca={colores}
@@ -553,7 +553,7 @@ function SeccionModalEnviarDocumento({ id }: { id?: string }) {
         nombreDestinatario="Juan Pérez"
         asuntoPredeterminado="Presupuesto #P-00042"
         adjuntoDocumento={adjuntoDemo}
-        urlPortal="https://app.fluxsalix.com/portal/presupuestos/abc123"
+        urlPortal="https://flux.salixweb.com/portal/presupuestos/abc123"
         tipoDocumento="Presupuesto"
         onGuardarBorrador={(datos) => { console.log('Borrador guardado:', datos) }}
         onGuardarPlantilla={(datos) => { console.log('Plantilla guardada:', datos) }}

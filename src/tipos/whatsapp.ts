@@ -45,6 +45,8 @@ export interface EncabezadoPlantillaWA {
   tipo: TipoEncabezadoWA
   texto?: string
   ejemplo?: string
+  /** Variable del catálogo que resuelve `{{1}}` del encabezado (ej. 'contacto_nombre'). */
+  mapeo_variable?: string
 }
 
 export interface CuerpoPlantillaWA {
@@ -62,6 +64,9 @@ export interface BotonPlantillaWA {
   texto: string
   url?: string
   telefono?: string
+  /** Ejemplo completo de URL resuelta (requerido por Meta para botones URL con {{N}}).
+   *  Ej: "https://flux.salixweb.com/portal/abc123token" */
+  ejemplo?: string
 }
 
 export interface ComponentesPlantillaWA {
@@ -97,4 +102,26 @@ export interface PlantillaWhatsApp {
   editado_por_nombre?: string | null
   creado_en: string
   actualizado_en: string
+  /** Hash SHA-256 del snapshot que se envió a Meta en la última aprobación/envío. */
+  hash_componentes_meta?: string | null
+  /** Hash calculado del snapshot local actual (computed). */
+  hash_actual?: string
+  /** `true` si el contenido local difiere de lo que Meta tiene (computed).
+   *  `null` = desconocido (plantilla sin hash inicial). */
+  desincronizada?: boolean | null
+}
+
+/** Evento en la línea de tiempo de una plantilla de WhatsApp. */
+export interface EventoHistorialPlantilla {
+  id: string
+  empresa_id: string
+  plantilla_id: string
+  evento: 'creada' | 'editada' | 'enviada_a_meta' | 'aprobada' | 'rechazada' | 'deshabilitada' | 'pausada' | 'error' | 'sincronizada'
+  estado_previo: string | null
+  estado_nuevo: string | null
+  detalle: string | null
+  usuario_id: string | null
+  usuario_nombre: string | null
+  metadata: Record<string, unknown> | null
+  creado_en: string
 }
