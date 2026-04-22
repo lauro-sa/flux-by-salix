@@ -566,6 +566,12 @@ export default function PaginaUsuarios() {
   const [modalActivar, setModalActivar] = useState<{ miembro: MiembroTabla; accion: 'activar' | 'desactivar' } | null>(null)
   const [procesando, setProcesando] = useState(false)
 
+  // Permisos granulares del módulo `usuarios`. Un rol custom puede tener solo
+  // una acción (ej: solo `invitar`) y la UI debe respetarlo. `puedeGestionar`
+  // queda como compatibilidad binaria para acciones que requieren rol admin/
+  // propietario por definición (activar/desactivar, reasignar propietario).
+  const puedeInvitar = esPropietario || tienePermiso('usuarios', 'invitar')
+  const puedeEditar = esPropietario || tienePermiso('usuarios', 'editar')
   const puedeGestionar = esPropietario || esAdmin
 
   /* ── Cargar miembros con perfiles ── */
@@ -988,7 +994,8 @@ export default function PaginaUsuarios() {
   }, [miembros])
 
   /* ── Acciones en lote ── */
-  const accionesLote = puedeGestionar ? [
+  // Desactivar es edición del miembro — requiere `usuarios:editar`.
+  const accionesLote = puedeEditar ? [
     {
       id: 'desactivar',
       etiqueta: t('usuarios.desactivar_seleccionados'),
@@ -1013,7 +1020,7 @@ export default function PaginaUsuarios() {
     <PlantillaListado
       titulo={t('navegacion.usuarios')}
       icono={<Users size={20} />}
-      accionPrincipal={puedeGestionar ? {
+      accionPrincipal={puedeInvitar ? {
         etiqueta: t('usuarios.agregar_empleado'),
         icono: <UserPlus size={14} />,
         onClick: () => { resetFormularioEmpleado(); setModalAgregar(true) },
@@ -1040,7 +1047,7 @@ export default function PaginaUsuarios() {
         datos={miembrosFiltrados}
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas']}
-        seleccionables={puedeGestionar}
+        seleccionables={puedeEditar}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar por nombre, correo, rol, puesto, sector..."
@@ -1273,7 +1280,7 @@ export default function PaginaUsuarios() {
             icono={<UserRoundSearch size={52} strokeWidth={1} />}
             titulo={t('usuarios.sin_usuarios')}
             descripcion={t('usuarios.sin_miembros_desc')}
-            accion={puedeGestionar ? <Boton icono={<UserPlus size={14} />} onClick={() => { resetFormularioEmpleado(); setModalAgregar(true) }}>{t('usuarios.agregar_empleado')}</Boton> : undefined}
+            accion={puedeInvitar ? <Boton icono={<UserPlus size={14} />} onClick={() => { resetFormularioEmpleado(); setModalAgregar(true) }}>{t('usuarios.agregar_empleado')}</Boton> : undefined}
           />
         }
       />

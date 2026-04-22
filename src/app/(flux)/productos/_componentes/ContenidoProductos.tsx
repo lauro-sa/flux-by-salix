@@ -24,6 +24,7 @@ import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalProducto } from './ModalProducto'
+import { useRol } from '@/hooks/useRol'
 import type { Producto, ConfigProductos } from '@/tipos/producto'
 
 /**
@@ -67,6 +68,9 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   const formato = useFormato()
   const queryClient = useQueryClient()
   const { mostrar: mostrarToast } = useToast()
+  const { tienePermiso } = useRol()
+  const puedeCrear = tienePermiso('productos', 'crear')
+  const puedeEliminar = tienePermiso('productos', 'eliminar')
 
   // ---- Estado ----
   // Filtros server-side — restaurar desde URL si existen
@@ -271,6 +275,8 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   }, [productoIdParam, router])
 
   // ---- Abrir modal para edicion ----
+  // Si el usuario no puede editar, el modal abre en "solo lectura" igualmente
+  // — se controla dentro del ModalProducto con los flags `permisos` del registro.
   const abrirEdicion = useCallback(async (fila: FilaProducto) => {
     try {
       const res = await fetch(`/api/productos/${fila.id}`)
@@ -511,11 +517,11 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
       <PlantillaListado
         titulo="Productos y Servicios"
         icono={<Package size={20} />}
-        accionPrincipal={{
+        accionPrincipal={puedeCrear ? {
           etiqueta: 'Nuevo',
           icono: <PlusCircle size={14} />,
           onClick: abrirNuevo,
-        }}
+        } : undefined}
         acciones={[]}
         mostrarConfiguracion
         onConfiguracion={() => router.push('/productos/configuracion')}
@@ -529,8 +535,8 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
           paginaExterna={pagina}
           onCambiarPagina={setPagina}
           vistas={['lista', 'tarjetas']}
-          seleccionables
-          accionesLote={[
+          seleccionables={puedeEliminar}
+          accionesLote={puedeEliminar ? [
             {
               id: 'eliminar',
               etiqueta: t('comun.eliminar'),
@@ -540,7 +546,7 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
               atajo: 'Supr',
               grupo: 'peligro' as const,
             },
-          ]}
+          ] : []}
           busqueda={busqueda}
           onBusqueda={setBusqueda}
           placeholder="Buscar por nombre, codigo, referencia, categoria..."

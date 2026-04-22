@@ -10,6 +10,7 @@ import {
 import type { CanalMensajeria } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { usePreferencias } from '@/hooks/usePreferencias'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Sidebar de correo estilo cliente de email.
@@ -70,6 +71,8 @@ export function SidebarCorreo({
 }: PropiedadesSidebarCorreo) {
   const { t } = useTraduccion()
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
+  const { tienePermiso } = useRol()
+  const puedeEnviar = tienePermiso('inbox_correo', 'enviar')
 
   // Leer config de inbox desde preferencias (BD)
   const configInbox = (preferencias.config_tablas?.[CLAVE_CONFIG_INBOX] || {}) as {
@@ -208,16 +211,18 @@ export function SidebarCorreo({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Redactar */}
-      <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : esMovil ? 'p-4' : 'p-3'}`}>
-        {colapsado ? (
-          <Boton variante="primario" tamano="sm" soloIcono titulo="Redactar" icono={<Pen size={16} />} onClick={onRedactar} />
-        ) : (
-          <Boton variante="primario" tamano={tamanoBtn} icono={<Pen size={esMovil ? 16 : 14} />} onClick={onRedactar} className="w-full">
-            {t('inbox.redactar')}
-          </Boton>
-        )}
-      </div>
+      {/* Redactar — oculto si el usuario no tiene permiso `inbox_correo:enviar` */}
+      {puedeEnviar && (
+        <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : esMovil ? 'p-4' : 'p-3'}`}>
+          {colapsado ? (
+            <Boton variante="primario" tamano="sm" soloIcono titulo="Redactar" icono={<Pen size={16} />} onClick={onRedactar} />
+          ) : (
+            <Boton variante="primario" tamano={tamanoBtn} icono={<Pen size={esMovil ? 16 : 14} />} onClick={onRedactar} className="w-full">
+              {t('inbox.redactar')}
+            </Boton>
+          )}
+        </div>
+      )}
 
       {/* Carpetas */}
       <div className={`flex-1 overflow-y-auto ${colapsado ? 'px-1' : 'px-1.5'} pb-3`} style={{ overscrollBehaviorY: 'contain' }}>
