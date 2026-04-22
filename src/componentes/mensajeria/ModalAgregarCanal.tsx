@@ -274,52 +274,49 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
 
         {/* Paso 1: Seleccionar proveedor */}
         {paso === 1 && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
               Seleccioná cómo querés conectar {tipoCanal === 'whatsapp' ? 'WhatsApp' : 'el correo'}:
             </p>
-            <div className="space-y-2">
-              {proveedores.map((p) => (
-                <Boton
-                  key={p.valor}
-                  variante={proveedor === p.valor ? 'primario' : 'secundario'}
-                  tamano="sm"
-                  anchoCompleto
-                  onClick={() => setProveedor(p.valor as ProveedorCanal)}
-                  className="text-left"
-                  style={{
-                    border: proveedor === p.valor
-                      ? '2px solid var(--texto-marca)'
-                      : '1px solid var(--borde-sutil)',
-                    background: proveedor === p.valor
-                      ? 'var(--superficie-seleccionada)'
-                      : 'transparent',
-                  }}
-                >
-                  <span className="flex items-center gap-3 w-full">
+            <div className="space-y-2.5">
+              {proveedores.map((p) => {
+                const seleccionado = proveedor === p.valor
+                return (
+                  <button
+                    key={p.valor}
+                    type="button"
+                    onClick={() => setProveedor(p.valor as ProveedorCanal)}
+                    className="w-full text-left rounded-card transition-all px-4 py-3.5 flex items-center gap-3.5"
+                    style={{
+                      border: seleccionado ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
+                      background: seleccionado ? 'var(--superficie-seleccionada)' : 'var(--superficie-tarjeta)',
+                      // Compensar el +1px del border seleccionado para que no "salte" el layout
+                      padding: seleccionado ? 'calc(0.875rem - 1px) calc(1rem - 1px)' : '0.875rem 1rem',
+                    }}
+                  >
                     <span
-                      className="w-10 h-10 rounded-card flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-card flex items-center justify-center flex-shrink-0"
                       style={{ background: 'var(--superficie-hover)' }}
                     >
                       {tipoCanal === 'whatsapp' ? (
-                        <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+                        <IconoWhatsApp size={22} style={{ color: 'var(--canal-whatsapp)' }} />
                       ) : p.valor === 'gmail_oauth' ? (
-                        <Globe size={20} style={{ color: '#4285F4' }} />
+                        <Globe size={22} style={{ color: '#4285F4' }} />
                       ) : (
-                        <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
+                        <Mail size={22} style={{ color: 'var(--canal-correo)' }} />
                       )}
                     </span>
-                    <span>
-                      <span className="text-sm font-medium block" style={{ color: 'var(--texto-primario)' }}>
+                    <span className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold block leading-tight" style={{ color: 'var(--texto-primario)' }}>
                         {p.etiqueta}
                       </span>
-                      <span className="text-xs block" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xs block mt-1 leading-snug" style={{ color: 'var(--texto-terciario)' }}>
                         {p.descripcion}
                       </span>
                     </span>
-                  </span>
-                </Boton>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
