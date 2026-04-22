@@ -76,6 +76,8 @@ export function ModalEnviarDocumento({
   onEliminarPlantilla,
   pdfDesactivadoInicial,
   portalDesactivadoInicial,
+  contactoPrincipalId,
+  contactoPrincipalNombre,
 }: PropiedadesModalEnviarDocumento) {
   const [expandido, setExpandido] = useState(false)
   const refBotonCanal = useRef<HTMLButtonElement>(null)
@@ -288,7 +290,13 @@ export function ModalEnviarDocumento({
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
                   <div className="flex items-start gap-0">
                     <div className="flex-1">
-                      <InputEmailChips etiqueta="CC:" emails={estado.cc} onChange={estado.setCC} />
+                      <InputEmailChips
+                        etiqueta="CC:"
+                        emails={estado.cc}
+                        onChange={estado.setCC}
+                        contactoPadreId={contactoPrincipalId}
+                        contactoPadreNombre={contactoPrincipalNombre}
+                      />
                     </div>
                     <Boton
                       variante="fantasma"
@@ -310,7 +318,13 @@ export function ModalEnviarDocumento({
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
                   <div className="flex items-start gap-0">
                     <div className="flex-1">
-                      <InputEmailChips etiqueta="CCO:" emails={estado.cco} onChange={estado.setCCO} />
+                      <InputEmailChips
+                        etiqueta="CCO:"
+                        emails={estado.cco}
+                        onChange={estado.setCCO}
+                        contactoPadreId={contactoPrincipalId}
+                        contactoPadreNombre={contactoPrincipalNombre}
+                      />
                     </div>
                     <Boton
                       variante="fantasma"

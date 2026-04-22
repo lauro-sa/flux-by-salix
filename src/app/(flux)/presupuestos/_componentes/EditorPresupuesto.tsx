@@ -1924,6 +1924,14 @@ export default function EditorPresupuesto({
         onEnviar={handleEnviarCorreo}
         canales={canalesCorreo}
         plantillas={correoLibre ? [] : plantillasCorreo}
+        contactoPrincipalId={contactoSeleccionado?.id || null}
+        contactoPrincipalNombre={
+          contactoSeleccionado
+            ? `${contactoSeleccionado.nombre} ${contactoSeleccionado.apellido || ''}`.trim()
+            : presupuesto?.contacto_nombre
+              ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
+              : null
+        }
         correosDestinatario={
           atencionSeleccionada?.correo
             ? [atencionSeleccionada.correo]

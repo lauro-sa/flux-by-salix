@@ -1200,6 +1200,8 @@ export default function PaginaContacto() {
           plantillas={plantillasCorreo}
           correosDestinatario={destinatariosIniciales}
           nombreDestinatario={nombreCompleto}
+          contactoPrincipalId={contactoId}
+          contactoPrincipalNombre={nombreCompleto}
           tipoDocumento="Correo"
           enviando={enviandoCorreo}
         />

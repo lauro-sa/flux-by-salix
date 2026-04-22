@@ -61,6 +61,10 @@ export interface ContactoSugerido {
   id: string
   nombre: string
   correo: string
+  /** True si el contacto es un vinculado (hijo) del destinatario principal del documento */
+  es_hijo?: boolean
+  /** Puesto/rol dentro del contenedor (solo si es_hijo) */
+  puesto?: string | null
 }
 
 /** Datos del borrador para guardar/restaurar */
@@ -140,4 +144,8 @@ export interface PropiedadesModalEnviarDocumento {
   pdfDesactivadoInicial?: boolean
   /** Si true, el portal inicia desactivado (el usuario puede activarlo manualmente) */
   portalDesactivadoInicial?: boolean
+  /** ID del contacto principal del documento — los CC/CCO priorizan sus vinculados (hijos) */
+  contactoPrincipalId?: string | null
+  /** Nombre del contacto principal — para el separador "Vinculados a …" en el popover */
+  contactoPrincipalNombre?: string | null
 }
