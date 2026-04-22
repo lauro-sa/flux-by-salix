@@ -1,15 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirPermisoAPI, requerirAutenticacionAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { ModuloConEstado } from '@/tipos'
 
 /**
  * GET /api/modulos — Catálogo completo con estado de instalación por empresa.
  * Devuelve todos los módulos visibles del catálogo, marcando cuáles están instalados.
+ *
+ * Acceso: cualquier miembro autenticado con empresa activa. Este endpoint
+ * alimenta al sidebar para TODOS los usuarios (un colaborador también necesita
+ * saber qué módulos tiene la empresa para filtrar la navegación).
+ * Instalar/desinstalar sí exige permiso (ver POST más abajo).
  */
 export async function GET() {
   try {
-    const guard = await requerirPermisoAPI('config_empresa', 'ver')
+    const guard = await requerirAutenticacionAPI()
     if ('respuesta' in guard) return guard.respuesta
     const { empresaId } = guard
 

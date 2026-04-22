@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirPermisoAPI, requerirAutenticacionAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -13,11 +13,10 @@ export async function PATCH(request: NextRequest) {
     const { perfil_id, ...campos } = await request.json()
     if (!perfil_id) return NextResponse.json({ error: 'perfil_id requerido' }, { status: 400 })
 
-    // Para editar a otros usamos el permiso fuerte; si es uno mismo, basta con
-    // tener visibilidad propia (cualquier miembro activo la tiene).
+    // Editar propio perfil: cualquier miembro autenticado puede. Editar ajeno:
+    // requiere usuarios:editar (se chequea después de identificar al usuario).
     const accion = 'editar' as const
-    // Primero tratamos de obtener el user con un permiso mínimo para conocer identidad.
-    const guardMin = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guardMin = await requerirAutenticacionAPI()
     if ('respuesta' in guardMin) return guardMin.respuesta
     const { user, empresaId } = guardMin
 

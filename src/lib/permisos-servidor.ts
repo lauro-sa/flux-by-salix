@@ -120,6 +120,29 @@ export async function requerirPermisoAPI(
 }
 
 /**
+ * Guard ligero: autentica y verifica empresa activa, sin chequear permiso de módulo.
+ *
+ * Se usa en endpoints que forman parte del "shell" de la app y cualquier miembro
+ * autenticado debe poder invocar (preferencias personales, catálogo de módulos
+ * para filtrar sidebar, registro de push notifications, editar propio perfil).
+ * NO reemplaza a `requerirPermisoAPI` para features sensibles.
+ */
+export async function requerirAutenticacionAPI(): Promise<
+  | { respuesta: NextResponse }
+  | { user: { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }; empresaId: string }
+> {
+  const { user } = await obtenerUsuarioRuta()
+  if (!user) {
+    return { respuesta: NextResponse.json({ error: 'No autenticado' }, { status: 401 }) }
+  }
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) {
+    return { respuesta: NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 }) }
+  }
+  return { user: user as { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }, empresaId }
+}
+
+/**
  * Verifica permisos de visibilidad (ver_todos vs ver_propio) con una sola query a BD.
  * Retorna { verTodos, soloPropio, miembro } o null si no tiene ningún permiso.
  */

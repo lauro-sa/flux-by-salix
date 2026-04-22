@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirAutenticacionAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -9,7 +9,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guard = await requerirAutenticacionAPI()
     if ('respuesta' in guard) return guard.respuesta
     const { user } = guard
 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guard = await requerirAutenticacionAPI()
     if ('respuesta' in guard) return guard.respuesta
     const { user } = guard
 
