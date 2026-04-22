@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
-import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { resolverRangoFecha } from '@/lib/presets-fecha'
@@ -217,14 +217,15 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/asistencias — Crear fichaje manual (admin).
+ * Requiere `asistencias:marcar` (el permiso habilita cargar fichajes de OTROS
+ * desde /asistencias). Para fichar el propio turno existe el endpoint
+ * /api/asistencias/fichar con `requerirFichajePropioAPI`.
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('asistencias', 'marcar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const admin = crearClienteAdmin()
@@ -268,11 +269,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('asistencias', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const { id, ...campos } = body
@@ -338,11 +337,9 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('asistencias', 'eliminar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const body = await request.json()
     const admin = crearClienteAdmin()
