@@ -3,10 +3,12 @@
 /**
  * GuardPagina — wrapper que protege el render del contenido según permisos.
  *
- * Llama `useGuardPermiso` internamente. Mientras los permisos cargan o si el
- * usuario no tiene acceso al módulo, renderiza null (y redirige al dashboard
- * con toast si pierde el permiso). Solo cuando el acceso está confirmado,
- * monta los children.
+ * Comportamiento:
+ *  - Mientras cargan los permisos: renderiza null (evita flash de contenido).
+ *  - Si el usuario no tiene el permiso requerido: renderiza <SinPermiso>,
+ *    una pantalla explícita con botón "Volver al inicio". NO redirige
+ *    silenciosamente.
+ *  - Si tiene permiso: monta los children.
  *
  * IMPORTANTE: siempre envolver al contenido desde afuera, nunca hacer
  * `const { bloqueado } = useGuardPermiso(...); if (bloqueado) return null`
@@ -26,6 +28,7 @@
 
 import type { ReactNode } from 'react'
 import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import type { Modulo, Accion } from '@/tipos/permisos'
 
 interface PropsGuardPagina {
@@ -36,7 +39,8 @@ interface PropsGuardPagina {
 }
 
 export function GuardPagina({ modulo, accion, redirigirA, children }: PropsGuardPagina) {
-  const { bloqueado } = useGuardPermiso(modulo, { accion, redirigirA })
-  if (bloqueado) return null
+  const { cargando, sinPermiso } = useGuardPermiso(modulo, { accion, redirigirA })
+  if (cargando) return null
+  if (sinPermiso) return <SinPermiso />
   return <>{children}</>
 }

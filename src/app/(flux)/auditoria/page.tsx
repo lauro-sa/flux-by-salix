@@ -6,6 +6,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import { Download, Shield, ScanEye } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 
 const columnas: ColumnaDinamica<Record<string, unknown>>[] = [
   { clave: 'fecha', etiqueta: 'Fecha', ancho: 160, ordenable: true, tipo: 'fecha', filtrable: true },
@@ -38,6 +39,14 @@ const columnas: ColumnaDinamica<Record<string, unknown>>[] = [
 ]
 
 export default function PaginaAuditoria() {
+  return (
+    <GuardPagina modulo="auditoria" accion="ver">
+      <ContenidoAuditoria />
+    </GuardPagina>
+  )
+}
+
+function ContenidoAuditoria() {
   const [busqueda, setBusqueda] = useState('')
 
   return (

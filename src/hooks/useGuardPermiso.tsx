@@ -33,6 +33,12 @@ interface OpcionesGuard {
   accion?: Accion
   /** A dónde redirigir si pierde acceso. Default: '/'. */
   redirigirA?: string
+  /**
+   * Si true, redirige al usuario a `redirigirA` con un toast cuando pierde
+   * acceso en vivo. Si false, solo reporta `bloqueado: true` y deja que el
+   * consumidor muestre una pantalla <SinPermiso>. Default: false.
+   */
+  redirigir?: boolean
 }
 
 interface ResultadoGuard {
@@ -40,10 +46,12 @@ interface ResultadoGuard {
   bloqueado: boolean
   /** true durante la primera carga de permisos. */
   cargando: boolean
+  /** true si los permisos ya se cargaron y el usuario no tiene el requerido. */
+  sinPermiso: boolean
 }
 
 export function useGuardPermiso(modulo: Modulo, opciones: OpcionesGuard = {}): ResultadoGuard {
-  const { accion, redirigirA = '/' } = opciones
+  const { accion, redirigirA = '/', redirigir = false } = opciones
   const { tienePermiso } = useRol()
   const { cargando } = usePermisosActuales()
   const router = useRouter()
@@ -59,6 +67,7 @@ export function useGuardPermiso(modulo: Modulo, opciones: OpcionesGuard = {}): R
   }, [cargando, modulo, accion, tienePermiso])
 
   useEffect(() => {
+    if (!redirigir) return
     if (cargando) return
     if (yaRedirigio.current) return
     if (puede) return
@@ -67,9 +76,13 @@ export function useGuardPermiso(modulo: Modulo, opciones: OpcionesGuard = {}): R
     const etiqueta = ETIQUETAS_MODULO[modulo] || modulo
     toast.mostrar('advertencia', `Ya no tenés permiso para ver ${etiqueta}.`)
     router.replace(redirigirA)
-  }, [cargando, puede, modulo, redirigirA, router, toast])
+  }, [cargando, puede, modulo, redirigir, redirigirA, router, toast])
 
-  return { bloqueado: cargando || !puede, cargando }
+  return {
+    bloqueado: cargando || !puede,
+    cargando,
+    sinPermiso: !cargando && !puede,
+  }
 }
 
 /** ¿Tiene el usuario alguna de las acciones de "ver" para este módulo? */
