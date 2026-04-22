@@ -8,7 +8,7 @@ import {
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
-import { normalizarTelefono } from '@/lib/validaciones'
+import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
@@ -163,9 +163,11 @@ async function procesarMensajeEntrante(
   msg: MensajeEntranteMeta,
   contactoMeta?: { profile: { name: string }; wa_id: string },
 ) {
-  // Normalizar teléfono al formato canónico: solo dígitos, sin +
+  // Normalizar teléfono al formato canónico E.164 sin `+` (con el 9 para móviles AR).
+  // Generamos variantes para búsqueda defensiva: con/sin 9, con/sin 54, con/sin +.
+  // Así encontramos conversaciones/contactos aunque estén guardados en otro formato.
   const telefonoRemitente = normalizarTelefono(msg.from) || msg.from.replace(/[^\d]/g, '')
-  const telefonoConPlus = `+${telefonoRemitente}`
+  const variantesTel = generarVariantesTelefono(msg.from)
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
   // ─── Salix IA: detectar si es empleado para modo copilot ───
@@ -198,14 +200,15 @@ async function procesarMensajeEntrante(
     console.error('[WEBHOOK SALIX] ❌ Error en detección/copilot:', err)
   }
 
-  // Buscar conversación existente (abierta o en espera) — ambos formatos por retrocompatibilidad
+  // Buscar conversación existente (abierta o en espera) — por cualquier variante del número
+  const orConv = variantesTel.map(v => `identificador_externo.eq.${v}`).join(',')
   let esConversacionNueva = false
   let { data: conversacion } = await admin
     .from('conversaciones')
     .select('id, contacto_id, estado, identificador_externo')
     .eq('empresa_id', canal.empresa_id)
     .eq('canal_id', canal.id)
-    .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
+    .or(orConv)
     .in('estado', ['abierta', 'en_espera'])
     .order('creado_en', { ascending: false })
     .limit(1)
@@ -227,7 +230,7 @@ async function procesarMensajeEntrante(
       .select('id, contacto_id, estado, identificador_externo')
       .eq('empresa_id', canal.empresa_id)
       .eq('canal_id', canal.id)
-      .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
+      .or(orConv)
       .eq('estado', 'resuelta')
       .order('creado_en', { ascending: false })
       .limit(1)
@@ -256,15 +259,18 @@ async function procesarMensajeEntrante(
   }
 
   if (!conversacion) {
-    // Intentar vincular con contacto existente por WhatsApp (ambos formatos)
+    // Intentar vincular con contacto existente por WhatsApp (cualquier variante del número)
+    const orCont = variantesTel
+      .flatMap(v => [`whatsapp.eq.${v}`, `telefono.eq.${v}`])
+      .join(',')
     let { data: contacto } = await admin
       .from('contactos')
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
       .eq('en_papelera', false)
-      .or(`whatsapp.eq.${telefonoRemitente},whatsapp.eq.${telefonoConPlus},telefono.eq.${telefonoRemitente},telefono.eq.${telefonoConPlus}`)
+      .or(orCont)
       .limit(1)
-      .single()
+      .maybeSingle()
 
     // Si no existe contacto, crear uno provisorio automáticamente
     if (!contacto) {
@@ -298,15 +304,18 @@ async function procesarMensajeEntrante(
     }
   } else if (!conversacion.contacto_id) {
     // Conversación existente sin contacto vinculado (fue eliminado)
-    // → buscar o crear provisorio y vincular
+    // → buscar o crear provisorio y vincular (por cualquier variante del número)
+    const orContRelink = variantesTel
+      .flatMap(v => [`whatsapp.eq.${v}`, `telefono.eq.${v}`])
+      .join(',')
     let { data: contacto } = await admin
       .from('contactos')
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
       .eq('en_papelera', false)
-      .or(`whatsapp.eq.${telefonoRemitente},whatsapp.eq.${telefonoConPlus},telefono.eq.${telefonoRemitente},telefono.eq.${telefonoConPlus}`)
+      .or(orContRelink)
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!contacto) {
       contacto = await crearContactoProvisorio(admin, canal.empresa_id, nombreRemitente, telefonoRemitente)
@@ -340,7 +349,7 @@ async function procesarMensajeEntrante(
         .from('conversaciones')
         .select('id, contacto_id')
         .eq('empresa_id', canal.empresa_id)
-        .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
+        .or(orConv)
 
       const convIds = (todasConvs || []).map(c => c.id)
       const contactoIds = [...new Set((todasConvs || []).map(c => c.contacto_id).filter(Boolean))]

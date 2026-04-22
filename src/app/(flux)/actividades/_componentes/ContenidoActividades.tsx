@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -116,8 +116,14 @@ interface Props {
 }
 
 export default function ContenidoActividades({ datosInicialesJson }: Props) {
-  const { bloqueado: sinPermiso } = useGuardPermiso('actividades')
-  if (sinPermiso) return null
+  return (
+    <GuardPagina modulo="actividades">
+      <ContenidoActividadesInterno datosInicialesJson={datosInicialesJson} />
+    </GuardPagina>
+  )
+}
+
+function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()

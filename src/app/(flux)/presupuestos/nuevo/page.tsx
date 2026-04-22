@@ -2,17 +2,20 @@
 
 import { useSearchParams } from 'next/navigation'
 import EditorPresupuesto from '../_componentes/EditorPresupuesto'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 
 export default function PaginaNuevoPresupuesto() {
-  // Bloquea hasta cargar permisos. Sin 'crear' redirige al dashboard
-  // con toast antes de renderizar el editor.
-  const { bloqueado } = useGuardPermiso('presupuestos', { accion: 'crear' })
+  return (
+    <GuardPagina modulo="presupuestos" accion="crear">
+      <PaginaNuevoPresupuestoInterno />
+    </GuardPagina>
+  )
+}
+
+function PaginaNuevoPresupuestoInterno() {
   const searchParams = useSearchParams()
   const contactoId = searchParams.get('contacto_id') || undefined
   const actividadOrigenId = searchParams.get('actividad_origen_id') || undefined
-
-  if (bloqueado) return null
 
   return (
     <EditorPresupuesto

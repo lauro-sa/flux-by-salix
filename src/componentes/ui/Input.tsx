@@ -1,8 +1,9 @@
 'use client'
 
-import { forwardRef, useState, useCallback, type InputHTMLAttributes, type ReactNode, type ChangeEvent } from 'react'
+import { forwardRef, useState, useCallback, useEffect, type InputHTMLAttributes, type ReactNode, type ChangeEvent } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { aplicarFormato, detectarFormato, type TipoFormato } from '@/lib/formato'
+import { formatearTelefonoInternacional } from '@/lib/validaciones'
 
 type TipoInput = 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'number' | 'date'
 
@@ -39,13 +40,28 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
     // Determinar formato: explícito > auto-detectado > null
     const formatoFinal = formato !== undefined ? formato : detectarFormato(tipo)
 
+    // Preview de formato canónico para teléfonos (muestra "+54 9 11 1234-5678" como ayuda).
+    // Solo cuando no hay error ni ayuda explícita. Se actualiza en vivo mientras se tipea.
+    const [previewTelefono, setPreviewTelefono] = useState<string | null>(() => {
+      if (tipo !== 'tel') return null
+      const v = (rest.value ?? rest.defaultValue) as string | undefined
+      return formatearTelefonoInternacional(v)
+    })
+    useEffect(() => {
+      if (tipo !== 'tel') return
+      setPreviewTelefono(formatearTelefonoInternacional(rest.value as string | undefined))
+    }, [tipo, rest.value])
+
     // Auto-formatear en onChange (para email/url/slug que son inmediatos)
     const manejarCambio = useCallback((e: ChangeEvent<HTMLInputElement>) => {
       if (formatoFinal && ['email', 'url', 'slug', 'minusculas'].includes(formatoFinal)) {
         e.target.value = aplicarFormato(e.target.value, formatoFinal)
       }
+      if (tipo === 'tel') {
+        setPreviewTelefono(formatearTelefonoInternacional(e.target.value))
+      }
       onChange?.(e)
-    }, [formatoFinal, onChange])
+    }, [formatoFinal, onChange, tipo])
 
     // Auto-formatear en onBlur (para nombres, teléfonos — se corrigen al salir del campo)
     const manejarBlur = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
@@ -130,13 +146,13 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
           />
           {iconoDerechoFinal && <span className="text-texto-terciario shrink-0 flex items-center">{iconoDerechoFinal}</span>}
         </div>
-        {(error || ayuda) && (
+        {(error || ayuda || (tipo === 'tel' && previewTelefono)) && (
           <span
             id={error && errorId ? errorId : undefined}
             role={error ? 'alert' : undefined}
             className={`text-xs ${error ? 'text-insignia-peligro' : 'text-texto-terciario'}`}
           >
-            {error || ayuda}
+            {error || ayuda || (tipo === 'tel' && previewTelefono ? `Se guardará como ${previewTelefono}` : '')}
           </span>
         )}
       </div>

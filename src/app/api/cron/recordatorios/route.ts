@@ -3,6 +3,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
 import { obtenerComponentesFecha } from '@/lib/formato-fecha'
 import { resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * GET /api/cron/recordatorios — Cron que revisa recordatorios vencidos.
@@ -145,10 +146,9 @@ export async function GET(request: NextRequest) {
               telefono_empresa: p.telefono_empresa as string | null,
               canal_notif_telefono: canalMap.get(p.id) || 'empresa',
             })
-            if (tel) {
-              const normalizado = tel.replace(/[^\d]/g, '')
-              if (normalizado.length >= 8) telefonoMap.set(p.id, normalizado)
-            }
+            // Usar la normalización canónica E.164 (con 9 para AR) para que Meta acepte el envío
+            const normalizado = normalizarTelefono(tel)
+            if (normalizado && normalizado.length >= 8) telefonoMap.set(p.id, normalizado)
           }
 
           // Verificar ventana de 24h: buscar último mensaje del empleado en conversaciones del copilot

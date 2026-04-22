@@ -8,7 +8,7 @@ import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -75,8 +75,14 @@ interface Props {
 }
 
 export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
-  const { bloqueado: sinPermiso } = useGuardPermiso('presupuestos')
-  if (sinPermiso) return null
+  return (
+    <GuardPagina modulo="presupuestos">
+      <ContenidoPresupuestosInterno datosInicialesJson={datosInicialesJson} />
+    </GuardPagina>
+  )
+}
+
+function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

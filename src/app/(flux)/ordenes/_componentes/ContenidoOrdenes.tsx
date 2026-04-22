@@ -7,7 +7,7 @@ import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -55,8 +55,14 @@ interface FilaOrden {
 const POR_PAGINA = 50
 
 export default function ContenidoOrdenes() {
-  const { bloqueado: sinPermiso } = useGuardPermiso('ordenes_trabajo')
-  if (sinPermiso) return null
+  return (
+    <GuardPagina modulo="ordenes_trabajo">
+      <ContenidoOrdenesInterno />
+    </GuardPagina>
+  )
+}
+
+function ContenidoOrdenesInterno() {
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

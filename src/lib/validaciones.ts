@@ -3,6 +3,8 @@
  * Se usa en: páginas de contactos, API routes, formularios.
  */
 
+import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js'
+
 /** Valida formato de email */
 export function esEmailValido(email: string): boolean {
   if (!email.trim()) return false
@@ -16,20 +18,130 @@ export function esTelefonoValido(telefono: string): boolean {
   return soloDigitos.length >= 6
 }
 
+/** País por defecto cuando no se puede detectar el prefijo internacional. */
+const PAIS_DEFECTO: CountryCode = 'AR'
+
 /**
- * Normaliza un teléfono a solo dígitos ASCII antes de guardarlo o buscarlo.
- * \D en JS descarta +, espacios, guiones (incluso variantes Unicode como
- * U+2011), paréntesis, puntos y los bidi marks invisibles (U+200E/F, U+202A-E,
- * U+2066-9) que iOS inyecta al copiar un número.
- *
- * Devuelve null si el input es falsy o queda con menos de 6 dígitos.
- * Siempre usar este helper antes de persistir `telefono`/`whatsapp` y antes de
- * buscar por esos campos — así evitamos duplicados por diferencias de formato.
+ * Aplica la regla del "9" de Argentina al formato E.164 sin `+`.
+ * WhatsApp para números móviles argentinos requiere `54` + `9` + área + número.
+ * Si recibimos un E.164 argentino sin el 9 móvil (ej: 541156029403), lo agregamos.
+ * Si ya tiene el 9, lo dejamos igual.
  */
-export function normalizarTelefono(valor: string | null | undefined): string | null {
+function asegurar9Argentina(e164SinMas: string): string {
+  // Números argentinos empiezan con 54 y tienen al menos 11 dígitos (54 + área + número)
+  if (!e164SinMas.startsWith('54')) return e164SinMas
+  // Si ya es 549... no tocar
+  if (e164SinMas.startsWith('549')) return e164SinMas
+  // 54 seguido de área móvil argentina → insertar 9
+  // Números móviles AR en E.164 deberían tener 12 dígitos totales con el 9 (54 9 XX XXXXXXXX)
+  // Si viene con 11 dígitos tras el 54, asumimos que es móvil sin 9 y lo corregimos
+  const resto = e164SinMas.slice(2)
+  if (resto.length >= 10 && resto.length <= 11) {
+    return '549' + resto
+  }
+  return e164SinMas
+}
+
+/**
+ * Normaliza un teléfono a formato E.164 canónico SIN el `+` inicial.
+ *
+ * - Usa `libphonenumber-js` con país default (Argentina) si el input no trae prefijo internacional.
+ * - Para números móviles argentinos, asegura el "9" requerido por WhatsApp (`5491156029403`).
+ * - Descarta cualquier ruido: espacios, guiones, paréntesis, puntos, bidi marks de iOS.
+ *
+ * Devuelve `null` si el input es falsy o si queda con menos de 6 dígitos tras limpiar.
+ * Ej:
+ *   "1156029403"           → "5491156029403"
+ *   "541156029403"         → "5491156029403"
+ *   "+54 9 11 5602-9403"   → "5491156029403"
+ *   "5491156029403"        → "5491156029403"
+ */
+export function normalizarTelefono(valor: string | null | undefined, paisDefault: CountryCode = PAIS_DEFECTO): string | null {
   if (!valor) return null
-  const soloDigitos = valor.replace(/\D/g, '')
-  return soloDigitos.length >= 6 ? soloDigitos : null
+  // Primera pasada: sacar todo lo que no sea dígito o `+` (los dígitos son todo lo que parsea libphonenumber)
+  const limpio = valor.replace(/[^\d+]/g, '')
+  if (limpio.replace(/\D/g, '').length < 6) return null
+
+  try {
+    const parsed = parsePhoneNumberFromString(limpio, paisDefault)
+    if (parsed && parsed.isValid()) {
+      // E.164 sin el +, con regla del 9 para AR aplicada
+      return asegurar9Argentina(parsed.number.replace(/^\+/, ''))
+    }
+  } catch {
+    // cae al fallback
+  }
+
+  // Fallback: si libphonenumber no lo pudo parsear (número truncado, formato raro),
+  // igual devolvemos los dígitos como último recurso para no perder datos antiguos.
+  const soloDigitos = limpio.replace(/\D/g, '')
+  return soloDigitos.length >= 6 ? asegurar9Argentina(soloDigitos) : null
+}
+
+/**
+ * Genera variantes probables de un número para búsquedas defensivas en la BD.
+ *
+ * Cubre los casos habituales de Argentina (con/sin 9, con/sin 54) y devuelve también
+ * el número "tal cual" viene (sin ningún cambio) por si alguien guardó un formato raro.
+ *
+ * Se usa en:
+ *  - Webhook entrante: buscar conversación/contacto aunque esté guardado en otro formato.
+ *  - SelectorContacto / búsqueda por teléfono.
+ *  - Detección de empleado de Salix IA.
+ */
+export function generarVariantesTelefono(valor: string | null | undefined): string[] {
+  if (!valor) return []
+  const canonico = normalizarTelefono(valor)
+  if (!canonico) return []
+
+  const set = new Set<string>()
+  set.add(canonico)
+  set.add(`+${canonico}`)
+
+  // Variantes AR: con 9 ↔ sin 9
+  if (canonico.startsWith('549') && canonico.length >= 12) {
+    const sin9 = '54' + canonico.slice(3)
+    set.add(sin9)
+    set.add(`+${sin9}`)
+    // También sin código país (solo área + número)
+    const soloLocal = canonico.slice(3)
+    if (soloLocal.length >= 8) set.add(soloLocal)
+  } else if (canonico.startsWith('54') && !canonico.startsWith('549')) {
+    const con9 = '549' + canonico.slice(2)
+    set.add(con9)
+    set.add(`+${con9}`)
+    const soloLocal = canonico.slice(2)
+    if (soloLocal.length >= 8) set.add(soloLocal)
+  }
+
+  // Dígitos "tal cual": útil para datos antiguos cargados sin país
+  const crudo = valor.replace(/\D/g, '')
+  if (crudo.length >= 6) set.add(crudo)
+
+  return [...set]
+}
+
+/**
+ * Formatea un teléfono para mostrar a humanos (ej: "+54 9 11 5602-9403").
+ * Devuelve null si no se puede parsear — en UI conviene caer al valor original en ese caso.
+ */
+export function formatearTelefonoInternacional(valor: string | null | undefined, paisDefault: CountryCode = PAIS_DEFECTO): string | null {
+  if (!valor) return null
+  try {
+    const parsed = parsePhoneNumberFromString(valor, paisDefault)
+    if (parsed && parsed.isValid()) return parsed.formatInternational()
+  } catch {
+    // silencioso
+  }
+  return null
+}
+
+/** Heurística de coincidencia: compara dos teléfonos usando sus variantes normalizadas. */
+export function telefonosCoinciden(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false
+  const variantesA = new Set(generarVariantesTelefono(a))
+  const variantesB = generarVariantesTelefono(b)
+  return variantesB.some(v => variantesA.has(v))
 }
 
 /** Valida formato de URL */

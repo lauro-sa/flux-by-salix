@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/asistencias/nomina/enviar-whatsapp — Enviar recibos de nómina por WhatsApp.
@@ -125,12 +126,14 @@ export async function POST(request: NextRequest) {
         },
       ]
 
+      // Normalizar al formato E.164 canónico antes de enviar a Meta (con el 9 para AR)
+      const telCanonico = normalizarTelefono(emp.telefono) || emp.telefono
       try {
-        await enviarPlantillaWhatsApp(config, emp.telefono, nombreApi, idioma, componentesMeta)
-        resultados.push({ telefono: emp.telefono, nombre: emp.nombre, ok: true })
+        await enviarPlantillaWhatsApp(config, `+${telCanonico}`, nombreApi, idioma, componentesMeta)
+        resultados.push({ telefono: telCanonico, nombre: emp.nombre, ok: true })
       } catch (e) {
         resultados.push({
-          telefono: emp.telefono,
+          telefono: telCanonico,
           nombre: emp.nombre,
           ok: false,
           error: e instanceof Error ? e.message : 'Error al enviar',

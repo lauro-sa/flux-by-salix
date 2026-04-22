@@ -7,7 +7,7 @@ import { useListado } from '@/hooks/useListado'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -53,8 +53,14 @@ interface Props {
 }
 
 export default function ContenidoProductos({ datosInicialesJson }: Props) {
-  const { bloqueado: sinPermiso } = useGuardPermiso('productos', { accion: 'ver' })
-  if (sinPermiso) return null
+  return (
+    <GuardPagina modulo="productos" accion="ver">
+      <ContenidoProductosInterno datosInicialesJson={datosInicialesJson} />
+    </GuardPagina>
+  )
+}
+
+function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   const { t } = useTraduccion()
   const router = useRouter()
   const searchParams = useSearchParams()

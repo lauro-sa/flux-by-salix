@@ -7,6 +7,7 @@ import {
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
 import { registrarChatter } from '@/lib/chatter'
+import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/chatter/enviar-whatsapp
@@ -72,20 +73,21 @@ export async function POST(request: NextRequest) {
     const canal = canales[0]
     const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
 
-    // 2. Normalizar teléfono al formato canónico: solo dígitos, sin +
-    // Meta envía números sin + (ej: "5491136558871"), usamos ese mismo formato
-    const telefonoCanónico = telefono.replace(/[^\d]/g, '')
-    // Para la API de Meta necesitamos el formato con +
+    // 2. Normalizar teléfono al formato canónico E.164 sin `+` (con el 9 para móviles AR).
+    // Meta espera el formato con + al enviar.
+    const telefonoCanónico = normalizarTelefono(telefono) || telefono.replace(/[^\d]/g, '')
     const telConPlus = `+${telefonoCanónico}`
+    const variantesTel = generarVariantesTelefono(telefono)
 
-    // 3. Buscar conversación existente con este número (ambos formatos por retrocompatibilidad)
+    // 3. Buscar conversación existente con este número (cualquier variante)
     let conversacionId: string | null = null
+    const orConv = variantesTel.map(v => `identificador_externo.eq.${v}`).join(',')
     const { data: convExistente, error: errConv } = await admin
       .from('conversaciones')
       .select('id, identificador_externo, contacto_id')
       .eq('empresa_id', empresaId)
       .eq('tipo_canal', 'whatsapp')
-      .or(`identificador_externo.eq.${telefonoCanónico},identificador_externo.eq.${telConPlus}`)
+      .or(orConv)
       .limit(1)
 
     if (errConv) {

@@ -85,7 +85,6 @@ export async function GET(request: NextRequest) {
         id, numero, estado, prioridad, titulo, descripcion, publicada,
         contacto_id, contacto_nombre, contacto_telefono, contacto_direccion,
         presupuesto_id, presupuesto_numero,
-        asignado_a, asignado_nombre,
         fecha_inicio, fecha_fin_estimada, fecha_fin_real,
         creado_por, creado_por_nombre, creado_en, actualizado_en
       `, { count: 'exact' })
@@ -142,15 +141,32 @@ export async function GET(request: NextRequest) {
 
     if (contacto_id) query = query.eq('contacto_id', contacto_id)
 
-    // Filtro por asignado (CSV multi)
+    // Filtro por asignado (CSV multi) — se resuelve vía tabla asignados_orden_trabajo
+    // (pre-query: traer IDs de OT donde esos usuarios son asignados).
     if (asignado_a) {
       const ids = asignado_a.split(',').filter(Boolean)
-      query = ids.length === 1 ? query.eq('asignado_a', ids[0]) : query.in('asignado_a', ids)
+      const { data: asignsMatch } = await admin
+        .from('asignados_orden_trabajo')
+        .select('orden_trabajo_id')
+        .eq('empresa_id', empresaId)
+        .in('usuario_id', ids)
+      const idsOT = Array.from(new Set((asignsMatch || []).map(a => a.orden_trabajo_id)))
+      if (idsOT.length === 0) {
+        return NextResponse.json({ ordenes: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      }
+      query = query.in('id', idsOT)
     }
 
-    // Filtro "sin asignar"
+    // Filtro "sin asignar" — OT que no tiene ninguna fila en asignados_orden_trabajo.
     if (sin_asignar) {
-      query = query.is('asignado_a', null)
+      const { data: idsConAsignado } = await admin
+        .from('asignados_orden_trabajo')
+        .select('orden_trabajo_id')
+        .eq('empresa_id', empresaId)
+      const idsExcluir = Array.from(new Set((idsConAsignado || []).map(a => a.orden_trabajo_id)))
+      if (idsExcluir.length > 0) {
+        query = query.not('id', 'in', `(${idsExcluir.join(',')})`)
+      }
     }
 
     // Filtro por creador
@@ -235,16 +251,26 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Nombre del asignado: pre-query a asignados_orden_trabajo por nombre.
+      const { data: idsPorAsignado } = await admin
+        .from('asignados_orden_trabajo')
+        .select('orden_trabajo_id')
+        .eq('empresa_id', empresaId)
+        .ilike('usuario_nombre', `%${busquedaNorm}%`)
+      const idsOTporAsignado = Array.from(new Set((idsPorAsignado || []).map(a => a.orden_trabajo_id)))
+
       const filtroBase = [
         `numero.ilike.%${busquedaNorm}%`,
         `titulo.ilike.%${busquedaNorm}%`,
         `descripcion.ilike.%${busquedaNorm}%`,
         `contacto_nombre.ilike.%${busquedaNorm}%`,
         `contacto_direccion.ilike.%${busquedaNorm}%`,
-        `asignado_nombre.ilike.%${busquedaNorm}%`,
         `creado_por_nombre.ilike.%${busquedaNorm}%`,
         `presupuesto_numero.ilike.%${busquedaNorm}%`,
       ]
+      if (idsOTporAsignado.length > 0) {
+        filtroBase.push(`id.in.(${idsOTporAsignado.join(',')})`)
+      }
       if (estadosCoincidentes.length > 0) {
         filtroBase.push(`estado.in.(${estadosCoincidentes.join(',')})`)
       }
@@ -262,8 +288,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener órdenes' }, { status: 500 })
     }
 
+    // Adjuntar asignados de cada OT desde asignados_orden_trabajo.
+    // Para el cliente armamos también `asignado_nombre` (cabecilla o primero) como
+    // atajo visual — deriva de los asignados, NO se persiste.
+    const ordenesConAsignados: Record<string, unknown>[] = data || []
+    if (ordenesConAsignados.length > 0) {
+      const idsOT = ordenesConAsignados.map(o => o.id as string)
+      const { data: asignadosData } = await admin
+        .from('asignados_orden_trabajo')
+        .select('orden_trabajo_id, usuario_id, usuario_nombre, es_cabecilla')
+        .in('orden_trabajo_id', idsOT)
+
+      const porOT = new Map<string, { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[]>()
+      for (const a of asignadosData || []) {
+        const lista = porOT.get(a.orden_trabajo_id as string) || []
+        lista.push({
+          usuario_id: a.usuario_id as string,
+          usuario_nombre: a.usuario_nombre as string,
+          es_cabecilla: a.es_cabecilla as boolean,
+        })
+        porOT.set(a.orden_trabajo_id as string, lista)
+      }
+
+      for (const ot of ordenesConAsignados) {
+        const asigs = porOT.get(ot.id as string) || []
+        const cabecilla = asigs.find(a => a.es_cabecilla) || asigs[0] || null
+        ot.asignados = asigs
+        ot.asignado_nombre = cabecilla?.usuario_nombre || null
+        ot.asignado_a = cabecilla?.usuario_id || null
+      }
+    }
+
     return NextResponse.json({
-      ordenes: data || [],
+      ordenes: ordenesConAsignados,
       total: count || 0,
       pagina,
       por_pagina,
@@ -327,11 +384,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }
+    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }.
+    // Los datos viven en asignados_orden_trabajo; acá solo se valida la forma
+    // para insertar después de crear la OT.
     const asignados: { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[] = body.asignados || []
-
-    // Cabecilla denormalizado para queries rápidas
-    const cabecilla = asignados.find(a => a.es_cabecilla) || asignados[0] || null
 
     const nuevaOrden = {
       empresa_id: empresaId,
@@ -346,8 +402,6 @@ export async function POST(request: NextRequest) {
       ...snapshotContacto,
       presupuesto_id: body.presupuesto_id || null,
       presupuesto_numero: body.presupuesto_numero || null,
-      asignado_a: cabecilla?.usuario_id || null,
-      asignado_nombre: cabecilla?.usuario_nombre || null,
       fecha_inicio: body.fecha_inicio || null,
       fecha_fin_estimada: body.fecha_fin_estimada || null,
       creado_por: user.id,

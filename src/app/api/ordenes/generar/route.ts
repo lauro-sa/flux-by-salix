@@ -84,9 +84,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }
+    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }.
+    // Fuente única en tabla asignados_orden_trabajo (se inserta más abajo).
     const asignados: { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[] = body.asignados || []
-    const cabecilla = asignados.find(a => a.es_cabecilla) || asignados[0] || null
 
     // Crear la orden de trabajo
     const nuevaOrden = {
@@ -110,9 +110,6 @@ export async function POST(request: NextRequest) {
       // Link al presupuesto
       presupuesto_id: presupuesto.id,
       presupuesto_numero: presupuesto.numero,
-      // Cabecilla denormalizado
-      asignado_a: cabecilla?.usuario_id || null,
-      asignado_nombre: cabecilla?.usuario_nombre || null,
       // Fechas
       fecha_inicio: body.fecha_inicio || null,
       fecha_fin_estimada: body.fecha_fin_estimada || null,

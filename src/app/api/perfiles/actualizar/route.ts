@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI, requerirAutenticacionAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * PATCH /api/perfiles/actualizar — Actualizar perfil de un usuario.
@@ -51,6 +52,13 @@ export async function PATCH(request: NextRequest) {
     const actualizar: Record<string, unknown> = {}
     for (const campo of permitidos) {
       if (campo in campos) actualizar[campo] = campos[campo]
+    }
+    // Normalizar teléfonos al formato canónico E.164 antes de persistir
+    if ('telefono' in actualizar && actualizar.telefono) {
+      actualizar.telefono = normalizarTelefono(actualizar.telefono as string)
+    }
+    if ('telefono_empresa' in actualizar && actualizar.telefono_empresa) {
+      actualizar.telefono_empresa = normalizarTelefono(actualizar.telefono_empresa as string)
     }
 
     if (Object.keys(actualizar).length === 0) {

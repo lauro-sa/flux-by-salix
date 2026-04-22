@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -140,7 +140,14 @@ interface Props {
 export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   // Guard reactivo: basta con tener ver_propio o ver_todos. La UI interna
   // (botones, pestañas, filtros) se condiciona por acción específica.
-  const { bloqueado: sinPermiso } = useGuardPermiso('asistencias')
+  return (
+    <GuardPagina modulo="asistencias">
+      <ContenidoAsistenciasInterno datosInicialesJson={datosInicialesJson} />
+    </GuardPagina>
+  )
+}
+
+function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
   const { tienePermiso } = useRol()
   // Asistencias (fichajes)
   const puedeVerTodos = tienePermiso('asistencias', 'ver_todos')
@@ -527,10 +534,6 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
       })}
     </GrupoBotones>
   )
-
-  // Bloqueo post-hooks: sin permiso de visibilidad el guard ya disparó el
-  // redirect. Devolvemos null mientras se resuelve.
-  if (sinPermiso) return null
 
   // Acción principal del hero según pestaña activa y permisos granulares:
   //  • Fichajes  → "Agregar fichaje" (requiere marcar o editar de asistencias).

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/miembros/crear — Admin carga un empleado completo sin cuenta Flux.
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
       await admin
         .from('contactos')
         .update({
-          telefono: telefono ?? null,
+          telefono: normalizarTelefono(telefono) ?? null,
           fecha_nacimiento: fecha_nacimiento ?? null,
           documento_numero: documento_numero ?? null,
         })

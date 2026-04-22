@@ -28,6 +28,16 @@ export interface MensajeContexto {
   creado_en: string
 }
 
+/**
+ * Actividad reciente del cliente en el sistema (presupuestos, visitas, órdenes).
+ * El IA lo usa para responder con contexto y no preguntar cosas que ya están agendadas/enviadas.
+ */
+export interface ActividadClienteIA {
+  presupuestos: { numero: string; estado: string; total: number | null; moneda: string | null; fecha_emision: string; fecha_vencimiento: string | null; referencia: string | null }[]
+  visitas: { fecha_programada: string; estado: string; asignado_nombre: string | null; direccion_texto: string | null; motivo: string | null }[]
+  ordenes: { numero: string; estado: string; titulo: string; prioridad: string }[]
+}
+
 export interface ConfigIA {
   proveedor: string
   apiKey: string
@@ -40,6 +50,7 @@ export interface ContextoPipeline {
   mensaje_id: string
   mensajes: MensajeContexto[]
   contacto: DatosContacto | null
+  actividad: ActividadClienteIA
   base_conocimiento: EntradaBaseConocimiento[]
   config: ConfigAgenteIA
   config_ia: ConfigIA
@@ -128,6 +139,72 @@ export async function obtenerContextoCompleto(params: {
     }
   }
 
+  // Actividad reciente del cliente: presupuestos, visitas, órdenes.
+  // Le damos visibilidad al IA de qué tiene en curso el contacto para no preguntar cosas obvias.
+  const actividad: ActividadClienteIA = { presupuestos: [], visitas: [], ordenes: [] }
+  if (conv?.contacto_id) {
+    const desde60d = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+    const ahoraISO = new Date().toISOString()
+
+    // Presupuestos: no borradores ni cancelados, últimos 60 días o vigentes
+    const { data: presupuestos } = await admin
+      .from('presupuestos')
+      .select('numero, estado, total_final, moneda, fecha_emision, fecha_vencimiento, referencia')
+      .eq('empresa_id', empresa_id)
+      .eq('contacto_id', conv.contacto_id)
+      .not('estado', 'in', '(borrador,cancelado)')
+      .gte('fecha_emision', desde60d)
+      .order('fecha_emision', { ascending: false })
+      .limit(5)
+
+    actividad.presupuestos = (presupuestos || []).map(p => ({
+      numero: p.numero,
+      estado: p.estado,
+      total: p.total_final !== null && p.total_final !== undefined ? Number(p.total_final) : null,
+      moneda: p.moneda,
+      fecha_emision: p.fecha_emision,
+      fecha_vencimiento: p.fecha_vencimiento,
+      referencia: p.referencia,
+    }))
+
+    // Visitas activas o próximas (no canceladas, no completadas hace más de 30 días)
+    const desde30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: visitas } = await admin
+      .from('visitas')
+      .select('fecha_programada, estado, asignado_nombre, direccion_texto, motivo, fecha_completada')
+      .eq('empresa_id', empresa_id)
+      .eq('contacto_id', conv.contacto_id)
+      .neq('estado', 'cancelada')
+      .or(`fecha_programada.gte.${ahoraISO},fecha_completada.gte.${desde30d}`)
+      .order('fecha_programada', { ascending: true })
+      .limit(5)
+
+    actividad.visitas = (visitas || []).map(v => ({
+      fecha_programada: v.fecha_programada,
+      estado: v.estado,
+      asignado_nombre: v.asignado_nombre,
+      direccion_texto: v.direccion_texto,
+      motivo: v.motivo,
+    }))
+
+    // Órdenes de trabajo activas
+    const { data: ordenes } = await admin
+      .from('ordenes_trabajo')
+      .select('numero, estado, titulo, prioridad')
+      .eq('empresa_id', empresa_id)
+      .eq('contacto_id', conv.contacto_id)
+      .in('estado', ['abierta', 'en_progreso', 'esperando'])
+      .order('creado_en', { ascending: false })
+      .limit(5)
+
+    actividad.ordenes = (ordenes || []).map(o => ({
+      numero: o.numero,
+      estado: o.estado,
+      titulo: o.titulo,
+      prioridad: o.prioridad,
+    }))
+  }
+
   // Base de conocimiento (solo activas)
   // Si hay embeddings, busca semánticamente las más relevantes al último mensaje
   let baseConocimiento: EntradaBaseConocimiento[] = []
@@ -192,6 +269,7 @@ export async function obtenerContextoCompleto(params: {
     mensaje_id,
     mensajes: (mensajes || []).reverse() as MensajeContexto[],
     contacto,
+    actividad,
     base_conocimiento: baseConocimiento,
     config,
     config_ia: configIA,
@@ -235,6 +313,75 @@ async function obtenerConfigIA(admin: SupabaseClient, empresaId: string): Promis
   return { proveedor, apiKey, modelo }
 }
 
+// ─── Formateo de actividad reciente para el prompt ───
+
+/**
+ * Resume la actividad del cliente (presupuestos, visitas, órdenes) en un bloque legible.
+ * Le da al IA la "noción" de qué tiene en curso el contacto: no tiene que contarle todo,
+ * pero sí sabe que existe un Pres 26-080 vigente, o que hay una visita programada para el jueves.
+ * Se omite el bloque entero si no hay actividad.
+ */
+function formatearActividadCliente(actividad: ActividadClienteIA, locale: string, zonaHoraria: string): string {
+  const hayActividad = actividad.presupuestos.length > 0 || actividad.visitas.length > 0 || actividad.ordenes.length > 0
+  if (!hayActividad) return ''
+
+  const fmtFecha = (iso: string | null) => {
+    if (!iso) return '—'
+    try {
+      return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: zonaHoraria })
+    } catch { return iso }
+  }
+  const fmtFechaHora = (iso: string | null) => {
+    if (!iso) return '—'
+    try {
+      return new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: zonaHoraria })
+    } catch { return iso }
+  }
+  const fmtMoneda = (total: number | null, moneda: string | null) => {
+    if (total === null) return ''
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: moneda || 'ARS', maximumFractionDigits: 0 }).format(total)
+    } catch { return `${total} ${moneda || ''}`.trim() }
+  }
+
+  const bloques: string[] = []
+
+  if (actividad.presupuestos.length > 0) {
+    const lineas = actividad.presupuestos.map(p => {
+      const total = fmtMoneda(p.total, p.moneda)
+      const ref = p.referencia ? ` — ${p.referencia}` : ''
+      const venc = p.fecha_vencimiento ? ` (vence ${fmtFecha(p.fecha_vencimiento)})` : ''
+      return `- ${p.numero} · ${p.estado} · emitido ${fmtFecha(p.fecha_emision)}${total ? ` · ${total}` : ''}${venc}${ref}`
+    }).join('\n')
+    bloques.push(`PRESUPUESTOS RECIENTES:\n${lineas}`)
+  }
+
+  if (actividad.visitas.length > 0) {
+    const lineas = actividad.visitas.map(v => {
+      const asignado = v.asignado_nombre ? ` · asignada a ${v.asignado_nombre}` : ''
+      const dir = v.direccion_texto ? ` · ${v.direccion_texto}` : ''
+      const motivo = v.motivo ? ` · motivo: ${v.motivo}` : ''
+      return `- ${fmtFechaHora(v.fecha_programada)} · ${v.estado}${asignado}${dir}${motivo}`
+    }).join('\n')
+    bloques.push(`VISITAS:\n${lineas}`)
+  }
+
+  if (actividad.ordenes.length > 0) {
+    const lineas = actividad.ordenes.map(o =>
+      `- ${o.numero} · ${o.estado} · prioridad ${o.prioridad} · ${o.titulo}`
+    ).join('\n')
+    bloques.push(`ÓRDENES DE TRABAJO ABIERTAS:\n${lineas}`)
+  }
+
+  return `=== ACTIVIDAD RECIENTE DEL CLIENTE ===
+${bloques.join('\n\n')}
+
+REGLAS:
+- Si el cliente pregunta por un trabajo/presupuesto/visita que YA está acá, no le preguntes "qué trabajo necesitás". Hacé referencia a lo que ya tiene.
+- No le dictes todos los datos (número, total, fecha) a menos que lo pida explícitamente. Alcanza con "ya te enviamos el presupuesto" o "tenemos tu visita del jueves".
+- Si lo que dice el cliente NO matchea con nada de lo anterior, tratalo como consulta nueva.`
+}
+
 // ─── Construir prompts separados (system + user) ───
 
 export interface PromptsAgente {
@@ -243,7 +390,7 @@ export interface PromptsAgente {
 }
 
 export function construirPrompts(ctx: ContextoPipeline, opciones?: { locale?: string; zonaHoraria?: string }): PromptsAgente {
-  const { config, contacto, empresa_nombre, base_conocimiento, mensajes, etiquetas_disponibles } = ctx
+  const { config, contacto, actividad, empresa_nombre, base_conocimiento, mensajes, etiquetas_disponibles } = ctx
 
   // ── Secciones condicionales ──
 
@@ -400,6 +547,8 @@ ${conocimiento ? `=== BASE DE CONOCIMIENTO ===\n${conocimiento}` : ''}
 
 === DATOS DEL CONTACTO ACTUAL ===
 ${datosContacto}
+
+${formatearActividadCliente(actividad, opciones?.locale || 'es-AR', opciones?.zonaHoraria || 'America/Argentina/Buenos_Aires')}
 
 === REGLA: USAR DATOS EXISTENTES ===
 - Si el contacto YA tiene datos registrados (nombre, dirección, empresa, etc.), NO vuelvas a preguntar esos datos. Usá la info que ya tenemos.

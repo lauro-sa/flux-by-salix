@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { usePermisosActuales } from '@/hooks/usePermisosActuales'
 import { useRol } from '@/hooks/useRol'
 import {
@@ -55,7 +55,14 @@ function etiquetaPeriodo(desde: string, hasta: string): string {
 }
 
 export default function PaginaNominaEmpleado() {
-  const { bloqueado: sinPermiso } = useGuardPermiso('nomina')
+  return (
+    <GuardPagina modulo="nomina">
+      <PaginaNominaEmpleadoInterno />
+    </GuardPagina>
+  )
+}
+
+function PaginaNominaEmpleadoInterno() {
   const { miembroId: miembroIdPropio, cargando: cargandoPermisos } = usePermisosActuales()
   const { tienePermiso } = useRol()
   const puedeVerTodosNomina = tienePermiso('nomina', 'ver_todos')
@@ -128,8 +135,6 @@ export default function PaginaNominaEmpleado() {
     return () => { cancelado = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembroId])
-
-  if (sinPermiso) return null
 
   if (cargando) {
     return (

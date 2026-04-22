@@ -697,9 +697,9 @@ export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   presupuesto_id: uuid('presupuesto_id').references(() => presupuestos.id, { onDelete: 'set null' }),
   presupuesto_numero: text('presupuesto_numero'),
 
-  // Responsable principal
-  asignado_a: uuid('asignado_a'),
-  asignado_nombre: text('asignado_nombre'),
+  // Asignados viven en `asignados_orden_trabajo` (múltiples, con rol
+  // cabecilla/común). La columna denormalizada se eliminó en 2026-04 para
+  // tener fuente única de verdad.
 
   // Fechas operativas
   fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }),
@@ -723,7 +723,6 @@ export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   index('ordenes_trabajo_contacto_idx').on(tabla.contacto_id),
   index('ordenes_trabajo_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('ordenes_trabajo_presupuesto_idx').on(tabla.presupuesto_id),
-  index('ordenes_trabajo_asignado_idx').on(tabla.asignado_a),
   index('ordenes_trabajo_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
 

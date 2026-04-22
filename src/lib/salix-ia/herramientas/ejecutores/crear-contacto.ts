@@ -7,7 +7,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
-import { normalizarTelefono } from '@/lib/validaciones'
+import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 
 export async function ejecutarCrearContacto(
   ctx: ContextoSalixIA,
@@ -66,7 +66,13 @@ export async function ejecutarCrearContacto(
 
     const filtros: string[] = []
     if (correo) filtros.push(`correo.eq.${correo}`)
-    if (telefono) filtros.push(`telefono.eq.${telefono}`)
+    // Buscar duplicados por cualquier variante del teléfono (con/sin 9, con/sin 54)
+    if (telefono) {
+      for (const v of generarVariantesTelefono(telefono)) {
+        filtros.push(`telefono.eq.${v}`)
+        filtros.push(`whatsapp.eq.${v}`)
+      }
+    }
     queryDup = queryDup.or(filtros.join(','))
 
     const { data: duplicados } = await queryDup.limit(3)

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/miembros/importar-csv — Carga masiva de empleados.
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Completar datos adicionales del contacto
-      const telefono = (fila.telefono || '').trim()
+      const telefono = normalizarTelefono((fila.telefono || '').trim())
       if (telefono) {
         await admin
           .from('contactos')

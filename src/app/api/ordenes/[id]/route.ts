@@ -280,10 +280,11 @@ export async function PATCH(
       }
     }
 
-    // Campos actualizables
+    // Campos actualizables. Los asignados se manejan aparte vía body.asignados
+    // (array) que el cliente manda — la sincronización con asignados_orden_trabajo
+    // se hace más abajo. No hay denormalización en la tabla principal.
     const camposPermitidos = [
       'estado', 'prioridad', 'titulo', 'descripcion', 'notas', 'publicada',
-      'asignado_a', 'asignado_nombre',
       'fecha_inicio', 'fecha_fin_estimada', 'fecha_fin_real',
       'contacto_id', 'contacto_nombre', 'contacto_telefono',
       'contacto_correo', 'contacto_direccion', 'contacto_whatsapp',
@@ -319,14 +320,8 @@ export async function PATCH(
       })
     }
 
-    // Actualizar asignados si se enviaron
+    // Actualizar asignados si se enviaron — reemplazar la lista completa.
     if (asignadosNuevos !== undefined) {
-      // Denormalizar cabecilla en la tabla principal
-      const cabecilla = asignadosNuevos.find(a => a.es_cabecilla) || asignadosNuevos[0] || null
-      actualizacion.asignado_a = cabecilla?.usuario_id || null
-      actualizacion.asignado_nombre = cabecilla?.usuario_nombre || null
-
-      // Reemplazar asignados: borrar existentes e insertar nuevos
       await admin.from('asignados_orden_trabajo').delete().eq('orden_trabajo_id', id)
       if (asignadosNuevos.length > 0) {
         await admin.from('asignados_orden_trabajo').insert(

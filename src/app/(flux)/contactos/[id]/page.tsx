@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
-import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 import {
@@ -89,7 +89,14 @@ function separarNombreApellido(nombreCompleto: string, esPersona: boolean) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function PaginaContacto() {
-  const { bloqueado: sinPermiso } = useGuardPermiso('contactos')
+  return (
+    <GuardPagina modulo="contactos">
+      <PaginaContactoInterno />
+    </GuardPagina>
+  )
+}
+
+function PaginaContactoInterno() {
   const { t } = useTraduccion()
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -734,7 +741,6 @@ export default function PaginaContacto() {
   // RENDER
   // ═══════════════════════════════════════════════════════════════
 
-  if (sinPermiso) return null
   if (cargando) return <Cargador tamano="pagina" />
 
   return (
