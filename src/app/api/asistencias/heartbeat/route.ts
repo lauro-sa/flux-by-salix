@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirFichajePropioAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { formatearFechaISO } from '@/lib/formato-fecha'
@@ -20,9 +20,9 @@ import { formatearFechaISO } from '@/lib/formato-fecha'
  */
 export async function POST(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('asistencias', 'marcar')
+    const guard = await requerirFichajePropioAPI()
     if ('respuesta' in guard) return guard.respuesta
-    const { user, empresaId } = guard
+    const { user, empresaId, miembroId, metodoFichaje } = guard
 
     const body = await request.json()
     const { tipo = 'heartbeat', metadata, ubicacion } = body
@@ -30,24 +30,20 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
 
-    // Obtener zona horaria de la empresa para calcular fecha local correcta
-    const { data: empresaData } = await admin
-      .from('empresas')
-      .select('zona_horaria')
-      .eq('id', empresaId)
-      .single()
-    const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    // Zona horaria de la empresa + bandera de fichaje auto en móvil del miembro
+    const [empresaRes, miembroExtraRes] = await Promise.all([
+      admin.from('empresas').select('zona_horaria').eq('id', empresaId).single(),
+      admin.from('miembros').select('fichaje_auto_movil').eq('id', miembroId).single(),
+    ])
+    const zona = (empresaRes.data?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
     const fechaHoy = formatearFechaISO(new Date(), zona) // YYYY-MM-DD
 
-    // Obtener miembro
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('id, usuario_id, metodo_fichaje, fichaje_auto_movil')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
+    const miembro = {
+      id: miembroId,
+      usuario_id: user.id,
+      metodo_fichaje: metodoFichaje,
+      fichaje_auto_movil: !!miembroExtraRes.data?.fichaje_auto_movil,
+    }
 
     // Registrar heartbeat en fichajes_actividad (siempre, independiente del dispositivo)
     await admin

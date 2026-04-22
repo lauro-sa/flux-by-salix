@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import type { Rol } from '@/tipos/miembro'
+import type { Rol, MetodoFichaje } from '@/tipos/miembro'
 import type { PermisosMapa } from '@/tipos/permisos'
 
 /**
@@ -27,13 +27,14 @@ export async function GET() {
         activo: false,
         es_propietario: false,
         es_superadmin: !!user.app_metadata?.es_superadmin,
+        metodo_fichaje: null,
       })
     }
 
     const admin = crearClienteAdmin()
     const { data: miembro } = await admin
       .from('miembros')
-      .select('id, rol, permisos_custom, activo')
+      .select('id, rol, permisos_custom, activo, metodo_fichaje')
       .eq('usuario_id', user.id)
       .eq('empresa_id', empresaId)
       .maybeSingle()
@@ -46,6 +47,7 @@ export async function GET() {
         activo: false,
         es_propietario: false,
         es_superadmin: !!user.app_metadata?.es_superadmin,
+        metodo_fichaje: null,
       })
     }
 
@@ -56,6 +58,7 @@ export async function GET() {
       activo: !!miembro.activo,
       es_propietario: miembro.rol === 'propietario',
       es_superadmin: !!user.app_metadata?.es_superadmin,
+      metodo_fichaje: (miembro.metodo_fichaje as MetodoFichaje | null) || null,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

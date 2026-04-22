@@ -8,6 +8,7 @@ import {
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
@@ -163,7 +164,7 @@ async function procesarMensajeEntrante(
   contactoMeta?: { profile: { name: string }; wa_id: string },
 ) {
   // Normalizar teléfono al formato canónico: solo dígitos, sin +
-  const telefonoRemitente = msg.from.replace(/[^\d]/g, '')
+  const telefonoRemitente = normalizarTelefono(msg.from) || msg.from.replace(/[^\d]/g, '')
   const telefonoConPlus = `+${telefonoRemitente}`
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
@@ -561,16 +562,28 @@ async function procesarMensajeEntrante(
   }
 
   // ─── Agente IA: procesamiento inteligente (post-chatbot) ───
-  // Solo ejecutar si el chatbot NO respondió al cliente (evitar doble respuesta)
+  // Solo ejecutar si el chatbot NO respondió al cliente (evitar doble respuesta).
+  // Si el agente IA está pausado temporalmente y la pausa expiró, se reactiva antes de procesar.
   if (!chatbotRespondio && mensajeInsertado) {
     try {
       const { data: convActualizada } = await admin
         .from('conversaciones')
-        .select('agente_ia_activo')
+        .select('agente_ia_activo, ia_pausado_hasta')
         .eq('id', conversacion.id)
         .single()
 
-      if (convActualizada?.agente_ia_activo) {
+      let iaActiva = convActualizada?.agente_ia_activo ?? false
+      if (!iaActiva && convActualizada?.ia_pausado_hasta) {
+        if (Date.now() >= new Date(convActualizada.ia_pausado_hasta).getTime()) {
+          await admin
+            .from('conversaciones')
+            .update({ agente_ia_activo: true, ia_pausado_hasta: null })
+            .eq('id', conversacion.id)
+          iaActiva = true
+        }
+      }
+
+      if (iaActiva) {
         const { ejecutarPipelineAgente } = await import('@/lib/agente-ia/pipeline')
         await ejecutarPipelineAgente({
           admin,
@@ -1016,14 +1029,16 @@ async function crearContactoProvisorio(
       return null
     }
 
+    // Defensa en profundidad: aunque el caller ya normaliza, blindamos el insert.
+    const telNorm = normalizarTelefono(telefono) || telefono
     const { data: nuevoContacto, error } = await admin
       .from('contactos')
       .insert({
         empresa_id: empresaId,
         nombre,
         apellido,
-        whatsapp: telefono,
-        telefono,
+        whatsapp: telNorm,
+        telefono: telNorm,
         tipo_contacto_id: tipoPersona.id,
         origen: 'whatsapp',
         es_provisorio: true,
@@ -1114,14 +1129,26 @@ async function procesarChatbot(
 
   if (!configBot?.activo) return false
 
-  // 2. Verificar si la conversación tiene el bot activo
+  // 2. Verificar si la conversación tiene el bot activo.
+  // Si está pausado con timestamp vencido → reactivar. Si no tiene timestamp → pausa permanente, no reactivar.
   const { data: conv } = await admin
     .from('conversaciones')
-    .select('chatbot_activo')
+    .select('chatbot_activo, chatbot_pausado_hasta')
     .eq('id', conversacionId)
     .single()
 
-  if (!conv?.chatbot_activo) return false
+  if (!conv) return false
+  let chatbotActivo = conv.chatbot_activo
+  if (!chatbotActivo && conv.chatbot_pausado_hasta) {
+    if (Date.now() >= new Date(conv.chatbot_pausado_hasta).getTime()) {
+      await admin
+        .from('conversaciones')
+        .update({ chatbot_activo: true, chatbot_pausado_hasta: null })
+        .eq('id', conversacionId)
+      chatbotActivo = true
+    }
+  }
+  if (!chatbotActivo) return false
 
   // 2.5. Saltear chatbot si el mensaje matchea alguno de los patrones configurados
   // (ej: solicitudes del formulario web tipo "*SOLICITUD EMPRESA*"). Si matchea,

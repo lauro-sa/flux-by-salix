@@ -36,7 +36,7 @@ export const ROLES_OPCIONES = [
   { valor: 'gestor', etiqueta: 'Gestor', descripcion: 'Contactos, presupuestos, actividades, visitas, inbox y productos' },
   { valor: 'vendedor', etiqueta: 'Vendedor', descripcion: 'Solo sus propios contactos, presupuestos, actividades e inbox' },
   { valor: 'supervisor', etiqueta: 'Supervisor', descripcion: 'Ve todo pero no puede eliminar — ideal para coordinadores' },
-  { valor: 'colaborador', etiqueta: 'Colaborador', descripcion: 'Solo asistencias, calendario propio e inbox interno' },
+  { valor: 'colaborador', etiqueta: 'Colaborador', descripcion: 'Ejecuta visitas, órdenes y actividades asignadas. Asistencias, nómina y calendario propios.' },
   { valor: 'invitado', etiqueta: 'Invitado', descripcion: 'Sin permisos por defecto — se asignan manualmente' },
 ]
 

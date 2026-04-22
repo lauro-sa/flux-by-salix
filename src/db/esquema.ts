@@ -1670,6 +1670,12 @@ export const config_whatsapp = pgTable('config_whatsapp', {
   notificar_asignacion: boolean('notificar_asignacion').notNull().default(true),
   notificar_sla_vencido: boolean('notificar_sla_vencido').notNull().default(true),
   sonido_notificacion: boolean('sonido_notificacion').notNull().default(true),
+  // Pausa de automatizaciones cuando responde un humano.
+  // Modo: 'siempre_activo' (nunca pausa) | 'manual' (pausa hasta reactivar) | 'temporal' (pausa por X minutos)
+  pausa_chatbot_modo: text('pausa_chatbot_modo').notNull().default('temporal'),
+  pausa_chatbot_minutos: integer('pausa_chatbot_minutos').default(720),
+  pausa_agente_ia_modo: text('pausa_agente_ia_modo').notNull().default('temporal'),
+  pausa_agente_ia_minutos: integer('pausa_agente_ia_minutos').default(720),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
 

@@ -107,12 +107,20 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
   },
 
   colaborador: {
+    // Básico (siempre)
     asistencias: ['ver_propio', 'marcar'],
     nomina: ['ver_propio'],
     calendario: ['ver_propio'],
     inbox_interno: ['ver_propio', 'enviar'],
     notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
     recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
+    // Trabajo asignado: ve y ejecuta lo que le toca (no crea ni edita; eso lo
+    // hace el coordinador). Si algún colaborador necesita crear, se habilita
+    // custom desde el perfil del usuario.
+    actividades: ['ver_propio', 'completar'],
+    visitas: ['ver_propio', 'completar'],
+    recorrido: ['ver_propio', 'registrar', 'reordenar'],
+    ordenes_trabajo: ['ver_propio', 'completar_etapa'],
   },
 
   invitado: {

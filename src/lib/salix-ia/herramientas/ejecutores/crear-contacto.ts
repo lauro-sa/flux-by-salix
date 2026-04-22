@@ -7,6 +7,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 export async function ejecutarCrearContacto(
   ctx: ContextoSalixIA,
@@ -52,7 +53,8 @@ export async function ejecutarCrearContacto(
     : 'Salix IA'
 
   const correo = (params.correo as string)?.trim()?.toLowerCase() || null
-  const telefono = (params.telefono as string)?.trim() || null
+  const telefono = normalizarTelefono(params.telefono as string | undefined)
+  const whatsapp = normalizarTelefono(params.whatsapp as string | undefined) || telefono
 
   // Verificar duplicados por correo o teléfono
   if (correo || telefono) {
@@ -87,7 +89,7 @@ export async function ejecutarCrearContacto(
       nombre,
       apellido: (params.apellido as string)?.trim() || '',
       telefono,
-      whatsapp: (params.whatsapp as string)?.trim() || telefono,
+      whatsapp,
       correo,
       rubro: (params.empresa as string)?.trim() || null,
       cargo: (params.cargo as string)?.trim() || null,

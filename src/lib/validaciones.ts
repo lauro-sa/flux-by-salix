@@ -16,6 +16,22 @@ export function esTelefonoValido(telefono: string): boolean {
   return soloDigitos.length >= 6
 }
 
+/**
+ * Normaliza un teléfono a solo dígitos ASCII antes de guardarlo o buscarlo.
+ * \D en JS descarta +, espacios, guiones (incluso variantes Unicode como
+ * U+2011), paréntesis, puntos y los bidi marks invisibles (U+200E/F, U+202A-E,
+ * U+2066-9) que iOS inyecta al copiar un número.
+ *
+ * Devuelve null si el input es falsy o queda con menos de 6 dígitos.
+ * Siempre usar este helper antes de persistir `telefono`/`whatsapp` y antes de
+ * buscar por esos campos — así evitamos duplicados por diferencias de formato.
+ */
+export function normalizarTelefono(valor: string | null | undefined): string | null {
+  if (!valor) return null
+  const soloDigitos = valor.replace(/\D/g, '')
+  return soloDigitos.length >= 6 ? soloDigitos : null
+}
+
 /** Valida formato de URL */
 export function esUrlValida(url: string): boolean {
   if (!url.trim()) return false
@@ -111,7 +127,7 @@ export function sanitizarBusqueda(input: string): string {
 
 /** Quita acentos/diacríticos de un texto para búsquedas ILIKE insensibles a acentos */
 export function normalizarAcentos(texto: string): string {
-  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
 /**

@@ -22,6 +22,7 @@ import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { WidgetJornada } from './WidgetJornada'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { usePendientes, type ActividadPendiente } from '@/hooks/usePendientes'
+import { usePermisosActuales } from '@/hooks/usePermisosActuales'
 
 /**
  * NotificacionesHeader — Los 3 íconos de notificaciones del header + botón silenciar.
@@ -486,6 +487,10 @@ function NotificacionesHeader() {
   const router = useRouter()
   const { locale } = useFormato()
   const { estaSilenciada } = useModoConcentracion()
+  const { metodoFichaje } = usePermisosActuales()
+  // El widget de jornada solo aplica a miembros que fichan desde el software.
+  // 'kiosco' ficha con tarjeta en terminal; null → no ficha.
+  const muestraJornada = metodoFichaje === 'automatico' || metodoFichaje === 'manual'
   const [popoverAbierto, setPopoverAbierto] = useState<string | null>(null)
   const [filtroInbox, setFiltroInbox] = useState<FiltroInbox>('todo')
 
@@ -658,11 +663,15 @@ function NotificacionesHeader() {
           )
         })}
 
-        {/* Separador */}
-        <span className="hidden sm:block w-px h-4 bg-borde-sutil mx-1" />
+        {muestraJornada && (
+          <>
+            {/* Separador */}
+            <span className="hidden sm:block w-px h-4 bg-borde-sutil mx-1" />
 
-        {/* Jornada (chip compacto con timer) */}
-        <WidgetJornada />
+            {/* Jornada (chip compacto con timer) */}
+            <WidgetJornada />
+          </>
+        )}
       </div>
     </>
   )

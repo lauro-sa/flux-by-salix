@@ -94,10 +94,19 @@ describe('resolverPermiso — roles operacionales', () => {
     expect(resolverPermiso(c, 'contactos', 'eliminar')).toBe(false)
   })
 
-  it('colaborador tiene acceso mínimo (solo asistencias/calendario/interno propios)', () => {
+  it('colaborador tiene lo básico propio + ejecución de trabajo asignado', () => {
     const c = ctx({ rol: 'colaborador' })
+    // Básicos
     expect(resolverPermiso(c, 'asistencias', 'ver_propio')).toBe(true)
     expect(resolverPermiso(c, 'asistencias', 'marcar')).toBe(true)
+    // Trabajo asignado: ve y ejecuta (sin crear ni editar)
+    expect(resolverPermiso(c, 'visitas', 'ver_propio')).toBe(true)
+    expect(resolverPermiso(c, 'visitas', 'completar')).toBe(true)
+    expect(resolverPermiso(c, 'visitas', 'crear')).toBe(false)
+    expect(resolverPermiso(c, 'ordenes_trabajo', 'ver_propio')).toBe(true)
+    expect(resolverPermiso(c, 'ordenes_trabajo', 'completar_etapa')).toBe(true)
+    expect(resolverPermiso(c, 'recorrido', 'registrar')).toBe(true)
+    // Fuera del alcance por default: contactos, gestión de usuarios
     expect(resolverPermiso(c, 'contactos', 'ver_propio')).toBe(false)
     expect(resolverPermiso(c, 'usuarios', 'ver')).toBe(false)
   })

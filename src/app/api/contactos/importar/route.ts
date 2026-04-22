@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { normalizarTelefono } from '@/lib/validaciones'
 import ExcelJS from 'exceljs'
 
 /**
@@ -154,8 +155,8 @@ export async function POST(request: NextRequest) {
         apellido: dato.apellido?.trim() || null,
         titulo: dato.titulo?.trim() || null,
         correo,
-        telefono: dato.telefono?.trim() || null,
-        whatsapp: dato.whatsapp?.trim() || null,
+        telefono: normalizarTelefono(dato.telefono),
+        whatsapp: normalizarTelefono(dato.whatsapp),
         web: dato.web?.trim() || null,
         cargo: dato.cargo?.trim() || null,
         rubro: dato.rubro?.trim() || null,

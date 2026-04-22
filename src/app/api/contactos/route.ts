@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos, normalizarTelefono } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
@@ -539,6 +539,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al generar código' }, { status: 500 })
     }
 
+    // Normalizar teléfonos una sola vez: los usamos para dedup y para el insert.
+    const telefonoNorm = normalizarTelefono(body.telefono)
+    const whatsappNorm = normalizarTelefono(body.whatsapp)
+
     // Detección de duplicados — todas las queries en paralelo
     if (!body.ignorar_duplicados) {
       const checksParalelos: PromiseLike<{ campo: string; duplicado: { id: string; nombre: string; codigo: string } | null }>[] = []
@@ -557,17 +561,17 @@ export async function POST(request: NextRequest) {
             .then(({ data }) => ({ campo: 'correo', duplicado: data }))
         )
       }
-      if (body.telefono?.trim()) {
+      if (telefonoNorm) {
         checksParalelos.push(
           admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
-            .eq('telefono', body.telefono.trim()).eq('en_papelera', false).maybeSingle()
+            .eq('telefono', telefonoNorm).eq('en_papelera', false).maybeSingle()
             .then(({ data }) => ({ campo: 'telefono', duplicado: data }))
         )
       }
-      if (body.whatsapp?.trim()) {
+      if (whatsappNorm) {
         checksParalelos.push(
           admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
-            .eq('whatsapp', body.whatsapp.trim()).eq('en_papelera', false).maybeSingle()
+            .eq('whatsapp', whatsappNorm).eq('en_papelera', false).maybeSingle()
             .then(({ data }) => ({ campo: 'whatsapp', duplicado: data }))
         )
       }
@@ -595,8 +599,8 @@ export async function POST(request: NextRequest) {
       apellido: body.apellido?.trim() || null,
       titulo: body.titulo || null,
       correo: body.correo?.toLowerCase().trim() || null,
-      telefono: body.telefono?.trim() || null,
-      whatsapp: body.whatsapp?.trim() || null,
+      telefono: telefonoNorm,
+      whatsapp: whatsappNorm,
       web: body.web?.trim() || null,
       cargo: body.cargo?.trim() || null,
       rubro: body.rubro?.trim() || null,

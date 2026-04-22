@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * GET /api/contactos/[id] — Obtener detalle completo de un contacto.
@@ -160,6 +161,10 @@ export async function PATCH(
     // Limpiar datos
     if (actualizar.correo) actualizar.correo = (actualizar.correo as string).toLowerCase().trim()
     if (actualizar.nombre) actualizar.nombre = (actualizar.nombre as string).trim()
+    // Normalizar teléfonos (solo dígitos) para evitar duplicados por formato.
+    // Null explícito se respeta (el usuario puede querer limpiar el campo).
+    if ('telefono' in actualizar) actualizar.telefono = actualizar.telefono ? normalizarTelefono(actualizar.telefono as string) : null
+    if ('whatsapp' in actualizar) actualizar.whatsapp = actualizar.whatsapp ? normalizarTelefono(actualizar.whatsapp as string) : null
 
     // Marcar timestamp de edición
     actualizar.editado_por = user.id

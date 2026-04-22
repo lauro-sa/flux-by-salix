@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirFichajePropioAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -9,7 +9,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('asistencias', 'marcar')
+    const guard = await requerirFichajePropioAPI()
     if ('respuesta' in guard) return guard.respuesta
     const { empresaId } = guard
 

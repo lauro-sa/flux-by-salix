@@ -23,7 +23,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useAuth } from './useAuth'
-import type { Rol } from '@/tipos/miembro'
+import type { Rol, MetodoFichaje } from '@/tipos/miembro'
 import type { PermisosMapa } from '@/tipos/permisos'
 
 export interface EstadoPermisosActuales {
@@ -34,6 +34,10 @@ export interface EstadoPermisosActuales {
   activo: boolean
   esPropietario: boolean
   esSuperadmin: boolean
+  /** Método de fichaje del miembro. Fuente de verdad para mostrar widget de
+   * jornada y habilitar heartbeat de fichaje automático. Si es 'kiosco' o null,
+   * el usuario no ficha desde el software. */
+  metodoFichaje: MetodoFichaje | null
   /** Fuerza una recarga manual (p. ej. después de un guardar optimista). */
   recargar: () => Promise<void>
 }
@@ -52,6 +56,7 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
     activo: false,
     esPropietario: false,
     esSuperadmin: false,
+    metodoFichaje: null,
   })
   // Guardamos el miembro_id para el filtro de realtime y para evitar loops
   // cuando cambia la sesión pero no el miembro.
@@ -71,6 +76,7 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
         activo: boolean
         es_propietario: boolean
         es_superadmin: boolean
+        metodo_fichaje: MetodoFichaje | null
       }
       setEstado({
         cargando: false,
@@ -80,6 +86,7 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
         activo: datos.activo,
         esPropietario: datos.es_propietario,
         esSuperadmin: datos.es_superadmin,
+        metodoFichaje: datos.metodo_fichaje,
       })
       return datos.miembro_id
     } catch {
@@ -101,6 +108,7 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
         activo: false,
         esPropietario: false,
         esSuperadmin: false,
+        metodoFichaje: null,
       })
       return
     }
@@ -163,6 +171,7 @@ export function usePermisosActuales(): EstadoPermisosActuales {
       activo: false,
       esPropietario: false,
       esSuperadmin: false,
+      metodoFichaje: null,
       recargar: async () => {},
     }
   }

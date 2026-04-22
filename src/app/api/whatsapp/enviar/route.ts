@@ -7,6 +7,7 @@ import {
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
 import { generarNombreRemitente } from '@/lib/nombre-remitente'
+import { obtenerConfigPausa, calcularPausaPorRespuestaHumana } from '@/lib/whatsapp-pausa'
 
 /**
  * POST /api/whatsapp/enviar — Enviar mensaje de WhatsApp.
@@ -233,8 +234,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Actualizar conversación (incluye limpiar tiempo sin respuesta)
+    // Actualizar conversación (incluye limpiar tiempo sin respuesta).
+    // Además: si la empresa tiene configurada pausa de automatizaciones por respuesta humana,
+    // se apagan chatbot y/o agente IA según modo (siempre_activo, manual, temporal).
     const ahoraISO = new Date().toISOString()
+    const configPausa = await obtenerConfigPausa(admin, empresaId)
+    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa)
     await admin
       .from('conversaciones')
       .update({
@@ -243,6 +248,7 @@ export async function POST(request: NextRequest) {
         ultimo_mensaje_es_entrante: false,
         tiempo_sin_respuesta_desde: null,
         actualizado_en: ahoraISO,
+        ...pausaUpdates,
       })
       .eq('id', conversacion_id)
 

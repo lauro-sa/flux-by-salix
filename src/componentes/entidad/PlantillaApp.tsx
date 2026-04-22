@@ -22,6 +22,7 @@ import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
 import { useHeartbeatAsistencia } from '@/hooks/useHeartbeatAsistencia'
 import { useSyncCorreoBackground } from '@/hooks/useSyncCorreoBackground'
 import { useReactivacionPWA } from '@/hooks/useReactivacionPWA'
+import { usePermisosActuales } from '@/hooks/usePermisosActuales'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -57,7 +58,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
   const headerOculto = useHeaderAutoOculto()
-  useHeartbeatAsistencia()
+  // El heartbeat solo tiene sentido para miembros con fichaje automático;
+  // para 'manual' / 'kiosco' / sin método no hace nada (se envían 0 requests).
+  const { metodoFichaje } = usePermisosActuales()
+  useHeartbeatAsistencia(metodoFichaje === 'automatico')
   useSyncCorreoBackground()
   // Recalcula --vh, invalida queries y avisa a canales Realtime al volver de background
   // (iOS Safari: al volver de Google Maps, WhatsApp, tel:, etc. vía bfcache).

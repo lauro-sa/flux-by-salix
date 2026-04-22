@@ -18,6 +18,7 @@ import type { CanalMensajeria, ConfigMensajeria } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { SeccionWhatsApp } from '@/app/(flux)/whatsapp/_componentes/SeccionWhatsApp'
+import { BloquePausaAutomatizacion } from '@/app/(flux)/whatsapp/_componentes/BloquePausaAutomatizacion'
 import { SeccionChatbot } from '@/app/(flux)/inbox/configuracion/_componentes/SeccionChatbot'
 import {
   SeccionPipeline,
@@ -139,12 +140,18 @@ export default function PaginaConfiguracionWhatsApp() {
 
       {/* Chatbot */}
       {seccionActiva === 'chatbot' && (
-        <SeccionChatbot />
+        <>
+          <SeccionChatbot />
+          <BloquePausaAutomatizacion tipo="chatbot" />
+        </>
       )}
 
       {/* Agente IA */}
       {seccionActiva === 'agente_ia' && (
-        <SeccionAgenteIA />
+        <>
+          <SeccionAgenteIA />
+          <BloquePausaAutomatizacion tipo="agente_ia" />
+        </>
       )}
 
       {/* Etiquetas */}

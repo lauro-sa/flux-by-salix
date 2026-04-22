@@ -19,9 +19,12 @@ const ACTIVIDAD_DEBOUNCE_MS = 30 * 1000  // registrar actividad cada 30s máximo
  * 5. Si el usuario vuelve a interactuar, reanuda los heartbeats
  * 6. Muestra notificación toast cuando se ficha la entrada automáticamente
  *
- * Se monta una sola vez en PlantillaApp.
+ * Se monta una sola vez en PlantillaApp. El flag `habilitado` permite
+ * desactivarlo en runtime si el miembro no usa fichaje automático: el hook
+ * sigue llamándose (rules of hooks) pero no registra listeners ni hace
+ * ningún fetch.
  */
-export function useHeartbeatAsistencia() {
+export function useHeartbeatAsistencia(habilitado: boolean) {
   const { mostrar } = useToast()
 
   // Refs para estado persistente entre renders
@@ -89,6 +92,7 @@ export function useHeartbeatAsistencia() {
   }, [mostrar])
 
   useEffect(() => {
+    if (!habilitado) return
     // Registrar actividad del usuario (debounced)
     const registrarActividad = () => {
       const ahora = Date.now()
@@ -169,5 +173,5 @@ export function useHeartbeatAsistencia() {
         document.removeEventListener(evento, registrarActividad)
       }
     }
-  }, [enviarHeartbeat])
+  }, [habilitado, enviarHeartbeat])
 }

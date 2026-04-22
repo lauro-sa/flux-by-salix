@@ -7,6 +7,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 export async function ejecutarModificarContacto(
   ctx: ContextoSalixIA,
@@ -47,12 +48,12 @@ export async function ejecutarModificarContacto(
     descripcionCambios.push(`apellido: "${anterior}" → "${cambios.apellido}"`)
   }
 
-  // Teléfono
+  // Teléfono — normalizamos a solo dígitos para evitar duplicados por formato
   if (params.telefono !== undefined) {
     const anterior = contacto.telefono || '(vacío)'
-    cambios.telefono = (params.telefono as string).trim()
+    cambios.telefono = normalizarTelefono(params.telefono as string)
     cambios.whatsapp = cambios.telefono // sincronizar WhatsApp
-    descripcionCambios.push(`teléfono: ${anterior} → ${cambios.telefono}`)
+    descripcionCambios.push(`teléfono: ${anterior} → ${cambios.telefono ?? '(vacío)'}`)
   }
 
   // Correo

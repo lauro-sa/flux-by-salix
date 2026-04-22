@@ -41,15 +41,21 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
   const { esPropietario, tienePermiso } = useRol()
   const { tieneModulo } = useModulos()
-  const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
+  const { noLeidasPorCategoria, porCategoria } = useNotificaciones({ deshabilitado: false })
   const { hayPendientes } = usePendientes()
   const intentarNavegar = useNavegarProtegido()
   const sonido = useSonido()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
+  // Conteo separado por canal del inbox: el item "Inbox" del sidebar va a /inbox (correo)
+  // y "WhatsApp" va a /whatsapp, así que cada uno debe contar solo sus mensajes.
+  const noLeidasInbox = porCategoria('inbox').filter(n => !n.leida)
+  const contarPorTipos = (tipos: string[]) => noLeidasInbox.filter(n => tipos.includes(n.tipo)).length
+
   // Badges dinamicos basados en notificaciones reales
   const badgesReales: Record<string, number> = {
-    inbox: noLeidasPorCategoria('inbox'),
+    inbox: contarPorTipos(['mensaje_correo']),
+    whatsapp: contarPorTipos(['mensaje_whatsapp', 'nuevo_mensaje']),
     actividades: noLeidasPorCategoria('actividades'),
   }
 

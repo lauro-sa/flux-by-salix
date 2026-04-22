@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/contactos/fusionar — Fusiona un contacto provisorio con uno existente.
@@ -52,11 +53,12 @@ export async function POST(request: NextRequest) {
     const provisorio = provRes.data
     const destino = destRes.data
 
-    // Actualizar campos vacíos del destino con datos del provisorio
+    // Actualizar campos vacíos del destino con datos del provisorio.
+    // Teléfonos se normalizan al heredar por si el provisorio los tiene con formato sucio.
     const camposActualizar: Record<string, unknown> = {}
     if (!destino.correo && provisorio.correo) camposActualizar.correo = provisorio.correo
-    if (!destino.telefono && provisorio.telefono) camposActualizar.telefono = provisorio.telefono
-    if (!destino.whatsapp && provisorio.whatsapp) camposActualizar.whatsapp = provisorio.whatsapp
+    if (!destino.telefono && provisorio.telefono) camposActualizar.telefono = normalizarTelefono(provisorio.telefono)
+    if (!destino.whatsapp && provisorio.whatsapp) camposActualizar.whatsapp = normalizarTelefono(provisorio.whatsapp)
     if (!destino.cargo && provisorio.cargo) camposActualizar.cargo = provisorio.cargo
     if (!destino.web && provisorio.web) camposActualizar.web = provisorio.web
 

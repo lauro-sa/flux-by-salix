@@ -96,7 +96,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   const { empresa, empresas, cambiarEmpresa } = useEmpresa()
   const { tienePermiso, esPropietario } = useRol()
   const { tieneModulo } = useModulos()
-  const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
+  const { noLeidasPorCategoria, porCategoria } = useNotificaciones({ deshabilitado: false })
 
   // iOS: position:fixed en body para evitar scroll detrás del menú
   useScrollLockiOS(abierto)
@@ -117,9 +117,12 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10)
   }
 
-  /* Badges */
+  /* Badges — separamos inbox (correo) de whatsapp porque van a rutas distintas */
+  const noLeidasInbox = porCategoria('inbox').filter(n => !n.leida)
+  const contarPorTipos = (tipos: string[]) => noLeidasInbox.filter(n => tipos.includes(n.tipo)).length
   const badgesReales: Record<string, number> = {
-    inbox: noLeidasPorCategoria('inbox'),
+    inbox: contarPorTipos(['mensaje_correo']),
+    whatsapp: contarPorTipos(['mensaje_whatsapp', 'nuevo_mensaje']),
     actividades: noLeidasPorCategoria('actividades'),
   }
 

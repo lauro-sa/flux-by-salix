@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { requerirFichajePropioAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 
@@ -13,9 +13,9 @@ import { formatearFechaISO } from '@/lib/formato-fecha'
  */
 export async function POST(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('asistencias', 'marcar')
+    const guard = await requerirFichajePropioAPI()
     if ('respuesta' in guard) return guard.respuesta
-    const { user, empresaId } = guard
+    const { empresaId, miembroId, metodoFichaje } = guard
 
     const body = await request.json()
     const { accion, ubicacion, metodo = 'manual' } = body
@@ -23,17 +23,19 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
 
-    // Paso 1: empresa + miembro en paralelo
+    // Leer empresa (zona horaria) y campos extra del miembro que necesitamos
     const [empresaRes, miembroRes] = await Promise.all([
       admin.from('empresas').select('zona_horaria').eq('id', empresaId).single(),
-      admin.from('miembros').select('id, turno_id, metodo_fichaje').eq('usuario_id', user.id).eq('empresa_id', empresaId).single(),
+      admin.from('miembros').select('turno_id').eq('id', miembroId).single(),
     ])
 
     const zona = (empresaRes.data?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
     const fechaHoy = formatearFechaISO(new Date(), zona)
-    const miembro = miembroRes.data
-
-    if (!miembro) return NextResponse.json({ error: 'No sos miembro de esta empresa' }, { status: 403 })
+    const miembro = {
+      id: miembroId,
+      turno_id: (miembroRes.data?.turno_id as string | null) ?? null,
+      metodo_fichaje: metodoFichaje,
+    }
 
     // Paso 2: turnoHoy + turnoViejo + sector + turnoDefault — todo en paralelo
     const [turnoHoyRes, turnoViejoRes, memSectorRes, turnoDefaultRes] = await Promise.all([
@@ -249,23 +251,25 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
-    const guard = await requerirPermisoAPI('asistencias', 'ver_propio')
+    const guard = await requerirFichajePropioAPI()
     if ('respuesta' in guard) return guard.respuesta
-    const { user, empresaId } = guard
+    const { empresaId, miembroId, metodoFichaje } = guard
 
     const admin = crearClienteAdmin()
 
-    // Paso 1: empresa + miembro en paralelo (ambos independientes)
+    // Leer empresa (zona horaria) y turno_id del miembro
     const [empresaGetRes, miembroRes] = await Promise.all([
       admin.from('empresas').select('zona_horaria').eq('id', empresaId).single(),
-      admin.from('miembros').select('id, turno_id, metodo_fichaje').eq('usuario_id', user.id).eq('empresa_id', empresaId).single(),
+      admin.from('miembros').select('turno_id').eq('id', miembroId).single(),
     ])
 
     const zonaGet = (empresaGetRes.data?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
     const fechaHoy = formatearFechaISO(new Date(), zonaGet)
-    const miembro = miembroRes.data
-
-    if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
+    const miembro = {
+      id: miembroId,
+      turno_id: (miembroRes.data?.turno_id as string | null) ?? null,
+      metodo_fichaje: metodoFichaje,
+    }
 
     // Paso 2: turnoHoy + config + turnoViejo + sector + horarioEmpresa + turnoDefault — todo en paralelo
     // Día de la semana en zona de empresa (no UTC), para matchear el turno configurado.

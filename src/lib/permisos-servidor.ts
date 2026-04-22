@@ -143,6 +143,62 @@ export async function requerirAutenticacionAPI(): Promise<
 }
 
 /**
+ * Guard específico para endpoints de fichaje propio (/api/asistencias/fichar,
+ * /api/asistencias/heartbeat, /api/asistencias/fichar/ubicacion).
+ *
+ * Fichar el propio turno NO es un permiso del módulo asistencias — es una
+ * capacidad habilitada por el campo `miembro.metodo_fichaje`:
+ *   - 'automatico' / 'manual' → puede fichar desde el software
+ *   - 'kiosco' → ficha con tarjeta/PIN en terminal (no usa estos endpoints)
+ *   - null → no ficha
+ *
+ * El permiso `asistencias.marcar` queda reservado para la acción de agregar/
+ * editar fichajes de OTROS desde la sección /asistencias.
+ */
+export async function requerirFichajePropioAPI(): Promise<
+  | { respuesta: NextResponse }
+  | {
+      user: { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }
+      empresaId: string
+      miembroId: string
+      metodoFichaje: 'automatico' | 'manual'
+    }
+> {
+  const { user } = await obtenerUsuarioRuta()
+  if (!user) {
+    return { respuesta: NextResponse.json({ error: 'No autenticado' }, { status: 401 }) }
+  }
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) {
+    return { respuesta: NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 }) }
+  }
+
+  const admin = crearClienteAdmin()
+  const { data: miembro } = await admin
+    .from('miembros')
+    .select('id, metodo_fichaje, activo')
+    .eq('usuario_id', user.id)
+    .eq('empresa_id', empresaId)
+    .maybeSingle()
+
+  if (!miembro || !miembro.activo) {
+    return { respuesta: NextResponse.json({ error: 'No sos miembro activo de esta empresa' }, { status: 403 }) }
+  }
+
+  const metodo = miembro.metodo_fichaje as 'automatico' | 'manual' | 'kiosco' | null
+  if (metodo !== 'automatico' && metodo !== 'manual') {
+    return { respuesta: NextResponse.json({ error: 'Este usuario no ficha desde el software' }, { status: 403 }) }
+  }
+
+  return {
+    user: user as { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } },
+    empresaId,
+    miembroId: miembro.id as string,
+    metodoFichaje: metodo,
+  }
+}
+
+/**
  * Verifica permisos de visibilidad (ver_todos vs ver_propio) con una sola query a BD.
  * Retorna { verTodos, soloPropio, miembro } o null si no tiene ningún permiso.
  */
