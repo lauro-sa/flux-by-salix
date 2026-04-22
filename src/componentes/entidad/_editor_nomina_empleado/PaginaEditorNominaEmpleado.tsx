@@ -104,6 +104,8 @@ export interface ResultadoNomina {
 export interface EmpleadoLista {
   miembro_id: string
   nombre: string
+  /** Frecuencia de compensación — determina qué tipo de período abrir al navegar */
+  compensacion_frecuencia?: string
 }
 
 interface Props {
@@ -194,6 +196,13 @@ function navegarFecha(fecha: Date, tipo: TipoPeriodo, dir: 'prev' | 'next'): Dat
     }
   } else d.setMonth(d.getMonth() + delta, 1)
   return d
+}
+
+/** Mapea la frecuencia de compensación del empleado al tipo de período natural */
+function tipoPeriodoPorFrecuencia(freq?: string): TipoPeriodo {
+  if (freq === 'semanal') return 'semana'
+  if (freq === 'quincenal') return 'quincena'
+  return 'mes' // 'mensual', 'eventual' o default
 }
 
 /** Deriva el tipo de período a partir de un rango de fechas */
@@ -389,13 +398,29 @@ export function PaginaEditorNominaEmpleado({
   const irAEmpleado = useCallback(async (id: string) => {
     setRecalculando(true)
 
+    // Si conocemos la frecuencia del nuevo empleado (de empleadosPeriodo), ajustamos
+    // el período al tipo natural del empleado manteniendo la fecha de referencia.
+    // Ej: de "quincena 16-30 abril" viendo a Juan (quincenal), al navegar a Pedro
+    // (mensual) se abre "abril entero". Así cada empleado siempre se ve en su período.
+    const empleadoMeta = empleadosPeriodo.find(e => e.miembro_id === id)
+    const tipoPrefer = tipoPeriodoPorFrecuencia(empleadoMeta?.compensacion_frecuencia)
+    const periodoDestino = tipoPrefer !== tipoPeriodo
+      ? calcularPeriodo(fechaRef, tipoPrefer)
+      : periodoActual
+
+    // Si cambiamos de tipo, actualizamos estado local antes del fetch
+    if (tipoPrefer !== tipoPeriodo) {
+      setTipoPeriodo(tipoPrefer)
+      setPeriodoActual(periodoDestino)
+    }
+
     // Sync URL sin disparar loading.tsx ni re-ejecutar el page
     if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `/asistencias/nomina/${id}?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}`)
+      window.history.replaceState(null, '', `/asistencias/nomina/${id}?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}`)
     }
 
     try {
-      const res = await fetch(`/api/asistencias/nomina?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${id}`)
+      const res = await fetch(`/api/asistencias/nomina?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}&empleados=${id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === id)
       if (resultado) {
@@ -415,8 +440,8 @@ export function PaginaEditorNominaEmpleado({
     } catch { /* silenciar */ }
     finally { setRecalculando(false) }
 
-    cargarPagosYAdelantos(id, periodoActual.desde, periodoActual.hasta)
-  }, [periodoActual.desde, periodoActual.hasta, supabase, cargarPagosYAdelantos])
+    cargarPagosYAdelantos(id, periodoDestino.desde, periodoDestino.hasta)
+  }, [periodoActual, tipoPeriodo, fechaRef, empleadosPeriodo, cargarPagosYAdelantos])
 
   // ─── Guardar compensación + historial ───
 

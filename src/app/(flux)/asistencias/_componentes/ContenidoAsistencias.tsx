@@ -137,7 +137,8 @@ interface Props {
 // ─── Componente ──────────────────────────────────────────────
 
 export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
-  useGuardPermiso('asistencias')
+  const { bloqueado: sinPermiso } = useGuardPermiso('asistencias')
+  if (sinPermiso) return null
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()

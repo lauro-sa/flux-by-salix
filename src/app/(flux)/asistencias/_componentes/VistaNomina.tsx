@@ -58,6 +58,13 @@ type TipoPeriodo = 'semana' | 'quincena' | 'mes'
 
 // ─── Helpers de período ───
 
+/** Mapea la frecuencia de compensación del empleado al tipo de período natural */
+function tipoPeriodoPorFrecuencia(freq?: string): TipoPeriodo {
+  if (freq === 'semanal') return 'semana'
+  if (freq === 'quincenal') return 'quincena'
+  return 'mes' // 'mensual', 'eventual' o default
+}
+
 function calcularPeriodo(fecha: Date, tipo: TipoPeriodo): { desde: string; hasta: string; etiqueta: string } {
   const d = new Date(fecha)
 
@@ -300,7 +307,13 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
             {resultados.map(r => (
               <div
                 key={r.miembro_id}
-                onClick={() => router.push(`/asistencias/nomina/${r.miembro_id}?desde=${periodo.desde}&hasta=${periodo.hasta}`)}
+                onClick={() => {
+                  // Abre el detalle con el período natural del empleado (según su frecuencia)
+                  // centrado en HOY, no en el período que el usuario estaba viendo en la lista.
+                  const tipoEmpleado = tipoPeriodoPorFrecuencia(r.compensacion_frecuencia)
+                  const p = calcularPeriodo(new Date(), tipoEmpleado)
+                  router.push(`/asistencias/nomina/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
+                }}
                 className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group"
               >
                 {/* Nombre */}

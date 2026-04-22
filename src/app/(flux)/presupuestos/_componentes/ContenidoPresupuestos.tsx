@@ -75,7 +75,8 @@ interface Props {
 }
 
 export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
-  useGuardPermiso('presupuestos')
+  const { bloqueado: sinPermiso } = useGuardPermiso('presupuestos')
+  if (sinPermiso) return null
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

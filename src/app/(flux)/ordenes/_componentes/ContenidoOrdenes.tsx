@@ -55,7 +55,8 @@ interface FilaOrden {
 const POR_PAGINA = 50
 
 export default function ContenidoOrdenes() {
-  useGuardPermiso('ordenes_trabajo')
+  const { bloqueado: sinPermiso } = useGuardPermiso('ordenes_trabajo')
+  if (sinPermiso) return null
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

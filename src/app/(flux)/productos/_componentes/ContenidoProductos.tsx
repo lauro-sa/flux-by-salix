@@ -53,7 +53,8 @@ interface Props {
 }
 
 export default function ContenidoProductos({ datosInicialesJson }: Props) {
-  useGuardPermiso('productos', { accion: 'ver' })
+  const { bloqueado: sinPermiso } = useGuardPermiso('productos', { accion: 'ver' })
+  if (sinPermiso) return null
   const { t } = useTraduccion()
   const router = useRouter()
   const searchParams = useSearchParams()

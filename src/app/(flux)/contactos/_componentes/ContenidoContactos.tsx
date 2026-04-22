@@ -91,7 +91,8 @@ interface Props {
 }
 
 export default function ContenidoContactos({ datosInicialesJson }: Props) {
-  useGuardPermiso('contactos')
+  const { bloqueado: sinPermiso } = useGuardPermiso('contactos')
+  if (sinPermiso) return null
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

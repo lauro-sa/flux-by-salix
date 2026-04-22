@@ -83,7 +83,8 @@ interface Props {
 }
 
 export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Props) {
-  useGuardPermiso('visitas')
+  const { bloqueado: sinPermiso } = useGuardPermiso('visitas')
+  if (sinPermiso) return null
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()

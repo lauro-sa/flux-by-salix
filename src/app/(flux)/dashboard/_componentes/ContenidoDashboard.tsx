@@ -15,6 +15,8 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
+import { useRol } from '@/hooks/useRol'
+import type { Modulo, Accion } from '@/tipos'
 import { useTraduccion } from '@/lib/i18n'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Cargador } from '@/componentes/ui/Cargador'
@@ -60,6 +62,9 @@ interface PermisosDashboard {
   asistencias: boolean
   presupuestos_todos: boolean
   asistencias_todos: boolean
+  inbox_whatsapp: boolean
+  inbox_correo: boolean
+  inbox_interno: boolean
   inbox: boolean
 }
 
@@ -212,7 +217,15 @@ export default function ContenidoDashboard() {
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
   const { moneda, fechaRelativa, fecha: formatoFecha, locale: formatoLocale } = useFormato()
+  const { tienePermiso } = useRol()
   const router = useRouter()
+
+  // Acceso a inbox (WhatsApp / Correo / Interno): cualquiera de los tres
+  // habilita el botón y el widget de mensajes recientes.
+  const permisosInbox =
+    tienePermiso('inbox_whatsapp', 'ver_propio') || tienePermiso('inbox_whatsapp', 'ver_todos') ||
+    tienePermiso('inbox_correo', 'ver_propio')   || tienePermiso('inbox_correo', 'ver_todos') ||
+    tienePermiso('inbox_interno', 'ver_propio')  || tienePermiso('inbox_interno', 'ver_todos')
 
   const [pestana, setPestana] = useState<'general' | 'metricas'>('general')
   const [datos, setDatos] = useState<DatosDashboard | null>(null)
@@ -317,6 +330,8 @@ export default function ContenidoDashboard() {
             formatoFecha={formatoFecha}
             formatoLocale={formatoLocale}
             router={router}
+            tienePermiso={tienePermiso}
+            permisosInbox={permisosInbox}
           />
         ) : (
           <PestanaMetricas
@@ -336,6 +351,7 @@ export default function ContenidoDashboard() {
 
 function PestanaGeneral({
   datos, metricas: _metricas, t, moneda, fechaRelativa, formatoFecha, formatoLocale: _formatoLocale, router,
+  tienePermiso, permisosInbox,
 }: {
   datos: DatosDashboard | null
   metricas: MetricasInbox | null
@@ -345,6 +361,8 @@ function PestanaGeneral({
   formatoFecha: (fecha: Date | string, opciones?: { conHora?: boolean; corta?: boolean; soloMes?: boolean }) => string
   formatoLocale: string
   router: ReturnType<typeof useRouter>
+  tienePermiso: (modulo: Modulo, accion: Accion) => boolean
+  permisosInbox: boolean
 }) {
   // Alertas accionables: solo las que tienen datos
   const actividadesVencidas = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
@@ -413,17 +431,31 @@ function PestanaGeneral({
         </Widget>
       </motion.div>
 
-      {/* Accesos rápidos: tarjetas con icono arriba + etiqueta abajo */}
-      {/* Mobile: tarjetas cuadradas para tap grande. Desktop: tarjetas bajas, más compactas */}
+      {/* Accesos rápidos — cada botón solo aparece si el usuario tiene permiso
+          para CREAR ese tipo de registro o abrir el módulo correspondiente.
+          "Nota" y "Recordatorio" son personales (no requieren módulo). */}
       <motion.div variants={itemVariantes} className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={18} strokeWidth={1.5} />} colorIcono="text-insignia-primario-texto" colorFondo="bg-insignia-primario-fondo" onClick={() => router.push('/contactos/nuevo?desde=dashboard')} />
-        <BotonRapido etiqueta="Presupuesto" icono={<FileText size={18} strokeWidth={1.5} />} colorIcono="text-insignia-info-texto" colorFondo="bg-insignia-info-fondo" onClick={() => router.push('/presupuestos/nuevo?desde=dashboard')} />
-        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={18} strokeWidth={1.5} />} colorIcono="text-insignia-exito-texto" colorFondo="bg-insignia-exito-fondo" onClick={() => router.push('/actividades?crear=true')} />
+        {tienePermiso('contactos', 'crear') && (
+          <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={18} strokeWidth={1.5} />} colorIcono="text-insignia-primario-texto" colorFondo="bg-insignia-primario-fondo" onClick={() => router.push('/contactos/nuevo?desde=dashboard')} />
+        )}
+        {tienePermiso('presupuestos', 'crear') && (
+          <BotonRapido etiqueta="Presupuesto" icono={<FileText size={18} strokeWidth={1.5} />} colorIcono="text-insignia-info-texto" colorFondo="bg-insignia-info-fondo" onClick={() => router.push('/presupuestos/nuevo?desde=dashboard')} />
+        )}
+        {tienePermiso('actividades', 'crear') && (
+          <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={18} strokeWidth={1.5} />} colorIcono="text-insignia-exito-texto" colorFondo="bg-insignia-exito-fondo" onClick={() => router.push('/actividades?crear=true')} />
+        )}
+        {/* Notas y recordatorios son personales — siempre disponibles */}
         <BotonRapido etiqueta="Nota" icono={<StickyNote size={18} strokeWidth={1.5} />} colorIcono="text-insignia-advertencia-texto" colorFondo="bg-insignia-advertencia-fondo" onClick={() => window.dispatchEvent(new Event('flux:abrir-notas'))} />
         <BotonRapido etiqueta="Recordatorio" icono={<BellRing size={18} strokeWidth={1.5} />} colorIcono="text-insignia-naranja-texto" colorFondo="bg-insignia-naranja-fondo" onClick={() => window.dispatchEvent(new Event('flux:abrir-recordatorios'))} />
-        <BotonRapido etiqueta="Evento" icono={<Calendar size={18} strokeWidth={1.5} />} colorIcono="text-insignia-violeta-texto" colorFondo="bg-insignia-violeta-fondo" onClick={() => router.push('/calendario?crear=true')} />
-        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/productos?crear=true')} />
-        <BotonRapido etiqueta="Inbox" icono={<MessageSquare size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/inbox')} />
+        {tienePermiso('calendario', 'crear') && (
+          <BotonRapido etiqueta="Evento" icono={<Calendar size={18} strokeWidth={1.5} />} colorIcono="text-insignia-violeta-texto" colorFondo="bg-insignia-violeta-fondo" onClick={() => router.push('/calendario?crear=true')} />
+        )}
+        {tienePermiso('productos', 'crear') && (
+          <BotonRapido etiqueta="Producto" icono={<ClipboardList size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/productos?crear=true')} />
+        )}
+        {permisosInbox && (
+          <BotonRapido etiqueta="Inbox" icono={<MessageSquare size={18} strokeWidth={1.5} />} colorIcono="text-texto-secundario" colorFondo="bg-superficie-hover" onClick={() => router.push('/inbox')} />
+        )}
       </motion.div>
 
       {/* Historial reciente — ancho completo */}

@@ -41,8 +41,17 @@ export async function GET() {
       // agregados del equipo; ver_propio no da la foto completa).
       presupuestos_todos: verificarPermiso(datosMiembro, 'presupuestos', 'ver_todos'),
       asistencias_todos: verificarPermiso(datosMiembro, 'asistencias', 'ver_todos'),
+      inbox_whatsapp: tieneAlgunVer('inbox_whatsapp'),
+      inbox_correo: tieneAlgunVer('inbox_correo'),
+      inbox_interno: tieneAlgunVer('inbox_interno'),
       inbox: tieneAlgunVer('inbox_whatsapp') || tieneAlgunVer('inbox_correo') || tieneAlgunVer('inbox_interno'),
     }
+    // Lista de canales permitidos para filtrar `mensajes_recientes` y evitar
+    // que pestañas como "WhatsApp" aparezcan cuando el usuario no tiene acceso.
+    const canalesPermitidos = new Set<string>()
+    if (permisos.inbox_whatsapp) canalesPermitidos.add('whatsapp')
+    if (permisos.inbox_correo) canalesPermitidos.add('correo')
+    if (permisos.inbox_interno) canalesPermitidos.add('interno')
 
     // Cargar zona horaria de la empresa para que todos los "hoy/esta semana" del dashboard
     // coincidan con el día local del usuario, no con UTC.
@@ -638,7 +647,12 @@ export async function GET() {
         total_activos: contactosConPresupuesto.size,
         nuevos_por_mes: clientesNuevosPorMes,
       } : null,
-      mensajes_recientes: permisos.inbox ? (resMensajesRecientes.data || []).map(m => {
+      mensajes_recientes: permisos.inbox ? (resMensajesRecientes.data || []).filter(m => {
+        // Solo mensajes del canal permitido para este usuario
+        const conv = (Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion) as Record<string, unknown> | null
+        const canal = (conv?.tipo_canal as string) || ''
+        return canalesPermitidos.has(canal)
+      }).map(m => {
         const conv = (Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion) as Record<string, unknown> | null
         const canal = conv?.canal as Record<string, unknown> | Array<Record<string, unknown>> | null
         const canalObj = Array.isArray(canal) ? canal[0] : canal

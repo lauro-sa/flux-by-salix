@@ -1,15 +1,19 @@
 'use client'
 
 /**
- * GuardPagina — componente invisible que redirige al dashboard si el usuario
- * pierde permiso al módulo actual mientras está en la página.
+ * GuardPagina — redirige al dashboard si el usuario pierde acceso al módulo
+ * de la página actual. Reacciona en vivo al contexto reactivo de permisos.
  *
- * Uso: `<GuardPagina modulo="presupuestos" />` al inicio del render de cada
- * ContenidoXxx. Reacciona en vivo a cambios de permisos propagados por
- * ProveedorPermisos (suscripción realtime a la fila del miembro).
+ * Es un hook + componente invisible que se invoca al inicio de cada ContenidoXxx.
+ * No bloquea el render aquí mismo: el bloqueo lo hace `useGuardPermiso` vía
+ * `bloqueado` que devuelve. Los ContenidoXxx lo usan así:
  *
- * Se provee además `accion` si la página requiere una acción distinta de
- * "alguna forma de ver".
+ * ```
+ * const { bloqueado } = useGuardPermiso('presupuestos')
+ * if (bloqueado) return null
+ * ```
+ *
+ * O más cómodo, con el wrapper `<ProtegerPagina modulo="...">{children}</ProtegerPagina>`.
  */
 
 import { useGuardPermiso } from '@/hooks/useGuardPermiso'

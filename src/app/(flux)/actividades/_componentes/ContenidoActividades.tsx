@@ -116,7 +116,8 @@ interface Props {
 }
 
 export default function ContenidoActividades({ datosInicialesJson }: Props) {
-  useGuardPermiso('actividades')
+  const { bloqueado: sinPermiso } = useGuardPermiso('actividades')
+  if (sinPermiso) return null
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()

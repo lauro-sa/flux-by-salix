@@ -94,7 +94,11 @@ export default function PaginaNominaEmpleado() {
           return
         }
         setEmpleado(encontrado)
-        setEmpleadosPeriodo(resultados.map(r => ({ miembro_id: r.miembro_id, nombre: r.nombre })))
+        setEmpleadosPeriodo(resultados.map(r => ({
+          miembro_id: r.miembro_id,
+          nombre: r.nombre,
+          compensacion_frecuencia: r.compensacion_frecuencia,
+        })))
         setNombreEmpresa(data.nombre_empresa || '')
       } catch {
         setNoEncontrado(true)
