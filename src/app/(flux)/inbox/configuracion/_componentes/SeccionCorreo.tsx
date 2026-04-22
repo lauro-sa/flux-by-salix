@@ -246,7 +246,7 @@ export function SeccionCorreo({
             descripcion="Conectá una bandeja del equipo (ventas@, soporte@, info@). Para correos personales de un usuario, hacelo desde su perfil."
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {canalesOrdenados.map((canal) => (
               <CanalCard key={canal.id} canal={canal} onRecargar={onRecargar} onHacerPrincipal={hacerPrincipal} />
             ))}

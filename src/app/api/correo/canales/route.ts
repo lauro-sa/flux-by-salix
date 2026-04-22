@@ -36,22 +36,30 @@ export async function GET(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .order('creado_en', { ascending: true })
 
-    // Filtros explícitos de la UI
+    // Filtros explícitos de la UI (usados por páginas de configuración):
+    //   ?solo_compartidas=1 → bandejas de equipo, requiere permiso de config
+    //   ?propietario=X      → personales de ese usuario; si X != me, requiere config
     if (soloCompartidas) {
+      if (!puedeVerConfig) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
       query = query.is('propietario_usuario_id', null)
-    }
-    if (propietarioFiltro) {
+    } else if (propietarioFiltro) {
+      if (propietarioFiltro !== user.id && !puedeVerConfig) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
       query = query.eq('propietario_usuario_id', propietarioFiltro)
-    }
-
-    // Visibilidad: admin ve todo; otros solo propias (propietario) + compartidas donde son agentes.
-    if (!puedeVerConfig) {
+    } else {
+      // Inbox operacional (sin params): TODOS — incluidos admin y propietario — solo
+      // ven lo que les corresponde operar (personales propias + compartidas donde son
+      // agentes). Las personales ajenas NO se muestran acá, aunque el admin pueda
+      // verlas desde el perfil del usuario como gestión. Esto separa "lo que opero"
+      // de "lo que administro".
       const { data: misAsignaciones } = await admin
         .from('canal_agentes')
         .select('canal_id')
         .eq('usuario_id', user.id)
       const idsAgente = (misAsignaciones || []).map(c => c.canal_id)
-      // Cláusula OR: soy propietario OR soy agente de algún canal asignado
       if (idsAgente.length > 0) {
         query = query.or(`propietario_usuario_id.eq.${user.id},id.in.(${idsAgente.join(',')})`)
       } else {
