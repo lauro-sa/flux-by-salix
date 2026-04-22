@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { comprimirImagen } from '@/lib/comprimir-imagen'
 import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
@@ -11,11 +11,9 @@ import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'enviar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const formData = await request.formData()
     const archivos = formData.getAll('archivos') as File[]

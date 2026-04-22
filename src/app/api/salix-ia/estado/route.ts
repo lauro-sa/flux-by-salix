@@ -4,17 +4,13 @@
  */
 
 import { NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET() {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ habilitado: false })
-  }
+  const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+  if ('respuesta' in guard) return guard.respuesta
+  const { user, empresaId: empresa_id } = guard
 
   const admin = crearClienteAdmin()
 

@@ -1,15 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 // GET /api/inbox/respuestas-correo — listar respuestas rápidas de correo
 export async function GET() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -38,11 +36,9 @@ export async function GET() {
 // POST /api/inbox/respuestas-correo — crear respuesta rápida de correo
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const { nombre, contenido } = body

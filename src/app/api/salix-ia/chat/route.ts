@@ -5,19 +5,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { ejecutarSalixIA } from '@/lib/salix-ia/pipeline'
 import type { MensajeSalixIA } from '@/tipos/salix-ia'
 
 export async function POST(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa asociada' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+  if ('respuesta' in guard) return guard.respuesta
+  const { user, empresaId: empresa_id } = guard
 
   const body = await request.json()
   const { mensaje, conversacion_id } = body as {

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/miembros-sectores — Lista todas las asignaciones miembro↔sector
@@ -9,8 +9,8 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
  */
 
 export async function GET(req: NextRequest) {
-  const { user } = await obtenerUsuarioRuta()
-  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const guard = await requerirPermisoAPI('usuarios', 'ver')
+  if ('respuesta' in guard) return guard.respuesta
 
   const admin = crearClienteAdmin()
   const { searchParams } = new URL(req.url)
@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { user } = await obtenerUsuarioRuta()
-  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const guard = await requerirPermisoAPI('usuarios', 'editar')
+  if ('respuesta' in guard) return guard.respuesta
 
   const admin = crearClienteAdmin()
   const { sector_id, all } = await req.json()

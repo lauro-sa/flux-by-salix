@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { normalizarAcentos } from '@/lib/validaciones'
 
 /**
@@ -8,11 +9,9 @@ import { normalizarAcentos } from '@/lib/validaciones'
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim()

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -9,8 +9,9 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const dispositivoId = request.nextUrl.searchParams.get('dispositivo_id')
     if (!dispositivoId) return NextResponse.json({ error: 'dispositivo_id requerido' }, { status: 400 })
@@ -48,8 +49,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const body = await request.json()
     const { dispositivo_id } = body

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -10,30 +10,23 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
     const { perfil_id, ...campos } = await request.json()
     if (!perfil_id) return NextResponse.json({ error: 'perfil_id requerido' }, { status: 400 })
 
+    // Para editar a otros usamos el permiso fuerte; si es uno mismo, basta con
+    // tener visibilidad propia (cualquier miembro activo la tiene).
+    const accion = 'editar' as const
+    // Primero tratamos de obtener el user con un permiso mínimo para conocer identidad.
+    const guardMin = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guardMin) return guardMin.respuesta
+    const { user, empresaId } = guardMin
+
     const admin = crearClienteAdmin()
 
-    // Si no es el propio perfil, verificar permisos
+    // Si es otro perfil, exigir permiso explícito de usuarios:editar
     if (perfil_id !== user.id) {
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
-
-      // Verificar que el editor es propietario o admin
-      const { data: miembroEditor } = await admin
-        .from('miembros')
-        .select('rol')
-        .eq('usuario_id', user.id)
-        .eq('empresa_id', empresaId)
-        .single()
-
-      if (!miembroEditor || !['propietario', 'administrador'].includes(miembroEditor.rol)) {
-        return NextResponse.json({ error: 'Sin permisos para editar este perfil' }, { status: 403 })
-      }
+      const guardOtro = await requerirPermisoAPI('usuarios', accion)
+      if ('respuesta' in guardOtro) return guardOtro.respuesta
 
       // Verificar que el perfil objetivo pertenece a la misma empresa
       const { data: miembroObjetivo } = await admin

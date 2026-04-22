@@ -1,4 +1,4 @@
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -7,16 +7,14 @@ import { NextResponse, type NextRequest } from 'next/server'
  * Inserta en conversacion_silencios.
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -48,16 +46,14 @@ export async function POST(
  * Elimina de conversacion_silencios.
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const admin = crearClienteAdmin()
 

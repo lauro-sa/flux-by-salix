@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
   listarMensajesGmail,
@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
     const body = await request.json().catch(() => ({}))
     const { canal_id, empresa_id } = body
+    const cronSecret = request.headers.get('x-cron-secret')
+    const esCronValido = !!cronSecret && cronSecret === process.env.CRON_SECRET
 
     // Determinar qué canales sincronizar
     let query = admin
@@ -38,45 +40,24 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('activo', true)
 
-    if (canal_id) {
-      // Validar que el canal pertenezca a la empresa del usuario autenticado
-      try {
-        const { user } = await obtenerUsuarioRuta()
-        if (user?.app_metadata?.empresa_activa_id) {
-          query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
-        }
-      } catch { /* si no hay usuario, el filtro por canal_id solo aplica */ }
-      query = query.eq('id', canal_id)
-    } else if (empresa_id) {
-      // Validar que empresa_id coincida con la empresa del usuario autenticado
-      try {
-        const { user } = await obtenerUsuarioRuta()
-        if (user?.app_metadata?.empresa_activa_id && empresa_id !== user.app_metadata.empresa_activa_id) {
-          return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-        }
-      } catch { /* si falla auth, continuar solo si viene de cron */ }
-      const cronSecret = request.headers.get('x-cron-secret')
-      if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
-        // Solo usuarios autenticados pueden pasar empresa_id (validado arriba)
+    if (!esCronValido) {
+      // Flujo usuario: exigir permiso de ver inbox_correo para sincronizar su buzón
+      const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+      if ('respuesta' in guard) return guard.respuesta
+      const empresaUsuario = guard.empresaId
+
+      if (empresa_id && empresa_id !== empresaUsuario) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
       }
-      query = query.eq('empresa_id', empresa_id)
+      // Restringir siempre a la empresa del usuario
+      query = query.eq('empresa_id', empresaUsuario)
+      if (canal_id) query = query.eq('id', canal_id)
     } else {
-      // Sin canal_id ni empresa_id: puede ser cron (con secret) o usuario autenticado
-      const cronSecret = request.headers.get('x-cron-secret')
-      if (cronSecret && cronSecret === process.env.CRON_SECRET) {
-        // Cron global: sincronizar todos
-      } else {
-        // Intentar autenticar como usuario
-        try {
-          const { user } = await obtenerUsuarioRuta()
-          if (user?.app_metadata?.empresa_activa_id) {
-            query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
-          } else {
-            return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-          }
-        } catch {
-          return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-        }
+      // Cron global: permite sincronizar todos, filtrar solo si vienen params
+      if (canal_id) {
+        query = query.eq('id', canal_id)
+      } else if (empresa_id) {
+        query = query.eq('empresa_id', empresa_id)
       }
     }
 

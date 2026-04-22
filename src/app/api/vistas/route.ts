@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -13,14 +13,12 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const modulo = request.nextUrl.searchParams.get('modulo')
     if (!modulo) return NextResponse.json({ error: 'modulo requerido' }, { status: 400 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json([], { status: 200 })
 
     const admin = crearClienteAdmin()
     const { data, error } = await admin
@@ -43,16 +41,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const { modulo, nombre, estado, icono } = await request.json()
     if (!modulo || !nombre || !estado) {
       return NextResponse.json({ error: 'modulo, nombre y estado requeridos' }, { status: 400 })
     }
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 400 })
 
     const admin = crearClienteAdmin()
 
@@ -95,8 +91,9 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const body = await request.json()
     const admin = crearClienteAdmin()
@@ -151,8 +148,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })

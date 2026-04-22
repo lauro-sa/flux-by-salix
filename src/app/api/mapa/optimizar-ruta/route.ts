@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 
 /**
  * POST /api/mapa/optimizar-ruta
@@ -7,11 +7,8 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
  * Body: { origen: {lat, lng}, paradas: [{id, lat, lng}] }
  */
 export async function POST(request: NextRequest) {
-  const { user } = await obtenerUsuarioRuta()
-  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-  const empresaId = user.app_metadata?.empresa_activa_id
-  if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+  const guard = await requerirPermisoAPI('visitas', 'ver_todos')
+  if ('respuesta' in guard) return guard.respuesta
 
   const body = await request.json()
   const { origen, paradas } = body as {

@@ -36,7 +36,7 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('empresa', 'editar')
+    const guard = await requerirPermisoAPI('config_empresa', 'editar')
     if ('respuesta' in guard) return guard.respuesta
     const { empresaId } = guard
 

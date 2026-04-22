@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import type { PermisosMapa } from '@/tipos'
+import type { PermisosMapa, Modulo, Accion } from '@/tipos'
 import { ACCIONES_POR_MODULO } from '@/tipos'
+import { RESTRICCIONES_ADMIN } from '@/lib/permisos-constantes'
 
 /**
  * PUT /api/miembros/[id]/permisos — Editar permisos custom de un miembro.
@@ -59,6 +60,21 @@ export async function PUT(
     // No se pueden editar permisos del propietario
     if (miembroObjetivo.rol === 'propietario') {
       return NextResponse.json({ error: 'No se pueden editar permisos del propietario' }, { status: 403 })
+    }
+
+    // Si el objetivo es administrador, no se le pueden asignar acciones restringidas
+    // (ej: eliminar empresa) aunque sea vía permisos_custom. Evita permisos fantasma.
+    if (miembroObjetivo.rol === 'administrador' && permisos) {
+      for (const [modulo, acciones] of Object.entries(permisos)) {
+        const restricciones = RESTRICCIONES_ADMIN[modulo as Modulo]
+        if (!restricciones) continue
+        const bloqueada = (acciones as Accion[]).find(a => restricciones.includes(a))
+        if (bloqueada) {
+          return NextResponse.json({
+            error: `La acción '${bloqueada}' en '${modulo}' está reservada al propietario`,
+          }, { status: 403 })
+        }
+      }
     }
 
     const permisosAntes = miembroObjetivo.permisos_custom

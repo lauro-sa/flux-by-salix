@@ -32,8 +32,6 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     inbox_interno: ['ver_todos', 'enviar'],
     // Administracion — acceso total (solo eliminar empresa queda para propietario)
     usuarios: ['ver', 'aprobar', 'editar', 'invitar', 'eliminar'],
-    empresa: ['ver', 'editar'],
-    configuracion: ['ver', 'editar'],
     auditoria: ['ver'],
     // Config — acceso total
     config_empresa: ['ver', 'editar'],
@@ -110,7 +108,9 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
   },
 }
 
-// Restricciones del admin — solo acciones destructivas a nivel empresa
+// Restricciones del admin — acciones que nunca puede hacer, aunque tenga el permiso
+// marcado en permisos_custom. Solo propietario las supera.
 export const RESTRICCIONES_ADMIN: Partial<Record<Modulo, Accion[]>> = {
-  // Solo el propietario puede eliminar la empresa
+  // Solo el propietario puede eliminar la empresa (operación destructiva irreversible).
+  config_empresa: ['eliminar'],
 }

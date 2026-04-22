@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -8,13 +9,11 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  * Acciones: etiquetar, asignar, marcar_spam, archivar, responder
  */
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const supabase = await crearClienteServidor()
     const { data } = await supabase
@@ -31,11 +30,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const { nombre, condiciones, acciones, activa } = await request.json()
     if (!nombre?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
@@ -65,11 +62,9 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const id = request.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
@@ -100,11 +95,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_correo', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const id = request.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })

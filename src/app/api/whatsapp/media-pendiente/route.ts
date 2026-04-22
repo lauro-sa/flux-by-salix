@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { createClient } from '@supabase/supabase-js'
 import {
   obtenerUrlMedia, descargarMediaBuffer,
@@ -17,11 +17,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_whatsapp', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

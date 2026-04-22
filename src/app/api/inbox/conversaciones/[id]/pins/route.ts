@@ -1,4 +1,4 @@
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -12,11 +12,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const admin = crearClienteAdmin()
 
@@ -49,11 +47,9 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
     const body = await request.json().catch(() => ({}))
@@ -92,11 +88,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user } = guard
 
     const admin = crearClienteAdmin()
     const usuarioId = request.nextUrl.searchParams.get('usuario_id') || user.id

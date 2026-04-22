@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -7,13 +7,11 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  * Usa SQL agregado para no traer todas las conversaciones al cliente.
  * Retorna sin leer Y totales por carpeta para cada canal.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_correo', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
 

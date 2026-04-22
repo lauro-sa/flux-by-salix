@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { enviarReaccionWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
@@ -10,11 +10,9 @@ import { enviarReaccionWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsap
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_whatsapp', 'enviar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const { conversacion_id, mensaje_id, emoji } = await request.json()
     if (!conversacion_id || !mensaje_id) {

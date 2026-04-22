@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -12,11 +12,9 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const { token } = body as { token: string }
@@ -55,8 +53,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const { token } = body as { token: string }
@@ -64,9 +63,6 @@ export async function DELETE(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'Token requerido' }, { status: 400 })
     }
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 

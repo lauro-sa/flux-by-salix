@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -13,11 +13,9 @@ export async function POST(
 ) {
   try {
     const { id: canalInternoId } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_interno', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -47,7 +45,12 @@ export async function POST(
     }
 
     // Crear nueva conversación vinculada al canal interno
-    const nombreRemitente = `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim()
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .maybeSingle()
+    const nombreRemitente = `${perfil?.nombre || ''} ${perfil?.apellido || ''}`.trim()
     const { data: nuevaConv, error } = await admin
       .from('conversaciones')
       .insert({

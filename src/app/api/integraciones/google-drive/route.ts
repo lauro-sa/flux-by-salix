@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
   generarUrlAutorizacion,
@@ -18,11 +18,9 @@ import {
 
 export async function GET() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_empresa', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -43,11 +41,9 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_empresa', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     // Verificar que las credenciales de Google estén configuradas
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -68,11 +64,9 @@ export async function POST() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_empresa', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const body = await request.json()
     const { frecuencia_horas, modulos_activos } = body
@@ -107,11 +101,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_empresa', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
 

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerCalidadNumero, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
@@ -9,11 +9,9 @@ import { obtenerCalidadNumero, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_whatsapp', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const canalId = request.nextUrl.searchParams.get('canal_id')
     if (!canalId) return NextResponse.json({ error: 'canal_id es requerido' }, { status: 400 })

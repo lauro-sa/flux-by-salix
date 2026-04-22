@@ -5,15 +5,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
+  const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+  if ('respuesta' in guard) return guard.respuesta
+  const { user } = guard
 
   const { id } = await params
   const admin = crearClienteAdmin()
@@ -36,8 +37,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
+  const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+  if ('respuesta' in guard) return guard.respuesta
+  const { user } = guard
 
   const { id } = await params
   const admin = crearClienteAdmin()

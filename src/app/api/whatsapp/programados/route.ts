@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 /**
  * API de mensajes de WhatsApp programados.
@@ -13,11 +14,8 @@ import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servido
 
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_whatsapp', 'ver_propio')
+    if ('respuesta' in guard) return guard.respuesta
 
     const { searchParams } = new URL(request.url)
     const conversacionId = searchParams.get('conversacion_id')
@@ -68,11 +66,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_whatsapp', 'enviar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const {
@@ -156,11 +152,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('inbox_whatsapp', 'enviar')
+    if ('respuesta' in guard) return guard.respuesta
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')

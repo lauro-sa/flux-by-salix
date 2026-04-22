@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { comprimirImagen, validarArchivo, TAMANO_MAXIMO_BYTES } from '@/lib/comprimir-imagen'
@@ -13,11 +13,9 @@ import type { AdjuntoChatter } from '@/tipos/chatter'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('recorrido', 'registrar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const formData = await request.formData()
     const visitaId = formData.get('visita_id') as string
@@ -123,7 +121,7 @@ export async function POST(request: NextRequest) {
     // Obtener nombre del usuario desde perfiles
     const { data: perfil } = await admin
       .from('perfiles')
-      .select('nombre, apellido')
+      .select('nombre, apellido, correo')
       .eq('id', user.id)
       .single()
 
@@ -135,7 +133,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     // Metadata compartida para las entradas de chatter
-    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : (user.email || 'Usuario')
+    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
     const checklistParseado = checklistJson ? (() => { try { return JSON.parse(checklistJson) } catch { return [] } })() : []
     const tempFinal = temperatura || visitaActualizada?.temperatura || null
     const notasFinal = notas || visitaActualizada?.notas_registro || null

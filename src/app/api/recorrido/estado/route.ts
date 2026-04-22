@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 
@@ -21,11 +21,9 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('recorrido', 'registrar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const { visita_id, estado, registro_lat, registro_lng, registro_precision_m } = body as {
@@ -171,11 +169,11 @@ export async function PATCH(request: NextRequest) {
     // Obtener nombre del usuario desde perfiles
     const { data: perfil } = await admin
       .from('perfiles')
-      .select('nombre, apellido')
+      .select('nombre, apellido, correo')
       .eq('id', user.id)
       .single()
 
-    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : (user.email || 'Usuario')
+    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
 
     // Registrar cambio de estado en chatter
     await registrarChatter({

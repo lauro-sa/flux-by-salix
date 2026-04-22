@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 interface CargaRow {
@@ -48,13 +48,9 @@ function calcularSaldo(cargas: CargaRow[]): { saldo: number; descontarConsumo: b
 }
 
 export async function GET(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa activa' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('config_empresa', 'ver')
+  if ('respuesta' in guard) return guard.respuesta
+  const { empresaId: empresa_id } = guard
 
   const proveedor = request.nextUrl.searchParams.get('proveedor')
   const admin = crearClienteAdmin()
@@ -98,13 +94,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa activa' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('config_empresa', 'editar')
+  if ('respuesta' in guard) return guard.respuesta
+  const { empresaId: empresa_id } = guard
 
   const body = await request.json()
   const { proveedor, monto, nota, fecha, tipo } = body as {
@@ -153,13 +145,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa activa' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('config_empresa', 'editar')
+  if ('respuesta' in guard) return guard.respuesta
+  const { empresaId: empresa_id } = guard
 
   const body = await request.json()
   const { id, monto, nota, fecha } = body as {
@@ -195,13 +183,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa activa' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('config_empresa', 'editar')
+  if ('respuesta' in guard) return guard.respuesta
+  const { empresaId: empresa_id } = guard
 
   const { id } = await request.json() as { id: string }
 

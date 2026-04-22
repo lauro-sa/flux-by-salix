@@ -27,11 +27,12 @@ export type ModuloComunicacion =
   | 'inbox_correo'
   | 'inbox_interno'
 
-// Modulos de administracion
+// Modulos de administracion.
+// Nota: la config de empresa (datos generales, regional, IA, zona peligrosa) se
+// protege con `config_empresa`. Antes existían módulos `empresa` y `configuracion`
+// redundantes que se eliminaron para tener un único permiso por concepto.
 export type ModuloAdmin =
   | 'usuarios'
-  | 'empresa'
-  | 'configuracion'
   | 'auditoria'
 
 // Modulos de configuracion granular por modulo
@@ -99,7 +100,7 @@ export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modul
   },
   admin: {
     nombre: 'Administracion',
-    modulos: ['usuarios', 'empresa', 'configuracion', 'auditoria'],
+    modulos: ['usuarios', 'auditoria'],
   },
   config: {
     nombre: 'Configuracion por modulo',
@@ -136,11 +137,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   inbox_interno: ['ver_propio', 'ver_todos', 'enviar'],
   // Administracion
   usuarios: ['ver', 'invitar', 'aprobar', 'editar', 'eliminar'],
-  empresa: ['ver', 'editar'],
-  configuracion: ['ver', 'editar'],
   auditoria: ['ver'],
   // Configuracion granular
-  config_empresa: ['ver', 'editar'],
+  config_empresa: ['ver', 'editar', 'eliminar'],
   config_contactos: ['ver', 'editar'],
   config_visitas: ['ver', 'editar'],
   config_actividades: ['ver', 'editar'],
@@ -176,8 +175,6 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   inbox_correo: 'Correo',
   inbox_interno: 'Interno',
   usuarios: 'Usuarios',
-  empresa: 'Empresa',
-  configuracion: 'Configuracion',
   auditoria: 'Auditoria',
   config_empresa: 'Config empresa',
   config_contactos: 'Config contactos',
@@ -215,7 +212,6 @@ export const DESCRIPCIONES_MODULO: Partial<Record<Modulo, string>> = {
   inbox_correo: 'Canal de correo electrónico.',
   inbox_interno: 'Mensajes internos entre miembros.',
   usuarios: 'Gestión de miembros del equipo.',
-  empresa: 'Datos generales de la empresa.',
   auditoria: 'Registro de cambios y acciones.',
 }
 

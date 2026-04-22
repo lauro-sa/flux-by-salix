@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -11,17 +11,15 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 
 async function obtenerUsuario() {
-  const { user } = await obtenerUsuarioRuta()
-  if (!user) return null
-  const empresaId = user.app_metadata?.empresa_activa_id
-  if (!empresaId) return null
-  return { user, empresaId }
+  const guard = await requerirPermisoAPI('actividades', 'ver_propio')
+  if ('respuesta' in guard) return { respuesta: guard.respuesta as NextResponse }
+  return { user: guard.user, empresaId: guard.empresaId }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await obtenerUsuario()
-    if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if ('respuesta' in auth) return auth.respuesta
 
     const params = request.nextUrl.searchParams
     const estado = params.get('estado') || 'activos' // 'activos' | 'completados' | 'todos'
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await obtenerUsuario()
-    if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if ('respuesta' in auth) return auth.respuesta
 
     const body = await request.json()
     const { titulo, descripcion, fecha, hora, repetir, recurrencia, alerta_modal, notificar_whatsapp, asignado_a } = body
@@ -99,7 +97,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await obtenerUsuario()
-    if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if ('respuesta' in auth) return auth.respuesta
 
     const body = await request.json()
     const { id, ...campos } = body
@@ -134,7 +132,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await obtenerUsuario()
-    if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if ('respuesta' in auth) return auth.respuesta
 
     const body = await request.json()
     if (!body.id) return NextResponse.json({ error: 'Se requiere id' }, { status: 400 })

@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 interface FilaLog {
@@ -133,13 +133,9 @@ function agregarFilas(filas: FilaLog[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const { user, respuesta401 } = await obtenerUsuarioRuta()
-  if (!user) return respuesta401()
-
-  const empresa_id = user.app_metadata?.empresa_activa_id
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'Sin empresa activa' }, { status: 400 })
-  }
+  const guard = await requerirPermisoAPI('auditoria', 'ver')
+  if ('respuesta' in guard) return guard.respuesta
+  const { empresaId: empresa_id } = guard
 
   // Determinar mes solicitado
   const mesParam = request.nextUrl.searchParams.get('mes')

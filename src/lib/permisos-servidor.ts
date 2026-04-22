@@ -1,4 +1,4 @@
-import { PERMISOS_POR_ROL, RESTRICCIONES_ADMIN } from '@/lib/permisos-constantes'
+import { resolverPermiso } from '@/lib/permisos-logica'
 import type { Modulo, Accion, PermisosMapa } from '@/tipos/permisos'
 import type { Rol } from '@/tipos/miembro'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -14,46 +14,23 @@ import { NextResponse } from 'next/server'
 interface DatosMiembro {
   rol: Rol
   permisos_custom: PermisosMapa | null
+  /** Superadmin interno de Salix (solo soporte). Viene del JWT. */
+  esSuperadmin?: boolean
 }
 
-/** Verifica si un rol+permisos tiene acceso a modulo+accion */
+/** Verifica si un rol+permisos tiene acceso a modulo+accion.
+ * Thin wrapper de `resolverPermiso` que adapta la forma de DatosMiembro (snake_case). */
 export function verificarPermiso(
   miembro: DatosMiembro,
   modulo: Modulo,
   accion: Accion
 ): boolean {
-  const { rol, permisos_custom } = miembro
-
-  // Propietario tiene acceso total
-  if (rol === 'propietario') return true
-
-  // Administrador: acceso amplio, pero si hay permisos_custom esos mandan.
-  // Permite al propietario recortar permisos puntuales a un admin sin cambiar rol.
-  if (rol === 'administrador') {
-    const restricciones = RESTRICCIONES_ADMIN[modulo]
-    if (restricciones?.includes(accion)) return false
-    if (permisos_custom) {
-      const accionesModulo = permisos_custom[modulo]
-      if (!accionesModulo) return false
-      return accionesModulo.includes(accion)
-    }
-    const permisosAdmin = PERMISOS_POR_ROL.administrador[modulo]
-    if (permisosAdmin) return permisosAdmin.includes(accion)
-    return false
-  }
-
-  // Permisos custom tienen prioridad total
-  if (permisos_custom) {
-    const accionesModulo = permisos_custom[modulo]
-    if (!accionesModulo) return false
-    return accionesModulo.includes(accion)
-  }
-
-  // Defaults del rol
-  const permisosRol = PERMISOS_POR_ROL[rol]
-  const accionesModulo = permisosRol?.[modulo]
-  if (!accionesModulo) return false
-  return accionesModulo.includes(accion)
+  return resolverPermiso({
+    rol: miembro.rol,
+    permisosCustom: miembro.permisos_custom,
+    esPropietario: miembro.rol === 'propietario',
+    esSuperadmin: miembro.esSuperadmin === true,
+  }, modulo, accion)
 }
 
 /** Obtiene el miembro actual y verifica permiso en una sola llamada */
@@ -114,7 +91,7 @@ export async function requerirPermisoAPI(
   accion: Accion,
 ): Promise<
   | { respuesta: NextResponse }
-  | { user: { id: string; app_metadata?: { empresa_activa_id?: string } }; empresaId: string; miembro: DatosMiembro }
+  | { user: { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }; empresaId: string; miembro: DatosMiembro }
 > {
   const { user } = await obtenerUsuarioRuta()
   if (!user) {
@@ -126,12 +103,20 @@ export async function requerirPermisoAPI(
     return { respuesta: NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 }) }
   }
 
+  // Superadmin interno de Salix: bypass total, no requiere ser miembro de la empresa.
+  // El claim `es_superadmin` lo controla el service role de Supabase (no el usuario).
+  const esSuperadmin = user.app_metadata?.es_superadmin === true
+  if (esSuperadmin) {
+    const miembroVirtual: DatosMiembro = { rol: 'propietario', permisos_custom: null, esSuperadmin: true }
+    return { user: user as { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }, empresaId, miembro: miembroVirtual }
+  }
+
   const { permitido, miembro } = await obtenerYVerificarPermiso(user.id, empresaId, modulo, accion)
   if (!permitido || !miembro) {
     return { respuesta: NextResponse.json({ error: 'Sin permiso' }, { status: 403 }) }
   }
 
-  return { user: user as { id: string; app_metadata?: { empresa_activa_id?: string } }, empresaId, miembro }
+  return { user: user as { id: string; app_metadata?: { empresa_activa_id?: string; es_superadmin?: boolean } }, empresaId, miembro }
 }
 
 /**

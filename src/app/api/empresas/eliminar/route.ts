@@ -1,33 +1,19 @@
 import { NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 
 /**
  * DELETE /api/empresas/eliminar — Eliminar empresa.
- * Solo el propietario puede eliminar la empresa.
+ * Solo el propietario puede hacerlo: RESTRICCIONES_ADMIN bloquea a admins.
  * Elimina en cascada: miembros, invitaciones, sectores, puestos, horarios.
  */
 export async function DELETE() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_empresa', 'eliminar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
-
-    // Solo propietario puede eliminar
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembro || miembro.rol !== 'propietario') {
-      return NextResponse.json({ error: 'Solo el propietario puede eliminar la empresa' }, { status: 403 })
-    }
 
     // Eliminar empresa (cascade elimina miembros, invitaciones, sectores, etc.)
     const { error } = await admin
