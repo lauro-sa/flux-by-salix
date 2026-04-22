@@ -38,6 +38,7 @@ function SeccionPermisos({
     guardando,
     dirty,
     cambios,
+    diffVsRol,
     estadisticas,
     toggleAccion,
     todoModulo,
@@ -75,19 +76,20 @@ function SeccionPermisos({
     <section className="space-y-5">
       {/* Zona 1 — Encabezado */}
       <EncabezadoPermisos
-        rol={rol}
-        usaCustom={usaCustom}
         guardando={guardando}
-        onRestablecer={restablecer}
         onRevocar={() => setModalRevocar(true)}
         onGuardar={guardar}
       />
 
-      {/* Zona 2 — Resumen */}
+      {/* Zona 2 — Resumen con rol base, estado custom y diff */}
       <ResumenPermisos
         estadisticas={estadisticas}
         rol={rol}
+        usaCustom={usaCustom}
+        diffVsRol={diffVsRol}
+        guardando={guardando}
         onPreset={aplicarPreset}
+        onRestablecer={restablecer}
       />
 
       {/* Zona 3 — Matrices por categoria */}

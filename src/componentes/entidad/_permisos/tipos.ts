@@ -36,6 +36,8 @@ export interface RetornoUsePermisos {
   dirty: boolean
   /** Lista legible de cambios pendientes (para el modal "cambios sin guardar"). */
   cambios: CambioDescrito[]
+  /** Diff de los permisos actuales contra los defaults del rol base. */
+  diffVsRol: CambioDescrito[]
   estadisticas: EstadisticasPermisos
   toggleAccion: (modulo: Modulo, accion: Accion) => void
   todoModulo: (modulo: Modulo) => void

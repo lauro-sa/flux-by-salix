@@ -107,6 +107,34 @@ export function usePermisos({
 
   const dirty = cambios.length > 0
 
+  // Diff de los permisos actuales contra los defaults del rol base.
+  // Sirve para mostrar al usuario "qué se agregó/quitó respecto al rol {rol}".
+  // `cambios` es vs. baseline persistido (para el modal sin-guardar);
+  // `diffVsRol` es vs. PERMISOS_POR_ROL[rol] (para el panel informativo).
+  const diffVsRol = useMemo<CambioDescrito[]>(() => {
+    const defaultRol = PERMISOS_POR_ROL[rol] || {}
+    const lista: CambioDescrito[] = []
+    const modulos = new Set<Modulo>([
+      ...(Object.keys(defaultRol) as Modulo[]),
+      ...(Object.keys(permisos) as Modulo[]),
+    ])
+    for (const modulo of modulos) {
+      const antes = new Set(defaultRol[modulo] || [])
+      const ahora = new Set(permisos[modulo] || [])
+      const accionesPosibles = ACCIONES_POR_MODULO[modulo] || []
+      for (const accion of accionesPosibles) {
+        const estabaAntes = antes.has(accion)
+        const estaAhora = ahora.has(accion)
+        if (estabaAntes === estaAhora) continue
+        lista.push({
+          campo: `${ETIQUETAS_MODULO[modulo] || modulo} · ${ETIQUETAS_ACCION[accion] || accion}`,
+          valor: estaAhora ? 'agregado' : 'quitado',
+        })
+      }
+    }
+    return lista
+  }, [permisos, rol])
+
   // Calcular estadisticas
   const estadisticas = useMemo<EstadisticasPermisos>(() => {
     let totalActivas = 0
@@ -291,6 +319,7 @@ export function usePermisos({
     guardando,
     dirty,
     cambios,
+    diffVsRol,
     estadisticas,
     toggleAccion,
     todoModulo,

@@ -49,6 +49,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     config_correo: ['ver', 'editar'],
     config_whatsapp: ['ver', 'editar'],
     config_interno: ['ver', 'editar'],
+    config_recorrido: ['ver', 'editar'],
   },
 
   gestor: {
