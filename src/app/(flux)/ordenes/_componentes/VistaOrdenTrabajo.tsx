@@ -58,9 +58,16 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const [menuAsignadosAbierto, setMenuAsignadosAbierto] = useState(false)
   const refMenuAsignados = useRef<HTMLDivElement>(null)
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
-  // Flag calculado por el servidor: admin OR creador OR cabecilla.
-  // Determina si puede editar la orden (fechas, asignados, estado, publicar…).
+  // Flags calculados por el servidor. puedeGestionar = admin/creador/(cabecilla con permiso editar).
+  // Los permisos granulares llegan en `permisos` para decidir qué botones mostrar.
   const [puedeGestionar, setPuedeGestionar] = useState(false)
+  const [permisos, setPermisos] = useState({
+    editar: false,
+    publicar: false,
+    completar: false,
+    completarEtapa: false,
+    eliminar: false,
+  })
   const [confirmarDespublicar, setConfirmarDespublicar] = useState(false)
 
   // Cargar miembros del equipo + datos del usuario actual
@@ -110,6 +117,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       setAsignados(data.asignados || [])
       setProgreso(data.progreso || { total_actividades: 0, completadas: 0, porcentaje: 0 })
       setPuedeGestionar(Boolean(data.puedeGestionar))
+      if (data.permisos) setPermisos(data.permisos)
       if (data.orden?.numero) document.title = `${data.orden.numero} — Flux`
     } catch {
       mostrarToast('error', 'Error al cargar la orden')
@@ -328,6 +336,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         prioridad={orden.prioridad}
         publicada={orden.publicada}
         puedeGestionar={puedeGestionar}
+        puedeCompletar={permisos.completar}
         onCambiarEstado={cambiarEstado}
         onPublicar={publicar}
         onDespublicar={solicitarDespublicar}

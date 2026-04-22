@@ -92,8 +92,12 @@ export async function GET(request: NextRequest) {
       .eq('en_papelera', en_papelera)
 
     // ── Filtro por publicación + visibilidad ──
-    // Regla: los asignados comunes NO ven borradores. Solo ven publicadas o donde son
-    // creador/cabecilla. Admins ven todo. soloPropio acota al universo propio primero.
+    // Regla de visibilidad por rol/publicación:
+    //  - admin/creador: ven todo (incluidos borradores)
+    //  - cabecilla CON permiso editar: ve borradores de OTs donde es responsable
+    //  - cabecilla SIN permiso editar: solo ve publicadas (no borradores; no tiene
+    //    por qué involucrarse hasta que esté listo para ejecutar)
+    //  - asignado común: solo ve publicadas
     if (!esAdminOT) {
       // Cargar asignaciones del user para distinguir cabecilla vs común
       const { data: misAsignaciones } = await admin
@@ -105,19 +109,26 @@ export async function GET(request: NextRequest) {
       const idsCabecilla = asigs.filter(a => a.es_cabecilla).map(a => a.orden_trabajo_id)
       const idsAsignadoComun = asigs.filter(a => !a.es_cabecilla).map(a => a.orden_trabajo_id)
 
-      // Construir las cláusulas OR aplicables a este usuario.
+      // ¿Puede editar el módulo? Determina si el cabecilla ve borradores.
+      const { permitido: puedeEditarModulo } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'editar')
+
       const clausulas: string[] = [`creado_por.eq.${user.id}`]
-      if (idsCabecilla.length > 0) clausulas.push(`id.in.(${idsCabecilla.join(',')})`)
+      if (idsCabecilla.length > 0) {
+        if (puedeEditarModulo) {
+          // Cabecilla con permiso: ve también borradores de sus OTs
+          clausulas.push(`id.in.(${idsCabecilla.join(',')})`)
+        } else {
+          // Cabecilla sin permiso: solo ve publicadas de sus OTs (igual que común)
+          clausulas.push(`and(publicada.eq.true,id.in.(${idsCabecilla.join(',')}))`)
+        }
+      }
       if (idsAsignadoComun.length > 0) {
-        // Asignado común: solo ve esas OTs si están publicadas
         clausulas.push(`and(publicada.eq.true,id.in.(${idsAsignadoComun.join(',')}))`)
       }
 
       if (soloPropio) {
-        // Universo: solo las que le pertenecen (creador, cabecilla, o asignado común publicada)
         query = query.or(clausulas.join(','))
       } else {
-        // verTodos sin ser admin: ve publicadas ajenas + todas las propias/cabecillas
         query = query.or([`publicada.eq.true`, ...clausulas].join(','))
       }
     }

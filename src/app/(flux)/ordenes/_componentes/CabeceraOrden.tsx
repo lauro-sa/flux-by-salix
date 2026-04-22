@@ -25,7 +25,10 @@ interface Props {
   estado: EstadoOrdenTrabajo
   prioridad: PrioridadOrdenTrabajo
   publicada: boolean
+  /** Puede editar: publicar/despublicar, cancelar, editar campos. */
   puedeGestionar: boolean
+  /** Puede avanzar el flujo: iniciar, completar, reabrir, reactivar. */
+  puedeCompletar: boolean
   onCambiarEstado: (estado: EstadoOrdenTrabajo) => void
   onPublicar: () => void
   onDespublicar: () => void
@@ -34,7 +37,7 @@ interface Props {
 
 export default function CabeceraOrden({
   numero, titulo, estado, prioridad,
-  publicada, puedeGestionar,
+  publicada, puedeGestionar, puedeCompletar,
   onCambiarEstado, onPublicar, onDespublicar,
   guardando,
 }: Props) {
@@ -56,9 +59,9 @@ export default function CabeceraOrden({
   const coloresEstado = COLORES_ESTADO_OT[estado]
   const coloresPrioridad = COLORES_PRIORIDAD_OT[prioridad]
 
-  // Botón de acción principal según estado
+  // Botón de acción principal según estado (avanzar ciclo = permiso 'completar').
   const accionPrincipal = (() => {
-    if (!puedeGestionar) return null
+    if (!puedeCompletar) return null
     switch (estado) {
       case 'abierta':
         return { label: 'Iniciar', estado: 'en_progreso' as EstadoOrdenTrabajo, icono: Play, variante: 'primario' as const }

@@ -64,15 +64,24 @@ export async function GET(
     }
 
     // ── Control de visibilidad por publicación ──
-    // Regla: borradores solo visibles para admin/creador/cabecilla.
-    // Publicadas visibles además para asignados comunes.
+    // Regla: ser cabecilla habilita gestión SOLO si además tiene permiso 'editar'
+    // en el módulo. Esto evita que un colaborador sin permisos edite solo porque
+    // lo marcaron responsable. El admin y el creador sí pasan siempre.
     const asignadosLista = asignadosRes.data || []
     const rol = user.app_metadata?.rol
     const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
     const esCreador = ordenRes.data.creado_por === user.id
     const esCabecilla = asignadosLista.some((a: { usuario_id: string; es_cabecilla: boolean }) => a.usuario_id === user.id && a.es_cabecilla)
     const esAsignado = asignadosLista.some((a: { usuario_id: string }) => a.usuario_id === user.id)
-    const puedeGestionar = esAdmin || esCreador || esCabecilla
+
+    // Permisos granulares del módulo (chequeo contra BD)
+    const { permitido: puedeEditar } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'editar')
+    const { permitido: puedeCompletar } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'completar')
+    const { permitido: puedeCompletarEtapa } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'completar_etapa')
+    const { permitido: puedeEliminar } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'eliminar')
+
+    // Gestionar (editar campos, asignar, publicar) = ser responsable Y tener permiso editar
+    const puedeGestionar = esAdmin || esCreador || (esCabecilla && puedeEditar)
 
     if (!ordenRes.data.publicada && !puedeGestionar) {
       // Borrador oculto a quienes no gestionan — devolvemos 404 para no filtrar existencia.
@@ -146,6 +155,14 @@ export async function GET(
       },
       puedeGestionar,
       esAsignado,
+      // Permisos granulares — la UI los usa para mostrar/ocultar botones.
+      permisos: {
+        editar: puedeGestionar,
+        publicar: puedeGestionar,
+        completar: puedeCompletar,
+        completarEtapa: puedeCompletarEtapa && (esAsignado || esCabecilla),
+        eliminar: puedeEliminar && (esAdmin || esCreador),
+      },
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -189,13 +206,14 @@ export async function PATCH(
     const { data: perfil } = await admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single()
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
 
-    // Verificar si es cabecilla, admin o creador para cambios de estado
+    // Verificar quién puede gestionar: admin, creador, o cabecilla CON permiso editar.
+    // Un cabecilla sin permiso de edición del módulo no puede modificar aunque sea responsable.
     const esCabecilla = (asignadosActuales || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
     const rol = user.app_metadata?.rol
     const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
-
     const esCreador = ordenActual.creado_por === user.id
-    const puedeGestionar = esAdmin || esCabecilla || esCreador
+    const { permitido: puedeEditarModulo } = await obtenerYVerificarPermiso(user.id, empresaId, 'ordenes_trabajo', 'editar')
+    const puedeGestionar = esAdmin || esCreador || (esCabecilla && puedeEditarModulo)
 
     // ── Control de acceso según publicación ──
     // Borrador: solo gestores (admin/creador/cabecilla) pueden editar; a otros les devolvemos 404.
