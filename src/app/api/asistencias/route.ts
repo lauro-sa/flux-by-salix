@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { resolverRangoFecha } from '@/lib/presets-fecha'
 import { resolverNombresMiembros } from '@/lib/miembros/nombres'
@@ -29,6 +30,11 @@ export async function GET(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Permiso de visibilidad: ver_todos devuelve todo; ver_propio restringe
+    // las asistencias al miembro autenticado (su propio fichaje).
+    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -89,6 +95,18 @@ export async function GET(request: NextRequest) {
       .order('fecha', { ascending: false })
       .order('hora_entrada', { ascending: false })
       .range((pagina - 1) * limite, pagina * limite - 1)
+
+    // Si solo tiene ver_propio, limitar al miembro autenticado.
+    if (vis.soloPropio) {
+      const { data: miembroPropio } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .single()
+      if (!miembroPropio?.id) return NextResponse.json({ registros: [], total: 0 })
+      query = query.eq('miembro_id', miembroPropio.id)
+    }
 
     // Rango de fechas (preset o custom). Asistencias usa la columna `fecha` (date,
     // no timestamp) → formateamos a YYYY-MM-DD antes de comparar.

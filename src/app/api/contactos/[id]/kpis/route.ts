@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -17,6 +18,10 @@ export async function GET(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Los KPIs muestran montos de presupuestos — requiere poder ver el contacto.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'contactos')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 

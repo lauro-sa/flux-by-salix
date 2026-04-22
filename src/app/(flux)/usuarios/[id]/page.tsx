@@ -9,9 +9,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, FileText, Wallet, Shield, KeyRound, FileUp, Fingerprint, PowerOff, ChevronRight } from 'lucide-react'
+import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
-import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -59,11 +58,14 @@ export default function PaginaPerfilUsuario() {
   const [miembro, setMiembro] = useState<Miembro | null>(null)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
 
-  /* ── Estado acciones de usuario ── */
+  /* ── Estado acciones de usuario ──
+     Cada acción administrativa tiene su modal de confirmación propio.
+     Mantenemos estados separados para poder cerrar uno sin afectar a otros. */
+  const [modalResetPassword, setModalResetPassword] = useState(false)
   const [modalForzarPassword, setModalForzarPassword] = useState(false)
-  const [nuevaPassword, setNuevaPassword] = useState('')
-  const [accionCargando, setAccionCargando] = useState<string | null>(null)
+  const [modalForzarLogout, setModalForzarLogout] = useState(false)
   const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false)
+  const [accionCargando, setAccionCargando] = useState<string | null>(null)
 
   /* ── Estado sectores, puestos, info bancaria ── */
   const [sectores, setSectores] = useState<{ id: string; nombre: string }[]>([])
@@ -93,7 +95,8 @@ export default function PaginaPerfilUsuario() {
   /* ── Estado: invitación vigente + acciones del ciclo de vida ── */
   const [invitacionVigente, setInvitacionVigente] = useState<{ token: string; expira_en: string; usado: boolean } | null>(null)
   const [linkInvitacion, setLinkInvitacion] = useState<string | null>(null)
-  const [accionEstadoCargando, setAccionEstadoCargando] = useState<'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | null>(null)
+  const [accionEstadoCargando, setAccionEstadoCargando] = useState<'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | 'reenviar-acceso' | null>(null)
+  const [avisoReenvio, setAvisoReenvio] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null)
   /* Modal con 2 opciones al tocar "Desactivar": solo fichaje o desactivar completo */
   const [modalOpcionesDesactivar, setModalOpcionesDesactivar] = useState(false)
   const [opcionDesactivarCargando, setOpcionDesactivarCargando] = useState<'solo-fichaje' | 'completo' | null>(null)
@@ -390,40 +393,56 @@ export default function PaginaPerfilUsuario() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembroId, contactoEmergencia])
 
-  /* ── Acciones de usuario ── */
+  /* ── Acciones de usuario ──
+     Cada acción: llama al endpoint, muestra feedback visible ~5s y cierra su modal.
+     No levanta excepciones: los errores se reportan por `avisoReenvio` para no romper UX. */
   const ejecutarAccion = useCallback(async (accion: string) => {
     if (!miembroId) return
     setAccionCargando(accion)
+    setAvisoReenvio(null)
 
     try {
       if (accion === 'reset-password') {
-        await fetch('/api/miembros/reset-password', {
+        const res = await fetch('/api/miembros/reset-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ miembro_id: miembroId }),
         })
+        const datos = await res.json().catch(() => ({}))
+        if (res.ok) {
+          setAvisoReenvio({ tipo: 'exito', texto: `Correo de reseteo enviado a ${datos.correo}` })
+        } else {
+          setAvisoReenvio({ tipo: 'error', texto: datos?.error || 'No se pudo enviar el correo' })
+        }
+        setModalResetPassword(false)
       } else if (accion === 'forzar-logout') {
-        await fetch('/api/miembros/forzar-logout', {
+        const res = await fetch('/api/miembros/forzar-logout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ miembro_id: miembroId }),
         })
-      } else if (accion === 'desactivar') {
-        await fetch('/api/miembros/activar', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ miembro_id: miembroId, activo: !(miembro?.activo as boolean) }),
-        })
-        cargarDatos()
+        const datos = await res.json().catch(() => ({}))
+        if (res.ok) {
+          const nombre = `${perfil?.nombre || ''} ${perfil?.apellido || ''}`.trim() || 'el empleado'
+          setAvisoReenvio({ tipo: 'exito', texto: `Sesiones cerradas para ${nombre}` })
+        } else {
+          setAvisoReenvio({ tipo: 'error', texto: datos?.error || 'No se pudo cerrar la sesión' })
+        }
+        setModalForzarLogout(false)
       } else if (accion === 'forzar-password') {
-        if (!nuevaPassword || nuevaPassword.length < 6) return
-        await fetch('/api/miembros/forzar-password', {
+        // Cierra sesiones + envía correo de recuperación. El admin no define la pass.
+        const res = await fetch('/api/miembros/forzar-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ miembro_id: miembroId, nueva_password: nuevaPassword }),
+          body: JSON.stringify({ miembro_id: miembroId }),
         })
+        const datos = await res.json().catch(() => ({}))
+        if (res.ok) {
+          setAvisoReenvio({ tipo: 'exito', texto: `Se cerró la sesión y se envió correo a ${datos.correo}` })
+        } else {
+          setAvisoReenvio({ tipo: 'error', texto: datos?.error || 'No se pudo obligar el cambio' })
+        }
         setModalForzarPassword(false)
-        setNuevaPassword('')
       } else if (accion === 'eliminar') {
         await fetch('/api/miembros/eliminar', {
           method: 'DELETE',
@@ -435,8 +454,9 @@ export default function PaginaPerfilUsuario() {
       }
     } finally {
       setAccionCargando(null)
+      setTimeout(() => setAvisoReenvio(null), 5000)
     }
-  }, [miembroId, miembro, nuevaPassword, cargarDatos, router])
+  }, [miembroId, perfil, router])
 
   /* ── Cargar pagos ── */
   const cargarPagos = useCallback(async () => {
@@ -595,12 +615,13 @@ export default function PaginaPerfilUsuario() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargarPagos])
 
-  /* ── Acciones del ciclo de vida (invitar / reenviar / copiar / cancelar / activar) ── */
+  /* ── Acciones del ciclo de vida (invitar / reenviar / copiar / cancelar / activar / reenviar-acceso) ── */
   const manejarAccionEstado = useCallback(async (
-    accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar'
+    accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | 'reenviar-acceso'
   ) => {
     if (!miembro) return
     setAccionEstadoCargando(accion)
+    setAvisoReenvio(null)
 
     try {
       if (accion === 'copiar-link') {
@@ -664,6 +685,26 @@ export default function PaginaPerfilUsuario() {
           body: JSON.stringify({ miembro_id: miembroId, activo: true }),
         })
         if (res.ok) setMiembro(m => m ? { ...m, activo: true } : null)
+        return
+      }
+
+      if (accion === 'reenviar-acceso') {
+        // Miembro activo: reenvía correo con link al login usando el canal
+        // elegido (canal_notif_correo). El endpoint rechaza si el canal está
+        // vacío para no caer silenciosamente al otro correo.
+        const res = await fetch('/api/miembros/reenviar-acceso', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ miembro_id: miembroId }),
+        })
+        const datos = await res.json().catch(() => ({}))
+        if (res.ok) {
+          setAvisoReenvio({ tipo: 'exito', texto: `Correo de acceso enviado a ${datos.correo}` })
+        } else {
+          setAvisoReenvio({ tipo: 'error', texto: datos?.error || 'No se pudo enviar el correo' })
+        }
+        setTimeout(() => setAvisoReenvio(null), 5000)
+        return
       }
     } finally {
       setAccionEstadoCargando(null)
@@ -916,9 +957,9 @@ export default function PaginaPerfilUsuario() {
         onActualizarMiembro={guardarMiembroInmediato}
         setPerfil={setPerfil}
         setMiembro={setMiembro}
-        ejecutarAccion={ejecutarAccion}
-        accionCargando={accionCargando}
+        setModalResetPassword={setModalResetPassword}
         setModalForzarPassword={setModalForzarPassword}
+        setModalForzarLogout={setModalForzarLogout}
         setModalConfirmarEliminar={setModalConfirmarEliminar}
         supabase={supabase}
         empresaId={empresa?.id || ''}
@@ -927,15 +968,27 @@ export default function PaginaPerfilUsuario() {
 
       {/* ══════ ESTADO DEL CICLO DE VIDA ══════ */}
       {miembro.rol !== 'propietario' && (
-        <InfoEstadoMiembro
-          estado={estadoCicloMiembro}
-          correo={perfil?.correo_empresa || perfil?.correo || null}
-          invitacion={invitacionVigente}
-          linkInvitacion={linkInvitacion}
-          puedeGestionar={puedeEditar}
-          onAccion={manejarAccionEstado}
-          cargando={accionEstadoCargando}
-        />
+        <div className="space-y-2">
+          <InfoEstadoMiembro
+            estado={estadoCicloMiembro}
+            correo={perfil?.correo_empresa || perfil?.correo || null}
+            invitacion={invitacionVigente}
+            linkInvitacion={linkInvitacion}
+            puedeGestionar={puedeEditar}
+            onAccion={manejarAccionEstado}
+            cargando={accionEstadoCargando}
+          />
+          {/* Feedback de reenvío de acceso (visible ~5s) */}
+          {avisoReenvio && (
+            <div className={`text-xs px-3 py-2 rounded-card border ${
+              avisoReenvio.tipo === 'exito'
+                ? 'bg-insignia-exito-fondo/40 border-insignia-exito/30 text-insignia-exito-texto'
+                : 'bg-insignia-peligro-fondo/40 border-insignia-peligro/30 text-insignia-peligro-texto'
+            }`}>
+              {avisoReenvio.texto}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ══════ TABS ══════ */}
@@ -1082,42 +1135,46 @@ export default function PaginaPerfilUsuario() {
         </motion.div>
       </AnimatePresence>
 
-      {/* ══════ MODALES DE ACCIONES ══════ */}
+      {/* ══════ MODALES DE ACCIONES ══════
+           Todas las acciones administrativas pasan por ModalConfirmacion para evitar
+           clicks accidentales. Orden por severidad creciente: reseteo (suave) →
+           obligar (cierra sesión + correo) → logout (cierra sesión) → eliminar. */}
 
-      {/* Forzar nueva contraseña */}
-      <Modal
+      {/* Enviar reseteo de contraseña (mail con link, sesión sigue viva) */}
+      <ModalConfirmacion
+        abierto={modalResetPassword}
+        onCerrar={() => setModalResetPassword(false)}
+        onConfirmar={() => ejecutarAccion('reset-password')}
+        titulo={t('usuarios.accion_reset_password_titulo')}
+        descripcion={t('usuarios.accion_reset_password_desc').replace('{{nombre}}', nombreCompleto)}
+        tipo="info"
+        etiquetaConfirmar={t('usuarios.accion_reset_password_titulo')}
+        cargando={accionCargando === 'reset-password'}
+      />
+
+      {/* Obligar a cambiar contraseña (cierra sesión + envía correo de recuperación) */}
+      <ModalConfirmacion
         abierto={modalForzarPassword}
-        onCerrar={() => { setModalForzarPassword(false); setNuevaPassword('') }}
-        titulo="Forzar nueva contraseña"
-        tamano="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-texto-terciario">
-            Ingresá la nueva contraseña para <strong className="text-texto-primario">{nombreCompleto}</strong>. Se aplicará inmediatamente.
-          </p>
-          <Input
-            tipo="password"
-            etiqueta="Nueva contraseña"
-            value={nuevaPassword}
-            onChange={(e) => setNuevaPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres"
-          />
-          <div className="flex gap-3 pt-2">
-            <Boton
-              variante="primario"
-              icono={<KeyRound size={15} />}
-              cargando={accionCargando === 'forzar-password'}
-              onClick={() => ejecutarAccion('forzar-password')}
-              disabled={nuevaPassword.length < 6}
-            >
-              Cambiar contraseña
-            </Boton>
-            <Boton variante="fantasma" onClick={() => { setModalForzarPassword(false); setNuevaPassword('') }}>
-              Cancelar
-            </Boton>
-          </div>
-        </div>
-      </Modal>
+        onCerrar={() => setModalForzarPassword(false)}
+        onConfirmar={() => ejecutarAccion('forzar-password')}
+        titulo={t('usuarios.accion_forzar_password_titulo')}
+        descripcion={t('usuarios.accion_forzar_password_desc').replace('{{nombre}}', nombreCompleto)}
+        tipo="advertencia"
+        etiquetaConfirmar={t('usuarios.accion_forzar_password_titulo')}
+        cargando={accionCargando === 'forzar-password'}
+      />
+
+      {/* Forzar cierre de sesión (sin tocar la contraseña) */}
+      <ModalConfirmacion
+        abierto={modalForzarLogout}
+        onCerrar={() => setModalForzarLogout(false)}
+        onConfirmar={() => ejecutarAccion('forzar-logout')}
+        titulo={t('usuarios.accion_forzar_logout_titulo')}
+        descripcion={t('usuarios.accion_forzar_logout_desc').replace('{{nombre}}', nombreCompleto)}
+        tipo="advertencia"
+        etiquetaConfirmar={t('usuarios.accion_forzar_logout_titulo')}
+        cargando={accionCargando === 'forzar-logout'}
+      />
 
       {/* Vista previa de documento */}
       <Modal

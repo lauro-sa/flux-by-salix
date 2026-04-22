@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -22,13 +23,21 @@ export async function GET(
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Este PDF contiene montos del presupuesto → requiere permiso para verlo.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
     const { data: presupuesto } = await admin.from('presupuestos')
-      .select('pdf_url')
+      .select('pdf_url, creado_por')
       .eq('id', presupuestoId)
       .eq('empresa_id', empresaId)
       .single()
+
+    if (vis.soloPropio && presupuesto?.creado_por !== user.id) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
 
     if (!presupuesto?.pdf_url) {
       return NextResponse.json({ error: 'PDF no encontrado' }, { status: 404 })

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { resolverVariables } from '@/lib/variables/resolver'
 import { construirContextoNomina, type DatosNominaCorreo } from '@/lib/plantilla-correo-nomina'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
@@ -28,9 +28,16 @@ export async function POST(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_correo', 'enviar')
-    if (!permitido) {
+    // Doble permiso: necesita poder enviar correos Y ver sueldos del equipo.
+    // Sin el segundo chequeo, alguien con solo inbox_correo:enviar podía
+    // mandar recibos con montos que no tenía derecho a ver.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    if (!verificarPermiso(datosMiembro, 'inbox_correo', 'enviar')) {
       return NextResponse.json({ error: 'Sin permiso para enviar correos' }, { status: 403 })
+    }
+    if (!verificarPermiso(datosMiembro, 'asistencias', 'ver_todos')) {
+      return NextResponse.json({ error: 'Sin permiso para ver/enviar nómina del equipo' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -68,7 +75,9 @@ export async function POST(request: NextRequest) {
 
     for (const empleado of empleados) {
       if (!empleado.correo_empleado) {
-        resultados.push({ correo: '', ok: false, error: 'Sin correo configurado' })
+        // El frontend arma este payload leyendo el correo del canal elegido del
+        // miembro (canal_notif_correo). Si está vacío, no se envía y se reporta.
+        resultados.push({ correo: '', ok: false, error: 'Sin correo en el canal elegido' })
         continue
       }
 

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -23,11 +23,10 @@ interface LineaPropuesta {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    // Asistente para armar presupuestos → requiere poder crear presupuestos.
+    const guard = await requerirPermisoAPI('presupuestos', 'crear')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const { descripcion, modo = 'detallado' } = await request.json()
     if (!descripcion?.trim()) {

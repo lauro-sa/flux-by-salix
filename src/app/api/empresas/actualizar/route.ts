@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -35,25 +36,11 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('empresa', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
-
-    // Verificar rol
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembro || !['propietario', 'administrador'].includes(miembro.rol)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
-    }
 
     const campos = await request.json()
 

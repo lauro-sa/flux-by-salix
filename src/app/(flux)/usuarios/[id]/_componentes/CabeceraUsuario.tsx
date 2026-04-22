@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Mail, Phone, Calendar, Briefcase, Building,
   Camera, User, MoreHorizontal,
-  X, KeyRound, Trash2, LogOut, Power, Mail as MailIcon, Cake,
+  X, KeyRound, Trash2, LogOut, Mail as MailIcon, Cake,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -38,10 +38,10 @@ interface PropsCabeceraUsuario {
   onActualizarMiembro: (datos: Record<string, unknown>) => void
   setPerfil: React.Dispatch<React.SetStateAction<Perfil | null>>
   setMiembro: React.Dispatch<React.SetStateAction<Miembro | null>>
-  /* Acciones de usuario */
-  ejecutarAccion: (accion: string) => void
-  accionCargando: string | null
+  /* Acciones de usuario — cada setter abre su modal de confirmación */
+  setModalResetPassword: (v: boolean) => void
   setModalForzarPassword: (v: boolean) => void
+  setModalForzarLogout: (v: boolean) => void
   setModalConfirmarEliminar: (v: boolean) => void
   /* Supabase para subir imágenes */
   supabase: ReturnType<typeof import('@/lib/supabase/cliente').crearClienteNavegador>
@@ -55,8 +55,8 @@ export function CabeceraUsuario({
   fmt,
   onActualizarPerfil, onActualizarMiembro,
   setPerfil, setMiembro,
-  ejecutarAccion, accionCargando,
-  setModalForzarPassword, setModalConfirmarEliminar,
+  setModalResetPassword, setModalForzarPassword, setModalForzarLogout,
+  setModalConfirmarEliminar,
   supabase, empresaId, miembroId,
 }: PropsCabeceraUsuario) {
   const rolActual = (miembro?.rol as string) || 'empleado'
@@ -236,19 +236,18 @@ export function CabeceraUsuario({
                     role="menu"
                     className="absolute right-0 top-full mt-1 w-64 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg z-50 overflow-hidden py-1"
                   >
-                    {/* Acciones de cuenta — solo si el empleado ya tiene cuenta Flux */}
+                    {/* Acciones de cuenta — solo si el empleado ya tiene cuenta Flux.
+                        Ordenadas por impacto creciente: reseteo (suave) → obligar cambio
+                        → forzar logout → eliminar. El desactivar/reactivar vive en la
+                        tarjeta de ciclo de vida (InfoEstadoMiembro) para no duplicar. */}
                     {miembro.usuario_id && (
                       <>
-                        <ItemMenu icono={<MailIcon size={15} />} onClick={() => ejecutarAccion('reset-password')}>Enviar reseteo de contraseña</ItemMenu>
-                        <ItemMenu icono={<KeyRound size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}>Forzar nueva contraseña</ItemMenu>
-                        <ItemMenu icono={<LogOut size={15} />} onClick={() => ejecutarAccion('forzar-logout')}>Forzar cierre de sesión</ItemMenu>
-                        <div className="border-t border-borde-sutil my-1" />
+                        <ItemMenu icono={<MailIcon size={15} />} onClick={() => { setMenuAcciones(false); setModalResetPassword(true) }}>Enviar reseteo de contraseña</ItemMenu>
+                        <ItemMenu icono={<KeyRound size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}>Obligar a cambiar contraseña</ItemMenu>
+                        <ItemMenu icono={<LogOut size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarLogout(true) }}>Forzar cierre de sesión</ItemMenu>
+                        {(esPropietario || esAdmin) && <div className="border-t border-borde-sutil my-1" />}
                       </>
                     )}
-
-                    <ItemMenu icono={<Power size={15} />} variante="advertencia" onClick={() => ejecutarAccion('desactivar')}>
-                      {miembro.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
-                    </ItemMenu>
 
                     {(esPropietario || esAdmin) && (
                       <ItemMenu icono={<Trash2 size={15} />} variante="peligro" onClick={() => { setMenuAcciones(false); setModalConfirmarEliminar(true) }}>Eliminar usuario</ItemMenu>

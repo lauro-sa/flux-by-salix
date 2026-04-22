@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/adelantos — Listar adelantos de un miembro con cuotas.
@@ -51,6 +52,23 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams
     const miembroId = params.get('miembro_id')
     if (!miembroId) return NextResponse.json({ error: 'miembro_id requerido' }, { status: 400 })
+
+    // Los adelantos son descuentos sobre sueldos — visibilidad atada a asistencias.
+    // ver_propio: solo puede consultar los suyos. ver_todos: cualquiera.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    if (vis.soloPropio) {
+      const admin = crearClienteAdmin()
+      const { data: miembroPropio } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .single()
+      if (!miembroPropio || miembroPropio.id !== miembroId) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     const estado = params.get('estado')
     const admin = crearClienteAdmin()
@@ -106,6 +124,13 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Crear adelanto = modificar nómina. Requiere poder editar asistencias.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+      return NextResponse.json({ error: 'Sin permiso para crear adelantos' }, { status: 403 })
+    }
 
     const body = await request.json()
     const {

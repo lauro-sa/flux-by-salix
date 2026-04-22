@@ -1218,6 +1218,7 @@ export const en: Traducciones = {
     estado_desactivado_desc: 'Access was suspended by an admin. Cannot sign in or clock in.',
 
     reenviar_invitacion: 'Resend invitation',
+    reenviar_acceso: 'Resend access',
     copiar_link: 'Copy link',
     cancelar_invitacion: 'Cancel invitation',
     reactivar_empleado: 'Reactivate employee',
@@ -1225,6 +1226,15 @@ export const en: Traducciones = {
     invitacion_expira_hoy: 'Invitation expires today',
     invitacion_expira_manana: 'Invitation expires tomorrow',
     invitacion_expira_en_dias: 'Invitation expires in {{dias}} days',
+
+    accion_reset_password_titulo: 'Send password reset',
+    accion_reset_password_desc: 'Send an email to {{nombre}} with a link to reset their password? They can keep using their current session until they set a new one.',
+    accion_forzar_password_titulo: 'Force password change',
+    accion_forzar_password_desc: 'All active sessions for {{nombre}} will be closed and an email will be sent to set a new password. They will not be able to access Flux until completed.',
+    accion_forzar_logout_titulo: 'Force sign out',
+    accion_forzar_logout_desc: 'Close all active sessions for {{nombre}}? They will need to sign in again next time they open Flux.',
+    accion_correo_enviado: 'Email sent to {{correo}}',
+    accion_sesion_cerrada: 'All sessions for {{nombre}} were closed',
 
     filtro_todos: 'All',
     sin_miembros_estado: 'No members in state "{{estado}}"',

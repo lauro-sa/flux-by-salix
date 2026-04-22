@@ -21,6 +21,31 @@ interface ParametrosUsePermisos {
   onGuardar: (permisos: PermisosMapa | null) => Promise<void>
 }
 
+/**
+ * Acciones que requieren poder "ver" el módulo para tener sentido.
+ * Si alguien marca "editar" pero no tiene "ver_propio/ver_todos/ver", el
+ * permiso queda muerto (no puede editar lo que no ve). Al togglear una de
+ * estas, auto-marcamos `ver_propio` (o `ver` si es módulo tipo productos).
+ */
+const ACCIONES_REQUIEREN_VER: Accion[] = [
+  'editar', 'eliminar', 'completar', 'completar_etapa',
+  'enviar', 'asignar', 'autoasignar', 'marcar', 'registrar', 'reordenar',
+]
+
+/** Devuelve la acción de "ver" natural para un módulo dado. */
+function accionVerDe(modulo: Modulo): Accion | null {
+  const posibles = ACCIONES_POR_MODULO[modulo] || []
+  if (posibles.includes('ver_propio')) return 'ver_propio'
+  if (posibles.includes('ver')) return 'ver'
+  return null
+}
+
+/** ¿Tiene el módulo al menos una acción de "ver" activa? */
+function tieneVer(permisos: PermisosMapa, modulo: Modulo): boolean {
+  const activas = permisos[modulo] || []
+  return activas.includes('ver_todos') || activas.includes('ver_propio') || activas.includes('ver')
+}
+
 export function usePermisos({
   miembroId,
   rol,
@@ -104,15 +129,38 @@ export function usePermisos({
     return { porcentaje, completos, sinAcceso, parciales }
   }, [permisos])
 
-  // Toggle individual
+  // Toggle individual con resolución automática de dependencias:
+  //  - Al MARCAR una acción que requiere ver (editar/eliminar/etc.), si el
+  //    módulo no tiene ninguna acción de ver activa, se auto-marca `ver_propio`
+  //    (o `ver` si el módulo solo tiene esa variante). Evita dejar permisos
+  //    muertos del tipo "puede editar pero no ve nada que editar".
+  //  - Al DESMARCAR la última acción de ver (ver_propio/ver_todos/ver), se
+  //    desmarcan todas las acciones dependientes, porque sin ver pierden sentido.
   const toggleAccion = useCallback((modulo: Modulo, accion: Accion) => {
     setPermisos((prev) => {
       const nuevo = { ...prev }
       const actuales = [...(nuevo[modulo] || [])]
       const idx = actuales.indexOf(accion)
-      if (idx >= 0) actuales.splice(idx, 1)
-      else actuales.push(accion)
+      const marcando = idx < 0
+      if (marcando) actuales.push(accion)
+      else actuales.splice(idx, 1)
       nuevo[modulo] = actuales
+
+      // Marcando una acción que depende de ver → asegurar que haya ver
+      if (marcando && ACCIONES_REQUIEREN_VER.includes(accion) && !tieneVer(nuevo, modulo)) {
+        const ver = accionVerDe(modulo)
+        if (ver && !actuales.includes(ver)) {
+          actuales.push(ver)
+          nuevo[modulo] = actuales
+        }
+      }
+
+      // Desmarcando una acción de ver → si ya no queda ninguna, limpiar dependientes
+      const esVer = accion === 'ver_propio' || accion === 'ver_todos' || accion === 'ver'
+      if (!marcando && esVer && !tieneVer(nuevo, modulo)) {
+        nuevo[modulo] = actuales.filter(a => !ACCIONES_REQUIEREN_VER.includes(a))
+      }
+
       return nuevo
     })
     if (!usaCustom) setUsaCustom(true)
@@ -129,7 +177,8 @@ export function usePermisos({
     if (!usaCustom) setUsaCustom(true)
   }, [usaCustom])
 
-  // Toggle columna: marcar/desmarcar una accion para todos los modulos dados
+  // Toggle columna: marcar/desmarcar una accion para todos los modulos dados.
+  // Aplica las mismas dependencias que toggleAccion en cada módulo afectado.
   const toggleColumna = useCallback((modulos: Modulo[], accion: Accion) => {
     setPermisos((prev) => {
       const nuevo = { ...prev }
@@ -154,6 +203,19 @@ export function usePermisos({
           actuales.splice(idx, 1)
         }
         nuevo[modulo] = actuales
+
+        // Aplicar dependencias igual que en toggleAccion
+        if (marcar && ACCIONES_REQUIEREN_VER.includes(accion) && !tieneVer(nuevo, modulo)) {
+          const ver = accionVerDe(modulo)
+          if (ver && !actuales.includes(ver)) {
+            actuales.push(ver)
+            nuevo[modulo] = actuales
+          }
+        }
+        const esVer = accion === 'ver_propio' || accion === 'ver_todos' || accion === 'ver'
+        if (!marcar && esVer && !tieneVer(nuevo, modulo)) {
+          nuevo[modulo] = actuales.filter(a => !ACCIONES_REQUIEREN_VER.includes(a))
+        }
       }
       return nuevo
     })

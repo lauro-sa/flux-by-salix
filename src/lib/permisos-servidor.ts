@@ -2,6 +2,8 @@ import { PERMISOS_POR_ROL, RESTRICCIONES_ADMIN } from '@/lib/permisos-constantes
 import type { Modulo, Accion, PermisosMapa } from '@/tipos/permisos'
 import type { Rol } from '@/tipos/miembro'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { NextResponse } from 'next/server'
 
 /**
  * Verificación de permisos server-side para API routes.
@@ -86,6 +88,44 @@ export async function obtenerDatosMiembro(
     rol: miembro.rol as Rol,
     permisos_custom: miembro.permisos_custom as PermisosMapa | null,
   }
+}
+
+/**
+ * Guard completo para API routes: autentica usuario y verifica permiso.
+ *
+ * Uso típico:
+ * ```
+ * const guard = await requerirPermisoAPI('asistencias', 'ver_todos')
+ * if ('respuesta' in guard) return guard.respuesta
+ * const { user, empresaId, miembro } = guard
+ * ```
+ *
+ * Devuelve `{ respuesta }` con NextResponse 401/403 si falla, o `{ user, empresaId, miembro }` si pasa.
+ * Se ahorra ~8 líneas por endpoint y homogeniza las respuestas de error.
+ */
+export async function requerirPermisoAPI(
+  modulo: Modulo,
+  accion: Accion,
+): Promise<
+  | { respuesta: NextResponse }
+  | { user: { id: string; app_metadata?: { empresa_activa_id?: string } }; empresaId: string; miembro: DatosMiembro }
+> {
+  const { user } = await obtenerUsuarioRuta()
+  if (!user) {
+    return { respuesta: NextResponse.json({ error: 'No autenticado' }, { status: 401 }) }
+  }
+
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) {
+    return { respuesta: NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 }) }
+  }
+
+  const { permitido, miembro } = await obtenerYVerificarPermiso(user.id, empresaId, modulo, accion)
+  if (!permitido || !miembro) {
+    return { respuesta: NextResponse.json({ error: 'Sin permiso' }, { status: 403 }) }
+  }
+
+  return { user: user as { id: string; app_metadata?: { empresa_activa_id?: string } }, empresaId, miembro }
 }
 
 /**

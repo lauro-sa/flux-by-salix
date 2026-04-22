@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -7,11 +7,9 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 export async function GET() {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_asistencias', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -40,6 +38,9 @@ export async function GET() {
       fichaje_auto_habilitado: false,
       fichaje_auto_notif_min: 10,
       fichaje_auto_umbral_salida: 30,
+      umbral_jornada_completa_pct: 75,
+      umbral_media_jornada_pct: 25,
+      modo_pago_parcial: 'no_paga',
     }
 
     return NextResponse.json({
@@ -60,11 +61,9 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('config_asistencias', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const body = await request.json()
     const admin = crearClienteAdmin()

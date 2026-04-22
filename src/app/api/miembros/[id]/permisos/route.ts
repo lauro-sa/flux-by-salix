@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { PermisosMapa } from '@/tipos'
 import { ACCIONES_POR_MODULO } from '@/tipos'
@@ -17,30 +17,11 @@ export async function PUT(
 ) {
   try {
     const { id: miembroId } = await params
-    const { user } = await obtenerUsuarioRuta()
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) {
-      return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
-    }
+    const guard = await requerirPermisoAPI('usuarios', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
-
-    // Propietario o administrador pueden editar permisos
-    const { data: miembroActual } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
-      return NextResponse.json({ error: 'Sin permisos para editar permisos de miembros' }, { status: 403 })
-    }
 
     const body = await request.json()
     const { permisos } = body as { permisos: PermisosMapa | null }
@@ -127,30 +108,11 @@ export async function GET(
 ) {
   try {
     const { id: miembroId } = await params
-    const { user } = await obtenerUsuarioRuta()
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) {
-      return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
-    }
+    const guard = await requerirPermisoAPI('usuarios', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const admin = crearClienteAdmin()
-
-    // Verificar que el solicitante es admin+
-    const { data: miembroActual } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
-      return NextResponse.json({ error: 'Sin permiso para ver permisos' }, { status: 403 })
-    }
 
     // Obtener miembro objetivo
     const { data: miembro } = await admin

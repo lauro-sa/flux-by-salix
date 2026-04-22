@@ -31,16 +31,16 @@ export async function POST(request: NextRequest) {
 
   const admin = crearClienteAdmin()
 
-  // Verificar que Salix IA esté habilitado para este usuario
+  // Verificar que Salix IA esté habilitado en la app para este usuario
   const { data: miembro } = await admin
     .from('miembros')
-    .select('salix_ia_habilitado')
+    .select('salix_ia_web')
     .eq('usuario_id', user.id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
     .single()
 
-  if (!miembro?.salix_ia_habilitado) {
+  if (!miembro?.salix_ia_web) {
     return NextResponse.json({ error: 'Salix IA no está habilitado para tu cuenta' }, { status: 403 })
   }
 

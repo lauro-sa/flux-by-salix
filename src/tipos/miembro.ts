@@ -38,6 +38,24 @@ export interface Miembro {
   horario_flexible: boolean
   metodo_fichaje: MetodoFichaje | null
   fichaje_auto_movil: boolean
+
+  // Canal por el que el miembro recibe notificaciones (nómina, recordatorios,
+  // invitaciones). 'empresa' usa correo_empresa / telefono_empresa del perfil;
+  // 'personal' usa correo / telefono. Si el campo elegido está vacío, NO se
+  // envía (no hay fallback automático al otro).
+  canal_notif_correo: 'empresa' | 'personal'
+  canal_notif_telefono: 'empresa' | 'personal'
+
+  // Canal de login: define cuál de los dos correos del perfil (correo / correo_empresa)
+  // se usa como email de auth.users. Al cambiarlo, un endpoint admin sincroniza
+  // auth.users.email con el campo elegido del perfil. Default 'empresa'.
+  canal_login: 'empresa' | 'personal'
+
+  // Acceso a Salix IA separado por canal
+  salix_ia_web: boolean       // asistente dentro de la app
+  salix_ia_whatsapp: boolean  // copilot por WhatsApp
+
+  /** @deprecated Usar salix_ia_web / salix_ia_whatsapp. Se mantiene por compatibilidad de lectura. */
   salix_ia_habilitado: boolean
 
   // Kiosco

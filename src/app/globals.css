@@ -109,6 +109,36 @@
   border-bottom-right-radius: var(--radio-boton) !important;
 }
 
+/* Variante aplicada en mobile (<768px): misma técnica que .grupo-botones,
+   solo que con media query. Radios únicamente en las puntas externas;
+   el gap de 4px lo aplica el contenedor con Tailwind (gap-1).
+   En desktop (md+) NO aplica: cada botón conserva su radio propio. */
+@media (max-width: 767px) {
+  .grupo-botones-mobile > *,
+  .grupo-botones-mobile > a > button,
+  .grupo-botones-mobile > span > button,
+  .grupo-botones-mobile > div > button {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+  .grupo-botones-mobile > :first-child,
+  .grupo-botones-mobile > a:first-child > button,
+  .grupo-botones-mobile > span:first-child > button,
+  .grupo-botones-mobile > div:first-child > button {
+    border-top-left-radius: var(--radio-boton) !important;
+    border-bottom-left-radius: var(--radio-boton) !important;
+  }
+  .grupo-botones-mobile > :last-child,
+  .grupo-botones-mobile > a:last-child > button,
+  .grupo-botones-mobile > span:last-child > button,
+  .grupo-botones-mobile > div:last-child > button {
+    border-top-right-radius: var(--radio-boton) !important;
+    border-bottom-right-radius: var(--radio-boton) !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    GrupoDocChatter: documento + chatter pegados tipo toolbar
    ═══════════════════════════════════════════════════════════════

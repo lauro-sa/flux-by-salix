@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { generarPdfPresupuesto, congelarPdfExistente } from '@/lib/pdf/generar-pdf'
 
@@ -30,6 +31,22 @@ export async function POST(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // El PDF expone montos y detalle del presupuesto → requiere poder verlo.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    if (vis.soloPropio) {
+      const adminChk = crearClienteAdmin()
+      const { data: presup } = await adminChk
+        .from('presupuestos')
+        .select('creado_por')
+        .eq('id', presupuestoId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!presup || presup.creado_por !== user.id) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     // Parsear body
     let body: { congelado?: boolean; forzar?: boolean; vista_previa?: boolean } = {}

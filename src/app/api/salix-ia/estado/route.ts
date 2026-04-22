@@ -29,16 +29,18 @@ export async function GET() {
     return NextResponse.json({ habilitado: false })
   }
 
-  // Verificar que el miembro tiene habilitado Salix IA
+  // Verificar que el miembro tiene habilitado Salix IA EN LA APP (web).
+  // El flag `salix_ia_whatsapp` no aplica acá — este endpoint lo consume el
+  // botón flotante de la app para saber si mostrarlo.
   const { data: miembro } = await admin
     .from('miembros')
-    .select('salix_ia_habilitado')
+    .select('salix_ia_web')
     .eq('usuario_id', user.id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
     .single()
 
   return NextResponse.json({
-    habilitado: miembro?.salix_ia_habilitado ?? false,
+    habilitado: miembro?.salix_ia_web ?? false,
   })
 }

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
 import { obtenerComponentesFecha } from '@/lib/formato-fecha'
+import { resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
 
 /**
  * GET /api/cron/recordatorios — Cron que revisa recordatorios vencidos.
@@ -122,14 +123,29 @@ export async function GET(request: NextRequest) {
             .select('id, nombre, telefono, telefono_empresa')
             .in('id', usuarioIds)
 
+          // Cargar canal_notif_telefono de cada miembro para respetar la
+          // elección del usuario. Si el canal elegido está vacío no se envía.
+          const { data: miembrosCanal } = await admin
+            .from('miembros')
+            .select('usuario_id, canal_notif_telefono')
+            .eq('empresa_id', empresaId)
+            .in('usuario_id', usuarioIds)
+
+          const canalMap = new Map<string, 'empresa' | 'personal'>()
+          for (const m of (miembrosCanal || [])) {
+            canalMap.set(m.usuario_id as string, (m.canal_notif_telefono as 'empresa' | 'personal') || 'empresa')
+          }
+
           const telefonoMap = new Map<string, string>()
           const perfilesMap = new Map<string, { nombre: string }>()
           for (const p of (perfiles || [])) {
             perfilesMap.set(p.id, { nombre: p.nombre || '' })
-            // Priorizar teléfono empresa, luego personal
-            const tel = p.telefono_empresa || p.telefono
+            const tel = resolverTelefonoNotif({
+              telefono: p.telefono as string | null,
+              telefono_empresa: p.telefono_empresa as string | null,
+              canal_notif_telefono: canalMap.get(p.id) || 'empresa',
+            })
             if (tel) {
-              // Normalizar: solo dígitos
               const normalizado = tel.replace(/[^\d]/g, '')
               if (normalizado.length >= 8) telefonoMap.set(p.id, normalizado)
             }

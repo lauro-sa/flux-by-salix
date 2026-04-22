@@ -69,6 +69,15 @@ export const miembros = pgTable('miembros', {
   horario_flexible: boolean('horario_flexible').notNull().default(false),
   metodo_fichaje: text('metodo_fichaje'), // 'kiosco' | 'automatico' | 'manual'
   fichaje_auto_movil: boolean('fichaje_auto_movil').notNull().default(false), // permitir fichaje automático desde móvil/PWA
+  // Canal de notificación: 'empresa' | 'personal' — dónde llegan correos/WhatsApp (nómina, recordatorios, invitaciones)
+  canal_notif_correo: text('canal_notif_correo').notNull().default('empresa'),
+  canal_notif_telefono: text('canal_notif_telefono').notNull().default('empresa'),
+  // Canal de login: cuál de los dos correos del perfil se usa como email de auth.users
+  canal_login: text('canal_login').notNull().default('empresa'),
+  // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp)
+  salix_ia_web: boolean('salix_ia_web').notNull().default(false),
+  salix_ia_whatsapp: boolean('salix_ia_whatsapp').notNull().default(false),
+  // DEPRECATED: mantenido por compatibilidad con datos históricos. Usar salix_ia_web / salix_ia_whatsapp.
   salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
   // Kiosco
   kiosco_rfid: text('kiosco_rfid'),
@@ -2312,6 +2321,13 @@ export const config_asistencias = pgTable('config_asistencias', {
   fichaje_auto_habilitado: boolean('fichaje_auto_habilitado').notNull().default(false),
   fichaje_auto_notif_min: integer('fichaje_auto_notif_min').notNull().default(10),
   fichaje_auto_umbral_salida: integer('fichaje_auto_umbral_salida').notNull().default(30),
+  // Clasificación de jornada (para personal jornalero/por día)
+  // Si minutos_netos / minutos_esperados ≥ umbral_completa → jornada completa (paga 1)
+  // Si ≥ umbral_media → media jornada (paga 0.5)
+  // Si > 0 y < umbral_media → parcial (paga según modo_pago_parcial)
+  umbral_jornada_completa_pct: integer('umbral_jornada_completa_pct').notNull().default(75),
+  umbral_media_jornada_pct: integer('umbral_media_jornada_pct').notNull().default(25),
+  modo_pago_parcial: text('modo_pago_parcial').notNull().default('no_paga'), // 'no_paga' | 'media_jornada' | 'proporcional'
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [

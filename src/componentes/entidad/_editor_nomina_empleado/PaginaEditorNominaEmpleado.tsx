@@ -16,9 +16,14 @@ import { motion } from 'framer-motion'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
+  ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard,
 } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
+import { CabezaloPersona } from '@/componentes/entidad/CabezaloPersona'
+import { BannerResumenCalculo, type TerminoFormula, type TonoBanner } from '@/componentes/entidad/BannerResumenCalculo'
+import { CalendarioPeriodoMini, type DefinicionEstado } from '@/componentes/entidad/CalendarioPeriodoMini'
+import { TarjetaPanel } from '@/componentes/entidad/TarjetaPanel'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
@@ -31,13 +36,39 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
 
+// Catálogo de estados del mini-calendario de días (reutilizado en la tarjeta de Asistencia)
+const ESTADOS_DIAS_NOMINA: DefinicionEstado[] = [
+  { clave: 'completa',           etiqueta: 'Completa',  claseFondo: 'bg-insignia-exito' },
+  { clave: 'media',              etiqueta: 'Media',     claseFondo: 'bg-insignia-advertencia' },
+  { clave: 'parcial',            etiqueta: 'Parcial',   claseFondo: 'bg-insignia-info' },
+  { clave: 'ausente',            etiqueta: 'Ausencia',  claseFondo: 'bg-insignia-peligro' },
+  { clave: 'feriado_trabajado',  etiqueta: 'Feriado (vino)', claseFondo: 'bg-texto-marca' },
+  { clave: 'feriado',            etiqueta: 'Feriado',   claseFondo: 'border-texto-marca/50', soloBorde: true, claseTexto: 'text-texto-terciario' },
+  { clave: 'no_laboral',         etiqueta: 'No laboral',claseFondo: 'bg-superficie-hover', claseTexto: 'text-texto-terciario' },
+]
+
 // ─── Tipos ───
+
+export type ClasificacionDiaNomina =
+  | 'completa' | 'media' | 'parcial'
+  | 'ausente' | 'feriado' | 'feriado_trabajado' | 'no_laboral'
+
+export interface DiaDetalleNomina {
+  fecha: string
+  clasificacion: ClasificacionDiaNomina
+}
 
 export interface ResultadoNomina {
   miembro_id: string
   nombre: string
   correo: string
   telefono: string
+  // Identidad del empleado (para el cabezal del detalle)
+  puesto?: string | null
+  fecha_ingreso?: string | null
+  numero_empleado?: string | null
+  foto_url?: string | null
+  documento?: { tipo: string; numero: string } | null
   compensacion_tipo: string
   compensacion_monto: number
   compensacion_frecuencia?: string
@@ -57,6 +88,11 @@ export interface ResultadoNomina {
   duracion_almuerzo_config: number
   dias_feriados: number
   dias_trabajados_feriado: number
+  dias_jornada_completa?: number
+  dias_media_jornada?: number
+  dias_presente_parcial?: number
+  jornales_equivalentes?: number
+  dias_detalle?: DiaDetalleNomina[]
   monto_pagar: number
   monto_detalle: string
   descuento_adelanto: number
@@ -664,119 +700,111 @@ export function PaginaEditorNominaEmpleado({
     />
   )
 
-  // Panel izq: stats + desglose (sin navegador de período — ya está en el banner)
-  const panelConfig = (
-    <div className="space-y-5">
-      {/* Stats principales del período */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Asistencia</p>
-          {recalculando && <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />}
-        </div>
+  // ─── Derivados para el nuevo layout ───
 
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <p className="text-xl font-bold text-texto-primario">
-              <NumeroAnimado claveAnim={animKey}>
-                {emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span>
-              </NumeroAnimado>
-            </p>
-            <p className="text-xxs text-texto-terciario">Trabajados</p>
-          </div>
-          <div>
-            <p className="text-xl font-bold text-insignia-exito">
-              <NumeroAnimado claveAnim={animKey}>{diasAHorario}</NumeroAnimado>
-            </p>
-            <p className="text-xxs text-texto-terciario">A horario</p>
-          </div>
-          <div>
-            <p className="text-xl font-bold text-insignia-advertencia">
-              <NumeroAnimado claveAnim={animKey}>{emp.dias_tardanza}</NumeroAnimado>
-            </p>
-            <p className="text-xxs text-texto-terciario">Tardanzas</p>
-          </div>
-        </div>
+  /** Mapa fecha → clasificación para alimentar el mini-calendario */
+  const mapaDiasEstado = useMemo(() => {
+    const mapa: Record<string, string> = {}
+    for (const d of (emp.dias_detalle || [])) mapa[d.fecha] = d.clasificacion
+    return mapa
+  }, [emp.dias_detalle])
 
-        <div className="flex items-center gap-2 flex-wrap mt-2">
-          {emp.dias_ausentes > 0 && (
-            <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
-          )}
-          {emp.dias_feriados > 0 && (
-            <>
-              {emp.dias_ausentes > 0 && <span className="text-xxs text-texto-terciario">·</span>}
-              <p className="text-xs text-insignia-info">
-                {emp.dias_feriados} feriado{emp.dias_feriados !== 1 ? 's' : ''}
-                {emp.dias_trabajados_feriado > 0 ? ` (vino ${emp.dias_trabajados_feriado})` : ''}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
+  /** Metadatos del cabezal de persona (puesto, fecha de ingreso, documento) */
+  const metadatosEmpleado = useMemo(() => {
+    const items: { id: string; etiqueta: string; valor: string }[] = []
+    if (emp.fecha_ingreso) {
+      const d = new Date(emp.fecha_ingreso)
+      items.push({
+        id: 'ingreso',
+        etiqueta: 'Desde',
+        valor: d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' }),
+      })
+    }
+    if (emp.documento?.numero) {
+      items.push({
+        id: 'doc',
+        etiqueta: emp.documento.tipo || 'DOC',
+        valor: emp.documento.numero,
+      })
+    }
+    if (emp.numero_empleado) {
+      items.push({ id: 'legajo', etiqueta: 'Legajo', valor: emp.numero_empleado })
+    }
+    return items
+  }, [emp.fecha_ingreso, emp.documento, emp.numero_empleado, locale])
 
-      {/* Desglose del período */}
-      <div>
-        <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Desglose</p>
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-sm">
-            <span className="text-texto-terciario">Horas netas</span>
-            <span className="text-texto-primario">
-              <NumeroAnimado claveAnim={animKey}>{fmtHoras(emp.horas_netas)}</NumeroAnimado>
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-texto-terciario">Bruto</span>
-            <span className="text-texto-primario font-medium">
-              <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
-            </span>
-          </div>
-          {cuotasInfoPeriodo.map((ci, idx) => (
-            <div key={idx} className="flex justify-between text-sm">
-              <span className="text-insignia-advertencia">
-                Adelanto ({ci.numeroCuota}/{ci.cuotasTotales})
-              </span>
-              <span className="text-insignia-advertencia">-{fmtMonto(ci.monto)}</span>
-            </div>
-          ))}
-          {emp.saldo_anterior !== 0 && (
-            <div className="flex justify-between text-sm">
-              <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
-                {emp.saldo_anterior > 0 ? 'A favor (ant.)' : 'Debe (ant.)'}
-              </span>
-              <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
-                {emp.saldo_anterior > 0 ? '-' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5">
-            <span className="text-texto-primario font-semibold">Neto a pagar</span>
-            <span className="text-insignia-exito font-bold text-base">
-              <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
-            </span>
-          </div>
+  /** Tono y mensajes del banner superior según la situación del período */
+  const bannerEstado: {
+    tono: TonoBanner
+    etiqueta: string
+    subtitulo: string
+    titulo: string
+    descripcion: ReactNode
+  } = (() => {
+    if (hayPago) {
+      return {
+        tono: 'exito',
+        etiqueta: 'Pagado',
+        subtitulo: 'Período cerrado',
+        titulo: `Se pagó ${fmtMonto(montoAbonadoPeriodo)}`,
+        descripcion: diferenciaPago === 0
+          ? 'El monto coincide con el neto sugerido del período.'
+          : diferenciaPago > 0
+            ? <>Se pagó <strong className="text-texto-primario">{fmtMonto(diferenciaPago)}</strong> de más. Se descuenta en el próximo período.</>
+            : <>Quedó debiendo <strong className="text-texto-primario">{fmtMonto(Math.abs(diferenciaPago))}</strong>. Se suma al próximo período.</>,
+      }
+    }
+    if (emp.monto_neto < 0) {
+      return {
+        tono: 'advertencia',
+        etiqueta: 'A favor de la empresa',
+        subtitulo: 'Pendiente de cierre',
+        titulo: 'Este período no corresponde pago',
+        descripcion: <>El empleado quedó <strong className="text-insignia-advertencia">{fmtMonto(Math.abs(emp.monto_neto))}</strong> en contra. Podés arrastrar el saldo al próximo período o cancelarlo con trabajo extra.</>,
+      }
+    }
+    if (emp.monto_neto === 0) {
+      return {
+        tono: 'info',
+        etiqueta: 'Sin saldo',
+        subtitulo: 'Pendiente de cierre',
+        titulo: 'No hay monto a transferir',
+        descripcion: 'Los descuentos igualan al bruto. No se registra pago pero el período queda cerrado.',
+      }
+    }
+    return {
+      tono: 'neutro',
+      etiqueta: 'Pendiente',
+      subtitulo: 'Sin pago registrado',
+      titulo: `Corresponde pagar ${fmtMonto(emp.monto_neto)}`,
+      descripcion: 'Confirmá la información de la derecha y registrá el pago cuando esté listo.',
+    }
+  })()
 
-          {hayPago && (
-            <>
-              <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5 mt-1.5">
-                <span className="text-texto-terciario">Se pagó</span>
-                <span className="text-texto-primario font-semibold">{fmtMonto(montoAbonadoPeriodo)}</span>
-              </div>
-              {diferenciaPago !== 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className={diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
-                    {diferenciaPago > 0 ? 'A favor' : 'Quedó debiendo'}
-                  </span>
-                  <span className={`font-semibold ${diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
-                    {diferenciaPago > 0 ? '+' : ''}{fmtMonto(diferenciaPago)}
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        <p className="text-xxs text-texto-terciario mt-2">{emp.monto_detalle} · {pctAsistencia}% asistencia</p>
-      </div>
-    </div>
-  )
+  /** Términos de la fórmula: Bruto − Adelanto − Saldo ant. = Neto */
+  const formulaCalculo: TerminoFormula[] = (() => {
+    const terminos: TerminoFormula[] = [
+      { etiqueta: 'Bruto', valor: fmtMonto(emp.monto_pagar) },
+    ]
+    if (emp.descuento_adelanto > 0) {
+      terminos.push({ etiqueta: 'Adelanto', valor: fmtMonto(emp.descuento_adelanto), operador: '−', tono: 'advertencia' })
+    }
+    if (emp.saldo_anterior > 0) {
+      // Positivo = pagó de más antes → se descuenta
+      terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(emp.saldo_anterior), operador: '−', tono: 'info' })
+    } else if (emp.saldo_anterior < 0) {
+      // Negativo = debe del anterior → se suma
+      terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(Math.abs(emp.saldo_anterior)), operador: '+', tono: 'peligro' })
+    }
+    terminos.push({
+      etiqueta: 'Neto',
+      valor: fmtMonto(emp.monto_neto),
+      operador: '=',
+      tono: emp.monto_neto < 0 ? 'advertencia' : emp.monto_neto === 0 ? 'neutro' : 'exito',
+      esResultado: true,
+    })
+    return terminos
+  })()
 
   return (
     <>
@@ -795,351 +823,579 @@ export function PaginaEditorNominaEmpleado({
           },
           {
             id: 'pagar',
-            etiqueta: 'Pagar',
+            etiqueta: 'Registrar pago',
             icono: <Banknote size={14} />,
             variante: 'primario',
             onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
           },
         ]}
         banner={banner}
-        panelConfig={panelConfig}
       >
-        <div className="max-w-3xl space-y-6">
+        <div className="max-w-6xl mx-auto space-y-5">
 
-          {/* ── COMPENSACIÓN ── */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Compensación</p>
-              {!compEditando && (
-                <Boton variante="fantasma" tamano="xs" icono={<Pencil size={12} />} onClick={() => setCompEditando(true)}>Editar</Boton>
-              )}
-            </div>
+          {/* ── CABEZAL DEL EMPLEADO ── */}
+          <CabezaloPersona
+            etiquetaTipo="Empleado"
+            nombre={datosEmpleado.nombre}
+            foto={emp.foto_url}
+            subtitulo={emp.puesto || undefined}
+            badge={<Insignia color="exito" tamano="sm">● Activo</Insignia>}
+            metadatos={metadatosEmpleado}
+          />
 
-            {!compEditando ? (
-              <div>
-                {(parseFloat(compMonto) || 0) > 0 ? (
+          {/* ── BANNER RESUMEN DE CÁLCULO ── */}
+          <BannerResumenCalculo
+            tono={bannerEstado.tono}
+            etiquetaEstado={bannerEstado.etiqueta}
+            subEstado={bannerEstado.subtitulo}
+            titulo={bannerEstado.titulo}
+            descripcion={bannerEstado.descripcion}
+            formula={formulaCalculo}
+          />
+
+          {/* ── GRID 2 COLUMNAS ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* ═══════ COLUMNA IZQUIERDA ═══════ */}
+            <div className="space-y-4">
+
+              {/* ─── ASISTENCIA (con mini-calendario) ─── */}
+              <TarjetaPanel
+                titulo="Asistencia"
+                subtitulo="del período"
+                icono={<ClipboardCheck size={13} />}
+                accion={recalculando ? (
+                  <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />
+                ) : undefined}
+              >
+                <div className="grid grid-cols-4 gap-3 text-center mb-4">
                   <div>
-                    <p className="text-3xl font-bold text-texto-primario">
+                    <p className="text-xl font-bold text-texto-primario tabular-nums">
                       <NumeroAnimado claveAnim={animKey}>
-                        {compTipo === 'fijo' ? fmtMonto(parseFloat(compMonto)) : (
-                          <>{fmtMonto(proyeccionMensual)}<span className="text-base font-normal text-texto-terciario">/mes</span></>
-                        )}
+                        {emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span>
                       </NumeroAnimado>
                     </p>
-                    {compTipo !== 'fijo' && (
-                      <p className="text-xs text-texto-terciario mt-1">
-                        {fmtMonto(parseFloat(compMonto))}/{compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4.33 sem
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Trabajados</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-insignia-exito tabular-nums">
+                      <NumeroAnimado claveAnim={animKey}>{diasAHorario}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">A horario</p>
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold tabular-nums ${emp.dias_tardanza > 0 ? 'text-insignia-advertencia' : 'text-texto-terciario'}`}>
+                      <NumeroAnimado claveAnim={animKey}>{emp.dias_tardanza}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Tardanzas</p>
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold tabular-nums ${emp.dias_ausentes > 0 ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
+                      <NumeroAnimado claveAnim={animKey}>{emp.dias_ausentes}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Ausencias</p>
+                  </div>
+                </div>
+
+                {/* Mini-calendario del período */}
+                {(emp.dias_detalle && emp.dias_detalle.length > 0) && (
+                  <CalendarioPeriodoMini
+                    desde={periodoActual.desde}
+                    hasta={periodoActual.hasta}
+                    diasEstado={mapaDiasEstado}
+                    estados={ESTADOS_DIAS_NOMINA}
+                  />
+                )}
+              </TarjetaPanel>
+
+              {/* ─── JORNADAS (sólo para jornaleros) ─── */}
+              {compTipo === 'por_dia' && (
+                <TarjetaPanel
+                  titulo="Jornadas"
+                  icono={<Calendar size={13} />}
+                  accion={typeof emp.jornales_equivalentes === 'number' ? (
+                    <span className="text-[11px] text-texto-secundario">
+                      Equivalen a <span className="font-semibold text-texto-primario tabular-nums">{emp.jornales_equivalentes}</span> jornal{emp.jornales_equivalentes === 1 ? '' : 'es'}
+                    </span>
+                  ) : undefined}
+                >
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-exito tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_jornada_completa ?? 0}</NumeroAnimado>
                       </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Insignia color="neutro">
-                        {compDias === 7 ? '7/7' : compDias === 6 ? 'L-S' : compDias === 5 ? 'L-V' : `${compDias} días`}
-                      </Insignia>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Completas</p>
                     </div>
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-advertencia tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_media_jornada ?? 0}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Medias</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-info tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_presente_parcial ?? 0}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Parciales</p>
+                    </div>
+                  </div>
+                </TarjetaPanel>
+              )}
+
+              {/* ─── DESGLOSE DEL CÁLCULO ─── */}
+              <TarjetaPanel
+                titulo="Desglose del cálculo"
+                icono={<TrendingDown size={13} />}
+                accion={emp.compensacion_tipo === 'por_dia' && (
+                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
+                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
+                    Ajustar manualmente
+                  </Boton>
+                )}
+              >
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-texto-primario">Horas netas trabajadas</p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">
+                        {emp.dias_trabajados} jornada{emp.dias_trabajados === 1 ? '' : 's'} registrada{emp.dias_trabajados === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <span className="text-texto-primario font-medium tabular-nums">
+                      <NumeroAnimado claveAnim={animKey}>{fmtHoras(emp.horas_netas)}</NumeroAnimado>
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.05]">
+                    <div>
+                      <p className="text-texto-primario">Bruto del período</p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">{emp.monto_detalle}</p>
+                    </div>
+                    <span className="text-texto-primario font-semibold tabular-nums">
+                      +<NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
+                    </span>
+                  </div>
+
+                  {(emp.descuento_adelanto > 0 || emp.saldo_anterior !== 0) && (
+                    <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.05]">
+                      <div>
+                        <p className="text-insignia-advertencia">Descuentos aplicados</p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          {[
+                            emp.descuento_adelanto > 0 ? `${emp.cuotas_adelanto} adelanto${emp.cuotas_adelanto === 1 ? '' : 's'}` : null,
+                            emp.saldo_anterior > 0 ? '1 saldo anterior' : null,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      <span className="text-insignia-advertencia font-semibold tabular-nums">
+                        −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.07]">
+                    <div>
+                      <p className="text-texto-primario font-semibold">Neto del período</p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">
+                        Asistencia del {pctAsistencia}% {emp.monto_neto < 0 ? '· se arrastra al próximo período' : ''}
+                      </p>
+                    </div>
+                    <span className={`text-base font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
+                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
+                    </span>
+                  </div>
+                </div>
+              </TarjetaPanel>
+            </div>
+
+            {/* ═══════ COLUMNA DERECHA ═══════ */}
+            <div className="space-y-4">
+
+              {/* ─── COMPENSACIÓN BASE ─── */}
+              <TarjetaPanel
+                titulo="Compensación base"
+                icono={<Coins size={13} />}
+                accion={!compEditando ? (
+                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />} onClick={() => setCompEditando(true)}>Editar</Boton>
+                ) : undefined}
+              >
+                {!compEditando ? (
+                  <div>
+                    {(parseFloat(compMonto) || 0) > 0 ? (
+                      <>
+                        <p className="text-3xl font-bold text-texto-primario tabular-nums">
+                          <NumeroAnimado claveAnim={animKey}>
+                            {compTipo === 'fijo' ? fmtMonto(parseFloat(compMonto)) : (
+                              <>{fmtMonto(proyeccionMensual)}<span className="text-base font-normal text-texto-terciario">/mes</span></>
+                            )}
+                          </NumeroAnimado>
+                        </p>
+                        {compTipo !== 'fijo' && (
+                          <p className="text-xs text-texto-terciario mt-1">
+                            {fmtMonto(parseFloat(compMonto))} / {compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4,33 sem
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          <Insignia color="neutro" tamano="sm">
+                            {compDias === 7 ? '7/7' : compDias === 6 ? 'L-S' : compDias === 5 ? 'L-V' : `${compDias} días`}
+                          </Insignia>
+                          <Insignia color="neutro" tamano="sm">
+                            {compFrecuencia === 'semanal' ? 'Semanal' : compFrecuencia === 'quincenal' ? 'Quincenal' : 'Mensual'}
+                          </Insignia>
+                          <Insignia color={compTipo === 'por_dia' ? 'info' : compTipo === 'por_hora' ? 'cyan' : 'primario'} tamano="sm">
+                            {compTipo === 'por_dia' ? 'Por día' : compTipo === 'por_hora' ? 'Por hora' : 'Sueldo fijo'}
+                          </Insignia>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-texto-terciario">Sin monto configurado</p>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-sm text-texto-terciario">Sin monto configurado</p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-5 rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
-                {/* Tipo de pago */}
-                <div>
-                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cómo se le paga?</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { valor: 'por_dia', titulo: 'Cobra por día', desc: 'Gana un monto por cada día que trabaja.', icono: <CalendarDays size={20} /> },
-                      { valor: 'fijo', titulo: 'Sueldo fijo', desc: 'Cobra un monto fijo por período completo.', icono: <Landmark size={20} /> },
-                    ].map(op => (
-                      <button key={op.valor}
-                        onClick={() => { const prev = compTipo; setCompTipo(op.valor); guardarCompensacion('compensacion_tipo', op.valor, prev) }}
-                        className={`flex items-start gap-3 p-3 rounded-card border text-left cursor-pointer transition-all ${
-                          compTipo === op.valor
-                            ? 'border-texto-marca bg-texto-marca/5'
-                            : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
-                        }`}
-                      >
-                        <div className={`size-10 rounded-card flex items-center justify-center shrink-0 ${
-                          compTipo === op.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
-                        }`}>
-                          {op.icono}
-                        </div>
-                        <div>
-                          <p className={`text-sm font-semibold ${compTipo === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
-                            {op.titulo}
-                          </p>
-                          <p className="text-xs text-texto-terciario mt-0.5">{op.desc}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Monto */}
-                <div>
-                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">
-                    {compTipo === 'por_dia' ? '¿Cuánto gana por día trabajado?' : '¿Cuánto gana por período completo?'}
-                  </p>
-                  <div className="max-w-sm">
-                    <InputMoneda value={compMonto} onChange={setCompMonto} moneda="ARS" placeholder="40.000" />
-                  </div>
-                  {compTipo !== 'fijo' && (parseFloat(compMonto) || 0) > 0 && (
-                    <p className="text-xs text-texto-terciario mt-2">
-                      Proyección mensual: <span className="text-insignia-exito font-medium">{fmtMonto(proyeccionMensual)}</span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Frecuencia */}
-                <div>
-                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cada cuánto cobra?</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {[
-                      { valor: 'semanal', etiqueta: 'Semanal' },
-                      { valor: 'quincenal', etiqueta: 'Quincenal' },
-                      { valor: 'mensual', etiqueta: 'Mensual' },
-                    ].map(f => (
-                      <Boton key={f.valor}
-                        variante={compFrecuencia === f.valor ? 'primario' : 'secundario'}
-                        tamano="sm"
-                        onClick={() => { const prev = compFrecuencia; setCompFrecuencia(f.valor); guardarCompensacion('compensacion_frecuencia', f.valor, prev) }}
-                        className={compFrecuencia === f.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
-                      >{f.etiqueta}</Boton>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Días por semana */}
-                <div>
-                  <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">Días por semana</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {[
-                      { valor: 5, etiqueta: 'L-V', sub: 'Lunes a Viernes' },
-                      { valor: 6, etiqueta: 'L-S', sub: 'Lunes a Sábado' },
-                      { valor: 7, etiqueta: '7/7', sub: 'Todos los días' },
-                    ].map(d => (
-                      <Boton key={d.valor}
-                        variante={compDias === d.valor ? 'primario' : 'secundario'}
-                        tamano="sm"
-                        onClick={() => { const prev = compDias; setCompDias(d.valor); guardarCompensacion('dias_trabajo', d.valor, prev) }}
-                        className={`min-w-[80px] ${compDias === d.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}`}
-                      >
-                        <div className="flex flex-col items-center">
-                          <span className="text-sm font-bold">{d.etiqueta}</span>
-                          <span className="text-xxs text-texto-terciario mt-0.5">{d.sub}</span>
-                        </div>
-                      </Boton>
-                    ))}
-                  </div>
-                </div>
-
-                <Boton variante="fantasma" tamano="sm" onClick={() => {
-                  const montoNuevo = parseFloat(compMonto) || 0
-                  if (montoNuevo !== datosEmpleado.compensacion_monto) {
-                    guardarCompensacion('compensacion_monto', montoNuevo, datosEmpleado.compensacion_monto)
-                  }
-                  setCompEditando(false)
-                }}>Listo</Boton>
-              </div>
-            )}
-          </section>
-
-          {/* ── DESCUENTOS / ADELANTOS ── */}
-          <section className="border-t border-borde-sutil pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Descuentos</p>
-              {!mostrarFormAdelanto && (
-                <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />}
-                  onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
-              )}
-            </div>
-
-            {/* Saldo a favor del período anterior */}
-            {emp.saldo_anterior > 0 && (
-              <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-info/10 border border-insignia-info/20 mb-2">
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-insignia-info">A favor período anterior</span>
-                  <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de más, se descuenta este período</p>
-                </div>
-                <span className="text-sm font-bold text-insignia-info">-{fmtMonto(emp.saldo_anterior)}</span>
-              </div>
-            )}
-
-            {emp.saldo_anterior < 0 && (
-              <div className="flex items-center gap-3 py-2 px-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 mb-2">
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-insignia-peligro">Debe del período anterior</span>
-                  <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de menos, se suma a este período</p>
-                </div>
-                <span className="text-sm font-bold text-insignia-peligro">+{fmtMonto(Math.abs(emp.saldo_anterior))}</span>
-              </div>
-            )}
-
-            {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
-              <p className="text-xs text-texto-terciario py-2">Sin descuentos en este período</p>
-            )}
-
-            <div className="space-y-1">
-              {adelantos.map(a => {
-                const aid = a.id as string
-                const cuotasT = a.cuotas_totales as number
-                const cuotasD = a.cuotas_descontadas as number
-                const saldo = parseFloat(a.saldo_pendiente as string)
-                const total = parseFloat(a.monto_total as string)
-                const progreso = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
-                const esEditando = editandoAdelanto === aid
-
-                const cuotas = (a.cuotas || []) as Record<string, unknown>[]
-                const cuotaDelPeriodo = cuotas.find(c =>
-                  (c.fecha_programada as string) >= periodoActual.desde &&
-                  (c.fecha_programada as string) <= periodoActual.hasta
-                )
-                const numeroCuotaPeriodo = cuotaDelPeriodo ? (cuotaDelPeriodo.numero_cuota as number) : null
-                const montoCuotaPeriodo = cuotaDelPeriodo ? parseFloat(cuotaDelPeriodo.monto_cuota as string) : 0
-
-                if (esEditando) {
-                  return (
-                    <div key={aid} className="space-y-2 p-3 rounded-card border border-texto-marca/30 bg-texto-marca/5">
-                      <InputMoneda value={editAdelantoMonto} onChange={setEditAdelantoMonto} moneda="ARS" etiqueta="Monto" />
-                      <div>
-                        <label className="text-xs text-texto-terciario mb-1 block">Cuotas totales</label>
-                        <select value={editAdelantoCuotas} onChange={e => setEditAdelantoCuotas(e.target.value)}
-                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
-                          {Array.from({ length: 12 }, (_, i) => i + 1).filter(n => n >= cuotasD).map(n => (
-                            <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}{n === cuotasD ? ' (mínimo, ya descontadas)' : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <Input tipo="text" value={editAdelantoNotas} onChange={e => setEditAdelantoNotas(e.target.value)} placeholder="Notas" />
-                      <div className="flex gap-2">
-                        <Boton tamano="xs" onClick={() => handleEditarAdelanto(aid)} cargando={guardandoEditAdelanto}>Guardar</Boton>
-                        <Boton variante="fantasma" tamano="xs" onClick={() => setEditandoAdelanto(null)}>Cancelar</Boton>
-                      </div>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={aid} className="flex items-center gap-3 py-2 border-b border-white/[0.05] last:border-0">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-texto-primario">{fmtMonto(montoCuotaPeriodo || total)}</span>
-                        {numeroCuotaPeriodo ? (
-                          <Insignia color="advertencia" tamano="sm">Cuota {numeroCuotaPeriodo}/{cuotasT}</Insignia>
-                        ) : (
-                          <Insignia color="neutro" tamano="sm">{cuotasD}/{cuotasT} pagadas</Insignia>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 h-1 bg-superficie-hover rounded-full overflow-hidden max-w-[80px]">
-                          <div className="h-full bg-insignia-advertencia rounded-full" style={{ width: `${progreso}%` }} />
-                        </div>
-                        <span className="text-xxs text-texto-terciario">
-                          Total: {fmtMonto(total)} · Saldo: {fmtMonto(saldo)}
-                        </span>
-                      </div>
-                      <p className="text-xxs text-texto-terciario mt-0.5">
-                        {fmtFecha(a.fecha_solicitud as string)}
-                        {(a.notas as string) ? ` · ${String(a.notas)}` : ''}
-                      </p>
-                    </div>
-                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
-                      icono={<Pencil size={11} />} onClick={() => {
-                        setEditandoAdelanto(aid)
-                        setEditAdelantoMonto(String(total))
-                        setEditAdelantoCuotas(String(cuotasT))
-                        setEditAdelantoNotas((a.notas as string) || '')
-                      }} />
-                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar adelanto"
-                      icono={<X size={12} />} onClick={() => handleCancelarAdelanto(aid)} />
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Formulario nuevo adelanto */}
-            {mostrarFormAdelanto && (
-              <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
-                <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
-                    className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                      <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                  <SelectorFecha valor={adelantoFecha || null} onChange={v => setAdelantoFecha(v || '')} placeholder="Inicio" />
-                </div>
-                <Input tipo="text" value={adelantoNotas} onChange={e => setAdelantoNotas(e.target.value)} placeholder="Nota (opcional)" />
-                <div className="flex gap-2">
-                  <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
-                    disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
-                  <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ── HISTORIAL DE PAGOS ── */}
-          <section className="border-t border-borde-sutil pt-6">
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Pagos del período</p>
-            {pagos.length === 0 ? (
-              <p className="text-xs text-texto-terciario">Sin pagos registrados en este período</p>
-            ) : (
-              <div className="space-y-1.5">
-                {pagos.map(p => {
-                  const pagoId = p.id as string
-                  const montoAbonado = p.monto_abonado as number
-                  const montoSugerido = p.monto_sugerido as number
-                  const esEditando = editandoPago === pagoId
-
-                  return (
-                    <div key={pagoId} className="flex items-center gap-3 py-2 border-b border-white/[0.05] last:border-0">
-                      <Receipt size={13} className="text-texto-terciario shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-texto-secundario truncate">{p.concepto as string}</p>
-                        <p className="text-xxs text-texto-terciario">
-                          {new Date(p.creado_en as string).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
-                          {p.creado_por_nombre ? <> · {String(p.creado_por_nombre)}</> : null}
-                        </p>
-                        {p.notas ? <p className="text-xxs text-texto-terciario truncate mt-0.5">{String(p.notas)}</p> : null}
-                      </div>
-
-                      {esEditando ? (
-                        <div className="flex items-center gap-1.5">
-                          <InputMoneda value={editMontoAbonado} onChange={setEditMontoAbonado} moneda="ARS" />
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Guardar"
-                            icono={<Check size={12} />} onClick={() => handleEditarPago(pagoId)} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar"
-                            icono={<X size={12} />} onClick={() => setEditandoPago(null)} />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="text-right">
-                            <span className="text-sm font-semibold text-insignia-exito">{fmtMonto(montoAbonado)}</span>
-                            {montoSugerido && montoAbonado !== montoSugerido && (
-                              <p className={`text-xxs ${montoAbonado > montoSugerido ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
-                                {montoAbonado > montoSugerido
-                                  ? `+${fmtMonto(montoAbonado - montoSugerido)} a favor → se descuenta`
-                                  : `${fmtMonto(montoAbonado - montoSugerido)} quedó debiendo`
-                                }
+                  <div className="space-y-5">
+                    {/* Tipo de pago */}
+                    <div>
+                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cómo se le paga?</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { valor: 'por_dia', titulo: 'Cobra por día', desc: 'Gana un monto por cada día que trabaja.', icono: <CalendarDays size={20} /> },
+                          { valor: 'fijo', titulo: 'Sueldo fijo', desc: 'Cobra un monto fijo por período completo.', icono: <Landmark size={20} /> },
+                        ].map(op => (
+                          <button key={op.valor}
+                            onClick={() => { const prev = compTipo; setCompTipo(op.valor); guardarCompensacion('compensacion_tipo', op.valor, prev) }}
+                            className={`flex items-start gap-3 p-3 rounded-card border text-left cursor-pointer transition-all ${
+                              compTipo === op.valor
+                                ? 'border-texto-marca bg-texto-marca/5'
+                                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
+                            }`}
+                          >
+                            <div className={`size-10 rounded-card flex items-center justify-center shrink-0 ${
+                              compTipo === op.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
+                            }`}>
+                              {op.icono}
+                            </div>
+                            <div>
+                              <p className={`text-sm font-semibold ${compTipo === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                                {op.titulo}
                               </p>
-                            )}
-                          </div>
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
-                            icono={<Pencil size={11} />}
-                            onClick={() => { setEditandoPago(pagoId); setEditMontoAbonado(String(montoAbonado)) }} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar pago"
-                            icono={<Trash2 size={11} />}
-                            onClick={() => handleEliminarPago(pagoId)} />
-                        </div>
+                              <p className="text-xs text-texto-terciario mt-0.5">{op.desc}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monto */}
+                    <div>
+                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">
+                        {compTipo === 'por_dia' ? '¿Cuánto gana por día trabajado?' : '¿Cuánto gana por período completo?'}
+                      </p>
+                      <InputMoneda value={compMonto} onChange={setCompMonto} moneda="ARS" placeholder="40.000" />
+                      {compTipo !== 'fijo' && (parseFloat(compMonto) || 0) > 0 && (
+                        <p className="text-xs text-texto-terciario mt-2">
+                          Proyección mensual: <span className="text-insignia-exito font-medium">{fmtMonto(proyeccionMensual)}</span>
+                        </p>
                       )}
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
+
+                    {/* Frecuencia */}
+                    <div>
+                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cada cuánto cobra?</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {[
+                          { valor: 'semanal', etiqueta: 'Semanal' },
+                          { valor: 'quincenal', etiqueta: 'Quincenal' },
+                          { valor: 'mensual', etiqueta: 'Mensual' },
+                        ].map(f => (
+                          <Boton key={f.valor}
+                            variante={compFrecuencia === f.valor ? 'primario' : 'secundario'}
+                            tamano="sm"
+                            onClick={() => { const prev = compFrecuencia; setCompFrecuencia(f.valor); guardarCompensacion('compensacion_frecuencia', f.valor, prev) }}
+                            className={compFrecuencia === f.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
+                          >{f.etiqueta}</Boton>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Días por semana */}
+                    <div>
+                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">Días por semana</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {[
+                          { valor: 5, etiqueta: 'L-V' },
+                          { valor: 6, etiqueta: 'L-S' },
+                          { valor: 7, etiqueta: '7/7' },
+                        ].map(d => (
+                          <Boton key={d.valor}
+                            variante={compDias === d.valor ? 'primario' : 'secundario'}
+                            tamano="sm"
+                            onClick={() => { const prev = compDias; setCompDias(d.valor); guardarCompensacion('dias_trabajo', d.valor, prev) }}
+                            className={compDias === d.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
+                          >{d.etiqueta}</Boton>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Boton variante="primario" tamano="sm" onClick={() => {
+                      const montoNuevo = parseFloat(compMonto) || 0
+                      if (montoNuevo !== datosEmpleado.compensacion_monto) {
+                        guardarCompensacion('compensacion_monto', montoNuevo, datosEmpleado.compensacion_monto)
+                      }
+                      setCompEditando(false)
+                    }}>Listo</Boton>
+                  </div>
+                )}
+              </TarjetaPanel>
+
+              {/* ─── DESCUENTOS DEL PERÍODO ─── */}
+              <TarjetaPanel
+                titulo="Descuentos del período"
+                icono={<TrendingDown size={13} />}
+                accion={!mostrarFormAdelanto ? (
+                  <div className="flex items-center gap-3">
+                    {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
+                      <span className="text-[11px] text-texto-terciario">
+                        {adelantos.length + (emp.saldo_anterior !== 0 ? 1 : 0)} activos
+                      </span>
+                    )}
+                    <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                      onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+                  </div>
+                ) : undefined}
+              >
+                {/* Saldo a favor del período anterior */}
+                {emp.saldo_anterior > 0 && (
+                  <div className="flex items-center gap-3 py-2.5 px-3 rounded-card bg-insignia-info/10 border border-insignia-info/20 mb-2">
+                    <Send size={14} className="text-insignia-info shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-insignia-info">A favor período anterior</span>
+                        <Insignia color="info" tamano="sm">Automático</Insignia>
+                      </div>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Se pagó de más, se descuenta este período</p>
+                    </div>
+                    <span className="text-sm font-bold text-insignia-info tabular-nums">-{fmtMonto(emp.saldo_anterior)}</span>
+                  </div>
+                )}
+
+                {emp.saldo_anterior < 0 && (
+                  <div className="flex items-center gap-3 py-2.5 px-3 rounded-card bg-insignia-peligro/10 border border-insignia-peligro/20 mb-2">
+                    <Send size={14} className="text-insignia-peligro shrink-0" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-insignia-peligro">Debe del período anterior</span>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Se pagó de menos, se suma a este período</p>
+                    </div>
+                    <span className="text-sm font-bold text-insignia-peligro tabular-nums">+{fmtMonto(Math.abs(emp.saldo_anterior))}</span>
+                  </div>
+                )}
+
+                {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
+                  <p className="text-xs text-texto-terciario py-3 text-center">Sin descuentos en este período</p>
+                )}
+
+                <div className="space-y-2">
+                  {adelantos.map(a => {
+                    const aid = a.id as string
+                    const cuotasT = a.cuotas_totales as number
+                    const cuotasD = a.cuotas_descontadas as number
+                    const saldo = parseFloat(a.saldo_pendiente as string)
+                    const total = parseFloat(a.monto_total as string)
+                    const progreso = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
+                    const esEditando = editandoAdelanto === aid
+
+                    const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+                    const cuotaDelPeriodo = cuotas.find(c =>
+                      (c.fecha_programada as string) >= periodoActual.desde &&
+                      (c.fecha_programada as string) <= periodoActual.hasta
+                    )
+                    const numeroCuotaPeriodo = cuotaDelPeriodo ? (cuotaDelPeriodo.numero_cuota as number) : null
+                    const montoCuotaPeriodo = cuotaDelPeriodo ? parseFloat(cuotaDelPeriodo.monto_cuota as string) : 0
+                    const esUltimaCuota = numeroCuotaPeriodo === cuotasT
+
+                    if (esEditando) {
+                      return (
+                        <div key={aid} className="space-y-2 p-3 rounded-card border border-texto-marca/30 bg-texto-marca/5">
+                          <InputMoneda value={editAdelantoMonto} onChange={setEditAdelantoMonto} moneda="ARS" etiqueta="Monto" />
+                          <div>
+                            <label className="text-xs text-texto-terciario mb-1 block">Cuotas totales</label>
+                            <select value={editAdelantoCuotas} onChange={e => setEditAdelantoCuotas(e.target.value)}
+                              className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
+                              {Array.from({ length: 12 }, (_, i) => i + 1).filter(n => n >= cuotasD).map(n => (
+                                <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}{n === cuotasD ? ' (mínimo, ya descontadas)' : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <Input tipo="text" value={editAdelantoNotas} onChange={e => setEditAdelantoNotas(e.target.value)} placeholder="Notas" />
+                          <div className="flex gap-2">
+                            <Boton tamano="xs" onClick={() => handleEditarAdelanto(aid)} cargando={guardandoEditAdelanto}>Guardar</Boton>
+                            <Boton variante="fantasma" tamano="xs" onClick={() => setEditandoAdelanto(null)}>Cancelar</Boton>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={aid} className="flex items-start gap-3 py-2.5 px-3 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors">
+                        <Receipt size={14} className="text-insignia-advertencia shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-texto-primario truncate">
+                              {(a.notas as string) || `Adelanto ${fmtMonto(total)}`}
+                            </p>
+                            <span className="text-sm font-semibold text-texto-primario tabular-nums">
+                              -{fmtMonto(montoCuotaPeriodo || total)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {numeroCuotaPeriodo ? (
+                              <Insignia color="advertencia" tamano="sm">
+                                Cuota {numeroCuotaPeriodo}/{cuotasT}{esUltimaCuota ? ' · última' : ''}
+                              </Insignia>
+                            ) : (
+                              <Insignia color="neutro" tamano="sm">{cuotasD}/{cuotasT} descontadas</Insignia>
+                            )}
+                            <span className="text-[11px] text-texto-terciario">
+                              Entregado {fmtFecha(a.fecha_solicitud as string)}
+                              {total > 0 ? ` · ${fmtMonto(total)} total` : ''}
+                            </span>
+                          </div>
+                          {progreso > 0 && progreso < 100 && (
+                            <div className="h-1 bg-superficie-hover rounded-full overflow-hidden mt-1.5">
+                              <div className="h-full bg-insignia-advertencia rounded-full transition-all" style={{ width: `${progreso}%` }} />
+                            </div>
+                          )}
+                          {cuotasT > 1 && (
+                            <p className="text-[10px] text-texto-terciario mt-1 tabular-nums">
+                              {fmtMonto(total - saldo)} / {fmtMonto(total)}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
+                            icono={<Pencil size={11} />} onClick={() => {
+                              setEditandoAdelanto(aid)
+                              setEditAdelantoMonto(String(total))
+                              setEditAdelantoCuotas(String(cuotasT))
+                              setEditAdelantoNotas((a.notas as string) || '')
+                            }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar adelanto"
+                            icono={<X size={12} />} onClick={() => handleCancelarAdelanto(aid)} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Formulario nuevo adelanto */}
+                {mostrarFormAdelanto && (
+                  <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
+                    <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
+                        className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                          <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
+                        ))}
+                      </select>
+                      <SelectorFecha valor={adelantoFecha || null} onChange={v => setAdelantoFecha(v || '')} placeholder="Inicio" />
+                    </div>
+                    <Input tipo="text" value={adelantoNotas} onChange={e => setAdelantoNotas(e.target.value)} placeholder="Nota (opcional)" />
+                    <div className="flex gap-2">
+                      <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
+                        disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
+                      <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
+                    </div>
+                  </div>
+                )}
+              </TarjetaPanel>
+
+              {/* ─── PAGOS DEL PERÍODO ─── */}
+              <TarjetaPanel
+                titulo="Pagos del período"
+                icono={<CreditCard size={13} />}
+                accion={pagos.length > 0 ? (
+                  <span className="text-[11px] text-texto-terciario">
+                    {pagos.length} registrado{pagos.length === 1 ? '' : 's'}
+                  </span>
+                ) : undefined}
+              >
+                {pagos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <div className="size-10 rounded-full bg-superficie-elevada flex items-center justify-center mb-2">
+                      <CreditCard size={18} className="text-texto-terciario" />
+                    </div>
+                    <p className="text-sm text-texto-primario font-medium">Sin pagos registrados</p>
+                    <p className="text-xs text-texto-terciario mt-1 max-w-xs">
+                      {emp.monto_neto < 0
+                        ? 'El neto quedó en negativo, así que no se registra pago. El saldo se arrastra.'
+                        : emp.monto_neto === 0
+                          ? 'No hay monto a transferir. Podés cerrar el período sin pago.'
+                          : 'Cuando confirmes el pago, aparecerá acá con todo el historial.'}
+                    </p>
+                    {emp.monto_neto < 0 && (
+                      <Boton variante="secundario" tamano="sm" className="mt-3"
+                        onClick={() => { setMontoAPagar('0'); setConfirmandoPago(true) }}>
+                        Cerrar sin pago
+                      </Boton>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {pagos.map(p => {
+                      const pagoId = p.id as string
+                      const montoAbonado = p.monto_abonado as number
+                      const montoSugerido = p.monto_sugerido as number
+                      const esEditando = editandoPago === pagoId
+
+                      return (
+                        <div key={pagoId} className="flex items-center gap-3 py-2 px-3 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors">
+                          <Receipt size={14} className="text-insignia-exito shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-texto-secundario truncate">{p.concepto as string}</p>
+                            <p className="text-[11px] text-texto-terciario">
+                              {new Date(p.creado_en as string).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {p.creado_por_nombre ? <> · {String(p.creado_por_nombre)}</> : null}
+                            </p>
+                            {p.notas ? <p className="text-[11px] text-texto-terciario truncate mt-0.5">{String(p.notas)}</p> : null}
+                          </div>
+
+                          {esEditando ? (
+                            <div className="flex items-center gap-1.5">
+                              <InputMoneda value={editMontoAbonado} onChange={setEditMontoAbonado} moneda="ARS" />
+                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Guardar"
+                                icono={<Check size={12} />} onClick={() => handleEditarPago(pagoId)} />
+                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar"
+                                icono={<X size={12} />} onClick={() => setEditandoPago(null)} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="text-right">
+                                <span className="text-sm font-semibold text-insignia-exito tabular-nums">{fmtMonto(montoAbonado)}</span>
+                                {montoSugerido && montoAbonado !== montoSugerido && (
+                                  <p className={`text-[10px] ${montoAbonado > montoSugerido ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                                    {montoAbonado > montoSugerido
+                                      ? `+${fmtMonto(montoAbonado - montoSugerido)} a favor`
+                                      : `${fmtMonto(montoAbonado - montoSugerido)} debe`
+                                    }
+                                  </p>
+                                )}
+                              </div>
+                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
+                                icono={<Pencil size={11} />}
+                                onClick={() => { setEditandoPago(pagoId); setEditMontoAbonado(String(montoAbonado)) }} />
+                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar pago"
+                                icono={<Trash2 size={11} />}
+                                onClick={() => handleEliminarPago(pagoId)} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </TarjetaPanel>
+            </div>
+          </div>
         </div>
       </PlantillaEditor>
 

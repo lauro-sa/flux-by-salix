@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Settings2, Clock, CalendarCheck, Monitor, Timer, Zap,
   Plus, Trash2, Shield,
-  Link2, Copy, RefreshCw, Ban, Globe,
+  Link2, Copy, RefreshCw, Ban, Globe, Coins,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -36,6 +36,9 @@ interface ConfigAsistencias {
   fichaje_auto_habilitado: boolean
   fichaje_auto_notif_min: number
   fichaje_auto_umbral_salida: number
+  umbral_jornada_completa_pct: number
+  umbral_media_jornada_pct: number
+  modo_pago_parcial: 'no_paga' | 'media_jornada' | 'proporcional'
 }
 
 interface Terminal {
@@ -99,6 +102,7 @@ export default function PaginaConfiguracionAsistencias() {
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} />, grupo: 'Configuración' },
     { id: 'turnos', etiqueta: 'Turnos laborales', icono: <Clock size={16} />, grupo: 'Configuración' },
+    { id: 'nomina', etiqueta: 'Nómina', icono: <Coins size={16} />, grupo: 'Configuración' },
     { id: 'kiosco', etiqueta: 'Kiosco', icono: <Monitor size={16} />, grupo: 'Fichaje' },
     { id: 'terminales', etiqueta: 'Terminales', icono: <Shield size={16} />, grupo: 'Fichaje' },
     { id: 'auto_checkout', etiqueta: 'Auto-checkout', icono: <Timer size={16} />, grupo: 'Automatización' },
@@ -130,6 +134,9 @@ export default function PaginaConfiguracionAsistencias() {
         <>
           {seccionActiva === 'general' && (
             <SeccionGeneral config={config} onGuardar={guardarConfig} />
+          )}
+          {seccionActiva === 'nomina' && (
+            <SeccionNomina config={config} onGuardar={guardarConfig} />
           )}
           {seccionActiva === 'kiosco' && (
             <SeccionKiosco config={config} onGuardar={guardarConfig} />
@@ -214,6 +221,122 @@ function SeccionGeneral({ config, onGuardar }: { config: ConfigAsistencias; onGu
   )
 }
 
+
+// ─── Sección Nómina ──────────────────────────────────────────
+// Clasificación de jornadas para empleados jornaleros/por día.
+// Define umbrales (completa/media/parcial) y cómo pagar las parciales.
+
+function SeccionNomina({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
+  // Valores locales editables sin guardar hasta blur
+  const [umbralCompleta, setUmbralCompleta] = useState(String(config.umbral_jornada_completa_pct))
+  const [umbralMedia, setUmbralMedia] = useState(String(config.umbral_media_jornada_pct))
+
+  useEffect(() => {
+    setUmbralCompleta(String(config.umbral_jornada_completa_pct))
+    setUmbralMedia(String(config.umbral_media_jornada_pct))
+  }, [config.umbral_jornada_completa_pct, config.umbral_media_jornada_pct])
+
+  const guardarUmbrales = (completa: number, media: number) => {
+    // Validar: 0 < media < completa ≤ 100
+    const c = Math.max(10, Math.min(100, completa))
+    const m = Math.max(1, Math.min(c - 1, media))
+    onGuardar({ umbral_jornada_completa_pct: c, umbral_media_jornada_pct: m })
+  }
+
+  return (
+    <div className="space-y-6">
+      <TarjetaConfig
+        titulo="Clasificación de jornada"
+        descripcion="Para empleados jornaleros (pago por día), Flux clasifica automáticamente cada día según cuánto trabajó respecto a su turno. Así podés pagar jornada completa, media jornada o un pago parcial sin tener que calcularlo a mano."
+      >
+        <div className="space-y-5">
+          {/* Explicación visual de los tramos */}
+          <div className="rounded-card border border-borde-sutil bg-superficie-elevada p-4">
+            <p className="text-xs font-medium text-texto-terciario uppercase tracking-wider mb-3">Cómo se clasifica cada día</p>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center size-6 rounded-full bg-insignia-exito/15 text-insignia-exito text-xs font-semibold">1</span>
+                <p className="text-texto-secundario">
+                  <span className="font-medium text-texto-primario">Jornada completa</span> — trabajó ≥ <span className="font-medium text-texto-primario">{config.umbral_jornada_completa_pct}%</span> del turno. Paga <span className="font-medium">1 jornal</span>.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center size-6 rounded-full bg-insignia-advertencia/15 text-insignia-advertencia text-xs font-semibold">½</span>
+                <p className="text-texto-secundario">
+                  <span className="font-medium text-texto-primario">Media jornada</span> — trabajó entre <span className="font-medium text-texto-primario">{config.umbral_media_jornada_pct}%</span> y {config.umbral_jornada_completa_pct}%. Paga <span className="font-medium">0,5 jornal</span>.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center size-6 rounded-full bg-insignia-info/15 text-insignia-info text-xs font-semibold">¼</span>
+                <p className="text-texto-secundario">
+                  <span className="font-medium text-texto-primario">Presente parcial</span> — trabajó menos de {config.umbral_media_jornada_pct}% (ej: se fue antes por cancelación o imprevisto). Paga según regla abajo.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center size-6 rounded-full bg-insignia-peligro/15 text-insignia-peligro text-xs font-semibold">0</span>
+                <p className="text-texto-secundario">
+                  <span className="font-medium text-texto-primario">Ausente</span> — no fichó ni un minuto. No paga.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Umbrales editables */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Umbrales</p>
+            <div className="grid grid-cols-2 gap-4 max-w-[440px]">
+              <Input
+                tipo="number"
+                etiqueta="Umbral jornada completa (%)"
+                value={umbralCompleta}
+                onChange={(e) => setUmbralCompleta(e.currentTarget.value)}
+                onBlur={(e) => {
+                  const val = parseInt(e.currentTarget.value) || 75
+                  guardarUmbrales(val, config.umbral_media_jornada_pct)
+                }}
+                compacto
+              />
+              <Input
+                tipo="number"
+                etiqueta="Umbral media jornada (%)"
+                value={umbralMedia}
+                onChange={(e) => setUmbralMedia(e.currentTarget.value)}
+                onBlur={(e) => {
+                  const val = parseInt(e.currentTarget.value) || 25
+                  guardarUmbrales(config.umbral_jornada_completa_pct, val)
+                }}
+                compacto
+              />
+            </div>
+            <p className="text-xs text-texto-terciario mt-2">
+              Valores predeterminados: 75% y 25%. El umbral de media jornada debe ser menor que el de jornada completa.
+            </p>
+          </div>
+
+          {/* Modo de pago para parciales */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Qué hacer con presentes parciales</p>
+            <div className="max-w-[440px]">
+              <Select
+                etiqueta=""
+                opciones={[
+                  { valor: 'no_paga', etiqueta: 'No paga (sólo queda registrado)' },
+                  { valor: 'media_jornada', etiqueta: 'Paga como media jornada' },
+                  { valor: 'proporcional', etiqueta: 'Paga proporcional al tiempo trabajado' },
+                ]}
+                valor={config.modo_pago_parcial}
+                onChange={(v) => onGuardar({ modo_pago_parcial: v as ConfigAsistencias['modo_pago_parcial'] })}
+              />
+            </div>
+            <p className="text-xs text-texto-terciario mt-2">
+              Esta regla sólo aplica a empleados con compensación <span className="font-medium">por día</span>. Los de sueldo fijo y por hora no se ven afectados.
+            </p>
+          </div>
+        </div>
+      </TarjetaConfig>
+    </div>
+  )
+}
 
 function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (

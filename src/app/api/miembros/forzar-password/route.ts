@@ -1,45 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
- * POST /api/miembros/forzar-password — Fuerza una nueva contraseña para un miembro.
- * Solo propietario puede hacerlo.
+ * POST /api/miembros/forzar-password — Obliga al empleado a cambiar su contraseña.
+ *
+ * Cierra todas sus sesiones activas y le envía un correo de recuperación. El
+ * empleado queda fuera de Flux hasta que abra el link y defina una nueva pass.
+ * El admin nunca conoce la contraseña (auditoría y seguridad multi-tenant).
  */
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) {
-      return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
-    }
+    const guard = await requerirPermisoAPI('usuarios', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId, miembro: miembroActual } = guard
 
     const admin = crearClienteAdmin()
 
-    // Propietario o administrador pueden forzar contraseñas
-    const { data: miembroActual } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
+    const { miembro_id } = await request.json()
 
-    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
-      return NextResponse.json({ error: 'Sin permisos para forzar contraseñas' }, { status: 403 })
-    }
-
-    const { miembro_id, nueva_password } = await request.json()
-
-    if (!nueva_password || nueva_password.length < 6) {
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
-    }
-
-    // Obtener usuario_id del miembro
     const { data: miembro } = await admin
       .from('miembros')
       .select('usuario_id, rol')
@@ -47,24 +26,38 @@ export async function POST(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .single()
 
-    if (!miembro) {
-      return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })
+    if (!miembro || !miembro.usuario_id) {
+      return NextResponse.json({ error: 'Miembro no encontrado o sin cuenta' }, { status: 404 })
     }
 
-    if (miembro.rol === 'propietario') {
-      return NextResponse.json({ error: 'No se puede forzar contraseña del propietario' }, { status: 403 })
+    if (miembro.rol === 'propietario' && miembroActual.rol !== 'propietario') {
+      return NextResponse.json({ error: 'No se puede forzar cambio al propietario' }, { status: 403 })
     }
 
-    // Forzar nueva contraseña
-    const { error } = await admin.auth.admin.updateUserById(miembro.usuario_id, {
-      password: nueva_password,
+    const { data: userData } = await admin.auth.admin.getUserById(miembro.usuario_id)
+    if (!userData?.user?.email) {
+      return NextResponse.json({ error: 'Usuario sin correo asociado' }, { status: 400 })
+    }
+
+    // Cerrar todas las sesiones activas: obliga al logout inmediato.
+    const { error: errSignOut } = await admin.auth.admin.signOut(miembro.usuario_id, 'global')
+    if (errSignOut) {
+      return NextResponse.json({ error: 'Error al cerrar sesiones' }, { status: 500 })
+    }
+
+    // Enviar correo de recuperación para que el empleado defina una pass nueva.
+    const { error: errReset } = await admin.auth.resetPasswordForEmail(userData.user.email, {
+      redirectTo: `${request.nextUrl.origin}/restablecer`,
     })
 
-    if (error) {
-      return NextResponse.json({ error: 'Error al cambiar la contraseña' }, { status: 500 })
+    if (errReset) {
+      return NextResponse.json({ error: 'Error al enviar el correo de cambio' }, { status: 500 })
     }
 
-    return NextResponse.json({ mensaje: 'Contraseña actualizada' })
+    return NextResponse.json({
+      mensaje: 'Sesiones cerradas y correo enviado',
+      correo: userData.user.email,
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }

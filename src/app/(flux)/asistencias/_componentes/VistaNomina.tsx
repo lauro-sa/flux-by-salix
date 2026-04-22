@@ -42,6 +42,10 @@ interface ResultadoNomina {
   duracion_almuerzo_config: number
   dias_feriados: number
   dias_trabajados_feriado: number
+  dias_jornada_completa?: number
+  dias_media_jornada?: number
+  dias_presente_parcial?: number
+  jornales_equivalentes?: number
   monto_pagar: number
   monto_detalle: string
   descuento_adelanto: number

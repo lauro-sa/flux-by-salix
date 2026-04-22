@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/miembros/[id]/emergencia — Obtiene contacto de emergencia del miembro
@@ -22,6 +23,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id: miembroId } = await params
   const admin = crearClienteAdmin()
 
+  // Dato sensible (teléfonos personales de familiares): el miembro puede ver
+  // su propio contacto de emergencia; para ver el de otros requiere usuarios:editar.
+  const { data: miembroDest } = await admin
+    .from('miembros')
+    .select('usuario_id')
+    .eq('id', miembroId)
+    .eq('empresa_id', auth.empresaId)
+    .maybeSingle()
+  if (miembroDest?.usuario_id !== auth.user.id) {
+    const datosActor = await obtenerDatosMiembro(auth.user.id, auth.empresaId)
+    if (!datosActor || !verificarPermiso(datosActor, 'usuarios', 'editar')) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
+  }
+
   const { data, error } = await admin
     .from('contactos_emergencia')
     .select('*')
@@ -39,6 +55,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id: miembroId } = await params
   const { id: contactoId, ...datos } = await req.json()
   const admin = crearClienteAdmin()
+
+  // El miembro puede editar su propio contacto de emergencia; para editar el
+  // de otro empleado requiere usuarios:editar.
+  const { data: miembroDest } = await admin
+    .from('miembros')
+    .select('usuario_id')
+    .eq('id', miembroId)
+    .eq('empresa_id', auth.empresaId)
+    .maybeSingle()
+  if (miembroDest?.usuario_id !== auth.user.id) {
+    const datosActor = await obtenerDatosMiembro(auth.user.id, auth.empresaId)
+    if (!datosActor || !verificarPermiso(datosActor, 'usuarios', 'editar')) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
+  }
 
   if (contactoId) {
     // Actualizar existente

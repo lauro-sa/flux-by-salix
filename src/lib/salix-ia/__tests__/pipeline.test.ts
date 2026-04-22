@@ -44,7 +44,7 @@ vi.mock('@/lib/salix-ia/contexto', () => ({
   construirContexto: () => ({
     empresa_id: 'emp-1',
     usuario_id: 'usr-1',
-    miembro: { id: 'm-1', usuario_id: 'usr-1', rol: 'administrador', permisos_custom: null, salix_ia_habilitado: true, puesto_nombre: null, sector: null },
+    miembro: { id: 'm-1', usuario_id: 'usr-1', rol: 'administrador', permisos_custom: null, salix_ia_habilitado: true, salix_ia_web: true, salix_ia_whatsapp: true, puesto_nombre: null, sector: null },
     nombre_usuario: 'Test User',
     nombre_empresa: 'Test Empresa',
     admin: {},
@@ -70,7 +70,8 @@ vi.mock('@/lib/salix-ia/contexto', () => ({
   construirSystemPrompt: () => 'Sos Salix IA...',
 }))
 
-// Mock del admin para el log
+// Mock del admin: el pipeline hace .insert() para logs y consulta
+// empresas.zona_horaria vía .select().eq().maybeSingle().
 const mockInsert = vi.fn().mockResolvedValue({ data: null, error: null })
 
 import { ejecutarSalixIA } from '../pipeline'
@@ -79,6 +80,15 @@ describe('ejecutarSalixIA', () => {
   const adminMock = {
     from: vi.fn(() => ({
       insert: mockInsert,
+      // Cadena para queries: select → eq → maybeSingle
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { zona_horaria: 'America/Argentina/Buenos_Aires' },
+            error: null,
+          }),
+        })),
+      })),
     })),
   }
 

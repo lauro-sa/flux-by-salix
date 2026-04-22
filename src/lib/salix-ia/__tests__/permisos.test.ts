@@ -53,19 +53,25 @@ vi.mock('@/lib/permisos-servidor', () => ({
   },
 }))
 
+// Para "accede a todas las herramientas" la config debe tener TODAS las
+// herramientas habilitadas — sino filtrarHerramientasPermitidas descarta
+// primero por config antes de evaluar permisos.
 const configCompleta: ConfigSalixIA = {
   empresa_id: 'test-empresa',
   habilitado: true,
   nombre: 'Salix IA',
   personalidad: '',
   herramientas_habilitadas: [
-    'buscar_contactos', 'obtener_contacto', 'crear_contacto',
+    'buscar_contactos', 'obtener_contacto', 'crear_contacto', 'modificar_contacto',
+    'buscar_direccion',
     'crear_actividad', 'crear_recordatorio', 'crear_visita',
+    'consultar_equipo', 'consultar_productos',
     'consultar_asistencias', 'consultar_calendario',
     'consultar_actividades', 'consultar_visitas',
-    'buscar_presupuestos',
+    'obtener_presupuesto', 'buscar_presupuestos',
     'modificar_actividad', 'modificar_visita',
     'modificar_presupuesto', 'modificar_evento',
+    'anotar_nota', 'consultar_notas', 'modificar_nota',
   ],
   whatsapp_copilot_habilitado: false,
   max_iteraciones_herramientas: 5,
@@ -79,6 +85,8 @@ const crearMiembro = (rol: string, permisos_custom: Record<string, string[]> | n
   rol,
   permisos_custom,
   salix_ia_habilitado: true,
+  salix_ia_web: true,
+  salix_ia_whatsapp: true,
   puesto_nombre: null,
   sector: null,
 })

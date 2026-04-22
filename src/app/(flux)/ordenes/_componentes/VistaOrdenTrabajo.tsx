@@ -383,27 +383,29 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 </div>
               )}
 
-              {/* Botones de acción rápida */}
-              <div className="flex flex-wrap gap-2">
+              {/* Botones de acción rápida
+                  Mobile (<768px): grid 2 columnas, botones pegados tipo segmented control.
+                  Desktop (md+): flex con ancho y altura natural. */}
+              <div className="grupo-botones-mobile grid grid-cols-2 gap-1 md:flex md:flex-wrap md:gap-2">
                 {orden.contacto_telefono && (
-                  <a href={`tel:${orden.contacto_telefono.replace(/[^+\d]/g, '')}`}>
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
+                  <a href={`tel:${orden.contacto_telefono.replace(/[^+\d]/g, '')}`} className="w-full md:w-auto">
+                    <button type="button" className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
                       <Phone size={14} />
                       {t('ordenes.llamar')}
                     </button>
                   </a>
                 )}
                 {(orden.contacto_whatsapp || orden.contacto_telefono) && (
-                  <a href={`https://wa.me/${(orden.contacto_whatsapp || orden.contacto_telefono || '').replace(/[^+\d]/g, '')}`} target="_blank" rel="noopener noreferrer">
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent hover:bg-superficie-hover/50 active:scale-95" style={{ color: 'var(--canal-whatsapp)' }}>
+                  <a href={`https://wa.me/${(orden.contacto_whatsapp || orden.contacto_telefono || '').replace(/[^+\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
+                    <button type="button" className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent hover:bg-superficie-hover/50 active:scale-95" style={{ color: 'var(--canal-whatsapp)' }}>
                       <IconoWhatsApp size={14} />
                       {t('ordenes.whatsapp')}
                     </button>
                   </a>
                 )}
                 {orden.contacto_direccion && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orden.contacto_direccion)}`} target="_blank" rel="noopener noreferrer">
-                    <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orden.contacto_direccion)}`} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
+                    <button type="button" className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
                       <MapPin size={14} />
                       {t('ordenes.ver_mapa')}
                     </button>
@@ -432,7 +434,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                         window.open(`https://wa.me/${num}?text=${mensaje}`, '_blank')
                         mostrarToast('exito', `Aviso de llegada enviado a ${nombreAviso}`)
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-card text-sm font-semibold transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/10 text-insignia-exito-texto hover:bg-insignia-exito/20 active:scale-95"
+                      className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-semibold transition-colors cursor-pointer border border-insignia-exito/30 bg-insignia-exito/10 text-insignia-exito-texto hover:bg-insignia-exito/20 active:scale-95"
                     >
                       <Bell size={14} />
                       Avisar llegada

@@ -34,9 +34,9 @@ interface PropsInfoEstadoMiembro {
   /** Si el usuario actual puede gestionar (invitar/activar) */
   puedeGestionar?: boolean
   /** Callback de acciones — el contenedor decide qué hacer */
-  onAccion?: (accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar') => void
+  onAccion?: (accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | 'reenviar-acceso') => void
   /** ID de la acción actualmente en curso (muestra spinner) */
-  cargando?: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | null
+  cargando?: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | 'reenviar-acceso' | null
   /** Variante compacta para usar en modales o columnas angostas */
   compacto?: boolean
 }
@@ -212,15 +212,26 @@ export function InfoEstadoMiembro({
           )}
 
           {estado === 'activo' && (
-            <Boton
-              variante="secundario"
-              tamano="sm"
-              icono={<Power size={13} />}
-              cargando={cargando === 'desactivar'}
-              onClick={() => onAccion('desactivar')}
-            >
-              {t('usuarios.desactivar')}
-            </Boton>
+            <>
+              <Boton
+                variante="secundario"
+                tamano="sm"
+                icono={<Send size={13} />}
+                cargando={cargando === 'reenviar-acceso'}
+                onClick={() => onAccion('reenviar-acceso')}
+              >
+                {t('usuarios.reenviar_acceso') || 'Reenviar acceso'}
+              </Boton>
+              <Boton
+                variante="secundario"
+                tamano="sm"
+                icono={<Power size={13} />}
+                cargando={cargando === 'desactivar'}
+                onClick={() => onAccion('desactivar')}
+              >
+                {t('usuarios.desactivar')}
+              </Boton>
+            </>
           )}
 
           {estado === 'desactivado' && (

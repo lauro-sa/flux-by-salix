@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/asistencias/detalle?id=xxx — Obtener un registro por ID con tiempo activo.
@@ -17,6 +18,9 @@ export async function GET(request: NextRequest) {
     const id = request.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Falta id' }, { status: 400 })
 
+    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
     const { data: registro } = await admin
@@ -27,6 +31,19 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!registro) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+
+    // ver_propio: solo el miembro dueño del registro puede verlo
+    if (vis.soloPropio) {
+      const { data: miembroPropio } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .single()
+      if (!miembroPropio || registro.miembro_id !== miembroPropio.id) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     // Obtener nombre del miembro (perfil con fallback a contacto equipo)
     const { data: miembro } = await admin

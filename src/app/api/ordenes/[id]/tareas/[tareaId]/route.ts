@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-
-// Roles con poder de gestión sobre la OT (edición aunque no sean creador/cabecilla).
-const ROLES_ADMIN_OT = ['propietario', 'administrador', 'gerente']
 
 /**
  * PUT /api/ordenes/[id]/tareas/[tareaId] — Acciones sobre una tarea de OT.
@@ -48,14 +46,14 @@ export async function PUT(
     if (!orden) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
     if (!tareaActual) return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 })
 
-    // ── Permisos según publicación y rol ──
-    const rol = user.app_metadata?.rol
-    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
+    // ── Permisos: puede gestionar si tiene editar del módulo o es creador/cabecilla ──
+    const datosActor = await obtenerDatosMiembro(user.id, empresaId)
+    const puedeEditarTodas = datosActor ? verificarPermiso(datosActor, 'ordenes_trabajo', 'editar') : false
     const esCreador = orden.creado_por === user.id
     const asigs = asignadosOT || []
     const esCabecilla = asigs.some(a => a.usuario_id === user.id && a.es_cabecilla)
     const esAsignadoOT = asigs.some(a => a.usuario_id === user.id)
-    const puedeGestionar = esAdmin || esCreador || esCabecilla
+    const puedeGestionar = puedeEditarTodas || esCreador || esCabecilla
 
     // Borrador: solo gestores
     if (!orden.publicada && !puedeGestionar) {
@@ -230,11 +228,11 @@ export async function DELETE(
     ])
     if (!orden) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
 
-    const rol = user.app_metadata?.rol
-    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
+    const datosActor = await obtenerDatosMiembro(user.id, empresaId)
+    const puedeEliminarTodas = datosActor ? verificarPermiso(datosActor, 'ordenes_trabajo', 'eliminar') : false
     const esCreador = orden.creado_por === user.id
     const esCabecilla = (asignadosOT || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
-    if (!(esAdmin || esCreador || esCabecilla)) {
+    if (!(puedeEliminarTodas || esCreador || esCabecilla)) {
       return NextResponse.json({ error: 'Sin permiso para eliminar tareas' }, { status: 403 })
     }
     if (orden.publicada) {

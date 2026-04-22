@@ -42,7 +42,7 @@ export async function cargarMiembroSalixIA(
 ): Promise<{ miembro: MiembroSalixIA; nombre: string } | null> {
   const { data: miembro } = await admin
     .from('miembros')
-    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, puesto_nombre, sector')
+    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, puesto_nombre, sector')
     .eq('usuario_id', usuario_id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)

@@ -2,9 +2,10 @@
  * Detecta si un número de teléfono pertenece a un empleado activo de la empresa.
  * Se usa en: webhook de WhatsApp para decidir si activar Salix IA (copilot) o el flujo normal de clientes.
  *
- * Prioridad de teléfono:
- * - Si el empleado tiene telefono_empresa → solo matchea con ese
- * - Si NO tiene telefono_empresa → matchea con telefono (personal)
+ * Teléfono usado para matchear:
+ * - Respeta `miembros.canal_notif_telefono` ('empresa' | 'personal'): solo matchea con el teléfono del canal elegido.
+ * - Si el canal elegido está vacío, no hay match (no cae al otro canal).
+ * - Si el miembro no tiene canal configurado (datos viejos), default 'empresa'.
  *
  * Normalización: compara solo dígitos, ignorando +, espacios, guiones.
  * También maneja el caso de teléfonos sin código de país (ej: "1160990312" se intenta matchear
@@ -12,6 +13,7 @@
  */
 
 import type { ResultadoDeteccionEmpleado, SupabaseAdmin } from '@/tipos/salix-ia'
+import { resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
 
 /** Normaliza un teléfono a solo dígitos */
 function normalizarTelefono(tel: string | null | undefined): string {
@@ -95,7 +97,7 @@ export async function detectarEmpleado(
   // Obtener miembros activos (query separada de perfiles porque el join falla en este proyecto)
   const { data: miembros } = await admin
     .from('miembros')
-    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, puesto_nombre, sector')
+    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, canal_notif_telefono, puesto_nombre, sector')
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
 
@@ -151,17 +153,22 @@ export async function detectarEmpleado(
       continue
     }
 
-    const telEmpresa = normalizarTelefono(datos.telefono_empresa)
-    const telPersonal = normalizarTelefono(datos.telefono)
-    console.info(`[DETECTAR] ${datos.nombre}: telEmpresa="${telEmpresa}", telPersonal="${telPersonal}", comparando con "${telefonoNormalizado}"`)
+    // Respetar canal_notif_telefono: solo matchea con el teléfono del canal
+    // elegido. Los contactos "de equipo" (miembros sin cuenta Flux) no tienen
+    // canal, matchean con su teléfono único.
+    const canalTel = (m.canal_notif_telefono as 'empresa' | 'personal' | null) || 'empresa'
+    const telObjetivo = perfil
+      ? resolverTelefonoNotif({
+          telefono: perfil.telefono,
+          telefono_empresa: perfil.telefono_empresa,
+          canal_notif_telefono: canalTel,
+        })
+      : datos.telefono
 
-    let coincide = false
+    const telNorm = normalizarTelefono(telObjetivo)
+    console.info(`[DETECTAR] ${datos.nombre}: canal=${canalTel}, tel="${telNorm}", comparando con "${telefonoNormalizado}"`)
 
-    if (telEmpresa) {
-      coincide = telefonosCoinciden(telEmpresa, telefonoNormalizado)
-    } else if (telPersonal) {
-      coincide = telefonosCoinciden(telPersonal, telefonoNormalizado)
-    }
+    const coincide = telNorm ? telefonosCoinciden(telNorm, telefonoNormalizado) : false
 
     if (coincide) {
       return {
@@ -172,6 +179,8 @@ export async function detectarEmpleado(
           rol: m.rol,
           permisos_custom: m.permisos_custom,
           salix_ia_habilitado: m.salix_ia_habilitado,
+          salix_ia_web: m.salix_ia_web,
+          salix_ia_whatsapp: m.salix_ia_whatsapp,
           puesto_nombre: m.puesto_nombre,
           sector: m.sector,
         },

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
@@ -29,11 +30,9 @@ export async function POST(
   try {
     const { id: presupuestoId } = await params
 
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('presupuestos', 'enviar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
 
@@ -134,13 +133,28 @@ export async function GET(
   try {
     const { id: presupuestoId } = await params
 
+    // Consultar token existente: basta con poder ver presupuestos (ver_propio o ver_todos).
     const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const vis = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const admin = crearClienteAdmin()
+
+    // ver_propio: solo si el presupuesto fue creado por el usuario
+    if (vis.soloPropio) {
+      const { data: presup } = await admin
+        .from('presupuestos')
+        .select('creado_por')
+        .eq('id', presupuestoId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!presup || presup.creado_por !== user.id) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     const { data: token } = await admin
       .from('portal_tokens')

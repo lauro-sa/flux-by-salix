@@ -46,8 +46,8 @@ export async function procesarMensajeCopiloto(
     return false
   }
 
-  // Verificar que el miembro tenga Salix IA habilitado
-  if (!empleado.miembro.salix_ia_habilitado) {
+  // Verificar que el miembro tenga Salix IA habilitado por WhatsApp (flag específico)
+  if (!empleado.miembro.salix_ia_whatsapp) {
     return false
   }
 

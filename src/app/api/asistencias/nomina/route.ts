@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { resolverCorreoNotif, resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
 import Holidays from 'date-holidays'
 
 /**
@@ -13,11 +14,11 @@ import Holidays from 'date-holidays'
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    // Requiere ver_todos de asistencias: la nómina expone sueldos del equipo.
+    // Sin este guard, cualquier empleado autenticado podía ver los montos.
+    const guard = await requerirPermisoAPI('asistencias', 'ver_todos')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const params = request.nextUrl.searchParams
     const desde = params.get('desde')
@@ -58,12 +59,15 @@ export async function GET(request: NextRequest) {
     // ─── Config de asistencias ───
     const { data: configAsist } = await admin
       .from('config_asistencias')
-      .select('descontar_almuerzo, duracion_almuerzo_min')
+      .select('descontar_almuerzo, duracion_almuerzo_min, umbral_jornada_completa_pct, umbral_media_jornada_pct, modo_pago_parcial')
       .eq('empresa_id', empresaId)
       .single()
 
     const descontarAlmuerzo = (configAsist?.descontar_almuerzo as boolean) ?? true
     const duracionAlmuerzoMin = (configAsist?.duracion_almuerzo_min as number) ?? 60
+    const umbralCompletaPct = (configAsist?.umbral_jornada_completa_pct as number) ?? 75
+    const umbralMediaPct = (configAsist?.umbral_media_jornada_pct as number) ?? 25
+    const modoPagoParcial = (configAsist?.modo_pago_parcial as 'no_paga' | 'media_jornada' | 'proporcional') ?? 'no_paga'
 
     // ─── Turnos laborales ───
     const { data: turnosData } = await admin
@@ -85,10 +89,10 @@ export async function GET(request: NextRequest) {
       return [ms.miembro_id, sector?.turno_id || null]
     }))
 
-    // ─── Miembros con datos de compensación ───
+    // ─── Miembros con datos de compensación + canales de notificación ───
     let queryMiembros = admin
       .from('miembros')
-      .select('id, usuario_id, turno_id, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo')
+      .select('id, usuario_id, turno_id, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, canal_notif_correo, canal_notif_telefono, puesto_nombre, unido_en, foto_kiosco_url, numero_empleado')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
 
@@ -98,7 +102,7 @@ export async function GET(request: NextRequest) {
 
     const { data: perfilesData } = await admin
       .from('perfiles')
-      .select('id, nombre, apellido, correo_empresa, correo, telefono')
+      .select('id, nombre, apellido, correo_empresa, correo, telefono, telefono_empresa, documento_tipo, documento_numero')
 
     const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
 
@@ -228,8 +232,21 @@ export async function GET(request: NextRequest) {
         : contactoEquipo && (contactoEquipo.nombre || contactoEquipo.apellido)
           ? `${contactoEquipo.nombre || ''} ${contactoEquipo.apellido || ''}`.trim()
           : 'Sin nombre'
-      const correo = (perfil?.correo_empresa as string) || (perfil?.correo as string) || ''
-      const telefono = (perfil?.telefono as string) || ''
+      // Resolver correo/teléfono según canal elegido del miembro (sin fallback).
+      // Si el canal elegido está vacío, el campo va vacío — la UI avisa y los
+      // endpoints de envío devuelven error explícito al intentar enviar.
+      const correo = resolverCorreoNotif({
+        correo: perfil?.correo as string | null,
+        correo_empresa: perfil?.correo_empresa as string | null,
+        canal_notif_correo: m.canal_notif_correo as 'empresa' | 'personal' | null,
+      }) || ''
+      const telefono = resolverTelefonoNotif({
+        telefono: perfil?.telefono as string | null,
+        telefono_empresa: perfil?.telefono_empresa as string | null,
+        canal_notif_telefono: m.canal_notif_telefono as 'empresa' | 'personal' | null,
+      }) || ''
+      const canalCorreo = (m.canal_notif_correo as string) || 'empresa'
+      const canalTelefono = (m.canal_notif_telefono as string) || 'empresa'
 
       // Resolver turno: miembro → sector → default
       let turnoId = m.turno_id as string | null
@@ -271,34 +288,133 @@ export async function GET(request: NextRequest) {
 
       const diasTardanza = registros.filter(r => r.tipo === 'tardanza').length
 
-      // ─── Calcular horas con desglose detallado ───
+      // ─── Minutos esperados por día del turno (para clasificar jornada) ───
+      // turno.dias: {lunes: {activo, desde: "09:00", hasta: "18:00"}, ...}
+      const turnoObj = turno as Record<string, unknown> | undefined
+      const diasConfigTurno = (turnoObj?.dias || {}) as Record<string, { activo?: boolean; desde?: string; hasta?: string }>
+      const minutosDeHora = (hhmm?: string): number => {
+        if (!hhmm) return 0
+        const [hh, mm] = hhmm.split(':').map(Number)
+        return (hh || 0) * 60 + (mm || 0)
+      }
+      const minutosEsperadosDia = (fechaISO: string): number => {
+        const d = new Date(fechaISO + 'T12:00:00')
+        const cfg = diasConfigTurno[diasSemanaStr[d.getDay()]]
+        if (!cfg || cfg.activo === false || !cfg.desde || !cfg.hasta) return 0
+        const bruto = Math.max(0, minutosDeHora(cfg.hasta) - minutosDeHora(cfg.desde))
+        return Math.max(0, bruto - (descontarAlmuerzo ? duracionAlmuerzoMin : 0))
+      }
+
+      // ─── Calcular horas con desglose detallado + clasificar cada día ───
       let minutosBrutos = 0
       let minutosAlmuerzo = 0
       let minutosParticular = 0
       let diasConAlmuerzo = 0
       let diasConSalidaParticular = 0
 
+      // Clasificación por día para personal jornalero y para mostrar en UI
+      let diasJornadaCompleta = 0
+      let diasMediaJornada = 0
+      let diasPresenteParcial = 0
+      // Factor acumulado de jornadas (para pago por_dia). Suma 1 por completa,
+      // 0.5 por media, y según modo_pago_parcial para parciales.
+      let factorJornadasTotal = 0
+
+      // Clasificación concreta por fecha (para armar dias_detalle al final)
+      const clasificacionPorFecha = new Map<string, 'completa' | 'media' | 'parcial'>()
+
       for (const r of registros) {
         if (!r.hora_entrada || r.estado === 'ausente') continue
         const entrada = new Date(r.hora_entrada as string).getTime()
         const salida = r.hora_salida ? new Date(r.hora_salida as string).getTime() : 0
+
+        // Si no tiene salida todavía, saltamos los cálculos de minutos
+        // pero no clasificamos el día (no sabemos aún cuánto trabajó)
         if (!salida) continue
 
         const minBrutos = Math.round((salida - entrada) / 60000)
         minutosBrutos += Math.max(0, minBrutos)
 
+        let minAlmDia = 0
         if (r.inicio_almuerzo && r.fin_almuerzo) {
-          const minAlm = Math.round((new Date(r.fin_almuerzo as string).getTime() - new Date(r.inicio_almuerzo as string).getTime()) / 60000)
-          minutosAlmuerzo += Math.max(0, minAlm)
+          minAlmDia = Math.round((new Date(r.fin_almuerzo as string).getTime() - new Date(r.inicio_almuerzo as string).getTime()) / 60000)
+          minAlmDia = Math.max(0, minAlmDia)
+          minutosAlmuerzo += minAlmDia
           diasConAlmuerzo++
         }
 
+        let minPartDia = 0
         if (r.salida_particular && r.vuelta_particular) {
-          const minPart = Math.round((new Date(r.vuelta_particular as string).getTime() - new Date(r.salida_particular as string).getTime()) / 60000)
-          minutosParticular += Math.max(0, minPart)
+          minPartDia = Math.round((new Date(r.vuelta_particular as string).getTime() - new Date(r.salida_particular as string).getTime()) / 60000)
+          minPartDia = Math.max(0, minPartDia)
+          minutosParticular += minPartDia
           diasConSalidaParticular++
         }
+
+        // Minutos netos del día (lo mismo que se descuenta en el total)
+        const minNetosDia = Math.max(0, minBrutos - (descontarAlmuerzo ? minAlmDia : 0) - minPartDia)
+
+        // Clasificar según porcentaje respecto a los minutos esperados del turno
+        const esperadosDia = minutosEsperadosDia(r.fecha as string)
+        if (esperadosDia > 0 && minNetosDia > 0) {
+          const pct = (minNetosDia / esperadosDia) * 100
+          if (pct >= umbralCompletaPct) {
+            diasJornadaCompleta++
+            factorJornadasTotal += 1
+            clasificacionPorFecha.set(r.fecha as string, 'completa')
+          } else if (pct >= umbralMediaPct) {
+            diasMediaJornada++
+            factorJornadasTotal += 0.5
+            clasificacionPorFecha.set(r.fecha as string, 'media')
+          } else {
+            diasPresenteParcial++
+            // El factor de pago de un parcial depende de la política elegida
+            if (modoPagoParcial === 'media_jornada') {
+              factorJornadasTotal += 0.5
+            } else if (modoPagoParcial === 'proporcional') {
+              factorJornadasTotal += pct / 100
+            }
+            // 'no_paga' → factor 0 (no suma)
+            clasificacionPorFecha.set(r.fecha as string, 'parcial')
+          }
+        } else if (minNetosDia > 0) {
+          // Sin turno configurado para ese día (o día no laboral como feriado):
+          // contamos como completa para no penalizar (misma lógica previa).
+          diasJornadaCompleta++
+          factorJornadasTotal += 1
+          clasificacionPorFecha.set(r.fecha as string, 'completa')
+        }
       }
+
+      // Detalle día a día del período — para el mini-calendario de la UI.
+      // Incluye TODAS las fechas (laborales, feriados y no laborales).
+      const todasLasFechas: string[] = diasSet
+        ? Array.from(diasSet).sort()
+        : (() => {
+            const arr: string[] = []
+            const d = new Date(desde + 'T12:00:00')
+            const fin = new Date(hasta + 'T12:00:00')
+            while (d <= fin) {
+              arr.push(d.toISOString().split('T')[0])
+              d.setDate(d.getDate() + 1)
+            }
+            return arr
+          })()
+
+      const dias_detalle = todasLasFechas.map((f) => {
+        const cls = clasificacionPorFecha.get(f)
+        const esLaboral = fechasLaboralesSet.has(f)
+        const esFeriado = fechasFeriadoSet.has(f)
+
+        let clasificacion: 'completa' | 'media' | 'parcial' | 'ausente' | 'feriado' | 'feriado_trabajado' | 'no_laboral'
+        if (cls && esFeriado) clasificacion = 'feriado_trabajado'
+        else if (cls) clasificacion = cls
+        else if (esFeriado) clasificacion = 'feriado'
+        else if (esLaboral) clasificacion = 'ausente'
+        else clasificacion = 'no_laboral'
+
+        return { fecha: f, clasificacion }
+      })
 
       const minutosDescontados = (descontarAlmuerzo ? minutosAlmuerzo : 0) + minutosParticular
       const minutosNetos = Math.max(0, minutosBrutos - minutosDescontados)
@@ -334,20 +450,45 @@ export async function GET(request: NextRequest) {
           montoDetalle = `Sueldo fijo semanal`
         }
       } else if (compTipo === 'por_dia') {
-        // Por día: solo se pagan los días efectivamente trabajados (feriados no, a menos que hayan venido)
-        montoPagar = compMonto * diasTrabajados
-        montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${diasTrabajados} días`
+        // Por día: se paga según la clasificación de cada jornada (completa=1, media=0.5,
+        // parcial=según modoPagoParcial). El total se expresa como "jornales equivalentes".
+        const jornalesEquivalentes = Math.round(factorJornadasTotal * 100) / 100
+        montoPagar = compMonto * jornalesEquivalentes
+        const partes: string[] = []
+        if (diasJornadaCompleta > 0) partes.push(`${diasJornadaCompleta} completa${diasJornadaCompleta === 1 ? '' : 's'}`)
+        if (diasMediaJornada > 0) partes.push(`${diasMediaJornada} media${diasMediaJornada === 1 ? '' : 's'}`)
+        if (diasPresenteParcial > 0) partes.push(`${diasPresenteParcial} parcial${diasPresenteParcial === 1 ? '' : 'es'}`)
+        const detalleDias = partes.length > 0 ? partes.join(' + ') : `${diasTrabajados} días`
+        montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${jornalesEquivalentes} (${detalleDias})`
       } else if (compTipo === 'por_hora') {
         // Por hora: solo horas efectivamente trabajadas
         montoPagar = compMonto * horasTotales
         montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${horasTotales}h`
       }
 
+      // Datos de identidad/identificación del empleado (para el cabezal del detalle)
+      const puesto = (m.puesto_nombre as string | null) || null
+      const fechaIngreso = (m.unido_en as string | null) || null
+      // numero_empleado es integer en DB — lo pasamos como string para la UI
+      const numeroEmpleado = m.numero_empleado != null ? String(m.numero_empleado) : null
+      const fotoUrl = (m.foto_kiosco_url as string | null) || null
+      // Documento viene del perfil (si tiene cuenta Flux)
+      const docTipo = perfil?.documento_tipo as string | null | undefined
+      const docNumero = perfil?.documento_numero as string | null | undefined
+      const documento = docNumero ? { tipo: docTipo || 'DOC', numero: docNumero } : null
+
       return {
         miembro_id: m.id,
         nombre,
         correo,
         telefono,
+        canal_notif_correo: canalCorreo,
+        canal_notif_telefono: canalTelefono,
+        puesto,
+        fecha_ingreso: fechaIngreso,
+        numero_empleado: numeroEmpleado,
+        foto_url: fotoUrl,
+        documento,
         compensacion_tipo: compTipo,
         compensacion_monto: compMonto,
         compensacion_frecuencia: compFrecuencia,
@@ -357,6 +498,13 @@ export async function GET(request: NextRequest) {
         dias_tardanza: diasTardanza,
         dias_feriados: diasFeriadoCount,
         dias_trabajados_feriado: diasTrabajadosEnFeriado,
+        // Clasificación por jornada (para jornaleros)
+        dias_jornada_completa: diasJornadaCompleta,
+        dias_media_jornada: diasMediaJornada,
+        dias_presente_parcial: diasPresenteParcial,
+        jornales_equivalentes: Math.round(factorJornadasTotal * 100) / 100,
+        // Detalle día a día para calendarios/vistas UI
+        dias_detalle,
         // Horas detalladas
         horas_brutas: horasBrutas,
         horas_netas: horasNetas,

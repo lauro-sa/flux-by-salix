@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
@@ -24,6 +25,13 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Descontar cuotas afecta sueldos — requiere editar asistencias.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { pago_nomina_id, miembro_id, fecha_fin_periodo } = body as {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /** Datos predefinidos para restablecer */
@@ -40,11 +40,10 @@ const RELACIONES_DEFAULT = [
  */
 export async function POST(request: Request) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    // Restablecer config destruye/migra tags, rubros, puestos, relaciones
+    const guard = await requerirPermisoAPI('config_contactos', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { empresaId } = guard
 
     const body = await request.json()
     const tipo = body.tipo || 'todos'

@@ -1218,6 +1218,7 @@ export const pt: Traducciones = {
     estado_desactivado_desc: 'O acesso foi suspenso por um administrador. Não pode entrar nem registrar ponto.',
 
     reenviar_invitacion: 'Reenviar convite',
+    reenviar_acceso: 'Reenviar acesso',
     copiar_link: 'Copiar link',
     cancelar_invitacion: 'Cancelar convite',
     reactivar_empleado: 'Reativar funcionário',
@@ -1225,6 +1226,15 @@ export const pt: Traducciones = {
     invitacion_expira_hoy: 'O convite expira hoje',
     invitacion_expira_manana: 'O convite expira amanhã',
     invitacion_expira_en_dias: 'O convite expira em {{dias}} dias',
+
+    accion_reset_password_titulo: 'Enviar redefinição de senha',
+    accion_reset_password_desc: 'Enviar um email para {{nombre}} com um link para redefinir sua senha? Poderá continuar usando sua sessão atual até definir uma nova.',
+    accion_forzar_password_titulo: 'Obrigar troca de senha',
+    accion_forzar_password_desc: 'Todas as sessões ativas de {{nombre}} serão encerradas e um email será enviado para definir uma nova senha. Não poderá acessar o Flux até concluir.',
+    accion_forzar_logout_titulo: 'Forçar encerramento de sessão',
+    accion_forzar_logout_desc: 'Encerrar todas as sessões ativas de {{nombre}}? Precisará entrar novamente na próxima vez que abrir o Flux.',
+    accion_correo_enviado: 'Email enviado para {{correo}}',
+    accion_sesion_cerrada: 'Todas as sessões de {{nombre}} foram encerradas',
 
     filtro_todos: 'Todos',
     sin_miembros_estado: 'Sem membros no estado "{{estado}}"',

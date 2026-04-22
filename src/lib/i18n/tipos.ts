@@ -1253,6 +1253,7 @@ export interface Traducciones {
     estado_desactivado: string
     estado_desactivado_desc: string
     reenviar_invitacion: string
+    reenviar_acceso: string
     copiar_link: string
     cancelar_invitacion: string
     reactivar_empleado: string
@@ -1260,6 +1261,14 @@ export interface Traducciones {
     invitacion_expira_hoy: string
     invitacion_expira_manana: string
     invitacion_expira_en_dias: string
+    accion_reset_password_titulo: string
+    accion_reset_password_desc: string
+    accion_forzar_password_titulo: string
+    accion_forzar_password_desc: string
+    accion_forzar_logout_titulo: string
+    accion_forzar_logout_desc: string
+    accion_correo_enviado: string
+    accion_sesion_cerrada: string
     filtro_todos: string
     sin_miembros_estado: string
     sin_miembros_estado_desc: string

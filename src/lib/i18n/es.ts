@@ -1248,6 +1248,7 @@ export const es: Traducciones = {
 
     // Acciones de estado
     reenviar_invitacion: 'Reenviar invitación',
+    reenviar_acceso: 'Reenviar acceso',
     copiar_link: 'Copiar link',
     cancelar_invitacion: 'Cancelar invitación',
     reactivar_empleado: 'Reactivar empleado',
@@ -1255,6 +1256,16 @@ export const es: Traducciones = {
     invitacion_expira_hoy: 'La invitación expira hoy',
     invitacion_expira_manana: 'La invitación expira mañana',
     invitacion_expira_en_dias: 'La invitación expira en {{dias}} días',
+
+    // Acciones administrativas (menú ⋯)
+    accion_reset_password_titulo: 'Enviar reseteo de contraseña',
+    accion_reset_password_desc: '¿Enviar un correo a {{nombre}} con un link para restablecer su contraseña? Podrá seguir usando su sesión actual hasta que defina una nueva.',
+    accion_forzar_password_titulo: 'Obligar a cambiar contraseña',
+    accion_forzar_password_desc: 'Se cerrarán todas las sesiones activas de {{nombre}} y se le enviará un correo para definir una nueva contraseña. No podrá acceder hasta completarlo.',
+    accion_forzar_logout_titulo: 'Forzar cierre de sesión',
+    accion_forzar_logout_desc: '¿Cerrar todas las sesiones activas de {{nombre}}? Tendrá que iniciar sesión de nuevo la próxima vez que abra Flux.',
+    accion_correo_enviado: 'Correo enviado a {{correo}}',
+    accion_sesion_cerrada: 'Se cerraron todas las sesiones de {{nombre}}',
 
     // Filtros por estado
     filtro_todos: 'Todos',

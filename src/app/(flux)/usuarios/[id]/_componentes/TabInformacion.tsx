@@ -15,7 +15,9 @@ import {
   Upload, Eye, EyeOff,
   AlertCircle, Pencil, Camera,
   Heart, X, Nfc, Cake,
+  Bell, AlertTriangle, LogIn,
 } from 'lucide-react'
+import { useToast } from '@/componentes/feedback/Toast'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { SelectCreable } from '@/componentes/ui/SelectCreable'
@@ -80,6 +82,74 @@ interface PropsTabInformacion {
   supabase: ReturnType<typeof import('@/lib/supabase/cliente').crearClienteNavegador>
 }
 
+/**
+ * Selector binario empresa/personal usado tanto para canales de notificación
+ * (correo/teléfono) como para el canal de login. Cada uso define su
+ * etiqueta, ícono y mensaje de campo vacío. No hay fallback automático: si
+ * el canal elegido no tiene valor cargado, se marca con advertencia.
+ */
+function SelectorCanal({
+  icono, etiquetaPrincipal, descripcion, etiquetaSinValor,
+  valor, valorEmpresa, valorPersonal, onChange, deshabilitado,
+}: {
+  icono: React.ReactNode
+  etiquetaPrincipal: string
+  descripcion: string
+  /** Texto que sigue al "No hay ..." cuando falta valor. Ej: "correo", "teléfono". */
+  etiquetaSinValor: string
+  valor: 'empresa' | 'personal'
+  valorEmpresa: string | null | undefined
+  valorPersonal: string | null | undefined
+  onChange: (v: 'empresa' | 'personal') => void
+  deshabilitado?: boolean
+}) {
+  const vacio = valor === 'empresa' ? !valorEmpresa?.trim() : !valorPersonal?.trim()
+
+  const opciones: { v: 'empresa' | 'personal'; etiqueta: string; tieneValor: boolean }[] = [
+    { v: 'empresa', etiqueta: 'Empresa', tieneValor: !!valorEmpresa?.trim() },
+    { v: 'personal', etiqueta: 'Personal', tieneValor: !!valorPersonal?.trim() },
+  ]
+
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-2 min-w-0">
+        <span className="text-texto-terciario mt-0.5 shrink-0">{icono}</span>
+        <div className="min-w-0">
+          <span className="text-sm font-medium text-texto-primario">{etiquetaPrincipal}</span>
+          <p className="text-xs text-texto-terciario">{descripcion}</p>
+          {vacio && (
+            <p className="text-xs text-insignia-advertencia flex items-center gap-1 mt-1">
+              <AlertTriangle size={11} />
+              No hay {etiquetaSinValor} {valor === 'empresa' ? 'de empresa' : 'personal'} cargado — no va a funcionar hasta que lo completes.
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {opciones.map(opt => {
+          const activo = valor === opt.v
+          return (
+            <button
+              key={opt.v}
+              type="button"
+              disabled={deshabilitado}
+              onClick={() => !activo && onChange(opt.v)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                activo
+                  ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                  : 'border-borde-sutil text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte'
+              }`}
+              title={opt.tieneValor ? undefined : `No hay ${etiquetaSinValor} ${opt.v === 'empresa' ? 'de empresa' : 'personal'} cargado`}
+            >
+              {opt.etiqueta}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function TabInformacion({
   perfil, miembro, puedeEditar,
   setPerfil, setMiembro,
@@ -100,6 +170,50 @@ export function TabInformacion({
   const [capturandoRfid, setCapturandoRfid] = useState(false)
   const rfidInputRef = useRef<HTMLInputElement>(null)
   const [recortador, setRecortador] = useState<{ imagen: string; tipo: 'avatar' | 'kiosco' } | null>(null)
+
+  /* ── Canal de login: el cambio actualiza miembros + sincroniza auth.users.email
+        en un solo POST. El endpoint valida permisos y responde 400 si falta el
+        correo del canal elegido. ── */
+  const { mostrar: mostrarToast } = useToast()
+
+  const sincronizarCorreoLoginConServidor = async (payload: { canal_login?: 'empresa' | 'personal' }) => {
+    try {
+      const res = await fetch('/api/miembros/sincronizar-correo-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ miembro_id: miembroId, ...payload }),
+      })
+      const datos = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        mostrarToast('error', datos?.error || 'No se pudo actualizar el correo de login')
+        return false
+      }
+      return true
+    } catch {
+      mostrarToast('error', 'No se pudo actualizar el correo de login')
+      return false
+    }
+  }
+
+  const cambiarCanalLogin = async (nuevo: 'empresa' | 'personal') => {
+    const anterior = (miembro.canal_login || 'empresa') as 'empresa' | 'personal'
+    if (anterior === nuevo) return
+    setMiembro(p => p ? { ...p, canal_login: nuevo } : null)
+    const ok = await sincronizarCorreoLoginConServidor({ canal_login: nuevo })
+    if (!ok) setMiembro(p => p ? { ...p, canal_login: anterior } : null)
+    else mostrarToast('exito', 'Correo de login actualizado')
+  }
+
+  /**
+   * Si el usuario modifica el correo que usa actualmente para login, re-sincroniza
+   * auth.users. Llamado desde onBlur de los inputs de correo en la sección Contacto.
+   */
+  const sincronizarLoginSiCorrespondeAlCanal = (campo: 'correo' | 'correo_empresa') => {
+    const canalActivo = (miembro.canal_login || 'empresa') as 'empresa' | 'personal'
+    const coincide = (canalActivo === 'empresa' && campo === 'correo_empresa')
+      || (canalActivo === 'personal' && campo === 'correo')
+    if (coincide) void sincronizarCorreoLoginConServidor({})
+  }
 
   return (
     <div className="space-y-5 p-4 sm:p-6 [&>section]:bg-superficie-tarjeta/40 [&>section]:rounded-card [&>section]:p-4 [&>section]:sm:p-5 [&>section]:border [&>section]:border-borde-sutil/40">
@@ -163,10 +277,55 @@ export function TabInformacion({
       <section>
         <SeccionEncabezado icono={<Mail size={15} />} titulo="Contacto" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input tipo="email" etiqueta="Correo personal" value={perfil.correo || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ correo: perfil.correo })} icono={<Mail size={15} />} disabled={!puedeEditar} />
-          <Input tipo="email" etiqueta="Correo empresa" value={perfil.correo_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo_empresa: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ correo_empresa: perfil.correo_empresa })} icono={<Mail size={15} />} disabled={!puedeEditar} />
+          <Input tipo="email" etiqueta="Correo personal" value={perfil.correo || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo: e.target.value } : null)} onBlur={() => { autoGuardarPerfil({ correo: perfil.correo }); sincronizarLoginSiCorrespondeAlCanal('correo') }} icono={<Mail size={15} />} disabled={!puedeEditar} />
+          <Input tipo="email" etiqueta="Correo empresa" value={perfil.correo_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo_empresa: e.target.value } : null)} onBlur={() => { autoGuardarPerfil({ correo_empresa: perfil.correo_empresa }); sincronizarLoginSiCorrespondeAlCanal('correo_empresa') }} icono={<Mail size={15} />} disabled={!puedeEditar} />
           <Input tipo="tel" etiqueta="Teléfono personal" value={perfil.telefono || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono: perfil.telefono })} icono={<Phone size={15} />} disabled={!puedeEditar} />
           <Input tipo="tel" etiqueta="Teléfono empresa" value={perfil.telefono_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono_empresa: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono_empresa: perfil.telefono_empresa })} icono={<Phone size={15} />} disabled={!puedeEditar} />
+        </div>
+
+        {/* Canales: dónde llegan notificaciones + con cuál correo inicia sesión.
+            Sin fallback automático — si el canal elegido no tiene valor, el
+            envío / login correspondiente falla hasta que se complete. */}
+        <div className="mt-5 pt-4 border-t border-white/[0.07] space-y-3">
+          <SelectorCanal
+            icono={<Bell size={13} />}
+            etiquetaPrincipal="Notificaciones por correo"
+            descripcion="Nómina, invitaciones y avisos del sistema llegan a este correo."
+            etiquetaSinValor="correo"
+            valor={(miembro.canal_notif_correo || 'empresa') as 'empresa' | 'personal'}
+            valorEmpresa={perfil.correo_empresa}
+            valorPersonal={perfil.correo}
+            onChange={(v) => {
+              setMiembro(p => p ? { ...p, canal_notif_correo: v } : null)
+              guardarMiembroInmediato({ canal_notif_correo: v })
+            }}
+            deshabilitado={!puedeEditar}
+          />
+          <SelectorCanal
+            icono={<Bell size={13} />}
+            etiquetaPrincipal="Notificaciones por teléfono / WhatsApp"
+            descripcion="Nómina, recordatorios y mensajes de Salix IA llegan a este teléfono."
+            etiquetaSinValor="teléfono"
+            valor={(miembro.canal_notif_telefono || 'empresa') as 'empresa' | 'personal'}
+            valorEmpresa={perfil.telefono_empresa}
+            valorPersonal={perfil.telefono}
+            onChange={(v) => {
+              setMiembro(p => p ? { ...p, canal_notif_telefono: v } : null)
+              guardarMiembroInmediato({ canal_notif_telefono: v })
+            }}
+            deshabilitado={!puedeEditar}
+          />
+          <SelectorCanal
+            icono={<LogIn size={13} />}
+            etiquetaPrincipal="Correo de inicio de sesión"
+            descripcion="Con cuál de los dos correos inicia sesión en Flux y recibe recuperación de contraseña."
+            etiquetaSinValor="correo"
+            valor={(miembro.canal_login || 'empresa') as 'empresa' | 'personal'}
+            valorEmpresa={perfil.correo_empresa}
+            valorPersonal={perfil.correo}
+            onChange={(v) => cambiarCanalLogin(v)}
+            deshabilitado={!puedeEditar}
+          />
         </div>
       </section>
 
@@ -201,7 +360,6 @@ export function TabInformacion({
             ...(miembro.metodo_fichaje === 'automatico' ? [
               { campo: 'fichaje_auto_movil', etiqueta: 'Fichaje automático en móvil', desc: 'Permite que el fichaje automático también funcione cuando usa Flux desde el celular o tablet (PWA). Si está apagado, solo ficha auto desde la PC.' },
             ] : []),
-            { campo: 'salix_ia_habilitado', etiqueta: 'Acceso a Salix IA', desc: 'Puede usar el asistente de inteligencia artificial' },
           ].map(toggle => (
             <div key={toggle.campo} className="flex items-center justify-between py-2">
               <div>
@@ -218,6 +376,45 @@ export function TabInformacion({
               />
             </div>
           ))}
+        </div>
+
+        {/* Acceso a Salix IA — separado por canal (app y WhatsApp son permisos distintos) */}
+        <div className="mt-5 pt-4 border-t border-white/[0.07]">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">
+            Acceso a Salix IA
+          </p>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <span className="text-sm font-medium text-texto-primario">En la app (web y móvil)</span>
+                <p className="text-xs text-texto-terciario">Puede abrir el asistente desde el botón flotante de Flux.</p>
+              </div>
+              <Interruptor
+                activo={!!miembro.salix_ia_web}
+                onChange={(v) => {
+                  setMiembro(p => p ? { ...p, salix_ia_web: v, salix_ia_habilitado: v || p.salix_ia_whatsapp } : null)
+                  guardarMiembroInmediato({ salix_ia_web: v, salix_ia_habilitado: v || !!miembro.salix_ia_whatsapp })
+                }}
+                deshabilitado={!puedeEditar}
+              />
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <span className="text-sm font-medium text-texto-primario">Por WhatsApp</span>
+                <p className="text-xs text-texto-terciario">
+                  Puede usar Salix IA como copilot escribiendo al WhatsApp de la empresa. Se identifica por su {miembro.canal_notif_telefono === 'personal' ? 'teléfono personal' : 'teléfono de empresa'}.
+                </p>
+              </div>
+              <Interruptor
+                activo={!!miembro.salix_ia_whatsapp}
+                onChange={(v) => {
+                  setMiembro(p => p ? { ...p, salix_ia_whatsapp: v, salix_ia_habilitado: v || p.salix_ia_web } : null)
+                  guardarMiembroInmediato({ salix_ia_whatsapp: v, salix_ia_habilitado: v || !!miembro.salix_ia_web })
+                }}
+                deshabilitado={!puedeEditar}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Acceso al kiosco */}

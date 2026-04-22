@@ -4,7 +4,7 @@
  * BotonFlotante — Botón flotante de Salix IA.
  * Posición fija bottom-right. Al tocar, abre el PanelChat.
  * Usa el IconoSalix (logo Flux) con hover interactivo que separa las piezas.
- * Solo visible si el usuario tiene salix_ia_habilitado = true.
+ * Solo visible si el usuario tiene salix_ia_web = true.
  *
  * Se usa en: PlantillaApp (se renderiza una vez en el layout principal).
  */

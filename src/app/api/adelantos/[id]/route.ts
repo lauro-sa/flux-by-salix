@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/adelantos/[id] — Detalle de un adelanto con cuotas.
@@ -19,6 +20,10 @@ export async function GET(
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const { id } = await params
+
+    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
     const { data: adelanto, error } = await admin
@@ -29,6 +34,19 @@ export async function GET(
       .single()
 
     if (error || !adelanto) return NextResponse.json({ error: 'Adelanto no encontrado' }, { status: 404 })
+
+    // ver_propio: solo el dueño del adelanto puede verlo
+    if (vis.soloPropio) {
+      const { data: miembroPropio } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .single()
+      if (!miembroPropio || adelanto.miembro_id !== miembroPropio.id) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     const { data: cuotas } = await admin
       .from('adelantos_cuotas')
@@ -54,6 +72,14 @@ export async function PATCH(
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const { id } = await params
+
+    // Modificar adelantos = modifica nómina. Requiere editar asistencias.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+      return NextResponse.json({ error: 'Sin permiso para modificar adelantos' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { estado, monto_total, cuotas_totales, notas } = body as {
       estado?: string

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
 /**
@@ -19,6 +20,16 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Debe poder enviar por WhatsApp Y ver nómina del equipo.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+    if (!verificarPermiso(datosMiembro, 'inbox_whatsapp', 'enviar')) {
+      return NextResponse.json({ error: 'Sin permiso para enviar WhatsApp' }, { status: 403 })
+    }
+    if (!verificarPermiso(datosMiembro, 'asistencias', 'ver_todos')) {
+      return NextResponse.json({ error: 'Sin permiso para ver/enviar nómina del equipo' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { canal_id, plantilla_id, empleados } = body as {
@@ -82,7 +93,9 @@ export async function POST(request: NextRequest) {
 
     for (const emp of empleados) {
       if (!emp.telefono) {
-        resultados.push({ telefono: '', nombre: emp.nombre, ok: false, error: 'Sin teléfono' })
+        // El frontend arma este payload usando el teléfono del canal elegido
+        // del miembro (canal_notif_telefono). Si está vacío, no se envía.
+        resultados.push({ telefono: '', nombre: emp.nombre, ok: false, error: 'Sin teléfono en el canal elegido' })
         continue
       }
 

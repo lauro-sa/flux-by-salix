@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/miembros/[id]/sector — Obtiene el sector primario del miembro
  * PUT /api/miembros/[id]/sector — Asigna sector primario al miembro
+ *
+ * GET: libre para miembros de la empresa (lectura del sector propio o ajeno — dato operativo).
+ * PUT: requiere usuarios:editar (modificar datos de otro empleado).
  */
 
 async function verificarAuth() {
@@ -36,6 +40,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await verificarAuth()
   if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // Cambiar sector de un miembro = datos laborales → requiere usuarios:editar
+  const datos = await obtenerDatosMiembro(auth.user.id, auth.empresaId)
+  if (!datos || !verificarPermiso(datos, 'usuarios', 'editar')) {
+    return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+  }
 
   const { id: miembroId } = await params
   const { sector_id } = await req.json()

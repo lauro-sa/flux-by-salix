@@ -149,7 +149,10 @@ export interface MiembroSalixIA {
   usuario_id: string
   rol: string
   permisos_custom: Record<string, string[]> | null
+  /** @deprecated Usar salix_ia_web / salix_ia_whatsapp según el canal */
   salix_ia_habilitado: boolean
+  salix_ia_web: boolean
+  salix_ia_whatsapp: boolean
   puesto_nombre: string | null
   sector: string | null
 }

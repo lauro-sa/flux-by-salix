@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-
-// Roles con poder de gestión sobre la OT (edición aunque no sean creador/cabecilla).
-const ROLES_ADMIN_OT = ['propietario', 'administrador', 'gerente']
 
 /**
  * GET /api/ordenes/[id]/tareas — Listar tareas de una orden de trabajo.
@@ -20,7 +18,25 @@ export async function GET(
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Tareas se filtran por la visibilidad del módulo "ordenes_trabajo": si no
+    // puede ver la OT, tampoco ve sus tareas.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'ordenes_trabajo')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
     const admin = crearClienteAdmin()
+
+    // ver_propio: validar que la OT pertenezca al usuario (creador o asignado)
+    if (vis.soloPropio) {
+      const [{ data: orden }, { data: asignados }] = await Promise.all([
+        admin.from('ordenes_trabajo').select('creado_por').eq('id', id).eq('empresa_id', empresaId).maybeSingle(),
+        admin.from('asignados_orden_trabajo').select('usuario_id').eq('orden_trabajo_id', id),
+      ])
+      const esCreador = orden?.creado_por === user.id
+      const esAsignado = (asignados || []).some(a => a.usuario_id === user.id)
+      if (!esCreador && !esAsignado) {
+        return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+      }
+    }
 
     const { data, error } = await admin
       .from('tareas_orden')
@@ -79,15 +95,17 @@ export async function POST(
 
     if (!orden) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
 
-    const rol = user.app_metadata?.rol
-    const esAdmin = ROLES_ADMIN_OT.includes(rol) || Boolean(user.app_metadata?.es_superadmin)
+    // Puede crear tareas si: (1) tiene editar de ordenes_trabajo, o (2) es
+    // creador de la OT, o (3) es cabecilla de la OT.
+    const datosActor = await obtenerDatosMiembro(user.id, empresaId)
+    const puedeEditarTodas = datosActor ? verificarPermiso(datosActor, 'ordenes_trabajo', 'editar') : false
     const esCreador = orden.creado_por === user.id
     const esCabecilla = (asignadosOT || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
-    const puedeGestionar = esAdmin || esCreador || esCabecilla
+    const puedeGestionar = puedeEditarTodas || esCreador || esCabecilla
 
     if (!puedeGestionar) {
       return NextResponse.json(
-        { error: 'Solo responsable, creador o administrador pueden crear tareas' },
+        { error: 'Solo responsable, creador o quien tenga permiso de editar órdenes puede crear tareas' },
         { status: 403 }
       )
     }
