@@ -21,6 +21,9 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     asistencias: ['ver_todos', 'marcar', 'editar', 'eliminar'],
     nomina: ['ver_todos', 'editar', 'enviar'],
     productos: ['ver', 'crear', 'editar', 'eliminar'],
+    // Personales — features individuales disponibles para todo miembro.
+    notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+    recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
     // Documentos — acceso total
     presupuestos: ['ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
     facturas: ['ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
@@ -70,6 +73,8 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     // esas quedan reservadas a admins/RRHH salvo que se otorguen custom.
     nomina: ['ver_todos'],
     recorrido: ['ver_todos'],
+    notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+    recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
   },
 
   vendedor: {
@@ -85,6 +90,8 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     asistencias: ['ver_propio', 'marcar'],
     nomina: ['ver_propio'],
     recorrido: ['ver_propio', 'registrar', 'reordenar'],
+    notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+    recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
   },
 
   supervisor: {
@@ -95,6 +102,8 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     asistencias: ['ver_todos'],
     informes: ['ver_todos'],
     recorrido: ['ver_todos'],
+    notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+    recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
   },
 
   colaborador: {
@@ -102,6 +111,8 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     nomina: ['ver_propio'],
     calendario: ['ver_propio'],
     inbox_interno: ['ver_propio', 'enviar'],
+    notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+    recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
   },
 
   invitado: {

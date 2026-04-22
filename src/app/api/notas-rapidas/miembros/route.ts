@@ -12,7 +12,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET() {
   try {
-    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guard = await requerirPermisoAPI('notas', 'ver_propio')
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 

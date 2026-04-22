@@ -15,7 +15,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guard = await requerirPermisoAPI('notas', 'ver_propio')
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 
@@ -146,7 +146,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guard = await requerirPermisoAPI('contactos', 'ver_propio')
+    const guard = await requerirPermisoAPI('notas', 'ver_propio')
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 

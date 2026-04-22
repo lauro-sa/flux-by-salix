@@ -11,7 +11,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 
 async function obtenerUsuario() {
-  const guard = await requerirPermisoAPI('actividades', 'ver_propio')
+  const guard = await requerirPermisoAPI('recordatorios', 'ver_propio')
   if ('respuesta' in guard) return { respuesta: guard.respuesta as NextResponse }
   return { user: guard.user, empresaId: guard.empresaId }
 }

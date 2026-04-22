@@ -14,6 +14,12 @@ export type ModuloOperacional =
   | 'nomina'
   | 'productos'
 
+// Modulos personales — features individuales del miembro (cada uno ve solo lo suyo,
+// no existe ver_todos porque no tiene sentido de negocio).
+export type ModuloPersonal =
+  | 'notas'
+  | 'recordatorios'
+
 // Modulos de documentos
 export type ModuloDocumento =
   | 'presupuestos'
@@ -57,6 +63,7 @@ export type ModuloConfig =
 // Union de todos los modulos
 export type Modulo =
   | ModuloOperacional
+  | ModuloPersonal
   | ModuloDocumento
   | ModuloComunicacion
   | ModuloAdmin
@@ -89,6 +96,10 @@ export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modul
   operacional: {
     nombre: 'Operacional',
     modulos: ['contactos', 'actividades', 'visitas', 'calendario', 'recorrido', 'asistencias', 'nomina', 'productos'],
+  },
+  personal: {
+    nombre: 'Personal',
+    modulos: ['notas', 'recordatorios'],
   },
   documentos: {
     nombre: 'Documentos',
@@ -126,6 +137,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   // sin ver sueldos; un contador puede ver nómina sin tocar fichajes.
   nomina: ['ver_propio', 'ver_todos', 'editar', 'enviar'],
   productos: ['ver', 'crear', 'editar', 'eliminar'],
+  // Personales — cada miembro ve solo lo suyo (sin ver_todos).
+  notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
+  recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
   // Documentos
   presupuestos: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
   facturas: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
@@ -167,6 +181,8 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   asistencias: 'Asistencias',
   nomina: 'Nómina',
   productos: 'Productos',
+  notas: 'Notas rápidas',
+  recordatorios: 'Recordatorios',
   presupuestos: 'Presupuestos',
   facturas: 'Facturas',
   informes: 'Informes',
@@ -204,6 +220,8 @@ export const DESCRIPCIONES_MODULO: Partial<Record<Modulo, string>> = {
   asistencias: 'Control de asistencia y fichaje.',
   nomina: 'Sueldos, adelantos, pagos y recibos. "Ver propio" permite que el empleado vea su propio recibo; "Ver todos" muestra la nómina completa del equipo; "Enviar" manda los recibos por correo/WhatsApp.',
   productos: 'Catálogo de productos y servicios.',
+  notas: 'Notas rápidas personales con opción de compartir con otros miembros.',
+  recordatorios: 'Recordatorios personales con alertas y recurrencia.',
   presupuestos: 'Creación y envío de cotizaciones.',
   facturas: 'Facturación y documentos fiscales.',
   informes: 'Informes técnicos y reportes.',
