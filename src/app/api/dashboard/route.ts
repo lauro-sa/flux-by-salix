@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { formatearFechaISO, obtenerComponentesFecha } from '@/lib/formato-fecha'
+import type { Modulo, Accion } from '@/tipos/permisos'
 
 /**
  * GET /api/dashboard — Estadísticas completas para la página de inicio.
@@ -18,6 +20,29 @@ export async function GET() {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const admin = crearClienteAdmin()
+
+    // Permisos del usuario — cada bloque del dashboard se calcula solo si el
+    // usuario puede ver el módulo correspondiente. Esto evita que un empleado
+    // sin acceso a presupuestos vea montos/pipeline/ingresos en su dashboard.
+    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
+    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+
+    const tieneAlgunVer = (modulo: Modulo): boolean => {
+      const acciones: Accion[] = ['ver_todos', 'ver_propio', 'ver']
+      return acciones.some(a => verificarPermiso(datosMiembro, modulo, a))
+    }
+    const permisos = {
+      contactos: tieneAlgunVer('contactos'),
+      presupuestos: tieneAlgunVer('presupuestos'),
+      actividades: tieneAlgunVer('actividades'),
+      productos: tieneAlgunVer('productos'),
+      asistencias: tieneAlgunVer('asistencias'),
+      // Ingresos y pipeline dependen de ver_todos en presupuestos (son datos
+      // agregados del equipo; ver_propio no da la foto completa).
+      presupuestos_todos: verificarPermiso(datosMiembro, 'presupuestos', 'ver_todos'),
+      asistencias_todos: verificarPermiso(datosMiembro, 'asistencias', 'ver_todos'),
+      inbox: tieneAlgunVer('inbox_whatsapp') || tieneAlgunVer('inbox_correo') || tieneAlgunVer('inbox_interno'),
+    }
 
     // Cargar zona horaria de la empresa para que todos los "hoy/esta semana" del dashboard
     // coincidan con el día local del usuario, no con UTC.
@@ -532,8 +557,14 @@ export async function GET() {
       if (tieneCambios) notasConCambios++
     }
 
+    // Armamos la respuesta condicionada por permisos. Los bloques cuyo módulo
+    // el usuario no puede ver se devuelven como `null` para que el frontend
+    // oculte el widget completo (el valor `null` es explícito y distinto de
+    // "datos vacíos"). El objeto `permisos` al final le dice al cliente qué
+    // widgets puede intentar renderizar.
     return NextResponse.json({
-      contactos: {
+      permisos,
+      contactos: permisos.contactos ? {
         total: resContactos.count || 0,
         recientes: (resContactosRecientes.data || []).map(c => {
           const tipo = Array.isArray(c.tipo_contacto) ? c.tipo_contacto[0] : c.tipo_contacto
@@ -550,57 +581,64 @@ export async function GET() {
           }
         }),
         crecimiento_semanal: contactosPorSemana,
-      },
-      presupuestos: {
+      } : null,
+      presupuestos: permisos.presupuestos ? {
         total: (resPresupuestos.data || []).length,
         por_estado: presupuestosPorEstado,
         recientes: (resPresupuestosRecientes.data || []).map(p => ({
           ...p,
           total: p.total_final,
         })),
-        pipeline_montos: pipelineMontos,
+        // Pipeline (montos agregados del equipo) solo si ve_todos.
+        pipeline_montos: permisos.presupuestos_todos ? pipelineMontos : {},
         por_vencer: resPresupuestosPorVencer.data || [],
-      },
-      conversaciones: {
+      } : null,
+      conversaciones: permisos.inbox ? {
         abiertas: resConversaciones.count || 0,
         por_canal: conversacionesPorCanal,
         sin_leer: resMensajesSinLeer.count || 0,
-      },
-      actividades: {
+      } : null,
+      actividades: permisos.actividades ? {
         pendientes: resActividadesPendientes.data || [],
         total_pendientes: resActividadesTotal.count || 0,
         total_hoy: resActividadesHoy.count || 0,
         completadas_hoy: resActividadesCompletadasHoy.count || 0,
         por_persona: actividadesPorPersona,
-      },
+      } : null,
+      // Alertas personales (recordatorios propios, notas compartidas con el
+      // usuario) siempre van — son del usuario, no del equipo.
       alertas: {
         recordatorios_hoy: resRecordatoriosHoy.count || 0,
         notas_con_cambios: notasConCambios,
       },
-      productos: {
+      productos: permisos.productos ? {
         top: resProductosTop.data || [],
-      },
-      asistencia: {
-        hoy: asistenciaHoy,
-        detalle_hoy: detalleHoy,
-        semana: mapaAsistenciaSemana,
+      } : null,
+      asistencia: permisos.asistencias ? {
+        // Si solo tiene ver_propio, ocultamos los detalles del equipo y
+        // devolvemos solo el usuario_id para que el widget muestre su fila.
+        hoy: permisos.asistencias_todos ? asistenciaHoy : null,
+        detalle_hoy: permisos.asistencias_todos ? detalleHoy : [],
+        semana: permisos.asistencias_todos ? mapaAsistenciaSemana : {},
         usuario_id: user.id,
-      },
-      ingresos: {
+      } : null,
+      // Ingresos, comparativa y clientes exponen montos agregados: requieren
+      // ver_todos de presupuestos.
+      ingresos: permisos.presupuestos_todos ? {
         por_mes: ingresosPorMes,
         por_anio: ingresosPorAnio,
         detalle_mes_actual: detalleMesActual,
-      },
-      comparativa: {
+      } : null,
+      comparativa: permisos.presupuestos_todos ? {
         presupuestos_por_mes: presupuestosPorMesAnio,
         contactos_por_mes: contactosPorMesAnio,
-      },
-      clientes: {
+      } : null,
+      clientes: permisos.presupuestos_todos && permisos.contactos ? {
         activos_por_tipo: clientesActivosPorTipo,
         total_activos: contactosConPresupuesto.size,
         nuevos_por_mes: clientesNuevosPorMes,
-      },
-      mensajes_recientes: (resMensajesRecientes.data || []).map(m => {
+      } : null,
+      mensajes_recientes: permisos.inbox ? (resMensajesRecientes.data || []).map(m => {
         const conv = (Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion) as Record<string, unknown> | null
         const canal = conv?.canal as Record<string, unknown> | Array<Record<string, unknown>> | null
         const canalObj = Array.isArray(canal) ? canal[0] : canal
@@ -619,8 +657,8 @@ export async function GET() {
           contacto_nombre: (conv?.contacto_nombre as string) || null,
           nombre_canal: (canalObj?.nombre as string) || null,
         }
-      }),
-      actividades_proximas: resActividadesProximas.data || [],
+      }) : [],
+      actividades_proximas: permisos.actividades ? (resActividadesProximas.data || []) : [],
     })
   } catch (err) {
     registrarError(err, { ruta: '/api/dashboard', accion: 'obtener' })

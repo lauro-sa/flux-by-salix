@@ -8,6 +8,7 @@ import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { ProveedorCambiosPendientes } from '@/hooks/useCambiosPendientes'
 import { ProveedorQuery } from '@/hooks/useQueryClient'
 import { ProveedorAuth } from '@/hooks/useAuth'
+import { ProveedorPermisos } from '@/hooks/usePermisosActuales'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorModulos } from '@/hooks/useModulos'
@@ -22,6 +23,7 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
     <ProveedorQuery>
     <ProveedorIdioma>
       <ProveedorAuth>
+        <ProveedorPermisos>
         <ProveedorPreferencias>
           <ProveedorTema>
             <ProveedorEmpresa>
@@ -41,6 +43,7 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
             </ProveedorEmpresa>
           </ProveedorTema>
         </ProveedorPreferencias>
+        </ProveedorPermisos>
       </ProveedorAuth>
     </ProveedorIdioma>
     </ProveedorQuery>

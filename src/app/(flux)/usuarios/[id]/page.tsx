@@ -141,7 +141,7 @@ export default function PaginaPerfilUsuario() {
         // todavía no exista en auth.users. Los updates se redirigen al contacto.
         const { data: contacto } = await supabase
           .from('contactos')
-          .select('nombre, apellido, correo, telefono, fecha_nacimiento, documento_numero, domicilio')
+          .select('nombre, apellido, correo, telefono')
           .eq('miembro_id', miembroData.id)
           .eq('en_papelera', false)
           .maybeSingle()
@@ -157,10 +157,10 @@ export default function PaginaPerfilUsuario() {
           correo: contacto?.correo || null,
           correo_empresa: contacto?.correo || null,
           telefono_empresa: null,
-          fecha_nacimiento: contacto?.fecha_nacimiento || null,
+          fecha_nacimiento: null,
           genero: null,
-          documento_numero: contacto?.documento_numero || null,
-          domicilio: contacto?.domicilio || null,
+          documento_numero: null,
+          domicilio: null,
           direccion: null,
         }
       }
@@ -679,6 +679,27 @@ export default function PaginaPerfilUsuario() {
       }
 
       if (accion === 'reactivar') {
+        // Dos casos según el estado actual:
+        //  - "fichaje" con usuario_id_anterior: restaurar el vínculo a la cuenta auth previa.
+        //  - "desactivado": volver a poner activo=true en miembros.
+        if (!miembro?.usuario_id && miembro?.usuario_id_anterior) {
+          const res = await fetch('/api/miembros/reactivar-cuenta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ miembro_id: miembroId }),
+          })
+          const datos = await res.json().catch(() => ({}))
+          if (res.ok) {
+            await cargarDatos()
+          } else if (datos?.requiere_invitacion) {
+            // La cuenta auth ya no existe; obligar a invitación nueva.
+            window.alert(datos.error || 'No hay cuenta previa válida — enviá una invitación nueva.')
+            await cargarDatos()
+          } else {
+            window.alert(datos?.error || 'No se pudo reactivar el acceso')
+          }
+          return
+        }
         const res = await fetch('/api/miembros/activar', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -715,30 +736,23 @@ export default function PaginaPerfilUsuario() {
   /* ── Ejecutar opción del modal de desactivar ── */
   const ejecutarDesactivacion = useCallback(async (
     opcion: 'solo-fichaje' | 'completo',
-    forzar = false,
   ) => {
     setOpcionDesactivarCargando(opcion)
     setErrorDesactivar('')
     try {
       if (opcion === 'solo-fichaje') {
+        // Endpoint no destructivo: guarda usuario_id en usuario_id_anterior,
+        // cierra sesiones y nullea el vínculo. Reactivable después.
         const res = await fetch('/api/miembros/desvincular-cuenta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ miembro_id: miembroId, forzar }),
+          body: JSON.stringify({ miembro_id: miembroId }),
         })
         const datos = await res.json()
         if (!res.ok) {
-          // Si requiere forzar, el admin confirma y reintentamos
-          if (datos?.requiere_forzar && !forzar) {
-            const confirmado = window.confirm(
-              'Este empleado ya inició sesión en Flux. ¿Querés desvincular su cuenta igualmente? La información del empleado se mantiene, solo pierde el acceso a la app.'
-            )
-            if (confirmado) return ejecutarDesactivacion(opcion, true)
-          }
           setErrorDesactivar(datos?.error || 'Error al pasar a solo fichaje')
           return
         }
-        // Recargar datos: el miembro ahora es "solo fichaje"
         await cargarDatos()
         setModalOpcionesDesactivar(false)
       } else {
@@ -772,7 +786,9 @@ export default function PaginaPerfilUsuario() {
   }, [miembro, invitacionVigente])
 
   /* ── Datos derivados ── */
-  const nombreCompleto = perfil ? `${perfil.nombre || 'Sin'} ${perfil.apellido || 'nombre'}` : ''
+  const nombreCompleto = perfil
+    ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre'
+    : ''
 
   useEffect(() => {
     if (nombreCompleto && miembroId) {
@@ -975,6 +991,7 @@ export default function PaginaPerfilUsuario() {
             invitacion={invitacionVigente}
             linkInvitacion={linkInvitacion}
             puedeGestionar={puedeEditar}
+            tieneCuentaPrevia={!!miembro.usuario_id_anterior}
             onAccion={manejarAccionEstado}
             cargando={accionEstadoCargando}
           />

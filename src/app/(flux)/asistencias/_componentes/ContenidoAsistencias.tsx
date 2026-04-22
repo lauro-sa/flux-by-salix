@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useGuardPermiso } from '@/hooks/useGuardPermiso'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -136,6 +137,7 @@ interface Props {
 // ─── Componente ──────────────────────────────────────────────
 
 export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
+  useGuardPermiso('asistencias')
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()

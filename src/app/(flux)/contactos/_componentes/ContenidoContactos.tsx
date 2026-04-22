@@ -8,6 +8,7 @@ import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useListado, useConfig } from '@/hooks/useListado'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useGuardPermiso } from '@/hooks/useGuardPermiso'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -90,6 +91,7 @@ interface Props {
 }
 
 export default function ContenidoContactos({ datosInicialesJson }: Props) {
+  useGuardPermiso('contactos')
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

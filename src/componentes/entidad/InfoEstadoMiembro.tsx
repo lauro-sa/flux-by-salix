@@ -33,6 +33,8 @@ interface PropsInfoEstadoMiembro {
   linkInvitacion?: string | null
   /** Si el usuario actual puede gestionar (invitar/activar) */
   puedeGestionar?: boolean
+  /** Hay una cuenta auth previa que se puede restaurar (estado=fichaje viniendo de activo). */
+  tieneCuentaPrevia?: boolean
   /** Callback de acciones — el contenedor decide qué hacer */
   onAccion?: (accion: 'invitar' | 'reenviar' | 'copiar-link' | 'cancelar-invitacion' | 'reactivar' | 'desactivar' | 'reenviar-acceso') => void
   /** ID de la acción actualmente en curso (muestra spinner) */
@@ -66,6 +68,7 @@ export function InfoEstadoMiembro({
   invitacion,
   linkInvitacion,
   puedeGestionar = false,
+  tieneCuentaPrevia = false,
   onAccion,
   cargando = null,
   compacto = false,
@@ -167,15 +170,28 @@ export function InfoEstadoMiembro({
       {puedeGestionar && onAccion && (
         <div className="px-5 py-3 border-t border-borde-sutil bg-superficie-elevada/30 flex flex-wrap items-center justify-end gap-2">
           {estado === 'fichaje' && (
-            <Boton
-              variante="primario"
-              tamano="sm"
-              icono={<Send size={13} />}
-              cargando={cargando === 'invitar'}
-              onClick={() => onAccion('invitar')}
-            >
-              {t('usuarios.enviar_invitacion_flux')}
-            </Boton>
+            <>
+              {tieneCuentaPrevia && (
+                <Boton
+                  variante="primario"
+                  tamano="sm"
+                  icono={<Power size={13} />}
+                  cargando={cargando === 'reactivar'}
+                  onClick={() => onAccion('reactivar')}
+                >
+                  Reactivar acceso
+                </Boton>
+              )}
+              <Boton
+                variante={tieneCuentaPrevia ? 'secundario' : 'primario'}
+                tamano="sm"
+                icono={<Send size={13} />}
+                cargando={cargando === 'invitar'}
+                onClick={() => onAccion('invitar')}
+              >
+                {t('usuarios.enviar_invitacion_flux')}
+              </Boton>
+            </>
           )}
 
           {estado === 'pendiente' && (

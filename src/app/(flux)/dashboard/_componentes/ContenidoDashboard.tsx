@@ -49,40 +49,55 @@ import { Widget } from '@/componentes/entidad/Widget'
 
 // ─── Tipos ───
 
+/** Permisos efectivos del usuario para renderizar widgets condicionalmente.
+ *  Los bloques `null` en `DatosDashboard` vienen del endpoint cuando el
+ *  usuario no tiene permiso al módulo correspondiente. */
+interface PermisosDashboard {
+  contactos: boolean
+  presupuestos: boolean
+  actividades: boolean
+  productos: boolean
+  asistencias: boolean
+  presupuestos_todos: boolean
+  asistencias_todos: boolean
+  inbox: boolean
+}
+
 interface DatosDashboard {
+  permisos: PermisosDashboard
   contactos: {
     total: number
     recientes: Array<{ id: string; nombre: string; apellido?: string; correo?: string; telefono?: string; creado_en: string; tipo_clave?: string; tipo_etiqueta?: string; tipo_color?: string }>
     crecimiento_semanal: Array<{ semana: string; cantidad: number }>
-  }
+  } | null
   presupuestos: {
     total: number
     por_estado: Record<string, number>
     recientes: Array<{ id: string; numero: string; estado: string; contacto_nombre?: string; contacto_apellido?: string; total?: number; creado_en: string }>
     pipeline_montos: Record<string, number>
     por_vencer: Array<{ id: string; numero: string; estado: string; contacto_nombre?: string; contacto_apellido?: string; total?: number; fecha_vencimiento: string }>
-  }
+  } | null
   conversaciones: {
     abiertas: number
     por_canal: Record<string, number>
     sin_leer: number
-  }
+  } | null
   actividades: {
     pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignados: { id: string; nombre: string }[] }>
     total_pendientes: number
     total_hoy: number
     completadas_hoy: number
     por_persona: Array<{ nombre: string; pendientes: number; completadas: number }>
-  }
+  } | null
   alertas: {
     recordatorios_hoy: number
     notas_con_cambios: number
   }
   productos: {
     top: Array<{ id: string; nombre: string; tipo: string; precio_unitario: number | null; veces_presupuestado: number; veces_vendido: number }>
-  }
+  } | null
   asistencia: {
-    hoy: { presentes: number; ausentes: number; tardanzas: number; total: number }
+    hoy: { presentes: number; ausentes: number; tardanzas: number; total: number } | null
     detalle_hoy: Array<{
       id: string; miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
       hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null
@@ -90,21 +105,21 @@ interface DatosDashboard {
     }>
     semana: Record<string, { presentes: number; ausentes: number; tardanzas: number }>
     usuario_id: string
-  }
+  } | null
   ingresos: {
     por_mes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
     por_anio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
     detalle_mes_actual: Array<{ id: string; numero: string; estado: string; contacto_nombre: string | null; contacto_apellido: string | null; total: number; fecha: string }>
-  }
+  } | null
   comparativa: {
     presupuestos_por_mes: Record<string, { creados: number; monto_total: number }>
     contactos_por_mes: Record<string, number>
-  }
+  } | null
   clientes: {
     activos_por_tipo: Record<string, { etiqueta: string; cantidad: number }>
     total_activos: number
     nuevos_por_mes: Record<string, Record<string, number>>
-  }
+  } | null
   mensajes_recientes: Array<{
     id: string; texto: string | null; remitente_nombre: string | null; remitente_tipo: string
     es_entrante: boolean; tipo_contenido: string; correo_asunto: string | null; correo_de: string | null
@@ -236,7 +251,7 @@ export default function ContenidoDashboard() {
   }
 
   // Fichaje del usuario actual (si existe) para mostrar estado arriba
-  const miFichaje = datos?.asistencia?.detalle_hoy?.find(d => d.usuario_id === datos.asistencia.usuario_id) ?? null
+  const miFichaje = datos?.asistencia?.detalle_hoy?.find(d => d.usuario_id === datos.asistencia?.usuario_id) ?? null
 
   return (
     <div className="px-4 sm:px-6 pt-3 sm:pt-5 pb-12">
@@ -336,9 +351,9 @@ function PestanaGeneral({
   const actividadesHoy = datos?.actividades?.total_hoy ?? 0
   const recordatoriosHoy = datos?.alertas?.recordatorios_hoy ?? 0
   const notasCambios = datos?.alertas?.notas_con_cambios ?? 0
-  const borradores = datos?.presupuestos.por_estado.borrador ?? 0
-  const sinLeer = datos?.conversaciones.sin_leer ?? 0
-  const porVencer = datos?.presupuestos.por_vencer?.length ?? 0
+  const borradores = datos?.presupuestos?.por_estado?.borrador ?? 0
+  const sinLeer = datos?.conversaciones?.sin_leer ?? 0
+  const porVencer = datos?.presupuestos?.por_vencer?.length ?? 0
 
   const chips: Array<{ icono: React.ReactNode; texto: string; color: string; onClick: () => void }> = []
   // Orden: vencidas → hoy → recordatorios → notas cambios → por vencer → sin leer → borradores
@@ -416,8 +431,9 @@ function PestanaGeneral({
         <WidgetRecientes />
       </motion.div>
 
-      {/* Asistencia — ancho completo */}
-      {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
+      {/* Asistencia — ancho completo. Requiere asistencias:ver_todos para los
+          totales del equipo; con solo ver_propio el widget se oculta. */}
+      {datos?.asistencia?.hoy && datos.permisos.asistencias_todos && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
         <motion.div variants={itemVariantes}>
           <WidgetAsistencia
             hoy={datos.asistencia.hoy}
@@ -428,92 +444,102 @@ function PestanaGeneral({
         </motion.div>
       )}
 
-      {/* 4 tarjetas recientes */}
+      {/* 4 tarjetas recientes — cada una se muestra solo si el usuario tiene
+          permiso al módulo correspondiente (el endpoint devuelve null en caso
+          contrario, así que hacemos doble chequeo: permiso + datos). */}
       <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <TarjetaReciente
-          titulo="Últimos presupuestos"
-          icono={<FileText size={14} />}
-          colorFondo="bg-insignia-info-fondo"
-          colorIcono="text-insignia-info-texto"
-          verTodo={() => router.push('/presupuestos')}
-        >
-          {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
-            datos.presupuestos.recientes.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
-                    <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>{ETIQUETA_ESTADO[p.estado] || p.estado}</Insignia>
-                  </div>
-                  <p className="text-xxs text-texto-terciario truncate mt-0.5">{[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}</p>
-                </div>
-                <div className="text-right shrink-0 ml-2">
-                  {p.total != null && <p className="text-sm font-semibold text-texto-primario tabular-nums leading-tight">{moneda(p.total)}</p>}
-                  <p className="text-xxs text-texto-terciario mt-0.5">{fechaRelativa(p.creado_en)}</p>
-                </div>
-              </div>
-            ))
-          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin presupuestos</p>}
-        </TarjetaReciente>
-
-        <TarjetaReciente
-          titulo="Últimos contactos"
-          icono={<Users size={14} />}
-          colorFondo="bg-insignia-primario-fondo"
-          colorIcono="text-insignia-primario-texto"
-          verTodo={() => router.push('/contactos')}
-        >
-          {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
-            datos.contactos.recientes.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="size-7 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
-                    {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
-                  </div>
+        {datos?.permisos?.presupuestos && (
+          <TarjetaReciente
+            titulo="Últimos presupuestos"
+            icono={<FileText size={14} />}
+            colorFondo="bg-insignia-info-fondo"
+            colorIcono="text-insignia-info-texto"
+            verTodo={() => router.push('/presupuestos')}
+          >
+            {datos?.presupuestos?.recientes && datos.presupuestos.recientes.length > 0 ? (
+              datos.presupuestos.recientes.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-medium text-texto-primario truncate">{[c.nombre, c.apellido].filter(Boolean).join(' ')}</p>
-                      {c.tipo_etiqueta && <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>{c.tipo_etiqueta}</Insignia>}
+                      <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
+                      <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>{ETIQUETA_ESTADO[p.estado] || p.estado}</Insignia>
                     </div>
-                    <p className="text-xxs text-texto-terciario truncate mt-0.5">{c.correo || c.telefono || ''}</p>
+                    <p className="text-xxs text-texto-terciario truncate mt-0.5">{[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    {p.total != null && <p className="text-sm font-semibold text-texto-primario tabular-nums leading-tight">{moneda(p.total)}</p>}
+                    <p className="text-xxs text-texto-terciario mt-0.5">{fechaRelativa(p.creado_en)}</p>
                   </div>
                 </div>
-                <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
-              </div>
-            ))
-          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin contactos</p>}
-        </TarjetaReciente>
+              ))
+            ) : <p className="text-xs text-texto-terciario text-center py-4">Sin presupuestos</p>}
+          </TarjetaReciente>
+        )}
 
-        <TarjetaReciente
-          titulo="Próximas actividades"
-          icono={<CheckSquare size={14} />}
-          colorFondo="bg-insignia-exito-fondo"
-          colorIcono="text-insignia-exito-texto"
-          verTodo={() => router.push('/actividades')}
-        >
-          {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
-            datos.actividades_proximas.map(act => (
-              <div key={act.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
-                    {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
+        {datos?.permisos?.contactos && (
+          <TarjetaReciente
+            titulo="Últimos contactos"
+            icono={<Users size={14} />}
+            colorFondo="bg-insignia-primario-fondo"
+            colorIcono="text-insignia-primario-texto"
+            verTodo={() => router.push('/contactos')}
+          >
+            {datos?.contactos?.recientes && datos.contactos.recientes.length > 0 ? (
+              datos.contactos.recientes.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="size-7 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
+                      {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-medium text-texto-primario truncate">{[c.nombre, c.apellido].filter(Boolean).join(' ')}</p>
+                        {c.tipo_etiqueta && <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>{c.tipo_etiqueta}</Insignia>}
+                      </div>
+                      <p className="text-xxs text-texto-terciario truncate mt-0.5">{c.correo || c.telefono || ''}</p>
+                    </div>
                   </div>
-                  {Array.isArray(act.asignados) && act.asignados.length > 0 && (
-                    <p className="text-xxs text-texto-terciario truncate mt-0.5">
-                      {act.asignados.length === 1 ? act.asignados[0].nombre : `${act.asignados.map(a => a.nombre).join(', ')}`}
-                    </p>
-                  )}
+                  <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
                 </div>
-                <span className="text-xxs text-texto-terciario shrink-0 ml-2">
-                  {formatoFecha(act.fecha_vencimiento, { corta: true })}
-                </span>
-              </div>
-            ))
-          ) : <p className="text-xs text-texto-terciario text-center py-4">Sin actividades próximas</p>}
-        </TarjetaReciente>
+              ))
+            ) : <p className="text-xs text-texto-terciario text-center py-4">Sin contactos</p>}
+          </TarjetaReciente>
+        )}
 
-        <TarjetaMensajesRecientes mensajes={datos?.mensajes_recientes || []} />
+        {datos?.permisos?.actividades && (
+          <TarjetaReciente
+            titulo="Próximas actividades"
+            icono={<CheckSquare size={14} />}
+            colorFondo="bg-insignia-exito-fondo"
+            colorIcono="text-insignia-exito-texto"
+            verTodo={() => router.push('/actividades')}
+          >
+            {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
+              datos.actividades_proximas.map(act => (
+                <div key={act.id} className="flex items-center justify-between py-2 px-1.5 rounded-boton hover:bg-superficie-hover/60 cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
+                      {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
+                    </div>
+                    {Array.isArray(act.asignados) && act.asignados.length > 0 && (
+                      <p className="text-xxs text-texto-terciario truncate mt-0.5">
+                        {act.asignados.length === 1 ? act.asignados[0].nombre : `${act.asignados.map(a => a.nombre).join(', ')}`}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xxs text-texto-terciario shrink-0 ml-2">
+                    {formatoFecha(act.fecha_vencimiento, { corta: true })}
+                  </span>
+                </div>
+              ))
+            ) : <p className="text-xs text-texto-terciario text-center py-4">Sin actividades próximas</p>}
+          </TarjetaReciente>
+        )}
+
+        {datos?.permisos?.inbox && (
+          <TarjetaMensajesRecientes mensajes={datos?.mensajes_recientes || []} />
+        )}
       </motion.div>
     </>
   )
@@ -573,7 +599,7 @@ function PestanaMetricas({
             <WidgetPipeline porEstado={datos.presupuestos.por_estado} pipelineMontos={datos.presupuestos.pipeline_montos} formatoMoneda={moneda} />
           </motion.div>
         )}
-        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+        {datos?.presupuestos?.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
           </motion.div>
@@ -623,12 +649,12 @@ function PestanaMetricas({
 
       {/* Crecimiento + Productos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.contactos.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
+        {datos?.contactos?.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
           </motion.div>
         )}
-        {datos?.productos.top && datos.productos.top.length > 0 && (
+        {datos?.productos?.top && datos.productos.top.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
           </motion.div>
@@ -646,7 +672,7 @@ function PestanaMetricas({
  * LineaJornada — Indicador compacto de fichaje del usuario junto al saludo.
  * Muestra estado (En turno / Almorzando / ...) + hora de entrada + duración trabajada.
  */
-function LineaJornada({ fichaje }: { fichaje: DatosDashboard['asistencia']['detalle_hoy'][number] }) {
+function LineaJornada({ fichaje }: { fichaje: NonNullable<DatosDashboard['asistencia']>['detalle_hoy'][number] }) {
   const ahora = Date.now()
   const min = fichaje.hora_entrada
     ? Math.max(0, Math.round(((['activo', 'almuerzo', 'particular'].includes(fichaje.estado) ? ahora : (fichaje.hora_salida ? new Date(fichaje.hora_salida).getTime() : ahora)) - new Date(fichaje.hora_entrada).getTime()) / 60000))

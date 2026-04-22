@@ -74,6 +74,9 @@ export const miembros = pgTable('miembros', {
   canal_notif_telefono: text('canal_notif_telefono').notNull().default('empresa'),
   // Canal de login: cuál de los dos correos del perfil se usa como email de auth.users
   canal_login: text('canal_login').notNull().default('empresa'),
+  // Backup del usuario_id cuando el miembro pasa a "Solo fichaje". Permite
+  // reactivar restaurando el vínculo sin perder perfil/auth/datos.
+  usuario_id_anterior: uuid('usuario_id_anterior'),
   // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp)
   salix_ia_web: boolean('salix_ia_web').notNull().default(false),
   salix_ia_whatsapp: boolean('salix_ia_whatsapp').notNull().default(false),

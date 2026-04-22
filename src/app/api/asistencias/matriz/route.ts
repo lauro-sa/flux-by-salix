@@ -1,19 +1,26 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 /**
  * GET /api/asistencias/matriz — Datos para vista calendario.
  * Query params: desde (YYYY-MM-DD), hasta (YYYY-MM-DD)
- * Devuelve: miembros con sus asistencias en el rango.
+ *
+ * Visibilidad:
+ * - ver_todos: todos los miembros activos con sus asistencias.
+ * - ver_propio: solo la fila del usuario autenticado. No se expone al equipo.
  */
 export async function GET(request: NextRequest) {
   try {
-    // Vista matriz = todos los miembros del equipo → requiere ver_todos
-    const guard = await requerirPermisoAPI('asistencias', 'ver_todos')
-    if ('respuesta' in guard) return guard.respuesta
-    const { empresaId } = guard
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
     const desde = params.get('desde')
@@ -25,13 +32,22 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Miembros activos con nombres (perfil con fallback a contacto equipo)
-    const { data: miembrosData } = await admin
+    // Miembros: si solo tiene ver_propio, devolvemos solo su fila. Si ver_todos,
+    // todos los activos. Así la matriz siempre tiene sentido y nunca expone
+    // datos del equipo a quien no puede verlos.
+    let miembrosQuery = admin
       .from('miembros')
       .select('id, activo')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
 
+    if (vis.soloPropio) {
+      miembrosQuery = miembrosQuery.eq('usuario_id', user.id)
+    }
+
+    const { data: miembrosData } = await miembrosQuery
+
+    const idsPermitidos = (miembrosData || []).map((m: { id: string }) => m.id)
     const nombresMapa = await resolverNombresMiembros(admin, empresaId)
 
     const miembros = (miembrosData || []).map((m: Record<string, unknown>) => ({
@@ -39,11 +55,17 @@ export async function GET(request: NextRequest) {
       nombre: nombresMapa.get(m.id as string) || 'Sin nombre',
     })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-    // Obtener asistencias del rango
+    // Sin miembros permitidos (ver_propio sin fila) → respuesta vacía.
+    if (idsPermitidos.length === 0) {
+      return NextResponse.json({ miembros: [], asistencias: {} })
+    }
+
+    // Obtener asistencias del rango, restringido a los miembros permitidos.
     const { data: asistencias } = await admin
       .from('asistencias')
       .select('id, miembro_id, fecha, estado, tipo, hora_entrada, hora_salida, metodo_registro, puntualidad_min, cierre_automatico, editado_por')
       .eq('empresa_id', empresaId)
+      .in('miembro_id', idsPermitidos)
       .gte('fecha', desde)
       .lte('fecha', hasta)
 

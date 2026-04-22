@@ -24,13 +24,31 @@ export default async function PaginaAsistencias() {
 
   const miembroNombres = await resolverNombresMiembros(admin, empresaId)
 
-  const { data, count } = await admin
+  let query = admin
     .from('asistencias')
     .select('*', { count: 'exact' })
     .eq('empresa_id', empresaId)
     .order('fecha', { ascending: false })
     .order('hora_entrada', { ascending: false })
     .range(0, POR_PAGINA - 1)
+
+  // Si solo tiene ver_propio, restringimos al miembro autenticado. Sin esto,
+  // el SSR carga asistencias de todo el equipo y las envía al cliente, aunque
+  // el filtro del /api/asistencias posterior funcione.
+  if (visibilidad.soloPropio) {
+    const { data: miembroPropio } = await admin
+      .from('miembros')
+      .select('id')
+      .eq('usuario_id', user.id)
+      .eq('empresa_id', empresaId)
+      .single()
+    if (!miembroPropio?.id) {
+      return <ContenidoAsistencias datosInicialesJson={{ registros: [], total: 0 }} />
+    }
+    query = query.eq('miembro_id', miembroPropio.id)
+  }
+
+  const { data, count } = await query
 
   const registros = (data || []).map((r: Record<string, unknown>) => ({
     ...r,

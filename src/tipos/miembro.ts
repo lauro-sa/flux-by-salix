@@ -51,6 +51,11 @@ export interface Miembro {
   // auth.users.email con el campo elegido del perfil. Default 'empresa'.
   canal_login: 'empresa' | 'personal'
 
+  // Backup del usuario_id cuando el miembro pasa a "Solo fichaje". Permite
+  // reactivar restaurando el vínculo. Si la cuenta auth ya no existe, el
+  // endpoint de reactivar pide enviar invitación nueva.
+  usuario_id_anterior: string | null
+
   // Acceso a Salix IA separado por canal
   salix_ia_web: boolean       // asistente dentro de la app
   salix_ia_whatsapp: boolean  // copilot por WhatsApp

@@ -8,6 +8,7 @@ import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useGuardPermiso } from '@/hooks/useGuardPermiso'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -74,6 +75,7 @@ interface Props {
 }
 
 export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
+  useGuardPermiso('presupuestos')
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
   const formato = useFormato()

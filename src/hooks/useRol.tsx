@@ -1,62 +1,44 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useAuth } from './useAuth'
+import { usePermisosActuales } from './usePermisosActuales'
 import { PERMISOS_POR_ROL, RESTRICCIONES_ADMIN } from '@/lib/permisos-constantes'
-import type { Modulo, Accion, Rol, PermisosMapa } from '@/tipos'
+import type { Modulo, Accion } from '@/tipos'
 
 /**
  * Hook para verificar permisos del usuario actual.
- * Lee el rol y permisos_custom del JWT y expone helpers para chequear acceso.
- * Se usa en: guards de paginas, botones condicionales, filtros de datos.
  *
- * Logica de resolucion:
- * 1. Propietario -> acceso total siempre (hardcodeado)
- * 2. Si tiene permisos_custom en el miembro -> usa esos (override completo)
- * 3. Si no -> usa defaults del rol
- * 4. Administrador tiene restricciones especificas en admin/config
+ * Fuente: `usePermisosActuales` → contexto con suscripción realtime a la
+ * fila del miembro en DB. Cualquier cambio que haga un admin en los
+ * `permisos_custom` del miembro se refleja al instante en todos los
+ * consumidores de este hook (sidebar, botones, guards).
+ *
+ * Lógica de resolución:
+ * 1. Propietario → acceso total siempre.
+ * 2. Administrador → PERMISOS_POR_ROL['administrador'] con RESTRICCIONES_ADMIN.
+ * 3. Si tiene permisos_custom → esos son el override completo.
+ * 4. Si no → defaults del rol.
  */
 
-// Permisos importados de lib/permisos-constantes.ts (compartido con servidor)
-
-/** Decodifica el payload de un JWT sin verificar firma */
-function decodificarJwt(token: string): Record<string, unknown> {
-  try {
-    const payload = token.split('.')[1]
-    return JSON.parse(atob(payload))
-  } catch {
-    return {}
-  }
-}
-
-// RESTRICCIONES_ADMIN importado de lib/permisos-constantes.ts
-
 function useRol() {
-  const { sesion } = useAuth()
-
-  // El rol viene de los claims del JWT (inyectado por custom_access_token_hook)
-  const claims = sesion?.access_token ? decodificarJwt(sesion.access_token) : {}
-  const rol = (claims.rol as Rol) || null
-  const esPropietario = rol === 'propietario'
+  const { rol, permisosCustom, esPropietario, esSuperadmin } = usePermisosActuales()
   const esAdmin = rol === 'administrador'
-  // permisos_custom viene como claim del JWT o se carga del miembro
-  const permisosCustom = (claims.permisos_custom as PermisosMapa | undefined) || null
 
   const tienePermiso = useMemo(() => {
     return (modulo: Modulo, accion: Accion): boolean => {
+      // Superadmin interno de Salix: acceso total (solo para soporte).
+      if (esSuperadmin) return true
       // Propietario tiene acceso total siempre
       if (esPropietario) return true
 
       if (!rol) return false
 
-      // Administrador: acceso amplio pero con restricciones especificas
+      // Administrador: acceso amplio pero con restricciones específicas
       if (esAdmin) {
         const restricciones = RESTRICCIONES_ADMIN[modulo]
         if (restricciones?.includes(accion)) return false
-        // Si el modulo tiene permisos definidos para admin, verificar
         const permisosAdmin = PERMISOS_POR_ROL.administrador[modulo]
         if (permisosAdmin) return permisosAdmin.includes(accion)
-        // Modulos no listados en admin = sin acceso
         return false
       }
 
@@ -73,9 +55,9 @@ function useRol() {
       if (!accionesModulo) return false
       return accionesModulo.includes(accion)
     }
-  }, [rol, esPropietario, esAdmin, permisosCustom])
+  }, [rol, esPropietario, esAdmin, esSuperadmin, permisosCustom])
 
-  /** Verificar permiso en modulos de configuracion (config_*) */
+  /** Verificar permiso en módulos de configuración (config_*) */
   const tienePermisoConfig = useMemo(() => {
     return (moduloBase: string, accion: 'ver' | 'editar'): boolean => {
       const moduloConfig = `config_${moduloBase}` as Modulo
