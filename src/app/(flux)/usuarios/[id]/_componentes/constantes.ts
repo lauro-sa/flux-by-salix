@@ -9,7 +9,7 @@ import type { Modulo } from '@/tipos'
    TIPOS
    ═══════════════════════════════════════════════════ */
 
-export type TabPerfil = 'resumen' | 'informacion' | 'pagos' | 'permisos'
+export type TabPerfil = 'resumen' | 'informacion' | 'pagos' | 'correo' | 'permisos'
 
 /** Tipo de período calculado */
 export type Periodo = { inicio: Date; fin: Date; etiqueta: string }

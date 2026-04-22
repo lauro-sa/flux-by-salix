@@ -24,6 +24,9 @@ interface PropiedadesModal {
   onCerrar: () => void
   tipoCanal: TipoCanal
   onCanalCreado: () => void
+  /** Si se pasa, el canal se crea como bandeja personal de ese usuario
+   *  (solo él lo ve en su inbox). Sin este prop → bandeja compartida. */
+  propietarioUsuarioId?: string
   /** Si se pasa, el modal entra en modo edición con datos precargados */
   canalEditar?: {
     id: string
@@ -47,7 +50,7 @@ const PROVEEDORES_CORREO = [
 ]
 
 
-export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
+export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar, propietarioUsuarioId }: PropiedadesModal) {
   const { t } = useTraduccion()
   const modoEdicion = !!canalEditar
   const cfg = canalEditar?.config_conexion || {}
@@ -133,6 +136,8 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
           body: JSON.stringify({
             canal_id: modoEdicion ? canalEditar?.id : null,
             nombre: nombre.trim() || gmailEmail,
+            // Si se pasa propietarioUsuarioId → bandeja personal al completar el OAuth.
+            ...(propietarioUsuarioId ? { propietario_usuario_id: propietarioUsuarioId } : {}),
           }),
         })
         const data = await res.json()
@@ -215,6 +220,8 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
             proveedor,
             config_conexion,
             modulos_disponibles: modulosDisponibles,
+            // Si se pasa propietarioUsuarioId → bandeja personal de ese usuario.
+            ...(propietarioUsuarioId && tipoCanal === 'correo' ? { propietario_usuario_id: propietarioUsuarioId } : {}),
           }),
         })
       }

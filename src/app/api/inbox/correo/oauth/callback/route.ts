@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     let canalId: string | null
     let nombre: string
     let proveedor: 'gmail_oauth' | 'outlook_oauth'
+    let propietarioUsuarioId: string | null
     try {
       const decoded = JSON.parse(Buffer.from(estado, 'base64').toString())
       empresaId = decoded.empresaId
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
       canalId = decoded.canalId || null
       nombre = decoded.nombre || 'Gmail'
       proveedor = decoded.proveedor || 'gmail_oauth'
+      propietarioUsuarioId = decoded.propietarioUsuarioId || null
     } catch {
       return NextResponse.redirect(new URL('/inbox/configuracion?correo=error', request.url))
     }
@@ -112,7 +114,7 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Crear nuevo canal de correo
-      const { error } = await admin
+      const { data: canalCreado, error } = await admin
         .from('canales_correo')
         .insert({
           empresa_id: empresaId,
@@ -123,12 +125,24 @@ export async function GET(request: NextRequest) {
           config_conexion: configConexion,
           estado_conexion: 'conectado',
           sync_cursor: syncCursor,
+          propietario_usuario_id: propietarioUsuarioId,
           creado_por: userId,
         })
+        .select('id')
+        .single()
 
       if (error) {
         console.error('Error creando canal correo:', error)
         return NextResponse.redirect(new URL('/inbox/configuracion?correo=error', request.url))
+      }
+
+      // Bandeja personal: el propietario queda como agente con rol 'propietario'.
+      if (canalCreado && propietarioUsuarioId) {
+        await admin.from('canal_agentes').insert({
+          canal_id: canalCreado.id,
+          usuario_id: propietarioUsuarioId,
+          rol_canal: 'propietario',
+        })
       }
     }
 
@@ -207,6 +221,18 @@ export async function GET(request: NextRequest) {
       // Silenciar
     }
 
+    // Redirect al lugar apropiado: si es bandeja personal, al perfil del dueño;
+    // si es compartida, a la configuración del inbox.
+    if (propietarioUsuarioId) {
+      const { data: miembro } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', propietarioUsuarioId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      const destino = miembro ? `/usuarios/${miembro.id}?tab=correo&correo=conectado` : '/usuarios'
+      return NextResponse.redirect(new URL(destino, request.url))
+    }
     return NextResponse.redirect(new URL('/inbox/configuracion?correo=conectado', request.url))
   } catch (err) {
     console.error('Error callback Gmail:', err)

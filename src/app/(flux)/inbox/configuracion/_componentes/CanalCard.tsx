@@ -145,13 +145,16 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                   {calidad.rating}
                 </Insignia>
               )}
-              {!esWhatsApp && (
+              {!esWhatsApp && !canal.propietario_usuario_id && (
                 <Insignia color={agentesActuales.length > 0 ? 'info' : 'neutro'} tamano="sm">
                   <span className="flex items-center gap-1">
                     <Users size={10} />
                     {agentesActuales.length === 0 ? 'Sin agentes' : `${agentesActuales.length} agente${agentesActuales.length === 1 ? '' : 's'}`}
                   </span>
                 </Insignia>
+              )}
+              {!esWhatsApp && canal.propietario_usuario_id && (
+                <Insignia color="primario" tamano="sm">Personal</Insignia>
               )}
             </span>
             <span className="flex items-center gap-3 mt-0.5">
@@ -316,8 +319,9 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                 </div>
               )}
 
-              {/* Agentes asignados (solo correo, para controlar quién ve la bandeja en su inbox) */}
-              {!esWhatsApp && (
+              {/* Agentes asignados: solo para bandejas compartidas de correo.
+                  Las bandejas personales tienen un único dueño (propietario_usuario_id), no se asignan agentes. */}
+              {!esWhatsApp && !canal.propietario_usuario_id && (
                 <div className="pt-2" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
                   <SelectorAgentesCanal
                     canalId={canal.id}

@@ -49,6 +49,8 @@ export interface CanalMensajeria {
   ultima_sincronizacion: string | null
   modulos_disponibles: string[]
   es_principal: boolean
+  /** Si está seteado → bandeja personal de ese usuario. Si es null → compartida de equipo. */
+  propietario_usuario_id?: string | null
   creado_por: string
   creado_en: string
   actualizado_en: string

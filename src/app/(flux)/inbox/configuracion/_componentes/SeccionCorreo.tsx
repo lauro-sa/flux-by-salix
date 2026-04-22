@@ -235,14 +235,15 @@ export function SeccionCorreo({
         )}
 
         <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
-          Conectá bandejas de correo compartidas o personales. Expandí cada tarjeta para ver los datos de conexión, editar la firma y configurar como principal.
+          Bandejas compartidas del equipo (ventas@, soporte@, info@…). Expandí cada tarjeta para ver datos de conexión, asignar agentes, editar la firma o marcar como principal.
+          Las bandejas personales de cada usuario se conectan desde su perfil en Usuarios → Correo.
         </p>
 
         {canalesCorreo.length === 0 ? (
           <EstadoVacio
             icono={<Mail />}
-            titulo="Sin bandejas de correo"
-            descripcion="Conectá una bandeja de correo compartida (ventas@, info@) o personal."
+            titulo="Sin bandejas compartidas"
+            descripcion="Conectá una bandeja del equipo (ventas@, soporte@, info@). Para correos personales de un usuario, hacelo desde su perfil."
           />
         ) : (
           <div className="space-y-3">

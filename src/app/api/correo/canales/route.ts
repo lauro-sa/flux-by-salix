@@ -5,9 +5,15 @@ import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { cifrar } from '@/lib/cifrado'
 
 // GET /api/correo/canales — listar canales de correo visibles al usuario.
-// Admin / config_correo:ver → todos los canales de la empresa.
-// Cualquier otro miembro autenticado → solo canales donde figura como agente.
-// Esto alimenta tanto la pantalla de configuración como el inbox de cada usuario.
+//
+// Tipos de bandeja:
+//   - compartida: propietario_usuario_id IS NULL, varios agentes via canal_agentes
+//   - personal: propietario_usuario_id = un usuario, solo ese usuario la ve
+//
+// Filtros por query param:
+//   ?solo_compartidas=1   → solo bandejas de equipo (uso en /inbox/configuracion)
+//   ?propietario=USER_ID  → solo personales de ese usuario (uso en /usuarios/[id]/correo)
+//   (sin filtro)          → admin ve todo; otro user ve solo lo que le corresponde
 export async function GET(request: NextRequest) {
   try {
     const { user } = await obtenerUsuarioRuta()
@@ -20,6 +26,8 @@ export async function GET(request: NextRequest) {
 
     const modulo = request.nextUrl.searchParams.get('modulo')
     const tipoContactoId = request.nextUrl.searchParams.get('tipo_contacto_id')
+    const soloCompartidas = request.nextUrl.searchParams.get('solo_compartidas') === '1'
+    const propietarioFiltro = request.nextUrl.searchParams.get('propietario')
     const admin = crearClienteAdmin()
 
     let query = admin
@@ -28,15 +36,27 @@ export async function GET(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .order('creado_en', { ascending: true })
 
-    // Miembro sin permiso de config solo ve sus canales asignados.
+    // Filtros explícitos de la UI
+    if (soloCompartidas) {
+      query = query.is('propietario_usuario_id', null)
+    }
+    if (propietarioFiltro) {
+      query = query.eq('propietario_usuario_id', propietarioFiltro)
+    }
+
+    // Visibilidad: admin ve todo; otros solo propias (propietario) + compartidas donde son agentes.
     if (!puedeVerConfig) {
-      const { data: misCanales } = await admin
+      const { data: misAsignaciones } = await admin
         .from('canal_agentes')
         .select('canal_id')
         .eq('usuario_id', user.id)
-      const ids = (misCanales || []).map(c => c.canal_id)
-      if (ids.length === 0) return NextResponse.json({ canales: [] })
-      query = query.in('id', ids)
+      const idsAgente = (misAsignaciones || []).map(c => c.canal_id)
+      // Cláusula OR: soy propietario OR soy agente de algún canal asignado
+      if (idsAgente.length > 0) {
+        query = query.or(`propietario_usuario_id.eq.${user.id},id.in.(${idsAgente.join(',')})`)
+      } else {
+        query = query.eq('propietario_usuario_id', user.id)
+      }
     }
 
     const { data, error } = await query
@@ -108,7 +128,7 @@ export async function POST(request: NextRequest) {
     if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const body = await request.json()
-    const { nombre, proveedor, config_conexion, agentes, modulos_disponibles } = body
+    const { nombre, proveedor, config_conexion, agentes, modulos_disponibles, propietario_usuario_id } = body
 
     if (config_conexion?.password_cifrada && typeof config_conexion.password_cifrada === 'string') {
       config_conexion.password_cifrada = cifrar(config_conexion.password_cifrada)
@@ -132,6 +152,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El módulo de correo no está activo' }, { status: 403 })
     }
 
+    // Si viene propietario_usuario_id, validar que pertenece a la misma empresa
+    if (propietario_usuario_id) {
+      const { data: miembroObjetivo } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', propietario_usuario_id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!miembroObjetivo) {
+        return NextResponse.json({ error: 'El usuario propietario no es miembro de esta empresa' }, { status: 400 })
+      }
+    }
+
     const { data: canal, error } = await admin
       .from('canales_correo')
       .insert({
@@ -140,6 +173,7 @@ export async function POST(request: NextRequest) {
         proveedor: proveedor || null,
         config_conexion: config_conexion || {},
         modulos_disponibles: Array.isArray(modulos_disponibles) ? modulos_disponibles : [],
+        propietario_usuario_id: propietario_usuario_id || null,
         creado_por: user.id,
       })
       .select()
@@ -147,7 +181,16 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    if (agentes && agentes.length > 0) {
+    // Bandeja personal: el propietario queda registrado como agente automáticamente
+    // para que cualquier filtro por canal_agentes lo encuentre.
+    if (propietario_usuario_id) {
+      await admin.from('canal_agentes').insert({
+        canal_id: canal.id,
+        usuario_id: propietario_usuario_id,
+        rol_canal: 'propietario',
+      })
+    } else if (agentes && agentes.length > 0) {
+      // Bandeja compartida con agentes iniciales
       const agentesData = agentes.map((a: { usuario_id: string; rol_canal?: string }) => ({
         canal_id: canal.id,
         usuario_id: a.usuario_id,

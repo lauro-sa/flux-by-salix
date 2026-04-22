@@ -61,7 +61,9 @@ export default function PaginaConfiguracionInbox() {
     try {
       const [resConfig, resCanales] = await Promise.all([
         fetch('/api/correo/config'),
-        fetch('/api/correo/canales'),
+        // La página de configuración muestra solo bandejas compartidas de equipo.
+        // Las bandejas personales viven en el perfil de cada usuario (/usuarios/[id]).
+        fetch('/api/correo/canales?solo_compartidas=1'),
       ])
       const [dataConfig, dataCanales] = await Promise.all([
         resConfig.json(),

@@ -7,9 +7,9 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight } from 'lucide-react'
+import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -34,6 +34,7 @@ import { CabeceraUsuario } from './_componentes/CabeceraUsuario'
 import { TabResumen } from './_componentes/TabResumen'
 import { TabInformacion } from './_componentes/TabInformacion'
 import { TabPagos } from './_componentes/TabPagos'
+import { TabCorreo } from './_componentes/TabCorreo'
 import { InfoEstadoMiembro } from '@/componentes/entidad/InfoEstadoMiembro'
 import { calcularEstadoMiembro } from '@/lib/miembros/estado'
 
@@ -44,6 +45,7 @@ import { calcularEstadoMiembro } from '@/lib/miembros/estado'
 export default function PaginaPerfilUsuario() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const miembroId = params.id as string
   const { usuario: usuarioActual } = useAuth()
   const { empresa } = useEmpresa()
@@ -53,7 +55,9 @@ export default function PaginaPerfilUsuario() {
   const fmt = useFormato()
   const [supabase] = useState(() => crearClienteNavegador())
 
-  const [tab, setTab] = useState<TabPerfil>('resumen')
+  // Tab inicial: si viene ?tab=X en la URL (ej: después del OAuth callback), arranca ahí.
+  const tabInicial = (searchParams.get('tab') as TabPerfil) || 'resumen'
+  const [tab, setTab] = useState<TabPerfil>(tabInicial)
   const [cargando, setCargando] = useState(true)
   const [miembro, setMiembro] = useState<Miembro | null>(null)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
@@ -920,11 +924,12 @@ export default function PaginaPerfilUsuario() {
 
   const estadoIndicador = estadoPerfil !== 'idle' ? estadoPerfil : estadoMiembro
 
-  /* ── Tabs config — "Permisos" solo aplica a empleados con cuenta Flux ── */
+  /* ── Tabs config — "Correo" y "Permisos" solo para miembros con cuenta Flux ── */
   const tabsConfig = [
     { clave: 'resumen', etiqueta: 'Resumen', icono: <User size={15} /> },
     { clave: 'informacion', etiqueta: 'Información', icono: <FileText size={15} /> },
     { clave: 'pagos', etiqueta: 'Pagos', icono: <Wallet size={15} /> },
+    ...(miembro?.usuario_id ? [{ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={15} /> }] : []),
     ...(miembro?.usuario_id ? [{ clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> }] : []),
   ]
 
@@ -1124,6 +1129,14 @@ export default function PaginaPerfilUsuario() {
               cancelarAdelanto={cancelarAdelanto}
               fmt={fmt}
               t={t}
+            />
+          )}
+
+          {tab === 'correo' && miembro?.usuario_id && (
+            <TabCorreo
+              usuarioId={miembro.usuario_id as string}
+              nombreUsuario={nombreCompleto}
+              puedeEditar={puedeEditar}
             />
           )}
 

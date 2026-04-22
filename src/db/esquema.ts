@@ -1362,6 +1362,8 @@ export const canales_correo = pgTable('canales_correo', {
   sync_cursor: jsonb('sync_cursor').default(sql`'{}'`),
   modulos_disponibles: text('modulos_disponibles').array().notNull().default(sql`'{}'`),
   es_principal: boolean('es_principal').notNull().default(false),
+  // null → bandeja compartida del equipo; usuario_id → bandeja personal de ese usuario
+  propietario_usuario_id: uuid('propietario_usuario_id'),
   creado_por: uuid('creado_por').notNull(),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
