@@ -50,20 +50,26 @@ export async function GET(request: NextRequest) {
       }
       query = query.eq('propietario_usuario_id', propietarioFiltro)
     } else {
-      // Inbox operacional (sin params): TODOS — incluidos admin y propietario — solo
-      // ven lo que les corresponde operar (personales propias + compartidas donde son
-      // agentes). Las personales ajenas NO se muestran acá, aunque el admin pueda
-      // verlas desde el perfil del usuario como gestión. Esto separa "lo que opero"
-      // de "lo que administro".
-      const { data: misAsignaciones } = await admin
-        .from('canal_agentes')
-        .select('canal_id')
-        .eq('usuario_id', user.id)
-      const idsAgente = (misAsignaciones || []).map(c => c.canal_id)
-      if (idsAgente.length > 0) {
-        query = query.or(`propietario_usuario_id.eq.${user.id},id.in.(${idsAgente.join(',')})`)
+      // Inbox operacional (sin params).
+      //
+      // Admin / config_correo:ver → ve todas las compartidas del equipo +
+      //   sus personales propias. NO ve personales ajenas (esas son privadas
+      //   aunque él las haya conectado desde el perfil del usuario).
+      //
+      // Resto → ve sus personales propias + compartidas donde es agente.
+      if (puedeVerConfig) {
+        query = query.or(`propietario_usuario_id.is.null,propietario_usuario_id.eq.${user.id}`)
       } else {
-        query = query.eq('propietario_usuario_id', user.id)
+        const { data: misAsignaciones } = await admin
+          .from('canal_agentes')
+          .select('canal_id')
+          .eq('usuario_id', user.id)
+        const idsAgente = (misAsignaciones || []).map(c => c.canal_id)
+        if (idsAgente.length > 0) {
+          query = query.or(`propietario_usuario_id.eq.${user.id},id.in.(${idsAgente.join(',')})`)
+        } else {
+          query = query.eq('propietario_usuario_id', user.id)
+        }
       }
     }
 
