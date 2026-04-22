@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarCambioEstado } from '@/lib/chatter'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 
 /**
@@ -21,6 +21,9 @@ export async function GET(
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
     // Obtener presupuesto con relaciones
@@ -32,6 +35,12 @@ export async function GET(
       .single()
 
     if (error || !presupuesto) {
+      return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
+    }
+
+    // Si solo ve los propios, validar que sea creador. Devolvemos 404 para no
+    // filtrar la existencia del recurso.
+    if (visibilidad.soloPropio && presupuesto.creado_por !== user.id) {
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
@@ -312,11 +321,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('presupuestos', 'eliminar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
 

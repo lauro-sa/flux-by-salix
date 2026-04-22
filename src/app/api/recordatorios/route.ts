@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     if ('respuesta' in auth) return auth.respuesta
 
     const body = await request.json()
-    const { titulo, descripcion, fecha, hora, repetir, recurrencia, alerta_modal, notificar_whatsapp, asignado_a } = body
+    const { titulo, descripcion, fecha, hora, repetir, recurrencia, alerta_modal, notificar_whatsapp } = body
 
     if (!titulo || !fecha) {
       return NextResponse.json({ error: 'Título y fecha son requeridos' }, { status: 400 })
@@ -67,12 +67,15 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
+    // Recordatorios son personales por diseño: `asignado_a` se fuerza al creador
+    // y se ignora cualquier `asignado_a` del body. Cuando se habilite que un admin
+    // pueda asignar a otro miembro se agregará el permiso y la validación.
     const { data, error } = await admin
       .from('recordatorios')
       .insert({
         empresa_id: auth.empresaId,
         creado_por: auth.user.id,
-        asignado_a: asignado_a || auth.user.id,
+        asignado_a: auth.user.id,
         titulo,
         descripcion: descripcion || null,
         fecha,

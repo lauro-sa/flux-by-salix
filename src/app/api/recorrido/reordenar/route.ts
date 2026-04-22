@@ -42,8 +42,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Recorrido no encontrado' }, { status: 404 })
     }
 
-    // Si no es el dueño del recorrido, verificar permiso de coordinador
-    if (recorrido.asignado_a !== user.id) {
+    // Autorización:
+    //  - Si es el dueño del recorrido → necesita `recorrido:reordenar` (rol visitador).
+    //  - Si no es el dueño → puede reordenar solo con `visitas:asignar` (rol coordinador).
+    // Así se evita que un colaborador sin el permiso `reordenar` (p.ej. rol básico
+    // sin custom) toque el orden de su propio recorrido.
+    if (recorrido.asignado_a === user.id) {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'recorrido', 'reordenar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    } else {
       const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'asignar')
       if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }

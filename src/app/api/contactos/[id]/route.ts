@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { normalizarTelefono } from '@/lib/validaciones'
 
@@ -20,6 +20,11 @@ export async function GET(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Visibilidad: si solo ve los propios, hay que validar que sea creador o
+    // responsable del contacto (tabla contacto_responsables). Sino → 404.
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'contactos')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 
@@ -48,6 +53,16 @@ export async function GET(
 
     contacto.direcciones = dirsRes.data || []
     contacto.responsables = respRes.data || []
+
+    // Si solo puede ver propios, confirmar ownership: creador o responsable.
+    // Devolvemos 404 para no filtrar la existencia del recurso.
+    if (visibilidad.soloPropio) {
+      const esCreador = contacto.creado_por === user.id
+      const esResponsable = (respRes.data || []).some((r: { usuario_id: string }) => r.usuario_id === user.id)
+      if (!esCreador && !esResponsable) {
+        return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+      }
+    }
     contacto.seguidores = segRes.data || []
 
     // Vinculaciones directas e inversas en paralelo

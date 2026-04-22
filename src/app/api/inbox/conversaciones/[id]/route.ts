@@ -1,12 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 import { resolverCanales } from '@/lib/canales'
+import type { Modulo } from '@/tipos/permisos'
 
 const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
+
+/**
+ * Mapea el tipo de canal de la conversación al módulo de permisos.
+ * Cada canal (whatsapp/correo/interno) tiene su propio módulo con acciones
+ * `ver_propio`, `ver_todos`, `enviar`, `eliminar`.
+ */
+function moduloPorTipoCanal(tipo: string | null | undefined): Modulo {
+  if (tipo === 'whatsapp') return 'inbox_whatsapp'
+  if (tipo === 'interno') return 'inbox_interno'
+  return 'inbox_correo'
+}
 
 /**
  * GET /api/inbox/conversaciones/[id] — Detalle de una conversación.
@@ -34,6 +46,21 @@ export async function GET(
 
     if (error || !data) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+
+    // Verificar permiso según el tipo de canal de la conversación.
+    // Si solo ve los propios, validar que sea el asignado o el creador.
+    const moduloCanal = moduloPorTipoCanal(data.tipo_canal as string | null)
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, moduloCanal)
+    if (!visibilidad) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+    if (visibilidad.soloPropio) {
+      const esAsignado = data.asignado_a === user.id
+      const esCreador = data.creado_por === user.id
+      if (!esAsignado && !esCreador) {
+        return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+      }
     }
 
     // Resolver canal desde la tabla correspondiente según tipo_canal
@@ -74,6 +101,32 @@ export async function PATCH(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Identificar módulo según tipo_canal y verificar permiso `enviar`
+    // (un agente que puede enviar también puede cambiar estado/asignar/etiquetar).
+    const adminAcceso = crearClienteAdmin()
+    const { data: convAcceso } = await adminAcceso
+      .from('conversaciones')
+      .select('tipo_canal, asignado_a, creado_por')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+    if (!convAcceso) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+    const moduloCanal = moduloPorTipoCanal(convAcceso.tipo_canal as string | null)
+    const { permitido: puedeEnviar } = await obtenerYVerificarPermiso(user.id, empresaId, moduloCanal, 'enviar')
+    if (!puedeEnviar) {
+      return NextResponse.json({ error: 'Sin permiso para modificar conversaciones de este canal' }, { status: 403 })
+    }
+    const visibilidadMod = await verificarVisibilidad(user.id, empresaId, moduloCanal)
+    if (visibilidadMod?.soloPropio) {
+      const esAsignado = convAcceso.asignado_a === user.id
+      const esCreador = convAcceso.creado_por === user.id
+      if (!esAsignado && !esCreador) {
+        return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+      }
+    }
 
     const body = await request.json()
 
@@ -299,24 +352,26 @@ export async function DELETE(
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permiso de eliminar
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_correo', 'eliminar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para eliminar conversaciones' }, { status: 403 })
-    }
-
     const admin = crearClienteAdmin()
 
-    // Verificar que la conversación pertenece a la empresa y su estado de papelera
+    // Verificar que la conversación pertenece a la empresa + estado de papelera + tipo_canal
+    // (el tipo determina el módulo de permisos a validar).
     const { data: conv } = await admin
       .from('conversaciones')
-      .select('id, en_papelera')
+      .select('id, en_papelera, tipo_canal')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
 
     if (!conv) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+
+    // Verificar permiso de eliminar del módulo correspondiente al canal.
+    const moduloCanal = moduloPorTipoCanal(conv.tipo_canal as string | null)
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, moduloCanal, 'eliminar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para eliminar conversaciones' }, { status: 403 })
     }
 
     if (conv.en_papelera) {

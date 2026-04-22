@@ -2,23 +2,21 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/productos/[id] — Obtener detalle de un producto/servicio.
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    const guard = await requerirPermisoAPI('productos', 'ver')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const admin = crearClienteAdmin()
     const { data, error } = await admin

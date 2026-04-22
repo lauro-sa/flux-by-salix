@@ -30,12 +30,15 @@ export async function GET(request: NextRequest) {
       ? moduloPorCanal[tipo_canal as keyof typeof moduloPorCanal]
       : null
 
-    // Si hay tipo_canal específico, verificar permiso de ese módulo (1 sola query)
+    // Si hay tipo_canal específico, verificar permiso de ese módulo (1 sola query).
+    // Guardamos `soloPropio` para aplicar el filtro de visibilidad abajo.
+    let soloPropio = false
     if (moduloPermiso) {
       const visibilidad = await verificarVisibilidad(user.id, empresaId, moduloPermiso)
       if (!visibilidad) {
         return NextResponse.json({ error: 'Sin permiso para ver conversaciones de este canal' }, { status: 403 })
       }
+      soloPropio = visibilidad.soloPropio
     }
     const estado = params.get('estado') // 'abierta', 'en_espera', 'resuelta', 'spam'
     const asignado_a = params.get('asignado_a') // usuario_id o 'sin_asignar'
@@ -63,6 +66,12 @@ export async function GET(request: NextRequest) {
     const mostrarBloqueadas = params.get('bloqueadas') === 'true'
     if (!mostrarPapelera) query = query.eq('en_papelera', false)
     if (!mostrarBloqueadas) query = query.eq('bloqueada', false)
+
+    // Visibilidad "ver_propio": solo conversaciones asignadas al usuario o
+    // creadas por él. Se aplica cuando el rol no tiene `ver_todos` del canal.
+    if (soloPropio) {
+      query = query.or(`asignado_a.eq.${user.id},creado_por.eq.${user.id}`)
+    }
 
     // Filtros
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
