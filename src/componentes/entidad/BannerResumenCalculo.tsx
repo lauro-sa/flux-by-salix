@@ -87,7 +87,9 @@ const toneStyles: Record<TonoBanner, {
   neutro: {
     border: 'border-borde-sutil',
     bg: 'bg-superficie-tarjeta',
-    glowVar: 'transparent',
+    // Glow con un gris azulado del theme para mantener consistencia visual con
+    // los tonos de color (naranja/verde/rojo) sin verse pesado.
+    glowVar: 'var(--texto-terciario)',
     badgeBg: 'bg-superficie-elevada border-borde-sutil',
     badgeText: 'text-texto-secundario',
     iconDefault: <Info size={14} />,
