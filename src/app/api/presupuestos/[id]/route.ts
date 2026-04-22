@@ -110,11 +110,23 @@ export async function GET(
       accion: 'visto',
     })
 
+    // Flags granulares para la UI.
+    const [puedeEditar, puedeEliminar, puedeEnviar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'eliminar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'enviar'),
+    ])
+
     return NextResponse.json({
       ...presupuesto,
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
       cuotas,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+        enviar: puedeEnviar.permitido,
+      },
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

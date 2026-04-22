@@ -42,6 +42,12 @@ export async function GET(_request: NextRequest, contexto: Contexto) {
       }
     }
 
+    // Flags granulares para la UI.
+    const [puedeEditar, puedeEliminar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'calendario', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'calendario', 'eliminar'),
+    ])
+
     // Registrar en historial de recientes (fire-and-forget)
     registrarReciente({
       empresaId,
@@ -53,7 +59,13 @@ export async function GET(_request: NextRequest, contexto: Contexto) {
       accion: 'visto',
     })
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+      },
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

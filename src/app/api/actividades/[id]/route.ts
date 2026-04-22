@@ -29,6 +29,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     if (error || !data) return NextResponse.json({ error: 'Actividad no encontrada' }, { status: 404 })
 
+    // Calcular flags granulares de permisos para la UI.
+    // Criterio: tener el permiso del módulo ES SUFICIENTE. La UI usa estos
+    // flags para mostrar/ocultar botones; el servidor siempre vuelve a verificar
+    // al recibir la acción (defensa en profundidad).
+    const [puedeEditar, puedeEliminar, puedeCompletar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'eliminar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'completar'),
+    ])
+    const esCreador = data.creado_por === user.id
+    const asignadosIds = (data.asignados_ids || []) as string[]
+    const esAsignado = asignadosIds.includes(user.id)
+    const conOwnership = esCreador || esAsignado
+
     // Registrar en historial de recientes (fire-and-forget)
     registrarReciente({
       empresaId,
@@ -40,7 +54,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       accion: 'visto',
     })
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+        completar: puedeCompletar.permitido && conOwnership,
+      },
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

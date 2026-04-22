@@ -40,6 +40,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     if (error || !data) return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
 
+    // Flags granulares para la UI (ver nota en actividades/[id]).
+    const [puedeEditar, puedeEliminar, puedeCompletar, puedeAsignar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'eliminar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'completar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'asignar'),
+    ])
+    const esCreador = data.creado_por === user.id
+    const esAsignado = data.asignado_a === user.id
+    const conOwnership = esCreador || esAsignado
+
     // Registrar en recientes (fire-and-forget)
     registrarReciente({
       empresaId,
@@ -51,7 +62,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       accion: 'visto',
     })
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+        completar: puedeCompletar.permitido && conOwnership,
+        asignar: puedeAsignar.permitido,
+      },
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

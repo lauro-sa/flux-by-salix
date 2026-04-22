@@ -98,6 +98,12 @@ export async function GET(
       (v: { contacto_id: string }) => !idsDirectos.has(v.contacto_id)
     )
 
+    // Flags granulares para la UI.
+    const [puedeEditar, puedeEliminar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'eliminar'),
+    ])
+
     // Registrar en historial de recientes (fire-and-forget)
     const tipoRaw = contacto.tipo_contacto as unknown
     const tipo = Array.isArray(tipoRaw) ? tipoRaw[0] : tipoRaw
@@ -116,6 +122,10 @@ export async function GET(
       ...contacto,
       vinculaciones: vinculaciones || [],
       vinculaciones_inversas: inversasFiltradas,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+      },
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

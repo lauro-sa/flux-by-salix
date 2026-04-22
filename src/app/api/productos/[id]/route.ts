@@ -30,6 +30,12 @@ export async function GET(
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
 
+    // Flags granulares para la UI.
+    const [puedeEditar, puedeEliminar] = await Promise.all([
+      obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'editar'),
+      obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'eliminar'),
+    ])
+
     // Registrar en historial de recientes (fire-and-forget)
     registrarReciente({
       empresaId,
@@ -41,7 +47,13 @@ export async function GET(
       accion: 'visto',
     })
 
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      permisos: {
+        editar: puedeEditar.permitido,
+        eliminar: puedeEliminar.permitido,
+      },
+    })
   } catch (err) {
     console.error('[api/productos/[id]] error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
