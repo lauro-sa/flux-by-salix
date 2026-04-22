@@ -52,6 +52,8 @@ export interface CanalMensajeria {
   creado_por: string
   creado_en: string
   actualizado_en: string
+  /** Usuarios con acceso a este canal. Populado por el GET de canales. */
+  agentes?: { usuario_id: string; rol_canal: string }[]
 }
 
 export interface CanalAgenteAsignado {

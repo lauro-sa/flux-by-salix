@@ -4,7 +4,10 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { cifrar } from '@/lib/cifrado'
 
-// GET /api/correo/canales — listar canales de correo de la empresa
+// GET /api/correo/canales — listar canales de correo visibles al usuario.
+// Admin / config_correo:ver → todos los canales de la empresa.
+// Cualquier otro miembro autenticado → solo canales donde figura como agente.
+// Esto alimenta tanto la pantalla de configuración como el inbox de cada usuario.
 export async function GET(request: NextRequest) {
   try {
     const { user } = await obtenerUsuarioRuta()
@@ -13,20 +16,30 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_correo', 'ver')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
-    }
+    const { permitido: puedeVerConfig } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_correo', 'ver')
 
     const modulo = request.nextUrl.searchParams.get('modulo')
     const tipoContactoId = request.nextUrl.searchParams.get('tipo_contacto_id')
     const admin = crearClienteAdmin()
 
-    const { data, error } = await admin
+    let query = admin
       .from('canales_correo')
       .select('*')
       .eq('empresa_id', empresaId)
       .order('creado_en', { ascending: true })
+
+    // Miembro sin permiso de config solo ve sus canales asignados.
+    if (!puedeVerConfig) {
+      const { data: misCanales } = await admin
+        .from('canal_agentes')
+        .select('canal_id')
+        .eq('usuario_id', user.id)
+      const ids = (misCanales || []).map(c => c.canal_id)
+      if (ids.length === 0) return NextResponse.json({ canales: [] })
+      query = query.in('id', ids)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       if (error.code === '42P01' || error.message?.includes('does not exist')) {

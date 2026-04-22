@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Insignia } from '@/componentes/ui/Insignia'
-import { Pencil, Trash2, Shield, ChevronDown, Mail } from 'lucide-react'
+import { Pencil, Trash2, Shield, ChevronDown, Mail, Users } from 'lucide-react'
 import type { CanalMensajeria, TipoCanal } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useTraduccion } from '@/lib/i18n'
+import { SelectorAgentesCanal } from './SelectorAgentesCanal'
 
 /**
  * Card visual de canal conectado — muestra todos los datos de la cuenta.
@@ -42,6 +43,8 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
   const error = canal.estado_conexion === 'error'
   const config = canal.config_conexion as Record<string, unknown>
   const esWhatsApp = canal.tipo === 'whatsapp'
+  const agentesIniciales = (canal.agentes || []).map(a => a.usuario_id)
+  const [agentesActuales, setAgentesActuales] = useState<string[]>(agentesIniciales)
 
   // Colores de calidad
   const colorCalidad: Record<string, string> = {
@@ -140,6 +143,14 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
               {calidad && (
                 <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
                   {calidad.rating}
+                </Insignia>
+              )}
+              {!esWhatsApp && (
+                <Insignia color={agentesActuales.length > 0 ? 'info' : 'neutro'} tamano="sm">
+                  <span className="flex items-center gap-1">
+                    <Users size={10} />
+                    {agentesActuales.length === 0 ? 'Sin agentes' : `${agentesActuales.length} agente${agentesActuales.length === 1 ? '' : 's'}`}
+                  </span>
                 </Insignia>
               )}
             </span>
@@ -302,6 +313,17 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                       alturaMinima={80}
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Agentes asignados (solo correo, para controlar quién ve la bandeja en su inbox) */}
+              {!esWhatsApp && (
+                <div className="pt-2" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+                  <SelectorAgentesCanal
+                    canalId={canal.id}
+                    agentesActuales={agentesActuales}
+                    onGuardado={setAgentesActuales}
+                  />
                 </div>
               )}
 

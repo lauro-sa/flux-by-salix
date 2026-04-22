@@ -9,7 +9,7 @@ import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts
 import {
   Mail, Phone, Globe, ChevronLeft,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
-  UserCheck, Clock, Link2, Search,
+  UserCheck, Clock, Link2, Search, Merge,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Input } from '@/componentes/ui/Input'
@@ -27,6 +27,7 @@ import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type PlantillaCorreo, type DatosEnvioDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { BannerContacto } from '../_componentes/BannerContacto'
 import { ModalAceptarProvisorio } from '../_componentes/ModalAceptarProvisorio'
+import { ModalFusionarContacto } from '../_componentes/ModalFusionarContacto'
 import { BarraKPIs } from '../_componentes/BarraKPIs'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -133,6 +134,7 @@ export default function PaginaContacto() {
   const [esProvisorio, setEsProvisorio] = useState(false)
   const [accionandoProvisorio, setAccionandoProvisorio] = useState(false)
   const [modalAceptarProvisorio, setModalAceptarProvisorio] = useState(false)
+  const [modalFusionar, setModalFusionar] = useState(false)
 
   // ─── Estado solo creación ───
   const [errores, setErrores] = useState<ErroresContacto>({})
@@ -806,6 +808,7 @@ export default function PaginaContacto() {
             }}
             onSubirFoto={esNuevo ? undefined : subirFoto}
             acciones={esNuevo ? [] : [
+              { id: 'fusionar', etiqueta: 'Fusionar con otro contacto', icono: <Merge size={14} />, onClick: () => setModalFusionar(true) },
               { id: 'eliminar', etiqueta: 'Eliminar contacto', icono: <Trash2 size={14} />, peligro: true, onClick: () => setModalEliminar(true) },
             ]}
           />
@@ -1173,6 +1176,17 @@ export default function PaginaContacto() {
             setEsProvisorio(false)
             if (cod) setCodigo(cod)
           }}
+        />
+      )}
+
+      {/* Modal fusionar: migra histórico al destino y elimina este contacto */}
+      {!esNuevo && (
+        <ModalFusionarContacto
+          abierto={modalFusionar}
+          onCerrar={() => setModalFusionar(false)}
+          contactoId={contactoId!}
+          nombreContacto={nombreCompleto}
+          codigoContacto={codigo || undefined}
         />
       )}
 

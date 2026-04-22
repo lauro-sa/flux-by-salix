@@ -32,16 +32,35 @@ export async function PATCH(
         .neq('id', id)
     }
 
-    const { data, error } = await admin
-      .from('canales_correo')
-      .update(cambios)
-      .eq('id', id)
-      .eq('empresa_id', empresaId)
-      .select()
-      .single()
+    // Solo actualizar canales_correo si hay campos que tocar (evita UPDATE con solo actualizado_en).
+    let canalActualizado: Record<string, unknown> | null = null
+    if (Object.keys(cambios).length > 1) {
+      const { data, error } = await admin
+        .from('canales_correo')
+        .update(cambios)
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .select()
+        .single()
+      if (error) throw error
+      canalActualizado = data
+    }
 
-    if (error) throw error
-    return NextResponse.json({ canal: data })
+    // Si llegan 'agentes' (array de usuario_id) → reemplazar la lista completa.
+    // No se mezcla con los otros campos para mantener la semántica clara.
+    if (Array.isArray(body.agentes)) {
+      await admin.from('canal_agentes').delete().eq('canal_id', id)
+      if (body.agentes.length > 0) {
+        const registros = body.agentes.map((usuarioId: string) => ({
+          canal_id: id,
+          usuario_id: usuarioId,
+          rol_canal: 'agente',
+        }))
+        await admin.from('canal_agentes').insert(registros)
+      }
+    }
+
+    return NextResponse.json({ canal: canalActualizado })
   } catch (err) {
     console.error('Error al actualizar canal de correo:', err)
     return NextResponse.json({ error: 'Error al actualizar canal' }, { status: 500 })
