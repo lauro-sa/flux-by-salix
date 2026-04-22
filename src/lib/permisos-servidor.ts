@@ -9,6 +9,78 @@ import { NextResponse } from 'next/server'
  * Verificación de permisos server-side para API routes.
  * Replica la lógica de useRol pero sin depender de hooks de React.
  * Se usa en: API routes que necesitan validar permisos por acción.
+ *
+ * ============================================================
+ * PATRÓN ESTÁNDAR PARA ENDPOINTS — COPIAR ESTO EN ENDPOINTS NUEVOS
+ * ============================================================
+ *
+ * Regla de oro: un endpoint NUNCA bypassea el permiso del módulo por "es creador"
+ * o "es responsable". La pertenencia del recurso solo extiende la visibilidad
+ * dentro de ver_propio; no sustituye editar/eliminar/etc.
+ *
+ * ── GET lista ───────────────────────────────────────────────
+ * const { user } = await obtenerUsuarioRuta()
+ * if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+ * const empresaId = user.app_metadata?.empresa_activa_id
+ * if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+ *
+ * const visibilidad = await verificarVisibilidad(user.id, empresaId, 'MODULO')
+ * if (!visibilidad) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+ * // ... query con .eq('empresa_id', empresaId)
+ * if (visibilidad.soloPropio) {
+ *   // Combinar creador + asignados (según el modelo del módulo)
+ *   query = query.or(`creado_por.eq.${user.id},id.in.(${idsAsignados.join(',')})`)
+ * }
+ *
+ * ── GET detalle [id] ────────────────────────────────────────
+ * Además de visibilidad, devolver flags granulares para la UI:
+ *
+ * const visibilidad = await verificarVisibilidad(user.id, empresaId, 'MODULO')
+ * if (!visibilidad) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+ * // Traer el registro con .eq('empresa_id', empresaId)
+ * // Si no existe o no tiene acceso → 404 (no filtrar existencia con 403)
+ *
+ * const [{ permitido: puedeEditar }, { permitido: puedeEliminar }] = await Promise.all([
+ *   obtenerYVerificarPermiso(user.id, empresaId, 'MODULO', 'editar'),
+ *   obtenerYVerificarPermiso(user.id, empresaId, 'MODULO', 'eliminar'),
+ * ])
+ * const esCreador = registro.creado_por === user.id
+ * const esAsignado = registro.asignados?.some(a => a.usuario_id === user.id)
+ *
+ * return NextResponse.json({
+ *   ...registro,
+ *   permisos: {
+ *     editar: puedeEditar && (esAdmin || esCreador || esAsignado),
+ *     eliminar: puedeEliminar && (esAdmin || esCreador),
+ *     // acciones específicas: completar, enviar, asignar, etc.
+ *   },
+ * })
+ *
+ * ── POST crear ──────────────────────────────────────────────
+ * const guard = await requerirPermisoAPI('MODULO', 'crear')
+ * if ('respuesta' in guard) return guard.respuesta
+ * const { user, empresaId } = guard
+ *
+ * ── PATCH editar ────────────────────────────────────────────
+ * const guard = await requerirPermisoAPI('MODULO', 'editar')
+ * if ('respuesta' in guard) return guard.respuesta
+ * // NO bypassear por "es creador" — el guard ya es la autoridad final.
+ *
+ * ── DELETE ──────────────────────────────────────────────────
+ * const guard = await requerirPermisoAPI('MODULO', 'eliminar')
+ * if ('respuesta' in guard) return guard.respuesta
+ *
+ * ── Acciones específicas (completar, enviar, asignar, ...) ──
+ * Cada una con su propia verificación:
+ * const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'MODULO', 'completar')
+ * if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+ *
+ * ── Endpoints del "shell" (preferencias, modulos, push) ─────
+ * Para features que todo miembro autenticado debe poder usar, usar
+ * `requerirAutenticacionAPI()` en vez de inventar un permiso falso.
+ *
+ * Referencia viva: src/app/api/ordenes/[id]/route.ts es el template.
+ * ============================================================
  */
 
 interface DatosMiembro {

@@ -146,9 +146,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   informes: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
   ordenes_trabajo: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'completar_etapa'],
   // Comunicacion
-  inbox_whatsapp: ['ver_propio', 'ver_todos', 'enviar'],
-  inbox_correo: ['ver_propio', 'ver_todos', 'enviar'],
-  inbox_interno: ['ver_propio', 'ver_todos', 'enviar'],
+  inbox_whatsapp: ['ver_propio', 'ver_todos', 'enviar', 'eliminar'],
+  inbox_correo: ['ver_propio', 'ver_todos', 'enviar', 'eliminar'],
+  inbox_interno: ['ver_propio', 'ver_todos', 'enviar', 'eliminar'],
   // Administracion
   usuarios: ['ver', 'invitar', 'aprobar', 'editar', 'eliminar'],
   auditoria: ['ver'],
