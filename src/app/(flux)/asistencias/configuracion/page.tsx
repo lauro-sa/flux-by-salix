@@ -18,6 +18,8 @@ import { useFormato } from '@/hooks/useFormato'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { QRCodeSVG } from 'qrcode.react'
 import { DELAY_CARGA } from '@/lib/constantes/timeouts'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -70,12 +72,15 @@ const OPCIONES_ZONA_HORARIA = [
 
 export default function PaginaConfiguracionAsistencias() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_asistencias', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [cargando, setCargando] = useState(true)
   const [config, setConfig] = useState<ConfigAsistencias | null>(null)
   const [terminales, setTerminales] = useState<Terminal[]>([])
 
   const cargar = useCallback(async () => {
+    if (!puedeVer) { setCargando(false); return }
     try {
       const res = await fetch('/api/asistencias/config')
       if (!res.ok) return
@@ -85,7 +90,7 @@ export default function PaginaConfiguracionAsistencias() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [puedeVer])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -108,6 +113,10 @@ export default function PaginaConfiguracionAsistencias() {
     { id: 'auto_checkout', etiqueta: 'Auto-checkout', icono: <Timer size={16} />, grupo: 'Automatización' },
     { id: 'fichaje_auto', etiqueta: 'Fichaje automático', icono: <Zap size={16} />, grupo: 'Automatización' },
   ]
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/asistencias')} />
 
   return (
     <PlantillaConfiguracion

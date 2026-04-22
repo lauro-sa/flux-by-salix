@@ -6,6 +6,8 @@ import { Settings2, Bell, Tag, Zap, Briefcase, LayoutGrid } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 import { SeccionHorarioCalendario } from './secciones/SeccionHorarioCalendario'
 import { SeccionVistaDefault } from './secciones/SeccionVistaDefault'
 
@@ -15,6 +17,8 @@ import { SeccionVistaDefault } from './secciones/SeccionVistaDefault'
  */
 export default function PaginaConfiguracionCalendario() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_calendario', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('tipos')
   const [cargando, setCargando] = useState(true)
   const [config, setConfig] = useState<Record<string, unknown> | null>(null)
@@ -28,6 +32,7 @@ export default function PaginaConfiguracionCalendario() {
   ]
 
   const cargar = useCallback(async () => {
+    if (!puedeVer) { setCargando(false); return }
     try {
       const res = await fetch('/api/calendario/config')
       if (!res.ok) throw new Error()
@@ -38,7 +43,7 @@ export default function PaginaConfiguracionCalendario() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [puedeVer])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -57,6 +62,10 @@ export default function PaginaConfiguracionCalendario() {
     if (accion === 'actualizar_config') setConfig(resultado)
     return resultado
   }, [])
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/calendario')} />
 
   return (
     <PlantillaConfiguracion

@@ -42,7 +42,7 @@ export function crearItemsNav(t: (c: string) => string): ItemNav[] {
 
 export function crearItemsEmpresa(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'empresa', etiqueta: t('empresa.titulo'), icono: icono(Building2), ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'empresa' },
+    { id: 'empresa', etiqueta: t('empresa.titulo'), icono: icono(Building2), ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'config_empresa' },
     { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: icono(CircleUserRound), ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
   ]
 }

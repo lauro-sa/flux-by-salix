@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverCorreoNotif, resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
 import Holidays from 'date-holidays'
@@ -14,16 +15,22 @@ import Holidays from 'date-holidays'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Requiere ver_todos de asistencias: la nómina expone sueldos del equipo.
-    // Sin este guard, cualquier empleado autenticado podía ver los montos.
-    const guard = await requerirPermisoAPI('asistencias', 'ver_todos')
-    if ('respuesta' in guard) return guard.respuesta
-    const { empresaId } = guard
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Nómina es un módulo propio (ya no depende de asistencias).
+    //   ver_todos  → sueldos del equipo completo.
+    //   ver_propio → solo el recibo del miembro autenticado.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'nomina')
+    if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
     const desde = params.get('desde')
     const hasta = params.get('hasta')
-    const empleadosFiltro = params.get('empleados')?.split(',').filter(Boolean) || null
+    let empleadosFiltro = params.get('empleados')?.split(',').filter(Boolean) || null
     const diasFiltro = params.get('dias')?.split(',').filter(Boolean) || null
     if (!desde || !hasta) return NextResponse.json({ error: 'Parámetros desde y hasta requeridos' }, { status: 400 })
 
@@ -88,6 +95,27 @@ export async function GET(request: NextRequest) {
       const sector = ms.sector as Record<string, unknown> | null
       return [ms.miembro_id, sector?.turno_id || null]
     }))
+
+    // ver_propio: forzar que la nómina devuelva solo al miembro autenticado.
+    // Si el cliente pasa `empleados` en el filtro, lo intersectamos con su id.
+    if (vis.soloPropio) {
+      const { data: miembroPropio } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      const idPropio = miembroPropio?.id as string | undefined
+      if (!idPropio) {
+        return NextResponse.json({ desde, hasta, dias_laborales: 0, nombre_empresa: nombreEmpresa, feriados_periodo: [], resultados: [] })
+      }
+      empleadosFiltro = empleadosFiltro
+        ? empleadosFiltro.filter(id => id === idPropio)
+        : [idPropio]
+      if (empleadosFiltro.length === 0) {
+        return NextResponse.json({ desde, hasta, dias_laborales: 0, nombre_empresa: nombreEmpresa, feriados_periodo: [], resultados: [] })
+      }
+    }
 
     // ─── Miembros con datos de compensación + canales de notificación ───
     let queryMiembros = admin

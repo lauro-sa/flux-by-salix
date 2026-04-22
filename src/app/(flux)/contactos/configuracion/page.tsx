@@ -15,6 +15,8 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { ModalItemConfiguracion, type CampoConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
@@ -44,6 +46,8 @@ interface ItemConfig {
 
 export default function PaginaConfiguracionContactos() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_contactos', 'ver')
   const params = useSearchParams()
   const seccionInicial = params.get('gdrive') ? 'google-drive' : 'etiquetas'
   const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
@@ -63,6 +67,7 @@ export default function PaginaConfiguracionContactos() {
 
   // Cargar datos
   const cargar = useCallback(async () => {
+    if (!puedeVer) { setCargando(false); return }
     try {
       const res = await fetch('/api/contactos/config')
       const data = await res.json()
@@ -72,7 +77,7 @@ export default function PaginaConfiguracionContactos() {
       if (data.relaciones) setRelaciones(data.relaciones.map((r: Record<string, unknown>) => ({ id: r.id as string, nombre: r.nombre as string, activo: (r.activo as boolean) ?? true, orden: (r.orden as number) || 0 })))
     } catch { /* silenciar */ }
     finally { setCargando(false) }
-  }, [])
+  }, [puedeVer])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -135,6 +140,10 @@ export default function PaginaConfiguracionContactos() {
     }
     setModalRestablecer({ abierto: true, tipo, etiqueta: etiquetas[tipo] || tipo })
   }, [])
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/contactos')} />
 
   return (
     <PlantillaConfiguracion

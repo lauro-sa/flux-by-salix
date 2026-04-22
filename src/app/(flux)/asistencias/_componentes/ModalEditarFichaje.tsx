@@ -52,6 +52,11 @@ interface PropiedadesModal {
   onCerrar: () => void
   registro: RegistroEditable | null
   onGuardado: () => void
+  /** Si no tiene permiso "editar", el modal queda en modo solo-lectura
+   *  (no aparece el botón "Editar" ni el "Eliminar" ni el de guardar). */
+  puedeEditar?: boolean
+  /** Si no tiene permiso "eliminar", el botón rojo no aparece aunque esté editando. */
+  puedeEliminar?: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -161,7 +166,7 @@ const JORNADA_REF = 8 * 60
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: PropiedadesModal) {
+export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado, puedeEditar = true, puedeEliminar = true }: PropiedadesModal) {
   const { t } = useTraduccion()
   const { formatoHora, locale } = useFormato()
   const [editando, setEditando] = useState(false)
@@ -261,7 +266,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
       onCerrar={onCerrar}
       titulo=""
       tamano="md"
-      accionPrimaria={editando ? {
+      accionPrimaria={puedeEditar ? (editando ? {
         etiqueta: t('comun.guardar'),
         onClick: guardar,
         cargando: guardando,
@@ -269,12 +274,12 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
         etiqueta: 'Editar',
         onClick: () => setEditando(true),
         icono: <Pencil size={13} />,
-      }}
+      }) : undefined}
       accionSecundaria={editando ? {
         etiqueta: t('comun.cancelar'),
         onClick: () => setEditando(false),
       } : undefined}
-      accionPeligro={editando ? {
+      accionPeligro={(editando && puedeEliminar) ? {
         etiqueta: 'Eliminar',
         onClick: eliminar,
         icono: <Trash2 size={13} />,

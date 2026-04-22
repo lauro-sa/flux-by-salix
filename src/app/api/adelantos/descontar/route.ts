@@ -26,10 +26,10 @@ export async function POST(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Descontar cuotas afecta sueldos — requiere editar asistencias.
+    // Descontar cuotas afecta sueldos — requiere editar nómina.
     const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
     if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
-    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+    if (!verificarPermiso(datosMiembro, 'nomina', 'editar')) {
       return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }
 

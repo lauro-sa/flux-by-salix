@@ -10,6 +10,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { usePermisosActuales } from '@/hooks/usePermisosActuales'
+import { useRol } from '@/hooks/useRol'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
@@ -52,10 +55,25 @@ function etiquetaPeriodo(desde: string, hasta: string): string {
 }
 
 export default function PaginaNominaEmpleado() {
+  const { bloqueado: sinPermiso } = useGuardPermiso('nomina')
+  const { miembroId: miembroIdPropio, cargando: cargandoPermisos } = usePermisosActuales()
+  const { tienePermiso } = useRol()
+  const puedeVerTodosNomina = tienePermiso('nomina', 'ver_todos')
+
   const params = useParams()
   const search = useSearchParams()
   const router = useRouter()
   const miembroId = String(params?.miembro_id || '')
+
+  // ver_propio sin ver_todos: la URL debe ser la de su propio miembro_id.
+  // Si intenta abrir el recibo de otro empleado, redirect.
+  useEffect(() => {
+    if (cargandoPermisos) return
+    if (puedeVerTodosNomina) return
+    if (miembroIdPropio && miembroId !== miembroIdPropio) {
+      router.replace('/asistencias?tab=nomina')
+    }
+  }, [cargandoPermisos, puedeVerTodosNomina, miembroId, miembroIdPropio, router])
 
   const [cargando, setCargando] = useState(true)
   const [empleado, setEmpleado] = useState<ResultadoNomina | null>(null)
@@ -110,6 +128,8 @@ export default function PaginaNominaEmpleado() {
     return () => { cancelado = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembroId])
+
+  if (sinPermiso) return null
 
   if (cargando) {
     return (

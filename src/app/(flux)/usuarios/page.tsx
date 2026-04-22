@@ -12,6 +12,7 @@ import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { normalizarBusqueda } from '@/lib/validaciones'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -494,9 +495,13 @@ export default function PaginaUsuarios() {
   const router = useRouter()
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
-  const { esPropietario, esAdmin } = useRol()
+  const { esPropietario, esAdmin, tienePermiso } = useRol()
   const formato = useFormato()
   const [supabase] = useState(() => crearClienteNavegador())
+
+  // Guard de acceso: requiere permiso 'usuarios:ver'.
+  // El early-return vive al final (después de todos los hooks) para no romper Rules of Hooks.
+  const puedeVer = esPropietario || tienePermiso('usuarios', 'ver')
 
   // Columnas y opciones con traducciones (se recalculan si cambia el idioma)
   const columnas = crearColumnas(t, formato.locale, formato.codigoMoneda)
@@ -1000,6 +1005,9 @@ export default function PaginaUsuarios() {
       },
     },
   ] : []
+
+  // Guard de acceso: si no tiene permiso de ver usuarios → pantalla SinPermiso.
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/')} />
 
   return (
     <PlantillaListado

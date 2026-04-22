@@ -21,7 +21,7 @@ import type { Modulo, Accion } from '@/tipos'
  */
 
 function useRol() {
-  const { rol, permisosCustom, esPropietario, esSuperadmin } = usePermisosActuales()
+  const { rol, permisosCustom, esPropietario, esSuperadmin, cargando } = usePermisosActuales()
   const esAdmin = rol === 'administrador'
 
   const tienePermiso = useMemo(() => {
@@ -33,10 +33,16 @@ function useRol() {
 
       if (!rol) return false
 
-      // Administrador: acceso amplio pero con restricciones específicas
+      // Administrador: acceso amplio, pero si hay permisos_custom esos mandan.
+      // Permite a un propietario recortar permisos puntuales a un admin sin cambiar rol.
       if (esAdmin) {
         const restricciones = RESTRICCIONES_ADMIN[modulo]
         if (restricciones?.includes(accion)) return false
+        if (permisosCustom) {
+          const accionesModulo = permisosCustom[modulo]
+          if (!accionesModulo) return false
+          return accionesModulo.includes(accion)
+        }
         const permisosAdmin = PERMISOS_POR_ROL.administrador[modulo]
         if (permisosAdmin) return permisosAdmin.includes(accion)
         return false
@@ -72,6 +78,7 @@ function useRol() {
     esGestor: rol === 'gestor',
     esSupervisor: rol === 'supervisor',
     esColaborador: !!rol && !esPropietario && !esAdmin,
+    cargando,
     tienePermiso,
     tienePermisoConfig,
   }

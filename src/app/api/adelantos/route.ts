@@ -53,9 +53,9 @@ export async function GET(request: NextRequest) {
     const miembroId = params.get('miembro_id')
     if (!miembroId) return NextResponse.json({ error: 'miembro_id requerido' }, { status: 400 })
 
-    // Los adelantos son descuentos sobre sueldos — visibilidad atada a asistencias.
-    // ver_propio: solo puede consultar los suyos. ver_todos: cualquiera.
-    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    // Los adelantos son parte del módulo Nómina (descuentos sobre sueldos).
+    // ver_propio → solo consulta los suyos. ver_todos → todos.
+    const vis = await verificarVisibilidad(user.id, empresaId, 'nomina')
     if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     if (vis.soloPropio) {
       const admin = crearClienteAdmin()
@@ -125,10 +125,10 @@ export async function POST(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Crear adelanto = modificar nómina. Requiere poder editar asistencias.
+    // Crear adelanto = editar nómina.
     const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
     if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
-    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+    if (!verificarPermiso(datosMiembro, 'nomina', 'editar')) {
       return NextResponse.json({ error: 'Sin permiso para crear adelantos' }, { status: 403 })
     }
 

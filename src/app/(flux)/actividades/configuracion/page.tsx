@@ -6,6 +6,8 @@ import { Settings2, Bell, Tag, Zap, ListChecks, Clock, Briefcase } from 'lucide-
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 import { SeccionEstados, type EstadoActividad } from './secciones/SeccionEstados'
 import { SeccionPosposicion } from './secciones/SeccionPosposicion'
 import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
@@ -16,6 +18,8 @@ import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
  */
 export default function PaginaConfiguracionActividades() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_actividades', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('tipos')
   const [cargando, setCargando] = useState(true)
   const [estados, setEstados] = useState<EstadoActividad[]>([])
@@ -31,6 +35,8 @@ export default function PaginaConfiguracionActividades() {
   ]
 
   const cargar = useCallback(async () => {
+    // No fetch si no tenemos permiso: evita 403 ruidoso y el error en consola.
+    if (!puedeVer) { setCargando(false); return }
     try {
       const [configRes] = await Promise.all([
         fetch('/api/actividades/config'),
@@ -44,9 +50,13 @@ export default function PaginaConfiguracionActividades() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [puedeVer])
 
   useEffect(() => { cargar() }, [cargar])
+
+  // Guard de acceso: después de todos los hooks para no romper Rules of Hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/actividades')} />
 
   const ejecutarAccion = useCallback(async (accion: string, datos: Record<string, unknown>) => {
     const res = await fetch('/api/actividades/config', {

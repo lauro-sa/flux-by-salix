@@ -19,6 +19,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     calendario: ['ver_todos', 'crear', 'editar', 'eliminar'],
     recorrido: ['ver_todos'],
     asistencias: ['ver_todos', 'marcar', 'editar', 'eliminar'],
+    nomina: ['ver_todos', 'editar', 'enviar'],
     productos: ['ver', 'crear', 'editar', 'eliminar'],
     // Documentos — acceso total
     presupuestos: ['ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
@@ -66,6 +67,9 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     productos: ['ver', 'crear', 'editar'],
     ordenes_trabajo: ['ver_todos', 'crear', 'editar', 'completar', 'completar_etapa'],
     asistencias: ['ver_todos', 'marcar'],
+    // Gestor ve nómina del equipo pero no la edita ni envía por default —
+    // esas quedan reservadas a admins/RRHH salvo que se otorguen custom.
+    nomina: ['ver_todos'],
     recorrido: ['ver_todos'],
   },
 
@@ -80,6 +84,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     inbox_interno: ['ver_propio', 'enviar'],
     productos: ['ver'],
     asistencias: ['ver_propio', 'marcar'],
+    nomina: ['ver_propio'],
     recorrido: ['ver_propio', 'registrar', 'reordenar'],
   },
 
@@ -95,6 +100,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
 
   empleado: {
     asistencias: ['ver_propio', 'marcar'],
+    nomina: ['ver_propio'],
     calendario: ['ver_propio'],
     inbox_interno: ['ver_propio', 'enviar'],
   },

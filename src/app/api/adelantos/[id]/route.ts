@@ -21,7 +21,7 @@ export async function GET(
 
     const { id } = await params
 
-    const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+    const vis = await verificarVisibilidad(user.id, empresaId, 'nomina')
     if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
     const admin = crearClienteAdmin()
@@ -73,10 +73,10 @@ export async function PATCH(
 
     const { id } = await params
 
-    // Modificar adelantos = modifica nómina. Requiere editar asistencias.
+    // Modificar adelantos = editar nómina.
     const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
     if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
-    if (!verificarPermiso(datosMiembro, 'asistencias', 'editar')) {
+    if (!verificarPermiso(datosMiembro, 'nomina', 'editar')) {
       return NextResponse.json({ error: 'Sin permiso para modificar adelantos' }, { status: 403 })
     }
 

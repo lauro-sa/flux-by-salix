@@ -6,6 +6,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { useGuardPermiso } from '@/hooks/useGuardPermiso'
+import { useRol } from '@/hooks/useRol'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -137,8 +138,20 @@ interface Props {
 // ─── Componente ──────────────────────────────────────────────
 
 export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
+  // Guard reactivo: basta con tener ver_propio o ver_todos. La UI interna
+  // (botones, pestañas, filtros) se condiciona por acción específica.
   const { bloqueado: sinPermiso } = useGuardPermiso('asistencias')
-  if (sinPermiso) return null
+  const { tienePermiso } = useRol()
+  // Asistencias (fichajes)
+  const puedeVerTodos = tienePermiso('asistencias', 'ver_todos')
+  const puedeMarcar = tienePermiso('asistencias', 'marcar')
+  const puedeEditar = tienePermiso('asistencias', 'editar')
+  const puedeEliminar = tienePermiso('asistencias', 'eliminar')
+  // Nómina (módulo separado) — pestaña, enviar recibos, editar adelantos
+  const puedeVerNominaTodos = tienePermiso('nomina', 'ver_todos')
+  const puedeVerNominaPropio = tienePermiso('nomina', 'ver_propio')
+  const puedeEnviarNomina = tienePermiso('nomina', 'enviar')
+  const puedeVerNomina = puedeVerNominaTodos || puedeVerNominaPropio
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -149,6 +162,11 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
   const [matrizKey, setMatrizKey] = useState(0)
   const [seccion, setSeccion] = useState<'fichajes' | 'nomina'>('fichajes')
+  // Si el usuario estaba en la pestaña Nómina y le quitan el permiso en vivo,
+  // forzamos fallback a Fichajes para no mostrar contenido sin autorización.
+  useEffect(() => {
+    if (seccion === 'nomina' && !puedeVerNomina) setSeccion('fichajes')
+  }, [seccion, puedeVerNomina])
   const nominaRef = useRef<VistaNominaHandle>(null)
 
   // ── Filtros — restaurar desde URL ──
@@ -216,8 +234,10 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   ])
 
   // Vista persistida por usuario+dispositivo
+  // Si no tiene ver_todos forzamos lista (matriz es del equipo completo).
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
-  const [vista, setVistaLocal] = useState<'lista' | 'tarjetas' | 'matriz'>(vistaGuardada)
+  const vistaInicial = vistaGuardada === 'matriz' && !puedeVerTodos ? 'lista' : vistaGuardada
+  const [vista, setVistaLocal] = useState<'lista' | 'tarjetas' | 'matriz'>(vistaInicial)
 
   const setVista = useCallback((v: 'lista' | 'tarjetas' | 'matriz') => {
     setVistaLocal(v)
@@ -275,16 +295,38 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     queryKey: ['miembros-empresa'],
     queryFn: () => fetch('/api/miembros').then(r => r.json()),
     staleTime: 5 * 60_000,
+    enabled: puedeVerTodos, // Con ver_propio no hace falta cargar el listado: solo se usa el propio.
+  })
+  /** miembroPropio: id y nombre del miembro del usuario autenticado (lo
+   *  usamos cuando solo tiene ver_propio para restringir filtros). */
+  const { data: miembroPropio } = useQuery({
+    queryKey: ['miembro-propio'],
+    queryFn: async () => {
+      const res = await fetch('/api/permisos/yo')
+      const j = await res.json()
+      if (!j?.miembro_id) return null
+      const { data } = await fetch(`/api/miembros?incluir_sin_cuenta=true`).then(r => r.json())
+      type M = { id: string; nombre: string | null; apellido: string | null }
+      return (data as M[] | undefined)?.find(m => m.id === j.miembro_id) || { id: j.miembro_id as string, nombre: null, apellido: null }
+    },
+    staleTime: 5 * 60_000,
+    enabled: !puedeVerTodos,
   })
   const opcionesMiembrosAll = useMemo(() => {
     return ((miembrosData?.miembros || []) as { id: string; usuario_id: string; nombre: string | null; apellido: string | null }[])
   }, [miembrosData])
   const opcionesMiembros = useMemo(() => {
+    // Con ver_todos: lista completa. Con ver_propio: solo el propio miembro,
+    // para que el filtro "Empleado" no permita consultar asistencias ajenas.
+    if (!puedeVerTodos && miembroPropio) {
+      const nombre = `${miembroPropio.nombre || ''} ${miembroPropio.apellido || ''}`.trim() || 'Yo'
+      return [{ valor: miembroPropio.id, etiqueta: nombre }]
+    }
     return opcionesMiembrosAll.map(m => ({
-      valor: m.id, // id de la tabla miembros (no usuario_id)
+      valor: m.id,
       etiqueta: `${m.nombre || ''} ${m.apellido || ''}`.trim() || 'Sin nombre',
     }))
-  }, [opcionesMiembrosAll])
+  }, [opcionesMiembrosAll, puedeVerTodos, miembroPropio])
   const opcionesMiembrosCreador = useMemo(() => {
     // Para "Creado por" usamos miembro.id también (creado_por apunta a miembros.id)
     return opcionesMiembros
@@ -455,16 +497,20 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     },
   ]
 
+  // La pestaña "Nómina" muestra sueldos del equipo → solo con ver_todos.
   const tabsSeccion = [
     { clave: 'fichajes', etiqueta: 'Fichajes', icono: <Clock size={15} /> },
-    { clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> },
+    // Nómina es un módulo aparte: la pestaña aparece con `nomina:ver_propio`
+    // (ve su propio recibo) o `ver_todos` (ve nómina del equipo).
+    ...(puedeVerNomina ? [{ clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> }] : []),
   ]
 
   // Switcher de vistas — se renderiza en el hero de matriz (al lado de ‹ Hoy ›)
   // y se oculta de la toolbar de TablaDinamica cuando vista === 'matriz'.
   const switcherVistasHero = (
     <GrupoBotones>
-      {(['lista', 'tarjetas', 'matriz'] as const).map((v) => {
+      {/* Matriz = vista calendario del equipo completo → solo con ver_todos. */}
+      {(['lista', 'tarjetas', ...(puedeVerTodos ? ['matriz'] as const : [])] as const).map((v) => {
         const iconos = { lista: <List size={14} />, tarjetas: <LayoutGrid size={14} />, matriz: <CalendarDays size={14} /> }
         return (
           <Boton
@@ -482,24 +528,44 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     </GrupoBotones>
   )
 
-  return (
-    <PlantillaListado
-      titulo="Asistencias"
-      icono={<Clock size={20} />}
-      accionPrincipal={seccion === 'fichajes'
+  // Bloqueo post-hooks: sin permiso de visibilidad el guard ya disparó el
+  // redirect. Devolvemos null mientras se resuelve.
+  if (sinPermiso) return null
+
+  // Acción principal del hero según pestaña activa y permisos granulares:
+  //  • Fichajes  → "Agregar fichaje" (requiere marcar o editar de asistencias).
+  //  • Nómina    → "Enviar recibos" (requiere nomina:enviar).
+  const accionPrincipalHero =
+    seccion === 'fichajes'
+      ? ((puedeMarcar || puedeEditar)
         ? { etiqueta: 'Agregar fichaje', icono: <Plus size={14} />, onClick: () => setCreando({}) }
-        : { etiqueta: 'Enviar recibos', icono: <Send size={14} />, onClick: () => nominaRef.current?.enviarRecibos() }
-      }
-      acciones={[
-        { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {
+        : undefined)
+      : (puedeEnviarNomina
+        ? { etiqueta: 'Enviar recibos', icono: <Send size={14} />, onClick: () => nominaRef.current?.enviarRecibos() }
+        : undefined)
+
+  // Exportar Excel:
+  //  • Fichajes → siempre visible (el API filtra por ver_propio/ver_todos).
+  //  • Nómina   → solo con nomina:ver_todos (export del equipo completo).
+  const accionesHero = (seccion === 'nomina' && !puedeVerNominaTodos)
+    ? []
+    : [{
+        id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {
           if (seccion === 'nomina') {
             nominaRef.current?.exportar()
           } else {
             window.open('/api/asistencias/exportar', '_blank')
           }
-        } },
-      ]}
-      mostrarConfiguracion
+        },
+      }]
+
+  return (
+    <PlantillaListado
+      titulo="Asistencias"
+      icono={<Clock size={20} />}
+      accionPrincipal={accionPrincipalHero}
+      acciones={accionesHero}
+      mostrarConfiguracion={puedeVerTodos}
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
       {/* ── Tabs: siempre arriba del contenido, pegados al cabezal (mismo bloque de navegación) ── */}
@@ -513,7 +579,7 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
           columnas={columnas}
           datos={registros}
           claveFila={(r) => r.id}
-          vistas={['lista', 'tarjetas', 'matriz']}
+          vistas={['lista', 'tarjetas', ...(puedeVerTodos ? ['matriz'] as const : [])]}
           ocultarSwitcherVistas={vista === 'matriz'}
           ocultarBarraHerramientas={vista === 'matriz'}
           seleccionables
@@ -698,6 +764,8 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
         onCerrar={() => setEditando(null)}
         registro={editando}
         onGuardado={alGuardar}
+        puedeEditar={puedeEditar}
+        puedeEliminar={puedeEliminar}
       />
 
       <ModalCrearFichaje

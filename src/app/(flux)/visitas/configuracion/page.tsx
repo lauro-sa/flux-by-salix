@@ -13,6 +13,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 
 /**
@@ -32,7 +33,8 @@ interface ConfigVisitas {
 export default function PaginaConfiguracionVisitas() {
   const router = useRouter()
   const { mostrar } = useToast()
-  const { tienePermisoConfig } = useRol()
+  const { esPropietario, tienePermiso, tienePermisoConfig, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_visitas', 'ver')
   const puedeEditar = tienePermisoConfig('visitas', 'editar')
 
   const [seccionActiva, setSeccionActiva] = useState('general')
@@ -43,11 +45,12 @@ export default function PaginaConfiguracionVisitas() {
 
   // Cargar config
   useEffect(() => {
+    if (!puedeVer) { setCargando(false); return }
     fetch('/api/visitas/config')
       .then(r => r.json())
       .then(data => { setConfig(data); setConfigOriginal(data); setCargando(false) })
       .catch(() => setCargando(false))
-  }, [])
+  }, [puedeVer])
 
   // Guardar cambios
   const guardar = async (campos: Partial<ConfigVisitas>) => {
@@ -123,6 +126,10 @@ export default function PaginaConfiguracionVisitas() {
     { id: 'checklist', etiqueta: 'Checklist', icono: <Check size={16} /> },
     { id: 'checkin', etiqueta: 'Check-in / Check-out', icono: <MapPin size={16} /> },
   ]
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/visitas')} />
 
   return (
     <PlantillaConfiguracion

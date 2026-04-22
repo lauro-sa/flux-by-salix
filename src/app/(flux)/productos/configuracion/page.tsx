@@ -10,6 +10,8 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { ModalItemConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import type { ConfigProductos, CategoriaProducto, CategoriaCosto, PrefijoProducto } from '@/tipos/producto'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Página de configuración de Productos.
@@ -57,6 +59,8 @@ const CATEGORIAS_COSTO_DEFAULT: CategoriaCosto[] = [
 
 export default function PaginaConfiguracionProductos() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_productos', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('categorias')
   const [guardando, setGuardando] = useState(false)
 
@@ -73,6 +77,7 @@ export default function PaginaConfiguracionProductos() {
   const cargadoRef = useRef(false)
   useEffect(() => {
     if (cargadoRef.current) return
+    if (!puedeVer) return
     cargadoRef.current = true
     fetch('/api/productos/config')
       .then(r => r.json())
@@ -83,7 +88,7 @@ export default function PaginaConfiguracionProductos() {
         if (data.categorias_costo) setCategoriasCosto(data.categorias_costo)
       })
       .catch(() => {})
-  }, [])
+  }, [puedeVer])
 
   // ─── Autoguardado ───
   const guardar = useCallback(async (datos: Partial<ConfigProductos>) => {
@@ -130,6 +135,10 @@ export default function PaginaConfiguracionProductos() {
   const itemsCategorias: ItemLista[] = categorias.map(c => ({ id: c.id, nombre: c.label }))
   const itemsUnidades: ItemLista[] = unidades.map(u => ({ id: u.id, nombre: u.label, datos: { abreviatura: u.abreviatura } }))
   const itemsCostos: ItemLista[] = categoriasCosto.map(c => ({ id: c.id, nombre: c.label }))
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/productos')} />
 
   return (
     <PlantillaConfiguracion

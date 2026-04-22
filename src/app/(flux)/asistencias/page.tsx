@@ -9,6 +9,17 @@ import { resolverNombresMiembros } from '@/lib/miembros/nombres'
 
 const POR_PAGINA = 50
 
+/**
+ * /asistencias — listado de fichajes.
+ *
+ * Visibilidad granular por permisos:
+ *   ver_todos  → todas las asistencias del equipo (RRHH/admin).
+ *   ver_propio → solo las asistencias del miembro autenticado (empleado).
+ *   ninguno    → redirect (no tiene acceso al módulo).
+ *
+ * Las acciones (crear, editar, eliminar, exportar, nómina) se controlan
+ * dentro del contenido con `tienePermiso()` y deshabilitan UI cuando faltan.
+ */
 export default async function PaginaAsistencias() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,7 +29,7 @@ export default async function PaginaAsistencias() {
   if (!empresaId) redirect('/login')
 
   const visibilidad = await verificarVisibilidad(user.id, empresaId, 'asistencias')
-  if (!visibilidad) return <ContenidoAsistencias />
+  if (!visibilidad) redirect('/')
 
   const admin = crearClienteAdmin()
 
@@ -32,9 +43,9 @@ export default async function PaginaAsistencias() {
     .order('hora_entrada', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  // Si solo tiene ver_propio, restringimos al miembro autenticado. Sin esto,
-  // el SSR carga asistencias de todo el equipo y las envía al cliente, aunque
-  // el filtro del /api/asistencias posterior funcione.
+  // ver_propio → SSR restringido a las asistencias del propio miembro.
+  // Sin esto, el cliente recibe la lista del equipo en la hidratación inicial
+  // aunque el filtro del /api/asistencias posterior lo corrija.
   if (visibilidad.soloPropio) {
     const { data: miembroPropio } = await admin
       .from('miembros')

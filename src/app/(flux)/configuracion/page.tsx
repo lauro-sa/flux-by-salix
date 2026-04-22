@@ -6,6 +6,7 @@ import { Building2, Globe, Users2, Sparkles, Trash2 } from 'lucide-react'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { SeccionGeneral } from './secciones/SeccionGeneral'
 import { SeccionEstructura } from './secciones/SeccionEstructura'
 import { SeccionRegional } from './secciones/SeccionRegional'
@@ -20,11 +21,16 @@ import { SeccionPeligro } from './secciones/SeccionPeligro'
  */
 export default function PaginaConfiguracion() {
   const router = useRouter()
-  const { esPropietario } = useRol()
+  const { esPropietario, tienePermiso } = useRol()
   const searchParams = useSearchParams()
   const seccionInicial = searchParams.get('seccion') || 'general'
   const tabInicial = searchParams.get('tab') || undefined
   const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
+
+  // Guard de acceso: requiere permiso 'config_empresa:ver' (propietario lo tiene por defecto).
+  // Si llega por URL directa sin permiso → pantalla SinPermiso en vez de render de contenido.
+  const puedeVer = esPropietario || tienePermiso('config_empresa', 'ver')
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/')} />
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Building2 size={16} /> },

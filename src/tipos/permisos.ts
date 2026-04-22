@@ -11,6 +11,7 @@ export type ModuloOperacional =
   | 'calendario'
   | 'recorrido'
   | 'asistencias'
+  | 'nomina'
   | 'productos'
 
 // Modulos de documentos
@@ -86,7 +87,7 @@ export type PermisosMapa = Partial<Record<Modulo, Accion[]>>
 export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modulo[] }> = {
   operacional: {
     nombre: 'Operacional',
-    modulos: ['contactos', 'actividades', 'visitas', 'calendario', 'recorrido', 'asistencias', 'productos'],
+    modulos: ['contactos', 'actividades', 'visitas', 'calendario', 'recorrido', 'asistencias', 'nomina', 'productos'],
   },
   documentos: {
     nombre: 'Documentos',
@@ -120,6 +121,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   calendario: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar'],
   recorrido: ['ver_propio', 'ver_todos', 'registrar', 'reordenar'],
   asistencias: ['ver_propio', 'ver_todos', 'marcar', 'editar', 'eliminar'],
+  // Nómina — módulo separado de asistencias. Un supervisor puede ver fichajes
+  // sin ver sueldos; un contador puede ver nómina sin tocar fichajes.
+  nomina: ['ver_propio', 'ver_todos', 'editar', 'enviar'],
   productos: ['ver', 'crear', 'editar', 'eliminar'],
   // Documentos
   presupuestos: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'enviar'],
@@ -162,6 +166,7 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   calendario: 'Calendario',
   recorrido: 'Recorrido',
   asistencias: 'Asistencias',
+  nomina: 'Nómina',
   productos: 'Productos',
   presupuestos: 'Presupuestos',
   facturas: 'Facturas',
@@ -200,6 +205,7 @@ export const DESCRIPCIONES_MODULO: Partial<Record<Modulo, string>> = {
   calendario: 'Eventos y bloques de calendario.',
   recorrido: 'Acceso al recorrido mobile del visitador. "Ver propio" + "Registrar" = es visitador (aparece en "Asignado a" y ve "Mi Recorrido"). Solo "Ver todos" = supervisor, ve recorridos ajenos pero no es visitador.',
   asistencias: 'Control de asistencia y fichaje.',
+  nomina: 'Sueldos, adelantos, pagos y recibos. "Ver propio" permite que el empleado vea su propio recibo; "Ver todos" muestra la nómina completa del equipo; "Enviar" manda los recibos por correo/WhatsApp.',
   productos: 'Catálogo de productos y servicios.',
   presupuestos: 'Creación y envío de cotizaciones.',
   facturas: 'Facturación y documentos fiscales.',

@@ -16,6 +16,7 @@ import {
 import type { CanalMensajeria, ConfigMensajeria, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { useRol } from '@/hooks/useRol'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useTraduccion } from '@/lib/i18n'
 
 // Sub-componentes extraídos
@@ -36,8 +37,9 @@ export default function PaginaConfiguracionInbox() {
   const router = useRouter()
   const { mostrar } = useToast()
   const { t } = useTraduccion()
-  const { tienePermisoConfig } = useRol()
+  const { esPropietario, tienePermiso, tienePermisoConfig, cargando: cargandoPermisos } = useRol()
   const puedeConfigEmpresa = tienePermisoConfig('config_empresa', 'ver')
+  const puedeVer = esPropietario || tienePermiso('config_correo', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [cargando, setCargando] = useState(true)
 
@@ -54,6 +56,7 @@ export default function PaginaConfiguracionInbox() {
 
   // Cargar configuración
   const cargar = useCallback(async () => {
+    if (!puedeVer) { setCargando(false); return }
     setCargando(true)
     try {
       const [resConfig, resCanales] = await Promise.all([
@@ -81,7 +84,7 @@ export default function PaginaConfiguracionInbox() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [puedeVer])
 
   // Toggle módulo activo/inactivo
   const toggleModulo = useCallback(async (modulo: string, activo: boolean) => {
@@ -129,6 +132,10 @@ export default function PaginaConfiguracionInbox() {
   ]
 
   const canalesCorreo = canales.filter(c => c.tipo === 'correo')
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/inbox')} />
 
   return (
     <PlantillaConfiguracion

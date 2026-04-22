@@ -41,6 +41,8 @@ import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ListaConfiguracion } from '@/componentes/ui/ListaConfiguracion'
 import { ModalItemConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import SubirImagenPie from '../_componentes/SubirImagenPie'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Página de configuración de presupuestos.
@@ -203,6 +205,8 @@ function obtenerInfoVariable(claveCompleta: string): { entidadEtiqueta: string; 
 
 export default function PaginaConfigPresupuestos() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_presupuestos', 'ver')
   const { t } = useTraduccion()
   const formato = useFormato()
   const [cargando, setCargando] = useState(true)
@@ -282,6 +286,7 @@ export default function PaginaConfigPresupuestos() {
 
   // Cargar config
   useEffect(() => {
+    if (!puedeVer) { setCargando(false); return }
     fetch('/api/presupuestos/config')
       .then(r => r.json())
       .then(data => {
@@ -376,7 +381,7 @@ export default function PaginaConfigPresupuestos() {
         cargarEmpresa()
       })
       .catch(() => setCargando(false))
-  }, [])
+  }, [puedeVer])
 
   // Autoguardar (debounce 800ms)
   const autoguardar = useCallback((camposExtra?: Record<string, unknown>) => {
@@ -447,6 +452,10 @@ export default function PaginaConfigPresupuestos() {
       return renderizarHtml(DATOS_MUESTRA, empresaConLogo, cfg)
     } catch { return '' }
   }, [membrete, piePagina, plantillaHtml, patronNombrePdf, datosEmpresaPdf, empresaPreview, logoUrlPreview])
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/presupuestos')} />
 
   if (cargando) {
     return <div className="flex items-center justify-center h-64 text-texto-terciario text-sm">Cargando configuración...</div>

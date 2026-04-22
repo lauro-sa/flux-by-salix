@@ -35,6 +35,7 @@ import { ModalEnviarReciboNomina } from '@/app/(flux)/asistencias/_componentes/M
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useRol } from '@/hooks/useRol'
 
 // Catálogo de estados del mini-calendario de días (reutilizado en la tarjeta de Asistencia)
 const ESTADOS_DIAS_NOMINA: DefinicionEstado[] = [
@@ -248,6 +249,10 @@ export function PaginaEditorNominaEmpleado({
   const supabase = crearClienteNavegador()
   const { locale } = useFormato()
   const { setMigajaDinamica } = useNavegacion()
+  // Permisos reactivos — si el admin los cambia en vivo, la UI se reajusta.
+  const { tienePermiso } = useRol()
+  const puedeEditarNomina = tienePermiso('nomina', 'editar')
+  const puedeEnviarNomina = tienePermiso('nomina', 'enviar')
 
   /** Formatea fecha según config de la empresa */
   const fmtFecha = useCallback((fecha: string) => {
@@ -301,6 +306,18 @@ export function PaginaEditorNominaEmpleado({
 
   // Envío de recibo
   const [modalEnvio, setModalEnvio] = useState(false)
+
+  // Si el usuario pierde el permiso `nomina:editar` en vivo (ej. admin se lo
+  // saca), cerramos cualquier formulario de edición abierto para que no pueda
+  // completar la operación sin autorización. Reactivo gracias al contexto.
+  useEffect(() => {
+    if (puedeEditarNomina) return
+    setCompEditando(false)
+    setMostrarFormAdelanto(false)
+    setEditandoAdelanto(null)
+    setEditandoPago(null)
+    setConfirmandoPago(false)
+  }, [puedeEditarNomina])
 
   // Registrar migaja dinámica con nombre del empleado
   useEffect(() => {
@@ -839,20 +856,23 @@ export function PaginaEditorNominaEmpleado({
         volverTexto={textoVolver}
         onVolver={() => router.push(rutaVolver)}
         acciones={[
-          {
+          // Enviar recibo: requiere nomina:enviar. Sin ese permiso (p. ej. un
+          // empleado viendo su propio recibo), el botón desaparece.
+          ...(puedeEnviarNomina ? [{
             id: 'enviar-recibo',
             etiqueta: 'Enviar recibo',
             icono: <Send size={13} />,
-            variante: 'secundario',
+            variante: 'secundario' as const,
             onClick: () => setModalEnvio(true),
-          },
-          {
+          }] : []),
+          // Registrar pago: requiere nomina:editar. Modifica pagos_nomina.
+          ...(puedeEditarNomina ? [{
             id: 'pagar',
             etiqueta: 'Registrar pago',
             icono: <Banknote size={14} />,
-            variante: 'primario',
+            variante: 'primario' as const,
             onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
-          },
+          }] : []),
         ]}
         banner={banner}
       >
@@ -971,7 +991,7 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
-                accion={emp.compensacion_tipo === 'por_dia' && (
+                accion={emp.compensacion_tipo === 'por_dia' && puedeEditarNomina && (
                   <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
                     onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
                     Ajustar manualmente
@@ -1040,7 +1060,7 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Compensación base"
                 icono={<Coins size={13} />}
-                accion={!compEditando ? (
+                accion={!compEditando && puedeEditarNomina ? (
                   <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />} onClick={() => setCompEditando(true)}>Editar</Boton>
                 ) : undefined}
               >
@@ -1183,8 +1203,10 @@ export function PaginaEditorNominaEmpleado({
                         {adelantos.length + (emp.saldo_anterior !== 0 ? 1 : 0)} activos
                       </span>
                     )}
-                    <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                      onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+                    {puedeEditarNomina && (
+                      <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                        onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+                    )}
                   </div>
                 ) : undefined}
               >
@@ -1295,17 +1317,19 @@ export function PaginaEditorNominaEmpleado({
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
-                            icono={<Pencil size={11} />} onClick={() => {
-                              setEditandoAdelanto(aid)
-                              setEditAdelantoMonto(String(total))
-                              setEditAdelantoCuotas(String(cuotasT))
-                              setEditAdelantoNotas((a.notas as string) || '')
-                            }} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar adelanto"
-                            icono={<X size={12} />} onClick={() => handleCancelarAdelanto(aid)} />
-                        </div>
+                        {puedeEditarNomina && (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
+                              icono={<Pencil size={11} />} onClick={() => {
+                                setEditandoAdelanto(aid)
+                                setEditAdelantoMonto(String(total))
+                                setEditAdelantoCuotas(String(cuotasT))
+                                setEditAdelantoNotas((a.notas as string) || '')
+                              }} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar adelanto"
+                              icono={<X size={12} />} onClick={() => handleCancelarAdelanto(aid)} />
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -1357,7 +1381,7 @@ export function PaginaEditorNominaEmpleado({
                           ? 'No hay monto a transferir. Podés cerrar el período sin pago.'
                           : 'Cuando confirmes el pago, aparecerá acá con todo el historial.'}
                     </p>
-                    {emp.monto_neto < 0 && (
+                    {emp.monto_neto < 0 && puedeEditarNomina && (
                       <Boton variante="secundario" tamano="sm" className="mt-3"
                         onClick={() => { setMontoAPagar('0'); setConfirmandoPago(true) }}>
                         Cerrar sin pago
@@ -1405,12 +1429,16 @@ export function PaginaEditorNominaEmpleado({
                                   </p>
                                 )}
                               </div>
-                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
-                                icono={<Pencil size={11} />}
-                                onClick={() => { setEditandoPago(pagoId); setEditMontoAbonado(String(montoAbonado)) }} />
-                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar pago"
-                                icono={<Trash2 size={11} />}
-                                onClick={() => handleEliminarPago(pagoId)} />
+                              {puedeEditarNomina && (
+                                <>
+                                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
+                                    icono={<Pencil size={11} />}
+                                    onClick={() => { setEditandoPago(pagoId); setEditMontoAbonado(String(montoAbonado)) }} />
+                                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar pago"
+                                    icono={<Trash2 size={11} />}
+                                    onClick={() => handleEliminarPago(pagoId)} />
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

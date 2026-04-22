@@ -6,6 +6,8 @@ import { Settings2, FileText, CalendarClock, Download } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Página de configuración de Informes.
@@ -13,6 +15,8 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
  */
 export default function PaginaConfiguracionInformes() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_informes', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
 
   const secciones: SeccionConfig[] = [
@@ -21,6 +25,10 @@ export default function PaginaConfiguracionInformes() {
     { id: 'programacion', etiqueta: 'Programación', icono: <CalendarClock size={16} />, deshabilitada: true },
     { id: 'exportacion', etiqueta: 'Exportación', icono: <Download size={16} />, deshabilitada: true },
   ]
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/informes')} />
 
   return (
     <PlantillaConfiguracion

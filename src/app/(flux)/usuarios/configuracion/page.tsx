@@ -6,6 +6,8 @@ import { Settings2, Shield, KeyRound, UserCog } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Página de configuración de Usuarios.
@@ -13,6 +15,8 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
  */
 export default function PaginaConfiguracionUsuarios() {
   const router = useRouter()
+  const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
+  const puedeVer = esPropietario || tienePermiso('config_usuarios', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
 
   const secciones: SeccionConfig[] = [
@@ -21,6 +25,10 @@ export default function PaginaConfiguracionUsuarios() {
     { id: 'permisos', etiqueta: 'Permisos', icono: <Shield size={16} />, deshabilitada: true },
     { id: 'seguridad', etiqueta: 'Seguridad', icono: <KeyRound size={16} />, deshabilitada: true },
   ]
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/usuarios')} />
 
   return (
     <PlantillaConfiguracion

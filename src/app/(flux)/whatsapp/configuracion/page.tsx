@@ -24,6 +24,7 @@ import {
   SeccionEtiquetasConfig,
 } from '@/app/(flux)/inbox/configuracion/_componentes/SeccionesSimples'
 import { useRol } from '@/hooks/useRol'
+import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
@@ -36,8 +37,9 @@ export default function PaginaConfiguracionWhatsApp() {
   const router = useRouter()
   const { mostrar } = useToast()
   const { t } = useTraduccion()
-  const { tienePermisoConfig } = useRol()
+  const { esPropietario, tienePermiso, tienePermisoConfig, cargando: cargandoPermisos } = useRol()
   const puedeConfigEmpresa = tienePermisoConfig('config_empresa', 'ver')
+  const puedeVer = esPropietario || tienePermiso('config_whatsapp', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('canales')
   const [cargando, setCargando] = useState(true)
 
@@ -50,6 +52,7 @@ export default function PaginaConfiguracionWhatsApp() {
 
   // Cargar configuración
   const cargar = useCallback(async () => {
+    if (!puedeVer) { setCargando(false); return }
     setCargando(true)
     try {
       const [resConfig, resCanales] = await Promise.all([
@@ -68,7 +71,7 @@ export default function PaginaConfiguracionWhatsApp() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [puedeVer])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -98,6 +101,10 @@ export default function PaginaConfiguracionWhatsApp() {
     { id: 'sla', etiqueta: 'SLA', icono: <Clock size={16} />, grupo: 'Avanzado' },
     { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <Bell size={16} />, grupo: 'Avanzado' },
   ]
+
+  // Guard de acceso: después de todos los hooks.
+  if (cargandoPermisos) return null
+  if (!puedeVer) return <SinPermiso onVolver={() => router.push('/whatsapp')} />
 
   return (
     <PlantillaConfiguracion

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
-import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { resolverRangoFecha } from '@/lib/presets-fecha'
 import { resolverNombresMiembros } from '@/lib/miembros/nombres'
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Permiso de visibilidad: ver_todos devuelve todo; ver_propio restringe
-    // las asistencias al miembro autenticado (su propio fichaje).
+    // Visibilidad granular: ver_todos da todo el equipo; ver_propio restringe
+    // al miembro autenticado. Si no tiene ninguno → sin permiso.
     const vis = await verificarVisibilidad(user.id, empresaId, 'asistencias')
     if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 

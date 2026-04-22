@@ -27,10 +27,16 @@ export function verificarPermiso(
   // Propietario tiene acceso total
   if (rol === 'propietario') return true
 
-  // Administrador: acceso amplio con restricciones
+  // Administrador: acceso amplio, pero si hay permisos_custom esos mandan.
+  // Permite al propietario recortar permisos puntuales a un admin sin cambiar rol.
   if (rol === 'administrador') {
     const restricciones = RESTRICCIONES_ADMIN[modulo]
     if (restricciones?.includes(accion)) return false
+    if (permisos_custom) {
+      const accionesModulo = permisos_custom[modulo]
+      if (!accionesModulo) return false
+      return accionesModulo.includes(accion)
+    }
     const permisosAdmin = PERMISOS_POR_ROL.administrador[modulo]
     if (permisosAdmin) return permisosAdmin.includes(accion)
     return false
