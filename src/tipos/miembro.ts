@@ -10,7 +10,7 @@ export type Rol =
   | 'gestor'
   | 'vendedor'
   | 'supervisor'
-  | 'empleado'
+  | 'colaborador'
   | 'invitado'
 
 export type CompensacionTipo = 'fijo' | 'por_dia' | 'por_hora'

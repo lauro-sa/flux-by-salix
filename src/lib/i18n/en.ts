@@ -201,7 +201,7 @@ export const en: Traducciones = {
       gestor: 'Manager',
       vendedor: 'Sales rep',
       supervisor: 'Supervisor',
-      empleado: 'Collaborator',
+      colaborador: 'Collaborator',
       invitado: 'Guest',
     },
   },

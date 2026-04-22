@@ -97,7 +97,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     recorrido: ['ver_todos'],
   },
 
-  empleado: {
+  colaborador: {
     asistencias: ['ver_propio', 'marcar'],
     nomina: ['ver_propio'],
     calendario: ['ver_propio'],

@@ -40,7 +40,7 @@ vi.mock('@/lib/permisos-servidor', () => ({
     }
 
     // Empleado: solo ver_propio en módulos básicos
-    if (rol === 'empleado') {
+    if (rol === 'colaborador') {
       const modulosEmpleado: Record<string, string[]> = {
         actividades: ['ver_propio'],
         calendario: ['ver_propio'],
@@ -123,10 +123,10 @@ describe('filtrarHerramientasPermitidas', () => {
     expect(nombres).toContain('crear_visita')
   })
 
-  it('empleado solo accede a herramientas de consulta limitadas', () => {
+  it('colaborador solo accede a herramientas de consulta limitadas', () => {
     const resultado = filtrarHerramientasPermitidas(
       HERRAMIENTAS_SALIX_IA,
-      crearMiembro('empleado'),
+      crearMiembro('colaborador'),
       configCompleta
     )
     const nombres = resultado.map((h) => h.nombre)
@@ -138,7 +138,7 @@ describe('filtrarHerramientasPermitidas', () => {
   })
 
   it('permisos custom sobrescriben los del rol', () => {
-    const miembro = crearMiembro('empleado', {
+    const miembro = crearMiembro('colaborador', {
       contactos: ['ver_todos', 'crear'],
       actividades: ['ver_todos', 'crear'],
     })
@@ -177,11 +177,11 @@ describe('determinarVisibilidad', () => {
     expect(determinarVisibilidad(crearMiembro('vendedor'), 'contactos')).toBe('propio')
   })
 
-  it('empleado sin permiso de contactos retorna null', () => {
-    expect(determinarVisibilidad(crearMiembro('empleado'), 'contactos')).toBeNull()
+  it('colaborador sin permiso de contactos retorna null', () => {
+    expect(determinarVisibilidad(crearMiembro('colaborador'), 'contactos')).toBeNull()
   })
 
-  it('empleado ve sus propias asistencias', () => {
-    expect(determinarVisibilidad(crearMiembro('empleado'), 'asistencias')).toBe('propio')
+  it('colaborador ve sus propias asistencias', () => {
+    expect(determinarVisibilidad(crearMiembro('colaborador'), 'asistencias')).toBe('propio')
   })
 })

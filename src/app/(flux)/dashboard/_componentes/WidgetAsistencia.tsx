@@ -82,10 +82,10 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
   const miPct = Math.min(100, Math.round((miMin / JORNADA_MIN) * 100))
 
   // Ordenar por jerarquía: rol → sector → nombre
-  const PESO_ROL: Record<string, number> = { propietario: 0, administrador: 1, gerente: 2, supervisor: 3, empleado: 4 }
+  const PESO_ROL: Record<string, number> = { propietario: 0, administrador: 1, gerente: 2, supervisor: 3, colaborador: 4 }
   const equipo = [...detalle_hoy].sort((a, b) => {
-    const ra = PESO_ROL[a.rol || 'empleado'] ?? 3
-    const rb = PESO_ROL[b.rol || 'empleado'] ?? 3
+    const ra = PESO_ROL[a.rol || 'colaborador'] ?? 3
+    const rb = PESO_ROL[b.rol || 'colaborador'] ?? 3
     if (ra !== rb) return ra - rb
     const sa = a.sector || 'zzz'
     const sb = b.sector || 'zzz'

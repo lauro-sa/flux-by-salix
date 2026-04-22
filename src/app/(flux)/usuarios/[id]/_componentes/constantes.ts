@@ -36,18 +36,18 @@ export const ROLES_OPCIONES = [
   { valor: 'gestor', etiqueta: 'Gestor', descripcion: 'Contactos, presupuestos, actividades, visitas, inbox y productos' },
   { valor: 'vendedor', etiqueta: 'Vendedor', descripcion: 'Solo sus propios contactos, presupuestos, actividades e inbox' },
   { valor: 'supervisor', etiqueta: 'Supervisor', descripcion: 'Ve todo pero no puede eliminar — ideal para coordinadores' },
-  { valor: 'empleado', etiqueta: 'Colaborador', descripcion: 'Solo asistencias, calendario propio e inbox interno' },
+  { valor: 'colaborador', etiqueta: 'Colaborador', descripcion: 'Solo asistencias, calendario propio e inbox interno' },
   { valor: 'invitado', etiqueta: 'Invitado', descripcion: 'Sin permisos por defecto — se asignan manualmente' },
 ]
 
 export const ETIQUETA_ROL: Record<string, string> = {
   propietario: 'Propietario', administrador: 'Admin', gestor: 'Gestor',
-  vendedor: 'Vendedor', supervisor: 'Supervisor', empleado: 'Colaborador', invitado: 'Invitado',
+  vendedor: 'Vendedor', supervisor: 'Supervisor', colaborador: 'Colaborador', invitado: 'Invitado',
 }
 
 export const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'cyan' | 'neutro' | 'advertencia'> = {
   propietario: 'primario', administrador: 'violeta', gestor: 'info',
-  vendedor: 'naranja', supervisor: 'cyan', empleado: 'neutro', invitado: 'advertencia',
+  vendedor: 'naranja', supervisor: 'cyan', colaborador: 'neutro', invitado: 'advertencia',
 }
 
 export const OPCIONES_COMPENSACION = [

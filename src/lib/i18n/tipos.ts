@@ -213,7 +213,7 @@ export interface Traducciones {
       gestor: string
       vendedor: string
       supervisor: string
-      empleado: string
+      colaborador: string
       invitado: string
     }
   }

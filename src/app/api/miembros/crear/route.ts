@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       telefono,
       fecha_nacimiento,
       documento_numero,
-      rol = 'empleado',
+      rol = 'colaborador',
       numero_empleado,
       puesto_id,
       puesto_nombre,

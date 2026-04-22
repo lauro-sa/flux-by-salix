@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           .insert({
             usuario_id: userId,
             empresa_id: contacto.empresa_id,
-            rol: 'empleado',
+            rol: 'colaborador',
             activo: false,
           })
           .select('id')

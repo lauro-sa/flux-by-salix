@@ -72,10 +72,10 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const rol = ['propietario', 'administrador', 'gestor', 'vendedor', 'supervisor', 'empleado', 'invitado']
+      const rol = ['propietario', 'administrador', 'gestor', 'vendedor', 'supervisor', 'colaborador', 'invitado']
         .includes((fila.rol || '').toLowerCase().trim())
         ? (fila.rol || '').toLowerCase().trim()
-        : 'empleado'
+        : 'colaborador'
 
       const sectorNombre = (fila.sector_nombre || fila.sector || '').toLowerCase().trim()
       const puestoNombre = (fila.puesto_nombre || fila.puesto || '').toLowerCase().trim()

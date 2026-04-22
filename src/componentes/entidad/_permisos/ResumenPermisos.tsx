@@ -32,7 +32,7 @@ const ETIQUETAS_ROL: Record<Rol, string> = {
   gestor: 'Gestor',
   vendedor: 'Vendedor',
   supervisor: 'Supervisor',
-  empleado: 'Empleado',
+  colaborador: 'Colaborador',
   invitado: 'Invitado',
 }
 

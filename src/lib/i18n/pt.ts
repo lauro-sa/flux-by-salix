@@ -201,7 +201,7 @@ export const pt: Traducciones = {
       gestor: 'Gerente',
       vendedor: 'Vendedor',
       supervisor: 'Supervisor',
-      empleado: 'Colaborador',
+      colaborador: 'Colaborador',
       invitado: 'Convidado',
     },
   },

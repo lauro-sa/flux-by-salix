@@ -201,7 +201,7 @@ export const es: Traducciones = {
       gestor: 'Gestor',
       vendedor: 'Vendedor',
       supervisor: 'Supervisor',
-      empleado: 'Colaborador',
+      colaborador: 'Colaborador',
       invitado: 'Invitado',
     },
   },

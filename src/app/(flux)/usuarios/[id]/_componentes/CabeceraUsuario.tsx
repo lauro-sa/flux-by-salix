@@ -59,7 +59,7 @@ export function CabeceraUsuario({
   setModalConfirmarEliminar,
   supabase, empresaId, miembroId,
 }: PropsCabeceraUsuario) {
-  const rolActual = (miembro?.rol as string) || 'empleado'
+  const rolActual = (miembro?.rol as string) || 'colaborador'
 
   /* ── Estado local: menú acciones y recortador ── */
   const [menuAcciones, setMenuAcciones] = useState(false)

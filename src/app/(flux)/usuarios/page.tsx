@@ -108,13 +108,13 @@ function textoCumple(dias: number, fechaNac: string | null, locale: string): str
 function crearEtiquetaRol(t: (clave: string) => string): Record<string, string> {
   return {
     propietario: t('empresa.roles.propietario'), administrador: t('empresa.roles.administrador'), gestor: t('empresa.roles.gestor'),
-    vendedor: t('empresa.roles.vendedor'), supervisor: t('empresa.roles.supervisor'), empleado: t('empresa.roles.empleado'), invitado: t('empresa.roles.invitado'),
+    vendedor: t('empresa.roles.vendedor'), supervisor: t('empresa.roles.supervisor'), colaborador: t('empresa.roles.colaborador'), invitado: t('empresa.roles.invitado'),
   }
 }
 
 const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'cyan' | 'neutro' | 'advertencia'> = {
   propietario: 'primario', administrador: 'violeta', gestor: 'info',
-  vendedor: 'naranja', supervisor: 'cyan', empleado: 'neutro', invitado: 'advertencia',
+  vendedor: 'naranja', supervisor: 'cyan', colaborador: 'neutro', invitado: 'advertencia',
 }
 
 /** Genera opciones de rol para el select de invitar usando traducciones */
@@ -124,7 +124,7 @@ function crearRolesOpciones(t: (clave: string) => string) {
     { valor: 'gestor', etiqueta: t('empresa.roles.gestor') },
     { valor: 'vendedor', etiqueta: t('empresa.roles.vendedor') },
     { valor: 'supervisor', etiqueta: t('empresa.roles.supervisor') },
-    { valor: 'empleado', etiqueta: t('empresa.roles.empleado') },
+    { valor: 'colaborador', etiqueta: t('empresa.roles.colaborador') },
     { valor: 'invitado', etiqueta: t('empresa.roles.invitado') },
   ]
 }
@@ -248,7 +248,7 @@ function crearColumnas(t: (clave: string) => string, locale: string, monedaCodig
       { valor: 'gestor', etiqueta: t('empresa.roles.gestor') },
       { valor: 'vendedor', etiqueta: t('empresa.roles.vendedor') },
       { valor: 'supervisor', etiqueta: t('empresa.roles.supervisor') },
-      { valor: 'empleado', etiqueta: t('empresa.roles.empleado') },
+      { valor: 'colaborador', etiqueta: t('empresa.roles.colaborador') },
       { valor: 'invitado', etiqueta: t('empresa.roles.invitado') },
     ],
     render: (fila) => (
@@ -520,7 +520,7 @@ export default function PaginaUsuarios() {
     correo: '',
     telefono: '',
     fecha_ingreso: new Date().toISOString().split('T')[0], // hoy por default; permite retroactivo
-    rol: 'empleado',
+    rol: 'colaborador',
     numero_empleado: '',
     sector_id: '',
     puesto_id: '',
@@ -746,7 +746,7 @@ export default function PaginaUsuarios() {
     setNuevoEmpleado({
       nombre: '', apellido: '', correo: '', telefono: '',
       fecha_ingreso: new Date().toISOString().split('T')[0],
-      rol: 'empleado', numero_empleado: '', sector_id: '', puesto_id: '',
+      rol: 'colaborador', numero_empleado: '', sector_id: '', puesto_id: '',
       metodo_fichaje: 'kiosco', kiosco_rfid: '', kiosco_pin: '',
       enviar_invitacion: true,
     })

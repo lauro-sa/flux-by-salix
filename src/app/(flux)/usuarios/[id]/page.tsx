@@ -639,7 +639,7 @@ export default function PaginaPerfilUsuario() {
         const res = await fetch('/api/invitaciones/crear', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ correo: correoDestino, rol: miembro.rol || 'empleado' }),
+          body: JSON.stringify({ correo: correoDestino, rol: miembro.rol || 'colaborador' }),
         })
         if (res.ok) {
           const datos = await res.json()
@@ -796,7 +796,7 @@ export default function PaginaPerfilUsuario() {
     }
   }, [nombreCompleto, miembroId, setMigajaDinamica])
 
-  const rolActual = (miembro?.rol as Rol) || 'empleado'
+  const rolActual = (miembro?.rol as Rol) || 'colaborador'
   const numeroEmpleado = String(miembro?.numero_empleado || '1').padStart(3, '0')
   const fechaNac = perfil?.fecha_nacimiento ? new Date(perfil.fecha_nacimiento) : null
   const edad = fechaNac ? Math.floor((Date.now() - fechaNac.getTime()) / 31557600000) : null

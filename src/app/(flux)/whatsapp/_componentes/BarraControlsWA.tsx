@@ -174,7 +174,7 @@ export function BarraControlsWA({
           apellido: p.apellido || '',
           avatar_url: p.avatar_url || null,
           puesto: (miembro?.puesto_nombre as string) || null,
-          sector: sectorNombre || (rol && rol !== 'empleado' ? rol : null),
+          sector: sectorNombre || (rol && rol !== 'colaborador' ? rol : null),
         }
       }))
     }

@@ -47,7 +47,7 @@ function useRol() {
     esAdmin,
     esGestor: rol === 'gestor',
     esSupervisor: rol === 'supervisor',
-    esColaborador: !!rol && !esPropietario && !esAdmin,
+    esColaborador: rol === 'colaborador',
     cargando,
     tienePermiso,
     tienePermisoConfig,

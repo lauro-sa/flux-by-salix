@@ -24,12 +24,12 @@ import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 const ETIQUETA_ROL: Record<string, string> = {
   propietario: 'Propietario', administrador: 'Admin', gestor: 'Gestor',
-  vendedor: 'Vendedor', supervisor: 'Supervisor', empleado: 'Colaborador', invitado: 'Invitado',
+  vendedor: 'Vendedor', supervisor: 'Supervisor', colaborador: 'Colaborador', invitado: 'Invitado',
 }
 
 const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'cyan' | 'neutro' | 'advertencia'> = {
   propietario: 'primario', administrador: 'violeta', gestor: 'info',
-  vendedor: 'naranja', supervisor: 'cyan', empleado: 'neutro', invitado: 'advertencia',
+  vendedor: 'naranja', supervisor: 'cyan', colaborador: 'neutro', invitado: 'advertencia',
 }
 
 const ETIQUETA_COMP: Record<string, string> = {

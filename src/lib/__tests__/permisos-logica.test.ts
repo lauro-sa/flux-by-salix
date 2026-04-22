@@ -94,8 +94,8 @@ describe('resolverPermiso — roles operacionales', () => {
     expect(resolverPermiso(c, 'contactos', 'eliminar')).toBe(false)
   })
 
-  it('empleado tiene acceso mínimo (solo asistencias/calendario/interno propios)', () => {
-    const c = ctx({ rol: 'empleado' })
+  it('colaborador tiene acceso mínimo (solo asistencias/calendario/interno propios)', () => {
+    const c = ctx({ rol: 'colaborador' })
     expect(resolverPermiso(c, 'asistencias', 'ver_propio')).toBe(true)
     expect(resolverPermiso(c, 'asistencias', 'marcar')).toBe(true)
     expect(resolverPermiso(c, 'contactos', 'ver_propio')).toBe(false)
@@ -131,9 +131,9 @@ describe('resolverPermiso — permisos_custom override', () => {
   })
 
   it('custom que da acceso fuera del rol default gana', () => {
-    // Un empleado al que se le dio acceso a ver contactos propios.
+    // Un colaborador al que se le dio acceso a ver contactos propios.
     const c = ctx({
-      rol: 'empleado',
+      rol: 'colaborador',
       permisosCustom: { contactos: ['ver_propio'], asistencias: ['ver_propio', 'marcar'] },
     })
     expect(resolverPermiso(c, 'contactos', 'ver_propio')).toBe(true)
