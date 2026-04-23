@@ -32,7 +32,17 @@ import { useFormato } from '@/hooks/useFormato'
 interface Parada {
   id: string
   orden: number
-  visita: Visita
+  tipo: 'visita' | 'parada'
+  // tipo='visita' trae la visita asociada
+  visita: Visita | null
+  // Campos propios de paradas genéricas (tipo='parada')
+  titulo?: string | null
+  motivo?: string | null
+  direccion_texto?: string | null
+  direccion_lat?: number | null
+  direccion_lng?: number | null
+  contacto_nombre?: string | null
+  estado?: string | null
   distancia_km: number | null
   duracion_viaje_min: number | null
 }
@@ -45,9 +55,14 @@ interface PropiedadesListaParadas {
   paradaSeleccionada: number | null
   onSeleccionarParada: (indice: number | null) => void
   onReordenar: (paradasReordenadas: Parada[]) => void
-  onCambiarEstado: (visitaId: string, estado: EstadoVisita) => void
+  /** Cambia el estado de la parada. Recibe parada_id (universal para visita/parada). */
+  onCambiarEstado: (paradaId: string, estado: EstadoVisita) => void
+  /** Solo aplica a paradas tipo 'visita'. Recibe visita_id (legacy). */
   onRegistrar: (visitaId: string) => void
+  /** Solo aplica a paradas tipo 'visita'. Recibe visita_id (legacy). */
   onEditar: (visitaId: string) => void
+  /** Eliminar una parada (tipo 'parada') del recorrido. */
+  onQuitarParada?: (paradaId: string) => void
   modoEdicion: boolean
   destinoFinal?: DestinoFinal
   onCambiarDestino?: (destino: DestinoFinal) => void
@@ -137,6 +152,17 @@ function ItemEdicion({ parada, indice }: { parada: Parada; indice: number }) {
     zIndex: isDragging ? 50 : 'auto' as const,
   }
 
+  const esGenerica = parada.tipo === 'parada'
+  const titulo = esGenerica
+    ? (parada.titulo || 'Parada')
+    : (parada.visita?.contacto_nombre || parada.visita?.direccion_texto || 'Sin contacto')
+  const subtitulo = esGenerica
+    ? (parada.motivo || parada.direccion_texto || null)
+    : (parada.visita?.contacto_nombre && parada.visita?.direccion_texto ? parada.visita.direccion_texto : null)
+  const hora = !esGenerica && parada.visita?.fecha_programada
+    ? formato.hora(parada.visita.fecha_programada)
+    : null
+
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 px-3 py-2.5 rounded-card border border-borde-sutil bg-superficie-tarjeta">
       <button
@@ -151,16 +177,21 @@ function ItemEdicion({ parada, indice }: { parada: Parada; indice: number }) {
         {String(indice + 1).padStart(2, '0')}
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-texto-primario truncate">
-          {parada.visita.contacto_nombre || parada.visita.direccion_texto}
-        </p>
-        {parada.visita.contacto_nombre && parada.visita.direccion_texto && (
-          <p className="text-xs text-texto-terciario truncate">{parada.visita.direccion_texto}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-texto-primario truncate">{titulo}</p>
+          {esGenerica && (
+            <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-texto-terciario">
+              parada
+            </span>
+          )}
+        </div>
+        {subtitulo && (
+          <p className="text-xs text-texto-terciario truncate">{subtitulo}</p>
         )}
       </div>
-      {parada.visita.fecha_programada && (
+      {hora && (
         <span className="text-xs text-texto-terciario tabular-nums shrink-0">
-          {formato.hora(parada.visita.fecha_programada)}
+          {hora}
         </span>
       )}
     </div>
@@ -178,6 +209,7 @@ function ListaParadas({
   onCambiarEstado,
   onRegistrar,
   onEditar,
+  onQuitarParada,
   modoEdicion,
   destinoFinal = 'ninguno',
   onCambiarDestino,
@@ -201,7 +233,9 @@ function ListaParadas({
     onReordenar(reordenadas)
   }, [paradas, onReordenar])
 
-  const hayEnCurso = paradas.some(p => p.visita?.estado === 'en_camino' || p.visita?.estado === 'en_sitio')
+  // Estado efectivo (visita o parada genérica)
+  const estadoDe = (p: Parada): string => p.tipo === 'parada' ? (p.estado || 'programada') : (p.visita?.estado || 'programada')
+  const hayEnCurso = paradas.some(p => ['en_camino', 'en_sitio'].includes(estadoDe(p)))
 
   // ─── Modo edición ───
   if (modoEdicion) {
@@ -241,13 +275,14 @@ function ListaParadas({
         <TarjetaParada
           key={parada.id}
           orden={indice + 1}
-          visita={parada.visita}
+          parada={parada}
           esActual={indice === paradaActualIndice}
           seleccionada={paradaSeleccionada === indice}
           onSeleccionar={() => onSeleccionarParada(paradaSeleccionada === indice ? null : indice)}
           onCambiarEstado={onCambiarEstado}
           onRegistrar={onRegistrar}
           onEditar={onEditar}
+          onQuitar={onQuitarParada}
           esUltima={indice === paradas.length - 1 && destinoFinal === 'ninguno'}
           otraEnCurso={hayEnCurso}
         />

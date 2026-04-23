@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, ChevronLeft, ChevronRight, RotateCcw, Phone } from 'lucide-react'
+import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, RotateCcw, Phone, Plus, Coffee } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -17,11 +17,13 @@ import { Cargador } from '@/componentes/ui/Cargador'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorMapa, MapaRecorrido, abrirRutaCompleta } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
+import { FormParadaRecorrido, type PayloadParadaGenerica } from '@/componentes/entidad/FormParadaRecorrido'
 import { HeaderRecorrido } from './_componentes/HeaderRecorrido'
 import { ListaParadas, type Parada, type DestinoFinal } from './_componentes/ListaParadas'
 import { RegistroVisita } from './_componentes/RegistroVisita'
 import { ResumenDia } from './_componentes/ResumenDia'
 import { ModalLlegada } from './_componentes/ModalLlegada'
+import { ModalAvisoEnCamino } from './_componentes/ModalAvisoEnCamino'
 import type { EstadoVisita } from './_componentes/TarjetaParada'
 
 /** Obtiene la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local del navegador */
@@ -45,6 +47,8 @@ interface DatosRecorrido {
   estado: EstadoRecorrido
   total_visitas: number
   visitas_completadas: number
+  total_paradas: number
+  paradas_completadas: number
   duracion_total_min: number | null
   distancia_total_km: number | null
   config?: ConfigRecorrido | null
@@ -88,12 +92,20 @@ export default function PaginaRecorrido() {
   const [llegadaAbierta, setLlegadaAbierta] = useState(false)
   const [visitaLlegada, setVisitaLlegada] = useState<{ nombre: string; direccion: string; telefono: string | null; lat: number | null; lng: number | null; id: string } | null>(null)
 
+  // Modal de aviso "en camino"
+  const [avisoCaminoAbierto, setAvisoCaminoAbierto] = useState(false)
+  const [visitaAvisoCamino, setVisitaAvisoCamino] = useState<{ id: string; nombre: string; direccion: string } | null>(null)
+
   // BottomSheet de registro
   const [registroAbierto, setRegistroAbierto] = useState(false)
   const [visitaRegistro, setVisitaRegistro] = useState<string>('')
   const [modoRegistro, setModoRegistro] = useState<'llegada' | 'completar' | 'editar'>('llegada')
   const [checklistRegistro, setChecklistRegistro] = useState<{ texto: string; completado: boolean }[]>([])
   const [registroContacto, setRegistroContacto] = useState<{ nombre: string; direccion: string; orden: number } | null>(null)
+
+  // Form inline para agregar parada genérica (logística, café, combustible, etc.)
+  const [formParadaAbierto, setFormParadaAbierto] = useState(false)
+  const [agregandoParada, setAgregandoParada] = useState(false)
 
   // Cargar recorrido del día seleccionado
   const cargarRecorrido = useCallback(async (fecha?: string) => {
@@ -137,27 +149,24 @@ export default function PaginaRecorrido() {
     cargarRecorrido(fechaSeleccionada)
   }, [fechaSeleccionada]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Realtime: recargar cuando la admin cambia visitas (cancelar, reasignar, crear, etc.)
+  // Realtime: recargar cuando el coordinador cambia visitas o paradas del recorrido.
   useEffect(() => {
     const supabase = crearClienteNavegador()
+    const recargar = () => {
+      fetch(`/api/recorrido/hoy?fecha=${fechaSeleccionada}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            setRecorrido(data.recorrido)
+            setParadas(data.paradas || [])
+          }
+        })
+        .catch(() => {})
+    }
     const canal = supabase
       .channel('recorrido-realtime')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'visitas',
-      }, () => {
-        // Recargar sin mostrar spinner para no interrumpir la experiencia
-        fetch(`/api/recorrido/hoy?fecha=${fechaSeleccionada}`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (data) {
-              setRecorrido(data.recorrido)
-              setParadas(data.paradas || [])
-            }
-          })
-          .catch(() => {})
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visitas' }, recargar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recorrido_paradas' }, recargar)
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
@@ -169,30 +178,38 @@ export default function PaginaRecorrido() {
     setModoEdicion(false)
   }, [])
 
+  // Estado efectivo por parada (visita real o parada genérica)
+  const estadoDe = useCallback((p: Parada): string =>
+    p.tipo === 'parada' ? (p.estado || 'programada') : (p.visita?.estado || 'programada'),
+  [])
+
   // Cálculos derivados — prioriza la parada activa (en_camino/en_sitio) sobre programadas
   const paradaActualIndice = (() => {
-    const enCurso = paradas.findIndex(
-      p => p.visita && (p.visita.estado === 'en_camino' || p.visita.estado === 'en_sitio')
-    )
+    const enCurso = paradas.findIndex(p => {
+      const e = estadoDe(p)
+      return e === 'en_camino' || e === 'en_sitio'
+    })
     if (enCurso >= 0) return enCurso
-    return paradas.findIndex(
-      p => p.visita && p.visita.estado !== 'completada' && p.visita.estado !== 'cancelada'
-    )
+    return paradas.findIndex(p => {
+      const e = estadoDe(p)
+      return e !== 'completada' && e !== 'cancelada'
+    })
   })()
 
-  const hayVisitaEnSitio = paradas.some(p => p.visita?.estado === 'en_sitio')
-  const recorridoIniciado = paradas.some(p => ['en_camino', 'en_sitio', 'completada'].includes(p.visita?.estado || ''))
+  const hayVisitaEnSitio = paradas.some(p => estadoDe(p) === 'en_sitio')
+  const recorridoIniciado = paradas.some(p => ['en_camino', 'en_sitio', 'completada'].includes(estadoDe(p)))
 
   // Sincronizar la vista del sheet con la parada activa
   useEffect(() => {
     if (paradaActualIndice >= 0) setParadaVistaIndice(paradaActualIndice)
   }, [paradaActualIndice])
 
-  // Si hay visita en_sitio y el registro no está abierto, auto-abrir
+  // Si hay visita en_sitio y el registro no está abierto, auto-abrir.
+  // Solo aplica a visitas reales — las paradas genéricas no tienen registro con fotos.
   useEffect(() => {
     if (hayVisitaEnSitio && !registroAbierto && !llegadaAbierta) {
-      const paradaEnSitio = paradas.find(p => p.visita?.estado === 'en_sitio')
-      if (paradaEnSitio) {
+      const paradaEnSitio = paradas.find(p => p.tipo === 'visita' && p.visita?.estado === 'en_sitio')
+      if (paradaEnSitio?.visita) {
         manejarRegistrar(paradaEnSitio.visita.id)
       }
     }
@@ -202,26 +219,38 @@ export default function PaginaRecorrido() {
   // Permisos del recorrido (por default todo permitido si no hay config)
   const cfg = recorrido?.config
   const puedeReordenar = cfg?.puede_reordenar !== false
-  const puedeCancelar = cfg?.puede_cancelar !== false
+  const puedeAgregarParadas = cfg?.puede_agregar_paradas !== false
 
-  const completadas = paradas.filter(p => p.visita?.estado === 'completada').length
+  const completadas = paradas.filter(p => estadoDe(p) === 'completada').length
   const duracionEstimada = recorrido?.duracion_total_min || paradas.reduce(
-    (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.visita?.duracion_estimada_min || 15), 0
+    (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.tipo === 'visita' ? (p.visita?.duracion_estimada_min || 15) : 10),
+    0,
   )
-  const distanciaTotal = recorrido?.distancia_total_km
 
-  // Datos del mapa
+  // Datos del mapa — visitas + paradas genéricas con coordenadas
   const rutaMapa: RutaMapa = useMemo(() => {
-    const puntos: PuntoMapa[] = paradas
-      .filter(p => p.visita?.direccion_lat && p.visita?.direccion_lng)
-      .map(p => ({
+    const puntos: PuntoMapa[] = paradas.flatMap((p): PuntoMapa[] => {
+      if (p.tipo === 'parada') {
+        if (p.direccion_lat == null || p.direccion_lng == null) return []
+        return [{
+          id: p.id,
+          lat: p.direccion_lat,
+          lng: p.direccion_lng,
+          titulo: p.titulo || 'Parada',
+          subtitulo: p.direccion_texto || undefined,
+          estado: (p.estado || 'programada') as EstadoVisita,
+        }]
+      }
+      if (!p.visita?.direccion_lat || !p.visita?.direccion_lng) return []
+      return [{
         id: p.visita.id,
-        lat: p.visita.direccion_lat!,
-        lng: p.visita.direccion_lng!,
+        lat: p.visita.direccion_lat,
+        lng: p.visita.direccion_lng,
         titulo: p.visita.contacto_nombre,
         subtitulo: p.visita.direccion_texto,
         estado: p.visita.estado,
-      }))
+      }]
+    })
     // Destino del mapa según configuración
     let destino: { lat: number; lng: number; texto?: string } | undefined
     if (destinoFinal === 'origen' && ubicacionUsuario) {
@@ -257,17 +286,19 @@ export default function PaginaRecorrido() {
     }
   }, [recorrido?.id, mostrar, cargarRecorrido])
 
-  // Cambiar estado de visita
-  const manejarCambiarEstado = useCallback(async (visitaId: string, nuevoEstado: EstadoVisita) => {
-    setParadas(prev => prev.map(p =>
-      p.visita?.id === visitaId ? { ...p, visita: { ...p.visita, estado: nuevoEstado } } : p
-    ))
+  // Cambiar estado de parada (visita o genérica) — identifica por parada_id (universal)
+  const manejarCambiarEstado = useCallback(async (paradaId: string, nuevoEstado: EstadoVisita) => {
+    setParadas(prev => prev.map(p => {
+      if (p.id !== paradaId) return p
+      if (p.tipo === 'parada') return { ...p, estado: nuevoEstado }
+      return p.visita ? { ...p, visita: { ...p.visita, estado: nuevoEstado } } : p
+    }))
     setParadaSeleccionada(null)
     try {
       const resp = await fetch('/api/recorrido/estado', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visita_id: visitaId, estado: nuevoEstado }),
+        body: JSON.stringify({ parada_id: paradaId, estado: nuevoEstado }),
       })
       if (!resp.ok) throw new Error()
       await cargarRecorrido()
@@ -277,34 +308,57 @@ export default function PaginaRecorrido() {
     }
   }, [mostrar, cargarRecorrido])
 
-  // Marcar llegada: cambiar estado a en_sitio + abrir modal con datos de quien recibe
-  const manejarLlegada = useCallback((visitaId: string) => {
-    const parada = paradas.find(p => p.visita?.id === visitaId)
+  // Marcar "en camino": cambia estado + abre modal de aviso (solo tipo visita)
+  const iniciarEnCamino = useCallback((paradaId: string) => {
+    const parada = paradas.find(p => p.id === paradaId)
     if (!parada) return
+    // Para paradas genéricas no hay aviso al contacto — solo cambiar estado
+    if (parada.tipo !== 'visita' || !parada.visita) {
+      manejarCambiarEstado(paradaId, 'en_camino')
+      return
+    }
     const v = parada.visita
-    // Prioridad: recibe > contacto principal
+    manejarCambiarEstado(paradaId, 'en_camino')
+    setVisitaAvisoCamino({
+      id: v.id,
+      nombre: v.recibe_nombre || v.contacto_nombre,
+      direccion: v.direccion_texto,
+    })
+    setAvisoCaminoAbierto(true)
+  }, [paradas, manejarCambiarEstado])
+
+  // Marcar llegada (solo visitas): cambia a en_sitio + abre modal con datos de quien recibe
+  const manejarLlegada = useCallback((paradaId: string) => {
+    const parada = paradas.find(p => p.id === paradaId)
+    if (!parada) return
+    if (parada.tipo !== 'visita' || !parada.visita) {
+      // Paradas genéricas: saltear directamente a completada
+      manejarCambiarEstado(paradaId, 'completada')
+      return
+    }
+    const v = parada.visita
     const nombreRecibe = v.recibe_nombre || v.contacto_nombre
     const telefonoRecibe = v.recibe_telefono || v.contacto_telefono || null
     setVisitaLlegada({
-      id: visitaId,
+      id: v.id,
       nombre: nombreRecibe,
       direccion: v.direccion_texto,
       telefono: telefonoRecibe,
       lat: v.direccion_lat,
       lng: v.direccion_lng,
     })
-    manejarCambiarEstado(visitaId, 'en_sitio')
+    manejarCambiarEstado(paradaId, 'en_sitio')
     setLlegadaAbierta(true)
   }, [paradas, manejarCambiarEstado])
 
-  // Abrir BottomSheet de registro
+  // Abrir BottomSheet de registro (solo tipo visita)
   const manejarRegistrar = useCallback((visitaId: string) => {
-    const parada = paradas.find(p => p.visita?.id === visitaId)
-    if (!parada) return
+    const parada = paradas.find(p => p.tipo === 'visita' && p.visita?.id === visitaId)
+    if (!parada || !parada.visita) return
     const v = parada.visita
     setVisitaRegistro(visitaId)
     setModoRegistro(v.estado === 'en_camino' ? 'llegada' : 'completar')
-    const ordenParada = paradas.findIndex(p => p.visita?.id === visitaId) + 1
+    const ordenParada = paradas.findIndex(p => p.id === parada.id) + 1
     setRegistroContacto({ nombre: v.contacto_nombre, direccion: v.direccion_texto, orden: ordenParada })
     setParadaVistaIndice(ordenParada - 1) // sincroniza el mapa con la parada del registro
     setChecklistRegistro(
@@ -328,16 +382,65 @@ export default function PaginaRecorrido() {
     cargarRecorrido()
   }, [cargarRecorrido])
 
-  // Iniciar ruta: marca primera parada como en_camino y abre Google Maps
+  // Agregar parada genérica (logística: café, combustible, depósito, etc.)
+  const agregarParadaGenerica = useCallback(async (payload: PayloadParadaGenerica) => {
+    if (!recorrido) return
+    setAgregandoParada(true)
+    try {
+      const res = await fetch('/api/recorrido/agregar-parada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recorrido_id: recorrido.id, ...payload }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al agregar parada')
+      }
+      mostrar('exito', 'Parada agregada')
+      setFormParadaAbierto(false)
+      await cargarRecorrido()
+    } catch (err) {
+      mostrar('error', err instanceof Error ? err.message : 'Error al agregar parada')
+    } finally {
+      setAgregandoParada(false)
+    }
+  }, [recorrido, mostrar, cargarRecorrido])
+
+  // Eliminar una parada genérica del recorrido (no aplica a visitas — esas van por quitar vía /visitas).
+  const manejarQuitarParada = useCallback(async (paradaId: string) => {
+    if (!recorrido) return
+    // Optimistic
+    setParadas(prev => prev.filter(p => p.id !== paradaId).map((p, i) => ({ ...p, orden: i + 1 })))
+    try {
+      const res = await fetch('/api/recorrido/quitar-parada', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recorrido_id: recorrido.id, parada_id: paradaId }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('exito', 'Parada eliminada')
+    } catch {
+      mostrar('error', 'Error al eliminar parada')
+      cargarRecorrido()
+    }
+  }, [recorrido, mostrar, cargarRecorrido])
+
+  // Iniciar ruta: marca primera parada pendiente como en_camino y abre Google Maps.
+  // Considera tanto visitas como paradas genéricas con coordenadas.
   const iniciarRuta = useCallback(() => {
-    const primera = paradas.find(p =>
-      p.visita?.estado === 'programada' && p.visita?.direccion_lat && p.visita?.direccion_lng
-    )
+    const coordsDe = (p: Parada) => p.tipo === 'parada'
+      ? (p.direccion_lat != null && p.direccion_lng != null ? { lat: p.direccion_lat, lng: p.direccion_lng } : null)
+      : (p.visita?.direccion_lat != null && p.visita?.direccion_lng != null ? { lat: p.visita.direccion_lat, lng: p.visita.direccion_lng } : null)
+
+    const primera = paradas.find(p => estadoDe(p) === 'programada' && coordsDe(p))
     if (primera) {
-      manejarCambiarEstado(primera.visita.id, 'en_camino')
+      iniciarEnCamino(primera.id)
       const puntos = paradas
-        .filter(p => p.visita?.direccion_lat && p.visita?.direccion_lng && p.visita?.estado !== 'completada' && p.visita?.estado !== 'cancelada')
-        .map(p => ({ lat: p.visita.direccion_lat!, lng: p.visita.direccion_lng! }))
+        .filter(p => {
+          const e = estadoDe(p)
+          return coordsDe(p) && e !== 'completada' && e !== 'cancelada'
+        })
+        .map(p => coordsDe(p)!)
 
       // Agregar destino final si está configurado
       if (destinoFinal === 'origen' && puntos.length > 0) {
@@ -358,7 +461,7 @@ export default function PaginaRecorrido() {
         abrirRutaCompleta(puntos)
       }
     }
-  }, [paradas, manejarCambiarEstado, destinoFinal])
+  }, [paradas, iniciarEnCamino, destinoFinal, estadoDe])
 
   // Invertir el orden de las paradas
   const invertirRuta = useCallback(async () => {
@@ -381,11 +484,22 @@ export default function PaginaRecorrido() {
     }
   }, [paradas, recorrido?.id, mostrar, cargarRecorrido])
 
-  // Optimizar ruta via Google Directions API
+  // Optimizar ruta via Google Directions API.
+  // Identifica cada parada por `parada.id` (id universal) para soportar visitas y paradas genéricas.
   const optimizarRuta = useCallback(async () => {
-    const paradasConCoords = paradas.filter(
-      p => p.visita?.direccion_lat != null && p.visita?.direccion_lng != null
-    )
+    const coordsDeParada = (p: Parada): { lat: number; lng: number } | null => {
+      if (p.tipo === 'parada') {
+        if (p.direccion_lat == null || p.direccion_lng == null) return null
+        return { lat: p.direccion_lat, lng: p.direccion_lng }
+      }
+      if (p.visita?.direccion_lat == null || p.visita?.direccion_lng == null) return null
+      return { lat: p.visita.direccion_lat, lng: p.visita.direccion_lng }
+    }
+
+    const paradasConCoords = paradas
+      .map(p => ({ parada: p, coords: coordsDeParada(p) }))
+      .filter((x): x is { parada: Parada; coords: { lat: number; lng: number } } => x.coords !== null)
+
     if (paradasConCoords.length < 2) {
       mostrar('info', 'Se necesitan al menos 2 paradas con coordenadas para optimizar')
       return
@@ -395,7 +509,7 @@ export default function PaginaRecorrido() {
     setParadasPreOptimizar([...paradas])
     try {
       // Obtener ubicación actual como origen, o usar la primera parada
-      let origen = { lat: paradasConCoords[0].visita.direccion_lat!, lng: paradasConCoords[0].visita.direccion_lng! }
+      let origen = paradasConCoords[0].coords
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 })
@@ -405,16 +519,15 @@ export default function PaginaRecorrido() {
         // Si no hay geo, usar primera parada como origen
       }
 
-      // Llamar a la API de optimización
       const resp = await fetch('/api/mapa/optimizar-ruta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           origen,
-          paradas: paradasConCoords.map(p => ({
-            id: p.visita.id,
-            lat: p.visita.direccion_lat!,
-            lng: p.visita.direccion_lng!,
+          paradas: paradasConCoords.map(({ parada, coords }) => ({
+            id: parada.id,
+            lat: coords.lat,
+            lng: coords.lng,
           })),
         }),
       })
@@ -427,8 +540,7 @@ export default function PaginaRecorrido() {
       const data = await resp.json()
       const paradasOptimizadas = data.paradas_ordenadas as { id: string }[]
 
-      // Reordenar las paradas locales según el orden óptimo
-      const mapaParadas = new Map(paradas.map(p => [p.visita.id, p]))
+      const mapaParadas = new Map(paradas.map(p => [p.id, p]))
       const reordenadas = paradasOptimizadas
         .map((po, i) => {
           const original = mapaParadas.get(po.id)
@@ -437,10 +549,9 @@ export default function PaginaRecorrido() {
         })
         .filter((p): p is Parada => p !== null)
 
-      // Agregar paradas sin coordenadas al final (mantienen su posición relativa)
-      const idsCon = new Set(paradasConCoords.map(p => p.visita.id))
+      const idsCon = new Set(paradasConCoords.map(x => x.parada.id))
       const sinCoords = paradas
-        .filter(p => !idsCon.has(p.visita.id))
+        .filter(p => !idsCon.has(p.id))
         .map((p, i) => ({ ...p, orden: reordenadas.length + i + 1 }))
 
       const todasReordenadas = [...reordenadas, ...sinCoords]
@@ -496,7 +607,7 @@ export default function PaginaRecorrido() {
   }
 
   // Calcular estado del recorrido — completado cuando todas son completadas o canceladas
-  const canceladasTotal = paradas.filter(p => p.visita?.estado === 'cancelada').length
+  const canceladasTotal = paradas.filter(p => estadoDe(p) === 'cancelada').length
   const finalizadas = completadas + canceladasTotal
   const estadoRecorrido: EstadoRecorrido = recorrido?.estado as EstadoRecorrido ||
     (finalizadas >= paradas.length && paradas.length > 0 ? 'completado' : completadas > 0 ? 'en_curso' : 'pendiente')
@@ -543,20 +654,19 @@ export default function PaginaRecorrido() {
 
   // Recorrido completado
   if (estadoRecorrido === 'completado') {
-    const canceladasCount = paradas.filter(p => p.visita?.estado === 'cancelada').length
+    const canceladasCount = paradas.filter(p => estadoDe(p) === 'cancelada').length
 
-    // Reactivar: reabre TODAS las visitas completadas a programada → el recorrido vuelve a en_curso
+    // Reactivar: reabre TODAS las paradas completadas (visitas y genéricas) a programada
     const reactivarRecorrido = async () => {
-      const visitasCompletadas = paradas.filter(p => p.visita?.estado === 'completada')
-      if (visitasCompletadas.length === 0) return
+      const paradasCompletadas = paradas.filter(p => estadoDe(p) === 'completada')
+      if (paradasCompletadas.length === 0) return
       try {
-        // Reabrir todas en paralelo
         const resultados = await Promise.all(
-          visitasCompletadas.map(p =>
+          paradasCompletadas.map(p =>
             fetch('/api/recorrido/estado', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ visita_id: p.visita.id, estado: 'programada' }),
+              body: JSON.stringify({ parada_id: p.id, estado: 'programada' }),
             })
           )
         )
@@ -626,7 +736,7 @@ export default function PaginaRecorrido() {
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
       {/* ── Mapa superior — crece cuando sheet está colapsado ── */}
-      <div className={`relative shrink-0 transition-all duration-300 ease-out ${sheetExpandido ? 'h-[25dvh]' : 'h-[55dvh]'}`}>
+      <div className={`relative shrink-0 transition-all duration-300 ease-out ${formParadaAbierto ? 'h-[12dvh]' : sheetExpandido ? 'h-[25dvh]' : 'h-[55dvh]'}`}>
         <ProveedorMapa>
           <MapaRecorrido
             ruta={rutaMapa}
@@ -677,9 +787,10 @@ export default function PaginaRecorrido() {
           <div className="px-4 pb-2 shrink-0 space-y-1.5">
             <div className="flex gap-1">
             {paradas.map((p, i) => {
+              const e = estadoDe(p)
               let color = 'bg-borde-sutil'
-              if (p.visita?.estado === 'completada') color = 'bg-[var(--insignia-exito)]'
-              else if (p.visita?.estado === 'cancelada') color = 'bg-[var(--insignia-peligro)]'
+              if (e === 'completada') color = 'bg-[var(--insignia-exito)]'
+              else if (e === 'cancelada') color = 'bg-[var(--insignia-peligro)]'
               else if (i === paradaActualIndice) color = 'bg-[var(--insignia-info)]'
               return <div key={p.id} className={`h-1 rounded-full flex-1 transition-colors duration-300 ${color}`} />
             })}
@@ -701,9 +812,19 @@ export default function PaginaRecorrido() {
               const idx = Math.min(paradaVistaIndice, paradas.length - 1)
               const parada = paradas[idx]
               if (!parada) return null
+              const esGenerica = parada.tipo === 'parada'
               const v = parada.visita
-              const estado = v.estado as 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
-              const tieneCoords = v.direccion_lat != null && v.direccion_lng != null
+              // Datos normalizados (visita o parada genérica)
+              const titulo = esGenerica
+                ? (parada.titulo || 'Parada')
+                : (v?.contacto_nombre || 'Sin contacto')
+              const direccionTexto = esGenerica
+                ? (parada.direccion_texto || parada.motivo || '')
+                : (v?.direccion_texto || '')
+              const lat = esGenerica ? parada.direccion_lat : v?.direccion_lat
+              const lng = esGenerica ? parada.direccion_lng : v?.direccion_lng
+              const estado = (esGenerica ? (parada.estado || 'programada') : (v?.estado || 'programada')) as 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
+              const tieneCoords = lat != null && lng != null
               const esActiva = idx === paradaActualIndice
 
               // Determinar color principal del estado
@@ -751,13 +872,20 @@ export default function PaginaRecorrido() {
                           color: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? 'white' : 'var(--texto-terciario)',
                         }}
                       >
-                        {estado === 'completada' ? <Check size={16} /> : estado === 'cancelada' ? <X size={16} /> : idx + 1}
+                        {estado === 'completada' ? <Check size={16} /> : estado === 'cancelada' ? <X size={16} /> : esGenerica ? <Coffee size={16} /> : idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-base font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
-                          {v.contacto_nombre}
+                        <div className="flex items-center gap-1.5">
+                          <div className={`text-base font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
+                            {titulo}
+                          </div>
+                          {esGenerica && (
+                            <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-texto-terciario">
+                              parada
+                            </span>
+                          )}
                         </div>
-                        <div className="text-sm text-texto-terciario truncate mt-0.5">{v.direccion_texto}</div>
+                        <div className="text-sm text-texto-terciario truncate mt-0.5">{direccionTexto}</div>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-xs font-medium text-texto-terciario">{idx + 1}/{paradas.length}</span>
@@ -775,7 +903,7 @@ export default function PaginaRecorrido() {
                     <div className="grid grid-cols-3 gap-2">
                       {/* Columna 1: Navegar (siempre) */}
                       <button
-                        onClick={() => tieneCoords && abrirRutaCompleta([{ lat: v.direccion_lat!, lng: v.direccion_lng! }])}
+                        onClick={() => tieneCoords && abrirRutaCompleta([{ lat: lat!, lng: lng! }])}
                         disabled={!tieneCoords || estado === 'completada'}
                         className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-25"
                       >
@@ -786,21 +914,31 @@ export default function PaginaRecorrido() {
                       {/* Columna 2: acción negativa / secundaria */}
                       {estado === 'cancelada' ? (
                         <button
-                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
+                          onClick={() => manejarCambiarEstado(parada.id, 'programada')}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <RotateCcw size={16} className="text-texto-terciario" />
                           <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
                         </button>
                       ) : estado === 'completada' ? (
-                        <button
-                          onClick={() => manejarEditar(v.id)}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
-                        >
-                          <Pencil size={16} className="text-texto-terciario" />
-                          <span className="text-[10px] font-medium text-texto-secundario">Editar</span>
-                        </button>
-                      ) : estado === 'en_sitio' ? (
+                        !esGenerica && v ? (
+                          <button
+                            onClick={() => manejarEditar(v.id)}
+                            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          >
+                            <Pencil size={16} className="text-texto-terciario" />
+                            <span className="text-[10px] font-medium text-texto-secundario">Editar</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => manejarCambiarEstado(parada.id, 'programada')}
+                            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                          >
+                            <RotateCcw size={16} className="text-texto-terciario" />
+                            <span className="text-[10px] font-medium text-texto-secundario">Reabrir</span>
+                          </button>
+                        )
+                      ) : estado === 'en_sitio' && !esGenerica && v ? (
                         <button
                           onClick={() => {
                             setVisitaLlegada({
@@ -820,7 +958,7 @@ export default function PaginaRecorrido() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
+                          onClick={() => manejarCambiarEstado(parada.id, 'cancelada')}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <X size={16} className="text-[var(--insignia-peligro)]" />
@@ -831,21 +969,31 @@ export default function PaginaRecorrido() {
                       {/* Columna 3: acción principal */}
                       {estado === 'programada' ? (
                         <button
-                          onClick={() => manejarCambiarEstado(v.id, 'en_camino')}
+                          onClick={() => iniciarEnCamino(parada.id)}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 hover:bg-[var(--insignia-info)]/20 transition-colors"
                         >
                           <Route size={16} className="text-[var(--insignia-info)]" />
                           <span className="text-[10px] font-medium text-[var(--insignia-info)]">En camino</span>
                         </button>
                       ) : estado === 'en_camino' ? (
-                        <button
-                          onClick={() => manejarLlegada(v.id)}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
-                        >
-                          <MapPin size={16} className="text-[var(--insignia-exito)]" />
-                          <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Llegué</span>
-                        </button>
-                      ) : estado === 'en_sitio' ? (
+                        esGenerica ? (
+                          <button
+                            onClick={() => manejarCambiarEstado(parada.id, 'completada')}
+                            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                          >
+                            <Check size={16} className="text-[var(--insignia-exito)]" />
+                            <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Completada</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => manejarLlegada(parada.id)}
+                            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                          >
+                            <MapPin size={16} className="text-[var(--insignia-exito)]" />
+                            <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Llegué</span>
+                          </button>
+                        )
+                      ) : estado === 'en_sitio' && !esGenerica && v ? (
                         <button
                           onClick={() => manejarRegistrar(v.id)}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
@@ -853,21 +1001,13 @@ export default function PaginaRecorrido() {
                           <Pencil size={16} className="text-[var(--insignia-exito)]" />
                           <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Registrar</span>
                         </button>
-                      ) : estado === 'completada' ? (
-                        <button
-                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
-                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
-                        >
-                          <RotateCcw size={16} className="text-texto-terciario" />
-                          <span className="text-[10px] font-medium text-texto-secundario">Reabrir</span>
-                        </button>
                       ) : (
                         <button
-                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
+                          onClick={() => manejarCambiarEstado(parada.id, 'programada')}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <RotateCcw size={16} className="text-texto-terciario" />
-                          <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
+                          <span className="text-[10px] font-medium text-texto-secundario">{estado === 'completada' ? 'Reabrir' : 'Reactivar'}</span>
                         </button>
                       )}
                     </div>
@@ -875,19 +1015,22 @@ export default function PaginaRecorrido() {
                     {/* 3. Indicadores + botón ver recorrido */}
                     <div className="flex flex-col items-center gap-2.5 pt-3">
                       <div className="flex gap-1.5">
-                        {paradas.map((_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setParadaVistaIndice(i)}
-                            className={`rounded-full transition-all ${i === idx ? 'w-5 h-2' : 'size-2'}`}
-                            style={{
-                              backgroundColor: i === idx ? colorEstado
-                                : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
-                                : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
-                                : 'var(--borde-sutil)',
-                            }}
-                          />
-                        ))}
+                        {paradas.map((p, i) => {
+                          const e = estadoDe(p)
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => setParadaVistaIndice(i)}
+                              className={`rounded-full transition-all ${i === idx ? 'w-5 h-2' : 'size-2'}`}
+                              style={{
+                                backgroundColor: i === idx ? colorEstado
+                                  : e === 'completada' ? 'var(--insignia-exito)'
+                                  : e === 'cancelada' ? 'var(--insignia-peligro)'
+                                  : 'var(--borde-sutil)',
+                              }}
+                            />
+                          )
+                        })}
                       </div>
                       <button
                         onClick={() => { setSheetExpandido(true); if (!recorridoIniciado) setModoEdicion(true) }}
@@ -904,21 +1047,46 @@ export default function PaginaRecorrido() {
         ) : (
           /* ── EXPANDIDO: lista completa de paradas ── */
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 pb-2 shrink-0">
+            <div className="px-4 pb-2 shrink-0 flex items-center justify-between gap-2">
               <h2 className="text-lg font-bold text-texto-primario">
                 {t('recorrido.recorrido_del_dia')}
               </h2>
+              {puedeAgregarParadas && !formParadaAbierto && (
+                <button
+                  onClick={() => { setFormParadaAbierto(true); setSheetExpandido(true) }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-texto-secundario border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                  title="Agregar parada (no cuenta como visita)"
+                >
+                  <Plus size={12} />
+                  <span>Parada</span>
+                </button>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain">
+              {formParadaAbierto && (
+                <div className="px-4 pb-3">
+                  <div className="rounded-card border border-white/[0.06] bg-white/[0.02] p-3">
+                    <FormParadaRecorrido
+                      onGuardar={agregarParadaGenerica}
+                      onCancelar={() => setFormParadaAbierto(false)}
+                      guardando={agregandoParada}
+                    />
+                  </div>
+                </div>
+              )}
               <ListaParadas
                 paradas={paradas}
                 paradaActualIndice={paradaActualIndice}
                 paradaSeleccionada={paradaSeleccionada}
                 onSeleccionarParada={setParadaSeleccionada}
                 onReordenar={manejarReordenar}
-                onCambiarEstado={manejarCambiarEstado}
+                onCambiarEstado={(paradaId, estado) => {
+                  if (estado === 'en_camino') iniciarEnCamino(paradaId)
+                  else manejarCambiarEstado(paradaId, estado)
+                }}
                 onRegistrar={manejarRegistrar}
                 onEditar={manejarEditar}
+                onQuitarParada={manejarQuitarParada}
                 modoEdicion={modoEdicion}
                 destinoFinal={destinoFinal}
                 onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
@@ -1008,6 +1176,17 @@ export default function PaginaRecorrido() {
         onExito={manejarRegistroExitoso}
         contactoNombre={registroContacto?.nombre}
         contactoDireccion={registroContacto?.direccion}
+      />
+
+      {/* Modal de aviso "En camino" — opcional, se abre al marcar una parada como en_camino */}
+      <ModalAvisoEnCamino
+        abierto={avisoCaminoAbierto}
+        onCerrar={() => setAvisoCaminoAbierto(false)}
+        onEnviado={() => mostrar('exito', `Aviso enviado a ${visitaAvisoCamino?.nombre}`)}
+        visitaId={visitaAvisoCamino?.id || ''}
+        contactoNombre={visitaAvisoCamino?.nombre || ''}
+        direccionTexto={visitaAvisoCamino?.direccion || ''}
+        ubicacionActual={ubicacionUsuario}
       />
 
       {/* Modal de llegada — se abre al tocar "Llegué" */}

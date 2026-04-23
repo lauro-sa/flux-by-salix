@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
 
 /**
- * DELETE /api/recorrido/quitar-parada — Quita una parada del recorrido.
+ * DELETE /api/recorrido/quitar-parada — Quita una parada (visita o genérica) del recorrido.
  * Body: { recorrido_id, parada_id }
- * No elimina la visita, solo la quita del recorrido.
- * Se usa en: ModalRecorrido (coordinador quita una visita del recorrido).
+ * No elimina la visita subyacente (si la tiene), solo la desvincula del recorrido.
+ * Se usa en: ModalRecorrido y PaginaRecorrido.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -23,10 +24,9 @@ export async function DELETE(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Verificar recorrido
     const { data: recorrido } = await admin
       .from('recorridos')
-      .select('id, total_visitas')
+      .select('id')
       .eq('id', recorrido_id)
       .eq('empresa_id', empresaId)
       .single()
@@ -35,7 +35,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Recorrido no encontrado' }, { status: 404 })
     }
 
-    // Eliminar la parada
     const { error } = await admin
       .from('recorrido_paradas')
       .delete()
@@ -46,18 +45,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Error al quitar parada', detalle: error.message }, { status: 500 })
     }
 
-    // Actualizar total y reordenar las restantes
+    // Renumerar orden de las restantes
     const { data: restantes } = await admin
       .from('recorrido_paradas')
       .select('id, orden')
       .eq('recorrido_id', recorrido_id)
       .order('orden', { ascending: true })
 
-    // Renumerar
-    if (restantes) {
+    if (restantes && restantes.length > 0) {
       const reordenamientos = await Promise.all(
         restantes.map((p, i) =>
-          admin.from('recorrido_paradas').update({ orden: i + 1 }).eq('id', p.id)
+          p.orden === i + 1
+            ? Promise.resolve({ error: null })
+            : admin.from('recorrido_paradas').update({ orden: i + 1 }).eq('id', p.id)
         )
       )
       const erroresReorden = reordenamientos.filter(r => r.error)
@@ -66,13 +66,8 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    await admin
-      .from('recorridos')
-      .update({
-        total_visitas: restantes?.length || 0,
-        actualizado_en: new Date().toISOString(),
-      })
-      .eq('id', recorrido_id)
+    // Recalcular contadores separados (visitas vs paradas) y estado del recorrido
+    await recalcularContadoresRecorrido(admin, recorrido_id)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

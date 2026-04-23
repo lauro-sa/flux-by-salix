@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerInicioFinDiaEnZona, obtenerComponentesFecha } from '@/lib/formato-fecha'
+import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
 
 /**
  * GET /api/recorrido/hoy — Obtener o crear el recorrido de un día del usuario.
@@ -9,6 +10,10 @@ import { obtenerInicioFinDiaEnZona, obtenerComponentesFecha } from '@/lib/format
  * Si no se pasa fecha, usa hoy.
  * Si no existe recorrido, lo crea automáticamente con las visitas programadas.
  * Se usa en: PaginaRecorrido (mobile).
+ *
+ * Sincronización bidireccional SOLO sobre paradas tipo 'visita':
+ *   - Las paradas genéricas (tipo='parada') agregadas por el visitador o el coordinador
+ *     no se tocan en la sincronización automática con la tabla `visitas`.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -19,18 +24,16 @@ export async function GET(request: NextRequest) {
     const admin = crearClienteAdmin()
 
     // Cargar zona horaria de la empresa — para que "hoy" coincida con el día local del usuario.
-    // Sin esto, después de las 21hs AR devolvíamos el recorrido de mañana.
     const { data: empresaTz } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
     const zonaEmpresa = (empresaTz?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
 
-    // Fecha: ?fecha=YYYY-MM-DD o hoy por defecto (en la zona de la empresa)
     const { searchParams } = new URL(request.url)
     const fechaParam = searchParams.get('fecha')
     const hoyComp = obtenerComponentesFecha(new Date(), zonaEmpresa)
     const hoyLocal = `${hoyComp.anio}-${String(hoyComp.mes).padStart(2, '0')}-${String(hoyComp.dia).padStart(2, '0')}`
     const hoy = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) ? fechaParam : hoyLocal
 
-    // Buscar recorrido existente (excluir borradores — solo el coordinador los ve)
+    // Buscar recorrido existente (excluir borradores)
     const { data: recorrido } = await admin
       .from('recorridos')
       .select('*')
@@ -42,17 +45,16 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (recorrido) {
-      // Recorrido existe — traer paradas con datos de visita
       const { data: paradas } = await admin
         .from('recorrido_paradas')
         .select('*, visita:visitas(*)')
         .eq('recorrido_id', recorrido.id)
         .order('orden', { ascending: true })
 
-      // ── Sincronización bidireccional ──
-      // 1. Eliminar paradas cuya visita fue enviada a papelera o reasignada a otro usuario
-      // Las canceladas se mantienen como parte del historial del recorrido
-      const paradasAEliminar = (paradas || []).filter(p =>
+      // ── Sincronización bidireccional SOLO sobre paradas tipo 'visita' ──
+      const paradasTipoVisita = (paradas || []).filter(p => p.tipo === 'visita')
+
+      const paradasAEliminar = paradasTipoVisita.filter(p =>
         !p.visita ||
         p.visita.en_papelera === true ||
         p.visita.asignado_a !== user.id
@@ -65,8 +67,6 @@ export async function GET(request: NextRequest) {
           .in('id', paradasAEliminar.map(p => p.id))
       }
 
-      // 2. Buscar visitas activas del día que no tienen parada en este recorrido
-      // Usar rango en la zona de la empresa para que "23hs AR" caiga en el día correcto.
       const rangoSync = obtenerInicioFinDiaEnZona(zonaEmpresa, new Date(`${hoy}T12:00:00Z`))
       const inicioSync = rangoSync.inicio
       const finSync = rangoSync.fin
@@ -81,36 +81,40 @@ export async function GET(request: NextRequest) {
         .eq('en_papelera', false)
         .neq('estado', 'cancelada')
 
-      const paradasActivas = (paradas || []).filter(p => !paradasAEliminar.some(pe => pe.id === p.id))
-      const idsEnParadas = new Set(paradasActivas.map(p => p.visita_id))
+      const paradasActivasVisita = paradasTipoVisita.filter(p => !paradasAEliminar.some(pe => pe.id === p.id))
+      const idsEnParadas = new Set(paradasActivasVisita.map(p => p.visita_id))
       const visitasFaltantes = (visitasDelDia || []).filter(v => !idsEnParadas.has(v.id))
 
       if (visitasFaltantes.length > 0) {
-        const ordenMax = paradasActivas.reduce((max, p) => Math.max(max, p.orden || 0), 0)
+        const ordenMax = (paradas || []).reduce((max, p) => Math.max(max, p.orden || 0), 0)
         const nuevasParadas = visitasFaltantes.map((v, i) => ({
           recorrido_id: recorrido.id,
+          tipo: 'visita',
           visita_id: v.id,
           orden: ordenMax + i + 1,
+          creado_por: user.id,
         }))
         await admin.from('recorrido_paradas').insert(nuevasParadas)
       }
 
-      // Si hubo cambios, re-obtener paradas y actualizar total
       if (paradasAEliminar.length > 0 || visitasFaltantes.length > 0) {
-        const { data: paradasActualizadas } = await admin
-          .from('recorrido_paradas')
-          .select('*, visita:visitas(*)')
-          .eq('recorrido_id', recorrido.id)
-          .order('orden', { ascending: true })
+        await recalcularContadoresRecorrido(admin, recorrido.id)
 
-        const nuevoTotal = paradasActualizadas?.length || 0
-        await admin
-          .from('recorridos')
-          .update({ total_visitas: nuevoTotal })
-          .eq('id', recorrido.id)
+        const [{ data: paradasActualizadas }, { data: recorridoActualizado }] = await Promise.all([
+          admin
+            .from('recorrido_paradas')
+            .select('*, visita:visitas(*)')
+            .eq('recorrido_id', recorrido.id)
+            .order('orden', { ascending: true }),
+          admin
+            .from('recorridos')
+            .select('*')
+            .eq('id', recorrido.id)
+            .single(),
+        ])
 
         return NextResponse.json({
-          recorrido: { ...recorrido, total_visitas: nuevoTotal },
+          recorrido: recorridoActualizado || recorrido,
           paradas: paradasActualizadas || [],
         })
       }
@@ -118,7 +122,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ recorrido, paradas: paradas || [] })
     }
 
-    // Verificar si existe un borrador (el coordinador aún no publicó)
+    // Si existe borrador, ocultarlo (el coordinador aún está organizando)
     const { data: borrador } = await admin
       .from('recorridos')
       .select('id')
@@ -130,11 +134,10 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (borrador) {
-      // Existe borrador — el coordinador aún está organizando, no mostrar al visitador
       return NextResponse.json({ recorrido: null, paradas: [] })
     }
 
-    // No existe recorrido — buscar visitas del día para crearlo (rango en zona de empresa)
+    // Sin recorrido — crearlo a partir de las visitas del día
     const rangoDia = obtenerInicioFinDiaEnZona(zonaEmpresa, new Date(`${hoy}T12:00:00Z`))
     const inicioDelDia = rangoDia.inicio
     const finDelDia = rangoDia.fin
@@ -154,7 +157,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ recorrido: null, paradas: [] })
     }
 
-    // Obtener nombre del usuario para el recorrido
     const { data: perfil } = await admin
       .from('perfiles')
       .select('nombre, apellido, correo')
@@ -163,7 +165,6 @@ export async function GET(request: NextRequest) {
 
     const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : ''
 
-    // Crear recorrido
     const { data: nuevoRecorrido, error: errorRecorrido } = await admin
       .from('recorridos')
       .insert({
@@ -183,11 +184,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al crear recorrido', detalle: errorRecorrido?.message }, { status: 500 })
     }
 
-    // Crear paradas (una por visita, orden secuencial)
     const paradasInsert = visitasDelDia.map((visita, indice) => ({
       recorrido_id: nuevoRecorrido.id,
+      tipo: 'visita',
       visita_id: visita.id,
       orden: indice + 1,
+      creado_por: user.id,
     }))
 
     const { error: errorParadas } = await admin
@@ -198,14 +200,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al crear paradas', detalle: errorParadas.message }, { status: 500 })
     }
 
-    // Retornar recorrido + paradas con datos de visita
-    const { data: paradasConVisita } = await admin
-      .from('recorrido_paradas')
-      .select('*, visita:visitas(*)')
-      .eq('recorrido_id', nuevoRecorrido.id)
-      .order('orden', { ascending: true })
+    await recalcularContadoresRecorrido(admin, nuevoRecorrido.id)
 
-    return NextResponse.json({ recorrido: nuevoRecorrido, paradas: paradasConVisita || [] })
+    const [{ data: paradasConVisita }, { data: recorridoActualizado }] = await Promise.all([
+      admin
+        .from('recorrido_paradas')
+        .select('*, visita:visitas(*)')
+        .eq('recorrido_id', nuevoRecorrido.id)
+        .order('orden', { ascending: true }),
+      admin
+        .from('recorridos')
+        .select('*')
+        .eq('id', nuevoRecorrido.id)
+        .single(),
+    ])
+
+    return NextResponse.json({
+      recorrido: recorridoActualizado || nuevoRecorrido,
+      paradas: paradasConVisita || [],
+    })
   } catch (err) {
     console.error('Error en GET /api/recorrido/hoy:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

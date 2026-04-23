@@ -55,14 +55,17 @@ export async function PATCH(request: NextRequest) {
       if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }
 
-    // Obtener paradas existentes para mapear visita_id → parada_id
+    // Obtener paradas existentes para mapear visita_id → parada_id.
+    // Las paradas genéricas tienen visita_id=null, así que las ignoramos en el mapa legacy.
     const { data: paradasExistentes } = await admin
       .from('recorrido_paradas')
       .select('id, visita_id')
       .eq('recorrido_id', recorrido_id)
 
     const mapaVisitaAParada = new Map(
-      (paradasExistentes || []).map(p => [p.visita_id, p.id])
+      (paradasExistentes || [])
+        .filter(p => p.visita_id)
+        .map(p => [p.visita_id as string, p.id])
     )
     const idsParadasExistentes = new Set(
       (paradasExistentes || []).map(p => p.id)

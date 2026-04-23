@@ -25,7 +25,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Route, Sparkles, ArrowUpDown,
-  Clock, Loader2, X, RotateCcw, Send, EyeOff, AlertTriangle, Bell,
+  Clock, Loader2, X, RotateCcw, Send, EyeOff, AlertTriangle, Bell, Plus,
 } from 'lucide-react'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -36,6 +36,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { ProveedorMapa, MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import { useEmpresa } from '@/hooks/useEmpresa'
+import { FormParadaRecorrido, type PayloadParadaGenerica } from '@/componentes/entidad/FormParadaRecorrido'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
 import { ItemParadaSortable, type Parada, type VisitaParada } from './ItemParadaSortable'
 
@@ -48,6 +49,8 @@ interface DatosRecorrido {
   estado: string
   total_visitas: number
   visitas_completadas: number
+  total_paradas: number
+  paradas_completadas: number
   config: (ConfigPermisos & { destino?: { lat: number; lng: number; texto: string } | null }) | null
   origen_lat: number | null
   origen_lng: number | null
@@ -92,6 +95,10 @@ export default function ModalRecorrido({
   const [origenEmpresa, setOrigenEmpresa] = useState(true)
   const [destinoEmpresa, setDestinoEmpresa] = useState(true)
 
+  // Form inline para agregar parada genérica
+  const [formParadaAbierto, setFormParadaAbierto] = useState(false)
+  const [agregandoParada, setAgregandoParada] = useState(false)
+
   // Dirección de la empresa
   const coordsEmpresa = useMemo(() => {
     const dir = empresa?.direccion as { coordenadas?: { lat: number; lng: number }; textoCompleto?: string } | null
@@ -101,9 +108,17 @@ export default function ModalRecorrido({
     return null
   }, [empresa?.direccion, empresa?.nombre])
 
+  // Estado efectivo de una parada (visita o genérica).
+  // Para tipo='visita' se lee de la visita asociada; para tipo='parada' se lee del
+  // estado propio en recorrido_paradas.
+  const estadoDeParada = useCallback((p: Parada): string => {
+    if (p.tipo === 'parada') return p.estado || 'programada'
+    return p.visita?.estado || 'programada'
+  }, [])
+
   // Derivados de estado
   const esBorrador = recorrido?.estado === 'borrador'
-  const esEnCurso = recorrido?.estado === 'en_curso' || paradas.some(p => ['en_camino', 'en_sitio'].includes(p.visita?.estado || ''))
+  const esEnCurso = recorrido?.estado === 'en_curso' || paradas.some(p => ['en_camino', 'en_sitio'].includes(estadoDeParada(p)))
 
   // Sensores para drag & drop
   const sensores = useSensors(
@@ -179,18 +194,30 @@ export default function ModalRecorrido({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorrido?.id])
 
-  // Datos del mapa
+  // Datos del mapa — soporta tanto visitas como paradas genéricas con lat/lng
   const rutaMapa: RutaMapa = useMemo(() => {
-    const puntos: PuntoMapa[] = paradas
-      .filter(p => p.visita?.direccion_lat && p.visita?.direccion_lng)
-      .map(p => ({
+    const puntos: PuntoMapa[] = paradas.flatMap((p): PuntoMapa[] => {
+      if (p.tipo === 'parada') {
+        if (p.direccion_lat == null || p.direccion_lng == null) return []
+        return [{
+          id: p.id,
+          lat: p.direccion_lat,
+          lng: p.direccion_lng,
+          titulo: p.titulo || 'Parada',
+          subtitulo: p.direccion_texto || undefined,
+          estado: (p.estado || 'programada') as PuntoMapa['estado'],
+        }]
+      }
+      if (!p.visita?.direccion_lat || !p.visita?.direccion_lng) return []
+      return [{
         id: p.visita.id,
-        lat: p.visita.direccion_lat!,
-        lng: p.visita.direccion_lng!,
+        lat: p.visita.direccion_lat,
+        lng: p.visita.direccion_lng,
         titulo: p.visita.contacto_nombre || 'Sin contacto',
         subtitulo: p.visita.direccion_texto || undefined,
         estado: p.visita.estado as PuntoMapa['estado'],
-      }))
+      }]
+    })
     // Origen: empresa si está activo, si no la primera parada
     const origen = origenEmpresa && coordsEmpresa
       ? { lat: coordsEmpresa.lat, lng: coordsEmpresa.lng, texto: coordsEmpresa.texto }
@@ -233,11 +260,22 @@ export default function ModalRecorrido({
     }
   }, [paradas, recorrido, mostrar, cargarRecorrido])
 
-  // Optimizar ruta
+  // Optimizar ruta — considera tanto visitas como paradas genéricas con lat/lng.
+  // Usamos parada.id (id universal de recorrido_paradas) para identificar cada parada.
+  const coordsDeParada = useCallback((p: Parada): { lat: number; lng: number } | null => {
+    if (p.tipo === 'parada') {
+      if (p.direccion_lat == null || p.direccion_lng == null) return null
+      return { lat: p.direccion_lat, lng: p.direccion_lng }
+    }
+    if (p.visita?.direccion_lat == null || p.visita?.direccion_lng == null) return null
+    return { lat: p.visita.direccion_lat, lng: p.visita.direccion_lng }
+  }, [])
+
   const optimizarRuta = useCallback(async () => {
-    const paradasConCoords = paradas.filter(
-      p => p.visita?.direccion_lat != null && p.visita?.direccion_lng != null
-    )
+    const paradasConCoords = paradas
+      .map(p => ({ parada: p, coords: coordsDeParada(p) }))
+      .filter((x): x is { parada: Parada; coords: { lat: number; lng: number } } => x.coords !== null)
+
     if (paradasConCoords.length < 2) {
       mostrar('info', 'Se necesitan al menos 2 paradas con coordenadas')
       return
@@ -247,13 +285,13 @@ export default function ModalRecorrido({
     setParadasPreOptimizar([...paradas])
 
     try {
-      const origen = { lat: paradasConCoords[0].visita.direccion_lat!, lng: paradasConCoords[0].visita.direccion_lng! }
+      const origen = paradasConCoords[0].coords
       const resp = await fetch('/api/mapa/optimizar-ruta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           origen,
-          paradas: paradasConCoords.map(p => ({ id: p.visita.id, lat: p.visita.direccion_lat!, lng: p.visita.direccion_lng! })),
+          paradas: paradasConCoords.map(({ parada, coords }) => ({ id: parada.id, lat: coords.lat, lng: coords.lng })),
         }),
       })
 
@@ -261,8 +299,7 @@ export default function ModalRecorrido({
       const data = await resp.json()
       const idsOrdenados = (data.paradas_ordenadas as { id: string }[]).map(po => po.id)
 
-      // Reordenar: primero las optimizadas, luego las sin coordenadas
-      const mapaParadas = new Map(paradas.map(p => [p.visita.id, p]))
+      const mapaParadas = new Map(paradas.map(p => [p.id, p]))
       const reordenadas = idsOrdenados
         .map((id, i) => {
           const original = mapaParadas.get(id)
@@ -271,8 +308,9 @@ export default function ModalRecorrido({
         })
         .filter((p): p is Parada => p !== null)
 
+      const idsConCoords = new Set(paradasConCoords.map(x => x.parada.id))
       const sinCoords = paradas
-        .filter(p => !p.visita.direccion_lat || !p.visita.direccion_lng)
+        .filter(p => !idsConCoords.has(p.id))
         .map((p, i) => ({ ...p, orden: reordenadas.length + i + 1 }))
 
       const todasReordenadas = [...reordenadas, ...sinCoords]
@@ -466,10 +504,39 @@ export default function ModalRecorrido({
     onActualizar()
   }, [onCerrar, onActualizar])
 
+  // Agregar parada genérica
+  const agregarParadaGenerica = useCallback(async (payload: PayloadParadaGenerica) => {
+    if (!recorrido) return
+    setAgregandoParada(true)
+    try {
+      const res = await fetch('/api/recorrido/agregar-parada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recorrido_id: recorrido.id, ...payload }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al agregar parada')
+      }
+      mostrar('exito', 'Parada agregada al recorrido')
+      setFormParadaAbierto(false)
+      await cargarRecorrido()
+    } catch (err) {
+      mostrar('error', err instanceof Error ? err.message : 'Error al agregar parada')
+    } finally {
+      setAgregandoParada(false)
+    }
+  }, [recorrido, mostrar, cargarRecorrido])
+
   // Estadísticas
   const totalParadas = paradas.length
-  const completadas = paradas.filter(p => p.visita?.estado === 'completada').length
-  const duracionEstimada = paradas.reduce((sum, p) => sum + (p.visita?.duracion_estimada_min || 0), 0)
+  const completadas = paradas.filter(p => estadoDeParada(p) === 'completada').length
+  const totalVisitas = paradas.filter(p => p.tipo === 'visita').length
+  const totalParadasGenericas = paradas.filter(p => p.tipo === 'parada').length
+  const duracionEstimada = paradas.reduce(
+    (sum, p) => sum + (p.tipo === 'visita' ? (p.visita?.duracion_estimada_min || 0) : 0),
+    0,
+  )
   const idsParadas = useMemo(() => paradas.map(p => p.id), [paradas])
 
   return (
@@ -617,10 +684,20 @@ export default function ModalRecorrido({
                     {t('recorrido.paradas')}
                   </span>
                   <span className="text-[11px] text-texto-terciario">
-                    {totalParadas} {totalParadas === 1 ? t('visitas.visita') : t('visitas.visitas_label')}
+                    {totalVisitas} {totalVisitas === 1 ? t('visitas.visita') : t('visitas.visitas_label')}
+                    {totalParadasGenericas > 0 && ` · ${totalParadasGenericas} parada${totalParadasGenericas > 1 ? 's' : ''}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5">
+                  {/* Agregar parada genérica */}
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
+                    soloIcono
+                    icono={<Plus size={13} />}
+                    tooltip="Agregar parada (sin contar como visita)"
+                    onClick={() => setFormParadaAbierto(v => !v)}
+                  />
                   {/* Revertir optimización */}
                   {paradasPreOptimizar && (
                     <Boton
@@ -668,6 +745,17 @@ export default function ModalRecorrido({
                   />
                 </div>
               </div>
+
+              {/* Form inline para agregar parada genérica */}
+              {formParadaAbierto && (
+                <div className="shrink-0 px-4 py-3 border-b border-white/[0.07] bg-white/[0.01]">
+                  <FormParadaRecorrido
+                    onGuardar={agregarParadaGenerica}
+                    onCancelar={() => setFormParadaAbierto(false)}
+                    guardando={agregandoParada}
+                  />
+                </div>
+              )}
 
               {/* Barra de progreso compacta */}
               {esEnCurso && completadas > 0 && (

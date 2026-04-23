@@ -2648,6 +2648,10 @@ export const visitas = pgTable('visitas', {
   registro_lng: doublePrecision('registro_lng'),
   registro_precision_m: integer('registro_precision_m'), // precisión GPS en metros
 
+  // Aviso "voy en camino" por WhatsApp (comunicado al contacto con ETA redondeado)
+  aviso_en_camino_enviado_at: timestamp('aviso_en_camino_enviado_at', { withTimezone: true }),
+  aviso_en_camino_eta_min: integer('aviso_en_camino_eta_min'), // ETA redondeado que se comunicó
+
   // Vinculación con actividades
   actividad_id: uuid('actividad_id'), // actividad asociada si se creó desde una
   vinculos: jsonb('vinculos').notNull().default(sql`'[]'`), // [{tipo, id, nombre}]
@@ -2701,9 +2705,12 @@ export const recorridos = pgTable('recorridos', {
   origen_lng: doublePrecision('origen_lng'),
   origen_texto: text('origen_texto'), // "Mi ubicación" o dirección escrita
 
-  // Resumen (se actualiza al completar)
+  // Resumen de visitas reales (se actualiza al completar)
   total_visitas: integer('total_visitas').notNull().default(0),
   visitas_completadas: integer('visitas_completadas').notNull().default(0),
+  // Resumen de paradas genéricas (logística: café, combustible, etc., que no son visitas al cliente)
+  total_paradas: integer('total_paradas').notNull().default(0),
+  paradas_completadas: integer('paradas_completadas').notNull().default(0),
   distancia_total_km: numeric('distancia_total_km'),
   duracion_total_min: integer('duracion_total_min'),
 
@@ -2723,11 +2730,33 @@ export const recorridos = pgTable('recorridos', {
   uniqueIndex('recorridos_unico_idx').on(tabla.empresa_id, tabla.asignado_a, tabla.fecha),
 ])
 
-// Paradas del recorrido — cada visita como parada ordenada
+// Paradas del recorrido — polimórfico: una parada puede ser una visita real a un contacto
+// (tipo='visita', visita_id obligatorio) o una parada genérica sin contacto (tipo='parada',
+// visita_id null) con dirección a mano o tomada de un contacto. Las genéricas no cuentan
+// como visita al cliente.
 export const recorrido_paradas = pgTable('recorrido_paradas', {
   id: uuid('id').primaryKey().defaultRandom(),
   recorrido_id: uuid('recorrido_id').notNull().references(() => recorridos.id, { onDelete: 'cascade' }),
-  visita_id: uuid('visita_id').notNull().references(() => visitas.id, { onDelete: 'cascade' }),
+  visita_id: uuid('visita_id').references(() => visitas.id, { onDelete: 'cascade' }),
+
+  // Discriminador: 'visita' | 'parada'
+  tipo: text('tipo').notNull().default('visita'),
+
+  // Campos para paradas genéricas
+  titulo: text('titulo'),
+  motivo: text('motivo'),
+  direccion_texto: text('direccion_texto'),
+  direccion_lat: doublePrecision('direccion_lat'),
+  direccion_lng: doublePrecision('direccion_lng'),
+  direccion_id: uuid('direccion_id').references(() => contacto_direcciones.id, { onDelete: 'set null' }),
+  contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  contacto_nombre: text('contacto_nombre'),
+
+  // Estado propio de la parada (usado cuando tipo='parada' — en 'visita' se lee de visitas.estado)
+  estado: text('estado').notNull().default('programada'),
+  fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }),
+  fecha_llegada: timestamp('fecha_llegada', { withTimezone: true }),
+  fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
 
   // Orden de la parada en el recorrido
   orden: integer('orden').notNull().default(0),
@@ -2740,10 +2769,12 @@ export const recorrido_paradas = pgTable('recorrido_paradas', {
   // Notas específicas de esta parada
   notas: text('notas'),
 
+  creado_por: uuid('creado_por'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('recorrido_paradas_recorrido_idx').on(tabla.recorrido_id),
-  uniqueIndex('recorrido_paradas_unico_idx').on(tabla.recorrido_id, tabla.visita_id),
+  uniqueIndex('recorrido_paradas_unico_visita_idx').on(tabla.recorrido_id, tabla.visita_id),
+  index('recorrido_paradas_tipo_idx').on(tabla.recorrido_id, tabla.tipo),
 ])
 
 // Plantillas de recorrido — recorridos guardados para reutilizar

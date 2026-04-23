@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
 
-type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
+type EstadoParada = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
   programada: 'Programada',
@@ -15,9 +16,18 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
 }
 
 /**
- * PATCH /api/recorrido/estado — Cambiar estado de una visita desde el recorrido.
- * Body: { visita_id, estado, registro_lat?, registro_lng?, registro_precision_m? }
- * Se usa en: TarjetaParada al tocar botón de acción.
+ * PATCH /api/recorrido/estado — Cambiar estado de una parada del recorrido.
+ *
+ * Body (dos formas soportadas):
+ *   - { parada_id, estado, registro_lat?, registro_lng?, registro_precision_m? }  ← recomendado (tipo-agnóstico)
+ *   - { visita_id, estado, ... }  ← legacy (siempre asume parada tipo 'visita')
+ *
+ * Comportamiento:
+ *   - Si la parada es tipo 'visita', actualiza `visitas.estado` + timestamps y
+ *     registra un chatter en la visita.
+ *   - Si la parada es tipo 'parada' (genérica), actualiza `recorrido_paradas.estado`
+ *     + fechas. No hay chatter porque no hay contacto asociado.
+ *   - Siempre recalcula contadores y estado del recorrido (pendiente/en_curso/completado).
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -25,172 +35,154 @@ export async function PATCH(request: NextRequest) {
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 
-    const body = await request.json()
-    const { visita_id, estado, registro_lat, registro_lng, registro_precision_m } = body as {
-      visita_id: string
-      estado: EstadoVisita
+    const body = await request.json() as {
+      parada_id?: string
+      visita_id?: string
+      estado: EstadoParada
       registro_lat?: number
       registro_lng?: number
       registro_precision_m?: number
     }
 
-    if (!visita_id || !estado) {
-      return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 })
+    const { parada_id, visita_id, estado, registro_lat, registro_lng, registro_precision_m } = body
+
+    if (!estado || (!parada_id && !visita_id)) {
+      return NextResponse.json({ error: 'Faltan datos requeridos (parada_id o visita_id, estado)' }, { status: 400 })
     }
 
     const admin = crearClienteAdmin()
 
-    // Obtener visita actual
-    const { data: visita } = await admin
-      .from('visitas')
-      .select('*')
-      .eq('id', visita_id)
-      .eq('empresa_id', empresaId)
-      .single()
+    // Buscar la parada: por parada_id si vino, sino por visita_id (legacy)
+    let paradaFiltro = admin
+      .from('recorrido_paradas')
+      .select('id, tipo, visita_id, recorrido_id, estado, titulo')
 
-    if (!visita) {
-      return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
+    paradaFiltro = parada_id
+      ? paradaFiltro.eq('id', parada_id)
+      : paradaFiltro.eq('visita_id', visita_id!)
+
+    const { data: parada } = await paradaFiltro.maybeSingle()
+
+    if (!parada) {
+      return NextResponse.json({ error: 'Parada no encontrada' }, { status: 404 })
     }
 
-    const estadoAnterior = visita.estado
+    // Verificar que el recorrido pertenece a la empresa
+    const { data: recorridoOwner } = await admin
+      .from('recorridos')
+      .select('id')
+      .eq('id', parada.recorrido_id)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+    if (!recorridoOwner) {
+      return NextResponse.json({ error: 'Recorrido no pertenece a la empresa' }, { status: 403 })
+    }
+
     const ahora = new Date().toISOString()
 
-    // Preparar campos a actualizar según el nuevo estado
-    const actualizacion: Record<string, unknown> = {
-      estado,
-      actualizado_en: ahora,
-    }
+    if (parada.tipo === 'visita') {
+      // ── Flujo legacy: actualizar la visita asociada ──
+      const visitaId = parada.visita_id!
+      const { data: visita } = await admin
+        .from('visitas')
+        .select('id, estado, fecha_llegada')
+        .eq('id', visitaId)
+        .eq('empresa_id', empresaId)
+        .single()
 
-    if (estado === 'programada') {
-      // Reactivar — limpiar timestamps previos
-      actualizacion.fecha_inicio = null
-      actualizacion.fecha_llegada = null
-      actualizacion.fecha_completada = null
-      actualizacion.registro_lat = null
-      actualizacion.registro_lng = null
-      actualizacion.registro_precision_m = null
-      actualizacion.duracion_real_min = null
-    }
-
-    if (estado === 'en_camino') {
-      actualizacion.fecha_inicio = ahora
-    }
-
-    if (estado === 'en_sitio') {
-      actualizacion.fecha_llegada = ahora
-      if (registro_lat != null) actualizacion.registro_lat = registro_lat
-      if (registro_lng != null) actualizacion.registro_lng = registro_lng
-      if (registro_precision_m != null) actualizacion.registro_precision_m = registro_precision_m
-    }
-
-    if (estado === 'completada') {
-      actualizacion.fecha_completada = ahora
-      // Calcular duración real si hay fecha de llegada
-      if (visita.fecha_llegada) {
-        const llegada = new Date(visita.fecha_llegada).getTime()
-        const fin = new Date(ahora).getTime()
-        actualizacion.duracion_real_min = Math.round((fin - llegada) / 60000)
+      if (!visita) {
+        return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
       }
-    }
 
-    // Actualizar visita
-    const { error: errorVisita } = await admin
-      .from('visitas')
-      .update(actualizacion)
-      .eq('id', visita_id)
+      const estadoAnterior = visita.estado
+      const actualizacion: Record<string, unknown> = {
+        estado,
+        actualizado_en: ahora,
+      }
 
-    if (errorVisita) {
-      return NextResponse.json({ error: 'Error al actualizar visita', detalle: errorVisita.message }, { status: 500 })
-    }
+      if (estado === 'programada') {
+        actualizacion.fecha_inicio = null
+        actualizacion.fecha_llegada = null
+        actualizacion.fecha_completada = null
+        actualizacion.registro_lat = null
+        actualizacion.registro_lng = null
+        actualizacion.registro_precision_m = null
+        actualizacion.duracion_real_min = null
+      }
+      if (estado === 'en_camino') actualizacion.fecha_inicio = ahora
+      if (estado === 'en_sitio') {
+        actualizacion.fecha_llegada = ahora
+        if (registro_lat != null) actualizacion.registro_lat = registro_lat
+        if (registro_lng != null) actualizacion.registro_lng = registro_lng
+        if (registro_precision_m != null) actualizacion.registro_precision_m = registro_precision_m
+      }
+      if (estado === 'completada') {
+        actualizacion.fecha_completada = ahora
+        if (visita.fecha_llegada) {
+          const llegada = new Date(visita.fecha_llegada).getTime()
+          const fin = new Date(ahora).getTime()
+          actualizacion.duracion_real_min = Math.round((fin - llegada) / 60000)
+        }
+      }
 
-    // Obtener el recorrido que contiene esta visita para actualizar contadores
-    const { data: paradaDeVisita } = await admin
-      .from('recorrido_paradas')
-      .select('recorrido_id')
-      .eq('visita_id', visita_id)
-      .limit(1)
-      .single()
+      const { error: errorVisita } = await admin
+        .from('visitas')
+        .update(actualizacion)
+        .eq('id', visitaId)
 
-    const recorridoId = paradaDeVisita?.recorrido_id
-    const { data: recorrido } = recorridoId
-      ? await admin
-          .from('recorridos')
-          .select('id, total_visitas')
-          .eq('id', recorridoId)
-          .eq('empresa_id', empresaId)
-          .single()
-      : { data: null }
+      if (errorVisita) {
+        return NextResponse.json({ error: 'Error al actualizar visita', detalle: errorVisita.message }, { status: 500 })
+      }
 
-    if (recorrido) {
-      // Contar visitas completadas
-      const { data: paradasRecorrido } = await admin
+      // Chatter en la visita
+      const { data: perfil } = await admin
+        .from('perfiles')
+        .select('nombre, apellido, correo')
+        .eq('id', user.id)
+        .single()
+      const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
+
+      await registrarChatter({
+        empresaId,
+        entidadTipo: 'visita',
+        entidadId: visitaId,
+        contenido: `Estado cambiado de ${ETIQUETAS_ESTADO[estadoAnterior] || estadoAnterior} a ${ETIQUETAS_ESTADO[estado] || estado}`,
+        autorId: user.id,
+        autorNombre: nombreAutor,
+        metadata: {
+          accion: 'estado_cambiado',
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estado,
+        },
+      })
+    } else {
+      // ── Flujo parada genérica: solo tocar recorrido_paradas ──
+      const actualizacion: Record<string, unknown> = {
+        estado,
+      }
+      if (estado === 'programada') {
+        actualizacion.fecha_inicio = null
+        actualizacion.fecha_llegada = null
+        actualizacion.fecha_completada = null
+      }
+      if (estado === 'en_camino') actualizacion.fecha_inicio = ahora
+      if (estado === 'en_sitio') actualizacion.fecha_llegada = ahora
+      if (estado === 'completada') actualizacion.fecha_completada = ahora
+
+      const { error: errorParada } = await admin
         .from('recorrido_paradas')
-        .select('visita_id')
-        .eq('recorrido_id', recorrido.id)
+        .update(actualizacion)
+        .eq('id', parada.id)
 
-      if (paradasRecorrido) {
-        const idsVisitas = paradasRecorrido.map(p => p.visita_id)
-
-        // Contar completadas y canceladas en paralelo
-        const [{ count: countCompletadas }, { count: countFinalizadas }] = await Promise.all([
-          admin
-            .from('visitas')
-            .select('id', { count: 'exact', head: true })
-            .in('id', idsVisitas)
-            .eq('estado', 'completada'),
-          admin
-            .from('visitas')
-            .select('id', { count: 'exact', head: true })
-            .in('id', idsVisitas)
-            .in('estado', ['completada', 'cancelada']),
-        ])
-
-        const completadas = countCompletadas || 0
-        const finalizadas = countFinalizadas || 0
-
-        const actualizacionRecorrido: Record<string, unknown> = {
-          visitas_completadas: completadas,
-        }
-
-        // Recorrido completo cuando todas las visitas están completadas o canceladas
-        if (finalizadas >= recorrido.total_visitas) {
-          actualizacionRecorrido.estado = 'completado'
-        } else if (estado === 'en_camino' || estado === 'en_sitio') {
-          actualizacionRecorrido.estado = 'en_curso'
-        }
-
-        await admin
-          .from('recorridos')
-          .update(actualizacionRecorrido)
-          .eq('id', recorrido.id)
+      if (errorParada) {
+        return NextResponse.json({ error: 'Error al actualizar parada', detalle: errorParada.message }, { status: 500 })
       }
     }
 
-    // Obtener nombre del usuario desde perfiles
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido, correo')
-      .eq('id', user.id)
-      .single()
+    // Recalcular contadores del recorrido
+    await recalcularContadoresRecorrido(admin, parada.recorrido_id)
 
-    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
-
-    // Registrar cambio de estado en chatter
-    await registrarChatter({
-      empresaId,
-      entidadTipo: 'visita',
-      entidadId: visita_id,
-      contenido: `Estado cambiado de ${ETIQUETAS_ESTADO[estadoAnterior] || estadoAnterior} a ${ETIQUETAS_ESTADO[estado] || estado}`,
-      autorId: user.id,
-      autorNombre: nombreAutor,
-      metadata: {
-        accion: 'estado_cambiado',
-        estado_anterior: estadoAnterior,
-        estado_nuevo: estado,
-      },
-    })
-
-    return NextResponse.json({ ok: true, estado })
+    return NextResponse.json({ ok: true, estado, tipo: parada.tipo })
   } catch (err) {
     console.error('Error en PATCH /api/recorrido/estado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

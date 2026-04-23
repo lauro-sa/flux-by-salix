@@ -54,13 +54,14 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'contacto_codigo', etiqueta: 'Contacto — Código', grupo: 'Contacto', entidad: 'contacto', ejemplo: 'C-00042' },
 
   // Visita
-  { valor: 'visita_fecha', etiqueta: 'Visita — Fecha (día de la semana)', grupo: 'Visita', entidad: 'visita', ejemplo: 'martes 27 de abril', modulos: ['visitas'] },
-  { valor: 'visita_fecha_corta', etiqueta: 'Visita — Fecha corta (dd/mm)', grupo: 'Visita', entidad: 'visita', ejemplo: '27/04/2026', modulos: ['visitas'] },
-  { valor: 'visita_horario', etiqueta: 'Visita — Horario', grupo: 'Visita', entidad: 'visita', ejemplo: '11:00', modulos: ['visitas'] },
-  { valor: 'visita_direccion', etiqueta: 'Visita — Dirección', grupo: 'Visita', entidad: 'visita', ejemplo: 'Juncal 1724, Lanús Este', modulos: ['visitas'] },
-  { valor: 'visita_asignado', etiqueta: 'Visita — Asignado', grupo: 'Visita', entidad: 'visita', ejemplo: 'Carlos Pérez', modulos: ['visitas'] },
-  { valor: 'visita_motivo', etiqueta: 'Visita — Motivo', grupo: 'Visita', entidad: 'visita', ejemplo: 'Revisión técnica', modulos: ['visitas'] },
-  { valor: 'visita_duracion_min', etiqueta: 'Visita — Duración estimada (min)', grupo: 'Visita', entidad: 'visita', ejemplo: '30', modulos: ['visitas'] },
+  { valor: 'visita_fecha', etiqueta: 'Visita — Fecha (día de la semana)', grupo: 'Visita', entidad: 'visita', ejemplo: 'martes 27 de abril', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_fecha_corta', etiqueta: 'Visita — Fecha corta (dd/mm)', grupo: 'Visita', entidad: 'visita', ejemplo: '27/04/2026', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_horario', etiqueta: 'Visita — Horario', grupo: 'Visita', entidad: 'visita', ejemplo: '11:00', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_direccion', etiqueta: 'Visita — Dirección', grupo: 'Visita', entidad: 'visita', ejemplo: 'Juncal 1724, Lanús Este', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_asignado', etiqueta: 'Visita — Asignado', grupo: 'Visita', entidad: 'visita', ejemplo: 'Carlos Pérez', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_motivo', etiqueta: 'Visita — Motivo', grupo: 'Visita', entidad: 'visita', ejemplo: 'Revisión técnica', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_duracion_min', etiqueta: 'Visita — Duración estimada (min)', grupo: 'Visita', entidad: 'visita', ejemplo: '30', modulos: ['visitas', 'recorrido'] },
+  { valor: 'visita_eta', etiqueta: 'Visita — Tiempo estimado de llegada', grupo: 'Visita', entidad: 'visita', ejemplo: 'dentro de los próximos 25 minutos aproximadamente', modulos: ['recorrido'] },
 
   // Documento (presupuesto — compat hacia atrás con las claves originales)
   { valor: 'documento_numero', etiqueta: 'Documento — Número', grupo: 'Documento', entidad: 'presupuesto', ejemplo: 'PRE-00042', modulos: ['presupuestos'] },
@@ -200,6 +201,13 @@ export function construirDatosPlantilla(
     set('visita_asignado', visita.asignado_nombre as string)
     set('visita_motivo', visita.motivo as string)
     set('visita_duracion_min', visita.duracion_estimada_min as number)
+  }
+
+  // Fallback: si hay contacto pero no visita (caso típico del preview del editor),
+  // resolvemos `visita_direccion` con la dirección principal del contacto para que
+  // el WYSIWYG muestre un valor real en vez del ejemplo hardcodeado.
+  if (contacto && !visita && !datos['visita_direccion']) {
+    set('visita_direccion', primeraDireccion(contacto))
   }
 
   // Presupuesto / Documento

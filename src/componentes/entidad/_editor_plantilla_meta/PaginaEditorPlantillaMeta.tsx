@@ -82,6 +82,7 @@ const MODULOS_DISPONIBLES: { valor: string; etiqueta: string; entidad?: EntidadP
   { valor: 'ordenes', etiqueta: 'Órdenes', entidad: 'orden' },
   { valor: 'actividades', etiqueta: 'Actividades', entidad: 'actividad' },
   { valor: 'visitas', etiqueta: 'Visitas', entidad: 'visita' },
+  { valor: 'recorrido', etiqueta: 'Recorrido', entidad: 'visita' },
 ]
 
 const TIPOS_BOTON: { valor: TipoBotonWA; etiqueta: string }[] = [
