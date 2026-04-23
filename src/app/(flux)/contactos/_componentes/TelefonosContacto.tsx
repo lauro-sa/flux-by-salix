@@ -23,7 +23,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { normalizarTelefono } from '@/lib/validaciones'
+import { normalizarTelefono, formatearTelefonoInternacional } from '@/lib/validaciones'
 import type { TelefonoNormalizado, TipoTelefono } from '@/lib/contacto-telefonos'
 
 const TIPOS_OPCIONES: Array<{ valor: TipoTelefono; etiqueta: string }> = [
@@ -104,6 +104,14 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
     }))
   )
 
+  // ID del item cuyo input debe recibir foco tras agregar. Se limpia al primer focus
+  // para que sucesivos re-renders no re-enfoquen.
+  const [autofocusId, setAutofocusId] = useState<string | null>(null)
+
+  // ID del item actualmente enfocado. Los demás se muestran con formato internacional
+  // ("+54 9 11 5602-9403"). El enfocado muestra el valor raw ("5491156029403") para edición.
+  const [itemEnfocadoId, setItemEnfocadoId] = useState<string | null>(null)
+
   // Sincronizar items cuando cambian los telefonos desde afuera (re-fetch del contacto, etc).
   // CRUCIAL: preservar los items locales con valor vacío (recién agregados, sin propagar).
   // Si los pisamos, el botón "+ Agregar" parece no funcionar porque el item nuevo desaparece
@@ -167,6 +175,8 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
       orden: items.length,
     }
     setItems(prev => [...prev, nuevo])
+    // Autofocus: el próximo render dará foco al input del item recién agregado.
+    setAutofocusId(nuevo.id)
     // No propagamos al padre con valor vacío — el item se conserva en estado local
     // hasta que el usuario tipee algo. El useEffect de sincronización lo respeta.
   }, [items.length, reactId])
@@ -251,15 +261,26 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
                 {iconoParaTipo(t.tipo)}
               </div>
 
-              {/* Input del número */}
+              {/* Input del número.
+                  - Enfocado: muestra el valor raw (5491156029403) para editar.
+                  - No enfocado: muestra el formato internacional (+54 9 11 5602-9403).
+                  - Autofocus cuando es el item recién agregado. */}
               <div className="flex-1 min-w-0">
                 <Input
                   variante="plano"
                   tipo="tel"
                   formato="telefono"
-                  value={t.valor}
+                  autoFocus={t.id === autofocusId}
+                  value={t.id === itemEnfocadoId ? t.valor : (formatearTelefonoInternacional(t.valor) || t.valor)}
+                  onFocus={() => {
+                    setItemEnfocadoId(t.id)
+                    if (t.id === autofocusId) setAutofocusId(null)
+                  }}
                   onChange={(e) => cambiarValor(t.id, e.target.value)}
-                  onBlur={() => blurValor(t.id)}
+                  onBlur={() => {
+                    setItemEnfocadoId(null)
+                    blurValor(t.id)
+                  }}
                   placeholder="Número"
                 />
               </div>
