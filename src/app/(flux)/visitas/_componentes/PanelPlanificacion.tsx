@@ -17,6 +17,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
@@ -104,6 +105,8 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
+  const formato = useFormato()
+  const zonaHoraria = formato.zonaHoraria
 
   // Selector de mes
   const [mesSeleccionado, setMesSeleccionado] = useState(() => formatoMes(new Date()))
@@ -180,11 +183,12 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   //   2) Pasadas al final, ordenadas descendente (la más reciente primero)
   //   3) Dentro del mismo día, por estado (activas → pendientes → completadas) y después por hora
   const ordenarPorFecha = useCallback((arr: VisitaPlan[]) => {
-    const hoy = new Date()
-    const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    // Usamos la zona horaria de la empresa para que el agrupamiento por "día"
+    // coincida con el día que ve el usuario en pantalla (ver formato-fecha.ts).
+    const hoyISO = formatearFechaISO(new Date(), zonaHoraria)
     return [...arr].sort((a, b) => {
-      const diaA = a.fecha_programada?.split('T')[0] || '9999'
-      const diaB = b.fecha_programada?.split('T')[0] || '9999'
+      const diaA = a.fecha_programada ? formatearFechaISO(a.fecha_programada, zonaHoraria) : '9999'
+      const diaB = b.fecha_programada ? formatearFechaISO(b.fecha_programada, zonaHoraria) : '9999'
       const pasadaA = diaA < hoyISO
       const pasadaB = diaB < hoyISO
       // Futuras arriba, pasadas abajo
@@ -203,7 +207,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
       const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
       return pasadaA ? fb - fa : fa - fb
     })
-  }, [pesoEstado])
+  }, [pesoEstado, zonaHoraria])
 
   useEffect(() => {
     if (datos) {
@@ -358,9 +362,11 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
     const newIndex = visitador.visitas.findIndex(v => v.id === overId)
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
 
-    // Solo permitir reorden dentro del mismo grupo de fecha
-    const fechaActiva = visitador.visitas[oldIndex].fecha_programada?.split('T')[0] || ''
-    const fechaOver = visitador.visitas[newIndex].fecha_programada?.split('T')[0] || ''
+    // Solo permitir reorden dentro del mismo grupo de fecha (día local de la empresa)
+    const fpActiva = visitador.visitas[oldIndex].fecha_programada
+    const fpOver = visitador.visitas[newIndex].fecha_programada
+    const fechaActiva = fpActiva ? formatearFechaISO(fpActiva, zonaHoraria) : ''
+    const fechaOver = fpOver ? formatearFechaISO(fpOver, zonaHoraria) : ''
     if (fechaActiva !== fechaOver) return // no mover entre fechas distintas
 
     const nuevasVisitas = arrayMove(visitador.visitas, oldIndex, newIndex)
@@ -379,7 +385,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
         })
       } catch { refetch() }
     }
-  }, [encontrarColumna, visitadoresLocal, refetch, mostrar, t])
+  }, [encontrarColumna, visitadoresLocal, refetch, mostrar, t, zonaHoraria])
 
   // Optimizar ruta
   const optimizarRuta = useCallback(async (usuarioId: string) => {
@@ -448,7 +454,6 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
     setModalRecorrido(prev => ({ ...prev, abierto: false }))
   }, [])
 
-  const formato = useFormato()
   const visitaDragging = draggingId ? encontrarVisita(draggingId) : null
 
   // ── Loading ──
@@ -463,7 +468,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   const { desde: desdeMes, hasta: hastaMes } = rangoMes(mesSeleccionado)
   // Referencia "Hoy" siempre visible: útil sobre todo al navegar a otros meses
   const etiquetaHoy = new Date()
-    .toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+    .toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria })
     .replace(/^\w/, c => c.toUpperCase())
 
   return (
@@ -622,7 +627,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
             const v = visitaDragging
             const horaOv = v.fecha_programada ? formato.hora(v.fecha_programada) : null
             const fechaOv = v.fecha_programada
-              ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+              ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria })
                   .replace(/^\w/, c => c.toUpperCase())
               : null
             const colorBorde = v.prioridad === 'urgente' ? 'border-l-insignia-peligro'

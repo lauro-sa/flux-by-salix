@@ -9,6 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight, Map, ExternalLink, Play, Check, CheckCircle, XCircle, Sparkles } from 'lucide-react'
 import { MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
@@ -114,7 +115,7 @@ function ItemVisitaSortable({
 
   const horaFormateada = visita.fecha_programada ? formato.hora(visita.fecha_programada) : null
   const fechaConDia = visita.fecha_programada
-    ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+    ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: formato.zonaHoraria })
         .replace(/^\w/, c => c.toUpperCase())
     : null
 
@@ -273,6 +274,7 @@ export default function TarjetaVisitador({
   esSinAsignar,
 }: Props) {
   const { t } = useTraduccion()
+  const { zonaHoraria } = useFormato()
 
   // Droppable zone para recibir visitas de otras columnas
   const { setNodeRef, isOver } = useDroppable({ id: usuarioId })
@@ -400,13 +402,20 @@ export default function TarjetaVisitador({
       <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1">
         <SortableContext items={idsVisitas} strategy={verticalListSortingStrategy}>
           {(() => {
-            let ultimaFecha = ''
+            let ultimaClave = ''
             let contadorGlobal = 0
+
+            // Clave de agrupamiento: día local en la zona horaria de la empresa.
+            // El render por `toLocaleDateString` convierte a local, así que agrupar
+            // por el día UTC (split('T')[0]) hacía aparecer dos cabeceras para la
+            // misma fecha visible cuando las visitas caían en distintos días UTC.
+            const claveDia = (fecha: string | null): string =>
+              fecha ? formatearFechaISO(fecha, zonaHoraria) : 'sin-fecha'
 
             // Pre-calcular estado por fecha
             const estadoPorFecha: Record<string, { enCurso: boolean; completadas: number; total: number }> = {}
             visitas.forEach(v => {
-              const fKey = v.fecha_programada?.split('T')[0] || 'sin-fecha'
+              const fKey = claveDia(v.fecha_programada)
               if (!estadoPorFecha[fKey]) estadoPorFecha[fKey] = { enCurso: false, completadas: 0, total: 0 }
               const grupo = estadoPorFecha[fKey]
               grupo.total++
@@ -415,15 +424,15 @@ export default function TarjetaVisitador({
             })
 
             return visitas.map((visita) => {
+              const fKey = claveDia(visita.fecha_programada)
               const fechaVisita = visita.fecha_programada
-                ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+                ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria })
                     .replace(/^\w/, c => c.toUpperCase())
                 : 'Sin fecha'
-              const mostrarSeparador = fechaVisita !== ultimaFecha
-              ultimaFecha = fechaVisita
+              const mostrarSeparador = fKey !== ultimaClave
+              ultimaClave = fKey
               contadorGlobal++
 
-              const fKey = visita.fecha_programada?.split('T')[0] || 'sin-fecha'
               const estadoGrupo = estadoPorFecha[fKey]
               const grupoEnCurso = estadoGrupo?.enCurso || false
               const grupoCompletado = estadoGrupo ? estadoGrupo.completadas === estadoGrupo.total && estadoGrupo.total > 0 : false
@@ -462,8 +471,7 @@ export default function TarjetaVisitador({
                       {!esSinAsignar && onAbrirRecorrido && visita.fecha_programada && (
                         <button
                           onClick={() => {
-                            const fechaISO = new Date(visita.fecha_programada!).toISOString().split('T')[0]
-                            onAbrirRecorrido(usuarioId, fechaISO)
+                            onAbrirRecorrido(usuarioId, fKey)
                           }}
                           className={`shrink-0 rounded-boton px-1.5 py-1 transition-colors flex items-center gap-1 ${
                             grupoEnCurso
