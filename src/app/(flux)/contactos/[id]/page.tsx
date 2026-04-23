@@ -392,10 +392,16 @@ function PaginaContactoInterno() {
   }, [guardar, esNuevo])
 
   // Guardar lista de teléfonos al cambiar (autoguardado tipo lista — el backend hace reemplazo completo).
-  // En creación NO autoguarda: la lista viaja en el POST inicial.
+  // En creación: dispara intentarCrear cuando se cumple puedeGuardar (equivalente al onBlur del
+  // teléfono que existía en la versión vieja con inputs separados). setTimeout 0 para esperar
+  // a que setTelefonos se aplique antes de evaluar puedeGuardar.
   const guardarTelefonos = useCallback((nuevos: TelefonoNormalizado[]) => {
     setTelefonos(nuevos)
-    if (!esNuevo) guardar({ telefonos: nuevos })
+    if (esNuevo) {
+      setTimeout(() => intentarCrearRef.current?.(), 0)
+    } else {
+      guardar({ telefonos: nuevos })
+    }
   }, [guardar, esNuevo])
 
   const guardarFiscal = useCallback((clave: string, valor: string) => {
@@ -481,6 +487,11 @@ function PaginaContactoInterno() {
     creadoRef.current = true
     crearContactoFn()
   }, [puedeGuardar, guardando, campos])
+
+  // Ref al último intentarCrear para invocarlo desde callbacks (guardarTelefonos, etc.)
+  // sin meterlo en deps y recrear esos callbacks a cada render.
+  const intentarCrearRef = useRef(intentarCrear)
+  useEffect(() => { intentarCrearRef.current = intentarCrear }, [intentarCrear])
 
   const crearContactoFn = useCallback(async () => {
     if (guardando) return
