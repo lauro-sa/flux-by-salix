@@ -149,8 +149,9 @@ function PaginaInbox() {
             emailCanal={estado.emailCanalActivo}
             firmaCorreo={estado.firmaCorreo}
             redactandoNuevo={estado.redactandoNuevo}
-            onRedactarNuevo={() => { limpiarSeleccionCorreo(); estado.setRedactandoNuevo(true) }}
-            onCancelarRedaccion={() => estado.setRedactandoNuevo(false)}
+            onRedactarNuevo={() => { limpiarSeleccionCorreo(); estado.setParaRedactarNuevo([]); estado.setRedactandoNuevo(true) }}
+            onCancelarRedaccion={() => { estado.setRedactandoNuevo(false); estado.setParaRedactarNuevo([]) }}
+            paraRedactarNuevo={estado.paraRedactarNuevo}
             modoVista={estado.modoVista}
             onCambiarModoVista={estado.cambiarModoVista}
             sidebarColapsado={estado.sidebarCorreoColapsado}

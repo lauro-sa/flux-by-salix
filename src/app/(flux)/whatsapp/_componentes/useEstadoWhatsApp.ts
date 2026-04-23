@@ -215,6 +215,97 @@ export function useEstadoWhatsApp() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  // ─── Abrir conversación desde contacto (?contacto_id=xxx) ───
+  // Usado por las acciones rápidas (panel Salix IA → "WhatsApp en Flux").
+  // Busca la conversación WhatsApp más reciente del contacto; si no existe,
+  // la crea vacía con el canal WA por defecto y la abre.
+  const contactoIdParamAnteriorRef = useRef<string | null>(null)
+  useEffect(() => {
+    const contactoId = searchParams.get('contacto_id')
+    if (!contactoId) return
+    // Esperamos a tener canal WA cargado para poder crear si hace falta
+    if (!canalWAId) return
+    if (contactoIdParamAnteriorRef.current === contactoId) return
+    contactoIdParamAnteriorRef.current = contactoId
+    abriendoDesdeUrlRef.current = true
+
+    const abrirDesdeContacto = async () => {
+      try {
+        // 1) Buscar conversación existente con el contacto
+        const resBuscar = await fetch(
+          `/api/inbox/conversaciones?tipo_canal=whatsapp&contacto_id=${contactoId}`
+        )
+        const dataBuscar = await resBuscar.json()
+        const convs = dataBuscar.conversaciones || []
+
+        let convId: string | null = convs.length > 0 ? convs[0].id : null
+
+        // 2) Si no existe, crear una conversación vacía vinculada al contacto
+        if (!convId) {
+          const resCrear = await fetch('/api/inbox/conversaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              canal_id: canalWAId,
+              tipo_canal: 'whatsapp',
+              contacto_id: contactoId,
+            }),
+          })
+          if (resCrear.ok) {
+            const { conversacion } = await resCrear.json()
+            convId = conversacion?.id || null
+          }
+        }
+
+        if (!convId) {
+          abriendoDesdeUrlRef.current = false
+          contactoIdParamAnteriorRef.current = null
+          return
+        }
+
+        // 3) Abrir la conversación (mismo patrón que ?conv=xxx)
+        setCargandoMensajes(true)
+        const [resConv, resMsgs] = await Promise.all([
+          fetch(`/api/inbox/conversaciones/${convId}`),
+          fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`),
+        ])
+        const dataConv = await resConv.json()
+        const conv = dataConv.conversacion
+        if (!conv) {
+          setCargandoMensajes(false)
+          abriendoDesdeUrlRef.current = false
+          return
+        }
+        const dataMsgs = await resMsgs.json()
+        const msgs = dataMsgs.mensajes || []
+        setConversacionSeleccionada(conv)
+        setMensajes(msgs)
+        setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
+        setCargandoMensajes(false)
+
+        marcarNotificacionesLeidasDeConversacion(convId)
+
+        // 4) Limpiar URL y refrescar listado
+        window.history.replaceState({}, '', window.location.pathname)
+        contactoIdParamAnteriorRef.current = null
+        abriendoDesdeUrlRef.current = false
+
+        try {
+          const params = new URLSearchParams()
+          params.set('tipo_canal', 'whatsapp')
+          const resList = await fetch(`/api/inbox/conversaciones?${params}`)
+          const dataList = await resList.json()
+          setConversaciones(dataList.conversaciones || [])
+        } catch { /* silenciar */ }
+      } catch {
+        setCargandoMensajes(false)
+        abriendoDesdeUrlRef.current = false
+      }
+    }
+    abrirDesdeContacto()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, canalWAId])
+
   // Búsqueda con debounce
   const montadoRef = useRef(false)
   useEffect(() => {

@@ -61,6 +61,8 @@ interface PropsLayoutCorreo {
   redactandoNuevo: boolean
   onRedactarNuevo: () => void
   onCancelarRedaccion: () => void
+  /** Destinatarios precargados al abrir el compositor desde una acción rápida. */
+  paraRedactarNuevo?: string[]
 
   // Layout desktop
   modoVista: ModoVista
@@ -121,6 +123,7 @@ export function LayoutCorreo({
   redactandoNuevo,
   onRedactarNuevo,
   onCancelarRedaccion,
+  paraRedactarNuevo,
   modoVista,
   onCambiarModoVista,
   sidebarColapsado,
@@ -150,6 +153,7 @@ export function LayoutCorreo({
     onProgramar: onProgramar,
     cargando: enviando,
     firma: firmaCorreo,
+    paraInicial: paraRedactarNuevo && paraRedactarNuevo.length > 0 ? paraRedactarNuevo : undefined,
   }
 
   // Props comunes para el panel de correo

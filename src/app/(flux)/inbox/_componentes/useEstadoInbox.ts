@@ -65,6 +65,10 @@ export function useEstadoInbox() {
 
   // Correo
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
+  // Destinatarios precargados cuando se abre el compositor desde una acción
+  // rápida (ej. `/inbox?nuevo=1&para=juan@ejemplo.com&tab=correo`). Se pasa
+  // a CompositorCorreo como `paraInicial` y luego se limpia.
+  const [paraRedactarNuevo, setParaRedactarNuevo] = useState<string[]>([])
   const [canalesCorreo, setCanalesCorreo] = useState<CanalMensajeria[]>([])
   const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>('')
   const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
@@ -302,6 +306,28 @@ export function useEstadoInbox() {
       }
     }
     abrirDesdeUrl()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // ─── Abrir compositor de correo desde URL (?nuevo=1&para=<correo>&tab=correo) ───
+  // Usado por las acciones rápidas (panel Salix IA → "Redactar en Flux").
+  // Cambia al tab correo, abre el compositor y precarga el destinatario.
+  const nuevoParamAnteriorRef = useRef<string | null>(null)
+  useEffect(() => {
+    const nuevoParam = searchParams.get('nuevo')
+    const paraParam = searchParams.get('para')
+    if (nuevoParam !== '1' || !paraParam) return
+    if (nuevoParamAnteriorRef.current === paraParam) return
+    nuevoParamAnteriorRef.current = paraParam
+
+    setTabActivo('correo')
+    setConversacionSeleccionada(null)
+    setMensajes([])
+    setParaRedactarNuevo([paraParam])
+    setRedactandoNuevo(true)
+
+    window.history.replaceState({}, '', window.location.pathname)
+    nuevoParamAnteriorRef.current = null
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
@@ -922,6 +948,8 @@ export function useEstadoInbox() {
     // Correo
     redactandoNuevo,
     setRedactandoNuevo,
+    paraRedactarNuevo,
+    setParaRedactarNuevo,
     canalesCorreo,
     canalCorreoActivo,
     setCanalCorreoActivo,
