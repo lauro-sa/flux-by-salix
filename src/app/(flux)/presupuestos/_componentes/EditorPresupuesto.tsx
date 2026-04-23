@@ -630,6 +630,15 @@ export default function EditorPresupuesto({
     await cambiarEstado(estadoPendiente)
   }
 
+  // Avanzar el estado sin tocar la fecha de vencimiento (admin decide registrar
+  // una confirmación retroactiva aunque el presupuesto esté vencido en portal).
+  const continuarSinActualizarVencimiento = async () => {
+    if (!modalVencimiento) return
+    const { estadoPendiente } = modalVencimiento
+    setModalVencimiento(null)
+    await cambiarEstado(estadoPendiente)
+  }
+
   // ─── Descartar/eliminar presupuesto ─────────────────────────────────────
 
   const descartarPresupuesto = useCallback(async () => {
@@ -1319,12 +1328,19 @@ export default function EditorPresupuesto({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ presupuesto_id: idPresupuesto }),
       })
+      const data = await res.json()
       if (!res.ok) {
-        const err = await res.json()
-        mostrarToast('error', err.error || 'Error al generar orden de trabajo')
+        // 409: ya existe una OT viva para el presupuesto; sincronizar estado
+        // local para que la cabecera muestre "Ver OT" y navegar ahí.
+        if (res.status === 409 && data.orden?.id) {
+          setPresupuesto(prev => prev ? { ...prev, orden_trabajo: { id: data.orden.id, numero: data.orden.numero } } : null)
+          router.push(`/ordenes/${data.orden.id}`)
+          return
+        }
+        mostrarToast('error', data.error || 'Error al generar orden de trabajo')
         return
       }
-      const data = await res.json()
+      setPresupuesto(prev => prev ? { ...prev, orden_trabajo: { id: data.orden.id, numero: data.orden.numero } } : null)
       mostrarToast('exito', `Orden de trabajo ${data.orden?.numero} generada`)
       router.push(`/ordenes/${data.orden?.id}`)
     } catch {
@@ -1333,6 +1349,12 @@ export default function EditorPresupuesto({
       setGenerandoOT(false)
     }
   }, [idPresupuesto, generandoOT, mostrarToast, router])
+
+  // Navegar a la OT ya generada
+  const handleVerOT = useCallback(() => {
+    const otId = presupuesto?.orden_trabajo?.id
+    if (otId) router.push(`/ordenes/${otId}`)
+  }, [presupuesto?.orden_trabajo?.id, router])
 
   const handleVistaPrevia = async () => {
     const pid = idPresupuesto
@@ -1502,7 +1524,9 @@ export default function EditorPresupuesto({
           onReEmitir={handleReEmitir}
           onCrearPresupuesto={crearPresupuesto}
           onGenerarOT={handleGenerarOT}
+          onVerOT={handleVerOT}
           generandoOT={generandoOT}
+          ordenTrabajoVinculada={presupuesto?.orden_trabajo ?? null}
         />
 
         {/* ─── Banner deshacer re-emisión ─── */}
@@ -2145,27 +2169,40 @@ export default function EditorPresupuesto({
         abierto={!!modalVencimiento}
         onCerrar={() => setModalVencimiento(null)}
         titulo="Presupuesto vencido"
-        tamano="sm"
+        tamano="md"
         acciones={
-          <div className="flex items-center gap-2 justify-end">
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalVencimiento(null)}>
+          <div className="flex items-center justify-between gap-2 w-full">
+            <Boton variante="fantasma" tamano="sm" onClick={() => setModalVencimiento(null)}>
               Cancelar
             </Boton>
-            <Boton variante="primario" tamano="sm" onClick={confirmarVencimientoYCambiarEstado}>
-              Actualizar y continuar
-            </Boton>
+            <div className="flex items-center gap-2">
+              <Boton variante="secundario" tamano="sm" onClick={continuarSinActualizarVencimiento}>
+                Confirmar igual
+              </Boton>
+              <Boton variante="primario" tamano="sm" onClick={confirmarVencimientoYCambiarEstado}>
+                Actualizar fecha
+              </Boton>
+            </div>
           </div>
         }
       >
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
-            <AlertTriangle size={20} className="text-insignia-advertencia shrink-0 mt-0.5" />
-            <p className="text-sm text-texto-secundario">
-              Este presupuesto está vencido. Para continuar, actualizá la fecha de vencimiento.
-            </p>
+        <div className="space-y-5">
+          <div className="flex items-start gap-3">
+            <div className="size-9 rounded-full bg-insignia-advertencia/15 flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} className="text-insignia-advertencia" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-texto-primario">
+                Este presupuesto ya venció. El portal del cliente no le permite aceptarlo.
+              </p>
+              <p className="text-sm text-texto-terciario">
+                Podés confirmarlo igual —por ejemplo si el cliente ya pagó un adelanto— o extender la fecha de vencimiento.
+              </p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wide">
+
+          <div className="rounded-card border border-borde-sutil bg-white/[0.02] p-3 space-y-2">
+            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
               Nueva fecha de vencimiento
             </label>
             <SelectorFecha
@@ -2177,6 +2214,9 @@ export default function EditorPresupuesto({
               }}
               limpiable={false}
             />
+            <p className="text-xs text-texto-terciario">
+              Solo se aplica si elegís “Actualizar fecha”.
+            </p>
           </div>
         </div>
       </Modal>

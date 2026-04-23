@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
-import { normalizarTelefono } from '@/lib/validaciones'
 
 /**
  * POST /api/contactos/fusionar — Fusiona un contacto provisorio con uno existente.
@@ -37,9 +36,9 @@ export async function POST(request: NextRequest) {
 
     // Verificar que ambos contactos existen y pertenecen a la empresa
     const [provRes, destRes] = await Promise.all([
-      admin.from('contactos').select('id, nombre, apellido, es_provisorio, correo, telefono, whatsapp, cargo, web')
+      admin.from('contactos').select('id, nombre, apellido, es_provisorio, correo, cargo, web')
         .eq('id', provisorio_id).eq('empresa_id', empresaId).single(),
-      admin.from('contactos').select('id, nombre, apellido, codigo, correo, telefono, whatsapp, cargo, web')
+      admin.from('contactos').select('id, nombre, apellido, codigo, correo, cargo, web')
         .eq('id', destino_id).eq('empresa_id', empresaId).single(),
     ])
 
@@ -54,11 +53,9 @@ export async function POST(request: NextRequest) {
     const destino = destRes.data
 
     // Actualizar campos vacíos del destino con datos del provisorio.
-    // Teléfonos se normalizan al heredar por si el provisorio los tiene con formato sucio.
+    // telefono/whatsapp se manejan vía contacto_telefonos (más abajo) — no se heredan acá.
     const camposActualizar: Record<string, unknown> = {}
     if (!destino.correo && provisorio.correo) camposActualizar.correo = provisorio.correo
-    if (!destino.telefono && provisorio.telefono) camposActualizar.telefono = normalizarTelefono(provisorio.telefono)
-    if (!destino.whatsapp && provisorio.whatsapp) camposActualizar.whatsapp = normalizarTelefono(provisorio.whatsapp)
     if (!destino.cargo && provisorio.cargo) camposActualizar.cargo = provisorio.cargo
     if (!destino.web && provisorio.web) camposActualizar.web = provisorio.web
 
@@ -99,7 +96,73 @@ export async function POST(request: NextRequest) {
       await admin.from('contacto_vinculaciones').delete().in('id', idsEliminar)
     }
 
-    // ── Paso 2: Migrar todas las relaciones del provisorio al destino ──
+    // ── Paso 2a: Migrar teléfonos con dedup por valor ──
+    // No se puede hacer un simple UPDATE contacto_id porque:
+    //   1. Puede haber valores duplicados entre provisorio y destino (mismo número en ambos).
+    //   2. El unique partial index (contacto_id) WHERE es_principal=true rechazaría dos principales.
+    // Estrategia:
+    //   - Para cada teléfono del provisorio cuyo valor ya existe en destino: fusionar flags
+    //     en el del destino (OR de es_whatsapp), borrar el del provisorio.
+    //   - Para los demás: mover al destino. Si destino ya tiene principal, forzar es_principal=false.
+    const [telProvRes, telDestRes] = await Promise.all([
+      admin.from('contacto_telefonos').select('*')
+        .eq('contacto_id', provisorio_id).eq('empresa_id', empresaId),
+      admin.from('contacto_telefonos').select('*')
+        .eq('contacto_id', destino_id).eq('empresa_id', empresaId),
+    ])
+
+    const telProv = telProvRes.data || []
+    const telDest = telDestRes.data || []
+    const valoresDest = new Map(telDest.map(t => [t.valor, t]))
+    const destinoTienePrincipal = telDest.some(t => t.es_principal)
+
+    const opsTelefonos: PromiseLike<unknown>[] = []
+    const eliminarDelProv: string[] = []
+    const moverAlDestino: string[] = []
+
+    for (const t of telProv) {
+      const existente = valoresDest.get(t.valor)
+      if (existente) {
+        // Fusionar flags en el del destino
+        const cambios: Record<string, unknown> = {}
+        if (t.es_whatsapp && !existente.es_whatsapp) cambios.es_whatsapp = true
+        if (!existente.etiqueta && t.etiqueta) cambios.etiqueta = t.etiqueta
+        if (Object.keys(cambios).length > 0) {
+          cambios.editado_por = user.id
+          cambios.actualizado_en = new Date().toISOString()
+          opsTelefonos.push(
+            admin.from('contacto_telefonos').update(cambios).eq('id', existente.id).then()
+          )
+        }
+        eliminarDelProv.push(t.id)
+      } else {
+        moverAlDestino.push(t.id)
+      }
+    }
+
+    if (moverAlDestino.length > 0) {
+      const cambios: Record<string, unknown> = {
+        contacto_id: destino_id,
+        editado_por: user.id,
+        actualizado_en: new Date().toISOString(),
+      }
+      // Si destino ya tiene principal, forzar es_principal=false en los movidos para no
+      // violar el unique partial (contacto_id) WHERE es_principal=true.
+      if (destinoTienePrincipal) cambios.es_principal = false
+      opsTelefonos.push(
+        admin.from('contacto_telefonos').update(cambios).in('id', moverAlDestino).then()
+      )
+    }
+
+    if (eliminarDelProv.length > 0) {
+      opsTelefonos.push(
+        admin.from('contacto_telefonos').delete().in('id', eliminarDelProv).then()
+      )
+    }
+
+    if (opsTelefonos.length > 0) await Promise.all(opsTelefonos)
+
+    // ── Paso 2b: Migrar el resto de relaciones del provisorio al destino ──
     const migraciones = [
       // Conversaciones de WhatsApp/inbox — actualizar contacto_id Y el nombre cacheado
       admin.from('conversaciones')

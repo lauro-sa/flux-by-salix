@@ -448,6 +448,59 @@ export const contacto_direcciones = pgTable('contacto_direcciones', {
   index('direcciones_contacto_idx').on(tabla.contacto_id),
 ])
 
+// Teléfonos de contacto — N teléfonos por contacto, cada uno con tipo y flag WhatsApp.
+// Reemplaza el modelo rígido contactos.telefono + contactos.whatsapp. Las columnas legacy
+// en contactos quedan sincronizadas vía trigger SQL durante la transición (ver migración
+// 20260422040000_contacto_telefonos.sql).
+export const contacto_telefonos = pgTable('contacto_telefonos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  contacto_id: uuid('contacto_id').notNull().references(() => contactos.id, { onDelete: 'cascade' }),
+  // 'movil' | 'fijo' | 'trabajo' | 'casa' | 'otro'. WhatsApp NO es un tipo:
+  // se deriva implícito de tipo='movil' (convención AR).
+  tipo: text('tipo').notNull(),
+  // Número normalizado (E.164 sin +, regla del 9 para AR aplicada).
+  valor: text('valor').notNull(),
+  // Derivado del tipo en la UI: true cuando tipo=movil. Se mantiene la columna por
+  // flexibilidad futura (ej. móvil corporativo sin WhatsApp).
+  es_whatsapp: boolean('es_whatsapp').notNull().default(false),
+  es_principal: boolean('es_principal').notNull().default(false),
+  etiqueta: text('etiqueta'),
+  orden: integer('orden').notNull().default(0),
+  // Auditoría estándar
+  creado_por: uuid('creado_por'),
+  editado_por: uuid('editado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('contacto_telefonos_contacto_idx').on(tabla.contacto_id),
+  index('contacto_telefonos_empresa_valor_idx').on(tabla.empresa_id, tabla.valor),
+  // Partial index para webhook WhatsApp (solo filas WA-aptas)
+  index('contacto_telefonos_whatsapp_idx')
+    .on(tabla.empresa_id, tabla.valor)
+    .where(sql`es_whatsapp = true`),
+  // Garantía: máximo un principal por contacto
+  uniqueIndex('contacto_telefonos_principal_uniq')
+    .on(tabla.contacto_id)
+    .where(sql`es_principal = true`),
+])
+
+// Auditoría de teléfonos de contacto — mismo patrón que auditoria_contactos
+export const auditoria_contacto_telefonos = pgTable('auditoria_contacto_telefonos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  telefono_id: uuid('telefono_id').notNull(),
+  editado_por: uuid('editado_por').notNull(),
+  campo_modificado: text('campo_modificado').notNull(),
+  valor_anterior: text('valor_anterior'),
+  valor_nuevo: text('valor_nuevo'),
+  motivo: text('motivo'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('auditoria_contacto_telefonos_telefono_idx').on(tabla.telefono_id),
+  index('auditoria_contacto_telefonos_empresa_idx').on(tabla.empresa_id),
+])
+
 // Responsables asignados a un contacto
 export const contacto_responsables = pgTable('contacto_responsables', {
   contacto_id: uuid('contacto_id').notNull().references(() => contactos.id, { onDelete: 'cascade' }),

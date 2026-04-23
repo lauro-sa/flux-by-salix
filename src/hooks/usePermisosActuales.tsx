@@ -95,10 +95,17 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Primera carga + recarga cuando cambia el usuario (login/logout/cambio empresa)
+  // Primera carga + recarga cuando cambia el usuario (login/logout/cambio de
+  // cuenta). IMPORTANTE: dep `usuario?.id` y NO `usuario`. Supabase Auth emite
+  // un objeto `user` nuevo en cada `TOKEN_REFRESHED` (que dispara al volver de
+  // otra pestaña del navegador). Si dependiéramos del objeto, este effect se
+  // re-ejecutaría con cada refresh de token, pondría `cargando: true` y
+  // desmontaría todo lo envuelto en <GuardPagina> — visto como un "spinner y
+  // vuelve a cargar" al cambiar de pestaña.
+  const usuarioId = usuario?.id ?? null
   useEffect(() => {
     if (cargandoAuth) return
-    if (!usuario) {
+    if (!usuarioId) {
       miembroIdRef.current = null
       setEstado({
         cargando: false,
@@ -112,9 +119,13 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
       })
       return
     }
-    setEstado(s => ({ ...s, cargando: true }))
+    // Solo marcar `cargando: true` si todavía no tenemos datos. Si ya había
+    // permisos cargados (refetch por cambio de id del usuario o disparo manual
+    // vía `recargar()`), mantenemos los datos previos hasta que llegue el
+    // fetch nuevo para evitar el flash de pantalla vacía en los guards.
+    setEstado(s => s.miembroId ? s : { ...s, cargando: true })
     fetchPermisos().then(id => { miembroIdRef.current = id })
-  }, [usuario, cargandoAuth, fetchPermisos])
+  }, [usuarioId, cargandoAuth, fetchPermisos])
 
   // Suscripción realtime: escuchamos UPDATE sobre la fila del miembro.
   // El filtro server-side asegura que solo recibimos los eventos que nos

@@ -9,6 +9,7 @@ import {
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
+import { buscarContactoPorTelefono } from '@/lib/contacto-telefonos'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
@@ -259,18 +260,12 @@ async function procesarMensajeEntrante(
   }
 
   if (!conversacion) {
-    // Intentar vincular con contacto existente por WhatsApp (cualquier variante del número)
-    const orCont = variantesTel
-      .flatMap(v => [`whatsapp.eq.${v}`, `telefono.eq.${v}`])
-      .join(',')
-    let { data: contacto } = await admin
-      .from('contactos')
-      .select('id, nombre, apellido')
-      .eq('empresa_id', canal.empresa_id)
-      .eq('en_papelera', false)
-      .or(orCont)
-      .limit(1)
-      .maybeSingle()
+    // Intentar vincular con contacto existente por WhatsApp (cualquier variante del número).
+    // Lookup contra contacto_telefonos (lista canónica nueva).
+    const matchTel = await buscarContactoPorTelefono(admin, canal.empresa_id, variantesTel)
+    let contacto: { id: string; nombre: string; apellido: string | null } | null = matchTel
+      ? { id: matchTel.id, nombre: matchTel.nombre, apellido: matchTel.apellido }
+      : null
 
     // Si no existe contacto, crear uno provisorio automáticamente
     if (!contacto) {
@@ -305,17 +300,10 @@ async function procesarMensajeEntrante(
   } else if (!conversacion.contacto_id) {
     // Conversación existente sin contacto vinculado (fue eliminado)
     // → buscar o crear provisorio y vincular (por cualquier variante del número)
-    const orContRelink = variantesTel
-      .flatMap(v => [`whatsapp.eq.${v}`, `telefono.eq.${v}`])
-      .join(',')
-    let { data: contacto } = await admin
-      .from('contactos')
-      .select('id, nombre, apellido')
-      .eq('empresa_id', canal.empresa_id)
-      .eq('en_papelera', false)
-      .or(orContRelink)
-      .limit(1)
-      .maybeSingle()
+    const matchTel = await buscarContactoPorTelefono(admin, canal.empresa_id, variantesTel)
+    let contacto: { id: string; nombre: string; apellido: string | null } | null = matchTel
+      ? { id: matchTel.id, nombre: matchTel.nombre, apellido: matchTel.apellido }
+      : null
 
     if (!contacto) {
       contacto = await crearContactoProvisorio(admin, canal.empresa_id, nombreRemitente, telefonoRemitente)
@@ -1040,26 +1028,47 @@ async function crearContactoProvisorio(
 
     // Defensa en profundidad: aunque el caller ya normaliza, blindamos el insert.
     const telNorm = normalizarTelefono(telefono) || telefono
+    const usuarioSistema = '00000000-0000-0000-0000-000000000000'
+
+    // Crear contacto SIN telefono/whatsapp directos: el trigger de sync los completa
+    // automáticamente cuando insertamos en contacto_telefonos abajo.
     const { data: nuevoContacto, error } = await admin
       .from('contactos')
       .insert({
         empresa_id: empresaId,
         nombre,
         apellido,
-        whatsapp: telNorm,
-        telefono: telNorm,
         tipo_contacto_id: tipoPersona.id,
         origen: 'whatsapp',
         es_provisorio: true,
         activo: true,
         codigo: null, // Sin código hasta que un agente lo acepte
-        creado_por: '00000000-0000-0000-0000-000000000000', // Sistema
+        creado_por: usuarioSistema,
       })
       .select('id, nombre, apellido')
       .single()
 
     if (error) {
       console.error('[PROVISORIO] Error creando contacto:', error)
+      return null
+    }
+
+    // Insertar el teléfono de WhatsApp como móvil + es_whatsapp + principal.
+    const { error: telError } = await admin.from('contacto_telefonos').insert({
+      empresa_id: empresaId,
+      contacto_id: nuevoContacto.id,
+      tipo: 'movil',
+      valor: telNorm,
+      es_whatsapp: true,
+      es_principal: true,
+      orden: 0,
+      creado_por: usuarioSistema,
+    })
+
+    if (telError) {
+      console.error('[PROVISORIO] Error guardando teléfono:', telError)
+      // Rollback: borrar el contacto huérfano
+      await admin.from('contactos').delete().eq('id', nuevoContacto.id)
       return null
     }
 

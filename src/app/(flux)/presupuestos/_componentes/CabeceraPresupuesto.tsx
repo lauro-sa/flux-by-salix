@@ -48,7 +48,10 @@ interface PropsCabeceraPresupuesto {
   onReEmitir: () => void
   onCrearPresupuesto: () => void
   onGenerarOT?: () => void
+  onVerOT?: () => void
   generandoOT?: boolean
+  /** OT viva vinculada al presupuesto; si existe, se oculta "Generar OT" y se muestra "Ver OT". */
+  ordenTrabajoVinculada?: { id: string; numero: string } | null
 }
 
 export default function CabeceraPresupuesto({
@@ -77,7 +80,9 @@ export default function CabeceraPresupuesto({
   onReEmitir,
   onCrearPresupuesto,
   onGenerarOT,
+  onVerOT,
   generandoOT,
+  ordenTrabajoVinculada,
 }: PropsCabeceraPresupuesto) {
   const { t } = useTraduccion()
 
@@ -133,7 +138,9 @@ export default function CabeceraPresupuesto({
             onVistaPrevia={onVistaPrevia}
             onReEmitir={onReEmitir}
             onGenerarOT={onGenerarOT}
+            onVerOT={onVerOT}
             generandoOT={generandoOT}
+            ordenTrabajoVinculada={ordenTrabajoVinculada}
             t={t}
           />
         </div>
@@ -154,7 +161,7 @@ function BotonesAccion({
   estadoActual, estaCancelado, estadosPosibles, generandoPdf,
   presupuestoFechaEmision, fechaEmision,
   onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir,
-  onGenerarOT, generandoOT, t,
+  onGenerarOT, onVerOT, generandoOT, ordenTrabajoVinculada, t,
 }: {
   estadoActual: EstadoPresupuesto
   estaCancelado: boolean
@@ -169,7 +176,9 @@ function BotonesAccion({
   onVistaPrevia: () => void
   onReEmitir: () => void
   onGenerarOT?: () => void
+  onVerOT?: () => void
   generandoOT?: boolean
+  ordenTrabajoVinculada?: { id: string; numero: string } | null
   t: (key: string) => string
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -232,15 +241,25 @@ function BotonesAccion({
           variante="primario"
         />
       )}
-      {/* Generar Orden de Trabajo — visible solo en estado orden_venta */}
-      {estadoActual === 'orden_venta' && onGenerarOT && (
-        <BotonAccion
-          onClick={onGenerarOT}
-          icono={generandoOT ? Loader2 : Wrench}
-          label={generandoOT ? 'Generando...' : 'Generar OT'}
-          disabled={generandoOT}
-          animarIcono={generandoOT}
-        />
+      {/* OT: si ya existe una viva vinculada → "Ver OT"; si no y el estado es
+          orden_venta → "Generar OT". La OT en papelera se trata como inexistente
+          (se permite regenerar) porque el GET solo devuelve OT no-papelera. */}
+      {estadoActual === 'orden_venta' && (
+        ordenTrabajoVinculada && onVerOT ? (
+          <BotonAccion
+            onClick={onVerOT}
+            icono={Wrench}
+            label={`Ver OT ${ordenTrabajoVinculada.numero}`}
+          />
+        ) : onGenerarOT ? (
+          <BotonAccion
+            onClick={onGenerarOT}
+            icono={generandoOT ? Loader2 : Wrench}
+            label={generandoOT ? 'Generando...' : 'Generar OT'}
+            disabled={generandoOT}
+            animarIcono={generandoOT}
+          />
+        ) : null
       )}
       <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />
       <BotonAccion onClick={onImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />

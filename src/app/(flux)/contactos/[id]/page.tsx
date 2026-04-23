@@ -7,11 +7,10 @@ import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 import {
-  Mail, Phone, Globe, ChevronLeft,
+  Mail, Globe, ChevronLeft,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
   UserCheck, Clock, Link2, Search, Merge,
 } from 'lucide-react'
-import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -22,7 +21,9 @@ import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
+import { TelefonosContacto } from '../_componentes/TelefonosContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
+import type { TelefonoNormalizado } from '@/lib/contacto-telefonos'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type PlantillaCorreo, type DatosEnvioDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { BannerContacto } from '../_componentes/BannerContacto'
@@ -119,6 +120,9 @@ function PaginaContactoInterno() {
   const [datosFiscales, setDatosFiscales] = useState<Record<string, string>>({})
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [direcciones, setDirecciones] = useState<DireccionConTipo[]>([])
+  // Lista de teléfonos del contacto (modelo nuevo). Se sincroniza con el backend en cada cambio
+  // (ver guardarTelefonos más abajo).
+  const [telefonos, setTelefonos] = useState<TelefonoNormalizado[]>([])
   const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
   const [tiposRelacion, setTiposRelacion] = useState<TipoRelacion[]>([])
   const [puestosVinculacion, setPuestosVinculacion] = useState<{ id: string; etiqueta: string }[]>([])
@@ -241,9 +245,18 @@ function PaginaContactoInterno() {
         setDatosFiscales(data.datos_fiscales || {})
         if (data.pais_fiscal) setPaisContacto(data.pais_fiscal)
         setEtiquetas(data.etiquetas || [])
+        setTelefonos(
+          (data.telefonos || []).map((t: Record<string, unknown>) => ({
+            tipo: (t.tipo as TelefonoNormalizado['tipo']) || 'movil',
+            valor: (t.valor as string) || '',
+            es_whatsapp: !!t.es_whatsapp,
+            es_principal: !!t.es_principal,
+            etiqueta: (t.etiqueta as string | null) || null,
+            orden: typeof t.orden === 'number' ? t.orden : 0,
+          }))
+        )
         setCampos({
           titulo: data.titulo || '', correo: data.correo || '',
-          telefono: data.telefono || '', whatsapp: data.whatsapp || '',
           web: data.web || '', cargo: data.cargo || '', rubro: data.rubro || '',
           tipo_identificacion: data.tipo_identificacion || '',
           numero_identificacion: data.numero_identificacion || '',
@@ -378,6 +391,13 @@ function PaginaContactoInterno() {
     if (!esNuevo) guardar({ [campo]: valor || null })
   }, [guardar, esNuevo])
 
+  // Guardar lista de teléfonos al cambiar (autoguardado tipo lista — el backend hace reemplazo completo).
+  // En creación NO autoguarda: la lista viaja en el POST inicial.
+  const guardarTelefonos = useCallback((nuevos: TelefonoNormalizado[]) => {
+    setTelefonos(nuevos)
+    if (!esNuevo) guardar({ telefonos: nuevos })
+  }, [guardar, esNuevo])
+
   const guardarFiscal = useCallback((clave: string, valor: string) => {
     setDatosFiscales(prev => {
       const nuevos = { ...prev, [clave]: valor }
@@ -442,9 +462,9 @@ function PaginaContactoInterno() {
   // Validación y auto-crear (edificios/empresas/proveedores pueden tener solo nombre + dirección)
   const tieneNombre = nombreCompleto.trim().length > 0
   const tieneDireccion = direcciones.some(d => d.datos.calle.trim())
+  const tieneTelefono = telefonos.length > 0
   const tieneDatoContacto = (esEntidadSinContacto && tieneDireccion) || !!(
-    campos.correo?.trim() || campos.telefono?.trim() || campos.whatsapp?.trim() ||
-    tieneDireccion
+    campos.correo?.trim() || tieneTelefono || tieneDireccion
   )
   const puedeGuardar = esNuevo && tieneNombre && tieneDatoContacto && !!tipoContactoId && !guardando
 
@@ -452,8 +472,6 @@ function PaginaContactoInterno() {
     if (!puedeGuardar || creadoRef.current || guardando) return
     const errs = validarCamposContacto({
       correo: campos.correo || '',
-      telefono: campos.telefono || '',
-      whatsapp: campos.whatsapp || '',
       web: campos.web || '',
       tipo_identificacion: campos.tipo_identificacion || '',
       numero_identificacion: campos.numero_identificacion || '',
@@ -474,8 +492,8 @@ function PaginaContactoInterno() {
         nombre, apellido: apellido || null,
         titulo: campos.titulo || null,
         correo: campos.correo || null,
-        telefono: campos.telefono || null,
-        whatsapp: campos.whatsapp || null,
+        // Lista de teléfonos (modelo nuevo). El backend la procesa y sincroniza contactos.telefono/whatsapp.
+        telefonos,
         web: campos.web || null,
         cargo: campos.cargo || null,
         rubro: campos.rubro || null,
@@ -859,14 +877,10 @@ function PaginaContactoInterno() {
                 value={campos.correo || ''}
                 onChange={e => { setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
                 onBlur={() => onBlurCampo('correo')} placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
-              <Input variante="plano" tipo="tel" icono={<IconoWhatsApp size={16} />}
-                value={campos.whatsapp || ''}
-                onChange={e => { setCampos(p => ({ ...p, whatsapp: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, whatsapp: undefined })) }}
-                onBlur={() => onBlurCampo('whatsapp')} placeholder={t('contactos.whatsapp')} formato="telefono" error={esNuevo ? errores.whatsapp : undefined} />
-              <Input variante="plano" tipo="tel" icono={<Phone size={16} />}
-                value={campos.telefono || ''}
-                onChange={e => { setCampos(p => ({ ...p, telefono: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, telefono: undefined })) }}
-                onBlur={() => onBlurCampo('telefono')} placeholder={t('contactos.telefono')} formato="telefono" error={esNuevo ? errores.telefono : undefined} />
+
+              {/* Lista de teléfonos: N por contacto, cada uno con tipo + chip WhatsApp + principal */}
+              <TelefonosContacto telefonos={telefonos} onChange={guardarTelefonos} />
+
               {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
                 <Input variante="plano" tipo="url" icono={<Globe size={16} />}
                   value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
@@ -1071,8 +1085,8 @@ function PaginaContactoInterno() {
                 id: contactoId!,
                 nombre: nombreCompleto,
                 correo: campos.correo || undefined,
-                whatsapp: campos.whatsapp || undefined,
-                telefono: campos.telefono || undefined,
+                whatsapp: telefonos.find(t => t.es_whatsapp)?.valor || undefined,
+                telefono: telefonos.find(t => t.es_principal)?.valor || undefined,
               }}
               modo="inferior"
               onAbrirCorreo={canalesCorreo.length > 0 ? abrirCorreoDesdeChatter : undefined}

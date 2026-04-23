@@ -35,7 +35,6 @@ import { TabResumen } from './_componentes/TabResumen'
 import { TabInformacion } from './_componentes/TabInformacion'
 import { TabPagos } from './_componentes/TabPagos'
 import { TabCorreo } from './_componentes/TabCorreo'
-import { InfoEstadoMiembro } from '@/componentes/entidad/InfoEstadoMiembro'
 import { calcularEstadoMiembro } from '@/lib/miembros/estado'
 
 /* ═══════════════════════════════════════════════════
@@ -985,33 +984,14 @@ export default function PaginaPerfilUsuario() {
         supabase={supabase}
         empresaId={empresa?.id || ''}
         miembroId={miembroId}
+        estadoCiclo={estadoCicloMiembro}
+        invitacion={invitacionVigente}
+        linkInvitacion={linkInvitacion}
+        tieneCuentaPrevia={!!miembro.usuario_id_anterior}
+        onAccionEstado={manejarAccionEstado}
+        accionCargando={accionEstadoCargando}
+        avisoReenvio={avisoReenvio}
       />
-
-      {/* ══════ ESTADO DEL CICLO DE VIDA ══════ */}
-      {miembro.rol !== 'propietario' && (
-        <div className="space-y-2">
-          <InfoEstadoMiembro
-            estado={estadoCicloMiembro}
-            correo={perfil?.correo_empresa || perfil?.correo || null}
-            invitacion={invitacionVigente}
-            linkInvitacion={linkInvitacion}
-            puedeGestionar={puedeEditar}
-            tieneCuentaPrevia={!!miembro.usuario_id_anterior}
-            onAccion={manejarAccionEstado}
-            cargando={accionEstadoCargando}
-          />
-          {/* Feedback de reenvío de acceso (visible ~5s) */}
-          {avisoReenvio && (
-            <div className={`text-xs px-3 py-2 rounded-card border ${
-              avisoReenvio.tipo === 'exito'
-                ? 'bg-insignia-exito-fondo/40 border-insignia-exito/30 text-insignia-exito-texto'
-                : 'bg-insignia-peligro-fondo/40 border-insignia-peligro/30 text-insignia-peligro-texto'
-            }`}>
-              {avisoReenvio.texto}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ══════ TABS ══════ */}
       <Tabs

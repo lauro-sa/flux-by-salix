@@ -7,7 +7,9 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
-import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
+// TODO(refactor-telefonos): cuando todos los consumidores migren al schema de tools `telefonos[]`,
+// eliminar el soporte legacy a params.telefono / params.whatsapp y dejar solo `telefonos`.
+import { resolverListaDesdeBody, type TelefonoEntrada } from '@/lib/contacto-telefonos'
 
 export async function ejecutarCrearContacto(
   ctx: ContextoSalixIA,
@@ -53,31 +55,52 @@ export async function ejecutarCrearContacto(
     : 'Salix IA'
 
   const correo = (params.correo as string)?.trim()?.toLowerCase() || null
-  const telefono = normalizarTelefono(params.telefono as string | undefined)
-  const whatsapp = normalizarTelefono(params.whatsapp as string | undefined) || telefono
 
-  // Verificar duplicados por correo o teléfono
-  if (correo || telefono) {
-    let queryDup = ctx.admin
-      .from('contactos')
-      .select('id, nombre, apellido, correo, telefono')
-      .eq('empresa_id', ctx.empresa_id)
-      .eq('en_papelera', false)
+  // Resolver lista de teléfonos: prioriza params.telefonos[], fallback a params.telefono/whatsapp legacy.
+  const telefonosNorm = resolverListaDesdeBody({
+    telefonos: params.telefonos as TelefonoEntrada[] | undefined,
+    telefono: params.telefono as string | undefined,
+    whatsapp: params.whatsapp as string | undefined,
+  })
 
-    const filtros: string[] = []
-    if (correo) filtros.push(`correo.eq.${correo}`)
-    // Buscar duplicados por cualquier variante del teléfono (con/sin 9, con/sin 54)
-    if (telefono) {
-      for (const v of generarVariantesTelefono(telefono)) {
-        filtros.push(`telefono.eq.${v}`)
-        filtros.push(`whatsapp.eq.${v}`)
+  // Verificar duplicados por correo o por cualquier teléfono de la lista
+  if (correo || telefonosNorm.length > 0) {
+    const idsDups = new Set<string>()
+
+    if (correo) {
+      const { data } = await ctx.admin
+        .from('contactos')
+        .select('id, nombre, apellido, correo, telefono')
+        .eq('empresa_id', ctx.empresa_id)
+        .eq('en_papelera', false)
+        .eq('correo', correo)
+        .limit(3)
+      for (const d of (data || [])) idsDups.add(d.id)
+    }
+
+    if (telefonosNorm.length > 0) {
+      const valores = telefonosNorm.map(t => t.valor)
+      const { data } = await ctx.admin
+        .from('contacto_telefonos')
+        .select('contactos!inner(id, nombre, apellido, correo, telefono, en_papelera)')
+        .eq('empresa_id', ctx.empresa_id)
+        .in('valor', valores)
+        .eq('contactos.en_papelera', false)
+        .limit(3)
+      for (const r of (data || [])) {
+        const c = r.contactos as unknown as { id: string }
+        if (c) idsDups.add(c.id)
       }
     }
-    queryDup = queryDup.or(filtros.join(','))
 
-    const { data: duplicados } = await queryDup.limit(3)
-    if (duplicados && duplicados.length > 0) {
-      const nombres = duplicados.map((d: { nombre: string; apellido: string; correo: string; telefono: string }) =>
+    if (idsDups.size > 0) {
+      const { data: duplicados } = await ctx.admin
+        .from('contactos')
+        .select('id, nombre, apellido, correo, telefono')
+        .in('id', [...idsDups])
+        .limit(3)
+
+      const nombres = (duplicados || []).map((d: { nombre: string; apellido: string | null; correo: string | null; telefono: string | null }) =>
         `${d.nombre} ${d.apellido || ''}`.trim() + (d.correo ? ` (${d.correo})` : '') + (d.telefono ? ` — ${d.telefono}` : '')
       )
       return {
@@ -88,14 +111,14 @@ export async function ejecutarCrearContacto(
     }
   }
 
+  // Insertar contacto SIN telefono/whatsapp directos: el trigger de sync los completa
+  // automáticamente al insertar en contacto_telefonos.
   const { data, error } = await ctx.admin
     .from('contactos')
     .insert({
       empresa_id: ctx.empresa_id,
       nombre,
       apellido: (params.apellido as string)?.trim() || '',
-      telefono,
-      whatsapp,
       correo,
       rubro: (params.empresa as string)?.trim() || null,
       cargo: (params.cargo as string)?.trim() || null,
@@ -113,6 +136,28 @@ export async function ejecutarCrearContacto(
 
   if (error) {
     return { exito: false, error: `Error creando contacto: ${error.message}` }
+  }
+
+  // Insertar la lista de teléfonos. El trigger sincroniza contactos.telefono / whatsapp.
+  if (telefonosNorm.length > 0) {
+    const { error: telError } = await ctx.admin.from('contacto_telefonos').insert(
+      telefonosNorm.map(t => ({
+        empresa_id: ctx.empresa_id,
+        contacto_id: data.id,
+        tipo: t.tipo,
+        valor: t.valor,
+        es_whatsapp: t.es_whatsapp,
+        es_principal: t.es_principal,
+        etiqueta: t.etiqueta,
+        orden: t.orden,
+        creado_por: ctx.usuario_id,
+      }))
+    )
+    if (telError) {
+      // Rollback: borrar contacto huérfano
+      await ctx.admin.from('contactos').delete().eq('id', data.id)
+      return { exito: false, error: `Error guardando teléfonos: ${telError.message}` }
+    }
   }
 
   // Si hay dirección, validar con Google Places y guardar

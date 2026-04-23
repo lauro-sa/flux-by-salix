@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { resolverListaDesdeBody, type TelefonoEntrada } from '@/lib/contacto-telefonos'
 
 /**
  * GET /api/contactos/backup — Exportar copia de seguridad completa en JSON.
@@ -27,6 +28,7 @@ export async function GET() {
         *,
         tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta),
         direcciones:contacto_direcciones(*),
+        telefonos:contacto_telefonos(tipo, valor, es_whatsapp, es_principal, etiqueta, orden),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(
           puesto,
           recibe_documentos,
@@ -136,14 +138,20 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Resolver lista de teléfonos: prioriza c.telefonos[] (backup nuevo),
+        // fallback a c.telefono / c.whatsapp legacy.
+        const telefonosBackup = resolverListaDesdeBody({
+          telefonos: c.telefonos as TelefonoEntrada[] | undefined,
+          telefono: c.telefono as string | undefined,
+          whatsapp: c.whatsapp as string | undefined,
+        })
+
         const campos = {
           tipo_contacto_id: tipoId,
           nombre: c.nombre,
           apellido: c.apellido || null,
           titulo: c.titulo || null,
           correo: c.correo || null,
-          telefono: c.telefono || null,
-          whatsapp: c.whatsapp || null,
           web: c.web || null,
           cargo: c.cargo || null,
           rubro: c.rubro || null,
@@ -194,6 +202,23 @@ export async function POST(request: NextRequest) {
               }))
             )
           }
+          // Reemplazar lista de teléfonos
+          if (telefonosBackup.length > 0) {
+            await admin.from('contacto_telefonos').delete().eq('contacto_id', idExistente).eq('empresa_id', empresaId)
+            await admin.from('contacto_telefonos').insert(
+              telefonosBackup.map(t => ({
+                empresa_id: empresaId,
+                contacto_id: idExistente,
+                tipo: t.tipo,
+                valor: t.valor,
+                es_whatsapp: t.es_whatsapp,
+                es_principal: t.es_principal,
+                etiqueta: t.etiqueta,
+                orden: t.orden,
+                creado_por: user.id,
+              }))
+            )
+          }
           actualizados++
         } else {
           // Crear nuevo
@@ -208,6 +233,23 @@ export async function POST(request: NextRequest) {
           }).select('id').single()
 
           if (error) throw error
+
+          // Insertar lista de teléfonos
+          if (nuevo && telefonosBackup.length > 0) {
+            await admin.from('contacto_telefonos').insert(
+              telefonosBackup.map(t => ({
+                empresa_id: empresaId,
+                contacto_id: nuevo.id,
+                tipo: t.tipo,
+                valor: t.valor,
+                es_whatsapp: t.es_whatsapp,
+                es_principal: t.es_principal,
+                etiqueta: t.etiqueta,
+                orden: t.orden,
+                creado_por: user.id,
+              }))
+            )
+          }
 
           // Crear direcciones
           if (nuevo && Array.isArray(c.direcciones) && c.direcciones.length > 0) {

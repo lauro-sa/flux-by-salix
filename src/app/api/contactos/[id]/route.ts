@@ -3,7 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
-import { normalizarTelefono } from '@/lib/validaciones'
+import { normalizarListaTelefonos, type TelefonoEntrada, type TelefonoNormalizado } from '@/lib/contacto-telefonos'
 
 /**
  * GET /api/contactos/[id] — Obtener detalle completo de un contacto.
@@ -44,15 +44,22 @@ export async function GET(
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     }
 
-    // Direcciones, responsables y seguidores en queries separadas (más confiable)
-    const [dirsRes, respRes, segRes] = await Promise.all([
+    // Direcciones, responsables, seguidores y teléfonos en queries separadas (más confiable)
+    const [dirsRes, respRes, segRes, telRes] = await Promise.all([
       admin.from('contacto_direcciones').select('*').eq('contacto_id', id),
       admin.from('contacto_responsables').select('*').eq('contacto_id', id),
       admin.from('contacto_seguidores').select('*').eq('contacto_id', id),
+      admin.from('contacto_telefonos')
+        .select('id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, creado_en, actualizado_en')
+        .eq('contacto_id', id)
+        .order('es_principal', { ascending: false })
+        .order('orden', { ascending: true })
+        .order('creado_en', { ascending: true }),
     ])
 
     contacto.direcciones = dirsRes.data || []
     contacto.responsables = respRes.data || []
+    contacto.telefonos = telRes.data || []
 
     // Si solo puede ver propios, confirmar ownership: creador o responsable.
     // Devolvemos 404 para no filtrar la existencia del recurso.
@@ -160,10 +167,13 @@ export async function PATCH(
     }
     const admin = crearClienteAdmin()
 
-    // Campos editables
+    // Campos editables. NOTA: 'telefono' y 'whatsapp' NO están aquí — se gestionan
+    // exclusivamente vía la lista `telefonos` (ver más abajo). El trigger SQL
+    // sync_contacto_principal_telefonos mantiene contactos.telefono/whatsapp
+    // sincronizadas con contacto_telefonos durante la transición.
     const permitidos = [
       'nombre', 'apellido', 'titulo',
-      'correo', 'telefono', 'whatsapp', 'web',
+      'correo', 'web',
       'cargo', 'rubro',
       'moneda', 'idioma', 'zona_horaria', 'limite_credito',
       'plazo_pago_cliente', 'plazo_pago_proveedor',
@@ -179,17 +189,20 @@ export async function PATCH(
       if (campo in campos) actualizar[campo] = campos[campo]
     }
 
-    if (Object.keys(actualizar).length === 0) {
+    // Si llega `telefonos` array, lo procesamos como reemplazo completo más abajo.
+    const reemplazarTelefonos = Array.isArray(campos.telefonos)
+    let telefonosNorm: TelefonoNormalizado[] = []
+    if (reemplazarTelefonos) {
+      telefonosNorm = normalizarListaTelefonos(campos.telefonos as TelefonoEntrada[])
+    }
+
+    if (Object.keys(actualizar).length === 0 && !reemplazarTelefonos) {
       return NextResponse.json({ error: 'Sin campos para actualizar' }, { status: 400 })
     }
 
     // Limpiar datos
     if (actualizar.correo) actualizar.correo = (actualizar.correo as string).toLowerCase().trim()
     if (actualizar.nombre) actualizar.nombre = (actualizar.nombre as string).trim()
-    // Normalizar teléfonos (solo dígitos) para evitar duplicados por formato.
-    // Null explícito se respeta (el usuario puede querer limpiar el campo).
-    if ('telefono' in actualizar) actualizar.telefono = actualizar.telefono ? normalizarTelefono(actualizar.telefono as string) : null
-    if ('whatsapp' in actualizar) actualizar.whatsapp = actualizar.whatsapp ? normalizarTelefono(actualizar.whatsapp as string) : null
 
     // Marcar timestamp de edición
     actualizar.editado_por = user.id
@@ -222,23 +235,101 @@ export async function PATCH(
       }
     }
 
-    const { data, error } = await admin
-      .from('contactos')
-      .update(actualizar)
-      .eq('id', id)
-      .eq('empresa_id', empresaId)
-      .select(`
-        *,
-        tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color)
-      `)
-      .single()
+    // Si solo se envió `telefonos` sin otros campos, salteamos el UPDATE de contactos.
+    // Esto preserva el editado_por anterior cuando solo se editan teléfonos.
+    let data: Record<string, unknown> | null = null
+    let updateError: { message: string } | null = null
 
-    if (error) {
-      console.error('Error al actualizar contacto:', error)
+    // Si solo viene editado_por + actualizado_en (sin campos reales) y hay telefonos,
+    // saltear el UPDATE para no marcar al contacto como editado por algo que no cambió.
+    const camposReales = Object.keys(actualizar).filter(k => k !== 'editado_por' && k !== 'actualizado_en')
+    if (camposReales.length > 0) {
+      const res = await admin
+        .from('contactos')
+        .update(actualizar)
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .select(`
+          *,
+          tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color)
+        `)
+        .single()
+      data = res.data
+      updateError = res.error
+    }
+
+    if (updateError) {
+      console.error('Error al actualizar contacto:', updateError)
       return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
     }
 
-    if (!data) return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+    if (camposReales.length > 0 && !data) {
+      return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+    }
+
+    // Reemplazo completo de la lista de teléfonos (si vino `telefonos` array).
+    // Snapshot pre-delete para rollback en caso de fallo del INSERT posterior.
+    if (reemplazarTelefonos) {
+      const { data: snapshot } = await admin
+        .from('contacto_telefonos')
+        .select('*')
+        .eq('contacto_id', id)
+        .eq('empresa_id', empresaId)
+
+      const { error: delError } = await admin
+        .from('contacto_telefonos')
+        .delete()
+        .eq('contacto_id', id)
+        .eq('empresa_id', empresaId)
+
+      if (delError) {
+        console.error('Error al borrar teléfonos previos:', delError)
+        return NextResponse.json({ error: 'Error al actualizar teléfonos' }, { status: 500 })
+      }
+
+      if (telefonosNorm.length > 0) {
+        const { error: insError } = await admin.from('contacto_telefonos').insert(
+          telefonosNorm.map(t => ({
+            empresa_id: empresaId,
+            contacto_id: id,
+            tipo: t.tipo,
+            valor: t.valor,
+            es_whatsapp: t.es_whatsapp,
+            es_principal: t.es_principal,
+            etiqueta: t.etiqueta,
+            orden: t.orden,
+            creado_por: user.id,
+            editado_por: user.id,
+          }))
+        )
+        if (insError) {
+          // Rollback: re-insertar el snapshot preservando los IDs originales
+          if (snapshot && snapshot.length > 0) {
+            await admin.from('contacto_telefonos').insert(snapshot)
+          }
+          console.error('Error al insertar teléfonos nuevos:', insError)
+          return NextResponse.json({ error: 'Error al actualizar teléfonos' }, { status: 500 })
+        }
+      }
+
+      // Re-leer el contacto para devolver telefono/whatsapp actualizados por el trigger
+      // y la lista completa de teléfonos.
+      const { data: relectura } = await admin
+        .from('contactos')
+        .select(`
+          *,
+          tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
+          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden)
+        `)
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .single()
+      if (relectura) data = relectura
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+    }
 
     // Propagar cambio de nombre a vínculos de actividades y notificaciones (fire-and-forget)
     if ('nombre' in campos || 'apellido' in campos) {

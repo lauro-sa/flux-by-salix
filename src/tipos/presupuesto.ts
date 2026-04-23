@@ -155,6 +155,8 @@ export interface PresupuestoConLineas extends Presupuesto {
   lineas: LineaPresupuesto[]
   cuotas: CuotaPago[]
   historial: HistorialEstado[]
+  // OT viva generada desde este presupuesto (null si nunca se generó o está en papelera).
+  orden_trabajo: { id: string; numero: string } | null
 }
 
 // ─── Línea de presupuesto ───

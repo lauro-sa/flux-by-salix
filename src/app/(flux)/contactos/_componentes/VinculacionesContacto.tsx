@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Link2, Search, X, UserPlus, FileCheck, Phone, Mail, ExternalLink,
   ChevronRight, Plus, Building2, User, Truck,
+  Smartphone, Briefcase, Home as HomeIcon,
 } from 'lucide-react'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Input } from '@/componentes/ui/Input'
@@ -14,6 +15,10 @@ import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Select } from '@/componentes/ui/Select'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { normalizarTelefono } from '@/lib/validaciones'
+import { normalizarListaTelefonos } from '@/lib/contacto-telefonos'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { CargadorInline } from '@/componentes/ui/Cargador'
@@ -81,6 +86,23 @@ interface Props {
 // Tipos de contacto que pueden tener hijos (contenedores)
 const TIPOS_CONTENEDOR = ['empresa', 'edificio', 'proveedor']
 
+/** Ícono que representa al teléfono según tipo. Móvil siempre se muestra como WhatsApp
+ *  (convención AR). Reusado en el modal de edición rápida y en el de crear-y-vincular
+ *  para consistencia con TelefonosContacto. */
+function iconoParaTipoTelefono(tipo: string) {
+  switch (tipo) {
+    case 'movil': return <IconoWhatsApp size={14} />
+    case 'fijo': return <Phone size={14} />
+    case 'trabajo': return <Briefcase size={14} />
+    case 'casa': return <HomeIcon size={14} />
+    default: return <Phone size={14} />
+  }
+}
+
+function colorIconoTipoTelefono(tipo: string): string {
+  return tipo === 'movil' ? 'text-texto-marca' : 'text-texto-terciario'
+}
+
 // Tipos de contacto para creación inline
 const TIPOS_CONTACTO_CREAR = [
   { clave: 'persona', etiqueta: 'Persona' },
@@ -128,11 +150,14 @@ export function VinculacionesContacto({
 
   // ─── Estado del modal de edición rápida ───
   const [modalEdicion, setModalEdicion] = useState(false)
-  const [vinculoEditando, setVinculoEditando] = useState<VinculoUI | null>(null)
+  // Incluye esEntrante para saber en qué dirección mandar el PATCH al endpoint.
+  const [vinculoEditando, setVinculoEditando] = useState<(VinculoUI & { esEntrante: boolean }) | null>(null)
   const [edicionNombre, setEdicionNombre] = useState('')
   const [edicionCorreo, setEdicionCorreo] = useState('')
+  // Edición rápida: UN teléfono principal con tipo. WhatsApp se deriva del tipo
+  // (movil → WA implícito). Para edición completa de la lista, abrir la ficha.
   const [edicionTelefono, setEdicionTelefono] = useState('')
-  const [edicionWhatsapp, setEdicionWhatsapp] = useState('')
+  const [edicionTipoTelefono, setEdicionTipoTelefono] = useState<string>('movil')
   const [edicionPuesto, setEdicionPuesto] = useState('')
   const [edicionRecibeDoc, setEdicionRecibeDoc] = useState(false)
   const [guardandoEdicion, setGuardandoEdicion] = useState(false)
@@ -143,6 +168,9 @@ export function VinculacionesContacto({
   const [crearTipoClave, setCrearTipoClave] = useState('persona')
   const [crearCorreo, setCrearCorreo] = useState('')
   const [crearTelefono, setCrearTelefono] = useState('')
+  // Tipo del teléfono al crear (movil, fijo, trabajo, casa, otro). Default movil
+  // (movil → WhatsApp implícito por convención AR).
+  const [crearTipoTelefono, setCrearTipoTelefono] = useState<string>('movil')
   const [crearPuesto, setCrearPuesto] = useState('')
   const [crearCargo, setCrearCargo] = useState('')
   const [crearRubro, setCrearRubro] = useState('')
@@ -154,6 +182,14 @@ export function VinculacionesContacto({
   // ─── Recientes (se cargan al abrir el modal sin buscar) ───
   const [recientes, setRecientes] = useState<ContactoBusqueda[]>([])
   const [cargandoRecientes, setCargandoRecientes] = useState(false)
+
+  // ─── Modal de confirmación para desvincular ───
+  const [confirmarDesvincular, setConfirmarDesvincular] = useState<{
+    vinculadoId: string
+    esEntrante: boolean
+    nombre: string
+  } | null>(null)
+  const [desvinculando, setDesvinculando] = useState(false)
 
   // IDs ya vinculados para filtrar en búsqueda
   const idsVinculados = new Set([
@@ -277,18 +313,26 @@ export function VinculacionesContacto({
     } finally { setVinculando(false) }
   }, [seleccionado, contactoId, tipoRelacionId, puesto, recibeDocumentos, bidireccional, vinculando, onActualizar])
 
-  /** Desvincular un contacto */
-  const desvincular = useCallback(async (vinculadoId: string) => {
+  /** Desvincular un contacto respetando la dirección del vínculo.
+   *  Si es entrante (el otro es el dueño), se mandan los IDs invertidos. */
+  const desvincular = useCallback(async (otroId: string, esEntrante: boolean) => {
+    const payload = esEntrante
+      ? { contacto_id: otroId, vinculado_id: contactoId }
+      : { contacto_id: contactoId, vinculado_id: otroId }
+    setDesvinculando(true)
     try {
       await fetch('/api/contactos/vinculaciones', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacto_id: contactoId, vinculado_id: vinculadoId }),
+        body: JSON.stringify(payload),
       })
       onActualizar()
       mostrar('exito', 'Vinculación eliminada')
+      setConfirmarDesvincular(null)
     } catch {
       mostrar('error', 'Error al desvincular')
+    } finally {
+      setDesvinculando(false)
     }
   }, [contactoId, onActualizar, mostrar])
 
@@ -297,30 +341,56 @@ export function VinculacionesContacto({
     if (!vinculoEditando || guardandoEdicion) return
     setGuardandoEdicion(true)
     try {
-      // Guardar datos del contacto (nombre, correo, teléfono, whatsapp)
+      // Guardar datos del contacto (nombre, correo, teléfono principal con chip WA).
+      // El backend usa la lista `telefonos` como reemplazo completo cuando viene presente,
+      // así que solo la incluimos si el usuario tocó el campo de teléfono. Para no destruir
+      // teléfonos secundarios cargados desde la ficha, comparamos con el valor original:
+      // si no cambió, no mandamos `telefonos` y se preservan los otros teléfonos.
       const nombrePartes = edicionNombre.trim().split(/\s+/)
       const nombre = nombrePartes.slice(0, -1).join(' ') || edicionNombre.trim()
       const apellido = nombrePartes.length > 1 ? nombrePartes[nombrePartes.length - 1] : null
 
+      const telefonoNorm = normalizarTelefono(edicionTelefono)
+      const telefonoOriginalNorm = normalizarTelefono(vinculoEditando.telefono)
+      const cambioTelefono = telefonoNorm !== telefonoOriginalNorm
+
+      const payload: Record<string, unknown> = {
+        nombre,
+        apellido,
+        correo: edicionCorreo || null,
+      }
+      if (cambioTelefono) {
+        // Reemplazo completo de la lista. UX simple: 1 número con tipo elegido.
+        // es_whatsapp se deriva del tipo (movil → true, resto → false).
+        payload.telefonos = telefonoNorm
+          ? normalizarListaTelefonos([
+              {
+                tipo: edicionTipoTelefono,
+                valor: telefonoNorm,
+                es_whatsapp: edicionTipoTelefono === 'movil',
+                es_principal: true,
+              },
+            ])
+          : []
+      }
+
       await fetch(`/api/contactos/${vinculoEditando.vinculado_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre,
-          apellido,
-          correo: edicionCorreo || null,
-          telefono: edicionTelefono || null,
-          whatsapp: edicionWhatsapp || null,
-        }),
+        body: JSON.stringify(payload),
       })
 
-      // Guardar datos de la vinculación (puesto, recibe_documentos)
+      // Guardar datos de la vinculación (puesto, recibe_documentos).
+      // Mandamos los IDs en la dirección real del vínculo: si es entrante
+      // (el otro es dueño de la fila), invertimos para acertarle al registro.
+      const payloadVinc = vinculoEditando.esEntrante
+        ? { contacto_id: vinculoEditando.vinculado_id, vinculado_id: contactoId }
+        : { contacto_id: contactoId, vinculado_id: vinculoEditando.vinculado_id }
       await fetch('/api/contactos/vinculaciones', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contacto_id: contactoId,
-          vinculado_id: vinculoEditando.vinculado_id,
+          ...payloadVinc,
           puesto: edicionPuesto || null,
           recibe_documentos: edicionRecibeDoc,
         }),
@@ -333,7 +403,7 @@ export function VinculacionesContacto({
     } catch {
       mostrar('error', 'Error al guardar los cambios')
     } finally { setGuardandoEdicion(false) }
-  }, [vinculoEditando, edicionNombre, edicionCorreo, edicionTelefono, edicionWhatsapp, edicionPuesto, edicionRecibeDoc, contactoId, guardandoEdicion, onActualizar])
+  }, [vinculoEditando, edicionNombre, edicionCorreo, edicionTelefono, edicionTipoTelefono, edicionPuesto, edicionRecibeDoc, contactoId, guardandoEdicion, onActualizar])
 
   /** Crear contacto nuevo y vincularlo en un solo paso */
   const crearYVincular = useCallback(async () => {
@@ -342,6 +412,15 @@ export function VinculacionesContacto({
     try {
       // Crear el contacto
       const tieneDato = !!(crearCorreo.trim() || crearTelefono.trim())
+      // Construir la lista canónica. es_whatsapp se deriva del tipo: movil → true, resto → false.
+      const telefonosCrear = crearTelefono.trim()
+        ? normalizarListaTelefonos([{
+            tipo: crearTipoTelefono,
+            valor: crearTelefono,
+            es_whatsapp: crearTipoTelefono === 'movil',
+            es_principal: true,
+          }])
+        : []
       const res = await fetch('/api/contactos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -349,7 +428,7 @@ export function VinculacionesContacto({
           nombre: crearNombre.trim(),
           tipo_contacto_clave: crearTipoClave,
           correo: crearCorreo || null,
-          telefono: crearTelefono || null,
+          telefonos: telefonosCrear,
           cargo: crearCargo || null,
           rubro: crearRubro || null,
           etiquetas: crearEtiquetas.length > 0 ? crearEtiquetas : [],
@@ -403,7 +482,7 @@ export function VinculacionesContacto({
     } catch {
       mostrar('error', 'Error al crear el contacto')
     } finally { setCreando(false) }
-  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearBidireccional, contactoId, creando, onActualizar])
+  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearTipoTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearBidireccional, contactoId, creando, onActualizar])
 
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
@@ -425,6 +504,7 @@ export function VinculacionesContacto({
     setCrearTipoClave('persona')
     setCrearCorreo('')
     setCrearTelefono('')
+    setCrearTipoTelefono('movil')
     setCrearPuesto('')
     setCrearCargo('')
     setCrearRubro('')
@@ -433,13 +513,17 @@ export function VinculacionesContacto({
     setCrearBidireccional(false)
   }
 
-  /** Abrir modal de edición rápida con los datos de un vínculo */
-  function abrirEdicion(vinculo: VinculoUI) {
-    setVinculoEditando(vinculo)
+  /** Abrir modal de edición rápida con los datos de un vínculo.
+   *  esEntrante indica si el vínculo es X→yo (el otro es dueño del registro). */
+  function abrirEdicion(vinculo: VinculoUI, esEntrante: boolean) {
+    setVinculoEditando({ ...vinculo, esEntrante })
     setEdicionNombre([vinculo.nombre, vinculo.apellido].filter(Boolean).join(' '))
     setEdicionCorreo(vinculo.correo || '')
     setEdicionTelefono(vinculo.telefono || '')
-    setEdicionWhatsapp('')
+    // Default tipo: 'movil' (la edición rápida no conoce el tipo real del registro
+    // existente — para gestionar tipo de teléfonos secundarios, abrir la ficha).
+    // Móvil implica WhatsApp por convención; si el usuario quiere fijo, lo cambia.
+    setEdicionTipoTelefono('movil')
     setEdicionPuesto(vinculo.puesto || '')
     setEdicionRecibeDoc(vinculo.recibe_documentos)
     setModalEdicion(true)
@@ -451,6 +535,7 @@ export function VinculacionesContacto({
     setCrearTipoClave('persona')
     setCrearCorreo('')
     setCrearTelefono('')
+    setCrearTipoTelefono('movil')
     setCrearPuesto('')
     setModoCrear(true)
   }
@@ -472,6 +557,20 @@ export function VinculacionesContacto({
 
   const tieneVinculos = vinculaciones.length > 0 || vinculacionesInversas.length > 0
   const nombreDisplay = nombreContacto || 'este contacto'
+
+  /**
+   * Lista unificada de relaciones (salientes + entrantes) con un flag de
+   * dirección. La UI no distingue dueño del vínculo — siempre se ve y edita
+   * desde la ficha que lo esté mirando. El flag solo sirve para decidir en
+   * qué dirección borrar el registro al desvincular.
+   *
+   * La etiqueta de relación (directa vs inversa) ya viene pre-calculada
+   * desde el backend en `tipo_relacion_etiqueta`, así que se usa directo.
+   */
+  const relaciones = [
+    ...vinculaciones.map(v => ({ ...v, esEntrante: false })),
+    ...vinculacionesInversas.map(v => ({ ...v, esEntrante: true })),
+  ]
 
   // ═══════════════════════════════════════════════════════════════
   // RENDER
@@ -497,52 +596,32 @@ export function VinculacionesContacto({
         {/* Contenido */}
         <div className="px-4 py-3 space-y-4" style={{ backgroundColor: 'var(--superficie-app)' }}>
 
-          {/* Vinculados directos */}
-          {vinculaciones.length > 0 && (
+          {/* Lista unificada de relaciones.
+              Unificamos salientes + entrantes en una sola sección: para el
+              usuario es la misma relación sin importar quién la creó. La
+              direccionalidad solo afecta al SQL (qué fila borrar) y a la
+              etiqueta mostrada (directa vs inversa). */}
+          {relaciones.length > 0 && (
             <div className="space-y-2">
-              <div>
-                <div className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
-                  Contactos vinculados
-                </div>
-                <p className="text-xs text-texto-terciario mt-0.5">
-                  Vinculados a {nombreDisplay}. Tocá para editar o desvincular.
-                </p>
-              </div>
+              <p className="text-xs text-texto-terciario">
+                Contactos relacionados con {nombreDisplay}. Tocá para editar o desvincular.
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {vinculaciones.map(v => (
+                {relaciones.map(v => (
                   <TarjetaVinculo
                     key={v.id}
                     vinculo={v}
+                    etiquetaRelacion={v.tipo_relacion_etiqueta}
                     editable
-                    onDesvincular={() => desvincular(v.vinculado_id)}
-                    onClick={() => abrirEdicion(v)}
+                    onDesvincular={() => setConfirmarDesvincular({
+                      vinculadoId: v.vinculado_id,
+                      esEntrante: v.esEntrante,
+                      nombre: [v.nombre, v.apellido].filter(Boolean).join(' '),
+                    })}
+                    onClick={() => abrirEdicion(v, v.esEntrante)}
                     origenId={contactoId}
                     origenNombre={nombreContacto}
                   />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Separador entre secciones */}
-          {vinculaciones.length > 0 && vinculacionesInversas.length > 0 && (
-            <div className="border-t border-borde-sutil" />
-          )}
-
-          {/* Vinculaciones inversas */}
-          {vinculacionesInversas.length > 0 && (
-            <div className="space-y-2">
-              <div>
-                <div className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
-                  Vinculado en
-                </div>
-                <p className="text-xs text-texto-terciario mt-0.5">
-                  Donde {nombreDisplay} aparece como vinculado. Para desvincular, entrá al contacto de origen.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {vinculacionesInversas.map(v => (
-                  <TarjetaVinculo key={v.id} vinculo={v} editable={false} origenId={contactoId} origenNombre={nombreContacto} />
                 ))}
               </div>
             </div>
@@ -612,21 +691,49 @@ export function VinculacionesContacto({
                 puestos={puestosSugeridos}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  etiqueta={t('contactos.correo')}
-                  tipo="email"
-                  value={crearCorreo}
-                  onChange={e => setCrearCorreo(e.target.value)}
-                  formato="email"
-                />
-                <Input
-                  etiqueta={t('contactos.telefono')}
-                  tipo="tel"
-                  value={crearTelefono}
-                  onChange={e => setCrearTelefono(e.target.value)}
-                  formato="telefono"
-                />
+              <Input
+                etiqueta={t('contactos.correo')}
+                tipo="email"
+                value={crearCorreo}
+                onChange={e => setCrearCorreo(e.target.value)}
+                formato="email"
+              />
+
+              {/* Teléfono: ícono refleja el tipo. Móvil → WhatsApp implícito. */}
+              <div>
+                <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">
+                  {t('contactos.telefono')}
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className={`shrink-0 inline-flex items-center justify-center w-8 h-8 ${colorIconoTipoTelefono(crearTipoTelefono)}`}>
+                    {iconoParaTipoTelefono(crearTipoTelefono)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      tipo="tel"
+                      variante="plano"
+                      value={crearTelefono}
+                      onChange={e => setCrearTelefono(e.target.value)}
+                      formato="telefono"
+                      placeholder="Número"
+                    />
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <Select
+                      variante="plano"
+                      opciones={[
+                        { valor: 'movil', etiqueta: 'Móvil' },
+                        { valor: 'fijo', etiqueta: 'Fijo' },
+                        { valor: 'trabajo', etiqueta: 'Trabajo' },
+                        { valor: 'casa', etiqueta: 'Casa' },
+                        { valor: 'otro', etiqueta: 'Otro' },
+                      ]}
+                      valor={crearTipoTelefono}
+                      onChange={setCrearTipoTelefono}
+                      placeholder="Tipo"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Etiquetas */}
@@ -859,8 +966,13 @@ export function VinculacionesContacto({
           etiqueta: 'Desvincular',
           onClick: () => {
             if (vinculoEditando) {
-              desvincular(vinculoEditando.vinculado_id)
+              // Cerramos el modal de edición y abrimos el de confirmación.
               setModalEdicion(false)
+              setConfirmarDesvincular({
+                vinculadoId: vinculoEditando.vinculado_id,
+                esEntrante: false,
+                nombre: [vinculoEditando.nombre, vinculoEditando.apellido].filter(Boolean).join(' '),
+              })
               setVinculoEditando(null)
             }
           },
@@ -897,20 +1009,45 @@ export function VinculacionesContacto({
                 onChange={e => setEdicionCorreo(e.target.value)}
                 formato="email"
               />
-              <Input
-                etiqueta={t('contactos.telefono')}
-                tipo="tel"
-                value={edicionTelefono}
-                onChange={e => setEdicionTelefono(e.target.value)}
-                formato="telefono"
-              />
-              <Input
-                etiqueta={t('contactos.whatsapp')}
-                tipo="tel"
-                value={edicionWhatsapp}
-                onChange={e => setEdicionWhatsapp(e.target.value)}
-                formato="telefono"
-              />
+              <div>
+                <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">
+                  {t('contactos.telefono')}
+                </label>
+                <div className="flex items-center gap-2">
+                  {/* Ícono decorativo: refleja el tipo. Móvil = ícono WhatsApp (asume WA). */}
+                  <div className={`shrink-0 inline-flex items-center justify-center w-8 h-8 ${colorIconoTipoTelefono(edicionTipoTelefono)}`}>
+                    {iconoParaTipoTelefono(edicionTipoTelefono)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      tipo="tel"
+                      variante="plano"
+                      value={edicionTelefono}
+                      onChange={e => setEdicionTelefono(e.target.value)}
+                      formato="telefono"
+                      placeholder="Número"
+                    />
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <Select
+                      variante="plano"
+                      opciones={[
+                        { valor: 'movil', etiqueta: 'Móvil' },
+                        { valor: 'fijo', etiqueta: 'Fijo' },
+                        { valor: 'trabajo', etiqueta: 'Trabajo' },
+                        { valor: 'casa', etiqueta: 'Casa' },
+                        { valor: 'otro', etiqueta: 'Otro' },
+                      ]}
+                      valor={edicionTipoTelefono}
+                      onChange={setEdicionTipoTelefono}
+                      placeholder="Tipo"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-texto-terciario mt-1">
+                  Móvil asume WhatsApp. Para gestionar varios teléfonos, abrí la ficha completa.
+                </p>
+              </div>
             </div>
 
             {/* Campos de la vinculación */}
@@ -941,6 +1078,26 @@ export function VinculacionesContacto({
           </div>
         )}
       </Modal>
+
+      {/* ═══ Confirmación al desvincular ═══ */}
+      <ModalConfirmacion
+        abierto={confirmarDesvincular !== null}
+        onCerrar={() => setConfirmarDesvincular(null)}
+        onConfirmar={() => {
+          if (confirmarDesvincular) {
+            desvincular(confirmarDesvincular.vinculadoId, confirmarDesvincular.esEntrante)
+          }
+        }}
+        titulo="¿Desvincular contacto?"
+        descripcion={
+          confirmarDesvincular
+            ? `Se va a eliminar la relación entre ${nombreDisplay} y ${confirmarDesvincular.nombre}. Los dos contactos siguen existiendo, solo se borra el vínculo.`
+            : undefined
+        }
+        tipo="peligro"
+        etiquetaConfirmar="Desvincular"
+        cargando={desvinculando}
+      />
 
     </section>
   )
@@ -1319,12 +1476,22 @@ function FilaBusqueda({
 }
 
 /**
- * TarjetaVinculo — Tarjeta compacta de contacto vinculado.
- * Layout vertical: nombre + badges arriba, teléfono y correo abajo en columna.
- * Ancho limitado para que quepan 2 por fila en desktop.
+ * TarjetaVinculo — Tarjeta de contacto vinculado con jerarquía clara.
+ *
+ * Layout:
+ *   [Avatar]  Nombre prominente              C-XXXX      [×]
+ *             Tipo · Relación · Puesto
+ *             icon tel · icon mail                       [Ver →]
+ *
+ * - Nombre como protagonista visual (semibold, texto primario).
+ * - Metadata de clasificación (tipo/relación/puesto) en una línea secundaria.
+ * - Datos de contacto (tel/mail) en una línea terciaria con iconos.
+ * - Código visible arriba a la derecha (identificador único siempre a la vista).
+ * - Botón × solo aparece al hover; dispara confirmación antes de borrar.
  */
 function TarjetaVinculo({
   vinculo,
+  etiquetaRelacion,
   onDesvincular,
   onClick,
   editable = false,
@@ -1332,6 +1499,10 @@ function TarjetaVinculo({
   origenNombre,
 }: {
   vinculo: VinculoUI
+  /** Frase de relación leída desde la perspectiva del contacto actual
+   *  (etiqueta directa o inversa según la dirección). Ej: "Encargado/a de",
+   *  "Tiene como encargado/a a", "Contacto de". */
+  etiquetaRelacion?: string | null
   onDesvincular?: () => void
   onClick?: () => void
   editable?: boolean
@@ -1344,62 +1515,90 @@ function TarjetaVinculo({
   return (
     <div
       onClick={editable ? onClick : undefined}
-      className={`relative p-3 rounded-card border border-borde-sutil group transition-colors ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/50' : ''}`}
+      className={`relative rounded-card border border-borde-sutil bg-superficie-tarjeta group transition-colors ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/40' : ''}`}
     >
-      {/* Botón desvincular (esquina superior derecha) */}
-      {editable && onDesvincular && (
-        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Desvincular" icono={<X size={13} />} onClick={e => { e.stopPropagation(); onDesvincular() }} className="absolute top-2 right-2 text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo opacity-0 group-hover:opacity-100" />
-      )}
-
-      {/* Fila: avatar + nombre + badges */}
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-start gap-3 p-3">
+        {/* Avatar — ancla visual a la izquierda */}
         <Avatar nombre={nombre} tamano="sm" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm font-medium text-texto-primario truncate">{nombre}</span>
+
+        {/* Contenido central — 3 líneas de jerarquía decreciente */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Línea 1: Nombre (protagonista) + flag recibe-documentos */}
+          <div className="flex items-center gap-1.5 min-w-0 pr-14">
+            <span className="text-sm font-semibold text-texto-primario truncate">{nombre}</span>
             {vinculo.recibe_documentos && (
-              <span className="shrink-0" aria-label="Recibe documentos"><FileCheck size={12} className="text-insignia-exito" /></span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Insignia color={color}>{vinculo.tipo_etiqueta}</Insignia>
-            {vinculo.puesto && (
-              <span className="text-xs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded">
-                {vinculo.puesto}
+              <span className="shrink-0" aria-label="Recibe documentos">
+                <FileCheck size={12} className="text-insignia-exito" />
               </span>
             )}
           </div>
+
+          {/* Línea 2: clasificación (tipo + relación + puesto) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Insignia color={color}>{vinculo.tipo_etiqueta}</Insignia>
+            {etiquetaRelacion && (
+              <>
+                <span className="text-[11px] text-texto-terciario">·</span>
+                <span className="text-xs text-texto-secundario">{etiquetaRelacion}</span>
+              </>
+            )}
+            {vinculo.puesto && (
+              <>
+                <span className="text-[11px] text-texto-terciario">·</span>
+                <span className="text-xs text-texto-terciario">{vinculo.puesto}</span>
+              </>
+            )}
+          </div>
+
+          {/* Línea 3: datos de contacto (inline si entran) */}
+          {(vinculo.telefono || vinculo.correo) && (
+            <div className="flex items-center gap-3 flex-wrap pt-0.5">
+              {vinculo.telefono && (
+                <span className="flex items-center gap-1 text-xs text-texto-terciario min-w-0">
+                  <Phone size={11} className="shrink-0" />
+                  <span className="truncate">{vinculo.telefono}</span>
+                </span>
+              )}
+              {vinculo.correo && (
+                <span className="flex items-center gap-1 text-xs text-texto-terciario min-w-0">
+                  <Mail size={11} className="shrink-0" />
+                  <span className="truncate">{vinculo.correo}</span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Datos de contacto + botón ir */}
-      <div className="flex items-end gap-2">
-        <div className="flex-1 space-y-0.5 pl-10">
-          {vinculo.telefono && (
-            <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
-              <Phone size={11} className="shrink-0" /> <span className="truncate">{vinculo.telefono}</span>
-            </div>
-          )}
-          {vinculo.correo && (
-            <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
-              <Mail size={11} className="shrink-0" /> <span className="truncate">{vinculo.correo}</span>
-            </div>
-          )}
-          {!vinculo.telefono && !vinculo.correo && (
-            <div className="text-xs text-texto-terciario">{vinculo.codigo}</div>
-          )}
-        </div>
-
-        {/* Botón ir al contacto */}
-        <a
-          href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
-          onClick={e => e.stopPropagation()}
-          className={`flex items-center gap-1 px-2 py-1 rounded-boton text-xs text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
-        >
-          <ExternalLink size={11} />
-          Ver
-        </a>
+      {/* Esquina superior derecha: código (siempre visible) + botón desvincular (hover) */}
+      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+        {vinculo.codigo && (
+          <span className="text-[11px] font-medium text-texto-terciario tabular-nums">
+            {vinculo.codigo}
+          </span>
+        )}
+        {editable && onDesvincular && (
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            titulo="Desvincular"
+            icono={<X size={13} />}
+            onClick={e => { e.stopPropagation(); onDesvincular() }}
+            className="text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo opacity-0 group-hover:opacity-100"
+          />
+        )}
       </div>
+
+      {/* Esquina inferior derecha: link "Ver" (aparece al hover) */}
+      <a
+        href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
+        onClick={e => e.stopPropagation()}
+        className="absolute bottom-2 right-2.5 flex items-center gap-1 px-1.5 py-0.5 rounded-boton text-[11px] text-texto-marca hover:bg-superficie-hover transition-colors opacity-0 group-hover:opacity-100"
+      >
+        <ExternalLink size={10} />
+        Ver
+      </a>
     </div>
   )
 }

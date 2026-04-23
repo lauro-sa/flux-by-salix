@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { normalizarTelefono } from '@/lib/validaciones'
+import { legacyAEntradas, normalizarListaTelefonos, type TelefonoNormalizado } from '@/lib/contacto-telefonos'
 import ExcelJS from 'exceljs'
 
 /**
@@ -149,14 +149,18 @@ export async function POST(request: NextRequest) {
       const codigoExistente = dato.codigo ? dato.codigo.trim() : ''
       const idExistente = codigoExistente ? mapaExistentes[codigoExistente] : null
 
+      // Derivar la lista de teléfonos a partir de las columnas CSV `telefono` y `whatsapp`.
+      // Reglas en legacyAEntradas (mismo helper que Salix IA y POST/PATCH).
+      const telefonosDelCsv: TelefonoNormalizado[] = normalizarListaTelefonos(
+        legacyAEntradas(dato.telefono, dato.whatsapp)
+      )
+
       const campos = {
         tipo_contacto_id: tipoId,
         nombre,
         apellido: dato.apellido?.trim() || null,
         titulo: dato.titulo?.trim() || null,
         correo,
-        telefono: normalizarTelefono(dato.telefono),
-        whatsapp: normalizarTelefono(dato.whatsapp),
         web: dato.web?.trim() || null,
         cargo: dato.cargo?.trim() || null,
         rubro: dato.rubro?.trim() || null,
@@ -189,6 +193,12 @@ export async function POST(request: NextRequest) {
             await actualizarDireccion(admin, idExistente, dato)
           }
 
+          // Upsert no-destructivo de teléfonos del CSV: agregar los que no existen,
+          // no tocar los que ya están. Preserva teléfonos secundarios cargados manualmente.
+          if (telefonosDelCsv.length > 0) {
+            await upsertTelefonosImport(admin, empresaId, idExistente, telefonosDelCsv, user.id)
+          }
+
           actualizados++
         } else {
           // Crear nuevo contacto
@@ -207,6 +217,23 @@ export async function POST(request: NextRequest) {
           // Crear dirección si hay datos
           if (nuevoContacto && (dato.calle || dato.ciudad || dato.provincia)) {
             await crearDireccion(admin, nuevoContacto.id, dato)
+          }
+
+          // Insertar la lista de teléfonos del CSV. El trigger sincroniza columnas legacy.
+          if (nuevoContacto && telefonosDelCsv.length > 0) {
+            await admin.from('contacto_telefonos').insert(
+              telefonosDelCsv.map(t => ({
+                empresa_id: empresaId,
+                contacto_id: nuevoContacto.id,
+                tipo: t.tipo,
+                valor: t.valor,
+                es_whatsapp: t.es_whatsapp,
+                es_principal: t.es_principal,
+                etiqueta: t.etiqueta,
+                orden: t.orden,
+                creado_por: user.id,
+              }))
+            )
           }
 
           // Registrar como responsable
@@ -303,6 +330,49 @@ async function actualizarDireccion(admin: any, contactoId: string, dato: Record<
       ...campos,
     })
   }
+}
+
+/**
+ * Upsert no-destructivo de teléfonos desde CSV: agrega los que no existen para el contacto,
+ * NO toca los que ya están (preserva teléfonos secundarios cargados desde la UI).
+ * Los nuevos se insertan con es_principal=false para no romper el unique partial index.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertTelefonosImport(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  empresaId: string,
+  contactoId: string,
+  telefonos: TelefonoNormalizado[],
+  usuarioId: string,
+) {
+  const { data: existentes } = await admin
+    .from('contacto_telefonos')
+    .select('valor')
+    .eq('contacto_id', contactoId)
+    .eq('empresa_id', empresaId)
+
+  const valoresExistentes = new Set((existentes || []).map((t: { valor: string }) => t.valor))
+  const tieneAlguno = (existentes || []).length > 0
+
+  const nuevos = telefonos.filter(t => !valoresExistentes.has(t.valor))
+  if (nuevos.length === 0) return
+
+  await admin.from('contacto_telefonos').insert(
+    nuevos.map((t, i) => ({
+      empresa_id: empresaId,
+      contacto_id: contactoId,
+      tipo: t.tipo,
+      valor: t.valor,
+      es_whatsapp: t.es_whatsapp,
+      // Si el contacto ya tenía teléfonos, los nuevos NO son principales (preserva el principal actual).
+      // Si no tenía ninguno, el primero queda como principal.
+      es_principal: !tieneAlguno && i === 0,
+      etiqueta: t.etiqueta,
+      orden: t.orden + (existentes?.length || 0),
+      creado_por: usuarioId,
+    }))
+  )
 }
 
 /** Parsea una línea CSV respetando comillas */

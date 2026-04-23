@@ -18,6 +18,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 const TABLAS_PERMITIDAS = new Set([
   'auditoria_asistencias',
   'auditoria_contactos',
+  'auditoria_contacto_telefonos',
   'auditoria_productos',
   'auditoria_actividades',
   'auditoria_presupuestos',
@@ -32,6 +33,7 @@ const TABLAS_PERMITIDAS = new Set([
 const CAMPOS_PERMITIDOS: Record<string, string[]> = {
   auditoria_asistencias: ['asistencia_id'],
   auditoria_contactos: ['contacto_id'],
+  auditoria_contacto_telefonos: ['telefono_id'],
   auditoria_productos: ['producto_id'],
   auditoria_actividades: ['actividad_id'],
   auditoria_presupuestos: ['presupuesto_id'],

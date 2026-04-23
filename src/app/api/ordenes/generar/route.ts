@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
 
     // Obtener presupuesto con líneas en paralelo
-    const [presupuestoRes, lineasRes, { data: numero, error: numError }, { data: perfil }] = await Promise.all([
+    const [presupuestoRes, lineasRes, { data: numero, error: numError }, { data: perfil }, ordenExistenteRes] = await Promise.all([
       admin
         .from('presupuestos')
         .select('*')
@@ -44,10 +44,25 @@ export async function POST(request: NextRequest) {
         .order('orden', { ascending: true }),
       admin.rpc('siguiente_codigo', { p_empresa_id: empresaId, p_entidad: 'orden_trabajo' }),
       admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single(),
+      // Idempotencia: impedir generar una segunda OT viva para el mismo presupuesto.
+      admin
+        .from('ordenes_trabajo')
+        .select('id, numero')
+        .eq('presupuesto_id', presupuesto_id)
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .maybeSingle(),
     ])
 
     if (presupuestoRes.error || !presupuestoRes.data) {
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
+    }
+
+    if (ordenExistenteRes.data) {
+      return NextResponse.json({
+        error: `Este presupuesto ya tiene la orden ${ordenExistenteRes.data.numero} generada`,
+        orden: ordenExistenteRes.data,
+      }, { status: 409 })
     }
 
     const presupuesto = presupuestoRes.data

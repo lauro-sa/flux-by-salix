@@ -7,7 +7,9 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
-import { normalizarTelefono } from '@/lib/validaciones'
+// TODO(refactor-telefonos): cuando todos los consumidores migren al schema `telefonos[]`,
+// eliminar el soporte legacy a params.telefono / params.whatsapp y dejar solo `telefonos`.
+import { resolverListaDesdeBody, type TelefonoEntrada } from '@/lib/contacto-telefonos'
 
 export async function ejecutarModificarContacto(
   ctx: ContextoSalixIA,
@@ -48,12 +50,22 @@ export async function ejecutarModificarContacto(
     descripcionCambios.push(`apellido: "${anterior}" → "${cambios.apellido}"`)
   }
 
-  // Teléfono — normalizamos a solo dígitos para evitar duplicados por formato
-  if (params.telefono !== undefined) {
-    const anterior = contacto.telefono || '(vacío)'
-    cambios.telefono = normalizarTelefono(params.telefono as string)
-    cambios.whatsapp = cambios.telefono // sincronizar WhatsApp
-    descripcionCambios.push(`teléfono: ${anterior} → ${cambios.telefono ?? '(vacío)'}`)
+  // Teléfonos — el reemplazo de la lista se procesa más abajo (DELETE + INSERT en contacto_telefonos).
+  // Acá solo armamos la entrada y la descripción del cambio.
+  const reemplazarTelefonos = params.telefono !== undefined
+    || params.whatsapp !== undefined
+    || Array.isArray(params.telefonos)
+  const telefonosNuevos = reemplazarTelefonos
+    ? resolverListaDesdeBody({
+        telefonos: params.telefonos as TelefonoEntrada[] | undefined,
+        telefono: params.telefono as string | undefined,
+        whatsapp: params.whatsapp as string | undefined,
+      })
+    : []
+  if (reemplazarTelefonos) {
+    const anterior = contacto.telefono || contacto.whatsapp || '(vacío)'
+    const nuevo = telefonosNuevos[0]?.valor || '(vacío)'
+    descripcionCambios.push(`teléfono: ${anterior} → ${nuevo}`)
   }
 
   // Correo
@@ -120,6 +132,40 @@ export async function ejecutarModificarContacto(
 
     if (error) {
       return { exito: false, error: `Error actualizando contacto: ${error.message}` }
+    }
+  }
+
+  // Reemplazar lista de teléfonos si vino telefono/whatsapp/telefonos en params.
+  // Ojo: esto reemplaza la lista COMPLETA — si el contacto tenía 3 teléfonos y la tool
+  // recibe solo `telefono: 'X'`, los otros 2 se pierden. La tool debería preguntar al
+  // usuario antes de invocar si hay ambigüedad.
+  if (reemplazarTelefonos) {
+    const { error: delError } = await ctx.admin
+      .from('contacto_telefonos')
+      .delete()
+      .eq('contacto_id', contacto_id)
+      .eq('empresa_id', ctx.empresa_id)
+    if (delError) {
+      return { exito: false, error: `Error borrando teléfonos previos: ${delError.message}` }
+    }
+    if (telefonosNuevos.length > 0) {
+      const { error: insError } = await ctx.admin.from('contacto_telefonos').insert(
+        telefonosNuevos.map(t => ({
+          empresa_id: ctx.empresa_id,
+          contacto_id,
+          tipo: t.tipo,
+          valor: t.valor,
+          es_whatsapp: t.es_whatsapp,
+          es_principal: t.es_principal,
+          etiqueta: t.etiqueta,
+          orden: t.orden,
+          creado_por: ctx.usuario_id,
+          editado_por: ctx.usuario_id,
+        }))
+      )
+      if (insError) {
+        return { exito: false, error: `Error guardando teléfonos: ${insError.message}` }
+      }
     }
   }
 

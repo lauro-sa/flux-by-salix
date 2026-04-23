@@ -124,12 +124,14 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const [filtroCiudad, setFiltroCiudad] = useState(searchParams.get('ciudad') || '')
   const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
   const [filtroUltimaInteraccion, setFiltroUltimaInteraccion] = useState(searchParams.get('ultima_interaccion') || '')
+  const [filtroRubros, setFiltroRubros] = useState<string[]>(searchParams.get('rubros')?.split(',').filter(Boolean) || [])
+  const [filtroRelaciones, setFiltroRelaciones] = useState<string[]>(searchParams.get('relaciones')?.split(',').filter(Boolean) || [])
 
   // Búsqueda con debounce + reset de página automático (restaura desde URL, salta primer reset)
   const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
     searchParams.get('q') || '',
     Number(searchParams.get('pagina')) || 1,
-    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas.join(','), filtroCanales.join(','), filtroPresupuesto, filtroEstadoPres.join(','), filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion],
+    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas.join(','), filtroCanales.join(','), filtroPresupuesto, filtroEstadoPres.join(','), filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, filtroRubros.join(','), filtroRelaciones.join(',')],
     true,
   )
 
@@ -160,19 +162,21 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
     if (filtroCiudad) params.set('ciudad', filtroCiudad)
     if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
     if (filtroUltimaInteraccion) params.set('ultima_interaccion', filtroUltimaInteraccion)
+    if (filtroRubros.length) params.set('rubros', filtroRubros.join(','))
+    if (filtroRelaciones.length) params.set('relaciones', filtroRelaciones.join(','))
     if (pagina > 1) params.set('pagina', String(pagina))
     if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
     if (origenUrl) params.set('origen', origenUrl)
     const qs = params.toString()
     const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
     window.history.replaceState(null, '', nuevaUrl)
-  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas, filtroCanales, filtroPresupuesto, filtroEstadoPres, filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, pagina, vinculadoDe, origenUrl, pathname])
+  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas, filtroCanales, filtroPresupuesto, filtroEstadoPres, filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, filtroRubros, filtroRelaciones, pagina, vinculadoDe, origenUrl, pathname])
 
   // Solo usar datosInicialesJson (SSR) cuando NINGÚN filtro está activo.
   // Si alguno cambia → useListado hace request con params y el SSR se descarta.
   // ¡Importante! Debe incluir TODOS los filtros y la búsqueda, sino el SSR gana
   // y el listado no refleja los filtros activos (bug típico al agregar filtros nuevos).
-  const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !filtroResponsable && filtroEtiquetas.length === 0 && filtroCanales.length === 0 && !filtroPresupuesto && filtroEstadoPres.length === 0 && !filtroActividades && !filtroProvincia && !filtroCiudad && !filtroCreadoRango && !filtroUltimaInteraccion && !vinculadoDe && pagina === 1
+  const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !filtroResponsable && filtroEtiquetas.length === 0 && filtroCanales.length === 0 && !filtroPresupuesto && filtroEstadoPres.length === 0 && !filtroActividades && !filtroProvincia && !filtroCiudad && !filtroCreadoRango && !filtroUltimaInteraccion && filtroRubros.length === 0 && filtroRelaciones.length === 0 && !vinculadoDe && pagina === 1
 
   // ── Listado de contactos con React Query ──
   const { datos: contactos, total, cargando, cargandoInicial, recargar: recargarContactos } = useListado<FilaContacto>({
@@ -195,6 +199,8 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
       ciudad: filtroCiudad || undefined,
       creado_rango: filtroCreadoRango || undefined,
       ultima_interaccion: filtroUltimaInteraccion || undefined,
+      rubros: filtroRubros.length ? filtroRubros.join(',') : undefined,
+      relaciones: filtroRelaciones.length ? filtroRelaciones.join(',') : undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -244,17 +250,55 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
     }).filter(o => o.valor)
   }, [miembrosData])
 
-  // ── Etiquetas existentes en los contactos actualmente cargados (derivadas de datos) ──
-  // Opción pragmática: tomarlas del listado actual. Para un set completo habría un endpoint dedicado.
+  // ── Config de contactos (etiquetas, rubros, relaciones) desde el endpoint dedicado ──
+  // Se usa para poblar los filtros con todas las opciones de la empresa,
+  // no solo las visibles en la página actual.
+  const { data: configData } = useQuery({
+    queryKey: ['contactos-config'],
+    queryFn: () => fetch('/api/contactos/config').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+
+  // Mapa nombre → color para pintar cada etiqueta en la tabla/tarjeta con su color configurado
+  const coloresEtiquetas = useMemo(() => {
+    const arr = (configData?.etiquetas || []) as Array<{ nombre: string; color?: string }>
+    const mapa = new Map<string, ColorInsignia>()
+    for (const e of arr) mapa.set(e.nombre, (e.color || 'neutro') as ColorInsignia)
+    return mapa
+  }, [configData])
+
   const opcionesEtiquetas = useMemo(() => {
-    const set = new Set<string>()
-    // Siempre agregar las seleccionadas para que se muestren aunque no estén en la página actual
-    filtroEtiquetas.forEach(e => set.add(e))
-    // Intentar derivar de datos iniciales
-    const filas = (datosInicialesJson?.contactos as FilaContacto[] | undefined) || []
-    filas.forEach(f => (f.etiquetas || []).forEach(e => set.add(e)))
-    return [...set].sort().map(e => ({ valor: e, etiqueta: e }))
-  }, [datosInicialesJson, filtroEtiquetas])
+    const arr = (configData?.etiquetas || []) as Array<{ nombre: string; activa?: boolean }>
+    const opciones = arr
+      .filter(e => e.activa !== false)
+      .map(e => ({ valor: e.nombre, etiqueta: e.nombre }))
+    // Garantizar que los valores seleccionados siempre se muestren, aunque estén inactivos
+    const set = new Set(opciones.map(o => o.valor))
+    filtroEtiquetas.forEach(e => {
+      if (!set.has(e)) opciones.push({ valor: e, etiqueta: e })
+    })
+    return opciones.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+  }, [configData, filtroEtiquetas])
+
+  const opcionesRubros = useMemo(() => {
+    const arr = (configData?.rubros || []) as Array<{ nombre: string; activo?: boolean }>
+    const opciones = arr
+      .filter(r => r.activo !== false)
+      .map(r => ({ valor: r.nombre, etiqueta: r.nombre }))
+    const set = new Set(opciones.map(o => o.valor))
+    filtroRubros.forEach(r => {
+      if (!set.has(r)) opciones.push({ valor: r, etiqueta: r })
+    })
+    return opciones.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+  }, [configData, filtroRubros])
+
+  const opcionesRelaciones = useMemo(() => {
+    const arr = (configData?.relaciones || []) as Array<{ id: string; nombre: string; activo?: boolean }>
+    return arr
+      .filter(r => r.activo !== false)
+      .map(r => ({ valor: r.id, etiqueta: r.nombre }))
+      .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+  }, [configData])
 
   // Resolver nombre del contacto filtrado + migaja
   useEffect(() => {
@@ -602,7 +646,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
       clave: 'etiquetas', etiqueta: t('contactos.etiquetas'), ancho: 200, grupo: t('comun.metadata'), icono: <Tags size={I} />,
       render: (fila) => fila.etiquetas?.length > 0 ? (
         <div className="flex items-center gap-1 flex-wrap">
-          {fila.etiquetas.slice(0, 2).map(e => <Insignia key={e} color="neutro">{e}</Insignia>)}
+          {fila.etiquetas.slice(0, 2).map(e => <Insignia key={e} color={coloresEtiquetas.get(e) || 'neutro'}>{e}</Insignia>)}
           {fila.etiquetas.length > 2 && <span className="text-xs text-texto-terciario">+{fila.etiquetas.length - 2}</span>}
         </div>
       ) : null,
@@ -701,7 +745,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
         {fila.etiquetas?.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap">
             {fila.etiquetas.slice(0, 3).map(e => (
-              <Insignia key={e} color="neutro" tamano="sm">{e}</Insignia>
+              <Insignia key={e} color={coloresEtiquetas.get(e) || 'neutro'} tamano="sm">{e}</Insignia>
             ))}
             {fila.etiquetas.length > 3 && <span className="text-xs text-texto-terciario">+{fila.etiquetas.length - 3}</span>}
           </div>
@@ -865,6 +909,20 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
             opciones: opcionesEtiquetas,
             descripcion: 'Elegí una o más etiquetas. Muestra contactos que tengan al menos una.',
           }] : []),
+          ...(opcionesRubros.length > 0 ? [{
+            id: 'rubros', etiqueta: 'Rubro', tipo: 'multiple-compacto' as const,
+            valor: filtroRubros,
+            onChange: (v: string | string[]) => setFiltroRubros(Array.isArray(v) ? v : []),
+            opciones: opcionesRubros,
+            descripcion: 'Elegí uno o más rubros. Muestra contactos que pertenezcan a alguno.',
+          }] : []),
+          ...(opcionesRelaciones.length > 0 ? [{
+            id: 'relaciones', etiqueta: 'Rol', tipo: 'multiple-compacto' as const,
+            valor: filtroRelaciones,
+            onChange: (v: string | string[]) => setFiltroRelaciones(Array.isArray(v) ? v : []),
+            opciones: opcionesRelaciones,
+            descripcion: 'Elegí uno o más tipos de relación. Muestra contactos que participan con ese rol en alguna vinculación.',
+          }] : []),
 
           // ─ Estado comercial ─
           ...((etapasWA.length > 0 || etapasCorreo.length > 0) ? [{
@@ -973,7 +1031,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
           },
         ]}
         gruposFiltros={[
-          { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'responsable', 'etiquetas_multi'] },
+          { id: 'identidad', etiqueta: 'Identidad', filtros: ['tipo', 'responsable', 'etiquetas_multi', 'rubros', 'relaciones'] },
           { id: 'comercial', etiqueta: 'Comercial', filtros: ['etapa', 'presupuesto', 'estado_presupuesto', 'actividades'] },
           { id: 'fiscal', etiqueta: 'Fiscal', filtros: ['canales', 'origen', 'condicion_iva'] },
           { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango', 'ultima_interaccion'] },
@@ -993,6 +1051,8 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
           setFiltroCiudad('')
           setFiltroCreadoRango('')
           setFiltroUltimaInteraccion('')
+          setFiltroRubros([])
+          setFiltroRelaciones([])
         }}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}

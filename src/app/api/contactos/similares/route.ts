@@ -5,7 +5,7 @@ import { normalizarAcentos } from '@/lib/validaciones'
 
 /**
  * GET /api/contactos/similares?contacto_id=xxx — Busca contactos similares al provisorio dado.
- * Compara por nombre, teléfono, whatsapp, correo y dirección.
+ * Compara por nombre, lista de teléfonos, correo y dirección.
  * Devuelve contactos ordenados por cantidad de coincidencias (más similar primero).
  */
 export async function GET(request: NextRequest) {
@@ -23,28 +23,31 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Obtener datos del contacto provisorio
-    const { data: provisorio } = await admin
-      .from('contactos')
-      .select('id, nombre, apellido, correo, telefono, whatsapp, es_provisorio')
-      .eq('id', contactoId)
-      .eq('empresa_id', empresaId)
-      .single()
+    // Datos del contacto provisorio + sus teléfonos + sus direcciones (en paralelo)
+    const [provisorioRes, telProvRes, dirProvRes] = await Promise.all([
+      admin.from('contactos')
+        .select('id, nombre, apellido, correo, es_provisorio')
+        .eq('id', contactoId).eq('empresa_id', empresaId)
+        .single(),
+      admin.from('contacto_telefonos')
+        .select('valor')
+        .eq('contacto_id', contactoId).eq('empresa_id', empresaId),
+      admin.from('contacto_direcciones')
+        .select('calle, numero, ciudad, provincia')
+        .eq('contacto_id', contactoId),
+    ])
 
+    const provisorio = provisorioRes.data
     if (!provisorio) {
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     }
 
-    // Obtener direcciones del provisorio
-    const { data: direccionesProvisorio } = await admin
-      .from('contacto_direcciones')
-      .select('calle, numero, ciudad, provincia')
-      .eq('contacto_id', contactoId)
+    const telefonosProvisorio = (telProvRes.data || []).map(t => t.valor).filter(Boolean) as string[]
+    const direccionesProvisorio = dirProvRes.data || []
 
     // Construir condiciones OR para buscar similares
     const condiciones: string[] = []
 
-    // Por nombre (parcial)
     if (provisorio.nombre) {
       const nombreNorm = normalizarAcentos(provisorio.nombre)
       condiciones.push(`nombre.ilike.%${nombreNorm}%`)
@@ -53,27 +56,25 @@ export async function GET(request: NextRequest) {
       const apellidoNorm = normalizarAcentos(provisorio.apellido)
       condiciones.push(`apellido.ilike.%${apellidoNorm}%`)
     }
-
-    // Por teléfono (exacto, los últimos 8 dígitos)
-    if (provisorio.telefono) {
-      const telDigitos = provisorio.telefono.replace(/\D/g, '').slice(-8)
-      if (telDigitos.length >= 6) {
-        condiciones.push(`telefono.ilike.%${telDigitos}%`)
-      }
-    }
-
-    // Por whatsapp (exacto, los últimos 8 dígitos)
-    if (provisorio.whatsapp) {
-      const waDigitos = provisorio.whatsapp.replace(/\D/g, '').slice(-8)
-      if (waDigitos.length >= 6) {
-        condiciones.push(`whatsapp.ilike.%${waDigitos}%`)
-        condiciones.push(`telefono.ilike.%${waDigitos}%`)
-      }
-    }
-
-    // Por correo
     if (provisorio.correo) {
       condiciones.push(`correo.ilike.%${provisorio.correo}%`)
+    }
+
+    // Pre-query: contactos que comparten algún teléfono con el provisorio.
+    // Buscamos en contacto_telefonos.valor IN (lista del provisorio).
+    let idsPorTelefono: string[] = []
+    if (telefonosProvisorio.length > 0) {
+      const { data: telMatches } = await admin
+        .from('contacto_telefonos')
+        .select('contacto_id')
+        .eq('empresa_id', empresaId)
+        .in('valor', telefonosProvisorio)
+        .neq('contacto_id', contactoId)
+      idsPorTelefono = [...new Set((telMatches || []).map(t => t.contacto_id))]
+    }
+
+    if (idsPorTelefono.length > 0) {
+      condiciones.push(`id.in.(${idsPorTelefono.join(',')})`)
     }
 
     if (condiciones.length === 0) {
@@ -87,7 +88,8 @@ export async function GET(request: NextRequest) {
         id, nombre, apellido, codigo, correo, telefono, whatsapp, cargo,
         activo, es_provisorio,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
-        direcciones:contacto_direcciones(calle, numero, ciudad, provincia)
+        direcciones:contacto_direcciones(calle, numero, ciudad, provincia),
+        telefonos:contacto_telefonos(valor, es_whatsapp, es_principal)
       `)
       .eq('empresa_id', empresaId)
       .eq('en_papelera', false)
@@ -99,7 +101,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ similares: [] })
     }
 
-    // Calcular puntuación de similitud para cada candidato
+    // Set de teléfonos del provisorio para lookup rápido
+    const telProvSet = new Set(telefonosProvisorio)
+
     const similares = candidatos.map(c => {
       let puntuacion = 0
       const coincidencias: string[] = []
@@ -130,34 +134,23 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Teléfono
-      if (provisorio.telefono && c.telefono) {
-        const provTel = provisorio.telefono.replace(/\D/g, '').slice(-8)
-        const candTel = c.telefono.replace(/\D/g, '').slice(-8)
-        if (provTel && candTel && provTel === candTel) {
-          puntuacion += 5
-          coincidencias.push('teléfono')
+      // Teléfonos: cualquier coincidencia exacta entre las listas suma fuerte.
+      const telCand = (c.telefonos as unknown as { valor: string; es_whatsapp: boolean }[] | null) || []
+      let telCoincide = false
+      let waCoincide = false
+      for (const t of telCand) {
+        if (telProvSet.has(t.valor)) {
+          if (t.es_whatsapp) waCoincide = true
+          else telCoincide = true
         }
       }
-
-      // WhatsApp
-      if (provisorio.whatsapp) {
-        const provWa = provisorio.whatsapp.replace(/\D/g, '').slice(-8)
-        if (c.whatsapp) {
-          const candWa = c.whatsapp.replace(/\D/g, '').slice(-8)
-          if (provWa && candWa && provWa === candWa) {
-            puntuacion += 5
-            coincidencias.push('whatsapp')
-          }
-        }
-        // También comparar whatsapp del provisorio con teléfono del candidato
-        if (c.telefono) {
-          const candTel = c.telefono.replace(/\D/g, '').slice(-8)
-          if (provWa && candTel && provWa === candTel) {
-            puntuacion += 4
-            if (!coincidencias.includes('teléfono')) coincidencias.push('teléfono similar')
-          }
-        }
+      if (telCoincide) {
+        puntuacion += 5
+        coincidencias.push('teléfono')
+      }
+      if (waCoincide) {
+        puntuacion += 5
+        coincidencias.push('whatsapp')
       }
 
       // Correo
@@ -169,7 +162,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Dirección (comparar ciudad/calle)
-      if (direccionesProvisorio?.length && Array.isArray(c.direcciones) && c.direcciones.length) {
+      if (direccionesProvisorio.length && Array.isArray(c.direcciones) && c.direcciones.length) {
         for (const dirProv of direccionesProvisorio) {
           for (const dirCand of c.direcciones as { calle?: string; ciudad?: string }[]) {
             if (dirProv.ciudad && dirCand.ciudad &&

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos, normalizarTelefono } from '@/lib/validaciones'
+import { esEmailValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
+import { resolverListaDesdeBody } from '@/lib/contacto-telefonos'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
@@ -38,6 +39,10 @@ export async function GET(request: NextRequest) {
     // Filtros nuevos ——
     // etiquetas_multi: multi-select de etiquetas (cualquiera coincide). Formato: csv.
     const etiquetas_multi = params.get('etiquetas_multi')?.split(',').filter(Boolean) || []
+    // rubros: multi-select de rubros por nombre (cualquiera coincide). Formato: csv.
+    const rubros_multi = params.get('rubros')?.split(',').filter(Boolean) || []
+    // relaciones: multi-select de tipo_relacion_id en contacto_vinculaciones. Formato: csv.
+    const relaciones_multi = params.get('relaciones')?.split(',').filter(Boolean) || []
     // tiene_canales: contactos con alguno/todos los canales indicados. Formato: csv (correo,telefono,whatsapp,direccion).
     const tiene_canales = params.get('tiene_canales')?.split(',').filter(Boolean) || []
     // presupuesto: 'con_aceptado' | 'sin_aceptado' — filtra por existencia de presupuesto aceptado del contacto.
@@ -61,7 +66,9 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Query base: campos selectivos (sin datos_fiscales, notas, etc. innecesarios para la lista)
+    // Query base: campos selectivos (sin datos_fiscales, notas, etc. innecesarios para la lista).
+    // telefono/whatsapp legacy se mantienen sincronizadas por trigger; telefonos[] es la lista
+    // canónica nueva.
     let query = admin
       .from('contactos')
       .select(`
@@ -75,6 +82,7 @@ export async function GET(request: NextRequest) {
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
         direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
+        telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp))
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
@@ -158,6 +166,24 @@ export async function GET(request: NextRequest) {
     // Filtro por etiquetas múltiples (overlap — el contacto tiene al menos una de las etiquetas).
     if (etiquetas_multi.length > 0) {
       query = query.overlaps('etiquetas', etiquetas_multi)
+    }
+
+    // Filtro por rubros (multi) — coincide si contactos.rubro ∈ lista.
+    if (rubros_multi.length > 0) {
+      query = query.in('rubro', rubros_multi)
+    }
+
+    // Filtro por tipo de relación (multi) — contactos que participan en alguna
+    // vinculación cuyo tipo_relacion_id ∈ lista (como origen o destino).
+    if (relaciones_multi.length > 0) {
+      const { data: vinc } = await admin
+        .from('contacto_vinculaciones')
+        .select('contacto_id, vinculado_id')
+        .eq('empresa_id', empresaId)
+        .in('tipo_relacion_id', relaciones_multi)
+      const idsRelacion = [...new Set((vinc || []).flatMap(v => [v.contacto_id, v.vinculado_id]).filter(Boolean))]
+      if (idsRelacion.length > 0) query = query.in('id', idsRelacion)
+      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
     }
 
     // Filtro por canales disponibles — el contacto DEBE tener TODOS los canales marcados
@@ -313,7 +339,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Búsqueda full-text + direcciones (normalizada sin acentos)
+    // Búsqueda full-text + direcciones + teléfonos (normalizada sin acentos)
     if (busqueda.trim()) {
       const busquedaNorm = normalizarAcentos(busqueda)
 
@@ -330,23 +356,33 @@ export async function GET(request: NextRequest) {
       const soloDigitos = busquedaNorm.replace(/\D/g, '')
       const pareceNumero = soloDigitos.length >= 3
 
+      // Pre-query teléfonos: si parece un número, buscar fragmento en contacto_telefonos.valor.
+      let idsTelefonos: string[] = []
+      if (pareceNumero) {
+        const { data: telMatches } = await admin
+          .from('contacto_telefonos')
+          .select('contacto_id')
+          .eq('empresa_id', empresaId)
+          .ilike('valor', `%${soloDigitos}%`)
+          .limit(500)
+        idsTelefonos = [...new Set((telMatches || []).map(t => t.contacto_id))]
+      }
+
+      const idsExtra = [...new Set([...idsDirecciones, ...idsTelefonos])]
+
       if (busqueda.length <= 2) {
-        const filtroTexto = `nombre.ilike.%${busquedaNorm}%,apellido.ilike.%${busquedaNorm}%,correo.ilike.%${busquedaNorm}%,codigo.ilike.%${busquedaNorm}%,telefono.ilike.%${busquedaNorm}%`
-        if (idsDirecciones.length > 0) {
-          query = query.or(`${filtroTexto},id.in.(${idsDirecciones.join(',')})`)
+        const filtroTexto = `nombre.ilike.%${busquedaNorm}%,apellido.ilike.%${busquedaNorm}%,correo.ilike.%${busquedaNorm}%,codigo.ilike.%${busquedaNorm}%`
+        if (idsExtra.length > 0) {
+          query = query.or(`${filtroTexto},id.in.(${idsExtra.join(',')})`)
         } else {
           query = query.or(filtroTexto)
         }
       } else {
         const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        // Fallback ILIKE para teléfonos: FTS no maneja bien búsquedas parciales de números
-        const fallbackTelefono = pareceNumero
-          ? `,telefono.ilike.%${soloDigitos}%,whatsapp.ilike.%${soloDigitos}%`
-          : ''
-        if (idsDirecciones.length > 0) {
-          query = query.or(`busqueda.fts(spanish_unaccent).${terminos}${fallbackTelefono},id.in.(${idsDirecciones.join(',')})`)
+        if (idsExtra.length > 0) {
+          query = query.or(`busqueda.fts(spanish_unaccent).${terminos},id.in.(${idsExtra.join(',')})`)
         } else {
-          query = query.or(`busqueda.fts(spanish_unaccent).${terminos}${fallbackTelefono}`)
+          query = query.or(`busqueda.fts(spanish_unaccent).${terminos}`)
         }
       }
     }
@@ -495,13 +531,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 })
     }
 
+    // Resolver lista de teléfonos: prioriza body.telefonos array, fallback a body.telefono/whatsapp legacy.
+    // Normaliza cada valor, deduplica y garantiza un solo principal.
+    const telefonosNorm = resolverListaDesdeBody(body)
+
     // Validar al menos un dato de contacto (edificios necesitan nombre + dirección)
     const esEdificio = tipoExiste.clave === 'edificio'
     const tieneDireccion = !!(body.direccion?.calle?.trim() || body.direcciones?.some((d: { calle?: string }) => d.calle?.trim()))
     const tieneDatoContacto = !!(
       body.correo?.trim() ||
-      body.telefono?.trim() ||
-      body.whatsapp?.trim() ||
+      telefonosNorm.length > 0 ||
       tieneDireccion
     )
     if (esEdificio && !tieneDireccion && !body.es_provisorio) {
@@ -514,12 +553,6 @@ export async function POST(request: NextRequest) {
     // Validar formatos
     if (body.correo?.trim() && !esEmailValido(body.correo)) {
       return NextResponse.json({ error: 'Formato de email no válido' }, { status: 400 })
-    }
-    if (body.telefono?.trim() && !esTelefonoValido(body.telefono)) {
-      return NextResponse.json({ error: 'Formato de teléfono no válido' }, { status: 400 })
-    }
-    if (body.whatsapp?.trim() && !esTelefonoValido(body.whatsapp)) {
-      return NextResponse.json({ error: 'Formato de WhatsApp no válido' }, { status: 400 })
     }
     if (body.web?.trim() && !esUrlValida(body.web)) {
       return NextResponse.json({ error: 'Formato de URL no válido' }, { status: 400 })
@@ -539,40 +572,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al generar código' }, { status: 500 })
     }
 
-    // Normalizar teléfonos una sola vez: los usamos para dedup y para el insert.
-    const telefonoNorm = normalizarTelefono(body.telefono)
-    const whatsappNorm = normalizarTelefono(body.whatsapp)
-
-    // Detección de duplicados — todas las queries en paralelo
+    // Detección de duplicados — checks en paralelo (identificación, correo, teléfonos)
     if (!body.ignorar_duplicados) {
-      const checksParalelos: PromiseLike<{ campo: string; duplicado: { id: string; nombre: string; codigo: string } | null }>[] = []
+      type ResultadoDup = { campo: string; duplicado: { id: string; nombre: string; codigo: string } | null }
+      const checksParalelos: PromiseLike<ResultadoDup>[] = []
 
       if (body.numero_identificacion) {
         checksParalelos.push(
           admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
             .eq('numero_identificacion', body.numero_identificacion).eq('en_papelera', false).maybeSingle()
-            .then(({ data }) => ({ campo: 'identificación', duplicado: data }))
+            .then(({ data }): ResultadoDup => ({ campo: 'identificación', duplicado: data }))
         )
       }
       if (body.correo) {
         checksParalelos.push(
           admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
             .eq('correo', body.correo.toLowerCase().trim()).eq('en_papelera', false).maybeSingle()
-            .then(({ data }) => ({ campo: 'correo', duplicado: data }))
+            .then(({ data }): ResultadoDup => ({ campo: 'correo', duplicado: data }))
         )
       }
-      if (telefonoNorm) {
+      // Dedup por teléfonos: un solo check contra contacto_telefonos.valor IN (lista normalizada).
+      // Cubre cualquier teléfono del contacto, no solo el principal — más estricto que el modelo legacy.
+      if (telefonosNorm.length > 0) {
+        const valores = telefonosNorm.map(t => t.valor)
         checksParalelos.push(
-          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
-            .eq('telefono', telefonoNorm).eq('en_papelera', false).maybeSingle()
-            .then(({ data }) => ({ campo: 'telefono', duplicado: data }))
-        )
-      }
-      if (whatsappNorm) {
-        checksParalelos.push(
-          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
-            .eq('whatsapp', whatsappNorm).eq('en_papelera', false).maybeSingle()
-            .then(({ data }) => ({ campo: 'whatsapp', duplicado: data }))
+          admin.from('contacto_telefonos')
+            .select('valor, contactos!inner(id, nombre, codigo, en_papelera)')
+            .eq('empresa_id', empresaId)
+            .in('valor', valores)
+            .eq('contactos.en_papelera', false)
+            .limit(1)
+            .then(({ data }): ResultadoDup => {
+              const fila = (data || [])[0]
+              if (!fila) return { campo: 'teléfono', duplicado: null }
+              const c = fila.contactos as unknown as { id: string; nombre: string; codigo: string }
+              return { campo: 'teléfono', duplicado: { id: c.id, nombre: c.nombre, codigo: c.codigo } }
+            })
         )
       }
 
@@ -590,7 +625,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Construir el registro
+    // Construir el registro. NO se incluyen telefono/whatsapp: el trigger de sync los rellena
+    // automáticamente al insertar las filas en contacto_telefonos más abajo.
     const nuevoContacto = {
       empresa_id: empresaId,
       tipo_contacto_id: tipoContactoId,
@@ -599,8 +635,6 @@ export async function POST(request: NextRequest) {
       apellido: body.apellido?.trim() || null,
       titulo: body.titulo || null,
       correo: body.correo?.toLowerCase().trim() || null,
-      telefono: telefonoNorm,
-      whatsapp: whatsappNorm,
       web: body.web?.trim() || null,
       cargo: body.cargo?.trim() || null,
       rubro: body.rubro?.trim() || null,
@@ -629,6 +663,30 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('Error al crear contacto:', insertError)
       return NextResponse.json({ error: 'Error al crear contacto' }, { status: 500 })
+    }
+
+    // Insertar la lista de teléfonos. El trigger sync_contacto_principal_telefonos
+    // sincroniza contactos.telefono / contactos.whatsapp después de cada insert.
+    if (telefonosNorm.length > 0) {
+      const { error: telError } = await admin.from('contacto_telefonos').insert(
+        telefonosNorm.map(t => ({
+          empresa_id: empresaId,
+          contacto_id: contacto.id,
+          tipo: t.tipo,
+          valor: t.valor,
+          es_whatsapp: t.es_whatsapp,
+          es_principal: t.es_principal,
+          etiqueta: t.etiqueta,
+          orden: t.orden,
+          creado_por: user.id,
+        }))
+      )
+      if (telError) {
+        // Rollback: borrar el contacto recién creado para no dejar huérfanos sin teléfonos.
+        await admin.from('contactos').delete().eq('id', contacto.id)
+        registrarError(telError, { ruta: '/api/contactos', accion: 'crear_insertar_telefonos', empresaId })
+        return NextResponse.json({ error: 'Error al guardar teléfonos del contacto' }, { status: 500 })
+      }
     }
 
     // Auto-asignar creador como responsable y seguidor
@@ -681,21 +739,38 @@ export async function POST(request: NextRequest) {
 
     if (insercionesExtra.length > 0) await Promise.all(insercionesExtra)
 
+    // Re-leer el contacto si se insertaron teléfonos: el trigger de sync actualizó
+    // contactos.telefono / contactos.whatsapp, y queremos devolver esos valores
+    // junto con la lista completa de teléfonos al cliente.
+    let contactoFinal = contacto
+    if (telefonosNorm.length > 0) {
+      const { data: relectura } = await admin
+        .from('contactos')
+        .select(`
+          *,
+          tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
+          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden)
+        `)
+        .eq('id', contacto.id)
+        .single()
+      if (relectura) contactoFinal = relectura
+    }
+
     // Registrar en historial de recientes (fire-and-forget)
-    const tipoCtRaw = contacto.tipo_contacto as unknown
+    const tipoCtRaw = contactoFinal.tipo_contacto as unknown
     const tipoCt = Array.isArray(tipoCtRaw) ? tipoCtRaw[0] : tipoCtRaw
     const tipoCtEtiqueta = tipoCt && typeof tipoCt === 'object' && 'etiqueta' in tipoCt ? (tipoCt as { etiqueta: string }).etiqueta : null
     registrarReciente({
       empresaId,
       usuarioId: user.id,
       tipoEntidad: 'contacto',
-      entidadId: contacto.id,
-      titulo: [contacto.nombre, contacto.apellido].filter(Boolean).join(' ') || 'Sin nombre',
+      entidadId: contactoFinal.id,
+      titulo: [contactoFinal.nombre, contactoFinal.apellido].filter(Boolean).join(' ') || 'Sin nombre',
       subtitulo: tipoCtEtiqueta || undefined,
       accion: 'creado',
     })
 
-    return NextResponse.json(contacto, { status: 201 })
+    return NextResponse.json(contactoFinal, { status: 201 })
   } catch (err) {
     registrarError(err, { ruta: '/api/contactos', accion: 'crear' })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

@@ -44,8 +44,8 @@ export async function GET(
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
-    // Obtener líneas, historial y cuotas en paralelo
-    const [lineasRes, historialRes, cuotasRes] = await Promise.all([
+    // Obtener líneas, historial, cuotas y orden de trabajo vinculada en paralelo
+    const [lineasRes, historialRes, cuotasRes, ordenTrabajoRes] = await Promise.all([
       admin
         .from('lineas_presupuesto')
         .select('*')
@@ -61,6 +61,15 @@ export async function GET(
         .select('*')
         .eq('presupuesto_id', id)
         .order('numero', { ascending: true }),
+      // OT viva (no en papelera) generada desde este presupuesto.
+      // Sirve para ocultar el botón "Generar OT" y mostrar "Ver OT".
+      admin
+        .from('ordenes_trabajo')
+        .select('id, numero')
+        .eq('presupuesto_id', id)
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .maybeSingle(),
     ])
 
     // Si no hay cuotas en BD pero tiene condición de pago tipo hitos,
@@ -122,6 +131,7 @@ export async function GET(
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
       cuotas,
+      orden_trabajo: ordenTrabajoRes.data || null,
       permisos: {
         editar: puedeEditar.permitido,
         eliminar: puedeEliminar.permitido,
