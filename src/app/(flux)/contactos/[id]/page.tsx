@@ -474,25 +474,6 @@ function PaginaContactoInterno() {
   )
   const puedeGuardar = esNuevo && tieneNombre && tieneDatoContacto && !!tipoContactoId && !guardando
 
-  const intentarCrear = useCallback(() => {
-    if (!puedeGuardar || creadoRef.current || guardando) return
-    const errs = validarCamposContacto({
-      correo: campos.correo || '',
-      web: campos.web || '',
-      tipo_identificacion: campos.tipo_identificacion || '',
-      numero_identificacion: campos.numero_identificacion || '',
-    })
-    setErrores(errs)
-    if (!sinErrores(errs)) return
-    creadoRef.current = true
-    crearContactoFn()
-  }, [puedeGuardar, guardando, campos])
-
-  // Ref al último intentarCrear para invocarlo desde callbacks (guardarTelefonos, etc.)
-  // sin meterlo en deps y recrear esos callbacks a cada render.
-  const intentarCrearRef = useRef(intentarCrear)
-  useEffect(() => { intentarCrearRef.current = intentarCrear }, [intentarCrear])
-
   const crearContactoFn = useCallback(async () => {
     if (guardando) return
     setGuardando(true)
@@ -589,7 +570,26 @@ function PaginaContactoInterno() {
     } catch {
       setErrorGuardado('Error de conexión')
     } finally { setGuardando(false) }
-  }, [guardando, nombreCompleto, esPersona, tipoContactoId, campos, datosFiscales, paisContacto, etiquetas, direcciones, vinculacionesPendientes, setMigajaDinamica])
+  }, [guardando, nombreCompleto, esPersona, tipoContactoId, campos, datosFiscales, paisContacto, etiquetas, direcciones, telefonos, vinculacionesPendientes, setMigajaDinamica])
+
+  const intentarCrear = useCallback(() => {
+    if (!puedeGuardar || creadoRef.current || guardando) return
+    const errs = validarCamposContacto({
+      correo: campos.correo || '',
+      web: campos.web || '',
+      tipo_identificacion: campos.tipo_identificacion || '',
+      numero_identificacion: campos.numero_identificacion || '',
+    })
+    setErrores(errs)
+    if (!sinErrores(errs)) return
+    creadoRef.current = true
+    crearContactoFn()
+  }, [puedeGuardar, guardando, campos, crearContactoFn])
+
+  // Ref al último intentarCrear para invocarlo desde callbacks (guardarTelefonos, etc.)
+  // sin meterlo en deps y recrear esos callbacks a cada render.
+  const intentarCrearRef = useRef(intentarCrear)
+  useEffect(() => { intentarCrearRef.current = intentarCrear }, [intentarCrear])
 
   // ═══════════════════════════════════════════════════════════════
   // HANDLERS COMPARTIDOS
