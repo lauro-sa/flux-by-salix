@@ -28,6 +28,7 @@ import { ModalConfirmarVisita } from './ModalConfirmarVisita'
 import PanelPlanificacion from './PanelPlanificacion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -96,6 +97,10 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   const { mostrar } = useToast()
   const formato = useFormato()
   const { t } = useTraduccion()
+  const { tienePermiso } = useRol()
+  const puedeCrear = tienePermiso('visitas', 'crear')
+  const puedeCompletar = tienePermiso('visitas', 'completar')
+  const puedeEliminar = tienePermiso('visitas', 'eliminar')
 
   // Tab activo: listado o planificación
   const [vistaActiva, setVistaActiva] = useState<'listado' | 'planificacion'>('listado')
@@ -493,24 +498,30 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
     } catch { mostrar('error', 'Error al eliminar visitas') }
   }, [recargarVisitas, mostrar])
 
-  const accionesLote: AccionLote[] = useMemo(() => [
-    {
-      id: 'completar',
-      etiqueta: 'Completar',
-      icono: <CheckCircle size={14} />,
-      onClick: completarLote,
-      grupo: 'edicion',
-    },
-    {
-      id: 'eliminar',
-      etiqueta: 'Eliminar',
-      icono: <Trash2 size={14} />,
-      onClick: (ids) => setConfirmEliminarLote(ids),
-      peligro: true,
-      noLimpiarSeleccion: true,
-      grupo: 'peligro',
-    },
-  ], [completarLote])
+  const accionesLote: AccionLote[] = useMemo(() => {
+    const acciones: AccionLote[] = []
+    if (puedeCompletar) {
+      acciones.push({
+        id: 'completar',
+        etiqueta: 'Completar',
+        icono: <CheckCircle size={14} />,
+        onClick: completarLote,
+        grupo: 'edicion',
+      })
+    }
+    if (puedeEliminar) {
+      acciones.push({
+        id: 'eliminar',
+        etiqueta: 'Eliminar',
+        icono: <Trash2 size={14} />,
+        onClick: (ids) => setConfirmEliminarLote(ids),
+        peligro: true,
+        noLimpiarSeleccion: true,
+        grupo: 'peligro',
+      })
+    }
+    return acciones
+  }, [completarLote, puedeCompletar, puedeEliminar])
 
   // ── Columnas ──
   const columnas: ColumnaDinamica<Visita>[] = useMemo(() => [
@@ -721,11 +732,11 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
     <PlantillaListado
       titulo={t('visitas.titulo')}
       icono={<MapPin size={20} />}
-      accionPrincipal={{
+      accionPrincipal={puedeCrear ? {
         etiqueta: t('visitas.nueva'),
         icono: <PlusCircle size={14} />,
         onClick: () => { setVisitaEditando(null); setModalAbierto(true) },
-      }}
+      } : undefined}
       acciones={[
         { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
       ]}

@@ -32,6 +32,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Contenido interactivo de actividades — Client Component.
@@ -130,6 +131,11 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   const formato = useFormato()
   const { t } = useTraduccion()
   const modalVisitaHook = useModalVisita()
+  const { tienePermiso } = useRol()
+  const puedeCrear = tienePermiso('actividades', 'crear')
+  const puedeEliminar = tienePermiso('actividades', 'eliminar')
+  const puedeCompletar = tienePermiso('actividades', 'completar')
+  const puedeEditar = tienePermiso('actividades', 'editar')
   // Marcar notificaciones de actividades como leídas al entrar a la página
   const notificacionesMarcadasRef = useRef(false)
   useEffect(() => {
@@ -556,40 +562,48 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     } catch { mostrar('error', 'Error al eliminar actividades') }
   }, [recargarActividades, mostrar])
 
-  const accionesLote = useMemo((): AccionLote[] => [
-    {
-      id: 'completar',
-      etiqueta: 'Completar',
-      icono: <CheckCircle size={14} />,
-      onClick: completarLote,
-      grupo: 'edicion',
-    },
-    {
-      id: 'posponer',
-      etiqueta: 'Posponer',
-      icono: <Clock size={14} />,
-      onClick: (ids) => {
-        // Buscar el botón de posponer en la barra para posicionar el popover
-        const boton = document.querySelector('[data-accion-lote="posponer"]') as HTMLElement
-        if (boton) {
-          const rect = boton.getBoundingClientRect()
-          setPosMenuPosponer({ x: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom })
-        }
-        setMenuPosponerLote(ids)
-      },
-      noLimpiarSeleccion: true,
-      grupo: 'edicion',
-    },
-    {
-      id: 'eliminar',
-      etiqueta: t('comun.eliminar'),
-      icono: <Trash2 size={14} />,
-      onClick: (ids) => setConfirmEliminarLote(ids),
-      peligro: true,
-      atajo: 'Supr',
-      grupo: 'peligro',
-    },
-  ], [completarLote])
+  const accionesLote = useMemo((): AccionLote[] => {
+    const acciones: AccionLote[] = []
+    if (puedeCompletar) {
+      acciones.push({
+        id: 'completar',
+        etiqueta: 'Completar',
+        icono: <CheckCircle size={14} />,
+        onClick: completarLote,
+        grupo: 'edicion',
+      })
+    }
+    if (puedeEditar) {
+      acciones.push({
+        id: 'posponer',
+        etiqueta: 'Posponer',
+        icono: <Clock size={14} />,
+        onClick: (ids) => {
+          // Buscar el botón de posponer en la barra para posicionar el popover
+          const boton = document.querySelector('[data-accion-lote="posponer"]') as HTMLElement
+          if (boton) {
+            const rect = boton.getBoundingClientRect()
+            setPosMenuPosponer({ x: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom })
+          }
+          setMenuPosponerLote(ids)
+        },
+        noLimpiarSeleccion: true,
+        grupo: 'edicion',
+      })
+    }
+    if (puedeEliminar) {
+      acciones.push({
+        id: 'eliminar',
+        etiqueta: t('comun.eliminar'),
+        icono: <Trash2 size={14} />,
+        onClick: (ids) => setConfirmEliminarLote(ids),
+        peligro: true,
+        atajo: 'Supr',
+        grupo: 'peligro',
+      })
+    }
+    return acciones
+  }, [completarLote, puedeCompletar, puedeEditar, puedeEliminar, t])
 
   /** Acción inteligente por tipo — presupuestar abre /presupuestos/nuevo con contacto */
   const ejecutarAccionTipo = (act: Actividad) => {
@@ -988,11 +1002,11 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     <PlantillaListado
       titulo="Actividades"
       icono={<ClipboardList size={20} />}
-      accionPrincipal={{
+      accionPrincipal={puedeCrear ? {
         etiqueta: 'Nueva actividad',
         icono: <PlusCircle size={14} />,
         onClick: () => { setActividadEditando(null); setModalAbierto(true) },
-      }}
+      } : undefined}
       acciones={[
         { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
       ]}
