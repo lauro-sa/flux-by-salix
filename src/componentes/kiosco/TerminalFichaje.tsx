@@ -56,6 +56,7 @@ interface DatosEmpleado {
   yaAlmorzo: boolean
   tieneSolicitudes: boolean
   turnoSinCerrar: boolean
+  minutosTrabajados?: number | null
 }
 
 interface ResultadoFichaje {
@@ -317,6 +318,7 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
             estadoTurno={empleado.estadoTurno}
             yaAlmorzo={empleado.yaAlmorzo}
             tieneSolicitudes={empleado.tieneSolicitudes}
+            minutosTrabajados={empleado.minutosTrabajados ?? null}
             alAccionar={(accion) => ejecutarAccion(accion)}
             alReportar={() => setEstado('SOLICITUD')}
             alTimeout={irAEspera}

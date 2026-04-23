@@ -31,9 +31,20 @@ interface PropsPantallaAcciones {
   estadoTurno: EstadoTurno
   yaAlmorzo: boolean
   tieneSolicitudes: boolean
+  minutosTrabajados?: number | null
   alAccionar: (accion: Accion) => void
   alReportar: () => void
   alTimeout: () => void
+}
+
+// Formato compacto: "4h 30min" | "45min" | null si <1 min
+function formatearDuracion(minutos: number | null | undefined): string | null {
+  if (minutos == null || minutos < 1) return null
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}min`
 }
 
 const TIMEOUT = 15
@@ -98,6 +109,7 @@ export default function PantallaAcciones({
   estadoTurno,
   yaAlmorzo,
   tieneSolicitudes,
+  minutosTrabajados,
   alAccionar,
   alReportar,
   alTimeout,
@@ -128,6 +140,7 @@ export default function PantallaAcciones({
   const botonesSecundarios = obtenerBotonesSecundarios(estadoTurno, yaAlmorzo)
   const badge = estadoTurno ? BADGE_ESTADO[estadoTurno] : null
   const iniciales = nombre.split(' ').slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
+  const duracion = formatearDuracion(minutosTrabajados)
 
   return (
     <motion.div
@@ -168,13 +181,19 @@ export default function PantallaAcciones({
           <p className="text-xl landscape:text-lg md:text-2xl font-black" style={{ color: 'var(--kiosco-texto)' }}>{nombre}</p>
         </div>
 
-        {/* Badge de estado */}
+        {/* Badge de estado + horas trabajadas netas hasta ahora (mismo elemento, sin alto extra) */}
         {badge && (
           <div
             className="flex items-center gap-2 px-4 py-1.5 md:px-5 md:py-2 rounded-full text-sm md:text-base font-semibold"
             style={{ backgroundColor: badge.bg, color: badge.color }}
           >
-            {badge.texto}
+            <span>{badge.texto}</span>
+            {duracion && (
+              <>
+                <span className="opacity-40">·</span>
+                <span className="font-medium opacity-90">Llevás {duracion}</span>
+              </>
+            )}
           </div>
         )}
       </div>

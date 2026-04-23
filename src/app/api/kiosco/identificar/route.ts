@@ -113,12 +113,44 @@ export async function POST(request: NextRequest) {
     // Buscar turno de hoy
     const { data: turnoHoy } = await admin
       .from('asistencias')
-      .select('id, estado, inicio_almuerzo, fin_almuerzo')
+      .select('id, estado, hora_entrada, inicio_almuerzo, fin_almuerzo, salida_particular, vuelta_particular')
       .eq('empresa_id', empresaId)
       .eq('miembro_id', miembro.id)
       .eq('fecha', fechaHoy)
       .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
       .maybeSingle()
+
+    // Calcular minutos trabajados netos hasta ahora
+    // El almuerzo se descuenta solo si config_asistencias.descontar_almuerzo está activo
+    // El trámite particular siempre se descuenta (es ausencia personal)
+    // Si está en almuerzo/trámite, el corte es el inicio de esa pausa
+    let minutosTrabajados: number | null = null
+    if (turnoHoy?.hora_entrada) {
+      const { data: configAsist } = await admin
+        .from('config_asistencias')
+        .select('descontar_almuerzo')
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      const descontarAlmuerzo = (configAsist?.descontar_almuerzo as boolean | null) ?? true
+
+      const entrada = new Date(turnoHoy.hora_entrada as string).getTime()
+      let corte: number
+      if (turnoHoy.estado === 'almuerzo' && turnoHoy.inicio_almuerzo && descontarAlmuerzo) {
+        corte = new Date(turnoHoy.inicio_almuerzo as string).getTime()
+      } else if (turnoHoy.estado === 'particular' && turnoHoy.salida_particular) {
+        corte = new Date(turnoHoy.salida_particular as string).getTime()
+      } else {
+        corte = Date.now()
+      }
+      let neto = corte - entrada
+      if (descontarAlmuerzo && turnoHoy.inicio_almuerzo && turnoHoy.fin_almuerzo) {
+        neto -= new Date(turnoHoy.fin_almuerzo as string).getTime() - new Date(turnoHoy.inicio_almuerzo as string).getTime()
+      }
+      if (turnoHoy.salida_particular && turnoHoy.vuelta_particular) {
+        neto -= new Date(turnoHoy.vuelta_particular as string).getTime() - new Date(turnoHoy.salida_particular as string).getTime()
+      }
+      minutosTrabajados = Math.max(0, Math.floor(neto / 60000))
+    }
 
     // Buscar solicitudes pendientes/resueltas del último mes
     const hace30dias = new Date()
@@ -147,6 +179,7 @@ export async function POST(request: NextRequest) {
       yaAlmorzo: !!(turnoHoy?.inicio_almuerzo && turnoHoy?.fin_almuerzo),
       tieneSolicitudes: (cantidadSolicitudes ?? 0) > 0,
       turnoSinCerrar: !!turnoAnterior,
+      minutosTrabajados,
     })
   } catch (error) {
     console.error('Error en /api/kiosco/identificar:', error)

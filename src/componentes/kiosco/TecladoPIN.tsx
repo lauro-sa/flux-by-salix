@@ -17,7 +17,7 @@ interface PropsTecladoPIN {
 export default function TecladoPIN({
   alEnviar,
   alCancelar,
-  largoPIN = 4,
+  largoPIN = 6,
   titulo = 'Ingresá tu PIN',
 }: PropsTecladoPIN) {
   const [pin, setPin] = useState('')
