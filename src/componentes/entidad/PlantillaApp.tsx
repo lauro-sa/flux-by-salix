@@ -9,7 +9,8 @@ import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import IconoSalix from '@/componentes/marca/IconoSalix'
-import { Sparkles, AlarmClock } from 'lucide-react'
+import { Sparkles, AlarmClock, Zap } from 'lucide-react'
+import { rutaTieneAccionesPotenciales } from '@/hooks/useAccionesRapidas'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from '@/componentes/entidad/NotasRapidas/PanelNotas'
 import { PanelChat } from '@/componentes/entidad/SalixIA/PanelChat'
@@ -282,6 +283,11 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
   const [panelIA, setPanelIA] = useState(false)
   const [iaHabilitado, setIaHabilitado] = useState(false)
   const [recordatoriosVencidos, setRecordatoriosVencidos] = useState(0)
+  // Ruta actual: usada para decidir si mostrar el botón de accesos (IA + acciones
+  // rápidas). Si no hay IA pero la ruta tiene acciones, igualmente se muestra.
+  const pathname = usePathname()
+  const hayAccionesEnRuta = rutaTieneAccionesPotenciales(pathname)
+  const mostrarBotonAccesos = iaHabilitado || hayAccionesEnRuta
   // Auto-hide en desktop: el botón se esconde a los 4s, reaparece al acercar el mouse.
   // Si hay alertas, permanece visible siempre.
   const [visible, setVisible] = useState(true)
@@ -430,8 +436,10 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
             className="flex flex-col-reverse items-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 1) Salix IA (violet) — queda abajo, más cerca del logo Flux */}
-            {iaHabilitado && (
+            {/* 1) Salix IA / Acciones rápidas — queda abajo, más cerca del logo Flux.
+                Si el usuario no tiene IA pero la ruta tiene acciones contextuales,
+                el botón sigue apareciendo (el panel cambia al modo "solo acciones"). */}
+            {mostrarBotonAccesos && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.3, y: 40 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -439,17 +447,21 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
                 transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setPanelIA(true)}
-                className="size-11 rounded-full flex items-center justify-center text-violet-400 cursor-pointer"
+                className={`size-11 rounded-full flex items-center justify-center cursor-pointer ${
+                  iaHabilitado ? 'text-violet-400' : 'text-amber-400'
+                }`}
                 style={{
-                  background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.2))',
+                  background: iaHabilitado
+                    ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.2))'
+                    : 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(249,115,22,0.2))',
                   backdropFilter: 'blur(16px) saturate(1.4)',
                   WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
                   border: '1px solid var(--borde-sutil)',
                   boxShadow: 'var(--sombra-sm)',
                 }}
-                title="Salix IA"
+                title={iaHabilitado ? 'Salix IA' : 'Acciones rápidas'}
               >
-                <Sparkles className="size-5" />
+                {iaHabilitado ? <Sparkles className="size-5" /> : <Zap className="size-5" />}
               </motion.button>
             )}
 
@@ -530,6 +542,7 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
       <PanelChat
         abierto={panelIA}
         onCerrar={() => setPanelIA(false)}
+        iaHabilitado={iaHabilitado}
       />
       </div>
     </>

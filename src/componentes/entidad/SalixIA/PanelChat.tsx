@@ -12,15 +12,22 @@
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft } from 'lucide-react'
+import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft, Zap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { useAccionesRapidas } from '@/hooks/useAccionesRapidas'
 import { GrabadorAudio } from '@/componentes/mensajeria/GrabadorAudio'
+import { ListaAccionesRapidas } from './ListaAccionesRapidas'
 
 interface PropiedadesPanelChat {
   abierto: boolean
   onCerrar: () => void
+  /**
+   * ¿El usuario tiene Salix IA habilitada? Si es `false`, el panel solo
+   * muestra las acciones rápidas contextuales (sin chat ni input).
+   */
+  iaHabilitado?: boolean
 }
 
 /**
@@ -90,7 +97,7 @@ function parsearLineaFormato(linea: string, onNavegar: (ruta: string) => void, l
   return partes.length > 0 ? partes : linea
 }
 
-function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
+function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelChat) {
   const esMovil = useEsMovil()
   const router = useRouter()
   const {
@@ -105,7 +112,15 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
     cargarConversaciones,
   } = useSalixIA()
 
+  // Acciones rápidas contextuales a la ruta actual. El hook precarga apenas
+  // cambia la ruta (no espera a que se abra el panel), así que las acciones
+  // ya están listas cuando el usuario toca el FAB.
+  const { acciones, cargando: cargandoAcciones, hayContexto } = useAccionesRapidas()
+
   const [vistaHistorial, setVistaHistorial] = useState(false)
+
+  // Sin IA: el panel es solo para acciones rápidas.
+  const soloAcciones = !iaHabilitado
 
   // Navegar a una ruta interna — cierra el panel primero
   const navegarDesdeChat = useCallback((ruta: string) => {
@@ -214,6 +229,16 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
               </button>
               <h3 className="text-sm font-semibold text-texto-primario">Conversaciones</h3>
             </>
+          ) : soloAcciones ? (
+            <>
+              <div className="size-8 rounded-card bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
+                <Zap className="size-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-texto-primario">Acciones rápidas</h3>
+                <p className="text-[11px] text-texto-terciario">Lo que podés hacer acá</p>
+              </div>
+            </>
           ) : (
             <>
               <div className="size-8 rounded-card bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
@@ -227,7 +252,7 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!vistaHistorial && (
+          {!vistaHistorial && !soloAcciones && (
             <>
               <button
                 onClick={abrirHistorial}
@@ -297,8 +322,23 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
             ))
           )}
         </div>
+      ) : soloAcciones ? (
+        <ListaAccionesRapidas
+          acciones={acciones}
+          cargando={cargandoAcciones}
+          soloAcciones
+          onAccionEjecutada={onCerrar}
+        />
       ) : (
         <>
+      {/* Acciones rápidas contextuales — aparecen arriba del chat si la ruta tiene una entidad con acciones */}
+      {hayContexto && (acciones.length > 0 || cargandoAcciones) && (
+        <ListaAccionesRapidas
+          acciones={acciones}
+          cargando={cargandoAcciones}
+          onAccionEjecutada={onCerrar}
+        />
+      )}
       {/* Mensajes */}
       <div
         ref={scrollRef}
