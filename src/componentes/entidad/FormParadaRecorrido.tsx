@@ -21,8 +21,10 @@
 import { useState } from 'react'
 import { MapPin, User, X, Loader2, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { InputDireccion } from '@/componentes/ui/InputDireccion'
 import { useRol } from '@/hooks/useRol'
 import { SelectorContacto, type ContactoResultado, type ContactoSeleccionado } from './SelectorContacto'
+import type { Direccion } from '@/tipos/direccion'
 
 // ── Tipos ──
 
@@ -54,8 +56,11 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
   const [motivo, setMotivo] = useState('')
   const [modo, setModo] = useState<Modo>('mano')
 
-  // Modo 'mano'
+  // Modo 'mano' — resuelto via Google Places (InputDireccion),
+  // guardamos texto + coords para que la parada se pinte en el mapa.
   const [direccionTexto, setDireccionTexto] = useState('')
+  const [direccionLat, setDireccionLat] = useState<number | null>(null)
+  const [direccionLng, setDireccionLng] = useState<number | null>(null)
 
   // Modo 'contacto'
   const [contacto, setContacto] = useState<ContactoSeleccionado | null>(null)
@@ -85,8 +90,8 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
             titulo: titulo.trim(),
             motivo: motivo.trim() || null,
             direccion_texto: direccionTexto.trim() || null,
-            direccion_lat: null,
-            direccion_lng: null,
+            direccion_lat: direccionLat,
+            direccion_lng: direccionLng,
             direccion_id: null,
             contacto_id: null,
             contacto_nombre: null,
@@ -191,11 +196,20 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
           <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">
             Dirección <span className="text-texto-terciario/50 normal-case">(opcional)</span>
           </label>
-          <input
-            value={direccionTexto}
-            onChange={(e) => setDireccionTexto(e.target.value)}
-            placeholder="Ej: Av. Colón 1234, San Justo"
-            className="w-full bg-white/[0.03] border border-white/[0.06] rounded-card px-3 py-2 text-sm text-texto-primario placeholder:text-texto-terciario focus:border-texto-marca/40 focus:outline-none"
+          <InputDireccion
+            placeholder="Buscar dirección en Google Maps…"
+            valorInicial={direccionTexto}
+            compacto
+            alSeleccionar={(d: Direccion) => {
+              setDireccionTexto(d.textoCompleto)
+              setDireccionLat(d.coordenadas?.lat ?? null)
+              setDireccionLng(d.coordenadas?.lng ?? null)
+            }}
+            alLimpiar={() => {
+              setDireccionTexto('')
+              setDireccionLat(null)
+              setDireccionLng(null)
+            }}
           />
           <p className="text-[10px] text-texto-terciario/70 mt-1">
             Esta parada no cuenta como visita al cliente.
