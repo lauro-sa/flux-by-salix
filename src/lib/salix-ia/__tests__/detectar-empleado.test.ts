@@ -94,22 +94,27 @@ describe('detectarEmpleado', () => {
     expect(result.perfil?.nombre).toBe('Olivia')
   })
 
-  it('canal=empresa: NO matchea con teléfono personal aunque coincida', async () => {
+  // canal_notif_telefono se respeta SOLO para envíos (notificaciones, recordatorios).
+  // La detección de empleado matchea contra CUALQUIER teléfono del miembro: el empleado
+  // puede escribir desde su personal aunque su canal preferido sea 'empresa'.
+  it('canal=empresa: SÍ matchea con teléfono personal (regla de detección, no de envío)', async () => {
     const admin = crearMockAdmin(
       [miembro('empresa')],
       [{ id: 'user-1', nombre: 'Olivia', apellido: 'Dupit', telefono: '+54 9 11 6407 2193', telefono_empresa: '1160990312' }]
     )
     const result = await detectarEmpleado(admin, 'empresa-1', '5491164072193')
-    expect(result.es_empleado).toBe(false)
+    expect(result.es_empleado).toBe(true)
+    expect(result.perfil?.nombre).toBe('Olivia')
   })
 
-  it('canal=empresa: NO matchea si empresa está vacía (no cae al personal)', async () => {
+  it('canal=empresa: SÍ matchea con telefono personal cuando empresa está vacío', async () => {
     const admin = crearMockAdmin(
       [miembro('empresa')],
       [{ id: 'user-1', nombre: 'Sebastian', apellido: 'Lauro', telefono: '+54 11 3235 4334', telefono_empresa: null }]
     )
     const result = await detectarEmpleado(admin, 'empresa-1', '541132354334')
-    expect(result.es_empleado).toBe(false)
+    expect(result.es_empleado).toBe(true)
+    expect(result.perfil?.nombre).toBe('Sebastian')
   })
 
   it('matchea teléfono sin código país como sufijo', async () => {
