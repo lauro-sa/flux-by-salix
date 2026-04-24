@@ -116,26 +116,29 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
     setEstado('IDENTIFICANDO')
     metodoUsado.current = metodo
 
-    // Capturar foto ANTES de autenticar: abrir cámara → foto → cerrar (~500ms)
-    // La persona aún está frente a la cámara, después se identifica
-    if (config.capturarFoto) {
-      fotoCapturada.current = await capturarFotoInstantanea()
-    }
+    // Captura de foto y fetch en paralelo: la cámara se estabiliza mientras la query corre.
+    // Así la cara queda capturada apenas pasan el llavero y no se pierde el tiempo de red.
+    const fotoPromise: Promise<Blob | null> = config.capturarFoto
+      ? capturarFotoInstantanea()
+      : Promise.resolve(null)
+
+    const fetchPromise = fetch('/api/kiosco/identificar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.tokenJWT}`,
+      },
+      body: JSON.stringify({
+        codigo,
+        metodo,
+        empresaId: config.empresaId,
+        terminalId: config.terminalId,
+      }),
+    })
 
     try {
-      const res = await fetch('/api/kiosco/identificar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.tokenJWT}`,
-        },
-        body: JSON.stringify({
-          codigo,
-          metodo,
-          empresaId: config.empresaId,
-          terminalId: config.terminalId,
-        }),
-      })
+      const [fotoBlob, res] = await Promise.all([fotoPromise, fetchPromise])
+      fotoCapturada.current = fotoBlob
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: 'Error de conexión' }))

@@ -25,77 +25,93 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Zona horaria: primero la del terminal, si no la de la empresa
-    const { data: terminalData } = await admin
-      .from('terminales_kiosco')
-      .select('zona_horaria')
-      .eq('id', terminal.id)
-      .single()
+    // 1) En paralelo: zona horaria del terminal/empresa + empleado por código.
+    //    El miembro no depende de la zona, así que ambas van juntas.
+    const filtroMiembro: Record<string, string> = metodo === 'pin'
+      ? { kiosco_pin: codigo }
+      : { kiosco_rfid: codigo } // RFID y NFC usan el mismo campo
 
-    let zonaHoraria = terminalData?.zona_horaria as string | null
-    if (!zonaHoraria) {
-      const { data: empresa } = await admin
-        .from('empresas')
-        .select('zona_horaria')
-        .eq('id', empresaId)
-        .single()
-      zonaHoraria = (empresa?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    }
-    const fechaHoy = formatearFechaISO(new Date(), zonaHoraria)
+    const [zonaRes, miembroRes] = await Promise.all([
+      admin
+        .from('terminales_kiosco')
+        .select('zona_horaria, empresa:empresas(zona_horaria)')
+        .eq('id', terminal.id)
+        .single(),
+      admin
+        .from('miembros')
+        .select('id, usuario_id, foto_kiosco_url, fecha_nacimiento, sector')
+        .eq('empresa_id', empresaId)
+        .match(filtroMiembro)
+        .eq('activo', true)
+        .single(),
+    ])
 
-    // Buscar empleado según método
-    let filtro: Record<string, string>
-    if (metodo === 'pin') {
-      filtro = { kiosco_pin: codigo }
-    } else {
-      // RFID y NFC usan el mismo campo
-      filtro = { kiosco_rfid: codigo }
-    }
-
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select(`
-        id, usuario_id, activo,
-        kiosco_rfid, kiosco_pin, foto_kiosco_url,
-        fecha_nacimiento, turno_id, sector,
-        puesto_nombre
-      `)
-      .eq('empresa_id', empresaId)
-      .match(filtro)
-      .eq('activo', true)
-      .single()
-
+    const miembro = miembroRes.data
     if (!miembro) {
       return NextResponse.json({ error: 'No reconocido' }, { status: 404 })
     }
 
-    // Obtener nombre y foto del perfil
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido, avatar_url')
-      .eq('id', miembro.usuario_id)
-      .single()
+    const zonaTerminal = zonaRes.data?.zona_horaria as string | null
+    const zonaEmpresa = (zonaRes.data?.empresa as { zona_horaria?: string | null } | null)?.zona_horaria ?? null
+    const zonaHoraria = zonaTerminal || zonaEmpresa || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = formatearFechaISO(new Date(), zonaHoraria)
+    const hace30dias = new Date()
+    hace30dias.setDate(hace30dias.getDate() - 30)
+
+    // 2) En paralelo: todo lo que depende solo de miembro.id + fechaHoy.
+    const [perfilRes, turnoAnteriorRes, turnoHoyRes, configAsistRes, solicitudesRes] = await Promise.all([
+      admin
+        .from('perfiles')
+        .select('nombre, apellido, avatar_url')
+        .eq('id', miembro.usuario_id)
+        .single(),
+      admin
+        .from('asistencias')
+        .select('id, fecha, hora_salida')
+        .eq('empresa_id', empresaId)
+        .eq('miembro_id', miembro.id)
+        .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
+        .lt('fecha', fechaHoy)
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from('asistencias')
+        .select('id, estado, hora_entrada, inicio_almuerzo, fin_almuerzo, salida_particular, vuelta_particular')
+        .eq('empresa_id', empresaId)
+        .eq('miembro_id', miembro.id)
+        .eq('fecha', fechaHoy)
+        .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
+        .maybeSingle(),
+      admin
+        .from('config_asistencias')
+        .select('descontar_almuerzo')
+        .eq('empresa_id', empresaId)
+        .maybeSingle(),
+      admin
+        .from('solicitudes_fichaje')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('solicitante_id', miembro.id)
+        .gte('creado_en', hace30dias.toISOString()),
+    ])
+
+    const perfil = perfilRes.data
+    const turnoAnterior = turnoAnteriorRes.data
+    const turnoHoy = turnoHoyRes.data
+    const descontarAlmuerzo = (configAsistRes.data?.descontar_almuerzo as boolean | null) ?? true
+    const cantidadSolicitudes = solicitudesRes.count
 
     const nombre = perfil
       ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
       : 'Empleado'
     const fotoPerfilUrl = miembro.foto_kiosco_url || perfil?.avatar_url || null
 
-    // Cerrar turno de día anterior si quedó abierto
-    const { data: turnoAnterior } = await admin
-      .from('asistencias')
-      .select('id, fecha, hora_salida')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
-      .lt('fecha', fechaHoy)
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
+    // 3) Fire-and-forget: cierre de turno anterior + último_ping del terminal.
+    //    No bloquean la respuesta — son saneamiento y telemetría.
     if (turnoAnterior) {
       const teniaSalida = !!turnoAnterior.hora_salida
-      await admin
+      void admin
         .from('asistencias')
         .update({
           estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
@@ -110,29 +126,17 @@ export async function POST(request: NextRequest) {
         .eq('id', turnoAnterior.id)
     }
 
-    // Buscar turno de hoy
-    const { data: turnoHoy } = await admin
-      .from('asistencias')
-      .select('id, estado, hora_entrada, inicio_almuerzo, fin_almuerzo, salida_particular, vuelta_particular')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .eq('fecha', fechaHoy)
-      .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
-      .maybeSingle()
+    void admin
+      .from('terminales_kiosco')
+      .update({ ultimo_ping: new Date().toISOString() })
+      .eq('id', terminal.id)
 
-    // Calcular minutos trabajados netos hasta ahora
-    // El almuerzo se descuenta solo si config_asistencias.descontar_almuerzo está activo
-    // El trámite particular siempre se descuenta (es ausencia personal)
-    // Si está en almuerzo/trámite, el corte es el inicio de esa pausa
+    // Calcular minutos trabajados netos hasta ahora.
+    // Almuerzo se descuenta solo si descontar_almuerzo está activo.
+    // Trámite particular se descuenta siempre (ausencia personal).
+    // Si está en almuerzo/trámite, el corte es el inicio de esa pausa.
     let minutosTrabajados: number | null = null
     if (turnoHoy?.hora_entrada) {
-      const { data: configAsist } = await admin
-        .from('config_asistencias')
-        .select('descontar_almuerzo')
-        .eq('empresa_id', empresaId)
-        .maybeSingle()
-      const descontarAlmuerzo = (configAsist?.descontar_almuerzo as boolean | null) ?? true
-
       const entrada = new Date(turnoHoy.hora_entrada as string).getTime()
       let corte: number
       if (turnoHoy.estado === 'almuerzo' && turnoHoy.inicio_almuerzo && descontarAlmuerzo) {
@@ -151,23 +155,6 @@ export async function POST(request: NextRequest) {
       }
       minutosTrabajados = Math.max(0, Math.floor(neto / 60000))
     }
-
-    // Buscar solicitudes pendientes/resueltas del último mes
-    const hace30dias = new Date()
-    hace30dias.setDate(hace30dias.getDate() - 30)
-
-    const { count: cantidadSolicitudes } = await admin
-      .from('solicitudes_fichaje')
-      .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', empresaId)
-      .eq('solicitante_id', miembro.id)
-      .gte('creado_en', hace30dias.toISOString())
-
-    // Actualizar último ping del terminal
-    await admin
-      .from('terminales_kiosco')
-      .update({ ultimo_ping: new Date().toISOString() })
-      .eq('id', terminal.id)
 
     return NextResponse.json({
       miembroId: miembro.id,
