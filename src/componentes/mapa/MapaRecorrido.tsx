@@ -1,7 +1,7 @@
 'use client'
 
 import { Map, useMap } from '@vis.gl/react-google-maps'
-import { MapPin, Zap, Route, ShieldOff, Settings2, Plus, Minus, Maximize2, Navigation2 } from 'lucide-react'
+import { MapPin, Zap, Route, ShieldOff, Settings2, Plus, Minus, Maximize2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTema } from '@/hooks/useTema'
 import { AdvancedMarker } from '@vis.gl/react-google-maps'
@@ -37,7 +37,6 @@ export function MapaRecorrido({
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
   const [enfocado, setEnfocado] = useState(false)
-  const [modoNavegacion, setModoNavegacion] = useState(false)
 
   // Instancia del mapa — capturada por CapturadorMapa (hijo de <Map>)
   // y usada por los botones de zoom (fuera de <Map>)
@@ -53,27 +52,6 @@ export function MapaRecorrido({
     onCambioPreferencia?.(nueva)
     setSelectorAbierto(false)
   }, [onCambioPreferencia])
-
-  // Modo navegación: seguir ubicación + rotar mapa según heading
-  useEffect(() => {
-    if (!instanciaMapa || !modoNavegacion || !origen) return
-    instanciaMapa.panTo({ lat: origen.lat, lng: origen.lng })
-    if (instanciaMapa.getZoom()! < 16) instanciaMapa.setZoom(16)
-    instanciaMapa.setHeading(heading ?? 0)
-    instanciaMapa.setTilt(45)
-  }, [instanciaMapa, modoNavegacion, origen?.lat, origen?.lng, heading])
-
-  // Al desactivar modo navegación, resetear rotación
-  const toggleNavegacion = useCallback(() => {
-    setModoNavegacion(prev => {
-      if (prev && instanciaMapa) {
-        instanciaMapa.setHeading(0)
-        instanciaMapa.setTilt(0)
-      }
-      return !prev
-    })
-    setEnfocado(false)
-  }, [instanciaMapa])
 
   // Callbacks de zoom — usan instanciaMapa (state, no ref)
   const hacerZoom = useCallback((delta: number) => {
@@ -165,7 +143,9 @@ export function MapaRecorrido({
           />
         )}
 
-        {/* Marcador de origen — punto azul GPS con flecha de dirección */}
+        {/* Marcador de origen — punto azul GPS. Si el GPS reporta heading
+            (en movimiento) mostramos flechita que apunta hacia el rumbo;
+            en reposo queda como punto. */}
         {origen && (
           <AdvancedMarker
             position={{ lat: origen.lat, lng: origen.lng }}
@@ -174,9 +154,8 @@ export function MapaRecorrido({
             <div className="relative flex items-center justify-center">
               <div className="absolute size-10 rounded-full bg-insignia-info/15 animate-pulse" />
               {heading != null ? (
-                /* Flecha de dirección */
                 <div
-                  className="flex items-center justify-center size-8"
+                  className="flex items-center justify-center size-8 transition-transform duration-300"
                   style={{ transform: `rotate(${heading}deg)` }}
                 >
                   <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -185,7 +164,6 @@ export function MapaRecorrido({
                   </svg>
                 </div>
               ) : (
-                /* Punto simple sin heading */
                 <div className="size-4 rounded-full bg-insignia-info border-[2.5px] border-white shadow-lg" />
               )}
             </div>
@@ -213,25 +191,11 @@ export function MapaRecorrido({
         <div className="absolute inset-0 z-10" onClick={() => setSelectorAbierto(false)} />
       )}
 
-      {/* Botones de zoom + navegación — esquina derecha */}
+      {/* Botones de zoom + "ver todo" — esquina derecha */}
       <div className="absolute bottom-14 right-3 z-20 flex flex-col gap-1.5">
-        {/* Modo navegación — orientar mapa según dirección de movimiento */}
-        {origen && (
+        {enfocado && (
           <button
-            onClick={toggleNavegacion}
-            className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${
-              modoNavegacion
-                ? (esClaro ? 'bg-insignia-info text-white border-insignia-info shadow-md' : 'bg-insignia-info text-white border-insignia-info')
-                : estiloBoton
-            }`}
-            title={modoNavegacion ? 'Desactivar orientación' : 'Orientar mapa'}
-          >
-            <Navigation2 size={16} style={modoNavegacion ? { transform: 'rotate(0deg)' } : undefined} />
-          </button>
-        )}
-        {(enfocado || modoNavegacion) && (
-          <button
-            onClick={() => { verTodo(); setModoNavegacion(false) }}
+            onClick={verTodo}
             className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${estiloBoton}`}
             title="Ver todo el recorrido"
           >

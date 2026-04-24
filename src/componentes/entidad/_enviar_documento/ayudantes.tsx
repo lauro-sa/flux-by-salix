@@ -26,3 +26,24 @@ export function diaSiguienteCorto(locale = 'es-AR'): string {
   manana.setDate(manana.getDate() + 1)
   return manana.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')
 }
+
+/**
+ * Formatea una fecha ISO para mostrar en el chip de programación.
+ * - Hoy: "hoy 16:00"
+ * - Mañana: "mañana 08:00"
+ * - Más adelante: "sáb 26 abr 16:00"
+ */
+export function formatoFechaProgramada(iso: string, locale = 'es-AR'): string {
+  const d = new Date(iso)
+  const hoy = new Date()
+  const manana = new Date()
+  manana.setDate(hoy.getDate() + 1)
+  const mismaFecha = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+  const hora = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (mismaFecha(d, hoy)) return `hoy ${hora}`
+  if (mismaFecha(d, manana)) return `mañana ${hora}`
+  const fecha = d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '')
+  return `${fecha} ${hora}`
+}

@@ -249,8 +249,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       <BannerInstalacion />
 
       {/* Botones flotantes unificados — un solo logo Flux que expande Notas, Recordatorios y Salix IA.
-          Mismo patrón en desktop y móvil. Se oculta cuando el menú móvil está abierto. */}
-      {botonesMontados && !mobilMenuAbierto && (
+          Mismo patrón en desktop y móvil. Se oculta cuando el menú móvil está abierto y en
+          /recorrido (esa vista es un mapa fullscreen donde el FAB tapa controles del recorrido). */}
+      {botonesMontados && !mobilMenuAbierto && !pathname.startsWith('/recorrido') && (
         <BotonesFlotantes notasRapidas={notasRapidas} />
       )}
 

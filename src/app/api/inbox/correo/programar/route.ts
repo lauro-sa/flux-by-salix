@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
       correo_para, correo_cc, correo_cco, correo_asunto,
       texto, html, correo_in_reply_to, correo_references,
       adjuntos_ids, enviar_en,
+      // Contexto extra para que el cron reproduzca el envío idéntico a uno inmediato.
+      tipo, pdf_url, pdf_nombre, pdf_congelado_url,
+      entidad_tipo, entidad_id, incluir_enlace_portal,
     } = body
 
     if (!canal_id || !correo_para?.length || !enviar_en) {
@@ -51,6 +54,13 @@ export async function POST(request: NextRequest) {
         correo_references: correo_references || null,
         adjuntos_ids: adjuntos_ids || null,
         enviar_en: fechaEnvio.toISOString(),
+        tipo: tipo || 'nuevo',
+        pdf_url: pdf_url || null,
+        pdf_nombre: pdf_nombre || null,
+        pdf_congelado_url: pdf_congelado_url || null,
+        entidad_tipo: entidad_tipo || null,
+        entidad_id: entidad_id || null,
+        incluir_enlace_portal: !!incluir_enlace_portal,
       })
       .select()
       .single()

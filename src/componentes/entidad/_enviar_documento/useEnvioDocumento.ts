@@ -81,8 +81,9 @@ export function useEnvioDocumento({
   const [subiendoAdjuntos, setSubiendoAdjuntos] = useState(false)
   const inputArchivosRef = useRef<HTMLInputElement>(null)
 
-  // Programar
+  // Programar — fecha ISO pre-seleccionada (aún no enviada). Se envía al confirmar.
   const [mostrarProgramar, setMostrarProgramar] = useState(false)
+  const [fechaProgramada, setFechaProgramada] = useState<string | null>(null)
 
   // Cursor del editor — para el { } flotante
   const [cursorEditorPos, setCursorEditorPos] = useState<{ top: number; left: number } | null>(null)
@@ -139,6 +140,7 @@ export function useEnvioDocumento({
         setIncluirEnlacePortal(portalDesactivadoInicial ? false : !!urlPortal)
       }
       setMostrarProgramar(false)
+      setFechaProgramada(null)
       setMostrarCanales(false)
       setCursorEditorPos(null)
       editorConFoco.current = false
@@ -438,7 +440,7 @@ export function useEnvioDocumento({
   }, [para, cc, cco, asunto, html, canalId, incluirPdf, adjuntoDocumento, adjuntos, incluirEnlacePortal, mostrarCC, mostrarCCO, plantillaId])
 
   const handleEnviar = useCallback(async () => {
-    const datos = construirDatos()
+    const datos = construirDatos(fechaProgramada || undefined)
     if (!datos) return
 
     // Advertencias antes de enviar
@@ -454,14 +456,17 @@ export function useEnvioDocumento({
     }
 
     await onEnviar(datos)
-  }, [construirDatos, onEnviar])
+  }, [construirDatos, onEnviar, fechaProgramada])
 
-  const handleProgramar = useCallback(async (fecha: string) => {
-    const datos = construirDatos(fecha)
-    if (!datos) return
-    await onEnviar(datos)
+  // Guarda la fecha elegida sin enviar todavía. El envío se dispara al tocar "Programar".
+  const handleProgramar = useCallback((fecha: string) => {
+    setFechaProgramada(fecha)
     setMostrarProgramar(false)
-  }, [construirDatos, onEnviar])
+  }, [])
+
+  const cancelarProgramacion = useCallback(() => {
+    setFechaProgramada(null)
+  }, [])
 
   const puedeEnviar = para.length > 0 && !!canalId && !enviando && !subiendoAdjuntos
 
@@ -498,6 +503,7 @@ export function useEnvioDocumento({
 
     // Programar
     mostrarProgramar, setMostrarProgramar,
+    fechaProgramada, cancelarProgramacion,
 
     // Editor / cursor
     cursorEditorPos,

@@ -228,6 +228,19 @@ function RegistroVisita({
     ))
   }
 
+  // Extrae el mensaje real del body de una respuesta 4xx/5xx (prioriza `error` y `detalle`).
+  // Si la respuesta no tiene JSON o falla, devuelve el status como fallback.
+  const extraerMensajeError = async (resp: Response, fallback: string): Promise<string> => {
+    try {
+      const data = await resp.clone().json()
+      const msg = data?.error || data?.message
+      const detalle = data?.detalle
+      if (msg && detalle) return `${msg}: ${detalle}`
+      if (msg) return msg
+    } catch { /* cuerpo no es JSON */ }
+    return `${fallback} (${resp.status})`
+  }
+
   // Enviar registro
   const enviar = async () => {
     setEnviando(true)
@@ -246,7 +259,11 @@ function RegistroVisita({
             registro_precision_m: ubicacion?.precision,
           }),
         })
-        if (!respEstado.ok) throw new Error('Error al cambiar estado')
+        if (!respEstado.ok) {
+          const msg = await extraerMensajeError(respEstado, 'Error al cambiar estado')
+          console.error('[RegistroVisita] Falla en PATCH /api/recorrido/estado:', msg, respEstado)
+          throw new Error(msg)
+        }
       }
 
       // 2. Registrar datos (notas, resultado, checklist, fotos nuevas)
@@ -264,7 +281,11 @@ function RegistroVisita({
           method: 'POST',
           body: formData,
         })
-        if (!respRegistro.ok) throw new Error('Error al registrar datos')
+        if (!respRegistro.ok) {
+          const msg = await extraerMensajeError(respRegistro, 'Error al registrar datos')
+          console.error('[RegistroVisita] Falla en POST /api/recorrido/registrar:', msg, respRegistro)
+          throw new Error(msg)
+        }
       }
 
       const mensajes: Record<string, string> = {
@@ -275,8 +296,11 @@ function RegistroVisita({
       mostrar('exito', mensajes[modo])
       onExito()
       onCerrar()
-    } catch {
-      mostrar('error', 'Error al registrar la visita')
+    } catch (err) {
+      // Mostrar el mensaje real del backend, no un genérico.
+      const mensaje = err instanceof Error && err.message ? err.message : 'Error al registrar la visita'
+      console.error('[RegistroVisita] enviar() falló:', err)
+      mostrar('error', mensaje)
     } finally {
       setEnviando(false)
     }

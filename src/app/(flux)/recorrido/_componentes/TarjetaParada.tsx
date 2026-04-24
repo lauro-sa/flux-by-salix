@@ -36,6 +36,9 @@ interface Visita {
   checklist: unknown[] | null
   notas: string | null
   fecha_programada: string | null
+  fecha_inicio?: string | null // timestamp cuando arrancó el trayecto
+  fecha_llegada?: string | null // timestamp cuando llegó al sitio
+  fecha_completada?: string | null // timestamp cuando se completó la visita
   duracion_estimada_min: number | null
   recibe_nombre: string | null
   recibe_telefono: string | null

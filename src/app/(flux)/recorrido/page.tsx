@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, RotateCcw, Phone, Plus, Coffee } from 'lucide-react'
+import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, RotateCcw, Phone, Plus, Coffee, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -25,6 +25,7 @@ import { ResumenDia } from './_componentes/ResumenDia'
 import { ModalLlegada } from './_componentes/ModalLlegada'
 import { ModalAvisoEnCamino } from './_componentes/ModalAvisoEnCamino'
 import type { EstadoVisita } from './_componentes/TarjetaParada'
+import { calcularHorariosRecorrido, formatearHora, type ParadaHorario } from '@/lib/recorrido-horarios'
 
 /** Obtiene la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local del navegador */
 function fechaHoyLocal(): string {
@@ -107,10 +108,14 @@ export default function PaginaRecorrido() {
   const [formParadaAbierto, setFormParadaAbierto] = useState(false)
   const [agregandoParada, setAgregandoParada] = useState(false)
 
-  // Cargar recorrido del día seleccionado
+  // Cargar recorrido del día seleccionado.
+  // IMPORTANTE: no volvemos a poner `cargando=true` en refetches.
+  // El estado arranca en `true` y se apaga después de la primera carga —
+  // los refetches post-acción (cambiar estado, realtime, etc.) no deben
+  // remontar el árbol, porque desmontaban el BottomSheet de RegistroVisita
+  // y hacían perder el estado (factibilidad, notas, fotos pre-subida).
   const cargarRecorrido = useCallback(async (fecha?: string) => {
     const f = fecha || fechaSeleccionada
-    setCargando(true)
     try {
       const resp = await fetch(`/api/recorrido/hoy?fecha=${f}`)
       if (!resp.ok) throw new Error('Error al cargar recorrido')
@@ -124,7 +129,9 @@ export default function PaginaRecorrido() {
     }
   }, [fechaSeleccionada, mostrar])
 
-  // Tracking en vivo de la ubicación del usuario + heading (dirección de movimiento)
+  // Tracking de la ubicación del usuario. Si el GPS reporta heading (cuando
+  // el usuario se mueve), lo usamos para que la flechita del marcador apunte
+  // en esa dirección; si no, queda como punto.
   useEffect(() => {
     if (!navigator.geolocation) {
       if (coordsEmpresa) setUbicacionUsuario(coordsEmpresa)
@@ -226,6 +233,44 @@ export default function PaginaRecorrido() {
     (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.tipo === 'visita' ? (p.visita?.duracion_estimada_min || 15) : 10),
     0,
   )
+
+  // Horarios estimados — se recalculan en cada render; el resultado es barato
+  // (O(n) sobre paradas) y hace falta que se actualice cuando cambian datos o el usuario
+  // navega con las flechas. Mapeamos cada parada al shape que espera el helper, pasando
+  // lat/lng para fallback Haversine cuando distancia_km/duracion_viaje_min vienen en null.
+  const horarios = useMemo(() => {
+    const paradasParaHelper: ParadaHorario[] = paradas.map((p): ParadaHorario => {
+      if (p.tipo === 'parada') {
+        return {
+          tipo: 'parada',
+          estado: p.estado,
+          fecha_inicio: p.fecha_inicio,
+          fecha_llegada: p.fecha_llegada,
+          fecha_completada: p.fecha_completada,
+          distancia_km: p.distancia_km,
+          duracion_viaje_min: p.duracion_viaje_min,
+          lat: p.direccion_lat,
+          lng: p.direccion_lng,
+        }
+      }
+      return {
+        tipo: 'visita',
+        estado: p.visita?.estado,
+        fecha_inicio: p.visita?.fecha_inicio,
+        fecha_llegada: p.visita?.fecha_llegada,
+        fecha_completada: p.visita?.fecha_completada,
+        distancia_km: p.distancia_km,
+        duracion_viaje_min: p.duracion_viaje_min,
+        duracion_estimada_min: p.visita?.duracion_estimada_min,
+        lat: p.visita?.direccion_lat,
+        lng: p.visita?.direccion_lng,
+      }
+    })
+    // Punto de partida: ubicación actual del usuario (GPS) o, si falla, las
+    // coords de la empresa. Se usa sólo para el tramo origen → primera parada.
+    const origenParaTramo = ubicacionUsuario || coordsEmpresa
+    return calcularHorariosRecorrido(paradasParaHelper, new Date(), origenParaTramo)
+  }, [paradas, ubicacionUsuario, coordsEmpresa])
 
   // Datos del mapa — visitas + paradas genéricas con coordenadas
   const rutaMapa: RutaMapa = useMemo(() => {
@@ -736,7 +781,7 @@ export default function PaginaRecorrido() {
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
       {/* ── Mapa superior — crece cuando sheet está colapsado ── */}
-      <div className={`relative shrink-0 transition-all duration-300 ease-out ${formParadaAbierto ? 'h-[12dvh]' : sheetExpandido ? 'h-[25dvh]' : 'h-[55dvh]'}`}>
+      <div className={`relative shrink-0 transition-all duration-300 ease-out ${formParadaAbierto ? 'h-[12dvh]' : (modoEdicion && sheetExpandido) ? 'h-[15dvh]' : sheetExpandido ? 'h-[25dvh]' : 'h-[55dvh]'}`}>
         <ProveedorMapa>
           <MapaRecorrido
             ruta={rutaMapa}
@@ -777,7 +822,13 @@ export default function PaginaRecorrido() {
         {/* Drag handle — tocar para expandir/colapsar */}
         <button
           className="flex justify-center py-2.5 shrink-0 w-full"
-          onClick={() => setSheetExpandido(!sheetExpandido)}
+          onClick={() => {
+            // Si colapsamos el sheet estando en modo edición, también salimos
+            // de la edición — no tiene sentido seguir "editando" con la lista
+            // oculta (deja el mapa chico sin contenido editable visible).
+            if (sheetExpandido && modoEdicion) setModoEdicion(false)
+            setSheetExpandido(!sheetExpandido)
+          }}
         >
           <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
         </button>
@@ -785,22 +836,47 @@ export default function PaginaRecorrido() {
         {/* Barra de progreso + info — siempre visible */}
         {paradas.length > 0 && (
           <div className="px-4 pb-2 shrink-0 space-y-1.5">
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center h-2">
             {paradas.map((p, i) => {
               const e = estadoDe(p)
+              // Paradas antes de la actual, sin completar ni cancelar, son "saltadas" — color apagado.
+              const esSaltada = paradaActualIndice >= 0 && i < paradaActualIndice && e !== 'completada' && e !== 'cancelada'
+              const enVista = i === paradaVistaIndice
               let color = 'bg-borde-sutil'
               if (e === 'completada') color = 'bg-[var(--insignia-exito)]'
               else if (e === 'cancelada') color = 'bg-[var(--insignia-peligro)]'
               else if (i === paradaActualIndice) color = 'bg-[var(--insignia-info)]'
-              return <div key={p.id} className={`h-1 rounded-full flex-1 transition-colors duration-300 ${color}`} />
+              else if (esSaltada) color = 'bg-borde-fuerte/60'
+              // La parada "en vista" (la que el usuario está viendo en la tarjeta)
+              // se destaca con mayor altura — preserva el color de estado y mantiene
+              // la barra alineada porque el contenedor usa items-center.
+              return (
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={() => setParadaVistaIndice(i)}
+                  aria-label={`Ir a parada ${i + 1}`}
+                  className={`rounded-full flex-1 transition-all duration-300 ${color} ${enVista ? 'h-2 brightness-110' : 'h-1 opacity-80'}`}
+                />
+              )
             })}
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <Clock size={11} className="text-[var(--insignia-exito)]" />
-                <span className="text-[11px] font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Clock size={11} className="text-[var(--insignia-exito)]" />
+                  <span className="text-[11px] font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
+                </div>
+                {/* Fin estimado + distancia total — cálculo basado en timestamps reales
+                    si el recorrido ya arrancó, o proyección desde "ahora" si está pendiente. */}
+                {horarios.horaFin && (
+                  <span className="text-[11px] text-texto-terciario truncate">
+                    · fin ~{formatearHora(horarios.horaFin)}
+                    {horarios.kmTotal > 0 && ` · ${horarios.kmTotal.toFixed(1)} km`}
+                  </span>
+                )}
               </div>
-              <span className="text-[11px] text-texto-terciario">{completadas}/{paradas.length} completadas</span>
+              <span className="text-[11px] text-texto-terciario shrink-0">{completadas}/{paradas.length} completadas</span>
             </div>
           </div>
         )}
@@ -843,11 +919,14 @@ export default function PaginaRecorrido() {
                 else if (diff < -50) setParadaVistaIndice(Math.min(paradas.length - 1, idx + 1))
               }
 
+              const puedeAnterior = idx > 0
+              const puedeSiguiente = idx < paradas.length - 1
+
               return (
                 <>
-                  {/* ── 1. Tarjeta de parada — deslizable, más alta ── */}
+                  {/* ── 1. Tarjeta de parada — flechas laterales + swipe ── */}
                   <div
-                    className="px-4 pt-1"
+                    className="px-2 pt-1 flex items-center gap-1"
                     onTouchStart={(e) => {
                       const el = e.currentTarget as HTMLElement
                       el.dataset.startX = String(e.touches[0].clientX)
@@ -861,10 +940,23 @@ export default function PaginaRecorrido() {
                       else if (diff < -50) setParadaVistaIndice(Math.min(paradas.length - 1, idx + 1))
                     }}
                   >
+                    {/* Flecha anterior — navegación explícita entre paradas.
+                        size-11 (44px) es el mínimo de touch target recomendado en móvil. */}
                     <button
-                      className="w-full flex items-center gap-4 text-left py-4 px-4 rounded-modal border border-borde-sutil/50 bg-white/[0.03] active:bg-white/[0.06] transition-colors"
+                      type="button"
+                      onClick={() => setParadaVistaIndice(Math.max(0, idx - 1))}
+                      disabled={!puedeAnterior}
+                      aria-label="Parada anterior"
+                      className="shrink-0 size-11 flex items-center justify-center rounded-full text-texto-secundario hover:bg-white/[0.06] active:scale-[0.92] transition-all disabled:opacity-20 disabled:pointer-events-none"
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+
+                    <button
+                      className="flex-1 min-w-0 flex items-center gap-3 text-left py-3.5 px-3.5 rounded-modal border border-borde-sutil/50 bg-white/[0.04] active:bg-white/[0.07] transition-colors"
                       onClick={() => setSheetExpandido(true)}
                     >
+                      {/* Avatar de estado — size-12 (48px) queda bien en móvil, íconos legibles */}
                       <div className="flex items-center justify-center size-12 rounded-full border-2 shrink-0 text-base font-bold"
                         style={{
                           borderColor: colorEstado,
@@ -872,29 +964,59 @@ export default function PaginaRecorrido() {
                           color: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? 'white' : 'var(--texto-terciario)',
                         }}
                       >
-                        {estado === 'completada' ? <Check size={16} /> : estado === 'cancelada' ? <X size={16} /> : esGenerica ? <Coffee size={16} /> : idx + 1}
+                        {estado === 'completada' ? <Check size={18} strokeWidth={2.5} /> : estado === 'cancelada' ? <X size={18} strokeWidth={2.5} /> : esGenerica ? <Coffee size={18} /> : idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <div className={`text-base font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
+                          <div className={`text-[15px] font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
                             {titulo}
                           </div>
                           {esGenerica && (
-                            <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-texto-terciario">
+                            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/[0.07] border border-white/[0.1] text-texto-secundario">
                               parada
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-texto-terciario truncate mt-0.5">{direccionTexto}</div>
+                        {/* Dirección: contraste mejor (secundario vs terciario) y hasta 2 líneas para no truncar info útil */}
+                        <div className="text-[13px] text-texto-secundario line-clamp-2 leading-snug mt-1">{direccionTexto}</div>
+                        {/* Llegada estimada + duración dentro de la parada.
+                            Solo se muestra si la parada NO está completada/cancelada —
+                            ahí ya no aporta (son datos del pasado). */}
+                        {horarios.porParada[idx]?.llegada && estado !== 'completada' && estado !== 'cancelada' && (
+                          <div className="text-[11px] text-texto-terciario mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={10} />
+                              {horarios.porParada[idx].esReal ? '' : '~'}
+                              {formatearHora(horarios.porParada[idx].llegada)}
+                            </span>
+                            {!esGenerica && v?.duracion_estimada_min && (
+                              <span>· {v.duracion_estimada_min} min en sitio</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="text-xs font-medium text-texto-terciario">{idx + 1}/{paradas.length}</span>
+                        {/* Posición en el recorrido — texto distinto al "X/Y completadas" de arriba para no confundir */}
+                        <span className="text-[11px] font-medium text-texto-secundario whitespace-nowrap">
+                          {idx + 1} <span className="text-texto-terciario font-normal">de {paradas.length}</span>
+                        </span>
                         {estado !== 'programada' && (
-                          <span className="text-[11px] font-medium" style={{ color: colorEstado }}>
+                          <span className="text-xs font-medium whitespace-nowrap" style={{ color: colorEstado }}>
                             {estado === 'en_camino' ? 'En camino' : estado === 'en_sitio' ? 'En sitio' : estado === 'completada' ? 'Completada' : estado === 'cancelada' ? 'Cancelada' : ''}
                           </span>
                         )}
                       </div>
+                    </button>
+
+                    {/* Flecha siguiente */}
+                    <button
+                      type="button"
+                      onClick={() => setParadaVistaIndice(Math.min(paradas.length - 1, idx + 1))}
+                      disabled={!puedeSiguiente}
+                      aria-label="Parada siguiente"
+                      className="shrink-0 size-11 flex items-center justify-center rounded-full text-texto-secundario hover:bg-white/[0.06] active:scale-[0.92] transition-all disabled:opacity-20 disabled:pointer-events-none"
+                    >
+                      <ChevronRight size={24} />
                     </button>
                   </div>
 
@@ -1090,6 +1212,7 @@ export default function PaginaRecorrido() {
                 modoEdicion={modoEdicion}
                 destinoFinal={destinoFinal}
                 onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
+                horarios={horarios}
               />
             </div>
           </div>

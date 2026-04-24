@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     // 1. Visita
     const { data: visita } = await admin
       .from('visitas')
-      .select('id, contacto_id, contacto_nombre, recibe_nombre, recibe_telefono, direccion_texto, direccion_lat, direccion_lng')
+      .select('id, contacto_id, contacto_nombre, recibe_nombre, recibe_telefono, recibe_contacto_id, direccion_texto, direccion_lat, direccion_lng')
       .eq('id', visita_id)
       .eq('empresa_id', empresaId)
       .single()
@@ -64,17 +64,35 @@ export async function POST(request: NextRequest) {
 
     const nombreDestinatario = (visita.recibe_nombre || visita.contacto_nombre || '').trim()
 
-    // 2. Teléfono: primero recibe_telefono; si no, móvil/WhatsApp principal del contacto
+    // 2. Teléfono — prioridades:
+    //    1) recibe_telefono (snapshot escrito a mano en la visita)
+    //    2) móvil WhatsApp principal del recibe_contacto_id (contacto de recepción vinculado)
+    //    3) móvil WhatsApp principal del contacto_id (contacto principal de la visita)
+    //    Así soportamos el caso típico donde el contacto principal es un edificio/empresa
+    //    sin teléfono, pero la persona que recibe (Viviana en oficina 3B) sí lo tiene.
     let telefono: string | null = visita.recibe_telefono || null
     if (!telefono) {
+      const idBusqueda = visita.recibe_contacto_id || visita.contacto_id
       const { data: tel } = await admin
         .from('contacto_telefonos')
         .select('valor')
-        .eq('contacto_id', visita.contacto_id)
+        .eq('contacto_id', idBusqueda)
         .eq('es_whatsapp', true)
         .eq('es_principal', true)
         .maybeSingle()
       telefono = tel?.valor || null
+      // Fallback adicional: si buscamos por recibe_contacto_id y no encontramos,
+      // probá con el contacto principal de la visita.
+      if (!telefono && visita.recibe_contacto_id && visita.recibe_contacto_id !== visita.contacto_id) {
+        const { data: telPrincipal } = await admin
+          .from('contacto_telefonos')
+          .select('valor')
+          .eq('contacto_id', visita.contacto_id)
+          .eq('es_whatsapp', true)
+          .eq('es_principal', true)
+          .maybeSingle()
+        telefono = telPrincipal?.valor || null
+      }
     }
 
     // 3. Calcular ETA si tenemos ubicación actual + destino con coordenadas

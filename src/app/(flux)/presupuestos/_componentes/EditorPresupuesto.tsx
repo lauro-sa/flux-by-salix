@@ -1097,7 +1097,7 @@ export default function EditorPresupuesto({
     })
 
     if (datos.programado_para) {
-      const res = await fetch('/api/inbox/correo/enviar', {
+      const res = await fetch('/api/inbox/correo/programar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1109,7 +1109,8 @@ export default function EditorPresupuesto({
           pdf_url: pdfCongeladoUrl || presupuestoRef.current?.pdf_url || undefined,
           pdf_nombre: presupuestoRef.current?.pdf_nombre_archivo || (presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined),
           pdf_congelado_url: pdfCongeladoUrl || undefined,
-          tipo: 'nuevo', programado_para: datos.programado_para,
+          incluir_enlace_portal: datos.incluir_enlace_portal,
+          tipo: 'nuevo', enviar_en: datos.programado_para,
           entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
       })

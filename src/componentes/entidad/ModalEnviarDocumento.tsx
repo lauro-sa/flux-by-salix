@@ -32,6 +32,7 @@ import {
   PopoverProgramar,
   useEnvioDocumento,
   iconoArchivo,
+  formatoFechaProgramada,
 } from './_enviar_documento'
 
 import type { PropiedadesModalEnviarDocumento } from './_enviar_documento/tipos'
@@ -542,17 +543,19 @@ export function ModalEnviarDocumento({
             className="flex items-center justify-between px-6 py-4"
             style={{ borderTop: '1px solid var(--borde-sutil)' }}
           >
-            {/* Izquierda: Enviar + Descartar */}
+            {/* Izquierda: Enviar / Programar + Descartar */}
             <div className="flex items-center gap-2">
               <Boton
                 variante="primario"
                 tamano="sm"
-                icono={<Send size={14} />}
+                icono={estado.fechaProgramada ? <Clock size={14} /> : <Send size={14} />}
                 onClick={estado.handleEnviar}
                 cargando={enviando}
                 disabled={!estado.puedeEnviar}
               >
-                Enviar
+                {estado.fechaProgramada
+                  ? `Programar — ${formatoFechaProgramada(estado.fechaProgramada)}`
+                  : 'Enviar'}
               </Boton>
               <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>
                 Descartar
@@ -568,7 +571,37 @@ export function ModalEnviarDocumento({
                 onProgramar={estado.handleProgramar}
                 disabled={!estado.puedeEnviar}
               />
-              <Boton variante="fantasma" tamano="sm" soloIcono icono={<Clock size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
+              {estado.fechaProgramada ? (
+                <span
+                  className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-boton text-xs"
+                  style={{
+                    background: 'color-mix(in srgb, var(--texto-marca) 12%, transparent)',
+                    color: 'var(--texto-marca)',
+                    border: '1px solid color-mix(in srgb, var(--texto-marca) 25%, transparent)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)}
+                    className="inline-flex items-center gap-1.5 cursor-pointer bg-transparent border-none p-0"
+                    style={{ color: 'inherit' }}
+                    title="Cambiar fecha de programación"
+                  >
+                    <Clock size={13} />
+                    <span>{formatoFechaProgramada(estado.fechaProgramada)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={estado.cancelarProgramacion}
+                    className="p-0.5 rounded hover:bg-[var(--superficie-activa)] transition-colors cursor-pointer bg-transparent border-none"
+                    title="Cancelar programación"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ) : (
+                <Boton variante="fantasma" tamano="sm" soloIcono icono={<Clock size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
+              )}
 
               {/* Guardar plantilla — amarillo cuando hay cambios, normal si no */}
               {onGuardarCambiosPlantilla && (

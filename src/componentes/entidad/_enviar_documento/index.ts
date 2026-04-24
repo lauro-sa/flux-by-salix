@@ -5,7 +5,7 @@ export { InputEmailChips } from './InputEmailChips'
 export { InputAsuntoVariables } from './InputAsuntoVariables'
 export { PopoverProgramar } from './PopoverProgramar'
 export { useEnvioDocumento } from './useEnvioDocumento'
-export { iconoArchivo, formatoTamano, diaSiguienteCorto } from './ayudantes'
+export { iconoArchivo, formatoTamano, diaSiguienteCorto, formatoFechaProgramada } from './ayudantes'
 
 // Re-exportar todos los tipos
 export type {

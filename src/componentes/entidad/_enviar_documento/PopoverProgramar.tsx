@@ -35,11 +35,16 @@ export function PopoverProgramar({
   const [mostrarCustom, setMostrarCustom] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Cerrar al hacer click fuera
+  // Cerrar al hacer click fuera (ignorando portales de selectores internos)
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onCerrar()
+      const target = e.target as Node
+      if (!ref.current || ref.current.contains(target)) return
+      // Los SelectorFecha/SelectorHora renderizan su dropdown en un portal
+      // a document.body; ese click es "lógicamente" dentro del popover.
+      if (target instanceof Element && target.closest('[data-selector-portal="true"]')) return
+      onCerrar()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -58,6 +63,22 @@ export function PopoverProgramar({
     const d = new Date(manana)
     d.setHours(hora, 0, 0, 0)
     return d.toISOString()
+  }
+
+  // Defaults para el modo custom: hoy (o mañana si rebasa medianoche) + 1 hora en punto.
+  const defaultsCustom = () => {
+    const d = new Date()
+    d.setHours(d.getHours() + 1, 0, 0, 0)
+    const fecha = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const hora = `${String(d.getHours()).padStart(2, '0')}:00`
+    return { fecha, hora }
+  }
+
+  const abrirCustom = () => {
+    const { fecha, hora } = defaultsCustom()
+    setFechaCustom(fecha)
+    setHoraCustom(hora)
+    setMostrarCustom(true)
   }
 
   const puedeConfirmarCustom = fechaCustom && horaCustom
@@ -116,7 +137,7 @@ export function PopoverProgramar({
             {!mostrarCustom ? (
               <OpcionMenu
                 icono={<Calendar size={15} />}
-                onClick={() => setMostrarCustom(true)}
+                onClick={abrirCustom}
               >
                 Elegir fecha y hora...
               </OpcionMenu>

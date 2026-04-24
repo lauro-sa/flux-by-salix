@@ -310,6 +310,7 @@ function SelectorHora({
           {abierto && (
             <motion.div
               ref={ref}
+              data-selector-portal="true"
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}

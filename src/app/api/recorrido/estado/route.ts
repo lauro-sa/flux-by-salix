@@ -52,14 +52,23 @@ export async function PATCH(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Buscar la parada: por parada_id si vino, sino por visita_id (legacy)
+    // Buscar la parada: por parada_id si vino, sino por visita_id (legacy).
+    // Nota: una misma visita puede tener varias filas en recorrido_paradas si se
+    // movió entre recorridos (ej: reprogramada de un día a otro sin limpiar la
+    // parada huérfana del día anterior). Cuando solo viene visita_id, tomamos
+    // la parada más reciente para no devolver 404 por .single() con >1 filas.
     let paradaFiltro = admin
       .from('recorrido_paradas')
       .select('id, tipo, visita_id, recorrido_id, estado, titulo')
 
-    paradaFiltro = parada_id
-      ? paradaFiltro.eq('id', parada_id)
-      : paradaFiltro.eq('visita_id', visita_id!)
+    if (parada_id) {
+      paradaFiltro = paradaFiltro.eq('id', parada_id)
+    } else {
+      paradaFiltro = paradaFiltro
+        .eq('visita_id', visita_id!)
+        .order('creado_en', { ascending: false })
+        .limit(1)
+    }
 
     const { data: parada } = await paradaFiltro.maybeSingle()
 

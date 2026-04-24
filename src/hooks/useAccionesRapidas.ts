@@ -195,10 +195,14 @@ export function useAccionesRapidas() {
   const [datos, setDatos] = useState<
     RespuestaContacto | RespuestaPresupuesto | RespuestaOrden | RespuestaVisita | null
   >(null)
-  // Para presupuestos: contacto vinculado cargado aparte — así obtenemos los
-  // teléfonos y direcciones vigentes (no el snapshot guardado en el presupuesto,
-  // que puede estar stale o vacío si se creó antes del refactor de teléfonos).
+  // Para presupuestos/órdenes/visitas: contacto principal cargado aparte para
+  // obtener teléfonos y direcciones vigentes (no el snapshot guardado, que puede
+  // estar stale o incompleto).
   const [contactoVinculado, setContactoVinculado] = useState<RespuestaContacto | null>(null)
+  // Contacto secundario cuando existe "dirigido a" / "atención" / "recibe"
+  // distinto al principal. Permite ofrecer llamar/WhatsApp/correo a esa persona
+  // aunque el contacto principal no tenga datos (ej. cliente=empresa sin tel).
+  const [atencionVinculada, setAtencionVinculada] = useState<RespuestaContacto | null>(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -212,6 +216,7 @@ export function useAccionesRapidas() {
     if (!contexto) {
       setDatos(null)
       setContactoVinculado(null)
+      setAtencionVinculada(null)
       return
     }
     let cancelado = false
@@ -230,21 +235,45 @@ export function useAccionesRapidas() {
         if (cancelado) return
         setDatos(json)
 
-        // Extraer contacto_id vinculado según el tipo de entidad, para
-        // traer teléfonos y direcciones vigentes del contacto.
+        // Extraer IDs de contactos vinculados según el tipo de entidad, para
+        // traer teléfonos/correos/direcciones vigentes. Algunos registros tienen
+        // un "dirigido a" / "atención" / "recibe" distinto al principal — lo
+        // cargamos aparte porque el snapshot del presupuesto/orden no incluye
+        // la lista completa de teléfonos de esa persona.
         let contactoIdVinculado: string | null = null
-        if (contexto.tipo === 'presupuesto') contactoIdVinculado = json.contacto_id
-        else if (contexto.tipo === 'orden') contactoIdVinculado = json.orden?.contacto_id || null
-        else if (contexto.tipo === 'visita') contactoIdVinculado = json.contacto_id
-
-        if (contactoIdVinculado) {
-          const resContacto = await fetch(`/api/contactos/${contactoIdVinculado}`)
-          if (resContacto.ok && !cancelado) {
-            setContactoVinculado(await resContacto.json())
-          }
-        } else {
-          setContactoVinculado(null)
+        let atencionIdVinculado: string | null = null
+        if (contexto.tipo === 'presupuesto') {
+          contactoIdVinculado = json.contacto_id
+          atencionIdVinculado = json.atencion_contacto_id
+        } else if (contexto.tipo === 'orden') {
+          contactoIdVinculado = json.orden?.contacto_id || null
+          atencionIdVinculado = json.orden?.atencion_contacto_id || null
+        } else if (contexto.tipo === 'visita') {
+          contactoIdVinculado = json.contacto_id
+          atencionIdVinculado = json.recibe_contacto_id
         }
+
+        // Fetch en paralelo de ambos contactos (si existen y son distintos)
+        const cargarContacto = async (id: string | null): Promise<RespuestaContacto | null> => {
+          if (!id) return null
+          try {
+            const res = await fetch(`/api/contactos/${id}`)
+            return res.ok ? (await res.json()) as RespuestaContacto : null
+          } catch {
+            return null
+          }
+        }
+        const atencionId =
+          atencionIdVinculado && atencionIdVinculado !== contactoIdVinculado
+            ? atencionIdVinculado
+            : null
+        const [contactoData, atencionData] = await Promise.all([
+          cargarContacto(contactoIdVinculado),
+          cargarContacto(atencionId),
+        ])
+        if (cancelado) return
+        setContactoVinculado(contactoData)
+        setAtencionVinculada(atencionData)
       } catch (err) {
         if (!cancelado) setError(err instanceof Error ? err.message : 'Error')
       } finally {
@@ -266,6 +295,7 @@ export function useAccionesRapidas() {
       return construirAccionesPresupuesto(
         datos as RespuestaPresupuesto,
         contactoVinculado,
+        atencionVinculada,
         { toast, router },
       )
     }
@@ -273,6 +303,7 @@ export function useAccionesRapidas() {
       return construirAccionesOrden(
         (datos as RespuestaOrden).orden,
         contactoVinculado,
+        atencionVinculada,
         { toast, router },
       )
     }
@@ -280,11 +311,12 @@ export function useAccionesRapidas() {
       return construirAccionesVisita(
         datos as RespuestaVisita,
         contactoVinculado,
+        atencionVinculada,
         { toast, router },
       )
     }
     return []
-  }, [contexto, datos, contactoVinculado, toast, router])
+  }, [contexto, datos, contactoVinculado, atencionVinculada, toast, router])
 
   return { acciones, cargando, error, hayContexto: contexto !== null }
 }
@@ -462,12 +494,14 @@ function construirAccionesContacto(c: RespuestaContacto, deps: Deps): AccionRapi
 function construirAccionesPresupuesto(
   p: RespuestaPresupuesto,
   contactoVivo: RespuestaContacto | null,
+  atencionVivo: RespuestaContacto | null,
   deps: Deps,
 ): AccionRapida[] {
   const acciones: AccionRapida[] = []
   const tactil = esDispositivoTactil()
   const router = deps.router
   const nombreContacto = nombreCompleto(p.contacto_nombre, p.contacto_apellido)
+  const nombreAtencion = p.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido) || 'Dirigido a'
 
   // Ir al contacto
   if (p.contacto_id && router) {
@@ -529,6 +563,21 @@ function construirAccionesPresupuesto(
     })
   })
 
+  // Teléfonos del "dirigido a" (si existe y es distinto del principal)
+  const telefonosAtencion: TelefonoContacto[] = atencionVivo ? listarTelefonos(atencionVivo) : []
+  telefonosAtencion.forEach((tel, i) => {
+    const etiqTipo = etiquetaTelefono(tel.tipo)
+    const sufijo = `${etiqTipo ? ` · ${etiqTipo}` : ''} · ${nombreAtencion}`
+    acciones.push({
+      clave: `llamar-atencion-${i}`,
+      etiqueta: tactil ? 'Llamar' : 'Copiar número',
+      descripcion: `${tel.valor}${sufijo}`,
+      icono: tactil ? Phone : Copy,
+      colorIcono: 'text-emerald-400/80',
+      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel.valor), deps.toast),
+    })
+  })
+
   // WhatsApp en Flux — abre (o crea) la conversación en el inbox interno.
   const hayMovil = telefonos.some(esMovil)
   if (hayMovil && router && p.contacto_id) {
@@ -543,6 +592,20 @@ function construirAccionesPresupuesto(
     })
   }
 
+  // WhatsApp en Flux para el "dirigido a"
+  const hayMovilAtencion = telefonosAtencion.some(esMovil)
+  if (hayMovilAtencion && router && p.atencion_contacto_id) {
+    const atencionId = p.atencion_contacto_id
+    acciones.push({
+      clave: 'whatsapp-flux-atencion',
+      etiqueta: 'Abrir chat en Flux',
+      descripcion: `Inbox interno · ${nombreAtencion}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-emerald-500/80',
+      onEjecutar: () => router.push(`/whatsapp?contacto_id=${atencionId}`),
+    })
+  }
+
   // WhatsApp externo — uno por cada móvil.
   telefonos.filter(esMovil).forEach((tel, i) => {
     acciones.push({
@@ -551,6 +614,18 @@ function construirAccionesPresupuesto(
       descripcion: `${tel.valor} · ${nombreContacto}`,
       icono: IconoWhatsApp,
       colorIcono: 'text-green-400',
+      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
+    })
+  })
+
+  // WhatsApp externo del "dirigido a"
+  telefonosAtencion.filter(esMovil).forEach((tel, i) => {
+    acciones.push({
+      clave: `whatsapp-externo-atencion-${i}`,
+      etiqueta: 'Abrir en WhatsApp',
+      descripcion: `${tel.valor} · ${nombreAtencion}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-green-400/80',
       onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
     })
   })
@@ -580,10 +655,10 @@ function construirAccionesPresupuesto(
     })
   }
 
-  // Correo del "dirigido a" si es distinto del principal
-  if (p.atencion_correo && p.atencion_correo !== correoContacto) {
-    const correo = p.atencion_correo
-    const nombreAtencion = p.atencion_nombre || 'Dirigido a'
+  // Correo del "dirigido a" — preferimos el vivo, snapshot como fallback
+  const correoAtencion = atencionVivo?.correo || p.atencion_correo
+  if (correoAtencion && correoAtencion !== correoContacto) {
+    const correo = correoAtencion
     if (router) {
       acciones.push({
         clave: 'correo-flux-atencion',
@@ -648,12 +723,14 @@ function construirAccionesPresupuesto(
 function construirAccionesOrden(
   o: RespuestaOrden['orden'],
   contactoVivo: RespuestaContacto | null,
+  atencionVivo: RespuestaContacto | null,
   deps: Deps,
 ): AccionRapida[] {
   const acciones: AccionRapida[] = []
   const tactil = esDispositivoTactil()
   const router = deps.router
   const nombreContacto = o.contacto_nombre || 'Contacto'
+  const nombreAtencion = o.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido) || 'Persona de contacto'
 
   // Ir al contacto
   if (o.contacto_id && router) {
@@ -713,18 +790,23 @@ function construirAccionesOrden(
     })
   })
 
-  // Teléfono de "atención" si es distinto (persona que recibe el servicio)
-  if (o.atencion_telefono && o.atencion_telefono !== o.contacto_telefono) {
-    const tel = o.atencion_telefono
+  // Teléfonos del "dirigido a" (si hay contacto vivo de atención con teléfonos)
+  const telefonosAtencion: TelefonoContacto[] = atencionVivo
+    ? listarTelefonos(atencionVivo)
+    : o.atencion_telefono && o.atencion_telefono !== o.contacto_telefono
+      ? [{ valor: o.atencion_telefono, tipo: null, es_principal: true }]
+      : []
+  telefonosAtencion.forEach((tel, i) => {
+    const etiqTipo = etiquetaTelefono(tel.tipo)
     acciones.push({
-      clave: 'llamar-atencion',
-      etiqueta: tactil ? 'Llamar a recepción' : 'Copiar número de recepción',
-      descripcion: `${tel} · ${o.atencion_nombre || 'Persona de contacto'}`,
+      clave: `llamar-atencion-${i}`,
+      etiqueta: tactil ? 'Llamar' : 'Copiar número',
+      descripcion: `${tel.valor}${etiqTipo ? ` · ${etiqTipo}` : ''} · ${nombreAtencion}`,
       icono: tactil ? Phone : Copy,
       colorIcono: 'text-emerald-400/80',
-      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel), deps.toast),
+      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel.valor), deps.toast),
     })
-  }
+  })
 
   // WhatsApp en Flux
   const hayMovil = telefonos.some(esMovil)
@@ -740,6 +822,20 @@ function construirAccionesOrden(
     })
   }
 
+  // WhatsApp en Flux para el "dirigido a"
+  const hayMovilAtencion = telefonosAtencion.some(esMovil)
+  if (hayMovilAtencion && router && o.atencion_contacto_id) {
+    const atencionId = o.atencion_contacto_id
+    acciones.push({
+      clave: 'whatsapp-flux-atencion',
+      etiqueta: 'Abrir chat en Flux',
+      descripcion: `Inbox interno · ${nombreAtencion}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-emerald-500/80',
+      onEjecutar: () => router.push(`/whatsapp?contacto_id=${atencionId}`),
+    })
+  }
+
   telefonos.filter(esMovil).forEach((tel, i) => {
     acciones.push({
       clave: `whatsapp-externo-${i}`,
@@ -747,6 +843,17 @@ function construirAccionesOrden(
       descripcion: `${tel.valor} · ${nombreContacto}`,
       icono: IconoWhatsApp,
       colorIcono: 'text-green-400',
+      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
+    })
+  })
+
+  telefonosAtencion.filter(esMovil).forEach((tel, i) => {
+    acciones.push({
+      clave: `whatsapp-externo-atencion-${i}`,
+      etiqueta: 'Abrir en WhatsApp',
+      descripcion: `${tel.valor} · ${nombreAtencion}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-green-400/80',
       onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
     })
   })
@@ -776,13 +883,25 @@ function construirAccionesOrden(
     })
   }
 
-  // Correo de atención si es distinto
-  if (o.atencion_correo && o.atencion_correo !== correoContacto) {
-    const correo = o.atencion_correo
+  // Correo del "dirigido a" — preferimos el vivo, snapshot como fallback
+  const correoAtencion = atencionVivo?.correo || o.atencion_correo
+  if (correoAtencion && correoAtencion !== correoContacto) {
+    const correo = correoAtencion
+    if (router) {
+      acciones.push({
+        clave: 'correo-flux-atencion',
+        etiqueta: 'Redactar en Flux',
+        descripcion: `${correo} · ${nombreAtencion} · Inbox interno`,
+        icono: Mail,
+        colorIcono: 'text-sky-500/80',
+        onEjecutar: () =>
+          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
+      })
+    }
     acciones.push({
       clave: 'correo-atencion',
       etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${o.atencion_nombre || 'Recepción'}`,
+      descripcion: `${correo} · ${nombreAtencion}`,
       icono: Mail,
       colorIcono: 'text-sky-400/80',
       onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
@@ -831,12 +950,14 @@ function construirAccionesOrden(
 function construirAccionesVisita(
   v: RespuestaVisita,
   contactoVivo: RespuestaContacto | null,
+  recibeVivo: RespuestaContacto | null,
   deps: Deps,
 ): AccionRapida[] {
   const acciones: AccionRapida[] = []
   const tactil = esDispositivoTactil()
   const router = deps.router
   const nombreContacto = v.contacto_nombre || 'Contacto'
+  const nombreRecibe = v.recibe_nombre || nombreCompleto(recibeVivo?.nombre, recibeVivo?.apellido) || 'Persona que recibe'
 
   // Ir al contacto
   if (v.contacto_id && router) {
@@ -878,21 +999,26 @@ function construirAccionesVisita(
     })
   })
 
-  // Teléfono de "recibe" si es distinto — útil al llegar al domicilio
-  const telsContacto = telefonos.map((t) => t.valor)
-  if (v.recibe_telefono && !telsContacto.includes(v.recibe_telefono)) {
-    const tel = v.recibe_telefono
+  // Teléfonos de quien recibe (preferimos contacto vivo; si no hay, snapshot de v.recibe_telefono)
+  const telsContactoValores = telefonos.map((t) => t.valor)
+  const telefonosRecibe: TelefonoContacto[] = recibeVivo
+    ? listarTelefonos(recibeVivo)
+    : v.recibe_telefono && !telsContactoValores.includes(v.recibe_telefono)
+      ? [{ valor: v.recibe_telefono, tipo: null, es_principal: true }]
+      : []
+  telefonosRecibe.forEach((tel, i) => {
+    const etiqTipo = etiquetaTelefono(tel.tipo)
     acciones.push({
-      clave: 'llamar-recibe',
-      etiqueta: tactil ? 'Llamar a quien recibe' : 'Copiar número de quien recibe',
-      descripcion: `${tel} · ${v.recibe_nombre || 'Persona que recibe'}`,
+      clave: `llamar-recibe-${i}`,
+      etiqueta: tactil ? 'Llamar' : 'Copiar número',
+      descripcion: `${tel.valor}${etiqTipo ? ` · ${etiqTipo}` : ''} · ${nombreRecibe}`,
       icono: tactil ? Phone : Copy,
       colorIcono: 'text-emerald-400/80',
-      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel), deps.toast),
+      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel.valor), deps.toast),
     })
-  }
+  })
 
-  // WhatsApp
+  // WhatsApp en Flux del contacto principal
   const hayMovil = telefonos.some(esMovil)
   if (hayMovil && router && v.contacto_id) {
     const contactoId = v.contacto_id
@@ -905,6 +1031,21 @@ function construirAccionesVisita(
       onEjecutar: () => router.push(`/whatsapp?contacto_id=${contactoId}`),
     })
   }
+
+  // WhatsApp en Flux de quien recibe
+  const hayMovilRecibe = telefonosRecibe.some(esMovil)
+  if (hayMovilRecibe && router && v.recibe_contacto_id) {
+    const recibeId = v.recibe_contacto_id
+    acciones.push({
+      clave: 'whatsapp-flux-recibe',
+      etiqueta: 'Abrir chat en Flux',
+      descripcion: `Inbox interno · ${nombreRecibe}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-emerald-500/80',
+      onEjecutar: () => router.push(`/whatsapp?contacto_id=${recibeId}`),
+    })
+  }
+
   telefonos.filter(esMovil).forEach((tel, i) => {
     acciones.push({
       clave: `whatsapp-externo-${i}`,
@@ -912,6 +1053,17 @@ function construirAccionesVisita(
       descripcion: `${tel.valor} · ${nombreContacto}`,
       icono: IconoWhatsApp,
       colorIcono: 'text-green-400',
+      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
+    })
+  })
+
+  telefonosRecibe.filter(esMovil).forEach((tel, i) => {
+    acciones.push({
+      clave: `whatsapp-externo-recibe-${i}`,
+      etiqueta: 'Abrir en WhatsApp',
+      descripcion: `${tel.valor} · ${nombreRecibe}`,
+      icono: IconoWhatsApp,
+      colorIcono: 'text-green-400/80',
       onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
     })
   })
@@ -936,6 +1088,30 @@ function construirAccionesVisita(
       descripcion: `${correo} · ${nombreContacto}`,
       icono: Mail,
       colorIcono: 'text-sky-400',
+      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
+    })
+  }
+
+  // Correo de quien recibe (si es un contacto distinto y tiene correo)
+  if (recibeVivo?.correo && recibeVivo.correo !== contactoVivo?.correo) {
+    const correo = recibeVivo.correo
+    if (router) {
+      acciones.push({
+        clave: 'correo-flux-recibe',
+        etiqueta: 'Redactar en Flux',
+        descripcion: `${correo} · ${nombreRecibe} · Inbox interno`,
+        icono: Mail,
+        colorIcono: 'text-sky-500/80',
+        onEjecutar: () =>
+          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
+      })
+    }
+    acciones.push({
+      clave: 'correo-recibe',
+      etiqueta: 'Abrir en cliente de correo',
+      descripcion: `${correo} · ${nombreRecibe}`,
+      icono: Mail,
+      colorIcono: 'text-sky-400/80',
       onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
     })
   }
