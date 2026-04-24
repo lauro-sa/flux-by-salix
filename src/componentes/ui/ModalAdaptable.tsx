@@ -35,6 +35,8 @@ interface PropiedadesModalAdaptable {
   accionSecundaria?: AccionModal
   /** Acción destructiva (izquierda): Eliminar, Descartar. */
   accionPeligro?: AccionModal
+  /** Slot libre a la izquierda del footer (ej: selector de presets) */
+  footerExtraIzquierda?: ReactNode
   /** Quita el padding del contenido */
   sinPadding?: boolean
   /** Altura del BottomSheet en móvil. Default: 'auto' */
@@ -57,6 +59,7 @@ function ModalAdaptable({
   accionPrimaria,
   accionSecundaria,
   accionPeligro,
+  footerExtraIzquierda,
   sinPadding,
   alturaMovil = 'auto',
   forzarModal = false,
@@ -75,6 +78,7 @@ function ModalAdaptable({
         accionPrimaria={accionPrimaria}
         accionSecundaria={accionSecundaria}
         accionPeligro={accionPeligro}
+        footerExtraIzquierda={footerExtraIzquierda}
         altura={alturaMovil}
         sinPadding={sinPadding}
       >
@@ -93,6 +97,7 @@ function ModalAdaptable({
       accionPrimaria={accionPrimaria}
       accionSecundaria={accionSecundaria}
       accionPeligro={accionPeligro}
+      footerExtraIzquierda={footerExtraIzquierda}
       sinPadding={sinPadding}
       accionesEncabezado={accionesEncabezado}
       expandido={expandido}

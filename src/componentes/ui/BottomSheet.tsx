@@ -40,6 +40,8 @@ interface PropiedadesBottomSheet {
   accionSecundaria?: AccionModal
   /** Acción destructiva (izquierda): Eliminar, Descartar. */
   accionPeligro?: AccionModal
+  /** Slot libre a la izquierda del footer (ej: selector de presets) */
+  footerExtraIzquierda?: ReactNode
   /** Altura del sheet. Mínimo siempre 75vh. Default: 'auto' (se adapta al contenido, mín 75vh) */
   altura?: AlturaSheet
   /** Quita el padding del contenido para layouts personalizados */
@@ -74,13 +76,14 @@ function BottomSheet({
   accionPrimaria,
   accionSecundaria,
   accionPeligro,
+  footerExtraIzquierda,
   altura = 'auto',
   sinPadding = false,
   fondo,
 }: PropiedadesBottomSheet) {
-  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro)
+  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro || footerExtraIzquierda)
   const footer = tieneAccionesEstructuradas
-    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} />
+    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} extraIzquierda={footerExtraIzquierda} />
     : acciones
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'

@@ -27,6 +27,8 @@ interface PropiedadesModal {
   accionSecundaria?: AccionModal
   /** Acción destructiva (izquierda): Eliminar, Descartar. */
   accionPeligro?: AccionModal
+  /** Slot libre a la izquierda del footer (ej: selector de presets) */
+  footerExtraIzquierda?: ReactNode
   /** Botones extra en el encabezado (al lado del título, antes del botón cerrar) */
   accionesEncabezado?: ReactNode
   /** Quita el padding y scroll del contenedor de children para layouts personalizados */
@@ -61,13 +63,14 @@ function Modal({
   accionPrimaria,
   accionSecundaria,
   accionPeligro,
+  footerExtraIzquierda,
   accionesEncabezado,
   sinPadding,
   expandido,
 }: PropiedadesModal) {
-  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro)
+  const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro || footerExtraIzquierda)
   const footer = tieneAccionesEstructuradas
-    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} />
+    ? <FooterAccionesModal primaria={accionPrimaria} secundaria={accionSecundaria} peligro={accionPeligro} extraIzquierda={footerExtraIzquierda} />
     : acciones
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'

@@ -39,6 +39,8 @@ interface PropiedadesFooterAcciones {
   primaria?: AccionModal
   secundaria?: AccionModal
   peligro?: AccionModal
+  /** Slot libre a la izquierda (antes de peligro) — ej: selector de presets */
+  extraIzquierda?: ReactNode
 }
 
 /**
@@ -46,16 +48,17 @@ interface PropiedadesFooterAcciones {
  * estructurada (para que el componente padre pueda decidir no renderizar
  * el contenedor del footer).
  */
-function FooterAccionesModal({ primaria, secundaria, peligro }: PropiedadesFooterAcciones) {
-  if (!primaria && !secundaria && !peligro) return null
+function FooterAccionesModal({ primaria, secundaria, peligro, extraIzquierda }: PropiedadesFooterAcciones) {
+  if (!primaria && !secundaria && !peligro && !extraIzquierda) return null
 
   // Mientras una acción cargue, las otras quedan deshabilitadas (evita doble click)
   const algunaCargando = !!(primaria?.cargando || secundaria?.cargando || peligro?.cargando)
 
   return (
     <div className="flex items-center justify-between w-full gap-3">
-      {/* Izquierda: acción de peligro (opcional) */}
-      <div>
+      {/* Izquierda: slot libre (ej: selector de presets) + acción de peligro */}
+      <div className="flex items-center gap-2 min-w-0">
+        {extraIzquierda}
         {peligro && (
           <Boton
             variante="peligro"

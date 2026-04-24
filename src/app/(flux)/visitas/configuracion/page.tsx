@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Settings2, MapPin, FileText, Clock, ListChecks,
   Plus, Trash2, GripVertical, Check,
@@ -33,6 +34,7 @@ interface ConfigVisitas {
 export default function PaginaConfiguracionVisitas() {
   const router = useRouter()
   const { mostrar } = useToast()
+  const queryClient = useQueryClient()
   const { esPropietario, tienePermiso, tienePermisoConfig, cargando: cargandoPermisos } = useRol()
   const puedeVer = esPropietario || tienePermiso('config_visitas', 'ver')
   const puedeEditar = tienePermisoConfig('visitas', 'editar')
@@ -66,6 +68,8 @@ export default function PaginaConfiguracionVisitas() {
       const data = await res.json()
       setConfig(data)
       setConfigOriginal(data)
+      // Invalidar cache de React Query para que el modal y listado tomen el valor nuevo
+      queryClient.invalidateQueries({ queryKey: ['visitas-config'] })
       mostrar('exito', 'Configuración guardada')
     } catch {
       mostrar('error', 'Error al guardar')

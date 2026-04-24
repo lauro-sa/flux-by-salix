@@ -16,6 +16,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorContacto, type ContactoResultado, type ContactoSeleccionado } from '@/componentes/entidad/SelectorContacto'
+import { BarraPresetsModal } from '@/componentes/entidad/BarraPresetsModal'
 import { SeccionDirecciones } from './SeccionDirecciones'
 
 /**
@@ -32,6 +33,19 @@ import type {
 } from '@/tipos/visita'
 
 export type { Visita, Miembro, ConfigVisitas, ItemChecklist }
+
+// Forma del blob de valores guardados en un preset del modal de visita.
+// Solo incluye campos que tiene sentido preseleccionar (no contacto ni fecha).
+interface ValoresPresetVisita {
+  asignado_a?: string | null
+  asignado_nombre?: string | null
+  hora?: string
+  duracion_estimada_min?: number
+  motivo?: string
+  prioridad?: string
+  checklist?: ItemChecklist[]
+  notas?: string
+}
 
 interface PropiedadesModal {
   abierto: boolean
@@ -390,6 +404,37 @@ function ModalVisita({
     setChecklist(prev => prev.filter(item => item.id !== id))
   }
 
+  // ── Snapshot de los valores actuales para guardar como preset ──
+  const valoresPreset: ValoresPresetVisita = {
+    asignado_a: asignadoA,
+    asignado_nombre: asignadoNombre,
+    hora: horaProgramada,
+    duracion_estimada_min: duracionEstimada,
+    motivo,
+    prioridad,
+    checklist,
+    notas,
+  }
+
+  // ── Aplicar un preset al formulario (hidrata los campos pertinentes) ──
+  const aplicarPreset = useCallback((valores: ValoresPresetVisita) => {
+    if (valores.asignado_a !== undefined) setAsignadoA(valores.asignado_a ?? null)
+    if (valores.asignado_nombre !== undefined) setAsignadoNombre(valores.asignado_nombre ?? null)
+    if (typeof valores.hora === 'string') setHoraProgramada(valores.hora)
+    if (typeof valores.duracion_estimada_min === 'number') setDuracionEstimada(valores.duracion_estimada_min)
+    if (typeof valores.motivo === 'string') setMotivo(valores.motivo)
+    if (typeof valores.prioridad === 'string') setPrioridad(valores.prioridad)
+    if (Array.isArray(valores.checklist)) {
+      // Regenerar IDs para evitar colisiones con items existentes
+      setChecklist(valores.checklist.map(item => ({
+        id: crypto.randomUUID(),
+        texto: item.texto,
+        completado: false,
+      })))
+    }
+    if (typeof valores.notas === 'string') setNotas(valores.notas)
+  }, [])
+
   // ── Guardar ──
   const manejarGuardar = async () => {
     if (!contactoId || !fechaProgramada) return
@@ -445,6 +490,13 @@ function ModalVisita({
         etiqueta: t('comun.cancelar'),
         onClick: onCerrar,
       }}
+      footerExtraIzquierda={!esEdicion ? (
+        <BarraPresetsModal<ValoresPresetVisita>
+          endpoint="/api/visitas/presets"
+          valoresActuales={valoresPreset}
+          onAplicar={aplicarPreset}
+        />
+      ) : undefined}
     >
       {/* Banner prominente — visita provisoria creada por el agente IA */}
       {esEdicion && visita && esProvisoria && (

@@ -1840,6 +1840,14 @@ export const correos_programados = pgTable('correos_programados', {
   estado: text('estado').notNull().default('pendiente'), // 'pendiente', 'enviado', 'error', 'cancelado'
   enviado_en: timestamp('enviado_en', { withTimezone: true }),
   error: text('error'),
+  // Contexto extra para mantener PDF + registro en chatter al enviarse desde el cron.
+  tipo: text('tipo').notNull().default('nuevo'), // 'nuevo' | 'responder' | 'responder_todos' | 'reenviar'
+  pdf_url: text('pdf_url'),
+  pdf_nombre: text('pdf_nombre'),
+  pdf_congelado_url: text('pdf_congelado_url'),
+  entidad_tipo: text('entidad_tipo'),
+  entidad_id: uuid('entidad_id'),
+  incluir_enlace_portal: boolean('incluir_enlace_portal').notNull().default(false),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('correos_programados_empresa_idx').on(tabla.empresa_id),
@@ -2812,6 +2820,44 @@ export const config_visitas = pgTable('config_visitas', {
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   uniqueIndex('config_visitas_empresa_idx').on(tabla.empresa_id),
+])
+
+// Presets del modal "Nueva actividad" por usuario+empresa+tipo.
+// Cada tipo de actividad (Llamada, Reunión, Nota, etc.) tiene su propio set:
+// hasta 3 por tipo, con favorito ("aplicar al abrir") independiente por tipo.
+export const presets_actividades = pgTable('presets_actividades', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(), // FK a auth.users
+  tipo_id: uuid('tipo_id').notNull().references(() => tipos_actividad.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  orden: integer('orden').notNull().default(0),
+  // { asignados, prioridad, descripcion_plantilla, checklist, duracion_estimada_min }
+  valores: jsonb('valores').notNull().default(sql`'{}'::jsonb`),
+  aplicar_al_abrir: boolean('aplicar_al_abrir').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('presets_actividades_usuario_tipo_idx').on(tabla.empresa_id, tabla.usuario_id, tabla.tipo_id, tabla.orden),
+])
+
+// Presets del modal "Nueva visita" por usuario+empresa.
+// Hasta 3 por usuario, con nombre. Preseleccionan asignado, hora, duración,
+// prioridad, checklist y notas al aplicar. Tabla propia del módulo (independiente).
+export const presets_visitas = pgTable('presets_visitas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(), // FK a auth.users (se setea manualmente)
+  nombre: text('nombre').notNull(),
+  orden: integer('orden').notNull().default(0),
+  // Blob con valores: { asignado_a, asignado_nombre, hora, duracion_estimada_min,
+  //   prioridad, checklist, notas }. Estructura libre para evolución.
+  valores: jsonb('valores').notNull().default(sql`'{}'::jsonb`),
+  aplicar_al_abrir: boolean('aplicar_al_abrir').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('presets_visitas_usuario_idx').on(tabla.empresa_id, tabla.usuario_id, tabla.orden),
 ])
 
 // Configuración de Google Drive — sincronización de datos con Sheets

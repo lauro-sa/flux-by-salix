@@ -26,6 +26,16 @@ import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { BarraPresetsModal } from '@/componentes/entidad/BarraPresetsModal'
+
+// Forma del blob de valores guardados en un preset de actividad.
+// Cada campo es opcional y solo se aplica si el tipo activo tiene el campo_X correspondiente.
+interface ValoresPresetActividad {
+  asignados?: { id: string; nombre: string }[]
+  prioridad?: string
+  descripcion?: string
+  checklist?: { id: string; texto: string; completado: boolean }[]
+}
 
 /** Convierte fecha YYYY-MM-DD + hora HH:MM a ISO string respetando timezone local del navegador */
 function fechaLocalAISO(fecha: string, hora: string): string {
@@ -296,6 +306,37 @@ function ModalActividad({
     }
   }
 
+  // ── Preset: snapshot de valores actuales para guardar como preset ──
+  const valoresPresetActividad: ValoresPresetActividad = {
+    asignados,
+    prioridad,
+    descripcion,
+    checklist,
+  }
+
+  // ── Aplicar un preset al formulario (respeta los campos habilitados del tipo activo) ──
+  const aplicarPresetActividad = useCallback((valores: ValoresPresetActividad) => {
+    const tipo = tipoSeleccionado
+    if (!tipo) return
+    if (tipo.campo_responsable && Array.isArray(valores.asignados)) {
+      setAsignados(valores.asignados)
+    }
+    if (tipo.campo_prioridad && typeof valores.prioridad === 'string') {
+      setPrioridad(valores.prioridad)
+    }
+    if (tipo.campo_descripcion && typeof valores.descripcion === 'string') {
+      setDescripcion(valores.descripcion)
+    }
+    if (tipo.campo_checklist && Array.isArray(valores.checklist)) {
+      // Regenerar IDs para evitar colisiones; reset completado a false en creación
+      setChecklist(valores.checklist.map(item => ({
+        id: crypto.randomUUID(),
+        texto: item.texto,
+        completado: false,
+      })))
+    }
+  }, [tipoSeleccionado])
+
   // Estado para bloques de calendario inline (al crear con tipo campo_calendario)
   const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && (tipoSeleccionado as TipoActividad & { campo_calendario?: boolean }).campo_calendario
   const [bloquesNuevos, setBloquesNuevos] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
@@ -421,6 +462,15 @@ function ModalActividad({
         etiqueta: t('comun.cancelar'),
         onClick: onCerrar,
       }}
+      footerExtraIzquierda={!esEdicion ? (
+        <BarraPresetsModal<ValoresPresetActividad>
+          endpoint="/api/actividades/presets"
+          scope={{ tipo_id: tipoId }}
+          valoresActuales={valoresPresetActividad}
+          onAplicar={aplicarPresetActividad}
+          textoDeshabilitado="Elegí un tipo"
+        />
+      ) : undefined}
     >
       {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
       {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
