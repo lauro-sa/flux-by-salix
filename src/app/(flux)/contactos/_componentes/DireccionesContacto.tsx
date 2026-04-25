@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, MapPin, Search } from 'lucide-react'
+import { Plus, X, MapPin, Lock } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -41,19 +41,24 @@ export interface DireccionConTipo {
   id: string
   tipo: string
   datos: DatosDireccionPlano
+  /** Procedencia: 'manual' (default) | 'sync_perfil' (sincronizada del miembro vinculado).
+   *  Las direcciones sync_perfil son read-only y se editan desde la sección Usuarios. */
+  origen?: string
 }
 
 interface Props {
   direcciones: DireccionConTipo[]
   onChange: (direcciones: DireccionConTipo[]) => void
   paises?: string[]
+  /** Si el contacto está vinculado a un miembro, mostramos un aviso sobre la dirección sincronizada. */
+  miembroVinculado?: { nombre: string } | null
 }
 
 /**
  * DireccionesContacto — Pills de dirección + campos planos + buscador Google.
  * Diseño: "Dirección [Principal] [Otro] [+]" con campos underline debajo.
  */
-export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
+export function DireccionesContacto({ direcciones, onChange, paises, miembroVinculado }: Props) {
   const [tabActiva, setTabActiva] = useState(0)
   const [montado, setMontado] = useState(false)
 
@@ -152,7 +157,13 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
       </div>
 
       {/* ── Contenido de la dirección activa ── */}
-      {dirActiva && (
+      {dirActiva && (() => {
+        const esSync = dirActiva.origen === 'sync_perfil'
+        const tituloSync = miembroVinculado
+          ? `Dirección sincronizada del perfil de ${miembroVinculado.nombre}. Editala desde la sección Usuarios.`
+          : 'Dirección sincronizada del perfil del miembro'
+
+        return (
         <AnimatePresence mode="wait">
           <motion.div
             key={dirActiva.id}
@@ -162,71 +173,89 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
             transition={{ duration: 0.12 }}
             className="space-y-3"
           >
+            {/* Aviso para direcciones sincronizadas */}
+            {esSync && (
+              <div className="flex items-center gap-2 text-[11px] text-texto-terciario">
+                <Lock size={11} />
+                <span>{tituloSync}</span>
+              </div>
+            )}
+
             {/* Selector de tipo + eliminar */}
             <div className="flex items-center justify-between">
-              <div className="w-48">
+              <div className={`w-48 ${esSync ? 'pointer-events-none opacity-70' : ''}`}>
                 <Select variante="plano"
                   opciones={TIPOS_DIRECCION}
                   valor={dirActiva.tipo}
-                  onChange={(v) => esVirtual ? undefined : cambiarTipo(v)}
+                  onChange={(v) => esVirtual || esSync ? undefined : cambiarTipo(v)}
                   placeholder="Seleccionar..."
                 />
               </div>
-              {!esVirtual && (
+              {!esVirtual && !esSync && (
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar dirección" icono={<X size={16} />} onClick={() => eliminar(tabActiva)} className="text-texto-terciario hover:text-insignia-peligro" />
               )}
             </div>
 
-            {/* Campos planos — siempre visibles */}
+            {/* Campos planos — siempre visibles. Read-only si sync. */}
             <Input variante="plano" value={dirActiva.datos.calle}
-              onChange={e => manejarCampo('calle', e.target.value)}
+              onChange={e => { if (!esSync) manejarCampo('calle', e.target.value) }}
+              readOnly={esSync}
               placeholder="Calle y número" />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="col-span-2">
                 <Input variante="plano" value={dirActiva.datos.barrio}
-                  onChange={e => manejarCampo('barrio', e.target.value)}
+                  onChange={e => { if (!esSync) manejarCampo('barrio', e.target.value) }}
+                  readOnly={esSync}
                   placeholder="Barrio / Comuna" />
               </div>
               <Input variante="plano" value={dirActiva.datos.codigoPostal}
-                onChange={e => manejarCampo('codigoPostal', e.target.value)}
+                onChange={e => { if (!esSync) manejarCampo('codigoPostal', e.target.value) }}
+                readOnly={esSync}
                 placeholder="C.P." />
             </div>
 
             <Input variante="plano" value={dirActiva.datos.provincia}
-              onChange={e => manejarCampo('provincia', e.target.value)}
+              onChange={e => { if (!esSync) manejarCampo('provincia', e.target.value) }}
+              readOnly={esSync}
               placeholder="Provincia" />
 
             <Input variante="plano" value={dirActiva.datos.ciudad}
-              onChange={e => manejarCampo('ciudad', e.target.value)}
+              onChange={e => { if (!esSync) manejarCampo('ciudad', e.target.value) }}
+              readOnly={esSync}
               placeholder="Ciudad" />
 
             <div className="grid grid-cols-2 gap-4">
               <Input variante="plano" value={dirActiva.datos.piso}
-                onChange={e => manejarCampo('piso', e.target.value)}
+                onChange={e => { if (!esSync) manejarCampo('piso', e.target.value) }}
+                readOnly={esSync}
                 placeholder="Piso" />
               <Input variante="plano" value={dirActiva.datos.departamento}
-                onChange={e => manejarCampo('departamento', e.target.value)}
+                onChange={e => { if (!esSync) manejarCampo('departamento', e.target.value) }}
+                readOnly={esSync}
                 placeholder="Depto / Timbre" />
             </div>
 
-            {/* Buscador Google Maps al final */}
-            <div className="pt-1">
-              <InputDireccion
-                valorInicial=""
-                paises={paises}
-                alSeleccionar={seleccionarDireccion}
-                alLimpiar={() => {
-                  if (!esVirtual) {
-                    onChange(direcciones.map((d, i) => i === tabActiva ? { ...d, datos: { ...VACIA } } : d))
-                  }
-                }}
-                ocultarDetalle
-              />
-            </div>
+            {/* Buscador Google Maps al final — oculto si la dirección está sincronizada */}
+            {!esSync && (
+              <div className="pt-1">
+                <InputDireccion
+                  valorInicial=""
+                  paises={paises}
+                  alSeleccionar={seleccionarDireccion}
+                  alLimpiar={() => {
+                    if (!esVirtual) {
+                      onChange(direcciones.map((d, i) => i === tabActiva ? { ...d, datos: { ...VACIA } } : d))
+                    }
+                  }}
+                  ocultarDetalle
+                />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
-      )}
+        )
+      })()}
     </div>
   )
 }

@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         creado_por, editado_por, creado_en, actualizado_en,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
-        direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
+        direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal, origen),
         telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp))
       `, { count: 'exact' })

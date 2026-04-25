@@ -198,7 +198,8 @@ export async function PATCH(
       .maybeSingle()
     const esContactoMiembro = !!contactoMeta?.miembro_id
     if (esContactoMiembro) {
-      const camposBloqueados = ['nombre', 'apellido', 'correo']
+      const camposBloqueados = ['nombre', 'apellido', 'correo', 'avatar_url',
+        'fecha_nacimiento', 'numero_identificacion', 'tipo_identificacion']
         .filter(c => c in campos)
       if (camposBloqueados.length > 0) {
         return NextResponse.json({

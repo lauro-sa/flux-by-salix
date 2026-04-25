@@ -275,6 +275,7 @@ function PaginaContactoInterno() {
           setDirecciones(data.direcciones.map((d: Record<string, unknown>) => ({
             id: (d.id as string) || crypto.randomUUID(),
             tipo: (d.tipo as string) || 'principal',
+            origen: (d.origen as string) || 'manual',
             datos: {
               calle: (d.calle as string) || '', barrio: (d.barrio as string) || '',
               ciudad: (d.ciudad as string) || '', provincia: (d.provincia as string) || '',
@@ -846,7 +847,7 @@ function PaginaContactoInterno() {
               if (!esNuevaEmpresa) { limpiar.rubro = null; setCampos(p => ({ ...p, rubro: '' })) }
               guardar(limpiar)
             }}
-            onSubirFoto={esNuevo ? undefined : subirFoto}
+            onSubirFoto={(esNuevo || miembroIdVinculado) ? undefined : subirFoto}
             acciones={esNuevo ? [] : [
               { id: 'fusionar', etiqueta: 'Fusionar con otro contacto', icono: <Merge size={14} />, onClick: () => setModalFusionar(true) },
               { id: 'eliminar', etiqueta: 'Eliminar contacto', icono: <Trash2 size={14} />, peligro: true, onClick: () => setModalEliminar(true) },
@@ -978,6 +979,7 @@ function PaginaContactoInterno() {
               direcciones={direcciones}
               onChange={manejarDirecciones}
               paises={paisesEmpresa.length ? paisesEmpresa : undefined}
+              miembroVinculado={miembroIdVinculado ? { nombre: nombreCompleto } : null}
             />
           </section>
 

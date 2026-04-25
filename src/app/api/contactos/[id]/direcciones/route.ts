@@ -3,8 +3,12 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
- * PUT /api/contactos/[id]/direcciones — Reemplaza TODAS las direcciones de un contacto.
- * Recibe el array completo, borra las anteriores e inserta las nuevas.
+ * PUT /api/contactos/[id]/direcciones — Reemplaza las direcciones MANUALES de un contacto.
+ *
+ * IMPORTANTE: solo afecta filas con origen='manual'. Las direcciones con origen='sync_perfil'
+ * (sincronizadas del perfil del miembro vinculado) NO se tocan — se administran desde
+ * la sección Usuarios. Si el cliente manda items que coinciden por calle+ciudad con la
+ * dirección sincronizada, se ignoran para evitar duplicados.
  */
 export async function PUT(
   request: NextRequest,
@@ -18,7 +22,6 @@ export async function PUT(
 
     const admin = crearClienteAdmin()
 
-    // Verificar que el contacto pertenece a la empresa
     const { data: contacto } = await admin
       .from('contactos')
       .select('id')
@@ -30,28 +33,50 @@ export async function PUT(
 
     const { direcciones } = await request.json()
 
-    // Borrar todas las direcciones actuales
-    await admin.from('contacto_direcciones').delete().eq('contacto_id', id)
+    // Detectar si hay una dirección sincronizada del perfil para no duplicar
+    const { data: filasSync } = await admin
+      .from('contacto_direcciones')
+      .select('calle, ciudad')
+      .eq('contacto_id', id)
+      .eq('origen', 'sync_perfil')
+    const claveSync = new Set((filasSync || []).map(d => `${(d.calle || '').toLowerCase()}|${(d.ciudad || '').toLowerCase()}`))
 
-    // Insertar las nuevas (si hay)
+    // Borrar solo las manuales
+    await admin
+      .from('contacto_direcciones')
+      .delete()
+      .eq('contacto_id', id)
+      .eq('origen', 'manual')
+
     if (direcciones?.length) {
-      const filas = direcciones.map((d: Record<string, unknown>, i: number) => ({
-        contacto_id: id,
-        tipo: d.tipo || 'principal',
-        calle: d.calle || null,
-        barrio: d.barrio || null,
-        ciudad: d.ciudad || null,
-        provincia: d.provincia || null,
-        codigo_postal: d.codigo_postal || null,
-        pais: d.pais || null,
-        piso: d.piso || null,
-        departamento: d.departamento || null,
-        lat: d.lat || null,
-        lng: d.lng || null,
-        texto: d.texto || null,
-        es_principal: i === 0,
-      }))
-      await admin.from('contacto_direcciones').insert(filas)
+      const filas = (direcciones as Record<string, unknown>[])
+        // Filtrar items que coincidan por calle+ciudad con una dirección sincronizada
+        .filter(d => {
+          const clave = `${String(d.calle || '').toLowerCase()}|${String(d.ciudad || '').toLowerCase()}`
+          return !claveSync.has(clave)
+        })
+        .map((d, i) => ({
+          contacto_id: id,
+          tipo: d.tipo || 'principal',
+          calle: d.calle || null,
+          barrio: d.barrio || null,
+          ciudad: d.ciudad || null,
+          provincia: d.provincia || null,
+          codigo_postal: d.codigo_postal || null,
+          pais: d.pais || null,
+          piso: d.piso || null,
+          departamento: d.departamento || null,
+          lat: d.lat || null,
+          lng: d.lng || null,
+          texto: d.texto || null,
+          // La primera dirección manual se marca como principal solo si NO hay sync.
+          es_principal: i === 0 && (filasSync || []).length === 0,
+          origen: 'manual',
+        }))
+
+      if (filas.length > 0) {
+        await admin.from('contacto_direcciones').insert(filas)
+      }
     }
 
     return NextResponse.json({ ok: true })

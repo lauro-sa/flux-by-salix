@@ -388,6 +388,9 @@ export const contactos = pgTable('contactos', {
   // Vínculo con usuario (tipo 'equipo' se sincroniza con miembro)
   miembro_id: uuid('miembro_id').references(() => miembros.id, { onDelete: 'set null' }),
 
+  // Datos personales (sincronizados desde el perfil del miembro vinculado vía trigger)
+  fecha_nacimiento: date('fecha_nacimiento'),
+
   // Auditoría
   creado_por: uuid('creado_por').notNull(),
   editado_por: uuid('editado_por'),
@@ -440,6 +443,9 @@ export const contacto_direcciones = pgTable('contacto_direcciones', {
   lng: doublePrecision('lng'),
   texto: text('texto'), // dirección completa formateada
   es_principal: boolean('es_principal').notNull().default(false),
+  // Procedencia: 'manual' (cargada desde la ficha) | 'sync_perfil' (administrada por
+  // el trigger sync_perfil_a_contactos cuando el contacto está vinculado a un miembro).
+  origen: text('origen').notNull().default('manual'),
   // Contadores de visitas (actualizados al completar/cancelar visitas)
   total_visitas: integer('total_visitas').notNull().default(0),
   ultima_visita: timestamp('ultima_visita', { withTimezone: true }),
