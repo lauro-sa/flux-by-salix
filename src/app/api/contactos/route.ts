@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
         direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
-        telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden),
+        telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp))
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
@@ -749,7 +749,7 @@ export async function POST(request: NextRequest) {
         .select(`
           *,
           tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
-          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden)
+          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen)
         `)
         .eq('id', contacto.id)
         .single()

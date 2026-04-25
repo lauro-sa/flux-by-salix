@@ -43,6 +43,9 @@ export interface TelefonoNormalizado {
   es_principal: boolean
   etiqueta: string | null
   orden: number
+  /** Procedencia. 'manual' por default. Las filas sync_* vienen del trigger
+   *  sync_perfil_a_contactos y son read-only en la UI. */
+  origen?: 'manual' | 'sync_perfil_personal' | 'sync_perfil_empresa'
 }
 
 /**
@@ -81,6 +84,7 @@ export function normalizarListaTelefonos(entrada: TelefonoEntrada[] | undefined 
         es_principal: !!t.es_principal,
         etiqueta: t.etiqueta?.trim() || null,
         orden: typeof t.orden === 'number' ? t.orden : ordenAuto++,
+        // origen no se setea acá: el endpoint que persiste decide ('manual' por default).
       })
     }
   }

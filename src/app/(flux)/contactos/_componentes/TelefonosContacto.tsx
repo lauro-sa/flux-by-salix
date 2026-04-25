@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useState, useId } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Star, X, Phone, Briefcase, Home as HomeIcon } from 'lucide-react'
+import { Plus, Star, X, Phone, Briefcase, Home as HomeIcon, Lock } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -53,12 +53,18 @@ interface TelefonoUI {
   es_principal: boolean
   etiqueta: string | null
   orden: number
+  /** Procedencia. Si es 'sync_perfil_*' la fila viene del perfil del miembro
+   *  vinculado y se muestra read-only con candado. */
+  origen?: 'manual' | 'sync_perfil_personal' | 'sync_perfil_empresa'
 }
 
 interface Props {
   telefonos: TelefonoNormalizado[]
   onChange: (telefonos: TelefonoNormalizado[]) => void
   permitirVacio?: boolean
+  /** Si el contacto está vinculado a un miembro, pasamos su nombre para mostrar
+   *  un link "Editar en Usuarios → [Nombre]" arriba de las filas sincronizadas. */
+  miembroVinculado?: { nombre: string } | null
 }
 
 /** Ícono que representa el tipo. Móvil siempre se muestra como WhatsApp. */
@@ -91,7 +97,7 @@ function guardarUltimoTipo(tipo: string) {
   }
 }
 
-export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props) {
+export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroVinculado }: Props) {
   const reactId = useId()
   const [items, setItems] = useState<TelefonoUI[]>(() =>
     telefonos.map((t, i) => ({
@@ -101,6 +107,7 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
       es_principal: t.es_principal,
       etiqueta: t.etiqueta,
       orden: t.orden,
+      origen: t.origen,
     }))
   )
 
@@ -128,6 +135,7 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
         es_principal: t.es_principal,
         etiqueta: t.etiqueta,
         orden: t.orden,
+        origen: t.origen,
       }))
       // Conservar items locales sin valor (formularios pendientes de input del usuario).
       const localesVacios = items.filter(t => t.valor.trim() === '')
@@ -155,6 +163,7 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
         es_principal: esPrincipal,
         etiqueta: t.etiqueta,
         orden: t.orden,
+        origen: t.origen,
       })
     }
     if (normalizados.length > 0 && !principalEncontrado) {
@@ -246,7 +255,14 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
 
       {/* Lista de teléfonos */}
       <AnimatePresence initial={false}>
-        {items.map((t) => (
+        {items.map((t) => {
+          // Filas con origen='sync_*' vienen del perfil del miembro vinculado y son read-only.
+          const esSincronizado = t.origen === 'sync_perfil_personal' || t.origen === 'sync_perfil_empresa'
+          const tituloSync = t.origen === 'sync_perfil_empresa'
+            ? `Sincronizado del teléfono de empresa de ${miembroVinculado?.nombre || 'este miembro'}`
+            : `Sincronizado del teléfono personal de ${miembroVinculado?.nombre || 'este miembro'}`
+
+          return (
           <motion.div
             key={t.id}
             initial={{ opacity: 0, height: 0 }}
@@ -256,48 +272,54 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
             className="overflow-hidden"
           >
             <div className="flex items-center gap-2 group">
-              {/* Ícono del tipo (decorativo, refleja el tipo seleccionado abajo) */}
-              <div className={`shrink-0 inline-flex items-center justify-center w-7 h-7 ${colorIconoTipo(t.tipo)}`}>
+              {/* Ícono del tipo (decorativo, refleja el tipo seleccionado abajo).
+                  Para filas sync, mostramos un candado al lado para indicar read-only. */}
+              <div className={`shrink-0 inline-flex items-center justify-center w-7 h-7 ${colorIconoTipo(t.tipo)} ${esSincronizado ? 'opacity-70' : ''}`}>
                 {iconoParaTipo(t.tipo)}
               </div>
 
               {/* Input del número.
                   - Enfocado: muestra el valor raw (5491156029403) para editar.
                   - No enfocado: muestra el formato internacional (+54 9 11 5602-9403).
-                  - Autofocus cuando es el item recién agregado. */}
+                  - Autofocus cuando es el item recién agregado.
+                  - Si es sincronizado: read-only con tooltip que explica de dónde viene. */}
               <div className="flex-1 min-w-0">
                 <Input
                   variante="plano"
                   tipo="tel"
                   formato="telefono"
-                  autoFocus={t.id === autofocusId}
+                  readOnly={esSincronizado}
+                  title={esSincronizado ? tituloSync : undefined}
+                  autoFocus={!esSincronizado && t.id === autofocusId}
                   value={t.id === itemEnfocadoId ? t.valor : (formatearTelefonoInternacional(t.valor) || t.valor)}
                   onFocus={() => {
+                    if (esSincronizado) return
                     setItemEnfocadoId(t.id)
                     if (t.id === autofocusId) setAutofocusId(null)
                   }}
-                  onChange={(e) => cambiarValor(t.id, e.target.value)}
+                  onChange={(e) => { if (!esSincronizado) cambiarValor(t.id, e.target.value) }}
                   onBlur={() => {
+                    if (esSincronizado) return
                     setItemEnfocadoId(null)
                     blurValor(t.id)
                   }}
                   placeholder="Número"
+                  className={esSincronizado ? 'cursor-not-allowed opacity-90' : ''}
                 />
               </div>
 
-              {/* Selector de tipo (movil/fijo/trabajo/casa/otro).
-                  Móvil → asume WhatsApp. Fijo y demás → sin WhatsApp. */}
-              <div className="w-28 shrink-0">
+              {/* Selector de tipo (movil/fijo/trabajo/casa/otro). Read-only si sincronizado. */}
+              <div className={`w-28 shrink-0 ${esSincronizado ? 'pointer-events-none opacity-70' : ''}`}>
                 <Select
                   variante="plano"
                   opciones={TIPOS_OPCIONES}
                   valor={t.tipo}
-                  onChange={(v) => cambiarTipo(t.id, v)}
+                  onChange={(v) => { if (!esSincronizado) cambiarTipo(t.id, v) }}
                   placeholder="Tipo"
                 />
               </div>
 
-              {/* Marca principal */}
+              {/* Marca principal — disponible siempre, también para sync */}
               <button
                 onClick={() => marcarPrincipal(t.id)}
                 className={`shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
@@ -310,17 +332,27 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio }: Props)
                 <Star size={13} fill={t.es_principal ? 'currentColor' : 'none'} />
               </button>
 
-              {/* Eliminar */}
-              <button
-                onClick={() => eliminar(t.id)}
-                className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-white/[0.04] transition-colors opacity-0 group-hover:opacity-100"
-                title="Eliminar teléfono"
-              >
-                <X size={13} />
-              </button>
+              {/* Indicador candado para sync, o botón eliminar para manual */}
+              {esSincronizado ? (
+                <div
+                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 text-texto-terciario opacity-60"
+                  title={tituloSync}
+                >
+                  <Lock size={11} />
+                </div>
+              ) : (
+                <button
+                  onClick={() => eliminar(t.id)}
+                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-white/[0.04] transition-colors opacity-0 group-hover:opacity-100"
+                  title="Eliminar teléfono"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
           </motion.div>
-        ))}
+          )
+        })}
       </AnimatePresence>
     </div>
   )

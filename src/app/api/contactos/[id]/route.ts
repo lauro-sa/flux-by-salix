@@ -50,7 +50,7 @@ export async function GET(
       admin.from('contacto_responsables').select('*').eq('contacto_id', id),
       admin.from('contacto_seguidores').select('*').eq('contacto_id', id),
       admin.from('contacto_telefonos')
-        .select('id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, creado_en, actualizado_en')
+        .select('id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen, creado_en, actualizado_en')
         .eq('contacto_id', id)
         .order('es_principal', { ascending: false })
         .order('orden', { ascending: true })
@@ -167,6 +167,27 @@ export async function PATCH(
     }
     const admin = crearClienteAdmin()
 
+    // Detectar si el contacto está vinculado a un miembro: nombre/apellido/correo y los
+    // teléfonos sincronizados (origen='sync_perfil_*') NO se editan desde acá — se manejan
+    // exclusivamente desde "Usuarios". Esto evita que cualquiera con permiso de editar
+    // contactos modifique datos personales de los miembros de la empresa.
+    const { data: contactoMeta } = await admin
+      .from('contactos')
+      .select('miembro_id')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+    const esContactoMiembro = !!contactoMeta?.miembro_id
+    if (esContactoMiembro) {
+      const camposBloqueados = ['nombre', 'apellido', 'correo']
+        .filter(c => c in campos)
+      if (camposBloqueados.length > 0) {
+        return NextResponse.json({
+          error: `Los campos ${camposBloqueados.join(', ')} de un contacto vinculado a un miembro se editan desde la sección Usuarios.`,
+        }, { status: 403 })
+      }
+    }
+
     // Campos editables. NOTA: 'telefono' y 'whatsapp' NO están aquí — se gestionan
     // exclusivamente vía la lista `telefonos` (ver más abajo). El trigger SQL
     // sync_contacto_principal_telefonos mantiene contactos.telefono/whatsapp
@@ -267,29 +288,46 @@ export async function PATCH(
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     }
 
-    // Reemplazo completo de la lista de teléfonos (si vino `telefonos` array).
-    // Snapshot pre-delete para rollback en caso de fallo del INSERT posterior.
+    // Reemplazo de la lista de teléfonos (si vino `telefonos` array).
+    // IMPORTANTE: solo reemplaza las filas con origen='manual'. Las filas con
+    // origen='sync_perfil_*' son administradas por el trigger desde perfiles y
+    // NO se tocan desde acá. Si el cliente manda items que coinciden por valor
+    // con una sync existente, los ignoramos (la sync ya cubre).
     if (reemplazarTelefonos) {
-      const { data: snapshot } = await admin
+      const { data: snapshotManuales } = await admin
         .from('contacto_telefonos')
         .select('*')
         .eq('contacto_id', id)
         .eq('empresa_id', empresaId)
+        .eq('origen', 'manual')
 
+      const { data: filasSync } = await admin
+        .from('contacto_telefonos')
+        .select('valor')
+        .eq('contacto_id', id)
+        .eq('empresa_id', empresaId)
+        .neq('origen', 'manual')
+      const valoresSync = new Set((filasSync || []).map(f => f.valor))
+
+      // Borrar solo las manuales
       const { error: delError } = await admin
         .from('contacto_telefonos')
         .delete()
         .eq('contacto_id', id)
         .eq('empresa_id', empresaId)
+        .eq('origen', 'manual')
 
       if (delError) {
-        console.error('Error al borrar teléfonos previos:', delError)
+        console.error('Error al borrar teléfonos manuales previos:', delError)
         return NextResponse.json({ error: 'Error al actualizar teléfonos' }, { status: 500 })
       }
 
-      if (telefonosNorm.length > 0) {
+      // Filtrar items que coincidan por valor con una fila sync (no duplicar)
+      const telefonosAInsertar = telefonosNorm.filter(t => !valoresSync.has(t.valor))
+
+      if (telefonosAInsertar.length > 0) {
         const { error: insError } = await admin.from('contacto_telefonos').insert(
-          telefonosNorm.map(t => ({
+          telefonosAInsertar.map(t => ({
             empresa_id: empresaId,
             contacto_id: id,
             tipo: t.tipo,
@@ -298,14 +336,15 @@ export async function PATCH(
             es_principal: t.es_principal,
             etiqueta: t.etiqueta,
             orden: t.orden,
+            origen: 'manual',
             creado_por: user.id,
             editado_por: user.id,
           }))
         )
         if (insError) {
-          // Rollback: re-insertar el snapshot preservando los IDs originales
-          if (snapshot && snapshot.length > 0) {
-            await admin.from('contacto_telefonos').insert(snapshot)
+          // Rollback: re-insertar el snapshot de manuales preservando los IDs originales
+          if (snapshotManuales && snapshotManuales.length > 0) {
+            await admin.from('contacto_telefonos').insert(snapshotManuales)
           }
           console.error('Error al insertar teléfonos nuevos:', insError)
           return NextResponse.json({ error: 'Error al actualizar teléfonos' }, { status: 500 })
@@ -319,7 +358,7 @@ export async function PATCH(
         .select(`
           *,
           tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
-          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden)
+          telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen)
         `)
         .eq('id', id)
         .eq('empresa_id', empresaId)

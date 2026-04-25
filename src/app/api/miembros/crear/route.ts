@@ -147,18 +147,44 @@ export async function POST(request: NextRequest) {
       usuarioId: user.id,
     })
 
-    // Completar datos del contacto recién creado (teléfono, fecha_nacimiento,
-    // documento) para que el registro del empleado los herede al perfil.
-    if (telefono || fecha_nacimiento || documento_numero) {
+    // Completar datos del contacto recién creado.
+    // - fecha_nacimiento / documento_numero: directo en `contactos` (no son sincronizados por trigger).
+    // - telefono: se inserta en `contacto_telefonos` con origen='manual'. Cuando el empleado se
+    //   registre y cree su perfil, el trigger sync_perfil_a_contactos verá la fila manual ya
+    //   existente con ese valor y NO duplicará la sync.
+    if (fecha_nacimiento || documento_numero) {
       await admin
         .from('contactos')
         .update({
-          telefono: normalizarTelefono(telefono) ?? null,
           fecha_nacimiento: fecha_nacimiento ?? null,
           documento_numero: documento_numero ?? null,
         })
         .eq('miembro_id', nuevoMiembro.id)
         .eq('empresa_id', empresaId)
+    }
+    if (telefono) {
+      const telNorm = normalizarTelefono(telefono)
+      if (telNorm) {
+        const { data: contactoEq } = await admin
+          .from('contactos')
+          .select('id')
+          .eq('miembro_id', nuevoMiembro.id)
+          .eq('empresa_id', empresaId)
+          .maybeSingle()
+        if (contactoEq) {
+          await admin.from('contacto_telefonos').insert({
+            empresa_id: empresaId,
+            contacto_id: contactoEq.id,
+            tipo: 'movil',
+            valor: telNorm,
+            es_whatsapp: true,
+            es_principal: true,
+            orden: 0,
+            origen: 'manual',
+            creado_por: user.id,
+          })
+        }
+      }
     }
 
     return NextResponse.json({

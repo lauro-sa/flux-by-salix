@@ -123,6 +123,10 @@ function PaginaContactoInterno() {
   // Lista de teléfonos del contacto (modelo nuevo). Se sincroniza con el backend en cada cambio
   // (ver guardarTelefonos más abajo).
   const [telefonos, setTelefonos] = useState<TelefonoNormalizado[]>([])
+  // miembro_id del contacto si está vinculado a un miembro de la empresa.
+  // Cuando es != null, los campos sincronizados (nombre/apellido/correo/teléfonos sync)
+  // están bloqueados y se editan desde la sección Usuarios.
+  const [miembroIdVinculado, setMiembroIdVinculado] = useState<string | null>(null)
   const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
   const [tiposRelacion, setTiposRelacion] = useState<TipoRelacion[]>([])
   const [puestosVinculacion, setPuestosVinculacion] = useState<{ id: string; etiqueta: string }[]>([])
@@ -240,6 +244,7 @@ function PaginaContactoInterno() {
         setMigajaDinamica(pathname, nc || data.codigo || 'Detalle')
         setCodigo(data.codigo || '')
         setEsProvisorio(data.es_provisorio || false)
+        setMiembroIdVinculado(data.miembro_id || null)
         setTipoContactoId(data.tipo_contacto_id || '')
         setAvatarUrl(data.avatar_url || null)
         setDatosFiscales(data.datos_fiscales || {})
@@ -866,18 +871,32 @@ function PaginaContactoInterno() {
             </div>
           )}
 
-          {/* Nombre completo */}
+          {/* Nombre completo. Si el contacto está vinculado a un miembro, el nombre
+              se edita desde la sección Usuarios y acá queda read-only. */}
           <div className="pl-1">
             <Input
               variante="plano"
               value={nombreCompleto}
-              onChange={e => setNombreCompleto(e.target.value)}
-              onBlur={onBlurNombre}
+              onChange={e => { if (!miembroIdVinculado) setNombreCompleto(e.target.value) }}
+              onBlur={() => { if (!miembroIdVinculado) onBlurNombre() }}
+              readOnly={!!miembroIdVinculado}
               placeholder={t('contactos.nombre_completo')}
               autoFocus={esNuevo}
               formato={esPersona ? 'nombre_persona' : 'nombre_empresa'}
-              className="[&_input]:text-2xl [&_input]:font-bold"
+              className={`[&_input]:text-2xl [&_input]:font-bold ${miembroIdVinculado ? '[&_input]:cursor-not-allowed' : ''}`}
+              title={miembroIdVinculado ? 'El nombre se edita desde la sección Usuarios' : undefined}
             />
+            {miembroIdVinculado && (
+              <p className="text-[11px] text-texto-terciario mt-1 pl-0">
+                Datos sincronizados con la cuenta del usuario.{' '}
+                <a
+                  href={`/configuracion/usuarios/${miembroIdVinculado}`}
+                  className="text-texto-marca hover:underline"
+                >
+                  Editar en Usuarios →
+                </a>
+              </p>
+            )}
           </div>
 
           {/* Contacto directo + puesto/etiquetas en 2 columnas (60/40) */}
@@ -886,11 +905,19 @@ function PaginaContactoInterno() {
             <div className="flex-[3] min-w-0 space-y-2">
               <Input variante="plano" tipo="email" icono={<Mail size={16} />}
                 value={campos.correo || ''}
-                onChange={e => { setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
-                onBlur={() => onBlurCampo('correo')} placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
+                onChange={e => { if (miembroIdVinculado) return; setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
+                onBlur={() => { if (!miembroIdVinculado) onBlurCampo('correo') }}
+                readOnly={!!miembroIdVinculado}
+                title={miembroIdVinculado ? 'El correo se edita desde la sección Usuarios' : undefined}
+                placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
 
-              {/* Lista de teléfonos: N por contacto, cada uno con tipo + chip WhatsApp + principal */}
-              <TelefonosContacto telefonos={telefonos} onChange={guardarTelefonos} />
+              {/* Lista de teléfonos: N por contacto, cada uno con tipo + flag WhatsApp + principal.
+                  Las filas con origen='sync_*' se muestran con candado y no se pueden editar. */}
+              <TelefonosContacto
+                telefonos={telefonos}
+                onChange={guardarTelefonos}
+                miembroVinculado={miembroIdVinculado ? { nombre: nombreCompleto } : null}
+              />
 
               {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
                 <Input variante="plano" tipo="url" icono={<Globe size={16} />}

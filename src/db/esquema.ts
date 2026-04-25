@@ -467,6 +467,11 @@ export const contacto_telefonos = pgTable('contacto_telefonos', {
   es_principal: boolean('es_principal').notNull().default(false),
   etiqueta: text('etiqueta'),
   orden: integer('orden').notNull().default(0),
+  // Procedencia: 'manual' (cargado desde la ficha) | 'sync_perfil_personal' |
+  // 'sync_perfil_empresa' (administrado por el trigger sync_perfil_a_contactos
+  // cuando el contacto está vinculado a un miembro). Las filas sync_* NO se
+  // pueden editar desde el endpoint de contactos.
+  origen: text('origen').notNull().default('manual'),
   // Auditoría estándar
   creado_por: uuid('creado_por'),
   editado_por: uuid('editado_por'),
@@ -686,11 +691,56 @@ export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
   porcentaje: numeric('porcentaje').notNull(),
   monto: numeric('monto').notNull().default('0'),
   dias_desde_emision: integer('dias_desde_emision').default(0),
-  estado: text('estado').notNull().default('pendiente'), // pendiente, cobrada
+  // Estado derivado automáticamente desde presupuesto_pagos por trigger:
+  // pendiente | parcial | cobrada
+  estado: text('estado').notNull().default('pendiente'),
   fecha_cobro: timestamp('fecha_cobro', { withTimezone: true }),
   cobrado_por_nombre: text('cobrado_por_nombre'),
 }, (tabla) => [
   index('presupuesto_cuotas_presupuesto_idx').on(tabla.presupuesto_id),
+])
+
+// Pagos reales recibidos contra un presupuesto. Múltiples pagos por cuota
+// (parciales) y pagos "a cuenta" sin cuota asignada son válidos.
+export const presupuesto_pagos = pgTable('presupuesto_pagos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
+  cuota_id: uuid('cuota_id').references(() => presupuesto_cuotas.id, { onDelete: 'set null' }),
+
+  monto: numeric('monto').notNull(),
+  moneda: text('moneda').notNull().default('ARS'),
+  cotizacion_cambio: numeric('cotizacion_cambio').notNull().default('1'),
+  // monto * cotizacion_cambio. Persistido para sumas rápidas.
+  monto_en_moneda_presupuesto: numeric('monto_en_moneda_presupuesto').notNull(),
+
+  fecha_pago: timestamp('fecha_pago', { withTimezone: true }).notNull().defaultNow(),
+  metodo: text('metodo').notNull().default('transferencia'),
+  referencia: text('referencia'),
+  descripcion: text('descripcion'),
+
+  // Comprobante adjunto
+  comprobante_url: text('comprobante_url'),
+  comprobante_storage_path: text('comprobante_storage_path'),
+  comprobante_nombre: text('comprobante_nombre'),
+  comprobante_tipo: text('comprobante_tipo'),
+  comprobante_tamano_bytes: bigint('comprobante_tamano_bytes', { mode: 'number' }),
+
+  // Origen opcional: vinculación con un mensaje del chatter/inbox
+  mensaje_origen_id: uuid('mensaje_origen_id'),
+  chatter_origen_id: uuid('chatter_origen_id'),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
+}, (tabla) => [
+  index('presupuesto_pagos_presupuesto_idx').on(tabla.presupuesto_id),
+  index('presupuesto_pagos_cuota_idx').on(tabla.cuota_id),
+  index('presupuesto_pagos_empresa_fecha_idx').on(tabla.empresa_id, tabla.fecha_pago),
 ])
 
 // Configuración de presupuestos por empresa (JSONB flexible)
