@@ -44,6 +44,25 @@ export async function GET(
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     }
 
+    // Restricción: contactos vinculados a miembros (datos personales del equipo) solo
+    // visibles para quien tiene 'usuarios.ver'. Excepción: tu propio contacto vinculado.
+    // Devolvemos 404 (no 403) para no filtrar la existencia del recurso.
+    if (contacto.miembro_id) {
+      const { permitido: puedeVerUsuarios } = await obtenerYVerificarPermiso(user.id, empresaId, 'usuarios', 'ver')
+      if (!puedeVerUsuarios) {
+        const { data: miMiembro } = await admin
+          .from('miembros')
+          .select('id')
+          .eq('usuario_id', user.id)
+          .eq('empresa_id', empresaId)
+          .eq('activo', true)
+          .maybeSingle()
+        if (miMiembro?.id !== contacto.miembro_id) {
+          return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+        }
+      }
+    }
+
     // Direcciones, responsables, seguidores y teléfonos en queries separadas (más confiable)
     const [dirsRes, respRes, segRes, telRes] = await Promise.all([
       admin.from('contacto_direcciones').select('*').eq('contacto_id', id),

@@ -25,6 +25,24 @@ export async function GET(request: NextRequest) {
     if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver contactos' }, { status: 403 })
     const soloPropio = visibilidad.soloPropio
 
+    // Visibilidad de contactos vinculados a miembros (datos personales del equipo).
+    // Solo visible si el caller tiene permiso 'usuarios.ver'. Excepción: tu propio
+    // contacto vinculado siempre es visible aunque no tengas el permiso.
+    // (El cliente admin se crea acá porque lo necesitamos también para esta query.)
+    const adminTmp = crearClienteAdmin()
+    const { permitido: puedeVerUsuarios } = await obtenerYVerificarPermiso(user.id, empresaId, 'usuarios', 'ver')
+    let miMiembroIdParaVisibilidad: string | null = null
+    if (!puedeVerUsuarios) {
+      const { data: miMiembro } = await adminTmp
+        .from('miembros')
+        .select('id')
+        .eq('usuario_id', user.id)
+        .eq('empresa_id', empresaId)
+        .eq('activo', true)
+        .maybeSingle()
+      miMiembroIdParaVisibilidad = miMiembro?.id || null
+    }
+
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const tipo = params.get('tipo') // clave del tipo de contacto
@@ -100,6 +118,16 @@ export async function GET(request: NextRequest) {
         query = query.or(`creado_por.eq.${user.id},id.in.(${idsResponsable.join(',')})`)
       } else {
         query = query.eq('creado_por', user.id)
+      }
+    }
+
+    // Restringir contactos vinculados a miembros si no tiene permiso 'usuarios.ver'.
+    // Excepción: tu propio contacto vinculado siempre visible.
+    if (!puedeVerUsuarios) {
+      if (miMiembroIdParaVisibilidad) {
+        query = query.or(`miembro_id.is.null,miembro_id.eq.${miMiembroIdParaVisibilidad}`)
+      } else {
+        query = query.is('miembro_id', null)
       }
     }
 
