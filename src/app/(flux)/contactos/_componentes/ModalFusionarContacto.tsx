@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, AlertTriangle, Users, Check, Phone, Mail } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -223,12 +224,12 @@ export function ModalFusionarContacto({
                         )}
                         {c.telefono && (
                           <span className="flex items-center gap-1 text-xs text-texto-terciario">
-                            <Phone size={11} /> {c.telefono}
+                            <Phone size={11} /> <TextoTelefono valor={c.telefono} />
                           </span>
                         )}
                         {c.whatsapp && (
                           <span className="flex items-center gap-1 text-xs text-texto-terciario">
-                            <IconoWhatsApp size={11} /> {c.whatsapp}
+                            <IconoWhatsApp size={11} /> <TextoTelefono valor={c.whatsapp} />
                           </span>
                         )}
                         {c.cargo && <span className="text-xs text-texto-terciario">{c.cargo}</span>}

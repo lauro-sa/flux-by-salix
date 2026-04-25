@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import {
   X, Phone, Mail, Hash, MapPin, Building2, Briefcase,
@@ -776,9 +777,9 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
           >
             <div className="space-y-2">
               {contacto?.correo && <DatoContacto icono={<Mail size={12} />} valor={contacto.correo} />}
-              {contacto?.telefono && <DatoContacto icono={<Phone size={12} />} valor={contacto.telefono} />}
+              {contacto?.telefono && <DatoContacto icono={<Phone size={12} />} valor={formatearParaMostrar(contacto.telefono)} />}
               {contacto?.whatsapp && contacto.whatsapp !== contacto.telefono && (
-                <DatoContacto icono={<IconoWhatsApp size={12} />} valor={contacto.whatsapp} />
+                <DatoContacto icono={<IconoWhatsApp size={12} />} valor={formatearParaMostrar(contacto.whatsapp)} />
               )}
               {contacto?.rubro && <DatoContacto icono={<Building2 size={12} />} valor={contacto.rubro} />}
               {contacto?.cargo && <DatoContacto icono={<Briefcase size={12} />} valor={contacto.cargo} />}

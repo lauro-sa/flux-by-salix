@@ -13,6 +13,7 @@ import { X, Send, Loader2, ArrowUpRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useFormato } from '@/hooks/useFormato'
 import { Boton } from '@/componentes/ui/Boton'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { SelectorEtapa } from './SelectorEtapa'
 import type { ConversacionConDetalles, MensajeConAdjuntos, TipoCanal } from '@/tipos/inbox'
 
@@ -168,7 +169,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm text-texto-primario truncate">{nombreContacto}</div>
                 <div className="text-xs text-texto-terciario truncate">
-                  {conversacion.identificador_externo || conversacion.contacto?.telefono || ''}
+                  <TextoTelefono valor={conversacion.identificador_externo || conversacion.contacto?.telefono} />
                 </div>
               </div>
 

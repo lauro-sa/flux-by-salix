@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mail, Phone, ExternalLink, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
 import { useTraduccion } from '@/lib/i18n'
 import type { ContactoResumido, Vinculacion } from './tipos-editor'
@@ -221,7 +222,7 @@ function DirigidoACrear({
               {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
                 <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                   <Phone size={13} className="shrink-0" />
-                  {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
+                  <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
                   <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
                 </p>
               )}
@@ -295,7 +296,7 @@ function DirigidoAEditarExistente({
             {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Phone size={13} className="shrink-0" />
-                {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
+                <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
                 <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
               </p>
             )}

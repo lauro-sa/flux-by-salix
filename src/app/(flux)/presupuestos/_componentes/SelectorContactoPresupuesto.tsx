@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
@@ -405,7 +406,7 @@ export default function SelectorContactoPresupuesto({
                             {c.codigo && (c.correo || c.telefono) && ' · '}
                             {c.correo}
                             {c.correo && c.telefono && ' · '}
-                            {c.telefono}
+                            {formatearParaMostrar(c.telefono)}
                           </span>
                           {!c.correo && (
                             <span className="text-xs text-insignia-advertencia ml-1">Sin correo</span>

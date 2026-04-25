@@ -21,6 +21,7 @@ import {
   Trash2, X, FileDown, KanbanSquare, History,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { ModalImportar } from './ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
@@ -529,11 +530,11 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
     },
     {
       clave: 'telefono', etiqueta: t('contactos.telefono'), ancho: 150, grupo: t('comun.contacto'), icono: <Phone size={I} />,
-      render: (fila) => fila.telefono ? <span className="text-texto-secundario">{fila.telefono}</span> : null,
+      render: (fila) => <TextoTelefono valor={fila.telefono} className="text-texto-secundario" />,
     },
     {
       clave: 'whatsapp', etiqueta: t('contactos.whatsapp'), ancho: 150, grupo: t('comun.contacto'), icono: <IconoWhatsApp size={I} />,
-      render: (fila) => fila.whatsapp ? <span className="text-texto-secundario">{fila.whatsapp}</span> : null,
+      render: (fila) => <TextoTelefono valor={fila.whatsapp} className="text-texto-secundario" />,
     },
     {
       clave: 'ubicacion', etiqueta: t('contactos.direccion'), ancho: 200, grupo: t('comun.contacto'), icono: <MapPin size={I} />,
@@ -757,7 +758,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
             {(fila.telefono || fila.whatsapp) && (
               <span className="flex items-center gap-1">
                 <Phone size={10} className="shrink-0" />
-                {fila.telefono || fila.whatsapp}
+                <TextoTelefono valor={fila.telefono || fila.whatsapp} />
               </span>
             )}
             {ubicacion && (

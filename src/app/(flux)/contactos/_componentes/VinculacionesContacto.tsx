@@ -17,6 +17,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { normalizarTelefono } from '@/lib/validaciones'
 import { normalizarListaTelefonos } from '@/lib/contacto-telefonos'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
@@ -1556,7 +1557,7 @@ function TarjetaVinculo({
               {vinculo.telefono && (
                 <span className="flex items-center gap-1 text-xs text-texto-terciario min-w-0">
                   <Phone size={11} className="shrink-0" />
-                  <span className="truncate">{vinculo.telefono}</span>
+                  <TextoTelefono valor={vinculo.telefono} className="truncate" />
                 </span>
               )}
               {vinculo.correo && (

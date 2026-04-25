@@ -7,6 +7,7 @@
 
 import { Phone, Mail } from 'lucide-react'
 import type { DatosEmpresa } from './tipos-editor'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 
 interface PropsSeccionEmisor {
   datosEmpresa: DatosEmpresa | null
@@ -35,7 +36,7 @@ export default function SeccionEmisor({ datosEmpresa, nombreEmpresa }: PropsSecc
             {datosEmpresa?.telefono && (
               <span className="text-xs text-texto-secundario flex items-center gap-1">
                 <Phone size={11} className="text-texto-terciario" />
-                {datosEmpresa.telefono}
+                <TextoTelefono valor={datosEmpresa.telefono} />
               </span>
             )}
             {datosEmpresa?.correo && (

@@ -10,6 +10,7 @@ import {
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { useTema } from '@/hooks/useTema'
 import type { ConversacionConDetalles } from '@/tipos/inbox'
 
@@ -385,7 +386,7 @@ function MenuConversacion({
         onCerrar={() => setModalBloquear(false)}
         onConfirmar={confirmarBloquear}
         titulo="Bloquear número"
-        descripcion={`Se bloqueará el número ${conversacion.identificador_externo || ''}. No se recibirán más mensajes de este contacto.`}
+        descripcion={`Se bloqueará el número ${formatearParaMostrar(conversacion.identificador_externo) || ''}. No se recibirán más mensajes de este contacto.`}
         tipo="peligro"
         etiquetaConfirmar="Bloquear"
       />

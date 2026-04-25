@@ -17,6 +17,7 @@ import {
   Phone, Mail, MapPin,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -220,12 +221,12 @@ export function ModalAceptarProvisorio({
               )}
               {contacto.telefono && (
                 <span className="flex items-center gap-1 text-xs text-texto-terciario">
-                  <Phone size={11} /> {contacto.telefono}
+                  <Phone size={11} /> <TextoTelefono valor={contacto.telefono} />
                 </span>
               )}
               {contacto.whatsapp && (
                 <span className="flex items-center gap-1 text-xs text-texto-terciario">
-                  <IconoWhatsApp size={11} /> {contacto.whatsapp}
+                  <IconoWhatsApp size={11} /> <TextoTelefono valor={contacto.whatsapp} />
                 </span>
               )}
               {contacto.cargo && (

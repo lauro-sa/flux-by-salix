@@ -15,6 +15,7 @@ import {
   MoreVertical, Pin, BellOff, Plus,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { MenuConversacion } from './MenuConversacion'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
@@ -197,9 +198,9 @@ export function ListaConversaciones({
   ]
 
   return (
-    <div className="flex flex-col h-full" style={{ borderRight: '1px solid var(--borde-sutil)' }}>
+    <div className="flex flex-col h-full min-w-0 overflow-hidden md:border-r md:border-borde-sutil">
       {/* Header con búsqueda */}
-      <div className="p-3 space-y-2" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+      <div className="p-3 px-4 space-y-2" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
         {/* Barra de selección masiva */}
         {modoSeleccion ? (
           <div className="flex items-center justify-between">
@@ -429,7 +430,7 @@ export function ListaConversaciones({
 
       {/* Lista de conversaciones */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto scrollbar-auto-oculto"
         style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch' }}
         {...(onRefresh ? pullHandlers : {})}
       >
@@ -489,14 +490,14 @@ export function ListaConversaciones({
                   e.preventDefault()
                   setMenuConv({ conv, pos: { x: e.clientX, y: e.clientY } })
                 }}
-                className="w-full text-left px-3 py-3 transition-colors group cursor-pointer"
+                className="w-full text-left px-4 py-3 transition-colors group cursor-pointer"
                 style={{
                   background: seleccionada === conv.id ? 'var(--superficie-seleccionada)' : 'transparent',
                   borderBottom: '1px solid var(--borde-sutil)',
                 }}
               >
                 {/* Layout principal: Avatar | Contenido | Fecha+Menu */}
-                <div className="flex gap-3">
+                <div className="flex gap-3 min-w-0">
                   {/* Col 1: Avatar */}
                   {modoSeleccion ? (
                     <div role="checkbox" aria-checked={seleccionados.has(conv.id)}
@@ -535,10 +536,10 @@ export function ListaConversaciones({
                       )}
                     </div>
 
-                    {/* Teléfono */}
+                    {/* Teléfono — formateado +54 9 11 5602-9403 */}
                     {conv.identificador_externo && conv.contacto_nombre && (
                       <p className="text-xs truncate" style={{ color: 'var(--texto-terciario)' }}>
-                        {conv.identificador_externo}
+                        <TextoTelefono valor={conv.identificador_externo} />
                       </p>
                     )}
 
@@ -569,8 +570,10 @@ export function ListaConversaciones({
                       </span>
                     </p>
 
-                    {/* Badges — etapas, bot e IA solo aplican a WhatsApp */}
-                    <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap">
+                    {/* Badges — etapas, bot e IA solo aplican a WhatsApp.
+                        min-w-0 evita que los chips empujen Col 2 y oculten la columna de fecha en móvil.
+                        scrollbar-auto-oculto deja la barra invisible salvo en hover. */}
+                    <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap min-w-0 scrollbar-auto-oculto">
                       {conv.etiquetas?.slice(0, 2).map((et) => (
                         <span key={et} className="text-xxs px-1.5 py-0.5 rounded whitespace-nowrap"
                           style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
@@ -610,8 +613,8 @@ export function ListaConversaciones({
                     </div>
                   </div>
 
-                  {/* Col 3: Fecha + programado + (badge no leídos / 3 puntos) — centrado vertical */}
-                  <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 self-center min-w-[40px]">
+                  {/* Col 3: Fecha + programado + (badge no leídos / 3 puntos) — alineada al final estilo chat */}
+                  <div className="flex flex-col items-end justify-center gap-1 flex-shrink-0 self-center min-w-[48px]">
                     {conv.ultimo_mensaje_en && (
                       <div className="flex items-center gap-1">
                         {programadosPorConv[conv.id] && (

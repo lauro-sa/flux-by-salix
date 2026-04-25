@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Send, CheckCircle, MessageSquare, Loader2, MapPin, CalendarClock, AlertTriangle } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { useToast } from '@/componentes/feedback/Toast'
 import { SelectorPlantillasWA } from '@/app/(flux)/whatsapp/_componentes/SelectorPlantillasWA'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -241,7 +242,7 @@ export function ModalConfirmarVisita({ visita, abierto, onCerrar, onConfirmado }
             <div>
               <div className="text-texto-primario font-medium">{visita.contacto_nombre}</div>
               {contacto?.telefono && (
-                <div className="text-xs text-texto-terciario">{contacto.telefono}</div>
+                <div className="text-xs text-texto-terciario"><TextoTelefono valor={contacto.telefono} /></div>
               )}
             </div>
           </div>
