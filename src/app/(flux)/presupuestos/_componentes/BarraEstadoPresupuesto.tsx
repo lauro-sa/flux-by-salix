@@ -25,9 +25,10 @@ const FLECHA = 12
 // Colores RGB por estado
 const COLOR_RGB: Record<EstadoPresupuesto, string> = {
   borrador: '100, 116, 139',
-  enviado: '139, 92, 246',
-  confirmado_cliente: '245, 158, 11',
-  orden_venta: '16, 185, 129',
+  enviado: '59, 130, 246',          // azul correo (#3b82f6)
+  confirmado_cliente: '245, 158, 11', // ámbar (sigue, ahora único)
+  orden_venta: '16, 185, 129',      // verde
+  completado: '91, 91, 214',        // color de marca Flux (#5b5bd6)
   rechazado: '239, 68, 68',
   cancelado: '113, 113, 122',
   vencido: '245, 158, 11',

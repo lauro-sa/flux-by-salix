@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
 import { crearPlantillasSistema } from '@/lib/plantillas-sistema/seed'
+import { crearPlantillasWhatsAppSistema } from '@/lib/plantillas-sistema/whatsapp'
 
 /**
  * Defaults regionales por país — se aplican al crear empresa nueva.
@@ -157,6 +158,10 @@ export async function POST(request: NextRequest) {
 
     // Crear plantillas de correo de sistema para la nueva empresa
     await crearPlantillasSistema(admin, empresa.id, user.id)
+
+    // Crear plantillas WhatsApp de sistema (recorrido: aviso en camino + llegada).
+    // Se insertan en BORRADOR — el admin tiene que enviarlas a Meta a aprobación.
+    await crearPlantillasWhatsAppSistema(admin, empresa.id, user.id)
 
     // Setear empresa activa en app_metadata para que el JWT hook la use
     await admin.auth.admin.updateUserById(user.id, {

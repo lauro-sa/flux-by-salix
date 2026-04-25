@@ -713,13 +713,15 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                   </div>
                 )}
 
-                {/* Buscador */}
-                <input
-                  value={busquedaMiembro}
-                  onChange={(e) => setBusquedaMiembro(e.target.value)}
-                  placeholder="Buscar miembro..."
-                  className="w-full px-2.5 py-2 rounded-card bg-white/[0.04] border border-white/[0.07] text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-texto-marca/40 transition-colors"
-                />
+                {/* Buscador — glass con focus violet */}
+                <div className="salix-input-wrapper">
+                  <input
+                    value={busquedaMiembro}
+                    onChange={(e) => setBusquedaMiembro(e.target.value)}
+                    placeholder="Buscar miembro..."
+                    className="w-full px-2.5 py-2 bg-transparent text-sm text-white placeholder:text-white/40 outline-none"
+                  />
+                </div>
 
                 {/* Lista de miembros filtrada */}
                 {cargandoMiembros ? (
@@ -977,7 +979,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-            className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
+            className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
             style={{
               paddingTop: 'env(safe-area-inset-top, 0px)',
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -1009,7 +1011,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] bg-superficie-elevada border-l border-white/[0.07] shadow-2xl flex flex-col"
+            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] flex flex-col border-l border-white/[0.07] shadow-2xl"
           >
             {contenidoPanel}
           </motion.div>

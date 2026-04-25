@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, CircleDashed, CircleDot } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
@@ -290,15 +290,31 @@ export default function SeccionDatosPresupuesto({
             const tieneImpuestos = totalDocumento !== subtotalNeto
             return (
               <div className="pb-2 pt-1 space-y-1.5">
-                {condSeleccionada.hitos.map(h => {
+                {condSeleccionada.hitos.map((h, i) => {
                   const montoTotal = totalDocumento * h.porcentaje / 100
                   const montoNeto = subtotalNeto * h.porcentaje / 100
+                  // Estado derivado de la cuota real (si existe en BD)
+                  const cuotaReal = presupuesto?.cuotas?.find(c => c.numero === i + 1)
+                  const estadoCuota = cuotaReal?.estado
+                  const indicadorEstado = estadoCuota === 'cobrada'
+                    ? { icon: <Check size={11} strokeWidth={3} />, color: 'text-insignia-exito', bg: 'bg-insignia-exito/15', label: 'Cobrada' }
+                    : estadoCuota === 'parcial'
+                      ? { icon: <CircleDot size={11} />, color: 'text-insignia-advertencia', bg: 'bg-insignia-advertencia/15', label: 'Parcial' }
+                      : { icon: <CircleDashed size={11} />, color: 'text-texto-terciario', bg: 'bg-white/[0.04]', label: 'Pendiente' }
                   return (
                     <div key={h.id} className="rounded-boton border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
-                      {/* Encabezado: descripción + porcentaje */}
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-medium text-texto-secundario">{h.descripcion}</span>
-                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded">{h.porcentaje}%</span>
+                      {/* Encabezado: descripción + porcentaje + indicador de cobro */}
+                      <div className="flex items-center justify-between mb-1.5 gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className={`size-4 rounded-full flex items-center justify-center shrink-0 ${indicadorEstado.bg} ${indicadorEstado.color}`}
+                            title={indicadorEstado.label}
+                          >
+                            {indicadorEstado.icon}
+                          </span>
+                          <span className="text-xs font-medium text-texto-secundario truncate">{h.descripcion}</span>
+                        </div>
+                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded shrink-0">{h.porcentaje}%</span>
                       </div>
                       {/* Montos */}
                       <div className="space-y-1">

@@ -181,7 +181,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 
   // Rutas que necesitan layout fijo (height fijo, overflow: hidden) incluso en móvil.
   // Paneles con scroll interno que no deben scrollear el documento.
-  const necesitaLayoutFijo = pathname.startsWith('/inbox') || pathname.startsWith('/calendario') || pathname.startsWith('/recorrido')
+  const necesitaLayoutFijo = pathname.startsWith('/inbox') || pathname.startsWith('/whatsapp') || pathname.startsWith('/calendario') || pathname.startsWith('/recorrido')
 
   if (esPantallaCompleta) {
     return (

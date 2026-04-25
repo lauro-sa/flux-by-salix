@@ -45,6 +45,9 @@ interface PropiedadesRegistroVisita {
   /** Datos del contacto para mostrar en el header */
   contactoNombre?: string
   contactoDireccion?: string
+  /** Sólo se usa en modo='editar' — reabre la visita (vuelve a 'programada').
+      Si no se pasa, el botón "Reabrir" no se muestra. */
+  onReabrir?: () => void
 }
 
 function RegistroVisita({
@@ -56,6 +59,7 @@ function RegistroVisita({
   onExito,
   contactoNombre,
   contactoDireccion,
+  onReabrir,
 }: PropiedadesRegistroVisita) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -323,23 +327,23 @@ function RegistroVisita({
       titulo={titulosModal[modo]}
       altura="alto"
       fondo="var(--superficie-app)"
-      acciones={
-        <button
-          onClick={enviar}
-          disabled={enviando}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-card text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-          style={{ backgroundColor: 'var(--insignia-exito)' }}
-        >
-          {enviando ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <>
-              <Check size={16} strokeWidth={2.5} />
-              <span>{modo === 'editar' ? 'Guardar cambios' : 'Guardar visita'}</span>
-            </>
-          )}
-        </button>
-      }
+      accionPrimaria={{
+        etiqueta: modo === 'editar' ? 'Guardar cambios' : 'Guardar visita',
+        onClick: enviar,
+        cargando: enviando,
+        icono: <Check size={16} strokeWidth={2.5} />,
+      }}
+      accionSecundaria={{
+        etiqueta: 'Cerrar',
+        onClick: onCerrar,
+      }}
+      // Reabrir solo en modo 'editar' (visita ya completada). Al tocar, cambia
+      // el estado a 'programada' y cierra el sheet — así el visitador puede
+      // volver a tocar "En camino → Llegué" como si fuese una visita nueva.
+      accionPeligro={modo === 'editar' && onReabrir ? {
+        etiqueta: 'Reabrir visita',
+        onClick: () => { onReabrir(); onCerrar() },
+      } : undefined}
     >
       {cargandoDatos ? (
         <div className="flex items-center justify-center py-12">

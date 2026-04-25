@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Clock, Bell, Eye, X, Calendar as IconoCalendario } from 'lucide-react'
+import { Plus, Bell, Eye, X } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -53,7 +53,7 @@ const CHIPS_FECHA: ChipFecha[] = [
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
         {titulo}
       </span>
@@ -78,7 +78,7 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
   } = estado
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7">
       {/* 1. Título — hero */}
       <Input
         value={titulo}
@@ -92,7 +92,7 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
 
       {/* 2. Fecha */}
       <Seccion titulo="¿Cuándo?">
-        {/* Chips de fecha rápida */}
+        {/* Chips de fecha rápida — pills glass con estado activo violet */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {CHIPS_FECHA.map((c) => {
             const fechaChip = c.fecha()
@@ -102,11 +102,8 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
                 key={c.clave}
                 type="button"
                 onClick={() => setFecha(fechaChip)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  activo
-                    ? 'bg-texto-marca/15 border border-texto-marca/40 text-texto-marca'
-                    : 'border border-borde-sutil bg-transparent text-texto-terciario hover:text-texto-primario hover:bg-white/[0.04]'
-                }`}
+                className="salix-pill"
+                data-activo={activo}
               >
                 {c.etiqueta}
               </button>
@@ -114,23 +111,20 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
           })}
         </div>
 
-        {/* Selector de fecha + hora */}
+        {/* Selector de fecha + hora — sin íconos externos (los componentes
+            ya traen el suyo adentro). Layout en grid de 2 columnas iguales. */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="min-w-0 flex items-center gap-1.5">
-            <IconoCalendario size={14} className="text-texto-terciario shrink-0" />
-            <div className="flex-1 min-w-0">
-              <SelectorFecha
-                valor={fecha}
-                onChange={(v) => setFecha(v || mañanaISO())}
-                limpiable={false}
-              />
-            </div>
+          <div className="min-w-0">
+            <SelectorFecha
+              valor={fecha}
+              onChange={(v) => setFecha(v || mañanaISO())}
+              limpiable={false}
+            />
           </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Clock size={14} className="text-texto-terciario shrink-0" />
+          <div className="min-w-0 flex items-center gap-1">
             {usarHora ? (
               <>
-                <div className="flex-1 min-w-0">
+                <div className="salix-input-hora flex-1 min-w-0">
                   <SelectorHora
                     valor={hora}
                     onChange={setHora}
@@ -170,17 +164,22 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
         />
       </Seccion>
 
-      {/* 4. Alertas */}
+      {/* 4. Alertas — cards glass con ícono brand circular */}
       <Seccion titulo="Alertas">
         <div className="flex flex-col gap-2">
           {/* Notificación + modal */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-card border border-white/[0.06] bg-white/[0.02]">
-            <Bell size={14} className="text-texto-terciario shrink-0" />
+          <div className="salix-card flex items-center gap-3 px-3 py-2.5">
+            <div
+              className="salix-icon-circle salix-icon-link shrink-0"
+              style={{ width: 32, height: 32 }}
+            >
+              <Bell className="size-3.5" strokeWidth={2} />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-texto-primario leading-tight">
+              <p className="text-sm text-white/95 leading-tight">
                 {alertaModal ? 'Notificación + modal' : 'Solo notificación'}
               </p>
-              <p className="text-[11px] text-texto-terciario mt-0.5 leading-tight">
+              <p className="text-[11px] text-white/50 mt-0.5 leading-tight">
                 {alertaModal ? 'Abre un modal al momento' : 'Aparece en la campana'}
               </p>
             </div>
@@ -203,11 +202,16 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
           </div>
 
           {/* WhatsApp */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-card border border-white/[0.06] bg-white/[0.02]">
-            <IconoWhatsApp size={14} className="text-canal-whatsapp shrink-0" />
+          <div className="salix-card flex items-center gap-3 px-3 py-2.5">
+            <div
+              className="salix-icon-circle salix-icon-whatsapp shrink-0"
+              style={{ width: 32, height: 32 }}
+            >
+              <IconoWhatsApp size={14} className="text-white" />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-texto-primario leading-tight">Avisar por WhatsApp</p>
-              <p className="text-[11px] text-texto-terciario mt-0.5 leading-tight">
+              <p className="text-sm text-white/95 leading-tight">Avisar por WhatsApp</p>
+              <p className="text-[11px] text-white/50 mt-0.5 leading-tight">
                 Se envía al número principal
               </p>
             </div>

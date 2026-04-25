@@ -12,7 +12,7 @@
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft, Zap } from 'lucide-react'
+import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft, Zap, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
 import { useEsMovil } from '@/hooks/useEsMovil'
@@ -115,9 +115,23 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
   // Acciones rápidas contextuales a la ruta actual. El hook precarga apenas
   // cambia la ruta (no espera a que se abra el panel), así que las acciones
   // ya están listas cuando el usuario toca el FAB.
-  const { acciones, cargando: cargandoAcciones, hayContexto } = useAccionesRapidas()
+  const {
+    acciones,
+    cargando: cargandoAcciones,
+    error: errorAcciones,
+    hayContexto,
+  } = useAccionesRapidas()
 
   const [vistaHistorial, setVistaHistorial] = useState(false)
+
+  // Acciones rápidas: expandidas por defecto, se contraen mientras el usuario
+  // está conversando (input con texto o mensajes ya enviados). Cuando vuelve
+  // al estado "limpio" (input vacío y sin mensajes) se re-expanden solas.
+  // Mientras está colapsado, hay un FAB flotante en la esquina del panel
+  // que permite re-expandir manualmente. El ref evita pisar la decisión del
+  // usuario en cada render — solo reaplicamos en TRANSICIONES de estado.
+  const [accionesExpandidas, setAccionesExpandidas] = useState(true)
+  const tieneActividadRef = useRef(false)
 
   // Sin IA: el panel es solo para acciones rápidas.
   const soloAcciones = !iaHabilitado
@@ -140,6 +154,29 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [mensajes])
+
+  // Sincronizar acciones con la actividad del chat:
+  //   - Sin texto y sin mensajes  → expandido (estado inicial / "limpio")
+  //   - Con texto o con mensajes  → colapsado
+  // Solo aplicamos el cambio en TRANSICIONES (no en cada render) para no
+  // pisar al usuario si toca el FAB flotante para re-expandir mientras
+  // sigue escribiendo el mismo texto.
+  useEffect(() => {
+    if (soloAcciones) return
+    const tieneActividad = texto.trim().length > 0 || mensajes.length > 0
+    if (tieneActividad !== tieneActividadRef.current) {
+      tieneActividadRef.current = tieneActividad
+      setAccionesExpandidas(!tieneActividad)
+    }
+  }, [texto, mensajes.length, soloAcciones])
+
+  // Reset al cerrar: la próxima vez que se abra, arranca expandido y limpio.
+  useEffect(() => {
+    if (!abierto) {
+      tieneActividadRef.current = false
+      setAccionesExpandidas(true)
+    }
+  }, [abierto])
 
   // Foco en el input al abrir
   useEffect(() => {
@@ -214,8 +251,50 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
     setVistaHistorial(false)
   }, [nuevaConversacion])
 
+  // FAB flotante para re-expandir acciones cuando están colapsadas.
+  // Posición: arriba al centro del panel, debajo del header. Se ancla al
+  // panel (no al viewport) — visible siempre, no se va con el scroll.
+  const fabAccionesRapidas =
+    !soloAcciones &&
+    !vistaHistorial &&
+    hayContexto &&
+    !accionesExpandidas &&
+    acciones.length > 0 ? (
+      <motion.button
+        key="fab-acciones"
+        initial={{ opacity: 0, scale: 0.85, y: -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: -8 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+        whileTap={{ scale: 0.94 }}
+        onClick={() => setAccionesExpandidas(true)}
+        className="absolute left-0 right-0 mx-auto z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-full cursor-pointer"
+        style={{
+          // Debajo del header (~60-65px) con un margen.
+          top: '72px',
+          width: 'fit-content',
+          background: 'linear-gradient(135deg, rgba(127,119,221,0.32), rgba(55,138,221,0.24))',
+          border: '1px solid rgba(127,119,221,0.35)',
+          backdropFilter: 'blur(12px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+          boxShadow: '0 8px 24px rgba(60,50,160,0.28), inset 0 1px 0 rgba(255,255,255,0.14)',
+          color: 'rgba(255,255,255,0.95)',
+        }}
+        title="Expandir acciones rápidas"
+        aria-label="Expandir acciones rápidas"
+      >
+        <Zap className="size-3.5" strokeWidth={2} />
+        <span className="text-[12px] font-medium tracking-tight">Acciones</span>
+        {acciones.length > 0 && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-white/15 leading-none">
+            {acciones.length}
+          </span>
+        )}
+      </motion.button>
+    ) : null
+
   const contenido = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
         <div className="flex items-center gap-2">
@@ -326,39 +405,36 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
         <ListaAccionesRapidas
           acciones={acciones}
           cargando={cargandoAcciones}
+          error={errorAcciones}
           soloAcciones
           onAccionEjecutada={onCerrar}
         />
       ) : (
         <>
-      {/* Acciones rápidas contextuales — aparecen arriba del chat si la ruta tiene una entidad con acciones */}
-      {hayContexto && (acciones.length > 0 || cargandoAcciones) && (
+      {/* Acciones rápidas contextuales: solo se renderizan en línea cuando
+          están EXPANDIDAS. Cuando están colapsadas, se muestran como FAB
+          flotante (más abajo, fuera del flujo de mensajes). */}
+      {hayContexto && (acciones.length > 0 || cargandoAcciones || errorAcciones) && accionesExpandidas && (
         <ListaAccionesRapidas
           acciones={acciones}
           cargando={cargandoAcciones}
+          error={errorAcciones}
           onAccionEjecutada={onCerrar}
+          onColapsar={() => setAccionesExpandidas(false)}
         />
       )}
-      {/* Mensajes */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-auto-oculto"
-      >
-        {mensajes.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8">
-            <div className="size-14 rounded-modal bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
-              <Sparkles className="size-7 text-violet-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-texto-primario">¡Hola! Soy Salix IA</p>
-              <p className="text-xs text-texto-terciario mt-1 max-w-[240px]">
-                Preguntame lo que necesites: consultar asistencias, crear actividades, agendar visitas y más.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {mensajes.map((msg) => (
+      {/* Mensajes / Empty state.
+          - Con mensajes: contenedor flex-1 con scroll, mensajes apilados.
+          - Sin mensajes + con acciones: solo banner mini de altura natural,
+            seguido de un spacer flex-1 que empuja el input al fondo (así el
+            banner queda pegado debajo de las acciones, sin gap arriba).
+          - Sin mensajes + sin acciones: welcome grande centrado en flex-1. */}
+      {mensajes.length > 0 ? (
+        <div
+          ref={scrollRef}
+          className="flex-1 min-h-[200px] overflow-y-auto px-4 py-3 space-y-3 scrollbar-auto-oculto"
+        >
+          {mensajes.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.rol === 'usuario' ? 'justify-end' : 'justify-start'}`}
@@ -400,6 +476,30 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
           </div>
         )}
       </div>
+      ) : acciones.length > 0 && accionesExpandidas ? (
+        // Banner mini ultra compacto pegado al input. La lista de acciones
+        // arriba toma todo el espacio sobrante con scroll interno; el banner
+        // es solo una microbarra recordatoria justo encima del input.
+        <div className="shrink-0 px-4 py-1.5 flex items-center justify-center gap-1.5 text-white/40">
+          <Sparkles className="size-3 text-violet-400/60" />
+          <p className="text-[10px]">¿Necesitás algo más?</p>
+        </div>
+      ) : (
+        // Welcome grande centrado: cuando no hay acciones disponibles, o
+        // cuando hay pero están colapsadas (porque el usuario empezó a
+        // escribir). El espacio del area de mensajes es ahora todo del chat.
+        <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center text-center gap-3 py-8 px-4">
+          <div className="size-14 rounded-modal bg-gradient-to-br from-violet-500/25 to-indigo-600/20 flex items-center justify-center">
+            <Sparkles className="size-7 text-violet-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white/95">¡Hola! Soy Salix IA</p>
+            <p className="text-xs text-white/55 mt-1 max-w-[240px]">
+              Preguntame lo que necesites: consultar asistencias, crear actividades, agendar visitas y más.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Input / Grabador */}
       <div className="px-3 pb-3 pt-2 border-t border-white/[0.07]">
@@ -420,7 +520,7 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
 
         {/* Input de texto + botón micrófono (oculto durante grabación) */}
         {!grabando && (
-          <div className="flex items-end gap-2 bg-white/[0.04] rounded-card px-3 py-2 border border-white/[0.07] focus-within:border-texto-marca/40 transition-colors">
+          <div className="salix-input-wrapper flex items-end gap-2 px-3 py-2">
             <textarea
               ref={inputRef}
               value={texto}
@@ -429,7 +529,7 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
               placeholder="Escribí o usá el micrófono..."
               rows={1}
               disabled={transcribiendo || cargando}
-              className="flex-1 bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario resize-none outline-none max-h-[120px] min-h-[24px] disabled:opacity-50"
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/40 resize-none outline-none max-h-[120px] min-h-[24px] disabled:opacity-50"
               style={{ fieldSizing: 'content' } as React.CSSProperties}
             />
 
@@ -438,7 +538,7 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
               <button
                 onClick={handleEnviar}
                 disabled={cargando}
-                className="p-1.5 rounded-card text-texto-marca hover:bg-texto-marca/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="p-1.5 rounded-card text-violet-300 hover:bg-violet-400/15 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 <Send className="size-4" />
               </button>
@@ -446,7 +546,7 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
               <button
                 onClick={() => setGrabando(true)}
                 disabled={cargando || transcribiendo}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-violet-400 hover:bg-violet-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="p-1.5 rounded-card text-white/50 hover:text-violet-300 hover:bg-violet-400/15 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
                 title="Grabar audio"
               >
                 <Mic className="size-4" />
@@ -457,10 +557,14 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
       </div>
         </>
       )}
+
+      {/* FAB flotante para re-expandir acciones rápidas (encima del input) */}
+      <AnimatePresence>{fabAccionesRapidas}</AnimatePresence>
     </div>
   )
 
-  // Mobile: pantalla completa (slide-up) para mejor experiencia táctil
+  // Mobile: pantalla completa (slide-up) — mismo comportamiento que antes,
+  // ahora con look glass aplicado (blobs + cristal).
   if (esMovil) {
     return createPortal(
       <AnimatePresence>
@@ -470,7 +574,7 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-            className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
+            className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
             style={{
               paddingTop: 'env(safe-area-inset-top, 0px)',
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -485,7 +589,8 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
     )
   }
 
-  // Desktop: Panel lateral derecho — portal para escapar del transform del contenedor flotante
+  // Desktop: panel lateral derecho — pegado al borde (igual que antes),
+  // ahora con look glass + blobs.
   return createPortal(
     <AnimatePresence>
       {abierto && (
@@ -499,13 +604,13 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
             className="fixed inset-0 bg-black/20 z-[69]"
           />
 
-          {/* Panel */}
+          {/* Panel — sistema visual `salix-glass` */}
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-0 right-0 h-full w-[400px] max-w-[90vw] z-[70] bg-superficie-elevada border-l border-white/[0.07] shadow-2xl flex flex-col"
+            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[400px] max-w-[90vw] z-[70] flex flex-col border-l border-white/[0.07] shadow-2xl"
           >
             {contenido}
           </motion.div>

@@ -153,6 +153,7 @@ export async function registrarCambioEstado({
     enviado: 'Enviado',
     confirmado_cliente: 'Confirmado por Cliente',
     orden_venta: 'Orden de Venta',
+    completado: 'Completado',
     rechazado: 'Rechazado',
     vencido: 'Vencido',
     cancelado: 'Cancelado',

@@ -17,7 +17,7 @@
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, AlarmClock, Plus, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { X, AlarmClock, Plus, Clock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useRecordatorios } from './useRecordatorios'
@@ -95,38 +95,59 @@ function TabsRecordatorios({
   ]
 
   return (
-    <div className="flex items-center gap-1 px-3 py-2 border-b border-white/[0.07] shrink-0">
-      {tabs.map(({ clave, etiqueta, icono, contador }) => {
-        const esActivo = activo === clave
-        return (
-          <button
-            key={clave}
-            onClick={() => onCambiar(clave)}
-            className={`relative flex-1 min-h-[40px] flex items-center justify-center gap-1.5 px-2.5 rounded-card text-sm font-medium transition-colors ${
-              esActivo
-                ? 'bg-white/[0.06] text-texto-primario'
-                : 'text-texto-terciario hover:text-texto-secundario hover:bg-white/[0.03]'
-            }`}
-          >
-            {icono}
-            <span>{etiqueta}</span>
-            {contador !== undefined && contador > 0 && (
-              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
-                esActivo ? 'bg-texto-marca text-white' : 'bg-white/[0.08] text-texto-terciario'
-              }`}>
-                {contador > 99 ? '99+' : contador}
+    <div className="px-3 py-2 shrink-0">
+      {/* Segmented control — pill contenedora con activo deslizable */}
+      <div
+        className="flex items-center gap-0.5 p-1 rounded-full border"
+        style={{
+          background: 'rgba(255,255,255,0.025)',
+          borderColor: 'rgba(255,255,255,0.06)',
+        }}
+      >
+        {tabs.map(({ clave, etiqueta, icono, contador }) => {
+          const esActivo = activo === clave
+          return (
+            <button
+              key={clave}
+              onClick={() => onCambiar(clave)}
+              className={`relative flex-1 min-h-[34px] flex items-center justify-center gap-1.5 px-2.5 rounded-full text-[13px] font-medium transition-colors ${
+                esActivo ? 'text-white' : 'text-white/55 hover:text-white/85'
+              }`}
+            >
+              {/* Indicador activo deslizable (layoutId comparte transición entre tabs) */}
+              {esActivo && (
+                <motion.span
+                  layoutId="tab-recordatorios-activo"
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(127,119,221,0.32), rgba(99,91,199,0.20))',
+                    border: '1px solid rgba(127,119,221,0.45)',
+                    boxShadow:
+                      '0 4px 14px rgba(60,50,160,0.25), inset 0 1px 0 rgba(255,255,255,0.14)',
+                  }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {icono}
+                <span>{etiqueta}</span>
+                {contador !== undefined && contador > 0 && (
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold leading-none ${
+                      esActivo
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white/[0.08] text-white/55'
+                    }`}
+                  >
+                    {contador > 99 ? '99+' : contador}
+                  </span>
+                )}
               </span>
-            )}
-            {esActivo && (
-              <motion.div
-                layoutId="tab-recordatorios-underline"
-                className="absolute bottom-0 left-3 right-3 h-0.5 bg-texto-marca rounded-full"
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              />
-            )}
-          </button>
-        )
-      })}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -368,22 +389,22 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
           className="border-t border-white/[0.07] px-4 py-3 flex items-center gap-2 shrink-0"
           style={{ paddingBottom: esMovil ? 'max(env(safe-area-inset-bottom, 0px), 12px)' : undefined }}
         >
-          <Boton
+          <button
+            type="button"
             onClick={crear}
-            cargando={creando}
-            disabled={!titulo.trim() || !fecha}
-            tamano="md"
-            className="flex-1"
+            disabled={!titulo.trim() || !fecha || creando}
+            className="salix-btn-primario flex-1"
           >
-            {editandoId ? 'Guardar cambios' : 'Crear recordatorio'}
-          </Boton>
-          <Boton
-            variante="fantasma"
-            tamano="md"
+            {creando && <Loader2 className="size-4 animate-spin" />}
+            <span>{editandoId ? 'Guardar cambios' : 'Crear recordatorio'}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => { limpiarFormulario(); if (editandoId) setTab('activos'); else onCerrar() }}
+            className="salix-btn-fantasma"
           >
             Cancelar
-          </Boton>
+          </button>
         </div>
       )}
     </div>
@@ -401,7 +422,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-                className="fixed inset-0 z-[80] bg-superficie-app flex flex-col"
+                className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
                 style={{
                   paddingTop: 'env(safe-area-inset-top, 0px)',
                   height: 'calc(var(--vh, 1vh) * 100)',
@@ -448,7 +469,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: '100%', opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] bg-superficie-elevada border-l border-white/[0.07] shadow-2xl flex flex-col"
+                className="salix-glass salix-panel fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] flex flex-col border-l border-white/[0.07] shadow-2xl"
               >
                 {contenido}
               </motion.div>

@@ -133,18 +133,27 @@ function BottomSheet({
     }
   }, [onCerrar])
 
+  // Ref que siempre apunta al manejarTecla actualizado, para que el listener
+  // del `keydown` no tenga que re-suscribirse (y re-ejecutar el auto-focus)
+  // cada vez que `onCerrar` recibe una nueva referencia desde el padre.
+  // Sin este ref, en PWA móvil perdías el foco del textarea mientras escribías
+  // porque cada re-render del padre disparaba focus() al primer botón.
+  const manejarTeclaRef = useRef(manejarTecla)
+  manejarTeclaRef.current = manejarTecla
+
   useEffect(() => {
-    if (abierto) {
-      document.addEventListener('keydown', manejarTecla)
-      requestAnimationFrame(() => {
-        const primero = panelRef.current?.querySelector<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
-        primero?.focus()
-      })
-    }
-    return () => document.removeEventListener('keydown', manejarTecla)
-  }, [abierto, manejarTecla])
+    if (!abierto) return
+    const handler = (e: KeyboardEvent) => manejarTeclaRef.current(e)
+    document.addEventListener('keydown', handler)
+    // Auto-focus al primer elemento — solo una vez al abrir el sheet.
+    requestAnimationFrame(() => {
+      const primero = panelRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      primero?.focus()
+    })
+    return () => document.removeEventListener('keydown', handler)
+  }, [abierto])
 
   /* ── Ajustar cuando aparece el teclado virtual (via useVisualViewport) ── */
   useEffect(() => {

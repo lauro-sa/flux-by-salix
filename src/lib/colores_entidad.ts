@@ -60,9 +60,10 @@ export const COLOR_ESTADO_VISITA: Record<string, ColorInsignia> = {
 
 export const COLOR_ESTADO_DOCUMENTO: Record<string, ColorInsignia> = {
   borrador:            'neutro',
-  enviado:             'violeta',
-  confirmado_cliente:  'info',
+  enviado:             'info',           // azul tipo correo
+  confirmado_cliente:  'advertencia',    // ámbar — falta avanzar
   orden_venta:         'exito',
+  completado:          'primario',       // color marca Flux
   confirmado:          'info',
   aceptado:            'exito',
   rechazado:           'peligro',

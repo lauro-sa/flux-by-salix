@@ -538,16 +538,62 @@ export function PanelWhatsApp({
     )
   }
 
+  // Render de las etiquetas — se usa en dos lugares:
+  // - Desktop: inline debajo del nombre (wrap)
+  // - Móvil: fila aparte full-width debajo del header (scroll horizontal)
+  const etiquetasChips = conversacion.etiquetas && conversacion.etiquetas.length > 0
+    ? conversacion.etiquetas.map((et) => {
+        const info = etiquetasEmpresa[et]
+        const colorEt = info?.color || COLOR_ETIQUETA_DEFECTO
+        const expandida = etiquetaExpandida === et
+        return (
+          <span
+            key={et}
+            className="text-xxs px-1.5 py-0.5 rounded-full font-medium cursor-pointer inline-flex items-center gap-1 transition-all whitespace-nowrap flex-shrink-0"
+            style={{
+              background: `color-mix(in srgb, ${colorEt} 15%, transparent)`,
+              color: colorEt,
+            }}
+            onClick={() => setEtiquetaExpandida(expandida ? null : et)}
+          >
+            {info?.icono ? `${info.icono} ` : ''}{et}
+            {expandida && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                titulo="Quitar etiqueta"
+                icono={<X size={10} />}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const nuevas = conversacion.etiquetas.filter(e2 => e2 !== et)
+                  onEtiquetasCambiaron?.(nuevas)
+                  setEtiquetaExpandida(null)
+                  fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ etiquetas: nuevas }),
+                  })
+                }}
+                style={{ color: colorEt }}
+              />
+            )}
+          </span>
+        )
+      })
+    : null
+
   return (
-    <div className="flex-1 flex flex-col min-h-0" style={estiloContenedorPrincipal}>
+    <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden" style={estiloContenedorPrincipal}>
       {/* Header de la conversación */}
       <div
-        className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
+        className="flex-shrink-0"
         style={{
           borderBottom: '1px solid var(--borde-sutil)',
           background: 'var(--superficie-tarjeta)',
         }}
       >
+      <div className="flex items-center gap-3 px-4 py-2.5">
         {/* Botón atrás en móvil — min 44px zona táctil */}
         {esMovil && onVolver && (
           <button
@@ -576,48 +622,10 @@ export function PanelWhatsApp({
               {conversacion.identificador_externo}
             </p>
           )}
-          {/* Etiquetas asignadas con color — click para expandir X y quitar */}
-          {conversacion.etiquetas && conversacion.etiquetas.length > 0 && (
-            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              {conversacion.etiquetas.map((et) => {
-                const info = etiquetasEmpresa[et]
-                const colorEt = info?.color || COLOR_ETIQUETA_DEFECTO
-                const expandida = etiquetaExpandida === et
-                return (
-                  <span
-                    key={et}
-                    className="text-xxs px-1.5 py-0.5 rounded-full font-medium cursor-pointer inline-flex items-center gap-1 transition-all"
-                    style={{
-                      background: `color-mix(in srgb, ${colorEt} 15%, transparent)`,
-                      color: colorEt,
-                    }}
-                    onClick={() => setEtiquetaExpandida(expandida ? null : et)}
-                  >
-                    {info?.icono ? `${info.icono} ` : ''}{et}
-                    {expandida && (
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        titulo="Quitar etiqueta"
-                        icono={<X size={10} />}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const nuevas = conversacion.etiquetas.filter(e2 => e2 !== et)
-                          onEtiquetasCambiaron?.(nuevas)
-                          setEtiquetaExpandida(null)
-                          fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ etiquetas: nuevas }),
-                          })
-                        }}
-                        style={{ color: colorEt }}
-                      />
-                    )}
-                  </span>
-                )
-              })}
+          {/* Etiquetas inline — solo desktop. En móvil van en una fila aparte full-width debajo. */}
+          {etiquetasChips && (
+            <div className="hidden md:flex items-center gap-1 mt-0.5 flex-wrap">
+              {etiquetasChips}
             </div>
           )}
         </div>
@@ -658,6 +666,13 @@ export function PanelWhatsApp({
             titulo={t('inbox.exportar_conversacion')}
           />
         </div>
+      </div>
+      {/* Etiquetas full-width — solo móvil. Van debajo del header para aprovechar todo el ancho del viewport (los íconos de acciones competían por espacio en Col 2). */}
+      {esMovil && etiquetasChips && (
+        <div className="flex items-center gap-1 px-4 pb-2 overflow-x-auto flex-nowrap scrollbar-auto-oculto">
+          {etiquetasChips}
+        </div>
+      )}
       </div>
 
       {/* Barra de controles WhatsApp (agente, sector, bot, IA, etapa) */}

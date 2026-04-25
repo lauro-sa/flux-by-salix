@@ -10,6 +10,7 @@ export type EstadoPresupuesto =
   | 'enviado'
   | 'confirmado_cliente'
   | 'orden_venta'
+  | 'completado'
   | 'rechazado'
   | 'vencido'
   | 'cancelado'
@@ -19,6 +20,7 @@ export const ETIQUETAS_ESTADO: Record<EstadoPresupuesto, string> = {
   enviado: 'Enviado',
   confirmado_cliente: 'Confirmado por Cliente',
   orden_venta: 'Orden de Venta',
+  completado: 'Completado',
   rechazado: 'Rechazado',
   vencido: 'Vencido',
   cancelado: 'Cancelado',
@@ -30,6 +32,7 @@ export const ETIQUETAS_ESTADO_CORTA: Record<EstadoPresupuesto, string> = {
   enviado: 'Env',
   confirmado_cliente: 'Conf',
   orden_venta: 'OV',
+  completado: 'Comp',
   rechazado: 'Rech',
   vencido: 'Venc',
   cancelado: 'Canc',
@@ -37,18 +40,23 @@ export const ETIQUETAS_ESTADO_CORTA: Record<EstadoPresupuesto, string> = {
 
 // Flujo progresivo (happy path)
 export const FLUJO_ESTADO: EstadoPresupuesto[] = [
-  'borrador', 'enviado', 'confirmado_cliente', 'orden_venta',
+  'borrador', 'enviado', 'confirmado_cliente', 'orden_venta', 'completado',
 ]
 
 // Estados terminales (no forman parte del flujo, se muestran como badge)
 export const ESTADOS_TERMINALES: EstadoPresupuesto[] = ['cancelado', 'rechazado', 'vencido']
 
-// Transiciones válidas desde cada estado
+// Transiciones válidas desde cada estado.
+// `completado` se alcanza automáticamente cuando todas las cuotas están pagadas
+// (auto-transición desde el endpoint de pagos), pero también se permite
+// manualmente. Volver atrás (completado → orden_venta) se hace automáticamente
+// si se elimina un pago y deja saldo pendiente.
 export const TRANSICIONES_ESTADO: Record<EstadoPresupuesto, EstadoPresupuesto[]> = {
   borrador: ['enviado', 'cancelado'],
   enviado: ['confirmado_cliente', 'orden_venta', 'borrador', 'rechazado', 'cancelado'],
   confirmado_cliente: ['orden_venta', 'enviado', 'borrador', 'cancelado'],
-  orden_venta: ['confirmado_cliente', 'enviado', 'borrador', 'cancelado'],
+  orden_venta: ['completado', 'confirmado_cliente', 'enviado', 'borrador', 'cancelado'],
+  completado: ['orden_venta', 'cancelado'],
   rechazado: ['borrador', 'cancelado'],
   vencido: ['borrador', 'cancelado'],
   cancelado: ['borrador'],
@@ -157,6 +165,12 @@ export interface PresupuestoConLineas extends Presupuesto {
   historial: HistorialEstado[]
   // OT viva generada desde este presupuesto (null si nunca se generó o está en papelera).
   orden_trabajo: { id: string; numero: string } | null
+  // Permisos granulares calculados en backend para el usuario actual.
+  permisos?: {
+    editar: boolean
+    eliminar: boolean
+    enviar: boolean
+  }
 }
 
 // ─── Línea de presupuesto ───
@@ -209,7 +223,8 @@ export interface CuotaPago {
   porcentaje: string
   monto: string
   dias_desde_emision: number
-  estado: 'pendiente' | 'cobrada'
+  // Estado derivado automáticamente desde presupuesto_pagos
+  estado: 'pendiente' | 'parcial' | 'cobrada'
   fecha_cobro: string | null
   cobrado_por_nombre: string | null
 }

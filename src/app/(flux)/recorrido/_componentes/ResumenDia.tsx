@@ -13,7 +13,7 @@ import { motion } from 'framer-motion'
 import {
   CheckCircle2, Clock, MapPin, Route, Pencil, Image as ImageIcon,
   FileText, CheckSquare, Thermometer, RotateCcw, ChevronDown, ChevronUp,
-  X, Navigation,
+  X, Navigation, Coffee,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTraduccion } from '@/lib/i18n'
@@ -27,7 +27,6 @@ interface ItemChecklist {
 }
 
 // Tipo flexible: acepta la visita tal como viene de la API (tiene todos los campos)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface VisitaResumen {
   id: string
   contacto_nombre: string
@@ -47,10 +46,26 @@ interface VisitaResumen {
   fecha_llegada?: string | null
 }
 
+/**
+ * Una parada del recorrido puede ser:
+ *  - `tipo='visita'` → tiene `visita` asociada con todos los datos de la ficha.
+ *  - `tipo='parada'` → parada genérica (café, logística, medidas a campo) con
+ *    título/motivo propios y timestamps en la propia parada.
+ */
 interface ParadaResumen {
   id: string
   orden: number
-  visita: VisitaResumen
+  tipo: 'visita' | 'parada'
+  visita: VisitaResumen | null
+  // Campos propios de paradas genéricas
+  titulo?: string | null
+  motivo?: string | null
+  direccion_texto?: string | null
+  estado?: string | null
+  notas?: string | null
+  fecha_inicio?: string | null
+  fecha_llegada?: string | null
+  fecha_completada?: string | null
 }
 
 interface FotoVisita {
@@ -69,6 +84,8 @@ interface PropiedadesResumenDia {
   fechaRecorrido: string
   /** Callback para abrir RegistroVisita en modo editar */
   onEditarVisita: (visitaId: string) => void
+  /** Callback para editar la nota libre de una parada genérica */
+  onEditarNotaParada?: (parada: ParadaResumen) => void
   /** Callback para reactivar el recorrido */
   onReactivar: () => void
 }
@@ -110,7 +127,8 @@ function TarjetaVisita({
   onEditar,
   fotos,
 }: {
-  parada: ParadaResumen
+  // Acá ya garantizamos que `visita` no es null (el render principal filtra).
+  parada: ParadaResumen & { visita: VisitaResumen }
   puedeEditar: boolean
   onEditar: () => void
   fotos: FotoVisita[]
@@ -274,6 +292,94 @@ function TarjetaVisita({
   )
 }
 
+// ── Tarjeta para paradas genéricas (café, logística, medidas a campo) ──
+// Más simple que TarjetaVisita: no tiene fotos, notas, checklist ni temperatura.
+// Solo título, dirección/motivo, duración real si existe, y estado.
+
+function TarjetaParadaGenerica({
+  parada,
+  puedeEditar,
+  onEditarNota,
+}: {
+  parada: ParadaResumen
+  puedeEditar: boolean
+  onEditarNota?: () => void
+}) {
+  const estado = parada.estado || 'programada'
+  const esCancelada = estado === 'cancelada'
+  const esCompletada = estado === 'completada'
+  const titulo = parada.titulo || 'Parada'
+  const subtitulo = parada.direccion_texto || parada.motivo || null
+
+  // Duración real en el sitio si hay ambos timestamps
+  let duracionRealMin: number | null = null
+  if (parada.fecha_llegada && parada.fecha_completada) {
+    const diff = Math.round(
+      (new Date(parada.fecha_completada).getTime() - new Date(parada.fecha_llegada).getTime()) / 60000
+    )
+    if (diff > 0) duracionRealMin = diff
+  }
+
+  return (
+    <div className={`rounded-card border ${
+      esCancelada
+        ? 'border-[var(--insignia-peligro)]/20 bg-[var(--insignia-peligro)]/[0.03]'
+        : 'border-borde-sutil bg-white/[0.02]'
+    }`}>
+      {/* Header principal */}
+      <div className="flex items-center gap-3 p-3.5">
+        <div
+          className="flex items-center justify-center size-8 rounded-full border-2 shrink-0"
+          style={{
+            borderColor: esCancelada ? 'var(--insignia-peligro)' : esCompletada ? 'var(--insignia-exito)' : 'var(--borde-fuerte)',
+            backgroundColor: esCancelada ? 'var(--insignia-peligro)' : esCompletada ? 'var(--insignia-exito)' : 'transparent',
+            color: (esCancelada || esCompletada) ? 'white' : 'var(--texto-terciario)',
+          }}
+        >
+          {esCancelada ? <X size={12} /> : esCompletada ? <CheckCircle2 size={14} /> : <Coffee size={14} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className={`text-sm font-semibold truncate ${esCancelada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+              {titulo}
+            </p>
+            <span className="shrink-0 text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.08] text-texto-terciario">
+              parada
+            </span>
+          </div>
+          {subtitulo && (
+            <p className="text-xs text-texto-terciario truncate mt-0.5">{subtitulo}</p>
+          )}
+        </div>
+        {duracionRealMin != null && duracionRealMin > 0 && (
+          <span className="text-[10px] text-texto-terciario shrink-0">{formatearDuracion(duracionRealMin)}</span>
+        )}
+      </div>
+
+      {/* Nota libre — se muestra si existe, y si puede editar aparece el botón */}
+      {(parada.notas || (puedeEditar && onEditarNota)) && (
+        <div className="px-3.5 pb-3 pt-0 border-t border-white/[0.04] mt-0">
+          {parada.notas && (
+            <div className="flex gap-2 pt-3">
+              <FileText size={13} className="text-texto-terciario shrink-0 mt-0.5" />
+              <p className="text-sm text-texto-secundario whitespace-pre-wrap flex-1">{parada.notas}</p>
+            </div>
+          )}
+          {puedeEditar && onEditarNota && (
+            <button
+              onClick={onEditarNota}
+              className="flex items-center gap-1.5 text-xs font-medium text-texto-marca hover:text-texto-marca/80 transition-colors mt-2"
+            >
+              <Pencil size={12} />
+              {parada.notas ? 'Editar nota' : 'Agregar nota'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Componente principal ──
 
 function ResumenDia({
@@ -285,6 +391,7 @@ function ResumenDia({
   paradas,
   fechaRecorrido,
   onEditarVisita,
+  onEditarNotaParada,
   onReactivar,
 }: PropiedadesResumenDia) {
   const router = useRouter()
@@ -295,9 +402,12 @@ function ResumenDia({
 
   const cargarFotos = useCallback(async () => {
     const resultado: Record<string, FotoVisita[]> = {}
-    // Cargar fotos de todas las visitas completadas en paralelo
+    // Cargar fotos solo de visitas completadas reales — las paradas genéricas
+    // no tienen fotos asociadas porque no son entidades con chatter.
     const visitasCompletadas = paradas
-      .filter(p => p.visita.estado === 'completada')
+      .filter((p): p is ParadaResumen & { visita: VisitaResumen } =>
+        p.tipo === 'visita' && p.visita?.estado === 'completada'
+      )
       .map(p => p.visita.id)
 
     const respuestas = await Promise.allSettled(
@@ -385,24 +495,34 @@ function ResumenDia({
         transition={{ delay: 0.3 }}
         className="px-4 pb-3 space-y-2"
       >
-        {paradas.map((parada, i) => {
-          // Calcular tiempo de viaje desde la visita anterior
-          // = fecha_inicio de esta visita - fecha_completada de la anterior
+        {paradas.map((parada, i, arr) => {
+          // Timestamps de inicio/fin de esta parada y de la anterior, sin importar
+          // si es visita o parada genérica — los campos viven en lugares distintos
+          // pero los normalizamos acá.
+          const esVisita = parada.tipo === 'visita' && parada.visita
+          const tsFinAnterior = (() => {
+            if (i === 0) return null
+            const prev = arr[i - 1]
+            return prev.tipo === 'visita'
+              ? prev.visita?.fecha_completada || null
+              : prev.fecha_completada || null
+          })()
+          const tsInicioActual = esVisita
+            ? (parada.visita!.fecha_inicio || parada.visita!.fecha_llegada || null)
+            : (parada.fecha_inicio || parada.fecha_llegada || null)
+
+          // Tiempo de viaje entre paradas = inicio_actual − fin_anterior
           let tiempoViajeMin: number | null = null
-          if (i > 0) {
-            const anterior = paradas[i - 1].visita
-            const actual = parada.visita
-            const finAnterior = anterior.fecha_completada
-            const inicioActual = actual.fecha_inicio || actual.fecha_llegada
-            if (finAnterior && inicioActual) {
-              const diff = Math.round((new Date(inicioActual).getTime() - new Date(finAnterior).getTime()) / 60000)
-              if (diff > 0) tiempoViajeMin = diff
-            }
+          if (tsFinAnterior && tsInicioActual) {
+            const diff = Math.round(
+              (new Date(tsInicioActual).getTime() - new Date(tsFinAnterior).getTime()) / 60000
+            )
+            if (diff > 0) tiempoViajeMin = diff
           }
 
           return (
             <div key={parada.id}>
-              {/* Indicador de viaje entre visitas */}
+              {/* Indicador de viaje entre paradas */}
               {tiempoViajeMin != null && (
                 <div className="flex items-center gap-2 py-1.5 px-2">
                   <div className="flex-1 h-px bg-borde-sutil/50" />
@@ -413,12 +533,22 @@ function ResumenDia({
                   <div className="flex-1 h-px bg-borde-sutil/50" />
                 </div>
               )}
-              <TarjetaVisita
-                parada={parada}
-                puedeEditar={puedeEditar}
-                onEditar={() => onEditarVisita(parada.visita.id)}
-                fotos={fotosPorVisita[parada.visita.id] || []}
-              />
+              {/* Visita real → tarjeta completa con fotos/notas/checklist.
+                  Parada genérica → tarjeta compacta informativa. */}
+              {esVisita ? (
+                <TarjetaVisita
+                  parada={parada as ParadaResumen & { visita: VisitaResumen }}
+                  puedeEditar={puedeEditar}
+                  onEditar={() => onEditarVisita(parada.visita!.id)}
+                  fotos={fotosPorVisita[parada.visita!.id] || []}
+                />
+              ) : (
+                <TarjetaParadaGenerica
+                  parada={parada}
+                  puedeEditar={puedeEditar}
+                  onEditarNota={onEditarNotaParada ? () => onEditarNotaParada(parada) : undefined}
+                />
+              )}
             </div>
           )
         })}

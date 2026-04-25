@@ -64,15 +64,17 @@ function PaginaWhatsApp() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Barra superior — siempre visible */}
-      <BarraSuperiorWhatsApp
-        vistaWA={estado.vistaWA}
-        onCambiarVistaWA={estado.setVistaWA}
-        panelInfoAbierto={estado.panelInfoAbierto}
-        onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
-        esMovil={estado.esMovil}
-        onIrConfiguracion={() => router.push('/whatsapp/configuracion')}
-      />
+      {/* Barra superior — solo desktop. En móvil la configuración se hace desde PC y el toggle vista no aplica */}
+      {!estado.esMovil && (
+        <BarraSuperiorWhatsApp
+          vistaWA={estado.vistaWA}
+          onCambiarVistaWA={estado.setVistaWA}
+          panelInfoAbierto={estado.panelInfoAbierto}
+          onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
+          esMovil={estado.esMovil}
+          onIrConfiguracion={() => router.push('/whatsapp/configuracion')}
+        />
+      )}
 
       {/* Contenido principal */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -86,7 +88,7 @@ function PaginaWhatsApp() {
             {/* Lista de conversaciones */}
             {(!estado.esMovil || estado.vistaMovilWA === 'lista') && (
               <div
-                className={estado.esMovil ? 'flex-1' : 'flex-shrink-0 relative'}
+                className={estado.esMovil ? 'flex-1 min-w-0 overflow-hidden' : 'flex-shrink-0 relative'}
                 style={estado.esMovil ? undefined : { width: estado.anchoLista, minWidth: 280, maxWidth: 500 }}
               >
                 <ListaConversaciones

@@ -46,6 +46,9 @@ interface Parada {
   estado?: string | null
   distancia_km: number | null
   duracion_viaje_min: number | null
+  // Nota libre del visitador — sólo para paradas genéricas. Queda guardada en
+  // `recorrido_paradas.notas` y no se registra en ningún chatter.
+  notas?: string | null
   // Timestamps del progreso de la parada (sólo se usan cuando tipo='parada';
   // para tipo='visita' los timestamps viven en `visita.fecha_*`).
   fecha_inicio?: string | null

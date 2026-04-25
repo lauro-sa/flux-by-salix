@@ -68,7 +68,7 @@ function TablaBase<T>({ columnas, datos, claveFila, seleccionables, seleccionado
   }
 
   return (
-    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden overflow-x-auto ${className}`}>
+    <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden overflow-x-auto con-indicador-scroll ${className}`}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-borde-sutil">

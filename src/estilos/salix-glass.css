@@ -1,0 +1,473 @@
+/* ════════════════════════════════════════════════════════════════════
+   Salix Glass — Sistema visual del panel de Salix IA.
+   Inspirado en Vision OS / Apple Card / Raycast Pro.
+   Scoped al contenedor `.salix-glass`. NO contamina el resto de la app.
+   ════════════════════════════════════════════════════════════════════ */
+
+.salix-glass {
+  /* Override de tokens del proyecto: el panel de Salix IA es SIEMPRE oscuro
+     (como Raycast / ChatGPT) independientemente del tema activo. Así los
+     componentes hijos que usan `text-texto-primario`, `bg-superficie-tarjeta`,
+     etc. se ven legibles sobre el fondo glass. */
+  --texto-primario: rgba(255, 255, 255, 0.92);
+  --texto-secundario: rgba(255, 255, 255, 0.65);
+  --texto-terciario: rgba(255, 255, 255, 0.45);
+  --texto-marca: #B58CFF;
+  --superficie-app: transparent;
+  --superficie-tarjeta: rgba(255, 255, 255, 0.04);
+  --superficie-elevada: rgba(255, 255, 255, 0.06);
+  --superficie-sidebar: rgba(255, 255, 255, 0.04);
+  --borde-sutil: rgba(255, 255, 255, 0.08);
+  --borde-fuerte: rgba(255, 255, 255, 0.12);
+  /* Foco: en lugar del azul nativo del proyecto, usamos violet con halo. */
+  --borde-foco: rgba(127, 119, 221, 0.55);
+  --sombra-foco: 0 0 0 3px rgba(127, 119, 221, 0.14);
+
+  /* Brand */
+  --salix-violet: #7F77DD;
+  --salix-blue: #378ADD;
+  --salix-gold-light: #F4D596;
+  --salix-gold: #D9A04A;
+  --salix-gold-dark: #B07A2A;
+
+  /* Glass surfaces */
+  --salix-glass-panel: rgba(20, 20, 26, 0.78);
+  --salix-glass-card: rgba(255, 255, 255, 0.03);
+  --salix-glass-card-hover: rgba(255, 255, 255, 0.06);
+  --salix-glass-border: rgba(255, 255, 255, 0.08);
+  --salix-glass-border-hover: rgba(255, 255, 255, 0.12);
+
+  /* Background base — tono casi neutro alineado con --superficie-elevada
+     del proyecto (no negro puro ni Vision OS). Le agregamos solo un toque
+     muy leve de violet/azul como "halo" sin que sea el protagonista. */
+  --salix-bg: #131319;
+
+  /* Sombras */
+  --salix-shadow-panel: 0 30px 90px rgba(0, 0, 0, 0.6),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --salix-shadow-hero: 0 8px 30px rgba(60, 50, 160, 0.18),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --salix-shadow-emboss: inset 0 1px 0 rgba(255, 255, 255, 0.28),
+                         inset 0 -2px 4px rgba(0, 0, 0, 0.18);
+}
+
+/* ─── Panel principal ──────────────────────────────────────────────────
+   Fondo casi negro + 2 blobs radiales (violet top-right, azul bottom-left)
+   directamente como background-image. Sin `filter: blur` extra (los radial
+   gradients tienen fade natural y son ~10× más baratos que filter blur).
+   El glass se compone de:
+   - background: rgba opaco con backdrop-filter
+   - inset shadow blanco arriba: simula el borde iluminado del cristal
+
+   IMPORTANTE: NO seteamos `position` acá — la posición la define la
+   className de Tailwind del consumer (`fixed`, etc). El `::before` con
+   `position: absolute; inset: 0` se posiciona contra el panel porque un
+   ancestro `fixed` ya establece containing block.
+   ─────────────────────────────────────────────────────────────────────── */
+.salix-panel {
+  background: var(--salix-bg);
+  /* Tinte muy sutil — apenas un halo. NO blobs protagonistas. */
+  background-image:
+    radial-gradient(420px circle at 105% -15%, rgba(127, 119, 221, 0.18), transparent 60%),
+    radial-gradient(460px circle at -15% 115%, rgba(55, 138, 221, 0.14), transparent 60%);
+  isolation: isolate;
+}
+
+/* Capa "cristal" por encima del fondo de blobs */
+.salix-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--salix-glass-panel);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.salix-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* En mobile reducimos el blur (más liviano para Android viejo) */
+@media (max-width: 768px) {
+  .salix-panel::before {
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+}
+
+/* Fallback para navegadores sin backdrop-filter (Firefox sin flag, Android viejo) */
+@supports not ((backdrop-filter: blur(40px)) or (-webkit-backdrop-filter: blur(40px))) {
+  .salix-panel {
+    background: #1a1a26;
+    background-image: none;
+  }
+  .salix-panel::before {
+    display: none;
+  }
+}
+
+/* Reduce motion: sin halos */
+@media (prefers-reduced-motion: reduce) {
+  .salix-panel {
+    background-image: none;
+  }
+}
+
+/* ─── Hero card ───────────────────────────────────────────────────────
+   Card destacada para el contexto activo (ej. el contacto principal).
+   Gradiente violet/azul translúcido + sombra DEL COLOR (no negra).
+   Pseudo-element con línea de luz arriba simula el highlight del cristal.
+   ───────────────────────────────────────────────────────────────────── */
+.salix-hero {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(127, 119, 221, 0.22) 0%,
+    rgba(55, 138, 221, 0.10) 100%
+  );
+  border: 1px solid rgba(127, 119, 221, 0.22);
+  border-radius: 16px;
+  box-shadow: var(--salix-shadow-hero);
+  overflow: hidden;
+}
+
+.salix-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+}
+
+/* ─── Avatar dorado (Apple Card metálico) ──────────────────────────────
+   Solo para el contexto activo principal. NO usar en más de 1 elemento
+   por panel — el dorado es premium, no decorativo.
+   Gradient de 3 paradas (claro → medio → oscuro) + doble inset shadow
+   (highlight superior + sombra interior abajo) = efecto metálico.
+   ─────────────────────────────────────────────────────────────────────── */
+.salix-avatar-gold {
+  background: linear-gradient(135deg, #F4D596 0%, #D9A04A 50%, #B07A2A 100%);
+  color: #2e1d05;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 4px 14px rgba(184, 132, 56, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(120, 80, 20, 0.3);
+}
+
+/* ─── Íconos circulares brand ──────────────────────────────────────────
+   Para canales: WhatsApp, Phone, Email, Maps. Cada uno con gradient brand
+   propio + inset shadows (highlight + sombra) = look de objeto tangible.
+   ─────────────────────────────────────────────────────────────────────── */
+.salix-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: var(--salix-shadow-emboss);
+  color: white;
+}
+
+.salix-icon-whatsapp {
+  background: linear-gradient(135deg, #4ADE80, #128C7E);
+}
+.salix-icon-phone {
+  background: linear-gradient(135deg, #6EBAFF, #2469E0);
+}
+.salix-icon-email {
+  background: linear-gradient(135deg, #B58CFF, #6F4ADC);
+}
+.salix-icon-location {
+  background: linear-gradient(135deg, #FF8B6E, #E03A2C);
+}
+.salix-icon-link {
+  background: linear-gradient(135deg, #A88BFF, #5B47C9);
+}
+
+/* ─── Cards secundarias (glass sutil) ──────────────────────────────────
+   Doble capa: bg muy translúcido + borde blanco semi. Hover sube 2px
+   (skeumórfico — sensación de objeto físico levantado).
+   ─────────────────────────────────────────────────────────────────────── */
+.salix-card {
+  background: var(--salix-glass-card);
+  border: 1px solid var(--salix-glass-border);
+  border-radius: 14px;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.salix-card:hover {
+  background: var(--salix-glass-card-hover);
+  border-color: var(--salix-glass-border-hover);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .salix-card,
+  .salix-card:hover {
+    transform: none;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+}
+
+/* Variante para cards duales: misma base pero sin hover translateY
+   (porque dentro tiene 2 botones que sí reaccionan) */
+.salix-card-dual {
+  background: var(--salix-glass-card);
+  border: 1px solid var(--salix-glass-border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.salix-card-dual:hover {
+  border-color: var(--salix-glass-border-hover);
+}
+
+/* Sub-botones dentro de card dual: bg sutil al hover */
+.salix-subbtn {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.salix-subbtn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Input con glow brand ────────────────────────────────────────────
+   En focus, el contenedor toma color violet con un halo sutil. Reemplaza
+   el outline azul nativo del browser.
+   ───────────────────────────────────────────────────────────────────── */
+.salix-input-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--salix-glass-border);
+  border-radius: 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.salix-input-wrapper:focus-within {
+  border-color: rgba(127, 119, 221, 0.5);
+  background: rgba(127, 119, 221, 0.08);
+  box-shadow: 0 0 0 3px rgba(127, 119, 221, 0.14);
+}
+
+.salix-input-wrapper textarea:focus {
+  outline: none;
+}
+
+/* ─── Pills (segmentos para "Hoy / Mañana / En 3 días", etc.) ─────────── */
+.salix-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.18s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.salix-pill:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.salix-pill[data-activo='true'] {
+  background: rgba(127, 119, 221, 0.18);
+  border-color: rgba(127, 119, 221, 0.5);
+  color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 0 0 1px rgba(127, 119, 221, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Botón principal (acción primaria del panel) ─────────────────────── */
+.salix-btn-primario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  background: linear-gradient(135deg, rgba(127, 119, 221, 0.95), rgba(99, 91, 199, 0.95));
+  border: 1px solid rgba(127, 119, 221, 0.5);
+  box-shadow: 0 6px 20px rgba(60, 50, 160, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.salix-btn-primario:hover {
+  background: linear-gradient(135deg, rgba(140, 132, 230, 0.98), rgba(115, 107, 215, 0.98));
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(60, 50, 160, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.salix-btn-primario:active {
+  transform: translateY(0);
+}
+
+.salix-btn-primario:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 6px rgba(60, 50, 160, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .salix-btn-primario:hover { transform: none; }
+}
+
+/* ─── Botón fantasma (acciones secundarias) ───────────────────────────── */
+.salix-btn-fantasma {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.salix-btn-fantasma:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Switch (toggle) glass ───────────────────────────────────────────── */
+.salix-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.salix-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), background 0.18s ease;
+}
+
+.salix-switch[data-activo='true'] {
+  background: linear-gradient(135deg, rgba(127, 119, 221, 0.85), rgba(99, 91, 199, 0.85));
+  border-color: rgba(127, 119, 221, 0.5);
+  box-shadow: 0 0 0 3px rgba(127, 119, 221, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.salix-switch[data-activo='true']::before {
+  transform: translateX(16px);
+  background: white;
+}
+
+/* ─── Select (drop-down) glass ────────────────────────────────────────── */
+.salix-select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.salix-select:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.salix-select:focus {
+  outline: none;
+  border-color: rgba(127, 119, 221, 0.5);
+  background: rgba(127, 119, 221, 0.08);
+  box-shadow: 0 0 0 3px rgba(127, 119, 221, 0.14);
+}
+
+.salix-select option {
+  background: #1a1a26;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Centrar contenido del SelectorHora ─────────────────────────────────
+   El input de hora ("09:00") es muy corto y queda con un hueco grande a la
+   derecha. Centramos el contenido del input + ícono para verse simétrico.
+   ─────────────────────────────────────────────────────────────────────── */
+.salix-input-hora > div > div {
+  justify-content: center;
+}
+.salix-input-hora input {
+  flex: 0 0 auto !important;
+  text-align: left;
+  width: auto !important;
+  min-width: 0;
+}
+
+/* ─── Drag handle (mobile bottom sheet) ───────────────────────────────── */
+.salix-drag-handle {
+  width: 38px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 100px;
+  margin: 8px auto 0;
+}
+
+/* ─── Section labels ──────────────────────────────────────────────────── */
+.salix-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+/* ─── Texto del panel ─────────────────────────────────────────────────── */
+.salix-glass {
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -0.01em;
+}
+
+.salix-glass .salix-text-muted {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.salix-glass .salix-text-dim {
+  color: rgba(255, 255, 255, 0.38);
+}

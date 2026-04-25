@@ -24,7 +24,7 @@ interface PropiedadesKanban<T> {
  */
 function Kanban<T>({ columnas, items, obtenerColumna, renderItem, claveItem, className = '' }: PropiedadesKanban<T>) {
   return (
-    <div className={`flex gap-4 overflow-x-auto pb-4 ${className}`}>
+    <div className={`flex gap-4 overflow-x-auto con-indicador-scroll pb-4 ${className}`}>
       {columnas.map((col) => {
         const itemsColumna = items.filter((item) => obtenerColumna(item) === col.id)
         return (

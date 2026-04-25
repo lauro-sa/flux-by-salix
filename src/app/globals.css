@@ -1,6 +1,9 @@
 /* Tokens de diseño centralizados */
 @import '../estilos/tokens.css';
 
+/* Sistema visual del panel de Salix IA (scoped a .salix-glass) */
+@import '../estilos/salix-glass.css';
+
 /* Tailwind CSS 4 */
 @import 'tailwindcss';
 
@@ -261,8 +264,11 @@ button, a, [role="button"], input, select, textarea, label {
   }
 }
 
-/* Indicador visual de scroll horizontal en tablas y contenedores */
-.overflow-x-auto {
+/* Indicador visual de scroll horizontal — solo en tablas/kanban y contenedores
+   que explícitamente optan con la clase .con-indicador-scroll.
+   Antes se aplicaba a TODO .overflow-x-auto y contaminaba chat, listas, tags, etc. */
+.tabla .overflow-x-auto,
+.con-indicador-scroll {
   background:
     linear-gradient(to right, var(--superficie-tarjeta) 30%, transparent) left center,
     linear-gradient(to left, var(--superficie-tarjeta) 30%, transparent) right center,

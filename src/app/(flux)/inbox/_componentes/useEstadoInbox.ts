@@ -312,12 +312,23 @@ export function useEstadoInbox() {
   // ─── Abrir compositor de correo desde URL (?nuevo=1&para=<correo>&tab=correo) ───
   // Usado por las acciones rápidas (panel Salix IA → "Redactar en Flux").
   // Cambia al tab correo, abre el compositor y precarga el destinatario.
+  // Validamos el formato del correo para evitar precargar basura desde un
+  // link manipulado (no es XSS — React escapa — pero sí evita ruido en UI).
   const nuevoParamAnteriorRef = useRef<string | null>(null)
   useEffect(() => {
     const nuevoParam = searchParams.get('nuevo')
     const paraParam = searchParams.get('para')
     if (nuevoParam !== '1' || !paraParam) return
     if (nuevoParamAnteriorRef.current === paraParam) return
+
+    // Validación liviana de formato email (no exhaustiva, solo descarta basura).
+    const esEmailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paraParam) && paraParam.length <= 254
+    if (!esEmailValido) {
+      // Limpiar la URL para que el ?para inválido no quede pegado
+      window.history.replaceState({}, '', window.location.pathname)
+      return
+    }
+
     nuevoParamAnteriorRef.current = paraParam
 
     setTabActivo('correo')

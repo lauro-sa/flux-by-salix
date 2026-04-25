@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import type { LucideProps } from 'lucide-react'
-import { Phone, Mail, MapPin, UserRound, FileText, Copy } from 'lucide-react'
+import { Phone, Mail, MapPin, UserRound, FileText, Copy, Globe } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
 import {
   accionLlamar,
@@ -25,6 +25,8 @@ import {
   accionCopiarCorreo,
   accionNavegar,
   esDispositivoTactil,
+  copiarAlPortapapeles,
+  normalizarTelefono,
 } from '@/lib/plataforma'
 
 import { IconoWhatsApp } from '@/componentes/marca/IconoWhatsApp'
@@ -34,6 +36,15 @@ type IconoLucide = ComponentType<LucideProps>
 /** Categoría a la que pertenece una acción, usada para agrupar en el render. */
 export type GrupoAccion = 'navegacion' | 'llamar' | 'whatsapp' | 'correo' | 'direccion'
 
+export type SubAccion = {
+  clave: string
+  /** Etiqueta corta del botón (ej. "En Flux", "Externo") */
+  etiqueta: string
+  icono?: IconoLucide
+  colorIcono?: string
+  onEjecutar: () => void | Promise<void>
+}
+
 export type AccionRapida = {
   clave: string
   etiqueta: string
@@ -42,7 +53,20 @@ export type AccionRapida = {
   icono: IconoLucide
   /** Clase Tailwind para el color del icono (ej: 'text-emerald-400') */
   colorIcono: string
-  onEjecutar: () => void | Promise<void>
+  /** Acción simple. Se ignora si hay `subacciones`. */
+  onEjecutar?: () => void | Promise<void>
+  /**
+   * Si hay 2+ subacciones, el item se renderiza como card dual: header con
+   * icono/título/descripción arriba y un grid de botones igual ancho abajo.
+   * Útil para WhatsApp (Flux / externo) y correo (Flux / cliente externo).
+   */
+  subacciones?: SubAccion[]
+  /**
+   * Si está presente, el header del card dual es clickeable y dispara esta
+   * callback. Convención: tocar el dato lo copia al portapapeles. Aparece
+   * un mini icono de copiar sutil para señalar que es clickeable.
+   */
+  onCopiar?: () => void | Promise<void>
 }
 
 /**
@@ -64,6 +88,7 @@ type ContextoRuta =
   | { tipo: 'presupuesto'; id: string }
   | { tipo: 'orden'; id: string }
   | { tipo: 'visita'; id: string }
+  | { tipo: 'usuario'; id: string }
   | null
 
 const REGEX_UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
@@ -79,6 +104,8 @@ export function parsearContextoRuta(pathname: string | null): ContextoRuta {
   if (mOrden) return { tipo: 'orden', id: mOrden[1] }
   const mVisita = pathname.match(new RegExp(`^/visitas/(${REGEX_UUID})`, 'i'))
   if (mVisita) return { tipo: 'visita', id: mVisita[1] }
+  const mUsuario = pathname.match(new RegExp(`^/usuarios/(${REGEX_UUID})`, 'i'))
+  if (mUsuario) return { tipo: 'usuario', id: mUsuario[1] }
   return null
 }
 
@@ -184,6 +211,24 @@ type RespuestaVisita = {
   actividad_id: string | null
 }
 
+/**
+ * Respuesta de /api/miembros/[id] — datos accionables del compañero del equipo
+ * (sin información sensible: solo nombre + correos + teléfonos).
+ */
+type RespuestaUsuario = {
+  id: string
+  nombre: string | null
+  apellido: string | null
+  /** Correo personal (login) */
+  correo: string | null
+  /** Correo corporativo */
+  correo_empresa: string | null
+  /** Teléfono personal */
+  telefono: string | null
+  /** Teléfono empresa */
+  telefono_empresa: string | null
+}
+
 /* ────────────────────────────────────────────────
    Hook principal
    ──────────────────────────────────────────────── */
@@ -193,7 +238,12 @@ export function useAccionesRapidas() {
   const contexto = useMemo(() => parsearContextoRuta(pathname), [pathname])
 
   const [datos, setDatos] = useState<
-    RespuestaContacto | RespuestaPresupuesto | RespuestaOrden | RespuestaVisita | null
+    | RespuestaContacto
+    | RespuestaPresupuesto
+    | RespuestaOrden
+    | RespuestaVisita
+    | RespuestaUsuario
+    | null
   >(null)
   // Para presupuestos/órdenes/visitas: contacto principal cargado aparte para
   // obtener teléfonos y direcciones vigentes (no el snapshot guardado, que puede
@@ -219,7 +269,11 @@ export function useAccionesRapidas() {
       setAtencionVinculada(null)
       return
     }
-    let cancelado = false
+    // AbortController para cancelar fetches al cambiar de ruta. Necesario
+    // además del flag `cancelado` porque sin signal los requests siguen
+    // en vuelo ocupando red — y el contacto secundario podría llegar
+    // tarde y querer setear estado del contexto anterior.
+    const ctrl = new AbortController()
     const cargar = async () => {
       setCargando(true)
       setError(null)
@@ -228,11 +282,12 @@ export function useAccionesRapidas() {
           contexto.tipo === 'contacto' ? `/api/contactos/${contexto.id}`
           : contexto.tipo === 'presupuesto' ? `/api/presupuestos/${contexto.id}`
           : contexto.tipo === 'orden' ? `/api/ordenes/${contexto.id}`
-          : `/api/visitas/${contexto.id}`
-        const res = await fetch(url)
+          : contexto.tipo === 'visita' ? `/api/visitas/${contexto.id}`
+          : `/api/miembros/${contexto.id}`
+        const res = await fetch(url, { signal: ctrl.signal })
         if (!res.ok) throw new Error('No se pudo cargar el detalle')
         const json = await res.json()
-        if (cancelado) return
+        if (ctrl.signal.aborted) return
         setDatos(json)
 
         // Extraer IDs de contactos vinculados según el tipo de entidad, para
@@ -257,8 +312,8 @@ export function useAccionesRapidas() {
         const cargarContacto = async (id: string | null): Promise<RespuestaContacto | null> => {
           if (!id) return null
           try {
-            const res = await fetch(`/api/contactos/${id}`)
-            return res.ok ? (await res.json()) as RespuestaContacto : null
+            const r = await fetch(`/api/contactos/${id}`, { signal: ctrl.signal })
+            return r.ok ? ((await r.json()) as RespuestaContacto) : null
           } catch {
             return null
           }
@@ -271,18 +326,20 @@ export function useAccionesRapidas() {
           cargarContacto(contactoIdVinculado),
           cargarContacto(atencionId),
         ])
-        if (cancelado) return
+        if (ctrl.signal.aborted) return
         setContactoVinculado(contactoData)
         setAtencionVinculada(atencionData)
       } catch (err) {
-        if (!cancelado) setError(err instanceof Error ? err.message : 'Error')
+        // Errores de abort no son errores reales — solo el efecto se rearmó
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : 'Error')
       } finally {
-        if (!cancelado) setCargando(false)
+        if (!ctrl.signal.aborted) setCargando(false)
       }
     }
     cargar()
     return () => {
-      cancelado = true
+      ctrl.abort()
     }
   }, [contexto])
 
@@ -314,6 +371,9 @@ export function useAccionesRapidas() {
         atencionVinculada,
         { toast, router },
       )
+    }
+    if (contexto.tipo === 'usuario') {
+      return construirAccionesUsuario(datos as RespuestaUsuario, { toast, router })
     }
     return []
   }, [contexto, datos, contactoVinculado, atencionVinculada, toast, router])
@@ -352,8 +412,9 @@ function ejecutarSync(
 function nombreCompleto(
   nombre: string | null | undefined,
   apellido?: string | null,
+  fallback = 'Contacto',
 ): string {
-  return [nombre, apellido].filter(Boolean).join(' ') || 'Contacto'
+  return [nombre, apellido].filter(Boolean).join(' ') || fallback
 }
 
 function etiquetaTelefono(tipo: string | null | undefined): string {
@@ -384,6 +445,142 @@ function esMovil(tel: TelefonoContacto): boolean {
   return t === 'movil' || t === 'móvil' || t === 'mobile' || t === 'whatsapp'
 }
 
+/* ────────────────────────────────────────────────
+   Helpers de fusión: cuando un mismo destinatario tiene tanto opción
+   "Flux" como "externo" (WhatsApp y correo), las combinamos en un único
+   item dual con dos botones lado a lado en vez de duplicar filas.
+   ──────────────────────────────────────────────── */
+
+/**
+ * Construye la acción rápida de WhatsApp para un destinatario.
+ * - Si hay móvil y contacto_id → dual (En Flux / En WhatsApp). El header
+ *   copia el número al portapapeles.
+ * - Si solo hay móvil (sin contacto_id) → solo externo.
+ * - Si solo hay contacto_id (sin móvil) → solo Flux.
+ * - Si no hay ninguno → null.
+ */
+function accionWhatsAppDual(opciones: {
+  claveBase: string
+  contactoId: string | null
+  numeroMovil: string | null
+  nombre: string
+  colorBase?: string
+  deps: Deps
+}): AccionRapida | null {
+  const { claveBase, contactoId, numeroMovil, nombre, colorBase = 'text-green-400', deps } = opciones
+  const router = deps.router
+  const puedeFlux = !!(contactoId && router)
+  const puedeExterno = !!numeroMovil
+  if (!puedeFlux && !puedeExterno) return null
+
+  const descripcion = numeroMovil ? `${numeroMovil} · ${nombre}` : nombre
+
+  // Solo Flux (sin móvil para copiar/abrir wa.me)
+  if (puedeFlux && !puedeExterno) {
+    const id = contactoId!
+    return {
+      clave: `whatsapp-${claveBase}`,
+      etiqueta: 'WhatsApp',
+      descripcion: `Inbox interno · ${nombre}`,
+      icono: IconoWhatsApp,
+      colorIcono: colorBase,
+      onEjecutar: () => router!.push(`/whatsapp?contacto_id=${id}`),
+    }
+  }
+
+  // Solo externo (móvil sin contacto en sistema): toda la card abre wa.me;
+  // el header copia el número.
+  if (!puedeFlux && puedeExterno) {
+    const num = numeroMovil!
+    return {
+      clave: `whatsapp-${claveBase}`,
+      etiqueta: 'WhatsApp',
+      descripcion,
+      icono: IconoWhatsApp,
+      colorIcono: colorBase,
+      onEjecutar: () => ejecutarSync(accionWhatsApp(num), deps.toast),
+    }
+  }
+
+  // Dual: 2 botones simétricos abajo + header clickeable para copiar el número.
+  const id = contactoId!
+  const num = numeroMovil!
+  return {
+    clave: `whatsapp-${claveBase}`,
+    etiqueta: 'WhatsApp',
+    descripcion,
+    icono: IconoWhatsApp,
+    colorIcono: colorBase,
+    // Copiar SIEMPRE: en móvil no queremos disparar tel:, solo el portapapeles.
+    onCopiar: async () => {
+      const limpio = normalizarTelefono(num)
+      const ok = await copiarAlPortapapeles(`+${limpio}`)
+      deps.toast.mostrar(ok ? 'exito' : 'error', ok ? `Número copiado: +${limpio}` : 'No se pudo copiar')
+    },
+    subacciones: [
+      {
+        clave: 'flux',
+        etiqueta: 'En Flux',
+        icono: IconoWhatsApp,
+        colorIcono: 'text-emerald-400',
+        onEjecutar: () => router!.push(`/whatsapp?contacto_id=${id}`),
+      },
+      {
+        clave: 'externo',
+        etiqueta: 'En WhatsApp',
+        icono: Globe,
+        colorIcono: 'text-texto-terciario',
+        onEjecutar: () => ejecutarSync(accionWhatsApp(num), deps.toast),
+      },
+    ],
+  }
+}
+
+/**
+ * Construye la acción rápida de correo para un destinatario.
+ * Devuelve un card dual con [En Flux] + [En cliente] (si hay router) o solo
+ * "En cliente" si no hay. El header del card copia el correo al portapapeles
+ * — así no necesitamos un 3er botón rompiendo la simetría visual.
+ */
+function accionCorreoDual(opciones: {
+  claveBase: string
+  correo: string
+  nombre: string
+  colorBase?: string
+  deps: Deps
+}): AccionRapida {
+  const { claveBase, correo, nombre, colorBase = 'text-sky-400', deps } = opciones
+  const router = deps.router
+
+  const subacciones: SubAccion[] = []
+  if (router) {
+    subacciones.push({
+      clave: 'flux',
+      etiqueta: 'En Flux',
+      icono: Mail,
+      colorIcono: 'text-sky-400',
+      onEjecutar: () => router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
+    })
+  }
+  subacciones.push({
+    clave: 'externo',
+    etiqueta: 'En cliente',
+    icono: Globe,
+    colorIcono: 'text-texto-terciario',
+    onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
+  })
+
+  return {
+    clave: `correo-${claveBase}`,
+    etiqueta: 'Correo',
+    descripcion: `${correo} · ${nombre}`,
+    icono: Mail,
+    colorIcono: colorBase,
+    onCopiar: () => ejecutarConFeedback(() => accionCopiarCorreo(correo), deps.toast),
+    subacciones,
+  }
+}
+
 /** Acciones rápidas para la vista de detalle de un contacto. */
 function construirAccionesContacto(c: RespuestaContacto, deps: Deps): AccionRapida[] {
   const acciones: AccionRapida[] = []
@@ -407,71 +604,40 @@ function construirAccionesContacto(c: RespuestaContacto, deps: Deps): AccionRapi
     })
   })
 
-  // WhatsApp en Flux — abre (o crea) la conversación en el inbox interno.
-  // Aparece una sola vez por contacto, si hay al menos un teléfono móvil.
-  const hayMovil = telefonos.some(esMovil)
-  if (hayMovil && router) {
-    const contactoId = c.id
-    acciones.push({
-      clave: 'whatsapp-flux',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: 'Inbox interno de Flux',
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${contactoId}`),
+  // WhatsApp dual: Flux + externo en una sola card. Si hay 2+ móviles,
+  // el primero se fusiona con Flux y los siguientes se agregan aparte.
+  const moviles = telefonos.filter(esMovil)
+  const nombreContacto = nombreCompleto(c.nombre, c.apellido)
+  const accionWA = accionWhatsAppDual({
+    claveBase: 'principal',
+    contactoId: c.id,
+    numeroMovil: moviles[0]?.valor || null,
+    nombre: nombreContacto,
+    deps,
+  })
+  if (accionWA) acciones.push(accionWA)
+  // Móviles secundarios (raro): se agregan como simples solo-externo
+  moviles.slice(1).forEach((tel, i) => {
+    const extra = accionWhatsAppDual({
+      claveBase: `extra-${i}`,
+      contactoId: null,
+      numeroMovil: tel.valor,
+      nombre: nombreContacto,
+      deps,
     })
-  }
-
-  // WhatsApp externo — uno por cada móvil, dispara la app del dispositivo / Web.
-  telefonos.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: tel.valor,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+    if (extra) acciones.push(extra)
   })
 
-  // Correo
+  // Correo: card dual (Flux + externo) — más copiar en PC.
   if (c.correo) {
-    const correo = c.correo
-
-    // Redactar en Flux — abre el compositor interno de correo con destinatario precargado
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-
-    // Abrir en cliente externo (mailto:)
-    acciones.push({
-      clave: 'correo',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: correo,
-      icono: Mail,
-      colorIcono: 'text-sky-400',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
-
-    // En PC es útil ofrecer "copiar correo" por si no hay cliente configurado.
-    if (!tactil) {
-      acciones.push({
-        clave: 'correo-copiar',
-        etiqueta: 'Copiar correo',
-        descripcion: correo,
-        icono: Copy,
-        colorIcono: 'text-sky-400/70',
-        onEjecutar: () => ejecutarConFeedback(() => accionCopiarCorreo(correo), deps.toast),
-      })
-    }
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'principal',
+        correo: c.correo,
+        nombre: nombreContacto,
+        deps,
+      }),
+    )
   }
 
   // Direcciones — una por cada con texto navegable
@@ -500,8 +666,8 @@ function construirAccionesPresupuesto(
   const acciones: AccionRapida[] = []
   const tactil = esDispositivoTactil()
   const router = deps.router
-  const nombreContacto = nombreCompleto(p.contacto_nombre, p.contacto_apellido)
-  const nombreAtencion = p.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido) || 'Dirigido a'
+  const nombreContacto = nombreCompleto(p.contacto_nombre, p.contacto_apellido, 'Cliente')
+  const nombreAtencion = p.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido, 'Dirigido a')
 
   // Ir al contacto
   if (p.contacto_id && router) {
@@ -578,106 +744,50 @@ function construirAccionesPresupuesto(
     })
   })
 
-  // WhatsApp en Flux — abre (o crea) la conversación en el inbox interno.
-  const hayMovil = telefonos.some(esMovil)
-  if (hayMovil && router && p.contacto_id) {
-    const contactoId = p.contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${contactoId}`),
-    })
-  }
-
-  // WhatsApp en Flux para el "dirigido a"
-  const hayMovilAtencion = telefonosAtencion.some(esMovil)
-  if (hayMovilAtencion && router && p.atencion_contacto_id) {
-    const atencionId = p.atencion_contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux-atencion',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreAtencion}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500/80',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${atencionId}`),
-    })
-  }
-
-  // WhatsApp externo — uno por cada móvil.
-  telefonos.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  // WhatsApp dual del contacto principal y del "dirigido a"
+  const movilesPrincipal = telefonos.filter(esMovil)
+  const movilesAtencion = telefonosAtencion.filter(esMovil)
+  const accionWAPrincipal = accionWhatsAppDual({
+    claveBase: 'principal',
+    contactoId: p.contacto_id,
+    numeroMovil: movilesPrincipal[0]?.valor || null,
+    nombre: nombreContacto,
+    deps,
   })
-
-  // WhatsApp externo del "dirigido a"
-  telefonosAtencion.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-atencion-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreAtencion}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400/80',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  if (accionWAPrincipal) acciones.push(accionWAPrincipal)
+  const accionWAAtencion = accionWhatsAppDual({
+    claveBase: 'atencion',
+    contactoId: p.atencion_contacto_id,
+    numeroMovil: movilesAtencion[0]?.valor || null,
+    nombre: nombreAtencion,
+    colorBase: 'text-green-400/80',
+    deps,
   })
+  if (accionWAAtencion) acciones.push(accionWAAtencion)
 
-  // Correo del contacto principal (preferimos el vivo, snapshot como fallback)
+  // Correo dual del contacto principal y del "dirigido a"
   const correoContacto = contactoVivo?.correo || p.contacto_correo
   if (correoContacto) {
-    const correo = correoContacto
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-contacto',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreContacto} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-contacto',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreContacto}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'principal',
+        correo: correoContacto,
+        nombre: nombreContacto,
+        deps,
+      }),
+    )
   }
-
-  // Correo del "dirigido a" — preferimos el vivo, snapshot como fallback
   const correoAtencion = atencionVivo?.correo || p.atencion_correo
   if (correoAtencion && correoAtencion !== correoContacto) {
-    const correo = correoAtencion
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-atencion',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreAtencion} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500/80',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-atencion',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreAtencion}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400/80',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'atencion',
+        correo: correoAtencion,
+        nombre: nombreAtencion,
+        colorBase: 'text-sky-400/80',
+        deps,
+      }),
+    )
   }
 
   // Direcciones: preferimos las del contacto vivo (estructuradas con texto
@@ -729,8 +839,8 @@ function construirAccionesOrden(
   const acciones: AccionRapida[] = []
   const tactil = esDispositivoTactil()
   const router = deps.router
-  const nombreContacto = o.contacto_nombre || 'Contacto'
-  const nombreAtencion = o.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido) || 'Persona de contacto'
+  const nombreContacto = o.contacto_nombre || 'Cliente'
+  const nombreAtencion = o.atencion_nombre || nombreCompleto(atencionVivo?.nombre, atencionVivo?.apellido, 'Persona de contacto')
 
   // Ir al contacto
   if (o.contacto_id && router) {
@@ -808,104 +918,50 @@ function construirAccionesOrden(
     })
   })
 
-  // WhatsApp en Flux
-  const hayMovil = telefonos.some(esMovil)
-  if (hayMovil && router && o.contacto_id) {
-    const contactoId = o.contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${contactoId}`),
-    })
-  }
-
-  // WhatsApp en Flux para el "dirigido a"
-  const hayMovilAtencion = telefonosAtencion.some(esMovil)
-  if (hayMovilAtencion && router && o.atencion_contacto_id) {
-    const atencionId = o.atencion_contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux-atencion',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreAtencion}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500/80',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${atencionId}`),
-    })
-  }
-
-  telefonos.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  // WhatsApp dual del contacto principal y del "dirigido a"
+  const movilesOrden = telefonos.filter(esMovil)
+  const movilesAtencionOrden = telefonosAtencion.filter(esMovil)
+  const waPrincipal = accionWhatsAppDual({
+    claveBase: 'principal',
+    contactoId: o.contacto_id,
+    numeroMovil: movilesOrden[0]?.valor || null,
+    nombre: nombreContacto,
+    deps,
   })
-
-  telefonosAtencion.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-atencion-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreAtencion}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400/80',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  if (waPrincipal) acciones.push(waPrincipal)
+  const waAtencion = accionWhatsAppDual({
+    claveBase: 'atencion',
+    contactoId: o.atencion_contacto_id,
+    numeroMovil: movilesAtencionOrden[0]?.valor || null,
+    nombre: nombreAtencion,
+    colorBase: 'text-green-400/80',
+    deps,
   })
+  if (waAtencion) acciones.push(waAtencion)
 
-  // Correo del contacto
-  const correoContacto = contactoVivo?.correo || o.contacto_correo
-  if (correoContacto) {
-    const correo = correoContacto
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-contacto',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreContacto} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-contacto',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreContacto}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+  // Correo dual del contacto principal y del "dirigido a"
+  const correoContactoOrden = contactoVivo?.correo || o.contacto_correo
+  if (correoContactoOrden) {
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'principal',
+        correo: correoContactoOrden,
+        nombre: nombreContacto,
+        deps,
+      }),
+    )
   }
-
-  // Correo del "dirigido a" — preferimos el vivo, snapshot como fallback
-  const correoAtencion = atencionVivo?.correo || o.atencion_correo
-  if (correoAtencion && correoAtencion !== correoContacto) {
-    const correo = correoAtencion
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-atencion',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreAtencion} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500/80',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-atencion',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreAtencion}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400/80',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+  const correoAtencionOrden = atencionVivo?.correo || o.atencion_correo
+  if (correoAtencionOrden && correoAtencionOrden !== correoContactoOrden) {
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'atencion',
+        correo: correoAtencionOrden,
+        nombre: nombreAtencion,
+        colorBase: 'text-sky-400/80',
+        deps,
+      }),
+    )
   }
 
   // Direcciones: del contacto vivo primero, snapshot como fallback
@@ -957,7 +1013,7 @@ function construirAccionesVisita(
   const tactil = esDispositivoTactil()
   const router = deps.router
   const nombreContacto = v.contacto_nombre || 'Contacto'
-  const nombreRecibe = v.recibe_nombre || nombreCompleto(recibeVivo?.nombre, recibeVivo?.apellido) || 'Persona que recibe'
+  const nombreRecibe = v.recibe_nombre || nombreCompleto(recibeVivo?.nombre, recibeVivo?.apellido, 'Persona que recibe')
 
   // Ir al contacto
   if (v.contacto_id && router) {
@@ -1018,102 +1074,48 @@ function construirAccionesVisita(
     })
   })
 
-  // WhatsApp en Flux del contacto principal
-  const hayMovil = telefonos.some(esMovil)
-  if (hayMovil && router && v.contacto_id) {
-    const contactoId = v.contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${contactoId}`),
-    })
-  }
-
-  // WhatsApp en Flux de quien recibe
-  const hayMovilRecibe = telefonosRecibe.some(esMovil)
-  if (hayMovilRecibe && router && v.recibe_contacto_id) {
-    const recibeId = v.recibe_contacto_id
-    acciones.push({
-      clave: 'whatsapp-flux-recibe',
-      etiqueta: 'Abrir chat en Flux',
-      descripcion: `Inbox interno · ${nombreRecibe}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-emerald-500/80',
-      onEjecutar: () => router.push(`/whatsapp?contacto_id=${recibeId}`),
-    })
-  }
-
-  telefonos.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreContacto}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  // WhatsApp dual del contacto y de quien recibe
+  const movilesContactoVisita = telefonos.filter(esMovil)
+  const movilesRecibeVisita = telefonosRecibe.filter(esMovil)
+  const waContacto = accionWhatsAppDual({
+    claveBase: 'principal',
+    contactoId: v.contacto_id,
+    numeroMovil: movilesContactoVisita[0]?.valor || null,
+    nombre: nombreContacto,
+    deps,
   })
-
-  telefonosRecibe.filter(esMovil).forEach((tel, i) => {
-    acciones.push({
-      clave: `whatsapp-externo-recibe-${i}`,
-      etiqueta: 'Abrir en WhatsApp',
-      descripcion: `${tel.valor} · ${nombreRecibe}`,
-      icono: IconoWhatsApp,
-      colorIcono: 'text-green-400/80',
-      onEjecutar: () => ejecutarSync(accionWhatsApp(tel.valor), deps.toast),
-    })
+  if (waContacto) acciones.push(waContacto)
+  const waRecibe = accionWhatsAppDual({
+    claveBase: 'recibe',
+    contactoId: v.recibe_contacto_id,
+    numeroMovil: movilesRecibeVisita[0]?.valor || null,
+    nombre: nombreRecibe,
+    colorBase: 'text-green-400/80',
+    deps,
   })
+  if (waRecibe) acciones.push(waRecibe)
 
-  // Correo del contacto vivo (la visita no guarda correo snapshot)
+  // Correo dual del contacto y de quien recibe
   if (contactoVivo?.correo) {
-    const correo = contactoVivo.correo
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-contacto',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreContacto} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-contacto',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreContacto}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'principal',
+        correo: contactoVivo.correo,
+        nombre: nombreContacto,
+        deps,
+      }),
+    )
   }
-
-  // Correo de quien recibe (si es un contacto distinto y tiene correo)
   if (recibeVivo?.correo && recibeVivo.correo !== contactoVivo?.correo) {
-    const correo = recibeVivo.correo
-    if (router) {
-      acciones.push({
-        clave: 'correo-flux-recibe',
-        etiqueta: 'Redactar en Flux',
-        descripcion: `${correo} · ${nombreRecibe} · Inbox interno`,
-        icono: Mail,
-        colorIcono: 'text-sky-500/80',
-        onEjecutar: () =>
-          router.push(`/inbox?nuevo=1&para=${encodeURIComponent(correo)}&tab=correo`),
-      })
-    }
-    acciones.push({
-      clave: 'correo-recibe',
-      etiqueta: 'Abrir en cliente de correo',
-      descripcion: `${correo} · ${nombreRecibe}`,
-      icono: Mail,
-      colorIcono: 'text-sky-400/80',
-      onEjecutar: () => ejecutarSync(accionCorreo(correo), deps.toast),
-    })
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'recibe',
+        correo: recibeVivo.correo,
+        nombre: nombreRecibe,
+        colorBase: 'text-sky-400/80',
+        deps,
+      }),
+    )
   }
 
   // Dirección PROPIA de la visita (no la del contacto). Preferimos lat/lng si hay,
@@ -1139,6 +1141,70 @@ function construirAccionesVisita(
       colorIcono: 'text-rose-500',
       onEjecutar: () => ejecutarSync(accionNavegar(dir), deps.toast),
     })
+  }
+
+  return acciones
+}
+
+/**
+ * Acciones rápidas para el detalle de un usuario (miembro del equipo).
+ * Más acotadas que las de un contacto externo: solo llamar y correo —
+ * no hay WhatsApp (canal de clientes), ni dirección (no aplica al equipo),
+ * ni "Ir al contacto" (es la entidad raíz).
+ *
+ * Si el miembro tiene tanto correo personal como empresa, aparecen 2 cards.
+ * Lo mismo con teléfonos.
+ */
+function construirAccionesUsuario(u: RespuestaUsuario, deps: Deps): AccionRapida[] {
+  const acciones: AccionRapida[] = []
+  const tactil = esDispositivoTactil()
+  const nombre = nombreCompleto(u.nombre, u.apellido, 'Usuario')
+
+  // Llamar — empresa primero (más relevante para contexto laboral) y luego personal
+  if (u.telefono_empresa) {
+    const tel = u.telefono_empresa
+    acciones.push({
+      clave: 'llamar-empresa',
+      etiqueta: tactil ? 'Llamar' : 'Copiar número',
+      descripcion: `${tel} · empresa · ${nombre}`,
+      icono: tactil ? Phone : Copy,
+      colorIcono: 'text-emerald-400',
+      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel), deps.toast),
+    })
+  }
+  if (u.telefono && u.telefono !== u.telefono_empresa) {
+    const tel = u.telefono
+    acciones.push({
+      clave: 'llamar-personal',
+      etiqueta: tactil ? 'Llamar' : 'Copiar número',
+      descripcion: `${tel} · personal · ${nombre}`,
+      icono: tactil ? Phone : Copy,
+      colorIcono: 'text-emerald-400/80',
+      onEjecutar: () => ejecutarConFeedback(() => accionLlamar(tel), deps.toast),
+    })
+  }
+
+  // Correo dual — empresa primero
+  if (u.correo_empresa) {
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'empresa',
+        correo: u.correo_empresa,
+        nombre: `${nombre} · empresa`,
+        deps,
+      }),
+    )
+  }
+  if (u.correo && u.correo !== u.correo_empresa) {
+    acciones.push(
+      accionCorreoDual({
+        claveBase: 'personal',
+        correo: u.correo,
+        nombre: `${nombre} · personal`,
+        colorBase: 'text-sky-400/80',
+        deps,
+      }),
+    )
   }
 
   return acciones

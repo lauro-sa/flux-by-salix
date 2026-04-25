@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 
 /* ─── Tipos ─── */
 
@@ -118,9 +119,12 @@ function PlantillaEditor({
           </div>
         </div>
 
-        {/* Acciones alineadas a la izquierda (raras, ej: "Restaurar original") */}
+        {/* Acciones alineadas a la izquierda (raras, ej: "Restaurar original").
+            Se agrupan en segmented control estilo toolbar (mismo patrón que
+            usamos en presupuestos y visitas). Si hay solo una, no se nota la
+            diferencia; con 2+ botones quedan pegados con bordes fusionados. */}
         {accionesIzq.length > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
+          <GrupoBotones className="shrink-0">
             {accionesIzq.map((a) => (
               <Boton
                 key={a.id}
@@ -134,12 +138,12 @@ function PlantillaEditor({
                 <span className="hidden sm:inline">{a.etiqueta}</span>
               </Boton>
             ))}
-          </div>
+          </GrupoBotones>
         )}
 
-        {/* Acciones principales (vista previa, guardar) */}
+        {/* Acciones principales (vista previa, guardar) agrupadas en toolbar. */}
         {accionesDer.length > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
+          <GrupoBotones className="shrink-0">
             {accionesDer.map((a) => (
               <Boton
                 key={a.id}
@@ -153,7 +157,7 @@ function PlantillaEditor({
                 <span className={a.icono ? 'hidden sm:inline' : ''}>{a.etiqueta}</span>
               </Boton>
             ))}
-          </div>
+          </GrupoBotones>
         )}
       </div>
 
@@ -172,7 +176,9 @@ function PlantillaEditor({
           </aside>
         )}
         <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="p-4 sm:p-6">{children}</div>
+          {/* space-y-5 da aire vertical entre secciones del editor (timeline,
+              identidad, contenido, etc.). Antes se pegaban sin separación. */}
+          <div className="p-4 sm:p-6 space-y-5">{children}</div>
         </main>
       </div>
     </div>

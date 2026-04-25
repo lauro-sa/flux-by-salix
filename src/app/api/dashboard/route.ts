@@ -99,6 +99,8 @@ export async function GET() {
       resActividadesHoy,
       resRecordatoriosHoy,
       resNotasCompartidas,
+      resPagosCobrados,
+      resCuotasPendientes,
     ] = await Promise.all([
       // ─── Consultas originales ───
 
@@ -230,13 +232,13 @@ export async function GET() {
         .gte('fecha', formatearFechaISO(inicioSemana, zonaDash))
         .lte('fecha', hoyStr),
 
-      // ─── Ingresos: presupuestos confirmados/orden_venta con fecha, monto y contacto ───
+      // ─── Ingresos: presupuestos confirmados/orden_venta/completado ───
       // FK desambiguada: presupuestos tiene dos FKs hacia contactos (contacto_id y atencion_contacto_id)
       admin
         .from('presupuestos')
         .select('id, numero, estado, total_final, fecha_aceptacion, fecha_emision, creado_en, contacto:contactos!presupuestos_contacto_id_fkey(nombre, apellido)')
         .eq('empresa_id', empresaId)
-        .in('estado', ['confirmado_cliente', 'orden_venta']),
+        .in('estado', ['confirmado_cliente', 'orden_venta', 'completado']),
 
       // ─── Histórico presupuestos: todos con fecha para comparativa ───
       admin
@@ -308,6 +310,27 @@ export async function GET() {
         .from('notas_rapidas_compartidas')
         .select('leido_en, nota:notas_rapidas(actualizado_en, en_papelera, archivada)')
         .eq('usuario_id', user.id),
+
+      // ─── Pagos cobrados: monto + fecha del pago real (no la de carga) ───
+      // Usado para "Cobrado por mes" y comparativa devengado vs cobrado.
+      admin
+        .from('presupuesto_pagos')
+        .select('monto_en_moneda_presupuesto, moneda, fecha_pago, presupuesto_id')
+        .eq('empresa_id', empresaId),
+
+      // ─── Cuotas pendientes: para proyectar cobro futuro ───
+      // Cada cuota pendiente/parcial con fecha estimada (fecha_emision + dias_desde_emision)
+      // pertenece a un presupuesto activo (no en papelera, no rechazado/cancelado).
+      admin
+        .from('presupuesto_cuotas')
+        .select(`
+          id, monto, estado, dias_desde_emision,
+          presupuesto:presupuestos!presupuesto_cuotas_presupuesto_id_fkey(
+            id, fecha_emision, estado, en_papelera, total_final
+          )
+        `)
+        .eq('empresa_id', empresaId)
+        .in('estado', ['pendiente', 'parcial']),
     ])
 
     // ─── Procesar datos originales ───
@@ -440,6 +463,75 @@ export async function GET() {
       else mapaAsistenciaSemana[id].presentes++
     }
 
+    // ─── Cobrado por mes ────────────────────────────────────────────────
+    // Fuente principal: `presupuesto_pagos.fecha_pago` (cobro real).
+    // Para presupuestos en estado `completado` que NO tienen pagos cargados
+    // (datos viejos previos al módulo de pagos), imputamos el monto faltante
+    // (total - sum(pagos)) al mes de `fecha_aceptacion || fecha_emision`.
+    // Esto evita perder métricas históricas de cobros completados.
+    const cobradoPorMes: Record<string, { cantidad: number; monto: number }> = {}
+
+    // Index: presupuesto_id → suma cobrada (en moneda del presupuesto)
+    const pagosPorPresupuesto = new Map<string, number>()
+    for (const p of (resPagosCobrados.data || []) as Array<{
+      monto_en_moneda_presupuesto: string | number | null
+      moneda: string
+      fecha_pago: string
+      presupuesto_id: string
+    }>) {
+      const fecha = new Date(p.fecha_pago)
+      const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+      const monto = Number(p.monto_en_moneda_presupuesto) || 0
+      if (!cobradoPorMes[clave]) cobradoPorMes[clave] = { cantidad: 0, monto: 0 }
+      cobradoPorMes[clave].cantidad++
+      cobradoPorMes[clave].monto += monto
+      pagosPorPresupuesto.set(p.presupuesto_id, (pagosPorPresupuesto.get(p.presupuesto_id) || 0) + monto)
+    }
+
+    // Fallback para presupuestos completados sin pagos cargados (datos viejos)
+    for (const p of (resIngresosConfirmados.data || []) as Array<{
+      id: string; estado: string; total_final: string | number | null
+      fecha_aceptacion: string | null; fecha_emision: string | null; creado_en: string
+    }>) {
+      if (p.estado !== 'completado') continue
+      const total = Number(p.total_final) || 0
+      if (total <= 0) continue
+      const yaPagado = pagosPorPresupuesto.get(p.id) || 0
+      const faltante = total - yaPagado
+      if (faltante < 0.01) continue // ya está cubierto por pagos reales
+
+      const fechaFallback = p.fecha_aceptacion || p.fecha_emision || p.creado_en
+      const fecha = new Date(fechaFallback)
+      const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+      if (!cobradoPorMes[clave]) cobradoPorMes[clave] = { cantidad: 0, monto: 0 }
+      cobradoPorMes[clave].cantidad++
+      cobradoPorMes[clave].monto += faltante
+    }
+
+    // ─── Proyección de cobro futuro — cuotas pendientes con fecha estimada ───
+    // Cada cuota pendiente/parcial proyecta cobro = fecha_emision + dias_desde_emision.
+    // Se ignoran cuotas de presupuestos en papelera o cancelados/rechazados.
+    const proyeccionPorMes: Record<string, { cantidad: number; monto: number }> = {}
+    for (const c of (resCuotasPendientes.data || []) as Array<{
+      monto: string | number
+      estado: string
+      dias_desde_emision: number | null
+      presupuesto: { fecha_emision: string; estado: string; en_papelera: boolean } | { fecha_emision: string; estado: string; en_papelera: boolean }[] | null
+    }>) {
+      const pres = Array.isArray(c.presupuesto) ? c.presupuesto[0] : c.presupuesto
+      if (!pres) continue
+      if (pres.en_papelera) continue
+      if (['cancelado', 'rechazado', 'borrador'].includes(pres.estado)) continue
+
+      const fechaBase = new Date(pres.fecha_emision)
+      fechaBase.setDate(fechaBase.getDate() + (c.dias_desde_emision || 0))
+      const clave = `${fechaBase.getFullYear()}-${String(fechaBase.getMonth() + 1).padStart(2, '0')}`
+      const monto = Number(c.monto) || 0
+      if (!proyeccionPorMes[clave]) proyeccionPorMes[clave] = { cantidad: 0, monto: 0 }
+      proyeccionPorMes[clave].cantidad++
+      proyeccionPorMes[clave].monto += monto
+    }
+
     // ─── Ingresos por mes — separando orden_venta (100% cerrado) de confirmado_cliente ───
     // Usa fecha_aceptacion (cuando el cliente aceptó), con fallback a fecha_emision para registros anteriores
     const ingresosPorMes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }> = {}
@@ -453,7 +545,7 @@ export async function GET() {
       const monto = parseFloat(p.total_final) || 0
       ingresosPorMes[clave].cantidad++
       ingresosPorMes[clave].monto += monto
-      if (p.estado === 'orden_venta') {
+      if (p.estado === 'orden_venta' || p.estado === 'completado') {
         ingresosPorMes[clave].ordenes_cantidad++
         ingresosPorMes[clave].ordenes_monto += monto
       }
@@ -482,7 +574,7 @@ export async function GET() {
       const monto = parseFloat(p.total_final) || 0
       ingresosPorAnio[anio].cantidad++
       ingresosPorAnio[anio].monto += monto
-      if (p.estado === 'orden_venta') {
+      if (p.estado === 'orden_venta' || p.estado === 'completado') {
         ingresosPorAnio[anio].ordenes_cantidad++
         ingresosPorAnio[anio].ordenes_monto += monto
       }
@@ -637,6 +729,12 @@ export async function GET() {
         por_mes: ingresosPorMes,
         por_anio: ingresosPorAnio,
         detalle_mes_actual: detalleMesActual,
+      } : null,
+      // Cobros reales (lo que efectivamente entró). Distinto de "ingresos"
+      // que mide presupuestos aceptados (devengado).
+      cobros: permisos.presupuestos_todos ? {
+        cobrado_por_mes: cobradoPorMes,
+        proyeccion_por_mes: proyeccionPorMes,
       } : null,
       comparativa: permisos.presupuestos_todos ? {
         presupuestos_por_mes: presupuestosPorMesAnio,

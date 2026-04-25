@@ -125,6 +125,21 @@ export interface MetadataChatter {
   contenido_html?: string
   // Para menciones
   menciones?: string[]
+  /** Fecha real del evento cuando difiere de `creado_en` (ej. un pago
+   *  cargado hoy pero con fecha_pago anterior). El timeline ordena por
+   *  este campo si está presente. */
+  fecha_evento?: string
+  // Para pagos (extras para render específico)
+  pago_id?: string
+  pago_metodo?: string
+  pago_moneda?: string
+  pago_fecha?: string
+  /** Número de cuota al que se imputa (1-indexed). Null = a cuenta. */
+  cuota_numero?: number | null
+  /** Total de cuotas del plan de pago (para mostrar "N de M"). */
+  cuotas_total?: number | null
+  /** Descripción de la cuota (ej: "Adelanto", "Al finalizar"). */
+  cuota_descripcion?: string | null
 }
 
 // ─── Entrada de chatter ───
@@ -155,4 +170,4 @@ export interface CrearEntradaChatterPayload {
 }
 
 // ─── Filtros del chatter ───
-export type FiltroChatter = 'todo' | 'correos' | 'whatsapp' | 'notas' | 'visitas' | 'sistema'
+export type FiltroChatter = 'todo' | 'correos' | 'whatsapp' | 'notas' | 'visitas' | 'sistema' | 'pagos'

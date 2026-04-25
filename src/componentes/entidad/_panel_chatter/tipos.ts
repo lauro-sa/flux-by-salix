@@ -34,6 +34,18 @@ export interface PropsPanelChatter {
   sinLateral?: string[]
   /** Callback para cambiar config lateral */
   onCambiarSinLateral?: (sinLateral: string[]) => void
+  /**
+   * Callback para registrar un pago contra el documento. Si se provee, aparece
+   * el botón "Pago" en la barra de acciones y la opción "Registrar como pago"
+   * en cada mensaje/correo del timeline. El `entradaOrigen` indica desde qué
+   * entrada del chatter se disparó (null = desde la barra principal); su `id`
+   * se guarda en `presupuesto_pagos.chatter_origen_id`.
+   */
+  onRegistrarPago?: (entradaOrigen: EntradaChatter | null) => void
+  /** Abrir el modal de edición de un pago existente (lápiz en la EntradaPago). */
+  onEditarPago?: (pagoId: string) => void
+  /** Confirmar eliminación de un pago (tacho en la EntradaPago). */
+  onEliminarPago?: (pagoId: string, monto: string, moneda: string) => void
   className?: string
 }
 
@@ -93,6 +105,13 @@ export interface PropsEntradaTimeline {
   onEliminarActividad?: (actividadId: string) => Promise<void>
   /** Callback para abrir modal de visualización de actividad */
   onVerActividad?: (actividadId: string, metadata: Record<string, unknown>) => void
+  /** Callback para registrar un pago tomando esta entrada como origen
+   *  (vincula el comprobante al mensaje/correo entrante). */
+  onRegistrarPagoDesdeMensaje?: (entrada: EntradaChatter) => void
+  /** Editar un pago existente (lápiz en hover en EntradaPago) */
+  onEditarPago?: (pagoId: string) => void
+  /** Eliminar un pago existente (tacho en hover en EntradaPago) */
+  onEliminarPago?: (pagoId: string, monto: string, moneda: string) => void
 }
 
 // ─── Props de EditorNota ───
@@ -112,10 +131,13 @@ export interface PropsBarraAcciones {
   onNota: () => void
   onActividad?: () => void
   onVisita?: () => void
+  /** Si se provee, aparece botón "Pago" — usado en presupuestos. */
+  onPago?: () => void
   tieneCorreo: boolean
   tieneWhatsApp: boolean
   tieneActividad: boolean
   tieneVisita?: boolean
+  tienePago?: boolean
 }
 
 // ─── Props de FiltrosChatter ───

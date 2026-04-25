@@ -48,6 +48,9 @@ import SeccionDatosPresupuesto from './SeccionDatosPresupuesto'
 import SeccionTotales from './SeccionTotales'
 import SeccionHistorial from './SeccionHistorial'
 import SeccionCertificado from './SeccionCertificado'
+import { ModalRegistrarPago } from './ModalRegistrarPago'
+import type { EntradaChatter } from '@/tipos/chatter'
+import type { PresupuestoPago } from '@/tipos/presupuesto-pago'
 
 // ─── Props del componente ───────────────────────────────────────────────────
 
@@ -113,6 +116,65 @@ export default function EditorPresupuesto({
   // Modal enviar documento por correo
   const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
   const [correoLibre, setCorreoLibre] = useState(false)
+
+  // Modal registrar pago — disparado desde la barra del chatter o desde
+  // un mensaje del timeline (en cuyo caso `chatterOrigen` se pre-vincula).
+  const [modalPagoAbierto, setModalPagoAbierto] = useState(false)
+  const [chatterOrigenPago, setChatterOrigenPago] = useState<EntradaChatter | null>(null)
+  // Pago a editar (null → modo crear)
+  const [pagoEditando, setPagoEditando] = useState<PresupuestoPago | null>(null)
+  // Pago a eliminar (null → sin diálogo abierto)
+  const [pagoEliminando, setPagoEliminando] = useState<{ id: string; monto: string; moneda: string } | null>(null)
+  // Trigger que recarga los pagos en el chatter al guardar/eliminar
+  const [recargaPagosNonce, setRecargaPagosNonce] = useState(0)
+
+  const abrirModalPagoDesdeChatter = useCallback((entrada: EntradaChatter | null) => {
+    setPagoEditando(null)
+    setChatterOrigenPago(entrada)
+    setModalPagoAbierto(true)
+  }, [])
+
+  const abrirEditarPago = useCallback(async (pagoId: string) => {
+    try {
+      const res = await fetch(`/api/presupuestos/${presupuestoIdProp || presupuestoIdCreado}/pagos/${pagoId}`)
+      if (!res.ok) return
+      const p = await res.json() as PresupuestoPago
+      setPagoEditando(p)
+      setChatterOrigenPago(null)
+      setModalPagoAbierto(true)
+    } catch { /* silencioso */ }
+  }, [presupuestoIdProp, presupuestoIdCreado])
+
+  const confirmarEliminarPago = useCallback((pagoId: string, monto: string, moneda: string) => {
+    setPagoEliminando({ id: pagoId, monto, moneda })
+  }, [])
+
+  const ejecutarEliminarPago = useCallback(async () => {
+    if (!pagoEliminando) return
+    try {
+      const pid = presupuestoIdProp || presupuestoIdCreado
+      const res = await fetch(`/api/presupuestos/${pid}/pagos/${pagoEliminando.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setRecargaPagosNonce(n => n + 1)
+      }
+    } catch { /* silencioso */ }
+    setPagoEliminando(null)
+  }, [pagoEliminando, presupuestoIdProp, presupuestoIdCreado])
+
+  // Cuando se registra un pago, refrescar las cuotas y el estado del
+  // presupuesto. Necesario porque el primer pago materializa las cuotas
+  // sintéticas en BD (deja de ser id "sintetico-N" y pasa a uuid real),
+  // y el trigger SQL puede actualizar estado de cuotas a parcial/cobrada.
+  const idPresupuestoEfectivo = modo === 'editar' ? presupuestoIdProp : presupuestoIdCreado
+  useEffect(() => {
+    if (recargaPagosNonce === 0 || !idPresupuestoEfectivo) return
+    fetch(`/api/presupuestos/${idPresupuestoEfectivo}`)
+      .then((r) => r.json())
+      .then((p) => {
+        setPresupuesto((prev) => prev ? { ...prev, cuotas: p.cuotas || prev.cuotas, estado: p.estado || prev.estado } : null)
+      })
+      .catch(() => { /* silencioso */ })
+  }, [recargaPagosNonce, idPresupuestoEfectivo])
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
   const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
   const [plantillaCorreoPredeterminadaId, setPlantillaCorreoPredeterminadaId] = useState<string | null>(null)
@@ -1861,6 +1923,10 @@ export default function EditorPresupuesto({
           />
         </div>
 
+        {/* Los pagos se registran desde la barra del chatter y se muestran
+            ahí como entradas distintivas (EntradaPago). No hay sección
+            dedicada arriba del historial para evitar duplicar información. */}
+
         {/* ─── HISTORIAL (solo modo editar) ─── */}
         {modo === 'editar' && presupuesto?.historial && presupuesto.historial.length > 0 && (
           <SeccionHistorial historial={presupuesto.historial} />
@@ -1930,6 +1996,24 @@ export default function EditorPresupuesto({
           seccion="presupuestos"
           sinLateral={sinLateral}
           onCambiarSinLateral={(nuevo) => guardarPreferencia({ chatter_sin_lateral: nuevo })}
+          onRegistrarPago={
+            (presupuesto?.permisos?.editar ?? true) &&
+            !['cancelado', 'rechazado'].includes(estadoActual)
+              ? abrirModalPagoDesdeChatter
+              : undefined
+          }
+          onEditarPago={
+            (presupuesto?.permisos?.editar ?? true) &&
+            !['cancelado', 'rechazado'].includes(estadoActual)
+              ? abrirEditarPago
+              : undefined
+          }
+          onEliminarPago={
+            (presupuesto?.permisos?.editar ?? true) &&
+            !['cancelado', 'rechazado'].includes(estadoActual)
+              ? confirmarEliminarPago
+              : undefined
+          }
           className={chatterLateral ? 'w-[380px] shrink-0 sticky top-4 max-h-[calc(100dvh-3rem)]' : ''}
         />
       )}
@@ -1940,6 +2024,41 @@ export default function EditorPresupuesto({
         onCerrar={() => setPanelIA(false)}
         onAplicarLineas={aplicarLineasIA}
         onCrearServicio={crearServicioDesdeIA}
+      />
+
+      {/* ─── Modal registrar/editar pago ─── */}
+      {modo === 'editar' && idPresupuesto && presupuesto && (
+        <ModalRegistrarPago
+          abierto={modalPagoAbierto}
+          onCerrar={() => {
+            setModalPagoAbierto(false)
+            setChatterOrigenPago(null)
+            setPagoEditando(null)
+          }}
+          presupuestoId={idPresupuesto}
+          presupuestoNumero={presupuesto.numero}
+          monedaPresupuesto={moneda}
+          totalPresupuesto={Number(presupuesto.total_final) || 0}
+          cuotas={presupuesto.cuotas || []}
+          pago={pagoEditando}
+          chatterOrigenId={chatterOrigenPago?.id || null}
+          onPagoGuardado={() => setRecargaPagosNonce(n => n + 1)}
+        />
+      )}
+
+      {/* Confirmación de eliminación de pago */}
+      <ModalConfirmacion
+        abierto={!!pagoEliminando}
+        onCerrar={() => setPagoEliminando(null)}
+        onConfirmar={ejecutarEliminarPago}
+        titulo="Eliminar pago"
+        descripcion={
+          pagoEliminando
+            ? `¿Eliminar el pago de ${Number(pagoEliminando.monto).toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${pagoEliminando.moneda}? Si tenía comprobante adjunto también será eliminado.`
+            : ''
+        }
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
       />
 
       {/* ─── Modal enviar documento por correo ─── */}

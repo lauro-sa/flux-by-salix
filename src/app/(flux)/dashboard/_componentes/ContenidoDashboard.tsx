@@ -31,6 +31,7 @@ import { WidgetPorVencer } from './WidgetPorVencer'
 import { WidgetAsistencia } from './WidgetAsistencia'
 import { WidgetInbox } from './WidgetInbox'
 import { WidgetIngresos } from './WidgetIngresos'
+import { WidgetCobros } from './WidgetCobros'
 import { WidgetComparativa } from './WidgetComparativa'
 import { WidgetClientes } from './WidgetClientes'
 import { ResumenMetricas } from './ResumenMetricas'
@@ -115,6 +116,10 @@ interface DatosDashboard {
     por_mes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
     por_anio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
     detalle_mes_actual: Array<{ id: string; numero: string; estado: string; contacto_nombre: string | null; contacto_apellido: string | null; total: number; fecha: string }>
+  } | null
+  cobros: {
+    cobrado_por_mes: Record<string, { cantidad: number; monto: number }>
+    proyeccion_por_mes: Record<string, { cantidad: number; monto: number }>
   } | null
   comparativa: {
     presupuestos_por_mes: Record<string, { creados: number; monto_total: number }>
@@ -612,6 +617,18 @@ function PestanaMetricas({
             cerradosPorMes={datos.ingresos.por_mes}
             cerradosPorAnio={datos.ingresos.por_anio}
             emitidosPorMes={datos.comparativa.presupuestos_por_mes}
+            formatoMoneda={moneda}
+          />
+        </motion.div>
+      )}
+
+      {/* Cobros reales: cobrado este mes + proyección */}
+      {datos?.cobros && (
+        <motion.div variants={itemVariantes}>
+          <WidgetCobros
+            cobradoPorMes={datos.cobros.cobrado_por_mes}
+            proyeccionPorMes={datos.cobros.proyeccion_por_mes}
+            devengadoPorMes={datos.ingresos?.por_mes ?? {}}
             formatoMoneda={moneda}
           />
         </motion.div>

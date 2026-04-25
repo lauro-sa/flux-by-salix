@@ -34,27 +34,31 @@ export async function GET(request: NextRequest) {
 
     if (!visita) return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
 
-    // Obtener entradas del chatter con adjuntos (fotos)
+    // Obtener todas las entradas del chatter de la visita — filtramos las que
+    // tienen adjuntos en JS. El filtro `.not('adjuntos', 'eq', '[]')` de
+    // PostgREST no es confiable con arrays JSONB vacíos (a veces deja pasar,
+    // a veces descarta filas con adjuntos válidos), por eso traemos todo.
     const { data: entradas } = await admin
       .from('chatter')
       .select('id, contenido, adjuntos, creado_en')
       .eq('entidad_tipo', 'visita')
       .eq('entidad_id', visitaId)
       .eq('empresa_id', empresaId)
-      .not('adjuntos', 'eq', '[]')
       .order('creado_en', { ascending: false })
 
     // Extraer todas las fotos con referencia a su entrada de chatter
-    const fotos = (entradas || []).flatMap(e =>
-      ((e.adjuntos || []) as { url: string; nombre: string; tipo: string; tamano?: number }[]).map(adj => ({
+    const fotos = (entradas || []).flatMap(e => {
+      const adj = (e.adjuntos || []) as { url: string; nombre: string; tipo: string; tamano?: number }[]
+      if (!Array.isArray(adj) || adj.length === 0) return []
+      return adj.map(a => ({
         chatter_id: e.id,
-        url: adj.url,
-        nombre: adj.nombre,
-        tipo: adj.tipo,
-        tamano: adj.tamano,
+        url: a.url,
+        nombre: a.nombre,
+        tipo: a.tipo,
+        tamano: a.tamano,
         creado_en: e.creado_en,
       }))
-    )
+    })
 
     return NextResponse.json({
       visita: {

@@ -12,7 +12,7 @@ import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2, CheckCircle2, CalendarClock, Ban, Link,
-  Calendar, Users, AlertTriangle, Eye, User, MapPin, Briefcase,
+  Calendar, Users, AlertTriangle, Eye, User, MapPin, Briefcase, CreditCard,
 } from 'lucide-react'
 import NextLink from 'next/link'
 import { useFormato } from '@/hooks/useFormato'
@@ -25,7 +25,11 @@ import { ICONOS_ACCION, fechaRelativa, fechaCompleta, formatearTextoWA } from '.
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import type { PropsEntradaTimeline } from './tipos'
 import { EntradaVisita } from './EntradaVisita'
+import { EntradaPago } from './EntradaPago'
 import Image from 'next/image'
+
+// Acciones que se renderizan como EntradaPago (card distintiva)
+const ACCIONES_PAGO = new Set(['pago_confirmado', 'pago_rechazado', 'portal_comprobante'])
 
 export function EntradaTimeline({
   entrada,
@@ -42,6 +46,9 @@ export function EntradaTimeline({
   onEditarActividad,
   onEliminarActividad,
   onVerActividad,
+  onRegistrarPagoDesdeMensaje,
+  onEditarPago,
+  onEliminarPago,
 }: PropsEntradaTimeline) {
   const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
@@ -56,6 +63,18 @@ export function EntradaTimeline({
 
   if (esVisita) {
     return <EntradaVisita entrada={entrada} formatoHora={fh} locale={locale} />
+  }
+  // Pagos se renderizan con EntradaPago (card distintiva) en vez del sistema genérico
+  if (esSistema && ACCIONES_PAGO.has(entrada.metadata?.accion || '')) {
+    return (
+      <EntradaPago
+        entrada={entrada}
+        formatoHora={fh}
+        locale={locale}
+        onEditar={onEditarPago}
+        onEliminar={onEliminarPago}
+      />
+    )
   }
   if (esSistema) {
     return (
@@ -76,10 +95,24 @@ export function EntradaTimeline({
     )
   }
   if (esCorreo) {
-    return <EntradaCorreo entrada={entrada} formatoHora={fh} locale={locale} />
+    return (
+      <EntradaCorreo
+        entrada={entrada}
+        formatoHora={fh}
+        locale={locale}
+        onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+      />
+    )
   }
   if (esWhatsApp) {
-    return <EntradaWhatsApp entrada={entrada} formatoHora={fh} locale={locale} />
+    return (
+      <EntradaWhatsApp
+        entrada={entrada}
+        formatoHora={fh}
+        locale={locale}
+        onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+      />
+    )
   }
   if (esNotaInterna) {
     const esPropia = !!usuarioActualId && entrada.autor_id === usuarioActualId
@@ -95,7 +128,32 @@ export function EntradaTimeline({
     )
   }
 
-  return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} formatoHora={fh} locale={locale} />
+  return (
+    <EntradaMensaje
+      entrada={entrada}
+      esMensajePortal={!!esMensajePortal}
+      formatoHora={fh}
+      locale={locale}
+      onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+    />
+  )
+}
+
+// ─── Mini-botón compartido: registrar como pago desde un mensaje ───
+function BotonRegistrarPago({
+  onClick,
+  className = '',
+}: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-borde-sutil text-xxs text-texto-secundario hover:border-insignia-exito/40 hover:text-insignia-exito hover:bg-insignia-exito/5 transition-colors ${className}`}
+      title="Registrar como pago — vincula este mensaje al comprobante"
+    >
+      <CreditCard size={10} />
+      Registrar como pago
+    </button>
+  )
 }
 
 // ─── Opciones predefinidas para posponer actividad ───
@@ -507,7 +565,17 @@ function IframeCorreo({ html }: { html: string }) {
 }
 
 // ─── Entrada de correo (expandible) ───
-function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string; locale: string }) {
+function EntradaCorreo({
+  entrada,
+  formatoHora,
+  locale,
+  onRegistrarPagoDesdeMensaje,
+}: {
+  entrada: PropsEntradaTimeline['entrada']
+  formatoHora: string
+  locale: string
+  onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+}) {
   const [expandido, setExpandido] = useState(false)
   const accion = entrada.metadata?.accion as AccionSistema | undefined
   const esRecibido = accion === 'correo_recibido'
@@ -519,7 +587,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
   const relacionadoCon = entrada.metadata?.relacionado_con
 
   return (
-    <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-card my-0.5">
+    <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-card">
       {/* Línea de sistema: quién ejecutó la acción */}
       <div className="flex items-center gap-2.5">
         <div className="flex items-center justify-center size-6 rounded-full shrink-0 bg-canal-correo/10 text-canal-correo">
@@ -603,6 +671,13 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
       {relacionadoCon && relacionadoCon.length > 0 && (
         <ChipsRelacionados items={relacionadoCon} />
       )}
+
+      {/* Acción: registrar como pago (si el panel lo soporta — solo presupuestos) */}
+      {onRegistrarPagoDesdeMensaje && (
+        <div className="ml-8 mt-1.5">
+          <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
+        </div>
+      )}
     </div>
   )
 }
@@ -657,7 +732,17 @@ function ChipsRelacionados({ items }: { items: { tipo: string; id: string; nombr
 }
 
 // ─── Entrada de WhatsApp ───
-function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string; locale: string }) {
+function EntradaWhatsApp({
+  entrada,
+  formatoHora,
+  locale,
+  onRegistrarPagoDesdeMensaje,
+}: {
+  entrada: PropsEntradaTimeline['entrada']
+  formatoHora: string
+  locale: string
+  onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+}) {
   const numero = entrada.metadata?.whatsapp_numero || ''
   const destinatario = entrada.metadata?.whatsapp_destinatario || ''
   const plantilla = entrada.metadata?.whatsapp_plantilla
@@ -665,7 +750,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
   const botones = entrada.metadata?.whatsapp_botones
 
   return (
-    <div className="rounded-card border border-canal-whatsapp/20 bg-canal-whatsapp/[0.03] overflow-hidden my-1">
+    <div className="rounded-card border border-canal-whatsapp/20 bg-canal-whatsapp/[0.03] overflow-hidden">
       {/* Header: nombre + plantilla badge */}
       <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
         <div className="flex items-center justify-center size-7 rounded-full bg-canal-whatsapp/10 text-canal-whatsapp shrink-0">
@@ -735,6 +820,13 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
       )}
 
       <ListaAdjuntos adjuntos={entrada.adjuntos} />
+
+      {/* Acción: registrar como pago (solo cuando el padre lo soporta) */}
+      {onRegistrarPagoDesdeMensaje && (
+        <div className="mt-1.5">
+          <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
+        </div>
+      )}
     </div>
   )
 }
@@ -806,7 +898,7 @@ function EntradaNotaInterna({
   const fueEditada = !!entrada.editado_en
 
   return (
-    <div className="group flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-card my-0.5">
+    <div className="group flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-card">
       <Avatar nombre={entrada.autor_nombre} foto={entrada.autor_avatar_url} tamano="xs" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -862,10 +954,22 @@ function EntradaNotaInterna({
 }
 
 // ─── Mensaje normal o portal ───
-function EntradaMensaje({ entrada, esMensajePortal, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; esMensajePortal: boolean; formatoHora: string; locale: string }) {
+function EntradaMensaje({
+  entrada,
+  esMensajePortal,
+  formatoHora,
+  locale,
+  onRegistrarPagoDesdeMensaje,
+}: {
+  entrada: PropsEntradaTimeline['entrada']
+  esMensajePortal: boolean
+  formatoHora: string
+  locale: string
+  onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+}) {
   return (
     <div className={`flex items-start gap-2.5 py-2 ${
-      esMensajePortal ? 'bg-texto-marca/5 -mx-3 px-3 rounded-card my-0.5' : ''
+      esMensajePortal ? 'bg-texto-marca/5 -mx-3 px-3 py-2 rounded-card' : ''
     }`}>
       <Avatar nombre={entrada.autor_nombre} foto={entrada.autor_avatar_url} tamano="xs" />
       <div className="flex-1 min-w-0">
@@ -882,6 +986,11 @@ function EntradaMensaje({ entrada, esMensajePortal, formatoHora, locale }: { ent
         </div>
         <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>
         <ListaAdjuntos adjuntos={entrada.adjuntos} />
+        {onRegistrarPagoDesdeMensaje && (
+          <div className="mt-1.5">
+            <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
+          </div>
+        )}
       </div>
     </div>
   )

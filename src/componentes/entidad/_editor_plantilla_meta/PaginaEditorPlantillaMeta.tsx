@@ -482,6 +482,18 @@ export function PaginaEditorPlantillaMeta({
   // "Re-enviar a Meta" para que el admin sepa que la acción es necesaria.
   const etiquetaEnviar = existeEnMeta ? 'Re-enviar a Meta' : 'Enviar a Meta'
 
+  // Hay algo que sincronizar con Meta cuando:
+  //   - la plantilla todavía no existe en Meta (primer envío), o
+  //   - el form tiene cambios sin guardar (`cambiosPendientes`), o
+  //   - la plantilla ya guardada tiene cambios locales vs snapshot sincronizado
+  //     (`estaDesincronizada`), o
+  //   - el hash de sincronización no es conocido (`sincronizacionDesconocida`).
+  // Si nada de eso aplica, no vale la pena tocar Meta — deshabilitamos el botón.
+  const hayAlgoParaSincronizar = !existeEnMeta
+    || cambiosPendientes.length > 0
+    || estaDesincronizada
+    || sincronizacionDesconocida
+
   const acciones = [
     {
       id: 'guardar',
@@ -490,7 +502,7 @@ export function PaginaEditorPlantillaMeta({
       onClick: guardar,
       variante: 'secundario' as const,
       cargando: guardando,
-      deshabilitado: tieneErrores,
+      deshabilitado: tieneErrores || cambiosPendientes.length === 0,
     },
     {
       id: 'enviar',
@@ -499,7 +511,10 @@ export function PaginaEditorPlantillaMeta({
       onClick: enviarAMeta,
       variante: 'primario' as const,
       cargando: enviandoAMeta,
-      deshabilitado: tieneErrores,
+      // Deshabilitado cuando no hay nada para sincronizar: evita gastar un
+      // envío a Meta (y una re-aprobación) cuando el contenido local ya
+      // coincide con el snapshot aprobado.
+      deshabilitado: tieneErrores || !hayAlgoParaSincronizar,
     },
   ]
 

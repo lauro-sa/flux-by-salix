@@ -132,10 +132,47 @@ export function TimelinePlantilla({ plantillaId, locale, refrescoKey = 0 }: Prop
   }, [eventos])
 
   if (cargando) {
+    // Skeleton con la misma estructura que el timeline cargado para no pegar
+    // saltos de layout cuando llega la respuesta del fetch. Pinta los 4 pasos
+    // en gris y la línea base de conexión; se reemplaza in-place al cargar.
     return (
-      <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-3 flex items-center gap-2 text-xxs text-texto-terciario">
-        <Clock size={12} className="animate-pulse" />
-        Cargando línea de tiempo…
+      <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={14} className="text-texto-terciario animate-pulse" />
+          <h3 className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+            Recorrido de aprobación
+          </h3>
+        </div>
+        <div className="relative flex items-start justify-between gap-2 pb-1">
+          {PASOS.map((paso, i) => {
+            const Icono = paso.icono
+            return (
+              <div key={paso.clave} className="flex flex-col items-center gap-2 relative z-10 flex-1 min-w-0">
+                <div
+                  className="flex items-center justify-center size-8 rounded-full border-2 shrink-0 animate-pulse"
+                  style={{
+                    borderColor: 'var(--borde-sutil)',
+                    backgroundColor: 'var(--superficie-app)',
+                  }}
+                >
+                  <Icono size={14} className="text-texto-terciario/40" />
+                </div>
+                <div className="text-center w-full">
+                  <p className="text-[11px] font-medium text-texto-terciario/60">
+                    {paso.etiqueta}
+                  </p>
+                  <p className="text-[10px] text-texto-terciario/40 mt-0.5">—</p>
+                </div>
+                {i < PASOS.length - 1 && (
+                  <div
+                    className="absolute top-4 left-[calc(50%+1rem)] right-[calc(-50%+1rem)] h-px -z-0"
+                    style={{ backgroundColor: 'var(--borde-sutil)' }}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }

@@ -38,7 +38,8 @@ import type { PropsPanelChatter } from './_panel_chatter/tipos'
 import type { AdjuntoConOrigen } from './_panel_chatter/SeccionAdjuntos'
 
 // ─── Definición de filtros ───
-const FILTROS: { clave: FiltroChatter; etiqueta: string }[] = [
+// 'pagos' se agrega condicionalmente según entidadTipo (solo en presupuesto).
+const FILTROS_BASE: { clave: FiltroChatter; etiqueta: string }[] = [
   { clave: 'todo', etiqueta: 'Todo' },
   { clave: 'correos', etiqueta: 'Correos' },
   { clave: 'whatsapp', etiqueta: 'WhatsApp' },
@@ -46,6 +47,9 @@ const FILTROS: { clave: FiltroChatter; etiqueta: string }[] = [
   { clave: 'visitas', etiqueta: 'Visitas' },
   { clave: 'sistema', etiqueta: 'Sistema' },
 ]
+
+// Acciones de sistema consideradas "pagos" para el filtro y el orden por fecha_evento
+const ACCIONES_PAGO = new Set(['pago_confirmado', 'pago_rechazado', 'portal_comprobante'])
 
 export function PanelChatter({
   entidadTipo,
@@ -60,6 +64,9 @@ export function PanelChatter({
   seccion,
   sinLateral = [],
   onCambiarSinLateral,
+  onRegistrarPago,
+  onEditarPago,
+  onEliminarPago,
   className = '',
 }: PropsPanelChatter) {
   const { usuario } = useAuth()
@@ -155,7 +162,9 @@ export function PanelChatter({
       }
     }
 
-    // Separar activas de resto, invertir resto (más reciente primero), activas siempre arriba
+    // Separar activas de resto. Resto se ordena por `fecha_evento || creado_en`
+    // — esto permite que un pago cargado hoy con fecha 15/03 quede en su lugar
+    // cronológico y no "al principio" solo porque el registro es nuevo.
     const activas = entradas.filter(e =>
       e.metadata?.accion === 'actividad_creada' &&
       e.metadata?.actividad_id &&
@@ -163,7 +172,10 @@ export function PanelChatter({
     )
     const activasIds = new Set(activas.map(e => e.id))
     const resto = entradas.filter(e => !activasIds.has(e.id))
-    let resultado = [...activas, ...[...resto].reverse()]
+    const obtenerFecha = (e: EntradaChatter) =>
+      new Date(e.metadata?.fecha_evento || e.creado_en).getTime()
+    const restoOrdenado = [...resto].sort((a, b) => obtenerFecha(b) - obtenerFecha(a))
+    let resultado = [...activas, ...restoOrdenado]
 
     switch (filtro) {
       case 'correos':
@@ -179,7 +191,10 @@ export function PanelChatter({
         resultado = resultado.filter(e => e.tipo === 'visita' || e.metadata?.accion === 'visita_completada')
         break
       case 'sistema':
-        resultado = resultado.filter(e => e.tipo === 'sistema')
+        resultado = resultado.filter(e => e.tipo === 'sistema' && !ACCIONES_PAGO.has(e.metadata?.accion || ''))
+        break
+      case 'pagos':
+        resultado = resultado.filter(e => ACCIONES_PAGO.has(e.metadata?.accion || ''))
         break
     }
 
@@ -197,17 +212,30 @@ export function PanelChatter({
 
   // ─── Contadores por filtro ───
   const contadores = useMemo(() => {
-    const c: Record<FiltroChatter, number> = { todo: 0, correos: 0, whatsapp: 0, notas: 0, visitas: 0, sistema: 0 }
+    const c: Record<FiltroChatter, number> = { todo: 0, correos: 0, whatsapp: 0, notas: 0, visitas: 0, sistema: 0, pagos: 0 }
     for (const e of entradas) {
       c.todo++
-      if (e.tipo === 'correo' || e.metadata?.accion === 'correo_enviado' || e.metadata?.accion === 'correo_recibido') c.correos++
-      if (e.tipo === 'whatsapp' || e.metadata?.accion === 'whatsapp_enviado') c.whatsapp++
+      const accion = e.metadata?.accion || ''
+      if (e.tipo === 'correo' || accion === 'correo_enviado' || accion === 'correo_recibido') c.correos++
+      if (e.tipo === 'whatsapp' || accion === 'whatsapp_enviado') c.whatsapp++
       if (e.tipo === 'nota_interna' || e.tipo === 'mensaje') c.notas++
-      if (e.tipo === 'visita' || e.metadata?.accion === 'visita_completada') c.visitas++
-      if (e.tipo === 'sistema') c.sistema++
+      if (e.tipo === 'visita' || accion === 'visita_completada') c.visitas++
+      // 'sistema' excluye pagos para que no se cuenten dos veces.
+      if (e.tipo === 'sistema' && !ACCIONES_PAGO.has(accion)) c.sistema++
+      if (ACCIONES_PAGO.has(accion)) c.pagos++
     }
     return c
   }, [entradas])
+
+  // Lista de filtros a mostrar: incluye 'pagos' sólo cuando la entidad admite
+  // pagos (presupuestos hoy; futuro: facturas, órdenes de venta, etc.).
+  const filtrosDisponibles = useMemo(() => {
+    const base = [...FILTROS_BASE]
+    if (entidadTipo === 'presupuesto' || contadores.pagos > 0) {
+      base.push({ clave: 'pagos', etiqueta: 'Pagos' })
+    }
+    return base
+  }, [entidadTipo, contadores.pagos])
 
   // ─── Recolectar adjuntos de todas las entradas ───
   const adjuntosChatter = useMemo<AdjuntoConOrigen[]>(() => {
@@ -498,10 +526,12 @@ export function PanelChatter({
                 onNota={() => setModoNota(!modoNota)}
                 onActividad={abrirActividad}
                 onVisita={() => modalVisitaHook.abrir()}
+                onPago={onRegistrarPago ? () => onRegistrarPago(null) : undefined}
                 tieneCorreo={entidadTipo !== 'orden_trabajo' && !!onAbrirCorreo}
                 tieneWhatsApp={entidadTipo !== 'orden_trabajo'}
                 tieneActividad={true}
                 tieneVisita={entidadTipo === 'contacto'}
+                tienePago={!!onRegistrarPago}
               />
 
               {/* ─── Búsqueda ─── */}
@@ -538,7 +568,7 @@ export function PanelChatter({
 
               {/* ─── Filtros ─── */}
               <div className="flex gap-0.5 px-3 py-1.5 border-b border-borde-sutil overflow-x-auto scrollbar-none">
-                {FILTROS.map(f => {
+                {filtrosDisponibles.map(f => {
                   const esActivo = filtro === f.clave
                   const count = contadores[f.clave]
                   return (
@@ -605,7 +635,7 @@ export function PanelChatter({
               {/* ─── Timeline ─── */}
               <div
                 ref={scrollRef}
-                className={`px-3 py-2 space-y-1 min-h-[100px] ${
+                className={`px-3 py-3 flex flex-col gap-6 min-h-[100px] ${
                   esLateral ? 'flex-1 overflow-y-auto min-h-0' : ''
                 }`}
               >
@@ -616,7 +646,7 @@ export function PanelChatter({
                 ) : entradasFiltradas.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-20 text-texto-terciario text-xs">
                     <MessageSquare size={20} className="mb-1 opacity-40" />
-                    {busqueda ? 'Sin resultados' : filtro !== 'todo' ? `Sin ${FILTROS.find(f => f.clave === filtro)?.etiqueta.toLowerCase()}` : 'Sin actividad'}
+                    {busqueda ? 'Sin resultados' : filtro !== 'todo' ? `Sin ${filtrosDisponibles.find(f => f.clave === filtro)?.etiqueta.toLowerCase() || filtro}` : 'Sin actividad'}
                   </div>
                 ) : (
                   entradasFiltradas.map(entrada => (
@@ -657,6 +687,11 @@ export function PanelChatter({
                       onVerActividad={(actividadId) => {
                         setVistaActividadId(actividadId)
                       }}
+                      onRegistrarPagoDesdeMensaje={
+                        onRegistrarPago ? (entrada) => onRegistrarPago(entrada) : undefined
+                      }
+                      onEditarPago={onEditarPago}
+                      onEliminarPago={onEliminarPago}
                     />
                   ))
                 )}

@@ -21,9 +21,11 @@ import { FormParadaRecorrido, type PayloadParadaGenerica } from '@/componentes/e
 import { HeaderRecorrido } from './_componentes/HeaderRecorrido'
 import { ListaParadas, type Parada, type DestinoFinal } from './_componentes/ListaParadas'
 import { RegistroVisita } from './_componentes/RegistroVisita'
+import { RegistroParada } from './_componentes/RegistroParada'
 import { ResumenDia } from './_componentes/ResumenDia'
 import { ModalLlegada } from './_componentes/ModalLlegada'
 import { ModalAvisoEnCamino } from './_componentes/ModalAvisoEnCamino'
+import { ModalAvisoLlegada } from './_componentes/ModalAvisoLlegada'
 import type { EstadoVisita } from './_componentes/TarjetaParada'
 import { calcularHorariosRecorrido, formatearHora, type ParadaHorario } from '@/lib/recorrido-horarios'
 
@@ -97,6 +99,10 @@ export default function PaginaRecorrido() {
   const [avisoCaminoAbierto, setAvisoCaminoAbierto] = useState(false)
   const [visitaAvisoCamino, setVisitaAvisoCamino] = useState<{ id: string; nombre: string; direccion: string } | null>(null)
 
+  // Modal de aviso "ya llegué" — análogo al de en camino pero sin ETA
+  const [avisoLlegadaAbierto, setAvisoLlegadaAbierto] = useState(false)
+  const [visitaAvisoLlegada, setVisitaAvisoLlegada] = useState<{ id: string; nombre: string; direccion: string } | null>(null)
+
   // BottomSheet de registro
   const [registroAbierto, setRegistroAbierto] = useState(false)
   const [visitaRegistro, setVisitaRegistro] = useState<string>('')
@@ -107,6 +113,9 @@ export default function PaginaRecorrido() {
   // Form inline para agregar parada genérica (logística, café, combustible, etc.)
   const [formParadaAbierto, setFormParadaAbierto] = useState(false)
   const [agregandoParada, setAgregandoParada] = useState(false)
+
+  // BottomSheet para editar la nota libre de una parada genérica
+  const [notaParadaAbierta, setNotaParadaAbierta] = useState<{ id: string; titulo: string; notas: string | null } | null>(null)
 
   // Cargar recorrido del día seleccionado.
   // IMPORTANTE: no volvemos a poner `cargando=true` en refetches.
@@ -426,6 +435,14 @@ export default function PaginaRecorrido() {
     setParadaSeleccionada(null)
     cargarRecorrido()
   }, [cargarRecorrido])
+
+  // Reabrir la visita que está abierta en RegistroVisita — cambia estado a
+  // 'programada'. Se usa desde el footer del editor (accionPeligro).
+  const reabrirVisitaActual = useCallback(() => {
+    if (!visitaRegistro) return
+    const parada = paradas.find(p => p.tipo === 'visita' && p.visita?.id === visitaRegistro)
+    if (parada) manejarCambiarEstado(parada.id, 'programada')
+  }, [visitaRegistro, paradas, manejarCambiarEstado])
 
   // Agregar parada genérica (logística: café, combustible, depósito, etc.)
   const agregarParadaGenerica = useCallback(async (payload: PayloadParadaGenerica) => {
@@ -747,6 +764,9 @@ export default function PaginaRecorrido() {
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
           <ResumenDia
+            // Los contadores muestran TODAS las paradas (visitas + genéricas)
+            // porque el recorrido completo vale lo mismo para el visitador.
+            // ResumenDia distingue internamente el tipo al renderizar tarjetas.
             totalVisitas={paradas.length}
             completadas={completadas}
             canceladas={canceladasCount}
@@ -761,6 +781,11 @@ export default function PaginaRecorrido() {
               setChecklistRegistro([])
               setRegistroAbierto(true)
             }}
+            onEditarNotaParada={(p) => setNotaParadaAbierta({
+              id: p.id,
+              titulo: p.titulo || 'Parada',
+              notas: p.notas || null,
+            })}
             onReactivar={reactivarRecorrido}
           />
         </div>
@@ -772,6 +797,7 @@ export default function PaginaRecorrido() {
           visitaId={visitaRegistro}
           modo="editar"
           onExito={() => { setRegistroAbierto(false); cargarRecorrido() }}
+          onReabrir={reabrirVisitaActual}
         />
       </div>
     )
@@ -1134,6 +1160,29 @@ export default function PaginaRecorrido() {
                       )}
                     </div>
 
+                    {/* Nota libre para paradas genéricas — siempre disponible, opcional.
+                        No se guarda en chatter, sólo queda en la parada para que el
+                        visitador pueda recordarla al revisar el recorrido. */}
+                    {esGenerica && (
+                      <button
+                        onClick={() => setNotaParadaAbierta({
+                          id: parada.id,
+                          titulo: parada.titulo || 'Parada',
+                          notas: parada.notas || null,
+                        })}
+                        className="w-full mt-2 flex items-start gap-2 px-3 py-2 rounded-card border border-dashed border-borde-sutil hover:bg-white/[0.03] transition-colors text-left"
+                      >
+                        <Pencil size={12} className="text-texto-terciario shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          {parada.notas ? (
+                            <p className="text-[12px] text-texto-secundario leading-snug line-clamp-2">{parada.notas}</p>
+                          ) : (
+                            <p className="text-[11px] text-texto-terciario">Agregar nota (opcional)</p>
+                          )}
+                        </div>
+                      </button>
+                    )}
+
                     {/* 3. Indicadores + botón ver recorrido */}
                     <div className="flex flex-col items-center gap-2.5 pt-3">
                       <div className="flex gap-1.5">
@@ -1299,6 +1348,7 @@ export default function PaginaRecorrido() {
         onExito={manejarRegistroExitoso}
         contactoNombre={registroContacto?.nombre}
         contactoDireccion={registroContacto?.direccion}
+        onReabrir={reabrirVisitaActual}
       />
 
       {/* Modal de aviso "En camino" — opcional, se abre al marcar una parada como en_camino */}
@@ -1322,8 +1372,42 @@ export default function PaginaRecorrido() {
         direccionLat={visitaLlegada?.lat}
         direccionLng={visitaLlegada?.lng}
         onAvisarLlegada={() => {
-          // TODO: automatizar con WhatsApp API / notificación push
-          mostrar('exito', `Aviso de llegada enviado a ${visitaLlegada?.nombre}`)
+          // Cierra el modal de llegada y abre el de envío de WhatsApp con preview.
+          // Mantiene el flujo existente (Llegué → confirmar envío) pero ahora hace
+          // un envío real vía /api/recorrido/aviso-llegada.
+          if (visitaLlegada) {
+            setVisitaAvisoLlegada({
+              id: visitaLlegada.id,
+              nombre: visitaLlegada.nombre,
+              direccion: visitaLlegada.direccion,
+            })
+            setAvisoLlegadaAbierto(true)
+          }
+        }}
+      />
+
+      {/* Modal de aviso de llegada — se abre al tocar "Avisar que llegué" desde ModalLlegada */}
+      <ModalAvisoLlegada
+        abierto={avisoLlegadaAbierto}
+        onCerrar={() => setAvisoLlegadaAbierto(false)}
+        onEnviado={() => mostrar('exito', `Aviso enviado a ${visitaAvisoLlegada?.nombre}`)}
+        visitaId={visitaAvisoLlegada?.id || ''}
+        contactoNombre={visitaAvisoLlegada?.nombre || ''}
+        direccionTexto={visitaAvisoLlegada?.direccion || ''}
+      />
+
+      {/* BottomSheet para editar la nota libre de una parada genérica.
+          Actualiza el estado local sin recargar todo el recorrido (solo parcha
+          la parada afectada). */}
+      <RegistroParada
+        abierto={!!notaParadaAbierta}
+        onCerrar={() => setNotaParadaAbierta(null)}
+        paradaId={notaParadaAbierta?.id || ''}
+        tituloParada={notaParadaAbierta?.titulo || ''}
+        notasIniciales={notaParadaAbierta?.notas || null}
+        onGuardado={(nuevasNotas) => {
+          if (!notaParadaAbierta) return
+          setParadas(prev => prev.map(p => p.id === notaParadaAbierta.id ? { ...p, notas: nuevasNotas } : p))
         }}
       />
     </div>
