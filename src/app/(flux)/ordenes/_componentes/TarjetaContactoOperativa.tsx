@@ -3,6 +3,7 @@
 import { Phone, MapPin, Mail } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
@@ -81,7 +82,7 @@ export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, d
 
       {/* Teléfono visible */}
       {telefono && (
-        <p className="text-xs text-texto-terciario">{telefono}</p>
+        <p className="text-xs text-texto-terciario"><TextoTelefono valor={telefono} /></p>
       )}
     </div>
   )

@@ -17,7 +17,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
+import { TextoTelefono, formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { normalizarTelefono } from '@/lib/validaciones'
 import { normalizarListaTelefonos } from '@/lib/contacto-telefonos'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
@@ -1468,7 +1468,7 @@ function FilaBusqueda({
             <Insignia color={color}>{contacto.tipo_contacto?.etiqueta}</Insignia>
           </div>
           <div className="text-xs text-texto-terciario truncate">
-            {subtitulo || contacto.correo || contacto.telefono || contacto.codigo}
+            {subtitulo || contacto.correo || formatearParaMostrar(contacto.telefono) || contacto.codigo}
           </div>
         </div>
       </div>

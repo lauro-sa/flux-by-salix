@@ -9,6 +9,7 @@
 
 import Image from 'next/image'
 import { LogoSalix } from '@/componentes/marca'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 
 interface Props {
   empresa: {
@@ -50,7 +51,7 @@ export default function CabeceraPortal({ empresa }: Props) {
               )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1.5 text-sm text-texto-secundario">
                 {empresa.telefono && (
-                  <span>{empresa.telefono}</span>
+                  <TextoTelefono valor={empresa.telefono} />
                 )}
                 {empresa.correo && (
                   <span>{empresa.correo}</span>

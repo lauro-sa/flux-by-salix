@@ -12,6 +12,7 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
+import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { useFormato } from '@/hooks/useFormato'
 import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
 import { useMiCuenta } from '../page'
@@ -276,7 +277,7 @@ export function SeccionPerfil() {
               </div>
               <div className="min-w-0">
                 <p className="text-xxs text-texto-terciario uppercase tracking-wide">WhatsApp empresa</p>
-                <p className="text-sm font-medium text-texto-primario">{ctx.telefonoEmpresa}</p>
+                <p className="text-sm font-medium text-texto-primario"><TextoTelefono valor={ctx.telefonoEmpresa} /></p>
               </div>
             </div>
           </Tarjeta>
@@ -387,7 +388,7 @@ export function SeccionPerfil() {
                 {ctx.emergencia.relacion && <p className="text-xs text-texto-terciario">{ctx.emergencia.relacion}</p>}
                 {ctx.emergencia.telefono && (
                   <p className="text-sm text-texto-secundario flex items-center gap-1.5 mt-1">
-                    <Phone size={13} className="text-texto-terciario" /> {ctx.emergencia.telefono}
+                    <Phone size={13} className="text-texto-terciario" /> <TextoTelefono valor={ctx.emergencia.telefono} />
                   </p>
                 )}
               </div>
