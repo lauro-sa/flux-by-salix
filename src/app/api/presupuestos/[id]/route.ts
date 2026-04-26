@@ -185,6 +185,30 @@ export async function PATCH(
     }
     const admin = crearClienteAdmin()
 
+    // Bloquear el envío a papelera si hay una OT viva derivada de este
+    // presupuesto. Caso típico: el operario ya ejecutó/está ejecutando el
+    // trabajo; tirar el presupuesto rompería trazabilidad fiscal.
+    if (body.en_papelera === true) {
+      const { data: otActiva } = await admin
+        .from('ordenes_trabajo')
+        .select('id, numero')
+        .eq('presupuesto_id', id)
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .neq('estado', 'cancelada')
+        .maybeSingle()
+      if (otActiva) {
+        return NextResponse.json(
+          {
+            error: `No se puede eliminar: existe la OT ${otActiva.numero} vinculada. Cancelá o eliminá la OT primero.`,
+            codigo: 'ot_activa',
+            orden_trabajo_id: otActiva.id,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
     // Obtener nombre del usuario
     const { data: perfil } = await admin
       .from('perfiles')
@@ -375,6 +399,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
+    // Bloquear cancelación/eliminación si hay OT viva. Tirar el presupuesto
+    // dejaría la OT huérfana y rompería trazabilidad para Contaduría.
+    const { data: otActiva } = await admin
+      .from('ordenes_trabajo')
+      .select('id, numero')
+      .eq('presupuesto_id', id)
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', false)
+      .neq('estado', 'cancelada')
+      .maybeSingle()
+
+    if (otActiva) {
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar: existe la OT ${otActiva.numero} vinculada. Cancelá o eliminá la OT primero.`,
+          codigo: 'ot_activa',
+          orden_trabajo_id: otActiva.id,
+        },
+        { status: 409 }
+      )
+    }
+
     // Verificar si hay presupuestos con número mayor (creados después)
     const { count: posteriores } = await admin
       .from('presupuestos')
@@ -391,12 +437,13 @@ export async function DELETE(
         .eq('id', id)
         .eq('empresa_id', empresaId)
 
-      // Registrar en historial
+      // Registrar en historial. La columna correcta es usuario_id (ver
+      // esquema presupuesto_historial); cambiado_por NO existe.
       await admin.from('presupuesto_historial').insert({
         presupuesto_id: id,
         empresa_id: empresaId,
         estado: 'cancelado',
-        cambiado_por: user.id,
+        usuario_id: user.id,
       })
 
       return NextResponse.json({

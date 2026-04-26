@@ -348,15 +348,41 @@ export async function POST(
     // campos legacy del pago para no romper consumidores antiguos.
     const principal = subidos.find((s) => s.tipo === 'comprobante') || subidos[0] || null
 
+    // Auto-vincular OT: si el cliente la mandó explícitamente la respetamos
+    // (validando ownership), si no buscamos la OT activa única del presupuesto.
+    let ordenTrabajoId: string | null = null
+    if (datos.orden_trabajo_id) {
+      const { data: otCliente } = await admin
+        .from('ordenes_trabajo')
+        .select('id')
+        .eq('id', datos.orden_trabajo_id as string)
+        .eq('presupuesto_id', presupuestoId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (otCliente) ordenTrabajoId = otCliente.id
+    } else {
+      const { data: otsActivas } = await admin
+        .from('ordenes_trabajo')
+        .select('id')
+        .eq('presupuesto_id', presupuestoId)
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .neq('estado', 'cancelada')
+      // Solo auto-vinculamos si hay UNA sola OT viva: si hay varias no
+      // sabemos cuál; queda en null y el usuario puede asignarla luego.
+      if (otsActivas && otsActivas.length === 1) ordenTrabajoId = otsActivas[0].id
+    }
+
     // Insertar el pago. monto_en_moneda_presupuesto incluye percepciones
     // porque desde el cliente sale igual (forman parte del cobrado real).
-    const montoEnPresupuesto = (monto + montoPercepciones) * cotizacion
+    const montoEnPresupuesto = Math.round((monto + montoPercepciones) * cotizacion * 100) / 100
     const { data: pagoCreado, error: errorInsert } = await admin
       .from('presupuesto_pagos')
       .insert({
         empresa_id: empresaId,
         presupuesto_id: presupuestoId,
         cuota_id: cuotaId,
+        orden_trabajo_id: ordenTrabajoId,
         monto: String(monto),
         monto_percepciones: String(montoPercepciones),
         moneda,

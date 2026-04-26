@@ -327,7 +327,9 @@ export async function GET() {
       admin
         .from('presupuesto_pagos')
         .select(`
-          id, monto_en_moneda_presupuesto, moneda, fecha_pago, metodo, presupuesto_id, cuota_id,
+          id, monto_en_moneda_presupuesto, monto_percepciones, cotizacion_cambio,
+          moneda, fecha_pago, metodo,
+          presupuesto_id, cuota_id, es_adicional, concepto_adicional,
           cuota:presupuesto_cuotas(numero, descripcion),
           presupuesto:presupuestos!presupuesto_pagos_presupuesto_id_fkey(
             numero, fecha_aceptacion, fecha_emision, total_final, estado,
@@ -582,11 +584,15 @@ export async function GET() {
     type PagoEnriquecido = {
       id: string
       monto_en_moneda_presupuesto: string | number | null
+      monto_percepciones: string | number | null
+      cotizacion_cambio: string | number | null
       moneda: string
       fecha_pago: string
       metodo: string | null
       presupuesto_id: string
       cuota_id: string | null
+      es_adicional: boolean
+      concepto_adicional: string | null
       cuota: { numero: number; descripcion: string | null } | { numero: number; descripcion: string | null }[] | null
       presupuesto: PresupuestoEnJoin | PresupuestoEnJoin[] | null
     }
@@ -616,6 +622,7 @@ export async function GET() {
       monto: number
       monto_neto: number   // proporción del pago sin IVA
       monto_iva: number    // proporción del pago de IVA
+      monto_percepciones: number  // percepciones cobradas (en moneda del presupuesto)
       cuota_numero: number | null
       cuota_descripcion: string | null
       metodo: string | null
@@ -623,22 +630,54 @@ export async function GET() {
     }
     const detalleCobros: DetalleCobro[] = []
 
-    // Index: presupuesto_id → suma cobrada (todos los pagos)
+    // Index: presupuesto_id → suma cobrada (excluye adicionales: éstos son
+    // entradas de dinero por trabajos extra fuera del presupuesto y no
+    // descuentan saldo del presupuesto base).
     const pagosPorPresupuesto = new Map<string, number>()
+    // Acumulador aparte de adicionales por mes: para reportes contables.
+    const adicionalesPorMes: Record<string, { cantidad: number; monto: number }> = {}
+    // Acumulador de percepciones cobradas por mes (en moneda del presupuesto).
+    // Las percepciones forman parte del cobrado total porque desde el cliente
+    // sale igual, pero NO son ingreso real de la empresa: hay que depositarlas
+    // al fisco. Para Contaduría hay que poder descontarlas del ingreso neto.
+    const percepcionesPorMes: Record<string, number> = {}
     const pagosCrudos = (resPagosCobrados.data || []) as PagoEnriquecido[]
     for (const p of pagosCrudos) {
+      if (p.es_adicional) continue
       const monto = Number(p.monto_en_moneda_presupuesto) || 0
       pagosPorPresupuesto.set(p.presupuesto_id, (pagosPorPresupuesto.get(p.presupuesto_id) || 0) + monto)
     }
 
     // Procesar cada pago real
     for (const p of pagosCrudos) {
-      const fecha = new Date(p.fecha_pago)
-      const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
       const monto = Number(p.monto_en_moneda_presupuesto) || 0
+      // Clave de mes en zona horaria de la empresa: evita que un pago del
+      // 31 a las 23h ART caiga en el mes siguiente sólo porque el server es UTC.
+      const { anio, mes } = obtenerComponentesFecha(new Date(p.fecha_pago), zonaDash)
+      const clave = `${anio}-${String(mes).padStart(2, '0')}`
+
+      // Adicionales: van a su propio acumulador, no se mezclan con el cobrado
+      // del presupuesto y no se imputan a cuotas ni saldo.
+      if (p.es_adicional) {
+        if (!adicionalesPorMes[clave]) adicionalesPorMes[clave] = { cantidad: 0, monto: 0 }
+        adicionalesPorMes[clave].cantidad++
+        adicionalesPorMes[clave].monto += monto
+        continue
+      }
+
       if (!cobradoPorMes[clave]) cobradoPorMes[clave] = { cantidad: 0, monto: 0 }
       cobradoPorMes[clave].cantidad++
       cobradoPorMes[clave].monto += monto
+
+      // Percepciones del pago en moneda del presupuesto (= percepciones del
+      // pago * cotización del pago). Son retención fiscal — separadas para
+      // poder descontarlas del ingreso neto en reportes contables.
+      const cotizacionPago = Number(p.cotizacion_cambio ?? 1) || 1
+      const percepcionesEnPpto =
+        (Number(p.monto_percepciones) || 0) * cotizacionPago
+      if (percepcionesEnPpto > 0) {
+        percepcionesPorMes[clave] = (percepcionesPorMes[clave] || 0) + percepcionesEnPpto
+      }
 
       const pres = Array.isArray(p.presupuesto) ? p.presupuesto[0] : p.presupuesto
       const cuota = Array.isArray(p.cuota) ? p.cuota[0] : p.cuota
@@ -671,6 +710,9 @@ export async function GET() {
         monto,
         monto_neto: montoNeto,
         monto_iva: montoIva,
+        // Percepciones cobradas (en moneda del presupuesto). 0 si no hay.
+        monto_percepciones:
+          (Number(p.monto_percepciones) || 0) * (Number(p.cotizacion_cambio ?? 1) || 1),
         cuota_numero: cuota?.numero || null,
         cuota_descripcion: cuota?.descripcion || null,
         metodo: p.metodo,
@@ -728,6 +770,7 @@ export async function GET() {
           monto,
           monto_neto: montoNeto,
           monto_iva: montoIva,
+          monto_percepciones: 0, // detalles estimados no tienen percepciones reales
           cuota_numero: null,
           cuota_descripcion: null,
           metodo: null,
@@ -1027,6 +1070,13 @@ export async function GET() {
         cobrado_por_mes: cobradoPorMes,
         proyeccion_por_mes: proyeccionPorMes,
         detalle: detalleCobros,
+        // Subset informativo: cuánto del cobrado fue retenciones/percepciones
+        // (en moneda del presupuesto). Sirve para descontar del ingreso neto.
+        percepciones_por_mes: percepcionesPorMes,
+        // Pagos por trabajos extra fuera del presupuesto: no descuentan saldo
+        // pero sí entran a la caja. Reportados aparte para no contaminar la
+        // tasa de cobro / saldo por presupuesto.
+        adicionales_por_mes: adicionalesPorMes,
       } : null,
       comparativa: permisos.presupuestos_todos ? {
         presupuestos_por_mes: presupuestosPorMesAnio,

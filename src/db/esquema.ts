@@ -623,6 +623,10 @@ export const presupuestos = pgTable('presupuestos', {
   editado_por_nombre: text('editado_por_nombre'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+  // Marca cuándo el presupuesto pasó al estado ACTUAL. Mantenido por trigger
+  // BEFORE UPDATE OF estado en BD (ver migración 20260426010000). Se usa para
+  // ordenar listados por "recién aceptados / completados" sin importar creado_en.
+  estado_cambiado_en: timestamp('estado_cambiado_en', { withTimezone: true }).defaultNow().notNull(),
 
   // Soft delete
   activo: boolean('activo').notNull().default(true),
@@ -634,6 +638,7 @@ export const presupuestos = pgTable('presupuestos', {
   index('presupuestos_contacto_idx').on(tabla.contacto_id),
   index('presupuestos_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('presupuestos_fecha_idx').on(tabla.empresa_id, tabla.fecha_emision),
+  index('presupuestos_empresa_estado_cambiado_idx').on(tabla.empresa_id, tabla.estado_cambiado_en),
 ])
 
 // Líneas de presupuesto — productos, servicios, secciones, notas, descuentos
@@ -712,6 +717,11 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
   cuota_id: uuid('cuota_id').references(() => presupuesto_cuotas.id, { onDelete: 'set null' }),
+  // Vinculación opcional con la OT a la que el pago corresponde operativamente.
+  // Se setea automáticamente al registrar un pago si el presupuesto tiene una
+  // OT activa única. Permite reportes de Contaduría centrados en OT sin tener
+  // que joinear por presupuesto_id.
+  orden_trabajo_id: uuid('orden_trabajo_id'),
 
   monto: numeric('monto').notNull(),
   // Percepciones / retenciones cobradas dentro del mismo pago.
@@ -746,6 +756,17 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   mensaje_origen_id: uuid('mensaje_origen_id'),
   chatter_origen_id: uuid('chatter_origen_id'),
 
+  // ── Campos contables (preparación módulo Contaduría) ────────────────
+  // Nullable hasta que Contaduría los llene. centros_costo y
+  // categorias_contables son tablas que crearemos con el módulo.
+  centro_costo_id: uuid('centro_costo_id'),
+  categoria_contable_id: uuid('categoria_contable_id'),
+  // Fecha contable (puede diferir de fecha_pago); si NULL se asume fecha_pago.
+  fecha_imputacion: timestamp('fecha_imputacion', { withTimezone: true }),
+  // pendiente | reconciliado | cerrado (cerrado = mes contable cerrado).
+  estado_conciliacion: text('estado_conciliacion').notNull().default('pendiente'),
+  notas_contables: text('notas_contables'),
+
   // Auditoría
   creado_por: uuid('creado_por').notNull(),
   creado_por_nombre: text('creado_por_nombre'),
@@ -756,6 +777,7 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
 }, (tabla) => [
   index('presupuesto_pagos_presupuesto_idx').on(tabla.presupuesto_id),
   index('presupuesto_pagos_cuota_idx').on(tabla.cuota_id),
+  index('presupuesto_pagos_orden_trabajo_idx').on(tabla.orden_trabajo_id),
   index('presupuesto_pagos_empresa_fecha_idx').on(tabla.empresa_id, tabla.fecha_pago),
 ])
 
@@ -776,6 +798,24 @@ export const presupuesto_pago_comprobantes = pgTable('presupuesto_pago_comproban
 }, (tabla) => [
   index('presupuesto_pago_comprobantes_pago_idx').on(tabla.pago_id),
   index('presupuesto_pago_comprobantes_empresa_idx').on(tabla.empresa_id),
+])
+
+// Auditoría inmutable de cambios en presupuesto_pagos. Llenada por trigger
+// trg_presupuesto_pago_auditoria. Para reportes contables y trazabilidad fiscal.
+export const presupuesto_pago_auditoria = pgTable('presupuesto_pago_auditoria', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  pago_id: uuid('pago_id').notNull(),
+  presupuesto_id: uuid('presupuesto_id').notNull(),
+  accion: text('accion').notNull(), // 'insert' | 'update' | 'delete'
+  pago_anterior: jsonb('pago_anterior'),
+  pago_nuevo: jsonb('pago_nuevo'),
+  usuario_id: uuid('usuario_id'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+}, (tabla) => [
+  index('presupuesto_pago_auditoria_empresa_idx').on(tabla.empresa_id, tabla.creado_en),
+  index('presupuesto_pago_auditoria_pago_idx').on(tabla.pago_id),
+  index('presupuesto_pago_auditoria_presupuesto_idx').on(tabla.presupuesto_id),
 ])
 
 // Configuración de presupuestos por empresa (JSONB flexible)

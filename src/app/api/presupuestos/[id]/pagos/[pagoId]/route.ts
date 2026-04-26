@@ -191,6 +191,24 @@ export async function PATCH(
     if (body.referencia !== undefined) actualizacion.referencia = body.referencia || null
     if (body.descripcion !== undefined) actualizacion.descripcion = body.descripcion || null
 
+    // Reasignación opcional de OT (Contaduría puede necesitar mover un pago
+    // a otra OT del mismo presupuesto). Validamos ownership.
+    if (body.orden_trabajo_id !== undefined) {
+      if (body.orden_trabajo_id === null) {
+        actualizacion.orden_trabajo_id = null
+      } else {
+        const { data: ot } = await admin
+          .from('ordenes_trabajo')
+          .select('id')
+          .eq('id', body.orden_trabajo_id)
+          .eq('presupuesto_id', presupuestoId)
+          .eq('empresa_id', empresaId)
+          .maybeSingle()
+        if (!ot) return NextResponse.json({ error: 'OT inválida' }, { status: 400 })
+        actualizacion.orden_trabajo_id = ot.id
+      }
+    }
+
     const { data: pagoActualizado, error } = await admin
       .from('presupuesto_pagos')
       .update(actualizacion)

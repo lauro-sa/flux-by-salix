@@ -55,6 +55,8 @@ export interface PresupuestoPago {
   empresa_id: string
   presupuesto_id: string
   cuota_id: string | null
+  /** OT vinculada operativamente al pago (auto-detectada al crear). */
+  orden_trabajo_id: string | null
 
   monto: string
   /** Percepciones/retenciones cobradas dentro del mismo pago. */
@@ -89,6 +91,13 @@ export interface PresupuestoPago {
 
   mensaje_origen_id: string | null
   chatter_origen_id: string | null
+
+  // Campos contables (módulo Contaduría — opcional, se llenan después).
+  centro_costo_id: string | null
+  categoria_contable_id: string | null
+  fecha_imputacion: string | null
+  estado_conciliacion: 'pendiente' | 'reconciliado' | 'cerrado'
+  notas_contables: string | null
 
   creado_por: string
   creado_por_nombre: string | null

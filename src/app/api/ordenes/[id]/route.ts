@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { sincronizarEstadoPresupuesto } from '@/lib/presupuesto-auto-transicion'
 import { TRANSICIONES_ESTADO_OT, ETIQUETAS_ESTADO_OT } from '@/tipos/orden-trabajo'
 import type { EstadoOrdenTrabajo } from '@/tipos/orden-trabajo'
 
@@ -191,7 +192,7 @@ export async function PATCH(
     const [{ data: ordenActual }, { data: asignadosActuales }] = await Promise.all([
       admin
         .from('ordenes_trabajo')
-        .select('id, estado, numero, titulo, publicada, creado_por')
+        .select('id, estado, numero, titulo, publicada, creado_por, presupuesto_id')
         .eq('id', id)
         .eq('empresa_id', empresaId)
         .single(),
@@ -295,6 +296,26 @@ export async function PATCH(
       // Si se reabre, limpiar fecha_fin_real
       if (estadoActual === 'completada' && nuevoEstado !== 'completada') {
         body.fecha_fin_real = null
+      }
+
+      // Sincronización con el presupuesto al completar/reabrir la OT.
+      // El criterio de avance a presupuesto.completado depende del cobro
+      // (si todas las cuotas están cobradas), no de la ejecución de la OT.
+      // Llamamos sincronizarEstadoPresupuesto para que aplique la regla
+      // canónica: avanza si correspondía, no fuerza nada si hay saldo.
+      const fueCompletada = (nuevoEstado as string) === 'completada'
+      const fueReabierta = estadoActual === 'completada' && !fueCompletada
+      if (ordenActual.presupuesto_id && (fueCompletada || fueReabierta)) {
+        await sincronizarEstadoPresupuesto({
+          admin,
+          presupuestoId: ordenActual.presupuesto_id,
+          empresaId,
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario || 'Usuario',
+          razon: fueCompletada
+            ? `OT ${ordenActual.numero} completada`
+            : `OT ${ordenActual.numero} reabierta`,
+        })
       }
     }
 
