@@ -14,6 +14,7 @@
 
 import type { ResultadoDeteccionEmpleado, SupabaseAdmin } from '@/tipos/salix-ia'
 import { resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import { telefonosCoinciden as telefonosCoincidenCentral, generarVariantesTelefono, normalizarTelefono } from '@/lib/validaciones'
 
 /** Wrapper que además matchea por sufijo (datos antiguos sin código de país). */
@@ -49,7 +50,7 @@ export async function detectarEmpleado(
   // Obtener miembros activos (query separada de perfiles porque el join falla en este proyecto)
   const { data: miembros } = await admin
     .from('miembros')
-    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, canal_notif_telefono, puesto_nombre, sector')
+    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, canal_notif_telefono, puesto_id')
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
 
@@ -123,6 +124,8 @@ export async function detectarEmpleado(
     const coincide = telNorm ? telefonosCoinciden(telNorm, telefonoNormalizado) : false
 
     if (coincide) {
+      const etiquetas = await cargarEtiquetasMiembros(admin, [{ id: m.id, puesto_id: m.puesto_id ?? null }])
+      const et = etiquetas.get(m.id)
       return {
         es_empleado: true,
         miembro: {
@@ -133,8 +136,8 @@ export async function detectarEmpleado(
           salix_ia_habilitado: m.salix_ia_habilitado,
           salix_ia_web: m.salix_ia_web,
           salix_ia_whatsapp: m.salix_ia_whatsapp,
-          puesto_nombre: m.puesto_nombre,
-          sector: m.sector,
+          puesto: et?.puesto ?? null,
+          sector: et?.sector ?? null,
         },
         perfil: {
           nombre: datos.nombre,

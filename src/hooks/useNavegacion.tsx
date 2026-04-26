@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useCallback, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
 /**
@@ -53,6 +53,12 @@ interface ContextoNavegacion {
   /** Reemplaza la migaja de un segmento dinámico (UUID) por un nombre legible */
   setMigajaDinamica: (ruta: string, etiqueta: string) => void
   migajasDinamicas: Record<string, string>
+  /**
+   * Devuelve la última URL conocida de un módulo (con query string de filtros si existían).
+   * Si no hay URL guardada, devuelve la ruta original. Las migajas la usan para preservar
+   * los filtros del listado al hacer click en la migaja del módulo.
+   */
+  obtenerRutaModulo: (ruta: string) => string
 }
 
 const ContextoNavegacionInterno = createContext<ContextoNavegacion | null>(null)
@@ -144,6 +150,43 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
   const historialRef = useRef<string[]>([])
   const [migajasDinamicas, setMigajasDinamicasState] = useState<Record<string, string>>({})
   const pathnameAnteriorRef = useRef(pathname)
+  // Última URL conocida (con query) de cada módulo. Se actualiza al instante cuando los listados
+  // sincronizan filtros vía replaceState. Permite que las migajas restauren los filtros al volver.
+  const ultimasUrlsRef = useRef<Record<string, string>>({})
+
+  // Hookea history.replaceState/pushState para detectar cambios de URL que Next no observa
+  // (los listados usan replaceState directo para mantener filtros en la URL).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const capturar = () => {
+      const path = window.location.pathname
+      if (MIGAJAS_MODULOS[path]) {
+        ultimasUrlsRef.current[path] = path + window.location.search
+      }
+    }
+
+    const replaceOriginal = window.history.replaceState
+    const pushOriginal = window.history.pushState
+
+    window.history.replaceState = function (...args: Parameters<typeof window.history.replaceState>) {
+      replaceOriginal.apply(this, args)
+      capturar()
+    }
+    window.history.pushState = function (...args: Parameters<typeof window.history.pushState>) {
+      pushOriginal.apply(this, args)
+      capturar()
+    }
+
+    window.addEventListener('popstate', capturar)
+    capturar() // Captura inicial
+
+    return () => {
+      window.history.replaceState = replaceOriginal
+      window.history.pushState = pushOriginal
+      window.removeEventListener('popstate', capturar)
+    }
+  }, [])
 
   // Parámetros de contexto de navegación (reactivos via useSearchParams)
   const origenActual = searchParams.get('origen') || searchParams.get('desde') || null
@@ -216,6 +259,10 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const obtenerRutaModulo = useCallback((ruta: string) => {
+    return ultimasUrlsRef.current[ruta] ?? ruta
+  }, [])
+
   return (
     <ContextoNavegacionInterno.Provider
       value={{
@@ -226,6 +273,7 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
         obtenerMigajasParaRuta,
         setMigajaDinamica,
         migajasDinamicas,
+        obtenerRutaModulo,
       }}
     >
       {children}

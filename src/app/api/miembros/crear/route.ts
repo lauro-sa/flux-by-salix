@@ -31,8 +31,6 @@ export async function POST(request: NextRequest) {
       rol = 'colaborador',
       numero_empleado,
       puesto_id,
-      puesto_nombre,
-      sector,
       sector_id,
       compensacion_tipo,
       compensacion_monto,
@@ -100,8 +98,6 @@ export async function POST(request: NextRequest) {
       activo: true,
       numero_empleado: numeroEmpleadoFinal,
       puesto_id: puesto_id ?? null,
-      puesto_nombre: puesto_nombre ?? null,
-      sector: sector ?? null,
       compensacion_tipo: compensacion_tipo ?? 'fijo',
       compensacion_monto: compensacion_monto ?? 0,
       compensacion_frecuencia: compensacion_frecuencia ?? 'mensual',
@@ -127,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vincular el sector en la tabla relación (miembros_sectores).
-    // La UI lista sectores por esta tabla — el texto en miembros.sector no basta.
+    // Es la fuente única de verdad para el sector del miembro.
     if (sector_id) {
       await admin.from('miembros_sectores').insert({
         miembro_id: nuevoMiembro.id,

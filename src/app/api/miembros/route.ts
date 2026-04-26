@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarError } from '@/lib/logger'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 
 /**
  * GET /api/miembros — Lista de miembros de la empresa activa con datos de perfil.
@@ -15,10 +16,11 @@ import { registrarError } from '@/lib/logger'
  *   - incluir_sin_cuenta=true → también trae empleados "solo kiosco" (usuario_id IS NULL)
  *
  * Retorna: { miembros: Array<{
- *     id, usuario_id, rol, activo, puesto_nombre, sector,
+ *     id, usuario_id, rol, activo, puesto, sector,
  *     perfil: { nombre, apellido, correo, avatar_url } | null,
  *     nombre, apellido  // campos flat de acceso rápido
  *   }> }
+ * `puesto` y `sector` se resuelven vía FK (puestos) y miembros_sectores → sectores.
  *
  * Consumidores típicos:
  *   - Filtro "Responsable" / "Asignado a" / "Creado por" en listados
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
     // 1) Traer miembros de la empresa
     let queryMiembros = admin
       .from('miembros')
-      .select('id, usuario_id, rol, activo, puesto_nombre, sector')
+      .select('id, usuario_id, rol, activo, puesto_id')
       .eq('empresa_id', empresaId)
 
     if (!incluirInactivos) queryMiembros = queryMiembros.eq('activo', true)
@@ -71,15 +73,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3) Etiquetas (puesto + sector) resueltas desde FK + miembros_sectores
+    const etiquetas = await cargarEtiquetasMiembros(admin, (miembrosData || []).map(m => ({ id: m.id, puesto_id: m.puesto_id })))
+
     const miembros = (miembrosData || []).map(m => {
       const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
+      const et = etiquetas.get(m.id)
       return {
         id: m.id,
         usuario_id: m.usuario_id,
         rol: m.rol,
         activo: m.activo,
-        puesto_nombre: m.puesto_nombre,
-        sector: m.sector,
+        puesto: et?.puesto ?? null,
+        sector: et?.sector ?? null,
         perfil: perfil || null,
         // Campos flat de acceso rápido (algunos consumidores los usan directo)
         nombre: perfil?.nombre || null,

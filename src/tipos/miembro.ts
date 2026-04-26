@@ -27,11 +27,10 @@ export interface Miembro {
   permisos_custom: Record<string, string[]> | null
   unido_en: string
 
-  // Laboral
+  // Laboral. El nombre del puesto se resuelve por FK puesto_id → puestos.nombre.
+  // El sector primario vive en la tabla relación miembros_sectores (es_primario=true).
   numero_empleado: number | null
   puesto_id: string | null
-  puesto_nombre: string | null
-  sector: string | null
 
   // Horario y fichaje
   horario_tipo: HorarioTipo | null

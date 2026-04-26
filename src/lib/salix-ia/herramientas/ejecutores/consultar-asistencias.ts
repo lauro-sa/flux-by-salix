@@ -7,6 +7,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { determinarVisibilidad } from '@/lib/salix-ia/permisos'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 
 /** Formatea un timestamp a hora legible (ej: "08:32") en la zona horaria de la empresa */
 function formatearHora(timestamp: string | null, zona: string): string | null {
@@ -84,7 +85,7 @@ export async function ejecutarConsultarAsistencias(
   if (miembroIds.length > 0) {
     const { data: miembros } = await ctx.admin
       .from('miembros')
-      .select('id, usuario_id, puesto_nombre')
+      .select('id, usuario_id, puesto_id')
       .in('id', miembroIds)
 
     if (miembros) {
@@ -113,11 +114,16 @@ export async function ejecutarConsultarAsistencias(
         contactoEqMap.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
       }
 
+      const etiquetas = await cargarEtiquetasMiembros(
+        ctx.admin,
+        miembros.map((m: { id: string; puesto_id: string | null }) => ({ id: m.id, puesto_id: m.puesto_id ?? null })),
+      )
+
       for (const m of miembros) {
         const desdePerfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
         nombresMap.set(m.id, {
           nombre: desdePerfil || contactoEqMap.get(m.id) || 'Sin nombre',
-          puesto: m.puesto_nombre,
+          puesto: etiquetas.get(m.id)?.puesto ?? null,
         })
       }
     }
@@ -130,7 +136,7 @@ export async function ejecutarConsultarAsistencias(
   if (visibilidad === 'todos' && !params.miembro_id) {
     const { data: todosLosMiembros } = await ctx.admin
       .from('miembros')
-      .select('id, usuario_id, puesto_nombre')
+      .select('id, usuario_id, puesto_id')
       .eq('empresa_id', ctx.empresa_id)
       .eq('activo', true)
 
@@ -170,11 +176,16 @@ export async function ejecutarConsultarAsistencias(
         contactoAusMap.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
       }
 
-      ausentes = miembrosSinRegistro.map((m: { id: string; usuario_id: string | null; puesto_nombre: string | null }) => {
+      const etiquetasAusentes = await cargarEtiquetasMiembros(
+        ctx.admin,
+        miembrosSinRegistro.map((m: { id: string; puesto_id: string | null }) => ({ id: m.id, puesto_id: m.puesto_id ?? null })),
+      )
+
+      ausentes = miembrosSinRegistro.map((m: { id: string; usuario_id: string | null }) => {
         const desdePerfil = m.usuario_id ? perfilesAusentesMap.get(m.usuario_id) : null
         return {
           nombre: desdePerfil || contactoAusMap.get(m.id) || 'Sin nombre',
-          puesto: m.puesto_nombre,
+          puesto: etiquetasAusentes.get(m.id)?.puesto ?? null,
         }
       })
     }

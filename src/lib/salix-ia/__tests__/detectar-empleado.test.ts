@@ -17,7 +17,7 @@ function miembro(canal: 'empresa' | 'personal') {
     salix_ia_web: true,
     salix_ia_whatsapp: true,
     canal_notif_telefono: canal,
-    puesto_nombre: null,
+    puesto: null,
     sector: null,
   }
 }

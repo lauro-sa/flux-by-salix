@@ -7,6 +7,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { determinarVisibilidad } from '@/lib/salix-ia/permisos'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 
 export async function ejecutarConsultarEquipo(
   ctx: ContextoSalixIA,
@@ -22,7 +23,7 @@ export async function ejecutarConsultarEquipo(
   // Obtener miembros activos de la empresa
   let queryMiembros = ctx.admin
     .from('miembros')
-    .select('id, usuario_id, rol, puesto_nombre, sector, activo, numero_empleado, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, horario_tipo, horario_flexible, metodo_fichaje, fecha_nacimiento, unido_en')
+    .select('id, usuario_id, rol, puesto_id, activo, numero_empleado, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, horario_tipo, horario_flexible, metodo_fichaje, fecha_nacimiento, unido_en')
     .eq('empresa_id', ctx.empresa_id)
     .eq('activo', true)
     .order('unido_en', { ascending: true })
@@ -92,12 +93,17 @@ export async function ejecutarConsultarEquipo(
     invitado: 'Invitado',
   }
 
+  // Etiquetas resueltas (puesto vía FK, sector vía miembros_sectores)
+  const etiquetas = await cargarEtiquetasMiembros(
+    ctx.admin,
+    miembros.map((m: { id: string; puesto_id: string | null }) => ({ id: m.id, puesto_id: m.puesto_id ?? null })),
+  )
+
   let equipo = miembros.map((m: {
     id: string
     usuario_id: string
     rol: string
-    puesto_nombre: string | null
-    sector: string | null
+    puesto_id: string | null
     numero_empleado: number | null
     compensacion_tipo: string | null
     compensacion_monto: number | null
@@ -115,6 +121,7 @@ export async function ejecutarConsultarEquipo(
     const nombreCompleto = fuenteNombre
       ? [fuenteNombre.nombre, fuenteNombre.apellido].filter(Boolean).join(' ') || 'Sin nombre'
       : 'Sin nombre'
+    const et = etiquetas.get(m.id)
 
     return {
       miembro_id: m.id,
@@ -122,8 +129,8 @@ export async function ejecutarConsultarEquipo(
       nombre: nombreCompleto,
       rol: rolTraducido[m.rol] || m.rol,
       rol_clave: m.rol,
-      puesto: m.puesto_nombre || null,
-      sector: m.sector || null,
+      puesto: et?.puesto ?? null,
+      sector: et?.sector ?? null,
       correo: perfil?.correo || contactoEquipo?.correo || null,
       telefono: perfil?.telefono || contactoEquipo?.telefono || null,
       numero_empleado: m.numero_empleado,

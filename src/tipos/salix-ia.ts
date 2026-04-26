@@ -153,7 +153,9 @@ export interface MiembroSalixIA {
   salix_ia_habilitado: boolean
   salix_ia_web: boolean
   salix_ia_whatsapp: boolean
-  puesto_nombre: string | null
+  /** Resuelto vía FK miembros.puesto_id → puestos.nombre */
+  puesto: string | null
+  /** Resuelto vía miembros_sectores (es_primario=true) → sectores.nombre */
   sector: string | null
 }
 

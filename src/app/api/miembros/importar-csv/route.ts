@@ -96,8 +96,6 @@ export async function POST(request: NextRequest) {
           activo: true,
           numero_empleado: fila.numero_empleado ? parseInt(fila.numero_empleado, 10) || null : null,
           puesto_id: puesto?.id || null,
-          puesto_nombre: puesto?.nombre || null,
-          sector: sector?.nombre || null,
           metodo_fichaje: metodoFichaje,
           kiosco_rfid: (fila.kiosco_rfid || fila.rfid || '').trim() || null,
           kiosco_pin: (fila.kiosco_pin || fila.pin || '').trim() || null,
@@ -108,6 +106,15 @@ export async function POST(request: NextRequest) {
       if (errMiembro || !nuevoMiembro) {
         errores.push({ fila: numFila, motivo: 'Error creando miembro en la base' })
         continue
+      }
+
+      // Sector primario: única fuente de verdad es la tabla relación miembros_sectores.
+      if (sector?.id) {
+        await admin.from('miembros_sectores').insert({
+          miembro_id: nuevoMiembro.id,
+          sector_id: sector.id,
+          es_primario: true,
+        })
       }
 
       await vincularOCrearContactoEquipo(admin, {

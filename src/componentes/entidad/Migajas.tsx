@@ -56,7 +56,7 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
   const pathname = usePathname()
   const router = useRouter()
   const intentarNavegar = useNavegarProtegido()
-  const { migajas: migajasBase, volverAtras, puedeVolver, obtenerMigajasParaRuta } = useNavegacion()
+  const { migajas: migajasBase, volverAtras, puedeVolver, obtenerMigajasParaRuta, obtenerRutaModulo } = useNavegacion()
 
   // Si hay extras, recalcular con ellas
   const migajas = extras
@@ -65,9 +65,11 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
 
   if (migajas.length === 0) return null
 
-  // Click en migaja intermedia: respeta el sistema global de "cambios sin guardar".
+  // Click en migaja intermedia: respeta el sistema global de "cambios sin guardar"
+  // y restaura los filtros del listado si se guardó la URL completa del módulo.
   const navegarAMigaja = (ruta: string) => {
-    intentarNavegar(() => router.push(ruta))
+    const destino = obtenerRutaModulo(ruta)
+    intentarNavegar(() => router.push(destino))
   }
 
   return (

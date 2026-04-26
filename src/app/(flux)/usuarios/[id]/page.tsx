@@ -179,7 +179,7 @@ export default function PaginaPerfilUsuario() {
           tipoEntidad: 'miembro',
           entidadId: miembroData.id,
           titulo: [perfilData.nombre, perfilData.apellido].filter(Boolean).join(' ') || 'Usuario',
-          subtitulo: miembroData.puesto_nombre || miembroData.rol || undefined,
+          subtitulo: miembroData.rol || undefined,
           accion: 'visto',
         }),
       }).catch(() => {})
@@ -991,6 +991,8 @@ export default function PaginaPerfilUsuario() {
         onAccionEstado={manejarAccionEstado}
         accionCargando={accionEstadoCargando}
         avisoReenvio={avisoReenvio}
+        puestoNombre={puestos.find(p => p.id === miembro?.puesto_id)?.nombre || null}
+        sectorNombre={sectores.find(s => s.id === sectorActualId)?.nombre || null}
       />
 
       {/* ══════ TABS ══════ */}

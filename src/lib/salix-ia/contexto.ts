@@ -5,6 +5,7 @@
  */
 
 import type { ContextoSalixIA, ConfigSalixIA, ConfigIA, MiembroSalixIA, SupabaseAdmin } from '@/tipos/salix-ia'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 
 /** Carga la configuración de Salix IA para una empresa */
 export async function cargarConfigSalixIA(
@@ -42,7 +43,7 @@ export async function cargarMiembroSalixIA(
 ): Promise<{ miembro: MiembroSalixIA; nombre: string } | null> {
   const { data: miembro } = await admin
     .from('miembros')
-    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, puesto_nombre, sector')
+    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, puesto_id')
     .eq('usuario_id', usuario_id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
@@ -60,8 +61,21 @@ export async function cargarMiembroSalixIA(
     ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ')
     : 'Usuario'
 
+  const etiquetas = await cargarEtiquetasMiembros(admin, [{ id: miembro.id, puesto_id: miembro.puesto_id ?? null }])
+  const et = etiquetas.get(miembro.id)
+
   return {
-    miembro: miembro as MiembroSalixIA,
+    miembro: {
+      id: miembro.id,
+      usuario_id: miembro.usuario_id,
+      rol: miembro.rol,
+      permisos_custom: miembro.permisos_custom,
+      salix_ia_habilitado: miembro.salix_ia_habilitado,
+      salix_ia_web: miembro.salix_ia_web,
+      salix_ia_whatsapp: miembro.salix_ia_whatsapp,
+      puesto: et?.puesto ?? null,
+      sector: et?.sector ?? null,
+    },
     nombre,
   }
 }
@@ -143,7 +157,7 @@ export function construirSystemPrompt(
 === USUARIO ACTUAL ===
 - Nombre: ${ctx.nombre_usuario}
 - Rol: ${rolTraducido[ctx.miembro.rol] || ctx.miembro.rol}
-${ctx.miembro.puesto_nombre ? `- Puesto: ${ctx.miembro.puesto_nombre}` : ''}
+${ctx.miembro.puesto ? `- Puesto: ${ctx.miembro.puesto}` : ''}
 ${ctx.miembro.sector ? `- Sector: ${ctx.miembro.sector}` : ''}
 
 === FECHA Y HORA (ZONA: ${tz}) ===

@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverCorreoNotif, resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import Holidays from 'date-holidays'
 
 /**
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
     // ─── Miembros con datos de compensación + canales de notificación ───
     let queryMiembros = admin
       .from('miembros')
-      .select('id, usuario_id, turno_id, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, canal_notif_correo, canal_notif_telefono, puesto_nombre, unido_en, foto_kiosco_url, numero_empleado')
+      .select('id, usuario_id, turno_id, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, canal_notif_correo, canal_notif_telefono, puesto_id, unido_en, foto_kiosco_url, numero_empleado')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
 
@@ -145,6 +146,15 @@ export async function GET(request: NextRequest) {
       : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> }
     const contactoMapNomina = new Map(
       (contactosEquipo || []).filter(c => c.miembro_id).map(c => [c.miembro_id as string, c])
+    )
+
+    // Etiquetas de puesto/sector (vía FK puesto_id + miembros_sectores)
+    const etiquetasNomina = await cargarEtiquetasMiembros(
+      admin,
+      (miembrosData || []).map((m: Record<string, unknown>) => ({
+        id: m.id as string,
+        puesto_id: (m.puesto_id as string | null) ?? null,
+      })),
     )
 
     // ─── Asistencias del período ───
@@ -495,7 +505,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Datos de identidad/identificación del empleado (para el cabezal del detalle)
-      const puesto = (m.puesto_nombre as string | null) || null
+      const puesto = etiquetasNomina.get(m.id as string)?.puesto ?? null
       const fechaIngreso = (m.unido_en as string | null) || null
       // numero_empleado es integer en DB — lo pasamos como string para la UI
       const numeroEmpleado = m.numero_empleado != null ? String(m.numero_empleado) : null

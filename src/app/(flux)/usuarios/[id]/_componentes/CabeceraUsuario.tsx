@@ -78,6 +78,9 @@ interface PropsCabeceraUsuario {
   onAccionEstado?: (accion: AccionEstado) => void
   accionCargando?: AccionEstado | null
   avisoReenvio?: { tipo: 'exito' | 'error'; texto: string } | null
+  /* Etiquetas resueltas (FK miembros.puesto_id → puestos / miembros_sectores → sectores) */
+  puestoNombre: string | null
+  sectorNombre: string | null
 }
 
 /* Config visual del ciclo de vida */
@@ -107,6 +110,7 @@ export function CabeceraUsuario({
   supabase, empresaId, miembroId,
   estadoCiclo, invitacion, linkInvitacion, tieneCuentaPrevia,
   onAccionEstado, accionCargando, avisoReenvio,
+  puestoNombre, sectorNombre,
 }: PropsCabeceraUsuario) {
   const { t } = useTraduccion()
   const rolActual = (miembro?.rol as string) || 'empleado'
@@ -401,7 +405,7 @@ export function CabeceraUsuario({
         </div>
 
         {/* ═══════════════ FILA CONTACTO ═══════════════ */}
-        {(perfil.correo_empresa || perfil.correo || perfil.telefono || miembro.puesto_nombre || miembro.sector) && (
+        {(perfil.correo_empresa || perfil.correo || perfil.telefono || puestoNombre || sectorNombre) && (
           <>
             <div className="h-px bg-borde-sutil/60 mx-5 sm:mx-7" />
             <div className="px-5 sm:px-7 py-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-texto-secundario">
@@ -417,16 +421,16 @@ export function CabeceraUsuario({
                   {perfil.telefono}
                 </span>
               )}
-              {miembro.puesto_nombre && (
+              {puestoNombre && (
                 <span className="flex items-center gap-1.5 min-w-0">
                   <Briefcase size={13} className="text-texto-terciario shrink-0" />
-                  <span className="truncate">{miembro.puesto_nombre}</span>
+                  <span className="truncate">{puestoNombre}</span>
                 </span>
               )}
-              {miembro.sector && (
+              {sectorNombre && (
                 <span className="flex items-center gap-1.5 min-w-0">
                   <Building size={13} className="text-texto-terciario shrink-0" />
-                  <span className="truncate">{miembro.sector}</span>
+                  <span className="truncate">{sectorNombre}</span>
                 </span>
               )}
             </div>

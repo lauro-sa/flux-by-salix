@@ -87,7 +87,7 @@ const crearMiembro = (rol: string, permisos_custom: Record<string, string[]> | n
   salix_ia_habilitado: true,
   salix_ia_web: true,
   salix_ia_whatsapp: true,
-  puesto_nombre: null,
+  puesto: null,
   sector: null,
 })
 

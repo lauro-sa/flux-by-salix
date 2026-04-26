@@ -135,22 +135,22 @@ export function BarraControlsWA({
   const cargarMiembros = useCallback(async () => {
     if (miembros.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
-    // Paso 1: obtener miembros activos con puesto, sector y rol
+    // Paso 1: obtener miembros activos con FK puesto y rol
     const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('id, usuario_id, puesto_nombre, sector, rol')
+      .select('id, usuario_id, puesto_id, rol')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
     if (!miembrosData || miembrosData.length === 0) return
 
-    // Paso 2: obtener perfiles con nombres
+    // Paso 2: perfiles con nombres
     const ids = miembrosData.map(m => m.usuario_id)
     const { data: perfiles } = await supabase
       .from('perfiles')
       .select('id, nombre, apellido, avatar_url')
       .in('id', ids)
 
-    // Paso 3: obtener sectores primarios de cada miembro
+    // Paso 3: sector primario por miembro (relación N:M)
     const miembroIds = miembrosData.map(m => m.id)
     const { data: miembrosSectores } = await supabase
       .from('miembros_sectores')
@@ -158,22 +158,33 @@ export function BarraControlsWA({
       .in('miembro_id', miembroIds)
       .eq('es_primario', true)
 
+    // Paso 4: nombres de puestos vía FK miembros.puesto_id
+    const puestoIds = [...new Set(miembrosData.map(m => m.puesto_id).filter((x): x is string => !!x))]
+    const puestoNombres = new Map<string, string>()
+    if (puestoIds.length > 0) {
+      const { data: puestosData } = await supabase
+        .from('puestos')
+        .select('id, nombre')
+        .in('id', puestoIds)
+      for (const p of (puestosData || []) as Array<{ id: string; nombre: string }>) {
+        puestoNombres.set(p.id, p.nombre)
+      }
+    }
+
     if (perfiles) {
       setMiembros(perfiles.map(p => {
         const miembro = miembrosData.find(m => m.usuario_id === p.id)
-        // Buscar sector primario
         const ms = miembrosSectores?.find(s => s.miembro_id === miembro?.id)
-        const sectorNombre = (ms?.sectores as unknown as { nombre: string } | null)?.nombre
-          || (miembro?.sector as string)
-          || null
+        const sectorNombre = (ms?.sectores as unknown as { nombre: string } | null)?.nombre || null
         const rol = miembro?.rol as string || null
+        const puesto = miembro?.puesto_id ? puestoNombres.get(miembro.puesto_id) || null : null
         return {
           id: p.id,
           usuario_id: p.id,
           nombre: p.nombre || '',
           apellido: p.apellido || '',
           avatar_url: p.avatar_url || null,
-          puesto: (miembro?.puesto_nombre as string) || null,
+          puesto,
           sector: sectorNombre || (rol && rol !== 'colaborador' ? rol : null),
         }
       }))

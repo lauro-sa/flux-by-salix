@@ -59,11 +59,10 @@ export const miembros = pgTable('miembros', {
   activo: boolean('activo').notNull().default(false),
   permisos_custom: jsonb('permisos_custom'),
   unido_en: timestamp('unido_en', { withTimezone: true }).defaultNow().notNull(),
-  // Laboral
+  // Laboral. El nombre del puesto se obtiene por FK puesto_id → puestos.nombre;
+  // el sector primario por miembros_sectores (es_primario=true) → sectores.nombre.
   numero_empleado: integer('numero_empleado'),
   puesto_id: uuid('puesto_id'),
-  puesto_nombre: text('puesto_nombre'),
-  sector: text('sector'),
   // Horario y fichaje
   horario_tipo: text('horario_tipo'), // 'lunes_viernes' | 'lunes_sabado' | 'todos' | 'custom'
   horario_flexible: boolean('horario_flexible').notNull().default(false),

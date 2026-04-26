@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
 import { formatearFechaISO } from '@/lib/formato-fecha'
+import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 
 /**
  * POST /api/kiosco/identificar — Buscar empleado por código RFID/NFC/PIN.
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
         .single(),
       admin
         .from('miembros')
-        .select('id, usuario_id, foto_kiosco_url, fecha_nacimiento, sector')
+        .select('id, usuario_id, foto_kiosco_url, fecha_nacimiento, puesto_id')
         .eq('empresa_id', empresaId)
         .match(filtroMiembro)
         .eq('activo', true)
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
     if (!miembro) {
       return NextResponse.json({ error: 'No reconocido' }, { status: 404 })
     }
+
+    // Sector primario (vía miembros_sectores) — el kiosco lo muestra en la cabecera
+    const etiquetasKiosco = await cargarEtiquetasMiembros(admin, [{ id: miembro.id, puesto_id: miembro.puesto_id }])
+    const sectorMiembro = etiquetasKiosco.get(miembro.id)?.sector ?? null
 
     const zonaTerminal = zonaRes.data?.zona_horaria as string | null
     const zonaEmpresa = (zonaRes.data?.empresa as { zona_horaria?: string | null } | null)?.zona_horaria ?? null
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       miembroId: miembro.id,
       nombre,
-      sector: miembro.sector,
+      sector: sectorMiembro,
       fotoUrl: fotoPerfilUrl,
       fechaNacimiento: miembro.fecha_nacimiento,
       estadoTurno: turnoHoy?.estado ?? null,

@@ -18,7 +18,7 @@ interface MiembroLista {
   apellido: string
   avatar_url: string | null
   correo: string
-  puesto_nombre: string | null
+  puesto: string | null
   sector: string | null
   rol: string
 }
@@ -149,7 +149,7 @@ export function SelectorAgentesCanal({ canalId, agentesActuales, onGuardado }: P
                     {nombreCompleto}
                   </div>
                   <div className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>
-                    {m.puesto_nombre || m.rol} · {m.correo}
+                    {m.puesto || m.rol} · {m.correo}
                   </div>
                 </div>
                 <div
