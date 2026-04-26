@@ -15,7 +15,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
-  Clock, CircleDot, FilePen, Trash2, X, FileDown, RefreshCw, History,
+  Clock, CircleDot, FilePen, Trash2, X, FileDown, RefreshCw, History, CreditCard, Check,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -54,6 +54,7 @@ interface FilaPresupuesto {
   fecha_emision: string
   fecha_vencimiento: string | null
   dias_vencimiento: number
+  estado_cambiado_en: string
   subtotal_neto: string
   total_impuestos: string
   descuento_global: string
@@ -66,6 +67,15 @@ interface FilaPresupuesto {
   editado_por_nombre: string | null
   actualizado_en: string
   notas_html: string | null
+  /** Resumen de pagos para la columna "Pagos" del listado. */
+  resumen_pagos?: {
+    /** Estados de las cuotas en orden (vacío si presupuesto sin cuotas). */
+    cuotas: string[]
+    /** Cantidad de pagos no-adicionales cargados. */
+    cantidad_pagos: number
+    /** Total cobrado en moneda del presupuesto (no incluye adicionales). */
+    total_cobrado: number
+  }
 }
 
 const POR_PAGINA = 50
@@ -358,7 +368,7 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
     }).format(num)
   }
 
-  const COLUMNAS_VISIBLES_DEFAULT = ['numero', 'estado', 'contacto', 'contacto_identificacion', 'total_final', 'fecha_emision', 'fecha_vencimiento']
+  const COLUMNAS_VISIBLES_DEFAULT = ['numero', 'estado', 'contacto', 'contacto_identificacion', 'total_final', 'pagos', 'fecha_emision', 'fecha_vencimiento']
 
   const I = 12
   const columnas: ColumnaDinamica<FilaPresupuesto>[] = [
@@ -462,6 +472,20 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
       ),
     },
     {
+      // Columna visual de "Pagos": dots por cuota cobrada / parcial / pendiente.
+      // Para presupuestos sin cuotas (plazo fijo, contado) muestra 1 solo dot
+      // que refleja si el total cobrado cubre el total final.
+      clave: 'pagos', etiqueta: 'Pagos', ancho: 150, grupo: 'Montos', icono: <CreditCard size={I} />,
+      render: (fila) => (
+        <IndicadorPagos
+          resumen={fila.resumen_pagos}
+          totalFinal={parseFloat(fila.total_final || '0')}
+          moneda={fila.moneda}
+          estado={fila.estado}
+        />
+      ),
+    },
+    {
       clave: 'moneda', etiqueta: t('documentos.moneda'), ancho: 80, grupo: 'Montos', icono: <DollarSign size={I} />,
       opcionesFiltro: [
         { valor: 'ARS', etiqueta: 'ARS' },
@@ -519,6 +543,11 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
     {
       clave: 'dias_vencimiento', etiqueta: t('documentos.plazo_dias'), ancho: 100, tipo: 'numero', grupo: t('comun.fechas'), icono: <Clock size={I} />,
       render: (fila) => <span className="text-xs text-texto-terciario">{fila.dias_vencimiento}d</span>,
+    },
+    {
+      // Cuándo el presupuesto pasó al estado actual (aceptado, completado, etc.)
+      clave: 'estado_cambiado_en', etiqueta: 'Cambió de estado', ancho: 140, ordenable: true, tipo: 'fecha', grupo: t('comun.fechas'), icono: <RefreshCw size={I} />,
+      render: (fila) => <span className="text-xs text-texto-secundario">{formatoFecha(fila.estado_cambiado_en)}</span>,
     },
 
     /* ── Pago ── */
@@ -764,7 +793,10 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
           { etiqueta: t('documentos.total_mayor'), clave: 'total_final', direccion: 'desc' },
           { etiqueta: t('documentos.total_menor'), clave: 'total_final', direccion: 'asc' },
           { etiqueta: 'Por vencer (más próximos)', clave: 'fecha_vencimiento', direccion: 'asc' },
-          { etiqueta: 'Recién aceptados', clave: 'fecha_aceptacion', direccion: 'desc' },
+          // Ordena por la fecha en que el presupuesto pasó al estado actual.
+          // Útil al filtrar por "Orden de Venta" + "Completado": un presupuesto
+          // creado hace meses pero recién aceptado/cobrado aparece primero.
+          { etiqueta: 'Cambio de estado reciente', clave: 'estado_cambiado_en', direccion: 'desc' },
         ]}
         onClickFila={(fila) => router.push(`/presupuestos/${fila.id}`)}
         mostrarResumen
@@ -783,5 +815,193 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
         }
       />
     </PlantillaListado>
+  )
+}
+
+// ─── Indicador visual de pagos para la columna del listado ───────────────
+// Anillo de progreso (donut) que muestra el % cobrado del presupuesto, +
+// label compacto al lado: cuotas cobradas / pendientes y cantidad de pagos.
+//
+// Tonos:
+//   verde  → cobrado completo (100%)
+//   ámbar  → parcial (>0% y <100%)
+//   gris   → pendiente (0%)
+//
+// Tooltip nativo con desglose completo.
+function IndicadorPagos({
+  resumen,
+  totalFinal,
+  moneda,
+  estado,
+}: {
+  resumen?: {
+    cuotas: string[]
+    cantidad_pagos: number
+    total_cobrado: number
+  }
+  totalFinal: number
+  moneda: string
+  estado?: EstadoPresupuesto
+}) {
+  // Solo tiene sentido mostrar el progreso de pagos cuando el presupuesto
+  // ya fue aceptado por el cliente (confirmado / orden de venta / completado).
+  // En borrador / enviado / rechazado / vencido / cancelado el cobro no
+  // aplica, así que devolvemos un placeholder discreto.
+  const ESTADOS_CON_COBRO: EstadoPresupuesto[] = ['confirmado_cliente', 'orden_venta', 'completado']
+  if (!estado || !ESTADOS_CON_COBRO.includes(estado)) {
+    return <span className="text-xxs text-texto-terciario">—</span>
+  }
+
+  if (!resumen) {
+    return <span className="text-xxs text-texto-terciario">—</span>
+  }
+
+  const { cuotas, cantidad_pagos, total_cobrado } = resumen
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
+
+  const sufijoPagos = cantidad_pagos > 0
+    ? `${cantidad_pagos} pago${cantidad_pagos !== 1 ? 's' : ''}`
+    : null
+
+  // El donut refleja proporción de cuotas pagadas (no de monto), así que
+  // "1 de 2" siempre da la mitad del círculo. Para presupuestos sin cuotas
+  // (plazo fijo / contado) no hay proporción de cuotas → caemos al cobrado
+  // sobre total como aproximación.
+  const cubierto = totalFinal > 0 && total_cobrado + 0.01 >= totalFinal
+  let porcentaje: number
+  if (cuotas.length > 0) {
+    const cobradas = cuotas.filter((e) => e === 'cobrada').length
+    const parciales = cuotas.filter((e) => e === 'parcial').length
+    // Cada cuota pesa 1/N. Las parciales cuentan como 1/2.
+    porcentaje = Math.round(((cobradas + parciales * 0.5) / cuotas.length) * 100)
+  } else {
+    porcentaje = totalFinal > 0
+      ? Math.min(100, Math.round((total_cobrado / totalFinal) * 100))
+      : 0
+  }
+  const tono: 'completo' | 'parcial' | 'pendiente' =
+    cubierto ? 'completo' : porcentaje > 0 ? 'parcial' : 'pendiente'
+
+  // Construir labels (línea 1 + línea 2)
+  let linea1: string
+  let linea2: string | null
+  let colorTexto: string
+
+  if (cuotas.length === 0) {
+    // Sin cuotas materializadas (plazo fijo / contado)
+    if (cubierto) {
+      linea1 = 'Cobrado'
+      colorTexto = 'text-insignia-exito'
+    } else if (porcentaje > 0) {
+      linea1 = `${porcentaje}%`
+      colorTexto = 'text-insignia-advertencia'
+    } else {
+      linea1 = 'Pendiente'
+      colorTexto = 'text-texto-terciario'
+    }
+    linea2 = sufijoPagos
+  } else {
+    const cobradas = cuotas.filter((e) => e === 'cobrada').length
+    if (cubierto) {
+      linea1 = `${cuotas.length} cuota${cuotas.length !== 1 ? 's' : ''}`
+      colorTexto = 'text-insignia-exito'
+    } else if (cobradas > 0 || porcentaje > 0) {
+      linea1 = `${cobradas} de ${cuotas.length}`
+      colorTexto = 'text-insignia-advertencia'
+    } else {
+      linea1 = `0 de ${cuotas.length}`
+      colorTexto = 'text-texto-terciario'
+    }
+    linea2 = sufijoPagos
+  }
+
+  // Tooltip
+  const partes: string[] = []
+  if (cuotas.length > 0) {
+    const cobradas = cuotas.filter((e) => e === 'cobrada').length
+    const parciales = cuotas.filter((e) => e === 'parcial').length
+    const pendientes = cuotas.length - cobradas - parciales
+    partes.push(`${cuotas.length} cuotas`)
+    if (cobradas > 0) partes.push(`${cobradas} cobrada${cobradas !== 1 ? 's' : ''}`)
+    if (parciales > 0) partes.push(`${parciales} parcial${parciales !== 1 ? 'es' : ''}`)
+    if (pendientes > 0) partes.push(`${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`)
+  } else {
+    if (cubierto) partes.push('Cobrado completo')
+    else if (porcentaje > 0) partes.push(`Cobrado ${fmt(total_cobrado)} ${moneda} de ${fmt(totalFinal)} ${moneda}`)
+    else partes.push('Sin pagos cargados')
+  }
+  if (cantidad_pagos > 0) partes.push(`${cantidad_pagos} pago${cantidad_pagos !== 1 ? 's' : ''} cargado${cantidad_pagos !== 1 ? 's' : ''}`)
+  const tooltip = partes.join(' · ')
+
+  return (
+    <div className="flex items-center gap-2 min-w-0" title={tooltip}>
+      <AnilloPagos porcentaje={porcentaje} tono={tono} />
+      <div className="flex flex-col leading-tight min-w-0">
+        <span className={`text-xs font-medium tabular-nums ${colorTexto}`}>
+          {linea1}
+        </span>
+        {linea2 && (
+          <span className="text-xxs text-texto-terciario tabular-nums">
+            {linea2}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Anillo SVG de progreso (donut) para mostrar % cobrado ──────────────
+// 28×28px. Track gris fino + arco coloreado proporcional al %. Cuando
+// está completo (100%), muestra un check sólido en el centro.
+function AnilloPagos({
+  porcentaje,
+  tono,
+}: {
+  porcentaje: number
+  tono: 'completo' | 'parcial' | 'pendiente'
+}) {
+  const size = 26
+  const strokeWidth = 3
+  const radius = (size - strokeWidth) / 2
+  const circ = 2 * Math.PI * radius
+  const dash = (porcentaje / 100) * circ
+
+  const colorClase =
+    tono === 'completo' ? 'text-insignia-exito'
+    : tono === 'parcial' ? 'text-insignia-advertencia'
+    : 'text-texto-terciario'
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className={colorClase}>
+        {/* Track de fondo (anillo gris fino) */}
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          fill="none"
+          opacity={tono === 'pendiente' ? 0.35 : 0.18}
+        />
+        {/* Arco de progreso (coloreado) */}
+        {porcentaje > 0 && (
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${dash} ${circ}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+      </svg>
+      {tono === 'completo' && (
+        <Check
+          className="absolute inset-0 m-auto size-3 text-insignia-exito"
+          strokeWidth={3}
+        />
+      )}
+    </div>
   )
 }

@@ -165,6 +165,11 @@ export interface PresupuestoConLineas extends Presupuesto {
   historial: HistorialEstado[]
   // OT viva generada desde este presupuesto (null si nunca se generó o está en papelera).
   orden_trabajo: { id: string; numero: string } | null
+  // Suma de pagos no-adicionales convertida a la moneda del presupuesto.
+  // Lo calcula el GET para que el desglose de cuotas en el cabezal pueda
+  // derivar estado (pendiente/parcial/cobrada) cuando la condición es
+  // plazo_fijo y no hay cuotas materializadas en BD.
+  total_cobrado?: number
   // Permisos granulares calculados en backend para el usuario actual.
   permisos?: {
     editar: boolean

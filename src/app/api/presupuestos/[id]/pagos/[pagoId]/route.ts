@@ -1,17 +1,19 @@
 /**
- * PATCH /api/presupuestos/[id]/pagos/[pagoId] — Editar un pago.
- * DELETE — Eliminar un pago. Si tenía comprobante, se borra el archivo.
- * Cualquier cambio recalcula el estado derivado de la cuota vía trigger.
+ * GET    — obtener un pago con sus comprobantes hidratados.
+ * PATCH  — editar campos del pago (monto, percepciones, método, adicional…).
+ * DELETE — eliminar el pago. Borra archivos de Storage de TODOS los
+ *          comprobantes y la entrada del chatter vinculada (no deja rastro
+ *          "pago rechazado", para que un pago cargado por error no quede
+ *          como evento de auditoría visible al usuario final).
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
-import { registrarChatter } from '@/lib/chatter'
 import { sincronizarEstadoPresupuesto } from '@/lib/presupuesto-auto-transicion'
 import { descontarUsoStorage } from '@/lib/uso-storage'
-import type { MetodoPago } from '@/tipos/presupuesto-pago'
+import type { MetodoPago, PresupuestoPagoComprobante } from '@/tipos/presupuesto-pago'
 
 const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'deposito', 'otro']
 
@@ -40,7 +42,18 @@ export async function GET(
       .single()
 
     if (error || !pago) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
-    return NextResponse.json(pago)
+
+    const { data: comprobantes } = await admin
+      .from('presupuesto_pago_comprobantes')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('pago_id', pagoId)
+      .order('creado_en', { ascending: true })
+
+    return NextResponse.json({
+      ...pago,
+      comprobantes: (comprobantes || []) as PresupuestoPagoComprobante[],
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
@@ -90,8 +103,22 @@ export async function PATCH(
       ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
       : null
 
+    // Adicional: si se marca true, forzamos cuota_id a null. Si se marca
+    // false y no llega cuota_id, dejamos el cuota_id existente.
+    let esAdicional: boolean | undefined
+    if (body.es_adicional !== undefined) {
+      esAdicional = !!body.es_adicional
+      actualizacion.es_adicional = esAdicional
+      if (esAdicional) actualizacion.cuota_id = null
+    }
+
+    if (body.concepto_adicional !== undefined) {
+      const v = (body.concepto_adicional as string | null) ?? null
+      actualizacion.concepto_adicional = v ? v.trim() || null : null
+    }
+
     // Validar campos editables
-    if (body.cuota_id !== undefined) {
+    if (body.cuota_id !== undefined && !esAdicional) {
       if (body.cuota_id) {
         const { data: cuota } = await admin
           .from('presupuesto_cuotas')
@@ -113,6 +140,14 @@ export async function PATCH(
       actualizacion.monto = String(monto)
     }
 
+    if (body.monto_percepciones !== undefined) {
+      const mp = Number(body.monto_percepciones)
+      if (!isFinite(mp) || mp < 0) {
+        return NextResponse.json({ error: 'Monto de percepciones inválido' }, { status: 400 })
+      }
+      actualizacion.monto_percepciones = String(mp)
+    }
+
     if (body.moneda !== undefined) actualizacion.moneda = body.moneda
 
     if (body.cotizacion_cambio !== undefined) {
@@ -121,13 +156,20 @@ export async function PATCH(
       actualizacion.cotizacion_cambio = String(c)
     }
 
-    // Recalcular monto_en_moneda_presupuesto si cambió monto o cotización
-    if (body.monto !== undefined || body.cotizacion_cambio !== undefined) {
+    // Recalcular monto_en_moneda_presupuesto si cambió monto, percepciones o cotización
+    if (
+      body.monto !== undefined ||
+      body.monto_percepciones !== undefined ||
+      body.cotizacion_cambio !== undefined
+    ) {
       const m = body.monto !== undefined ? Number(body.monto) : Number(pagoExistente.monto)
+      const mp = body.monto_percepciones !== undefined
+        ? Number(body.monto_percepciones)
+        : Number(pagoExistente.monto_percepciones || 0)
       const c = body.cotizacion_cambio !== undefined
         ? Number(body.cotizacion_cambio)
         : Number(pagoExistente.cotizacion_cambio)
-      actualizacion.monto_en_moneda_presupuesto = String(m * c)
+      actualizacion.monto_en_moneda_presupuesto = String((m + mp) * c)
     }
 
     if (body.fecha_pago !== undefined) {
@@ -177,7 +219,7 @@ export async function PATCH(
 
       if (entrada) {
         // Refrescar info de cuota si cambió la imputación
-        let infoCuota = {
+        const infoCuota = {
           cuota_numero: null as number | null,
           cuotas_total: null as number | null,
           cuota_descripcion: null as string | null,
@@ -212,6 +254,15 @@ export async function PATCH(
           cuota_numero: infoCuota.cuota_numero,
           cuotas_total: infoCuota.cuotas_total,
           cuota_descripcion: infoCuota.cuota_descripcion,
+          es_adicional: pagoActualizado.es_adicional || undefined,
+          concepto_adicional: pagoActualizado.concepto_adicional || undefined,
+          monto_percepciones: Number(pagoActualizado.monto_percepciones || 0) > 0
+            ? String(pagoActualizado.monto_percepciones)
+            : undefined,
+          // Quien editó el pago por última vez (para mostrar "editado por X"
+          // en el chatter cuando es distinto del creador). Y cuándo.
+          editado_por_nombre: pagoActualizado.editado_por_nombre || undefined,
+          editado_en: pagoActualizado.actualizado_en || undefined,
         }
         await admin
           .from('chatter')
@@ -234,7 +285,18 @@ export async function PATCH(
       })
     }
 
-    return NextResponse.json(pagoActualizado)
+    // Devolver el pago con sus comprobantes hidratados
+    const { data: comprobantes } = await admin
+      .from('presupuesto_pago_comprobantes')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('pago_id', pagoId)
+      .order('creado_en', { ascending: true })
+
+    return NextResponse.json({
+      ...pagoActualizado,
+      comprobantes: (comprobantes || []) as PresupuestoPagoComprobante[],
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
@@ -267,14 +329,45 @@ export async function DELETE(
 
     if (!pago) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
 
-    // Borrar comprobante de Storage si existe
-    if (pago.comprobante_storage_path) {
-      await admin.storage.from('documentos-pdf').remove([pago.comprobante_storage_path])
-      if (pago.comprobante_tamano_bytes) {
-        descontarUsoStorage(empresaId, 'documentos-pdf', pago.comprobante_tamano_bytes)
+    // Borrar TODOS los comprobantes de Storage. La fila legacy y las
+    // de la tabla nueva pueden apuntar al mismo path — usamos un Set.
+    const { data: comprobantes } = await admin
+      .from('presupuesto_pago_comprobantes')
+      .select('storage_path, tamano_bytes')
+      .eq('empresa_id', empresaId)
+      .eq('pago_id', pagoId)
+
+    const paths = new Set<string>()
+    let bytesTotal = 0
+    for (const c of comprobantes || []) {
+      if (c.storage_path) {
+        paths.add(c.storage_path)
+        if (c.tamano_bytes) bytesTotal += Number(c.tamano_bytes)
       }
     }
+    if (pago.comprobante_storage_path && !paths.has(pago.comprobante_storage_path)) {
+      paths.add(pago.comprobante_storage_path)
+      if (pago.comprobante_tamano_bytes) bytesTotal += Number(pago.comprobante_tamano_bytes)
+    }
 
+    if (paths.size > 0) {
+      await admin.storage.from('documentos-pdf').remove(Array.from(paths))
+      if (bytesTotal > 0) descontarUsoStorage(empresaId, 'documentos-pdf', bytesTotal)
+    }
+
+    // Eliminar la entrada del chatter vinculada al pago (si existe). Antes
+    // creábamos una nueva entrada `pago_rechazado` como rastro, pero quedaba
+    // como evento confuso para el usuario final cuando lo eliminado era un
+    // error de carga. Política nueva: borrar la entrada original.
+    await admin
+      .from('chatter')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('entidad_tipo', 'presupuesto')
+      .eq('entidad_id', presupuestoId)
+      .contains('metadata', { pago_id: pagoId })
+
+    // Borrar el pago (CASCADE borra las filas de presupuesto_pago_comprobantes)
     const { error } = await admin
       .from('presupuesto_pagos')
       .delete()
@@ -286,7 +379,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
     }
 
-    // Audit chatter — quién eliminó
+    // Sincronizar estado del presupuesto (puede revertir 'completado' →
+    // 'orden_venta' si quedó saldo pendiente, o avanzar si ahora está
+    // todo cobrado por otro motivo).
     const { data: perfil } = await admin
       .from('perfiles')
       .select('nombre, apellido')
@@ -294,23 +389,6 @@ export async function DELETE(
       .single()
     const nombreUsuario = perfil ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() : 'Usuario'
 
-    await registrarChatter({
-      empresaId,
-      entidadTipo: 'presupuesto',
-      entidadId: presupuestoId,
-      contenido: `Eliminó el pago registrado por ${pago.monto} ${pago.moneda}`,
-      autorId: user.id,
-      autorNombre: nombreUsuario,
-      metadata: {
-        accion: 'pago_rechazado',
-        cuota_id: pago.cuota_id || undefined,
-        monto_pago: pago.monto,
-      },
-    })
-
-    // Sincronizar estado del presupuesto (puede revertir 'completado' →
-    // 'orden_venta' si quedó saldo pendiente, o avanzar si ahora está
-    // todo cobrado por otro motivo).
     await sincronizarEstadoPresupuesto({
       admin,
       presupuestoId,

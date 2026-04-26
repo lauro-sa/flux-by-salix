@@ -44,8 +44,8 @@ export async function GET(
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
-    // Obtener líneas, historial, cuotas y orden de trabajo vinculada en paralelo
-    const [lineasRes, historialRes, cuotasRes, ordenTrabajoRes] = await Promise.all([
+    // Obtener líneas, historial, cuotas, orden de trabajo y pagos en paralelo
+    const [lineasRes, historialRes, cuotasRes, ordenTrabajoRes, pagosRes] = await Promise.all([
       admin
         .from('lineas_presupuesto')
         .select('*')
@@ -70,7 +70,20 @@ export async function GET(
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .maybeSingle(),
+      // Pagos no-adicionales para calcular total cobrado (usado por el
+      // desglose de cuotas en el cabezal cuando la condición es plazo_fijo:
+      // ahí no hay cuotas materializadas, así que el estado se deriva del
+      // total cobrado vs total_final).
+      admin
+        .from('presupuesto_pagos')
+        .select('monto_en_moneda_presupuesto, es_adicional')
+        .eq('presupuesto_id', id)
+        .eq('empresa_id', empresaId),
     ])
+
+    const totalCobrado = (pagosRes.data || [])
+      .filter((p) => !p.es_adicional)
+      .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0)
 
     // Si no hay cuotas en BD pero tiene condición de pago tipo hitos,
     // generar cuotas sintéticas desde la configuración para que el editor
@@ -131,6 +144,7 @@ export async function GET(
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
       cuotas,
+      total_cobrado: totalCobrado,
       orden_trabajo: ordenTrabajoRes.data || null,
       permisos: {
         editar: puedeEditar.permitido,

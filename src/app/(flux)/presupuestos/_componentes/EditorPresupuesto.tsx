@@ -161,17 +161,23 @@ export default function EditorPresupuesto({
     setPagoEliminando(null)
   }, [pagoEliminando, presupuestoIdProp, presupuestoIdCreado])
 
-  // Cuando se registra un pago, refrescar las cuotas y el estado del
-  // presupuesto. Necesario porque el primer pago materializa las cuotas
-  // sintéticas en BD (deja de ser id "sintetico-N" y pasa a uuid real),
-  // y el trigger SQL puede actualizar estado de cuotas a parcial/cobrada.
+  // Cuando se registra un pago, refrescar las cuotas, el estado y el total
+  // cobrado del presupuesto. Necesario porque el primer pago materializa las
+  // cuotas sintéticas en BD (deja de ser id "sintetico-N" y pasa a uuid real),
+  // el trigger SQL puede actualizar estado de cuotas a parcial/cobrada, y el
+  // desglose del cabezal usa total_cobrado para condiciones plazo_fijo.
   const idPresupuestoEfectivo = modo === 'editar' ? presupuestoIdProp : presupuestoIdCreado
   useEffect(() => {
     if (recargaPagosNonce === 0 || !idPresupuestoEfectivo) return
     fetch(`/api/presupuestos/${idPresupuestoEfectivo}`)
       .then((r) => r.json())
       .then((p) => {
-        setPresupuesto((prev) => prev ? { ...prev, cuotas: p.cuotas || prev.cuotas, estado: p.estado || prev.estado } : null)
+        setPresupuesto((prev) => prev ? {
+          ...prev,
+          cuotas: p.cuotas || prev.cuotas,
+          estado: p.estado || prev.estado,
+          total_cobrado: typeof p.total_cobrado === 'number' ? p.total_cobrado : prev.total_cobrado,
+        } : null)
       })
       .catch(() => { /* silencioso */ })
   }, [recargaPagosNonce, idPresupuestoEfectivo])
@@ -2041,6 +2047,7 @@ export default function EditorPresupuesto({
           totalPresupuesto={Number(presupuesto.total_final) || 0}
           cuotas={presupuesto.cuotas || []}
           pago={pagoEditando}
+          monedasDisponibles={monedas}
           chatterOrigenId={chatterOrigenPago?.id || null}
           onPagoGuardado={() => setRecargaPagosNonce(n => n + 1)}
         />

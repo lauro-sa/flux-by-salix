@@ -714,9 +714,13 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   cuota_id: uuid('cuota_id').references(() => presupuesto_cuotas.id, { onDelete: 'set null' }),
 
   monto: numeric('monto').notNull(),
+  // Percepciones / retenciones cobradas dentro del mismo pago.
+  // Se suman al `monto_en_moneda_presupuesto` porque desde el cliente
+  // sale igual (forman parte del cobrado real).
+  monto_percepciones: numeric('monto_percepciones').notNull().default('0'),
   moneda: text('moneda').notNull().default('ARS'),
   cotizacion_cambio: numeric('cotizacion_cambio').notNull().default('1'),
-  // monto * cotizacion_cambio. Persistido para sumas rápidas.
+  // (monto + monto_percepciones) * cotizacion_cambio. Persistido para sumas rápidas.
   monto_en_moneda_presupuesto: numeric('monto_en_moneda_presupuesto').notNull(),
 
   fecha_pago: timestamp('fecha_pago', { withTimezone: true }).notNull().defaultNow(),
@@ -724,7 +728,14 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   referencia: text('referencia'),
   descripcion: text('descripcion'),
 
-  // Comprobante adjunto
+  // Adicional: entrada de dinero por fuera del presupuesto original
+  // (trabajo extra cobrado). Cuando es true, cuota_id queda en null y
+  // el monto NO descuenta saldo de cuotas, suma aparte.
+  es_adicional: boolean('es_adicional').notNull().default(false),
+  concepto_adicional: text('concepto_adicional'),
+
+  // Comprobante adjunto (legacy, ahora se usa la tabla
+  // presupuesto_pago_comprobantes para soportar múltiples adjuntos).
   comprobante_url: text('comprobante_url'),
   comprobante_storage_path: text('comprobante_storage_path'),
   comprobante_nombre: text('comprobante_nombre'),
@@ -746,6 +757,25 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   index('presupuesto_pagos_presupuesto_idx').on(tabla.presupuesto_id),
   index('presupuesto_pagos_cuota_idx').on(tabla.cuota_id),
   index('presupuesto_pagos_empresa_fecha_idx').on(tabla.empresa_id, tabla.fecha_pago),
+])
+
+// Comprobantes adjuntos a un pago. Un pago puede tener múltiples archivos
+// (por ejemplo: comprobante de transferencia + comprobante de retenciones).
+export const presupuesto_pago_comprobantes = pgTable('presupuesto_pago_comprobantes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  pago_id: uuid('pago_id').notNull().references(() => presupuesto_pagos.id, { onDelete: 'cascade' }),
+  // 'comprobante' (del pago en sí) | 'percepcion' (de retenciones/percepciones)
+  tipo: text('tipo').notNull().default('comprobante'),
+  url: text('url').notNull(),
+  storage_path: text('storage_path').notNull(),
+  nombre: text('nombre').notNull(),
+  mime_tipo: text('mime_tipo'),
+  tamano_bytes: bigint('tamano_bytes', { mode: 'number' }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
+}, (tabla) => [
+  index('presupuesto_pago_comprobantes_pago_idx').on(tabla.pago_id),
+  index('presupuesto_pago_comprobantes_empresa_idx').on(tabla.empresa_id),
 ])
 
 // Configuración de presupuestos por empresa (JSONB flexible)

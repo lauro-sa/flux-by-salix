@@ -285,24 +285,66 @@ export default function SeccionDatosPresupuesto({
               )}
             </div>
           </div>
-          {/* Desglose cuotas (hitos) */}
-          {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (() => {
+          {/* Desglose de pago.
+              - hitos: una tarjeta por cada hito configurado, estado desde la
+                cuota real materializada en BD.
+              - plazo_fijo: una sola tarjeta del 100%, estado derivado del
+                total cobrado vs total_final (no hay cuotas en BD). */}
+          {(() => {
+            if (!condSeleccionada) return null
+            // Lista unificada de "tramos" a renderear.
+            const tramos: Array<{
+              key: string
+              descripcion: string
+              porcentaje: number
+              estado: 'pendiente' | 'parcial' | 'cobrada'
+            }> = []
+
+            if (condSeleccionada.tipo === 'hitos' && condSeleccionada.hitos.length > 0) {
+              condSeleccionada.hitos.forEach((h, i) => {
+                const cuotaReal = presupuesto?.cuotas?.find(c => c.numero === i + 1)
+                tramos.push({
+                  key: h.id,
+                  descripcion: h.descripcion,
+                  porcentaje: h.porcentaje,
+                  estado: (cuotaReal?.estado as 'pendiente' | 'parcial' | 'cobrada') || 'pendiente',
+                })
+              })
+            } else if (condSeleccionada.tipo === 'plazo_fijo') {
+              // Tramo único del 100%. La descripción es la del label de la
+              // condición (ej: "100% Pago anticipado", "30 días neto"), o un
+              // fallback derivado de los días de vencimiento.
+              const descripcion =
+                condSeleccionada.label ||
+                (condSeleccionada.diasVencimiento === 0
+                  ? 'Pago al contado'
+                  : `${condSeleccionada.diasVencimiento} días`)
+              const cobrado = Number(presupuesto?.total_cobrado || 0)
+              const totalFinal = Number(presupuesto?.total_final || totalDocumento) || 0
+              let estado: 'pendiente' | 'parcial' | 'cobrada' = 'pendiente'
+              if (totalFinal > 0) {
+                if (cobrado + 0.01 >= totalFinal) estado = 'cobrada'
+                else if (cobrado > 0) estado = 'parcial'
+              }
+              tramos.push({ key: 'plazo-fijo-100', descripcion, porcentaje: 100, estado })
+            }
+
+            if (tramos.length === 0) return null
+
             const tieneImpuestos = totalDocumento !== subtotalNeto
+
             return (
               <div className="pb-2 pt-1 space-y-1.5">
-                {condSeleccionada.hitos.map((h, i) => {
-                  const montoTotal = totalDocumento * h.porcentaje / 100
-                  const montoNeto = subtotalNeto * h.porcentaje / 100
-                  // Estado derivado de la cuota real (si existe en BD)
-                  const cuotaReal = presupuesto?.cuotas?.find(c => c.numero === i + 1)
-                  const estadoCuota = cuotaReal?.estado
-                  const indicadorEstado = estadoCuota === 'cobrada'
+                {tramos.map((tramo) => {
+                  const montoTotal = totalDocumento * tramo.porcentaje / 100
+                  const montoNeto = subtotalNeto * tramo.porcentaje / 100
+                  const indicadorEstado = tramo.estado === 'cobrada'
                     ? { icon: <Check size={11} strokeWidth={3} />, color: 'text-insignia-exito', bg: 'bg-insignia-exito/15', label: 'Cobrada' }
-                    : estadoCuota === 'parcial'
+                    : tramo.estado === 'parcial'
                       ? { icon: <CircleDot size={11} />, color: 'text-insignia-advertencia', bg: 'bg-insignia-advertencia/15', label: 'Parcial' }
                       : { icon: <CircleDashed size={11} />, color: 'text-texto-terciario', bg: 'bg-white/[0.04]', label: 'Pendiente' }
                   return (
-                    <div key={h.id} className="rounded-boton border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                    <div key={tramo.key} className="rounded-boton border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
                       {/* Encabezado: descripción + porcentaje + indicador de cobro */}
                       <div className="flex items-center justify-between mb-1.5 gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -312,9 +354,9 @@ export default function SeccionDatosPresupuesto({
                           >
                             {indicadorEstado.icon}
                           </span>
-                          <span className="text-xs font-medium text-texto-secundario truncate">{h.descripcion}</span>
+                          <span className="text-xs font-medium text-texto-secundario truncate">{tramo.descripcion}</span>
                         </div>
-                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded shrink-0">{h.porcentaje}%</span>
+                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded shrink-0">{tramo.porcentaje}%</span>
                       </div>
                       {/* Montos */}
                       <div className="space-y-1">

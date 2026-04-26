@@ -1,8 +1,17 @@
 /**
  * Endpoints de pagos de un presupuesto.
- * GET  — listar todos los pagos del presupuesto
- * POST — registrar un pago nuevo. Acepta JSON o FormData (con comprobante).
+ * GET  — listar todos los pagos del presupuesto (hidrata `comprobantes[]`).
+ * POST — registrar un pago nuevo. Acepta JSON o FormData (con N comprobantes).
  *        Crea entrada en chatter automáticamente.
+ *
+ * FormData esperado:
+ *  - `datos` (string JSON con los campos del pago)
+ *  - `archivos` (File, repetido — múltiples adjuntos)
+ *  - `tipos_archivos` (string JSON tipo `["comprobante","percepcion"]`,
+ *    paralelo a `archivos`. Default si falta: todos 'comprobante')
+ *
+ *  Compat: si viene un único campo `archivo` (legacy), se trata como un
+ *  solo comprobante de tipo 'comprobante'.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -13,9 +22,14 @@ import { registrarChatter } from '@/lib/chatter'
 import { sincronizarEstadoPresupuesto } from '@/lib/presupuesto-auto-transicion'
 import { validarArchivo, TAMANO_MAXIMO_BYTES, comprimirImagen } from '@/lib/comprimir-imagen'
 import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
-import type { MetodoPago } from '@/tipos/presupuesto-pago'
+import type {
+  MetodoPago,
+  PresupuestoPagoComprobante,
+  TipoComprobantePago,
+} from '@/tipos/presupuesto-pago'
 
 const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'deposito', 'otro']
+const TIPOS_COMPROBANTE_VALIDOS: TipoComprobantePago[] = ['comprobante', 'percepcion']
 
 export async function GET(
   _request: NextRequest,
@@ -59,7 +73,29 @@ export async function GET(
       return NextResponse.json({ error: 'Error al listar' }, { status: 500 })
     }
 
-    return NextResponse.json({ pagos: pagos || [] })
+    // Hidratar comprobantes[] de la tabla relacionada
+    const lista = pagos || []
+    if (lista.length > 0) {
+      const ids = lista.map((p) => p.id)
+      const { data: comprobantes } = await admin
+        .from('presupuesto_pago_comprobantes')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .in('pago_id', ids)
+        .order('creado_en', { ascending: true })
+
+      const porPago = new Map<string, PresupuestoPagoComprobante[]>()
+      for (const c of comprobantes || []) {
+        const arr = porPago.get(c.pago_id) || []
+        arr.push(c as PresupuestoPagoComprobante)
+        porPago.set(c.pago_id, arr)
+      }
+      for (const p of lista) {
+        ;(p as Record<string, unknown>).comprobantes = porPago.get(p.id) || []
+      }
+    }
+
+    return NextResponse.json({ pagos: lista })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
@@ -93,17 +129,38 @@ export async function POST(
 
     if (!presupuesto) return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
 
-    // Aceptar JSON o FormData (con comprobante)
+    // Aceptar JSON o FormData (con N comprobantes)
     const contentType = request.headers.get('content-type') || ''
     let datos: Record<string, unknown> = {}
-    let archivo: File | null = null
+    const archivos: { file: File; tipo: TipoComprobantePago }[] = []
 
     if (contentType.includes('multipart/form-data')) {
       const fd = await request.formData()
-      const archivoField = fd.get('archivo')
-      archivo = archivoField instanceof File ? archivoField : null
       const datosJson = fd.get('datos')
       if (typeof datosJson === 'string') datos = JSON.parse(datosJson)
+
+      // Formato nuevo: getAll('archivos') + JSON paralelo en 'tipos_archivos'
+      const lista = fd.getAll('archivos').filter((x): x is File => x instanceof File)
+      let tipos: string[] = []
+      const tiposJson = fd.get('tipos_archivos')
+      if (typeof tiposJson === 'string') {
+        try { tipos = JSON.parse(tiposJson) } catch { /* ignore */ }
+      }
+      for (let i = 0; i < lista.length; i++) {
+        const t = (tipos[i] as TipoComprobantePago) || 'comprobante'
+        archivos.push({
+          file: lista[i],
+          tipo: TIPOS_COMPROBANTE_VALIDOS.includes(t) ? t : 'comprobante',
+        })
+      }
+
+      // Compat: campo único `archivo`
+      if (archivos.length === 0) {
+        const archivoField = fd.get('archivo')
+        if (archivoField instanceof File) {
+          archivos.push({ file: archivoField, tipo: 'comprobante' })
+        }
+      }
     } else {
       datos = await request.json()
     }
@@ -112,6 +169,10 @@ export async function POST(
     const monto = Number(datos.monto)
     if (!isFinite(monto) || monto <= 0) {
       return NextResponse.json({ error: 'Monto inválido' }, { status: 400 })
+    }
+    const montoPercepciones = Number(datos.monto_percepciones) || 0
+    if (!isFinite(montoPercepciones) || montoPercepciones < 0) {
+      return NextResponse.json({ error: 'Monto de percepciones inválido' }, { status: 400 })
     }
     const metodo = (datos.metodo as MetodoPago) || 'transferencia'
     if (!METODOS_VALIDOS.includes(metodo)) {
@@ -129,12 +190,20 @@ export async function POST(
       return NextResponse.json({ error: 'La fecha del pago no puede ser futura' }, { status: 400 })
     }
 
+    const esAdicional = !!datos.es_adicional
+    const conceptoAdicional = esAdicional
+      ? ((datos.concepto_adicional as string)?.trim() || null)
+      : null
+
     // Validar cuota_id. Soporta IDs reales (uuid) y sintéticos (formato
     // "sintetico-N") generados en el GET cuando la condición de pago es de
     // tipo "hitos" pero todavía no se materializaron las cuotas en BD.
     // Si llega un ID sintético, primero materializamos todas las cuotas
     // según la configuración y mapeamos al ID real correspondiente.
     let cuotaId = (datos.cuota_id as string | null | undefined) || null
+
+    // Adicional → cuota_id ignorado (siempre null)
+    if (esAdicional) cuotaId = null
 
     if (cuotaId && cuotaId.startsWith('sintetico-')) {
       const indice = parseInt(cuotaId.replace('sintetico-', ''), 10)
@@ -215,47 +284,55 @@ export async function POST(
       if (!cuota) return NextResponse.json({ error: 'Cuota no encontrada' }, { status: 400 })
     }
 
-    // Subir comprobante si vino archivo
-    let comprobanteUrl: string | null = null
-    let comprobanteStoragePath: string | null = null
-    let comprobanteNombre: string | null = null
-    let comprobanteTipo: string | null = null
-    let comprobanteTamanoBytes: number | null = null
+    // Subir comprobantes a Storage. Validamos cada archivo y luego subimos.
+    type ArchivoSubido = {
+      tipo: TipoComprobantePago
+      url: string
+      storagePath: string
+      nombre: string
+      mimeTipo: string
+      tamanoBytes: number
+    }
+    const subidos: ArchivoSubido[] = []
 
-    if (archivo) {
-      const errorValidacion = validarArchivo(archivo.type, archivo.size, TAMANO_MAXIMO_BYTES)
+    for (const item of archivos) {
+      const f = item.file
+      const errorValidacion = validarArchivo(f.type, f.size, TAMANO_MAXIMO_BYTES)
       if (errorValidacion) return NextResponse.json({ error: errorValidacion }, { status: 400 })
 
-      const errorCuota = await verificarCuotaStorage(empresaId, archivo.size)
+      const errorCuota = await verificarCuotaStorage(empresaId, f.size)
       if (errorCuota) return NextResponse.json({ error: errorCuota }, { status: 413 })
 
-      const bufferOriginal = Buffer.from(await archivo.arrayBuffer())
-      const { buffer, tipo } = await comprimirImagen(bufferOriginal, archivo.type, {
+      const bufferOriginal = Buffer.from(await f.arrayBuffer())
+      const { buffer, tipo: mimeFinal } = await comprimirImagen(bufferOriginal, f.type, {
         anchoMaximo: 1600,
         calidad: 80,
       })
 
-      const nombreBase = archivo.name.replace(/\.[^.]+$/, '')
-      const extension = tipo === 'image/webp' ? '.webp'
-        : tipo === 'image/jpeg' && archivo.type !== 'image/jpeg' ? '.jpg'
-        : `.${archivo.name.split('.').pop()}`
+      const nombreBase = f.name.replace(/\.[^.]+$/, '')
+      const extension = mimeFinal === 'image/webp' ? '.webp'
+        : mimeFinal === 'image/jpeg' && f.type !== 'image/jpeg' ? '.jpg'
+        : `.${f.name.split('.').pop()}`
       const nombreFinal = `${nombreBase}${extension}`.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const storagePath = `${empresaId}/presupuesto-pagos/${presupuestoId}/${Date.now()}_${nombreFinal}`
+      const storagePath = `${empresaId}/presupuesto-pagos/${presupuestoId}/${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${nombreFinal}`
 
       const { error: uploadError } = await admin.storage
         .from('documentos-pdf')
-        .upload(storagePath, buffer, { contentType: tipo, upsert: false })
+        .upload(storagePath, buffer, { contentType: mimeFinal, upsert: false })
 
       if (uploadError) {
         return NextResponse.json({ error: `Error al subir comprobante: ${uploadError.message}` }, { status: 500 })
       }
 
       const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
-      comprobanteUrl = urlData.publicUrl
-      comprobanteStoragePath = storagePath
-      comprobanteNombre = archivo.name
-      comprobanteTipo = tipo
-      comprobanteTamanoBytes = buffer.length
+      subidos.push({
+        tipo: item.tipo,
+        url: urlData.publicUrl,
+        storagePath,
+        nombre: f.name,
+        mimeTipo: mimeFinal,
+        tamanoBytes: buffer.length,
+      })
       registrarUsoStorage(empresaId, 'documentos-pdf', buffer.length)
     }
 
@@ -267,8 +344,13 @@ export async function POST(
       .single()
     const nombreUsuario = perfil ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() : 'Usuario'
 
-    // Insertar el pago
-    const montoEnPresupuesto = monto * cotizacion
+    // El primer comprobante de tipo 'comprobante' se guarda también en los
+    // campos legacy del pago para no romper consumidores antiguos.
+    const principal = subidos.find((s) => s.tipo === 'comprobante') || subidos[0] || null
+
+    // Insertar el pago. monto_en_moneda_presupuesto incluye percepciones
+    // porque desde el cliente sale igual (forman parte del cobrado real).
+    const montoEnPresupuesto = (monto + montoPercepciones) * cotizacion
     const { data: pagoCreado, error: errorInsert } = await admin
       .from('presupuesto_pagos')
       .insert({
@@ -276,6 +358,7 @@ export async function POST(
         presupuesto_id: presupuestoId,
         cuota_id: cuotaId,
         monto: String(monto),
+        monto_percepciones: String(montoPercepciones),
         moneda,
         cotizacion_cambio: String(cotizacion),
         monto_en_moneda_presupuesto: String(montoEnPresupuesto),
@@ -283,11 +366,13 @@ export async function POST(
         metodo,
         referencia: (datos.referencia as string) || null,
         descripcion: (datos.descripcion as string) || null,
-        comprobante_url: comprobanteUrl,
-        comprobante_storage_path: comprobanteStoragePath,
-        comprobante_nombre: comprobanteNombre,
-        comprobante_tipo: comprobanteTipo,
-        comprobante_tamano_bytes: comprobanteTamanoBytes,
+        es_adicional: esAdicional,
+        concepto_adicional: conceptoAdicional,
+        comprobante_url: principal?.url || null,
+        comprobante_storage_path: principal?.storagePath || null,
+        comprobante_nombre: principal?.nombre || null,
+        comprobante_tipo: principal?.mimeTipo || null,
+        comprobante_tamano_bytes: principal?.tamanoBytes || null,
         mensaje_origen_id: (datos.mensaje_origen_id as string) || null,
         chatter_origen_id: (datos.chatter_origen_id as string) || null,
         creado_por: user.id,
@@ -301,9 +386,27 @@ export async function POST(
       return NextResponse.json({ error: 'Error al registrar pago' }, { status: 500 })
     }
 
+    // Insertar comprobantes en su tabla
+    let comprobantesGuardados: PresupuestoPagoComprobante[] = []
+    if (subidos.length > 0) {
+      const filas = subidos.map((s) => ({
+        empresa_id: empresaId,
+        pago_id: pagoCreado.id,
+        tipo: s.tipo,
+        url: s.url,
+        storage_path: s.storagePath,
+        nombre: s.nombre,
+        mime_tipo: s.mimeTipo,
+        tamano_bytes: s.tamanoBytes,
+      }))
+      const { data: insertados } = await admin
+        .from('presupuesto_pago_comprobantes')
+        .insert(filas)
+        .select('*')
+      comprobantesGuardados = (insertados || []) as PresupuestoPagoComprobante[]
+    }
+
     // Obtener info de la cuota para mostrar "Cuota N de M" en la timeline.
-    // `cuotaId` ya puede ser el id real (nuevo o preexistente). Buscamos el
-    // número + descripción + total de cuotas del presupuesto.
     const infoCuota: { numero: number | null; total: number | null; descripcion: string | null } = {
       numero: null,
       total: null,
@@ -326,15 +429,13 @@ export async function POST(
       }
     }
 
-    // Registrar entrada en chatter (con el comprobante como adjunto si lo hay)
-    const adjuntos = comprobanteUrl
-      ? [{
-          url: comprobanteUrl,
-          nombre: comprobanteNombre || 'comprobante',
-          tipo: comprobanteTipo || 'application/octet-stream',
-          tamano: comprobanteTamanoBytes || 0,
-        }]
-      : []
+    // Adjuntos para el chatter — mostramos todos los comprobantes
+    const adjuntos = comprobantesGuardados.map((c) => ({
+      url: c.url,
+      nombre: c.nombre,
+      tipo: c.mime_tipo || 'application/octet-stream',
+      tamano: c.tamano_bytes || 0,
+    }))
 
     const formatoMonto = new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -342,9 +443,11 @@ export async function POST(
       maximumFractionDigits: 2,
     }).format(monto)
 
-    const contenido = `Pago registrado: ${formatoMonto}${
-      datos.descripcion ? ` — ${datos.descripcion as string}` : ''
-    }`
+    const contenido = esAdicional
+      ? `Adicional cobrado: ${formatoMonto}${conceptoAdicional ? ` — ${conceptoAdicional}` : ''}`
+      : `Pago registrado: ${formatoMonto}${
+          datos.descripcion ? ` — ${datos.descripcion as string}` : ''
+        }`
 
     await registrarChatter({
       empresaId,
@@ -371,10 +474,15 @@ export async function POST(
         cuota_numero: infoCuota.numero,
         cuotas_total: infoCuota.total,
         cuota_descripcion: infoCuota.descripcion,
-      },
+        // Marca de adicional + percepciones para que la timeline las muestre
+        ...(esAdicional ? { es_adicional: true, concepto_adicional: conceptoAdicional || undefined } : {}),
+        ...(montoPercepciones > 0 ? { monto_percepciones: String(montoPercepciones) } : {}),
+      } as Record<string, unknown>,
     })
 
-    // Auto-transición de estado del presupuesto según completitud de cobro
+    // Auto-transición de estado del presupuesto según completitud de cobro.
+    // Los adicionales no entran en el cómputo (cuota_id null + es_adicional)
+    // así que esta lógica sigue siendo correcta.
     await sincronizarEstadoPresupuesto({
       admin,
       presupuestoId,
@@ -384,7 +492,10 @@ export async function POST(
       razon: 'pago completo registrado',
     })
 
-    return NextResponse.json(pagoCreado, { status: 201 })
+    return NextResponse.json(
+      { ...pagoCreado, comprobantes: comprobantesGuardados },
+      { status: 201 }
+    )
   } catch (err) {
     console.error('Error al registrar pago:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

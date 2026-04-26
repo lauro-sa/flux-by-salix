@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
         atencion_contacto_id, atencion_nombre, atencion_correo, atencion_cargo,
         moneda, condicion_pago_label,
         fecha_emision, fecha_vencimiento, dias_vencimiento, fecha_aceptacion,
+        estado_cambiado_en,
         subtotal_neto, total_impuestos, descuento_global, descuento_global_monto, total_final,
         notas_html,
         origen_documento_numero,
@@ -240,8 +241,65 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener presupuestos' }, { status: 500 })
     }
 
+    // ── Resumen de pagos por presupuesto ──────────────────────────────
+    // Para que el listado pueda renderizar la columna "Pagos" (dots por
+    // cuota cobrada / parcial / pendiente), traemos en paralelo un mini
+    // resumen agregado de cuotas y de pagos por cada presupuesto de la
+    // página actual. Se hace en 2 queries IN(ids) — barato.
+    const presupuestos = data || []
+    if (presupuestos.length > 0) {
+      const ids = presupuestos.map((p) => p.id)
+
+      const [cuotasResumen, pagosResumen] = await Promise.all([
+        admin
+          .from('presupuesto_cuotas')
+          .select('presupuesto_id, estado, numero')
+          .in('presupuesto_id', ids),
+        admin
+          .from('presupuesto_pagos')
+          .select('presupuesto_id, monto_en_moneda_presupuesto, es_adicional')
+          .in('presupuesto_id', ids),
+      ])
+
+      // Agrupar cuotas por presupuesto, ordenadas por numero ascendente.
+      // Devolvemos la lista de estados de cuotas para que el frontend
+      // pueda dibujar 1 dot por cuota en orden.
+      const cuotasPorPres = new Map<string, { numero: number; estado: string }[]>()
+      for (const c of cuotasResumen.data || []) {
+        const arr = cuotasPorPres.get(c.presupuesto_id) || []
+        arr.push({ numero: c.numero, estado: c.estado })
+        cuotasPorPres.set(c.presupuesto_id, arr)
+      }
+      for (const arr of cuotasPorPres.values()) {
+        arr.sort((a, b) => a.numero - b.numero)
+      }
+
+      // Agregados de pagos: total cobrado (no-adicionales) + cantidad
+      const pagosPorPres = new Map<string, { cobrado: number; cantidad: number }>()
+      for (const p of pagosResumen.data || []) {
+        if (p.es_adicional) continue
+        const r = pagosPorPres.get(p.presupuesto_id) || { cobrado: 0, cantidad: 0 }
+        r.cobrado += Number(p.monto_en_moneda_presupuesto || 0)
+        r.cantidad += 1
+        pagosPorPres.set(p.presupuesto_id, r)
+      }
+
+      for (const p of presupuestos as Array<Record<string, unknown>>) {
+        const cuotas = cuotasPorPres.get(p.id as string) || []
+        const pagos = pagosPorPres.get(p.id as string) || { cobrado: 0, cantidad: 0 }
+        p.resumen_pagos = {
+          // Lista ordenada de cuotas con su estado (vacía si plazo_fijo / contado)
+          cuotas: cuotas.map((c) => c.estado),
+          // Cantidad de pagos cargados (no incluye adicionales)
+          cantidad_pagos: pagos.cantidad,
+          // Total cobrado en moneda del presupuesto
+          total_cobrado: pagos.cobrado,
+        }
+      }
+    }
+
     return NextResponse.json({
-      presupuestos: data || [],
+      presupuestos,
       total: count || 0,
       pagina,
       por_pagina,

@@ -41,7 +41,7 @@ export async function sincronizarEstadoPresupuesto({
 }: SyncEstadoParams) {
   const { data: presupuesto } = await admin
     .from('presupuestos')
-    .select('id, numero, estado, fecha_aceptacion')
+    .select('id, numero, estado, fecha_aceptacion, total_final')
     .eq('id', presupuestoId)
     .eq('empresa_id', empresaId)
     .single()
@@ -54,12 +54,33 @@ export async function sincronizarEstadoPresupuesto({
     .eq('presupuesto_id', presupuestoId)
 
   const tieneCuotas = !!cuotas && cuotas.length > 0
-  const todasCobradas = tieneCuotas && cuotas.every((c) => c.estado === 'cobrada')
+
+  // Determinar si está totalmente cobrado:
+  //  - Con cuotas materializadas: todas las cuotas en 'cobrada'.
+  //  - Sin cuotas (presupuestos plazo_fijo / contado / sin condicion):
+  //    sumar todos los pagos no-adicionales y comparar con total_final.
+  let totalmenteCobrado = false
+  if (tieneCuotas) {
+    totalmenteCobrado = cuotas.every((c) => c.estado === 'cobrada')
+  } else {
+    const totalFinal = Number(presupuesto.total_final) || 0
+    if (totalFinal > 0) {
+      const { data: pagos } = await admin
+        .from('presupuesto_pagos')
+        .select('monto_en_moneda_presupuesto, es_adicional')
+        .eq('presupuesto_id', presupuestoId)
+        .eq('empresa_id', empresaId)
+      const cobrado = (pagos || [])
+        .filter((p) => !p.es_adicional)
+        .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0)
+      totalmenteCobrado = cobrado + 0.01 >= totalFinal
+    }
+  }
 
   // Determinar transiciones a aplicar
   const transiciones: Array<{ desde: string; hacia: string }> = []
 
-  if (todasCobradas) {
+  if (totalmenteCobrado) {
     if (presupuesto.estado === 'confirmado_cliente') {
       transiciones.push({ desde: 'confirmado_cliente', hacia: 'orden_venta' })
       transiciones.push({ desde: 'orden_venta', hacia: 'completado' })

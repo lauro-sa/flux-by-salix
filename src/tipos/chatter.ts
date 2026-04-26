@@ -140,6 +140,16 @@ export interface MetadataChatter {
   cuotas_total?: number | null
   /** Descripción de la cuota (ej: "Adelanto", "Al finalizar"). */
   cuota_descripcion?: string | null
+  /** true = la entrada corresponde a un adicional fuera del presupuesto. */
+  es_adicional?: boolean
+  /** Concepto del adicional (ej: "Trabajo extra de electricidad"). */
+  concepto_adicional?: string
+  /** Monto de percepciones cobradas dentro del pago (string para preservar precisión). */
+  monto_percepciones?: string
+  /** Nombre de quien editó el pago por última vez (para mostrar "editado por X"). */
+  editado_por_nombre?: string
+  /** Cuándo se editó por última vez (timestamptz ISO). */
+  editado_en?: string
 }
 
 // ─── Entrada de chatter ───
