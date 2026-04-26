@@ -24,21 +24,21 @@ import { Boton } from '@/componentes/ui/Boton'
 
 // Widgets del dashboard
 import { WidgetPipeline } from './WidgetPipeline'
-import { WidgetActividades } from './WidgetActividades'
-import { WidgetCrecimientoContactos } from './WidgetCrecimientoContactos'
 import { WidgetProductosTop } from './WidgetProductosTop'
 import { WidgetPorVencer } from './WidgetPorVencer'
 import { WidgetAsistencia } from './WidgetAsistencia'
 import { WidgetInbox } from './WidgetInbox'
-import { WidgetIngresos } from './WidgetIngresos'
 import { WidgetCobros } from './WidgetCobros'
+import { WidgetDetalleCobrosMes } from './WidgetDetalleCobrosMes'
 import { WidgetComparativa } from './WidgetComparativa'
 import { WidgetClientes } from './WidgetClientes'
-import { ResumenMetricas } from './ResumenMetricas'
 import { WidgetRecientes } from './WidgetRecientes'
-import { WidgetDetalleMes } from './WidgetDetalleMes'
 import { WidgetMisOrdenes } from './WidgetMisOrdenes'
 import { WidgetOrdenesPorGestionar } from './WidgetOrdenesPorGestionar'
+import { WidgetOrdenesResumen } from './WidgetOrdenesResumen'
+import { WidgetSueldos } from './WidgetSueldos'
+import { WidgetAsistenciaMensual } from './WidgetAsistenciaMensual'
+import { HeroResumen } from './HeroResumen'
 import { WidgetMiRecorrido } from './WidgetMiRecorrido'
 import { WidgetLeadsNuevos } from './WidgetLeadsNuevos'
 import { WidgetVisitasPorPlanificar } from './WidgetVisitasPorPlanificar'
@@ -63,6 +63,9 @@ interface PermisosDashboard {
   asistencias: boolean
   presupuestos_todos: boolean
   asistencias_todos: boolean
+  ordenes_trabajo: boolean
+  ordenes_trabajo_todos: boolean
+  nomina_todos: boolean
   inbox_whatsapp: boolean
   inbox_correo: boolean
   inbox_interno: boolean
@@ -120,6 +123,29 @@ interface DatosDashboard {
   cobros: {
     cobrado_por_mes: Record<string, { cantidad: number; monto: number }>
     proyeccion_por_mes: Record<string, { cantidad: number; monto: number }>
+    detalle: Array<{
+      pago_id: string | null
+      presupuesto_id: string
+      presupuesto_numero: string
+      presupuesto_total: number
+      presupuesto_saldo: number
+      presupuesto_subtotal_neto: number
+      presupuesto_total_impuestos: number
+      presupuesto_fecha_aceptacion: string | null
+      presupuesto_estado: string
+      presupuesto_cuotas_count: number
+      presupuesto_cuotas_cobradas: number
+      contacto_nombre: string | null
+      contacto_apellido: string | null
+      fecha_pago: string
+      monto: number
+      monto_neto: number
+      monto_iva: number
+      cuota_numero: number | null
+      cuota_descripcion: string | null
+      metodo: string | null
+      tipo_estimacion: 'real' | 'completado_total' | 'orden_venta_adelanto' | 'sin_cobros'
+    }>
   } | null
   comparativa: {
     presupuestos_por_mes: Record<string, { creados: number; monto_total: number }>
@@ -140,6 +166,21 @@ interface DatosDashboard {
     id: string; titulo: string; tipo_clave: string; estado_clave: string
     prioridad: string; fecha_vencimiento: string; asignados: { id: string; nombre: string }[]
   }>
+  ordenes_trabajo: {
+    por_estado: Record<string, number>
+    completadas_mes: number
+    tiempo_promedio_cierre_dias: number
+    total: number
+  } | null
+  nomina: {
+    sugerido_mes: number
+    abonado_mes: number
+    pendiente_mes: number
+    cant_personas: number
+    cant_pendientes: number
+    adelantos_activos_personas: number
+    adelantos_monto_total: number
+  } | null
 }
 
 interface MetricasInbox {
@@ -595,68 +636,61 @@ function PestanaMetricas({
 }) {
   return (
     <>
-      {/* Resumen anual */}
-      {datos && (
+      {/* ─── Hero ejecutivo: 4 KPIs arriba de todo ─── */}
+
+      {datos?.cobros && datos?.presupuestos && (
         <motion.div variants={itemVariantes}>
-          <ResumenMetricas
-            ingresosPorAnio={datos.ingresos?.por_anio ?? {}}
-            presupuestosPorMes={datos.comparativa?.presupuestos_por_mes ?? {}}
-            contactosPorMes={datos.comparativa?.contactos_por_mes ?? {}}
-            clientesTotalActivos={datos.clientes?.total_activos ?? 0}
-            slaInbox={metricas?.resumen.sla_cumplido_pct ?? 0}
-            tiempoRespuesta={metricas?.resumen.tiempo_respuesta_promedio_min ?? 0}
+          <HeroResumen
+            cobradoPorMes={datos.cobros.cobrado_por_mes}
+            porEstado={datos.presupuestos.por_estado}
+            pipelineMontos={datos.presupuestos.pipeline_montos}
             formatoMoneda={moneda}
           />
         </motion.div>
       )}
 
-      {/* Presupuestos vs Órdenes (full width) */}
-      {datos?.ingresos && datos?.comparativa && (
+      {/* ─── Bloque financiero: cuánto entró (3 widgets full width) ─── */}
+
+      {datos?.cobros && (
         <motion.div variants={itemVariantes}>
-          <WidgetIngresos
-            cerradosPorMes={datos.ingresos.por_mes}
-            cerradosPorAnio={datos.ingresos.por_anio}
-            emitidosPorMes={datos.comparativa.presupuestos_por_mes}
+          <WidgetDetalleCobrosMes
+            detalle={datos.cobros.detalle}
             formatoMoneda={moneda}
           />
         </motion.div>
       )}
 
-      {/* Cobros reales: cobrado este mes + proyección */}
       {datos?.cobros && (
         <motion.div variants={itemVariantes}>
           <WidgetCobros
             cobradoPorMes={datos.cobros.cobrado_por_mes}
             proyeccionPorMes={datos.cobros.proyeccion_por_mes}
             devengadoPorMes={datos.ingresos?.por_mes ?? {}}
+            detalle={datos.cobros.detalle}
             formatoMoneda={moneda}
           />
         </motion.div>
       )}
 
-      {/* Detalle del mes actual: presupuestos cerrados con número, cliente y monto */}
-      {datos?.ingresos?.detalle_mes_actual && (
+      {/* Sueldos del mes (full width, navegable, con detalle por persona).
+          El widget hace su propio fetch y maneja errores de permisos. */}
+      <motion.div variants={itemVariantes}>
+        <WidgetSueldos formatoMoneda={moneda} />
+      </motion.div>
+
+      {datos?.presupuestos && (
         <motion.div variants={itemVariantes}>
-          <WidgetDetalleMes items={datos.ingresos.detalle_mes_actual} formatoMoneda={moneda} />
+          <WidgetPipeline
+            porEstado={datos.presupuestos.por_estado}
+            pipelineMontos={datos.presupuestos.pipeline_montos}
+            formatoMoneda={moneda}
+          />
         </motion.div>
       )}
 
-      {/* Pipeline + Por vencer */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.presupuestos && (
-          <motion.div variants={itemVariantes}>
-            <WidgetPipeline porEstado={datos.presupuestos.por_estado} pipelineMontos={datos.presupuestos.pipeline_montos} formatoMoneda={moneda} />
-          </motion.div>
-        )}
-        {datos?.presupuestos?.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
-          </motion.div>
-        )}
-      </div>
+      {/* ─── Bloque comercial: tendencia + cartera (medianos lado a lado) ─── */}
 
-      {/* Comparativa + Clientes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
         {datos?.comparativa && (
           <motion.div variants={itemVariantes}>
             <WidgetComparativa
@@ -677,38 +711,49 @@ function PestanaMetricas({
         )}
       </div>
 
-      {/* Actividades + Inbox */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.actividades && (
-          <motion.div variants={itemVariantes}>
-            <WidgetActividades
-              pendientes={datos.actividades.pendientes}
-              totalPendientes={datos.actividades.total_pendientes}
-              completadasHoy={datos.actividades.completadas_hoy}
-              porPersona={datos.actividades.por_persona}
+      {/* ─── Stat cards pequeñas: resúmenes operativos (3 por fila, mismo alto) ─── */}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4 items-stretch">
+        {datos?.presupuestos && (
+          <motion.div variants={itemVariantes} className="h-full">
+            <WidgetPorVencer
+              presupuestos={datos.presupuestos.por_vencer || []}
+              formatoMoneda={moneda}
+            />
+          </motion.div>
+        )}
+        {datos?.ordenes_trabajo && datos.ordenes_trabajo.total > 0 && (
+          <motion.div variants={itemVariantes} className="h-full">
+            <WidgetOrdenesResumen
+              porEstado={datos.ordenes_trabajo.por_estado}
+              completadasMes={datos.ordenes_trabajo.completadas_mes}
+              tiempoPromedioCierreDias={datos.ordenes_trabajo.tiempo_promedio_cierre_dias}
+              total={datos.ordenes_trabajo.total}
             />
           </motion.div>
         )}
         {metricas && (
-          <motion.div variants={itemVariantes}>
+          <motion.div variants={itemVariantes} className="h-full">
             <WidgetInbox resumen={metricas.resumen} porAgente={metricas.por_agente} />
           </motion.div>
         )}
       </div>
 
-      {/* Crecimiento + Productos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.contactos?.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
-          </motion.div>
-        )}
-        {datos?.productos?.top && datos.productos.top.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
-          </motion.div>
-        )}
-      </div>
+      {/* ─── Asistencia del equipo (full width, navegable mes a mes) ─── */}
+
+      {datos?.permisos?.asistencias_todos && (
+        <motion.div variants={itemVariantes}>
+          <WidgetAsistenciaMensual />
+        </motion.div>
+      )}
+
+      {/* ─── Catálogo: ranking de productos (al final, mediano full width) ─── */}
+
+      {datos?.productos?.top && datos.productos.top.length > 0 && (
+        <motion.div variants={itemVariantes}>
+          <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
+        </motion.div>
+      )}
     </>
   )
 }

@@ -1,17 +1,14 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { ArrowRight, MessagesSquare, Send, CheckCircle2, Clock } from 'lucide-react'
-import { TarjetaConPestanas } from '@/componentes/ui/TarjetaConPestanas'
-import { Insignia } from '@/componentes/ui/Insignia'
-import { Boton } from '@/componentes/ui/Boton'
-
 /**
- * WidgetInbox — Métricas de inbox mejorado con pestañas:
- * Pestaña 1 "Volumen": mensajes recibidos/enviados, conversaciones nuevas/resueltas
- * Pestaña 2 "SLA & Agentes": SLA compliance + desglose por agente
+ * WidgetInbox — Stat card pequeña con métricas clave del inbox últimos 30 días.
+ * Muestra SLA cumplido como KPI principal + tiempo de respuesta promedio.
+ * Diseño compacto para grid de pequeños.
  */
+
+import { useRouter } from 'next/navigation'
+import { ArrowRight, MessageSquare } from 'lucide-react'
+import { InfoBoton } from '@/componentes/ui/InfoBoton'
 
 interface Resumen {
   mensajes_recibidos: number
@@ -36,109 +33,170 @@ interface Props {
   porAgente: Agente[]
 }
 
-function MiniMetrica({ etiqueta, valor, icono }: { etiqueta: string; valor: number | string; icono: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5 py-2.5 px-3 rounded-card bg-superficie-hover/50">
-      <div className="text-texto-terciario">{icono}</div>
-      <div>
-        <p className="text-lg font-bold text-texto-primario leading-tight">{valor}</p>
-        <p className="text-xxs text-texto-terciario">{etiqueta}</p>
-      </div>
-    </div>
-  )
-}
-
 export function WidgetInbox({ resumen, porAgente }: Props) {
   const router = useRouter()
+  const sla = resumen.sla_cumplido_pct
 
-  const contenidoVolumen = (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <MiniMetrica etiqueta="Recibidos" valor={resumen.mensajes_recibidos} icono={<MessagesSquare size={14} />} />
-        <MiniMetrica etiqueta="Enviados" valor={resumen.mensajes_enviados} icono={<Send size={14} />} />
-        <MiniMetrica etiqueta="Resueltas" valor={resumen.conversaciones_resueltas} icono={<CheckCircle2 size={14} />} />
-        <MiniMetrica etiqueta="Tiempo resp." valor={`${resumen.tiempo_respuesta_promedio_min}m`} icono={<Clock size={14} />} />
+  const colorSla = sla >= 80
+    ? { texto: 'text-insignia-exito-texto', barra: 'bg-insignia-exito-texto', borde: 'border-insignia-exito/25', fondo: 'bg-insignia-exito/[0.04]' }
+    : sla >= 50
+      ? { texto: 'text-insignia-advertencia-texto', barra: 'bg-insignia-advertencia-texto', borde: 'border-insignia-advertencia/25', fondo: 'bg-insignia-advertencia/[0.04]' }
+      : { texto: 'text-insignia-peligro-texto', barra: 'bg-insignia-peligro-texto', borde: 'border-insignia-peligro/25', fondo: 'bg-insignia-peligro/[0.04]' }
+
+  // Top 2 agentes con más conversaciones asignadas
+  const topAgentes = [...porAgente]
+    .sort((a, b) => b.asignadas - a.asignadas)
+    .slice(0, 2)
+
+  return (
+    <div className={`h-full rounded-card border ${colorSla.borde} ${colorSla.fondo} overflow-hidden flex flex-col`}>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-borde-sutil/40">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <MessageSquare size={14} className={colorSla.texto} />
+          <h3 className="text-xs font-semibold text-texto-primario truncate">Inbox 30 días</h3>
+          <InfoBoton
+            titulo="Inbox — últimos 30 días"
+            tamano={12}
+            secciones={[
+              {
+                titulo: 'Para qué sirve',
+                contenido: (
+                  <p>
+                    Te muestra cómo está atendiendo tu equipo a los clientes:{' '}
+                    <strong className="text-texto-primario">qué tan rápido respondés</strong> y si estás
+                    cumpliendo los tiempos comprometidos.
+                  </p>
+                ),
+              },
+              {
+                titulo: 'Qué es el SLA',
+                contenido: (
+                  <p>
+                    SLA (Service Level Agreement) = <strong className="text-texto-primario">acuerdo de
+                    nivel de servicio</strong>. Es el porcentaje de mensajes que respondiste dentro del
+                    tiempo objetivo (configurable por canal). Si tu SLA es 90%, querés decir que 9 de
+                    cada 10 mensajes los respondiste a tiempo.
+                  </p>
+                ),
+              },
+              {
+                titulo: 'Cómo interpretarlo',
+                contenido: (
+                  <ul className="space-y-1.5 list-none">
+                    <li>
+                      <span className="text-insignia-exito-texto">●</span>{' '}
+                      <strong className="text-texto-primario">SLA ≥ 80%:</strong> excelente atención.
+                    </li>
+                    <li>
+                      <span className="text-insignia-advertencia-texto">●</span>{' '}
+                      <strong className="text-texto-primario">50% – 80%:</strong> aceptable, hay margen.
+                    </li>
+                    <li>
+                      <span className="text-insignia-peligro-texto">●</span>{' '}
+                      <strong className="text-texto-primario">&lt; 50%:</strong> los clientes están
+                      esperando demasiado. Revisá horarios de atención o falta de personal.
+                    </li>
+                  </ul>
+                ),
+              },
+              {
+                titulo: 'Tiempo de respuesta',
+                contenido: (
+                  <p>
+                    Es el <strong className="text-texto-primario">promedio de minutos que tarda tu equipo
+                    en contestar</strong> el primer mensaje de un cliente. Cuanto más bajo, mejor.
+                  </p>
+                ),
+              },
+              {
+                titulo: 'Cruzá con otros widgets',
+                contenido: (
+                  <ul className="space-y-2 list-none">
+                    <li>
+                      <strong className="text-texto-primario">Con &quot;Por vencer&quot;:</strong>{' '}
+                      <span className="text-texto-terciario">si los presupuestos vencen sin respuesta,
+                      probablemente el cliente escribió por inbox y nadie respondió a tiempo.</span>
+                    </li>
+                    <li>
+                      <strong className="text-texto-primario">Con &quot;Pipeline&quot;:</strong>{' '}
+                      <span className="text-texto-terciario">si tu win rate baja, podría ser por mala
+                      atención —los clientes se cansan de esperar respuesta.</span>
+                    </li>
+                  </ul>
+                ),
+              },
+            ]}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/inbox')}
+          className="text-xxs text-texto-terciario hover:text-texto-marca transition-colors shrink-0"
+          aria-label="Ver inbox"
+        >
+          <ArrowRight size={11} />
+        </button>
       </div>
 
-      {/* Ratio recibidos vs enviados */}
-      {(resumen.mensajes_recibidos + resumen.mensajes_enviados) > 0 && (
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-texto-terciario">Recibidos vs Enviados</span>
-          </div>
-          <div className="h-2.5 rounded-full bg-superficie-hover overflow-hidden flex">
-            <div
-              className="h-full bg-texto-marca/60 transition-all duration-500"
-              style={{
-                width: `${(resumen.mensajes_recibidos / (resumen.mensajes_recibidos + resumen.mensajes_enviados)) * 100}%`,
-              }}
-            />
-            <div
-              className="h-full bg-insignia-exito-texto/60 transition-all duration-500"
-              style={{
-                width: `${(resumen.mensajes_enviados / (resumen.mensajes_recibidos + resumen.mensajes_enviados)) * 100}%`,
-              }}
-            />
-          </div>
-          <div className="flex justify-between text-xxs text-texto-terciario mt-1">
-            <span>{resumen.mensajes_recibidos} recibidos</span>
-            <span>{resumen.mensajes_enviados} enviados</span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
-  const contenidoSla = (
-    <div className="space-y-4">
-      {/* Barra de SLA principal */}
-      <div>
-        <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="text-texto-secundario">SLA cumplido</span>
-          <span className={`font-semibold ${resumen.sla_cumplido_pct >= 80 ? 'text-insignia-exito-texto' : resumen.sla_cumplido_pct >= 50 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'}`}>
-            {resumen.sla_cumplido_pct}%
+      {/* KPI principal: SLA */}
+      <div className="px-4 pt-3 pb-2">
+        <p className="text-[10px] uppercase tracking-widest text-texto-terciario mb-1">SLA cumplido</p>
+        <div className="flex items-baseline gap-1.5">
+          <span className={`text-2xl font-light tabular-nums leading-none ${colorSla.texto}`}>
+            {sla}
           </span>
+          <span className={`text-base font-light ${colorSla.texto}`}>%</span>
         </div>
-        <div className="h-2.5 rounded-full bg-superficie-hover overflow-hidden">
-          <motion.div
-            className={`h-full rounded-full ${resumen.sla_cumplido_pct >= 80 ? 'bg-insignia-exito-texto' : resumen.sla_cumplido_pct >= 50 ? 'bg-insignia-advertencia-texto' : 'bg-insignia-peligro-texto'}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${resumen.sla_cumplido_pct}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+        <div className="mt-2 h-1 rounded-full bg-white/[0.05] overflow-hidden">
+          <div
+            className={`h-full ${colorSla.barra} rounded-full transition-all duration-700`}
+            style={{ width: `${Math.min(100, sla)}%` }}
           />
         </div>
       </div>
 
-      {/* Tiempos promedio */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="py-2.5 px-3 rounded-card bg-superficie-hover/50 text-center">
-          <span className="text-lg font-bold text-texto-primario">{resumen.tiempo_respuesta_promedio_min}m</span>
-          <p className="text-xxs text-texto-terciario">Resp. promedio</p>
+      {/* Stats secundarias */}
+      <div className="px-4 pb-3 pt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xxs">
+        <div className="flex items-baseline gap-1">
+          <span className="font-semibold tabular-nums text-texto-primario">{resumen.tiempo_respuesta_promedio_min}m</span>
+          <span className="text-texto-terciario">respuesta</span>
         </div>
-        <div className="py-2.5 px-3 rounded-card bg-superficie-hover/50 text-center">
-          <span className="text-lg font-bold text-texto-primario">{resumen.tiempo_resolucion_promedio_hrs}h</span>
-          <p className="text-xxs text-texto-terciario">Resolución prom.</p>
+        <div className="flex items-baseline gap-1">
+          <span className="font-semibold tabular-nums text-texto-primario">{resumen.conversaciones_resueltas}</span>
+          <span className="text-texto-terciario">resueltas</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="font-semibold tabular-nums text-texto-primario">{resumen.mensajes_recibidos}</span>
+          <span className="text-texto-terciario">recibidos</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="font-semibold tabular-nums text-texto-primario">{resumen.mensajes_enviados}</span>
+          <span className="text-texto-terciario">enviados</span>
         </div>
       </div>
 
-      {/* Agentes */}
-      {porAgente.length > 0 && (
-        <div className="pt-2 border-t border-borde-sutil">
-          <p className="text-xs text-texto-terciario mb-2">Por agente</p>
-          <div className="space-y-1.5">
-            {porAgente.slice(0, 5).map(agente => {
-              const pctSla = agente.sla_total > 0 ? Math.round((agente.sla_cumplido / agente.sla_total) * 100) : 0
+      {/* Top agentes (compacto) — pegado al fondo si hay espacio */}
+      {topAgentes.length > 0 && (
+        <div className="mt-auto border-t border-borde-sutil/40 px-4 py-2">
+          <p className="text-[10px] uppercase tracking-widest text-texto-terciario mb-1.5">
+            Top agentes
+          </p>
+          <div className="space-y-1">
+            {topAgentes.map((a) => {
+              const pct = a.sla_total > 0 ? Math.round((a.sla_cumplido / a.sla_total) * 100) : 0
+              const colorAgente = pct >= 80 ? 'text-insignia-exito-texto' : pct >= 50 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'
               return (
-                <div key={agente.nombre} className="flex items-center justify-between text-xs">
-                  <span className="text-texto-secundario truncate">{agente.nombre}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-texto-primario font-medium tabular-nums">{agente.resueltas}/{agente.asignadas}</span>
-                    {agente.sla_total > 0 && (
-                      <Insignia color={pctSla >= 80 ? 'exito' : pctSla >= 50 ? 'advertencia' : 'peligro'}>
-                        {pctSla}%
-                      </Insignia>
-                    )}
-                  </div>
+                <div key={a.nombre} className="flex items-center justify-between text-xxs">
+                  <span className="text-texto-secundario truncate flex-1">{a.nombre}</span>
+                  <span className="text-texto-terciario tabular-nums shrink-0 ml-2">
+                    {a.resueltas}/{a.asignadas}
+                  </span>
+                  {a.sla_total > 0 && (
+                    <span className={`tabular-nums font-medium shrink-0 ml-2 ${colorAgente}`}>
+                      {pct}%
+                    </span>
+                  )}
                 </div>
               )
             })}
@@ -146,21 +204,5 @@ export function WidgetInbox({ resumen, porAgente }: Props) {
         </div>
       )}
     </div>
-  )
-
-  return (
-    <TarjetaConPestanas
-      titulo="Inbox — Últimos 30 días"
-      subtitulo="Mensajes y rendimiento de atención"
-      pestanas={[
-        { etiqueta: 'Volumen', contenido: contenidoVolumen },
-        { etiqueta: 'SLA & Agentes', contenido: contenidoSla },
-      ]}
-      acciones={
-        <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/inbox')}>
-          Ver todo
-        </Boton>
-      }
-    />
   )
 }
