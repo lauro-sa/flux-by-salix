@@ -15,15 +15,14 @@
  * Si falla en cualquier paso para una fila, esa fila se salta (no se cambia
  * el bucket en BD) y la próxima corrida la reintenta.
  *
- * Auth: header `Authorization: Bearer ${CRON_SECRET}`. Mismo patrón que los
- * crons. Pensado para invocarse una sola vez después del deploy:
- *
- *   curl -H "Authorization: Bearer $CRON_SECRET" \
- *     https://flux.salixweb.com/api/admin/migrar-comprobantes-bucket
+ * Auth (cualquiera de las dos):
+ *   - Sesión activa con rol super-admin → abrir la URL desde el navegador.
+ *   - Header Authorization: Bearer ${CRON_SECRET} → desde curl o cron.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 
 const BATCH_MAX = 200
 const BUCKET_VIEJO = 'documentos-pdf'
@@ -105,14 +104,22 @@ async function ejecutar(): Promise<NextResponse> {
   })
 }
 
-function autorizado(request: NextRequest): boolean {
+async function autorizado(request: NextRequest): Promise<boolean> {
+  // Modo curl/cron: Bearer CRON_SECRET.
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  return Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`)
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
+
+  // Modo browser: usuario logueado con rol super-admin (es_superadmin del JWT).
+  // Permite invocar el backfill abriendo la URL desde la app sin curl.
+  const { user } = await obtenerUsuarioRuta()
+  if (user?.app_metadata?.es_superadmin === true) return true
+
+  return false
 }
 
 export async function GET(request: NextRequest) {
-  if (!autorizado(request)) {
+  if (!(await autorizado(request))) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
   try {
