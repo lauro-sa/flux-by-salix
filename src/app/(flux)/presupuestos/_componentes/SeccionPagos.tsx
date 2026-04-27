@@ -184,6 +184,26 @@ export default function SeccionPagos({
     }
   }, [pagoAEliminar, presupuestoId, mostrar, cargar])
 
+  // ─── Abrir comprobante en pestaña nueva pidiendo signed URL al backend ──
+  // El bucket privado obliga a pasar por el endpoint /descargar; los legacy
+  // públicos también pasan por acá para unificar el flujo y no exponer URLs.
+  const abrirComprobante = useCallback(async (pagoId: string, comprobanteId: string) => {
+    try {
+      const res = await fetch(
+        `/api/presupuestos/${presupuestoId}/pagos/${pagoId}/comprobantes/${comprobanteId}/descargar`,
+      )
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        mostrar('error', e.error || 'No se pudo abrir el comprobante')
+        return
+      }
+      const data = (await res.json()) as { url: string }
+      window.open(data.url, '_blank', 'noopener,noreferrer')
+    } catch {
+      mostrar('error', 'No se pudo abrir el comprobante')
+    }
+  }, [presupuestoId, mostrar])
+
   // ─── Render de un pago ─────────────────────────────────────────────────
   const renderPago = (p: PresupuestoPago) => {
     const monto = Number(p.monto)
@@ -191,9 +211,10 @@ export default function SeccionPagos({
     const monedaPago = p.moneda
     const tieneCotizacion = monedaPago !== monedaPresupuesto
 
-    // Lista de comprobantes desde la tabla canónica.
+    // Lista de comprobantes desde la tabla canónica. Conservamos `id` para
+    // pedir la signed URL al endpoint de descarga (bucket privado).
     const comprobantes = (p.comprobantes || []).map((c) => ({
-      url: c.url,
+      id: c.id,
       nombre: c.nombre,
       tipo: c.tipo,
     }))
@@ -240,12 +261,11 @@ export default function SeccionPagos({
           <div className="flex items-center gap-2 text-xs text-texto-terciario mt-0.5 flex-wrap">
             <span>{formato.fecha(p.fecha_pago, { corta: true })}</span>
             {p.creado_por_nombre && <span>— {p.creado_por_nombre}</span>}
-            {comprobantes.map((c, i) => (
-              <a
-                key={i}
-                href={c.url}
-                target="_blank"
-                rel="noopener noreferrer"
+            {comprobantes.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => abrirComprobante(p.id, c.id)}
                 className="flex items-center gap-1 text-texto-marca hover:underline"
                 title={c.nombre}
               >
@@ -255,7 +275,7 @@ export default function SeccionPagos({
                   <Paperclip className="size-3" />
                 )}
                 {c.tipo === 'percepcion' ? 'Retención' : 'Comprobante'}
-              </a>
+              </button>
             ))}
           </div>
           {p.es_adicional && p.concepto_adicional && (

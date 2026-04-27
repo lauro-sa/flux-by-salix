@@ -163,6 +163,10 @@ export function ModalRegistrarPago({
 
   const [archivosLocales, setArchivosLocales] = useState<ArchivoLocal[]>([])
   const [comprobantesExistentes, setComprobantesExistentes] = useState<PresupuestoPagoComprobante[]>([])
+  // URLs firmadas de los comprobantes existentes (bucket privado obliga a
+  // pasar por el endpoint /descargar). Se llenan al cargar el pago en modo
+  // editar. Las URLs duran 5 min — al expirar se vuelven a firmar al next render.
+  const [urlsFirmadas, setUrlsFirmadas] = useState<Record<string, string>>({})
 
   const [guardando, setGuardando] = useState(false)
   const [subiendoExtra, setSubiendoExtra] = useState(false)
@@ -279,6 +283,43 @@ export function ModalRegistrarPago({
     setArchivosLocales([])
     setTipoSiguienteArchivo('comprobante')
   }, [abierto, pago, monedaPresupuesto, hoyISO])
+
+  // ─── Firmar URLs de comprobantes existentes ────────────────────────────
+  // Bucket privado: las URLs en BD están vacías para comprobantes nuevos.
+  // Resolvemos cada uno via /descargar (signed URL temporal). Para los
+  // legacy del bucket público también pasa por el endpoint para unificar.
+  useEffect(() => {
+    if (!abierto || comprobantesExistentes.length === 0) return
+    let cancelado = false
+    const faltantes = comprobantesExistentes.filter((c) => !urlsFirmadas[c.id])
+    if (faltantes.length === 0) return
+
+    Promise.all(
+      faltantes.map(async (c) => {
+        try {
+          const res = await fetch(
+            `/api/presupuestos/${presupuestoId}/pagos/${c.pago_id}/comprobantes/${c.id}/descargar`,
+          )
+          if (!res.ok) return [c.id, ''] as const
+          const data = (await res.json()) as { url: string }
+          return [c.id, data.url] as const
+        } catch {
+          return [c.id, ''] as const
+        }
+      }),
+    ).then((pares) => {
+      if (cancelado) return
+      setUrlsFirmadas((prev) => {
+        const next = { ...prev }
+        for (const [id, url] of pares) if (url) next[id] = url
+        return next
+      })
+    })
+
+    return () => {
+      cancelado = true
+    }
+  }, [abierto, comprobantesExistentes, presupuestoId, urlsFirmadas])
 
   // ─── Pre-relleno inteligente al crear ──────────────────────────────────
   useEffect(() => {
@@ -980,7 +1021,7 @@ export function ModalRegistrarPago({
               {comprobantesExistentes.map((c) => (
                 <ChipComprobante
                   key={c.id}
-                  url={c.url}
+                  url={urlsFirmadas[c.id] || c.url || ''}
                   nombre={c.nombre}
                   tipo={c.mime_tipo || ''}
                   tamanoBytes={c.tamano_bytes ?? undefined}

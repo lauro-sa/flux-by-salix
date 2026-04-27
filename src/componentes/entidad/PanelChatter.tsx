@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
+import type { Actividad as ActividadModal } from '@/app/(flux)/actividades/_componentes/ModalActividad'
 import { ModalVistaActividad } from '@/componentes/entidad/ModalVistaActividad'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import { useModalVisita } from '@/hooks/useModalVisita'
@@ -87,7 +88,7 @@ export function PanelChatter({
   const [modalActividad, setModalActividad] = useState(false)
   const modalVisitaHook = useModalVisita()
   // Actividad cargada para edición (null = crear nueva)
-  const [actividadEditar, setActividadEditar] = useState<Record<string, unknown> | null>(null)
+  const [actividadEditar, setActividadEditar] = useState<ActividadModal | null>(null)
   // Modal de vista de actividad (solo lectura)
   const [vistaActividadId, setVistaActividadId] = useState<string | null>(null)
 
@@ -718,13 +719,16 @@ export function PanelChatter({
       {configActividades && (
         <ModalActividad
           abierto={modalActividad}
-          actividad={actividadEditar as never}
-          tipos={configActividades.tipos as never[]}
-          estados={configActividades.estados as never[]}
+          actividad={actividadEditar}
+          tipos={configActividades.tipos}
+          estados={configActividades.estados}
           miembros={configActividades.miembros}
+          presetsPosposicion={configActividades.presetsPosposicion}
           vinculoInicial={vinculoInicialActividad}
           modulo={entidadTipo === 'orden_trabajo' ? 'ordenes' : entidadTipo}
           onGuardar={crearActividad}
+          onCompletar={completarActividadDesdeChatter}
+          onPosponer={posponerActividadDesdeChatter}
           onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
           onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir() }}
         />

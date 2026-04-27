@@ -57,21 +57,24 @@ export async function GET(request: NextRequest) {
     const purgadosOk: string[] = []
     const errores: Array<{ pagoId: string; razon: string }> = []
 
-    // Traer todos los comprobantes de los pagos a purgar (una sola query)
+    // Traer todos los comprobantes de los pagos a purgar (una sola query).
+    // Cada comprobante puede vivir en bucket distinto (legacy en documentos-pdf
+    // vs nuevos en comprobantes-pago), así que agrupamos por bucket al borrar.
     const ids = pagos.map((p) => p.id)
     const { data: comprobantes } = await admin
       .from('presupuesto_pago_comprobantes')
-      .select('pago_id, storage_path, tamano_bytes, empresa_id')
+      .select('pago_id, bucket, storage_path, tamano_bytes, empresa_id')
       .in('pago_id', ids)
 
     const compsPorPago = new Map<
       string,
-      Array<{ storage_path: string; tamano_bytes: number | null; empresa_id: string }>
+      Array<{ bucket: string; storage_path: string; tamano_bytes: number | null; empresa_id: string }>
     >()
     for (const c of comprobantes || []) {
       if (!c.storage_path) continue
       const arr = compsPorPago.get(c.pago_id) || []
       arr.push({
+        bucket: c.bucket || 'documentos-pdf',
         storage_path: c.storage_path,
         tamano_bytes: c.tamano_bytes,
         empresa_id: c.empresa_id,
@@ -85,18 +88,27 @@ export async function GET(request: NextRequest) {
       const comps = compsPorPago.get(pago.id) || []
       try {
         if (comps.length > 0) {
-          const paths = comps.map((c) => c.storage_path)
-          const { error: errStorage } = await admin.storage
-            .from('documentos-pdf')
-            .remove(paths)
-          if (errStorage) {
-            errores.push({ pagoId: pago.id, razon: `storage: ${errStorage.message}` })
-            continue
+          // Agrupar por bucket: cada bucket recibe su propio remove(paths).
+          const porBucket = new Map<string, string[]>()
+          for (const c of comps) {
+            const arr = porBucket.get(c.bucket) || []
+            arr.push(c.storage_path)
+            porBucket.set(c.bucket, arr)
           }
-          // Descontar uso una vez confirmado el remove
+          let huboError = false
+          for (const [bucket, paths] of porBucket) {
+            const { error: errStorage } = await admin.storage.from(bucket).remove(paths)
+            if (errStorage) {
+              errores.push({ pagoId: pago.id, razon: `storage(${bucket}): ${errStorage.message}` })
+              huboError = true
+              break
+            }
+          }
+          if (huboError) continue
+          // Descontar uso una vez confirmados los removes
           for (const c of comps) {
             if (c.tamano_bytes && c.empresa_id) {
-              descontarUsoStorage(c.empresa_id, 'documentos-pdf', Number(c.tamano_bytes))
+              descontarUsoStorage(c.empresa_id, c.bucket, Number(c.tamano_bytes))
             }
           }
         }

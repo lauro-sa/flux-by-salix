@@ -300,25 +300,8 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
         { id: '2s', etiqueta: '2 semanas', dias: 14 },
       ]
 
-  /** Miembros de la empresa (cache largo, query directa a Supabase) */
-  const { data: miembrosData } = useQuery({
-    queryKey: ['miembros-empresa'],
-    queryFn: async () => {
-      const supabase = crearClienteNavegador()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return []
-      const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-      // Excluir miembros de kiosco (sin usuario_id) — no pueden asignarse responsables
-      const ids = (mRes || []).map(m => m.usuario_id).filter((id): id is string => !!id)
-      if (!ids.length) return []
-      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', ids)
-      return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
-    },
-    staleTime: 5 * 60_000,
-  })
-  const miembros = miembrosData || []
+  /** Miembros asignables de la empresa (excluye kioscos sin usuario_id). */
+  const { data: miembros = [] } = useMiembrosAsignables()
 
   // Opciones de miembros para filtros (asignado a, creado por)
   const opcionesMiembros = useMemo(

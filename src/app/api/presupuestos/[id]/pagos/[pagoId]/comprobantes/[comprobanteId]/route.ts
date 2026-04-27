@@ -51,9 +51,10 @@ export async function DELETE(
     if (!comprobante) return NextResponse.json({ error: 'Comprobante no encontrado' }, { status: 404 })
 
     if (comprobante.storage_path) {
-      await admin.storage.from('documentos-pdf').remove([comprobante.storage_path])
+      const bucket = comprobante.bucket || 'documentos-pdf'
+      await admin.storage.from(bucket).remove([comprobante.storage_path])
       if (comprobante.tamano_bytes) {
-        descontarUsoStorage(empresaId, 'documentos-pdf', Number(comprobante.tamano_bytes))
+        descontarUsoStorage(empresaId, bucket, Number(comprobante.tamano_bytes))
       }
     }
 

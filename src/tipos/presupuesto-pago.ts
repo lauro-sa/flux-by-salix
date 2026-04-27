@@ -42,6 +42,12 @@ export interface PresupuestoPagoComprobante {
   empresa_id: string
   pago_id: string
   tipo: TipoComprobantePago
+  /** Bucket donde está el archivo. 'comprobantes-pago' (privado, signed URLs)
+   *  para nuevos; 'documentos-pdf' (público, legacy) para algunos viejos. */
+  bucket: string
+  /** URL del archivo. SOLO útil cuando bucket='documentos-pdf' (legacy).
+   *  Para nuevos del bucket privado, este campo NO debe usarse — el frontend
+   *  debe pedir una signed URL al endpoint /descargar. */
   url: string
   storage_path: string
   nombre: string

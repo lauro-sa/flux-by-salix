@@ -322,6 +322,7 @@ export async function POST(
     // Subir comprobantes a Storage. Validamos cada archivo y luego subimos.
     type ArchivoSubido = {
       tipo: TipoComprobantePago
+      bucket: string
       url: string
       storagePath: string
       nombre: string
@@ -351,24 +352,31 @@ export async function POST(
       const nombreFinal = `${nombreBase}${extension}`.replace(/[^a-zA-Z0-9._-]/g, '_')
       const storagePath = `${empresaId}/presupuesto-pagos/${presupuestoId}/${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${nombreFinal}`
 
+      // Bucket privado dedicado: solo el backend puede leer/escribir,
+      // y al servir los archivos genera signed URLs cortas (5 min).
+      const bucket = 'comprobantes-pago'
       const { error: uploadError } = await admin.storage
-        .from('documentos-pdf')
+        .from(bucket)
         .upload(storagePath, buffer, { contentType: mimeFinal, upsert: false })
 
       if (uploadError) {
         return NextResponse.json({ error: `Error al subir comprobante: ${uploadError.message}` }, { status: 500 })
       }
 
-      const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
+      // url queda vacío para los del bucket privado: la URL real se genera
+      // bajo demanda en /comprobantes/[id]/descargar. Lo dejamos como cadena
+      // vacía para no violar el NOT NULL de la columna mientras el frontend
+      // migra al endpoint nuevo.
       subidos.push({
         tipo: item.tipo,
-        url: urlData.publicUrl,
+        bucket,
+        url: '',
         storagePath,
         nombre: f.name,
         mimeTipo: mimeFinal,
         tamanoBytes: buffer.length,
       })
-      registrarUsoStorage(empresaId, 'documentos-pdf', buffer.length)
+      registrarUsoStorage(empresaId, bucket, buffer.length)
     }
 
     // Nombre del usuario
@@ -449,6 +457,7 @@ export async function POST(
         empresa_id: empresaId,
         pago_id: pagoCreado.id,
         tipo: s.tipo,
+        bucket: s.bucket,
         url: s.url,
         storage_path: s.storagePath,
         nombre: s.nombre,

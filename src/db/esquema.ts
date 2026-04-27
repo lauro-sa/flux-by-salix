@@ -794,6 +794,12 @@ export const presupuesto_pago_comprobantes = pgTable('presupuesto_pago_comproban
   pago_id: uuid('pago_id').notNull().references(() => presupuesto_pagos.id, { onDelete: 'cascade' }),
   // 'comprobante' (del pago en sí) | 'percepcion' (de retenciones/percepciones)
   tipo: text('tipo').notNull().default('comprobante'),
+  // Bucket donde vive el archivo. Los comprobantes nuevos van a
+  // 'comprobantes-pago' (privado, signed URLs). Los legacy podrían estar
+  // en 'documentos-pdf' (público) hasta que el backfill los mueva.
+  bucket: text('bucket').notNull().default('documentos-pdf'),
+  // url: legacy. En el bucket privado no se usa (se generan signed URLs
+  // bajo demanda desde el endpoint /comprobantes/[id]/descargar).
   url: text('url').notNull(),
   storage_path: text('storage_path').notNull(),
   nombre: text('nombre').notNull(),
