@@ -23,6 +23,12 @@ import {
   type PresupuestoPago,
 } from '@/tipos/presupuesto-pago'
 import type { CuotaPago, Moneda } from '@/tipos/presupuesto'
+import {
+  calcularResumenesCuotas,
+  calcularTotalCobradoPresupuesto,
+  calcularTotalAdicionales,
+  TOLERANCIA_SALDO,
+} from '@/lib/calculo-cuotas'
 
 interface PropsSeccionPagos {
   presupuestoId: string
@@ -94,22 +100,22 @@ export default function SeccionPagos({
     return grupos
   }, [pagos])
 
-  // ─── Total cobrado del presupuesto (no incluye adicionales) ────────────
-  const totalCobrado = useMemo(
-    () =>
-      pagos
-        .filter((p) => !p.es_adicional)
-        .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0),
-    [pagos]
+  // ─── Totales y resúmenes (lib unificada) ───────────────────────────────
+  // calculo-cuotas.ts mantiene una sola fuente de verdad para "qué se sumó"
+  // y "con qué tolerancia se considera cobrada una cuota". Antes había
+  // sumas y tolerancias dispersas que podían dar resultados distintos.
+  const totalCobrado = useMemo(() => calcularTotalCobradoPresupuesto(pagos), [pagos])
+  const resumenesCuotas = useMemo(
+    () => calcularResumenesCuotas(cuotas, pagos),
+    [cuotas, pagos]
   )
+  const resumenPorCuotaId = useMemo(() => {
+    const m = new Map<string, (typeof resumenesCuotas)[number]>()
+    for (const r of resumenesCuotas) m.set(r.cuota.id, r)
+    return m
+  }, [resumenesCuotas])
 
-  const totalAdicionales = useMemo(
-    () =>
-      pagos
-        .filter((p) => p.es_adicional)
-        .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0),
-    [pagos]
-  )
+  const totalAdicionales = useMemo(() => calcularTotalAdicionales(pagos), [pagos])
 
   const abrirCrear = useCallback((cuotaId: string | null) => {
     setPagoEditar(null)
@@ -284,17 +290,24 @@ export default function SeccionPagos({
   // ─── Render de un grupo de cuota ───────────────────────────────────────
   const renderGrupoCuota = (cuota: CuotaPago) => {
     const lista = pagosPorDestino.get(cuota.id) || []
-    const totalCuota = Number(cuota.monto)
-    const pagado = lista.reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0)
-    const saldo = Math.max(0, totalCuota - pagado)
+    const resumen = resumenPorCuotaId.get(cuota.id)
+    const totalCuota = resumen?.totalCuota ?? Number(cuota.monto)
+    const pagado = resumen?.pagado ?? 0
+    const saldo = resumen?.saldo ?? Math.max(0, totalCuota - pagado)
+    // Preferimos el estado persistido por trigger (cuota.estado), pero usamos
+    // el derivado por la lib como fallback si la cuota es sintética (no en BD).
+    const estadoEfectivo = (cuota.estado || resumen?.estadoDerivado || 'pendiente') as
+      | 'pendiente'
+      | 'parcial'
+      | 'cobrada'
     const colorEstado =
-      cuota.estado === 'cobrada'
+      estadoEfectivo === 'cobrada'
         ? 'text-insignia-exito'
-        : cuota.estado === 'parcial'
+        : estadoEfectivo === 'parcial'
           ? 'text-insignia-advertencia'
           : 'text-texto-terciario'
     const etiquetaEstado =
-      cuota.estado === 'cobrada' ? 'Cobrada' : cuota.estado === 'parcial' ? 'Parcial' : 'Pendiente'
+      estadoEfectivo === 'cobrada' ? 'Cobrada' : estadoEfectivo === 'parcial' ? 'Parcial' : 'Pendiente'
 
     return (
       <div key={cuota.id} className="space-y-2">
@@ -309,7 +322,7 @@ export default function SeccionPagos({
           <div className="text-xs text-texto-terciario tabular-nums">
             {pagado.toLocaleString('es-AR', { maximumFractionDigits: 2 })} /{' '}
             {totalCuota.toLocaleString('es-AR', { maximumFractionDigits: 2 })} {monedaPresupuesto}
-            {saldo > 0 && cuota.estado !== 'cobrada' && (
+            {saldo > TOLERANCIA_SALDO && estadoEfectivo !== 'cobrada' && (
               <span className="ml-2 text-texto-secundario">
                 · saldo {saldo.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
               </span>
@@ -317,7 +330,7 @@ export default function SeccionPagos({
           </div>
         </div>
         {lista.length > 0 && <div className="space-y-1.5">{lista.map(renderPago)}</div>}
-        {editable && cuota.estado !== 'cobrada' && (
+        {editable && estadoEfectivo !== 'cobrada' && (
           <button
             type="button"
             onClick={() => abrirCrear(cuota.id)}

@@ -38,6 +38,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 import {
+  ETIQUETAS_METODO_PAGO,
   METODOS_PAGO_OPCIONES,
   type MetodoPago,
   type PresupuestoPago,
@@ -45,6 +46,13 @@ import {
   type TipoComprobantePago,
 } from '@/tipos/presupuesto-pago'
 import type { CuotaPago, Moneda } from '@/tipos/presupuesto'
+import {
+  calcularResumenesCuotas,
+  calcularTotalCobradoPresupuesto,
+  calcularSaldoPresupuesto,
+  TOLERANCIA_SALDO,
+  type ResumenCuota as ResumenCuotaLib,
+} from '@/lib/calculo-cuotas'
 
 interface PropsModalRegistrarPago {
   abierto: boolean
@@ -73,12 +81,8 @@ interface PropsModalRegistrarPago {
   onPagoGuardado?: (pago?: PresupuestoPago) => void
 }
 
-interface ResumenCuota {
-  cuota: CuotaPago
-  pagado: number
-  saldo: number
-  totalCuota: number
-}
+// Alias del tipo de la lib unificada para mantener legibilidad en el modal.
+type ResumenCuota = ResumenCuotaLib
 
 // Valores especiales del state "imputacion"
 const VALOR_A_CUENTA = '__a_cuenta__'
@@ -108,6 +112,15 @@ function fmtMoneda(monto: number, moneda: string) {
 function r2(n: number) {
   return Math.round(n * 100) / 100
 }
+
+// Métodos donde no tiene sentido cobrar sin un respaldo documental.
+// Coincide con el chequeo de SeccionPagos para que el usuario reciba el mismo
+// criterio en ambos lugares.
+const METODOS_REQUIEREN_COMPROBANTE: ReadonlySet<MetodoPago> = new Set([
+  'transferencia',
+  'deposito',
+  'cheque',
+])
 
 export function ModalRegistrarPago({
   abierto,
@@ -177,22 +190,10 @@ export function ModalRegistrarPago({
       .then((r) => r.json())
       .then((data: { pagos?: PresupuestoPago[] }) => {
         const pagos = data.pagos || []
-        const totalCobrado = pagos
-          .filter((p) => !p.es_adicional)
-          .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0)
-        setTotalCobradoPresupuesto(totalCobrado)
-
-        const map = new Map<string, number>()
-        for (const p of pagos) {
-          if (!p.cuota_id) continue
-          map.set(p.cuota_id, (map.get(p.cuota_id) || 0) + Number(p.monto_en_moneda_presupuesto || 0))
-        }
-        const lista: ResumenCuota[] = cuotasUtiles.map((c) => {
-          const total = Number(c.monto)
-          const pagado = map.get(c.id) || 0
-          return { cuota: c, totalCuota: total, pagado, saldo: Math.max(0, total - pagado) }
-        })
-        setResumenes(lista)
+        // Lib unificada: misma lógica que SeccionPagos y backend (excluye
+        // adicionales, suma monto_en_moneda_presupuesto, tolerancia 0.01).
+        setTotalCobradoPresupuesto(calcularTotalCobradoPresupuesto(pagos))
+        setResumenes(calcularResumenesCuotas(cuotasUtiles, pagos))
       })
       .catch(() => {
         setResumenes([])
@@ -202,7 +203,7 @@ export function ModalRegistrarPago({
   }, [abierto, modoEditar, presupuestoId, cuotasUtiles])
 
   const proximaCuota = useMemo<ResumenCuota | null>(
-    () => resumenes.find((r) => r.saldo > 0.0001) || null,
+    () => resumenes.find((r) => r.saldo > TOLERANCIA_SALDO) || null,
     [resumenes]
   )
 
@@ -212,9 +213,20 @@ export function ModalRegistrarPago({
   }, [cuotaIdSeleccionada, resumenes])
 
   const saldoPresupuesto = useMemo(
-    () => Math.max(0, totalPresupuesto - totalCobradoPresupuesto),
+    () => calcularSaldoPresupuesto(totalPresupuesto, totalCobradoPresupuesto),
     [totalPresupuesto, totalCobradoPresupuesto]
   )
+
+  // Aviso visual: el método elegido suele requerir respaldo documental
+  // (transferencia / depósito / cheque) y aún no se adjuntó ningún comprobante
+  // de tipo 'comprobante'. Las percepciones no sustituyen al comprobante.
+  // No bloquea el guardado; solo marca al usuario antes de confirmar.
+  const faltaComprobantePago = useMemo(() => {
+    if (!METODOS_REQUIEREN_COMPROBANTE.has(metodo)) return false
+    const tieneNuevo = archivosLocales.some((a) => a.tipo === 'comprobante')
+    const tieneExistente = comprobantesExistentes.some((c) => c.tipo === 'comprobante')
+    return !tieneNuevo && !tieneExistente
+  }, [metodo, archivosLocales, comprobantesExistentes])
 
   const porcentajeCobrado = useMemo(() => {
     if (totalPresupuesto <= 0) return 0
@@ -596,7 +608,7 @@ export function ModalRegistrarPago({
       //   monto y percepciones proporcionalmente al saldo de cada cuota.
       //   Comprobantes adjuntos al primer pago.
       // ──────────────────────────────────────────────────────────────────
-      const cuotasConSaldo = resumenes.filter((r) => r.saldo > 0.0001)
+      const cuotasConSaldo = resumenes.filter((r) => r.saldo > TOLERANCIA_SALDO)
       const expandirTotal = esTotal && hayMultiplesCuotas && cuotasConSaldo.length > 1
 
       if (expandirTotal) {
@@ -847,11 +859,18 @@ export function ModalRegistrarPago({
 
         {/* ╔═══ COMPROBANTES ═══════════════════════════════════════════ */}
         <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-2 flex-wrap">
             <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
               Comprobantes
             </label>
-            <span className="text-xxs text-texto-terciario">opcional · podés adjuntar varios</span>
+            {faltaComprobantePago ? (
+              <span className="inline-flex items-center gap-1 text-xxs text-insignia-advertencia">
+                <AlertCircle className="size-3" />
+                {ETIQUETAS_METODO_PAGO[metodo]} suele tener comprobante
+              </span>
+            ) : (
+              <span className="text-xxs text-texto-terciario">opcional · podés adjuntar varios</span>
+            )}
           </div>
 
           <input
@@ -1095,7 +1114,7 @@ function SeccionImputacion({
       <div className="grid gap-1.5">
         {/* Cuotas */}
         {fuente.map((r) => {
-          const esCobrada = r.cuota.estado === 'cobrada' || r.saldo <= 0.0001
+          const esCobrada = r.cuota.estado === 'cobrada' || r.saldo <= TOLERANCIA_SALDO
           const seleccionada = imputacion === r.cuota.id
           const acento = esCobrada ? 'cobrada' : seleccionada ? 'activa' : 'normal'
           return (

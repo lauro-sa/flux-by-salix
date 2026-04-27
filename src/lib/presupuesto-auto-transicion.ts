@@ -95,7 +95,11 @@ export async function sincronizarEstadoPresupuesto({
   }
 
   for (const t of transiciones) {
-    await admin
+    // Idempotencia: el UPDATE filtra por `estado = t.desde`. Si dos llamadas
+    // concurrentes (o consecutivas) intentan aplicar la misma transición,
+    // sólo la primera afecta una fila. La segunda recibe `data = null` y
+    // saltea historial + chatter para evitar duplicados.
+    const { data: actualizado } = await admin
       .from('presupuestos')
       .update({
         estado: t.hacia,
@@ -104,6 +108,11 @@ export async function sincronizarEstadoPresupuesto({
           : {}),
       })
       .eq('id', presupuestoId)
+      .eq('estado', t.desde)
+      .select('id')
+      .maybeSingle()
+
+    if (!actualizado) continue
 
     await admin.from('presupuesto_historial').insert({
       presupuesto_id: presupuestoId,

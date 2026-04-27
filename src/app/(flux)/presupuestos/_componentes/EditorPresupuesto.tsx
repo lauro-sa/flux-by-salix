@@ -95,6 +95,10 @@ export default function EditorPresupuesto({
   // ─── Estado compartido ──────────────────────────────────────────────────
 
   const [guardando, setGuardando] = useState(false)
+  // Timestamp del último PATCH/POST exitoso. La cabecera lo usa para mostrar
+  // el check verde "Guardado" unos segundos después del autoguardado, y así
+  // el usuario tiene confirmación de que su `onBlur` se persistió.
+  const [ultimoGuardadoEn, setUltimoGuardadoEn] = useState<number | null>(null)
   const [cargando, setCargando] = useState(modo === 'editar')
   const [config, setConfig] = useState<ConfigPresupuestos | null>(null)
   const [datosEmpresa, setDatosEmpresa] = useState<DatosEmpresa | null>(null)
@@ -633,6 +637,7 @@ export default function EditorPresupuesto({
           const data = await res.json()
           setPresupuesto(prev => prev ? { ...prev, ...data } : null)
         }
+        if (res.ok) setUltimoGuardadoEn(Date.now())
       })
       .catch(() => {})
       .finally(() => setGuardando(false))
@@ -1575,6 +1580,7 @@ export default function EditorPresupuesto({
           estaCancelado={estaCancelado}
           estadosPosibles={estadosPosibles}
           guardando={guardando}
+          ultimoGuardadoEn={ultimoGuardadoEn}
           generandoPdf={generandoPdf}
           contactoId={contactoId}
           idPresupuesto={idPresupuesto}

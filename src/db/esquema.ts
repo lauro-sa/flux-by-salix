@@ -1645,6 +1645,10 @@ export const conversaciones = pgTable('conversaciones', {
   ultimo_mensaje_texto: text('ultimo_mensaje_texto'),
   ultimo_mensaje_en: timestamp('ultimo_mensaje_en', { withTimezone: true }),
   ultimo_mensaje_es_entrante: boolean('ultimo_mensaje_es_entrante').default(true),
+  // Marca si la conversación recibió al menos un mensaje del contacto.
+  // Mantenido por trigger sobre `mensajes`. Filtra la carpeta "Entrada":
+  // los hilos solo salientes (sin respuesta) viven únicamente en "Enviados".
+  tiene_mensaje_entrante: boolean('tiene_mensaje_entrante').notNull().default(false),
   mensajes_sin_leer: integer('mensajes_sin_leer').notNull().default(0),
   // Métricas de respuesta
   primera_respuesta_en: timestamp('primera_respuesta_en', { withTimezone: true }),
@@ -1693,6 +1697,13 @@ export const conversaciones = pgTable('conversaciones', {
   index('conversaciones_snooze_idx').on(tabla.empresa_id, tabla.snooze_hasta),
   index('conversaciones_sector_idx').on(tabla.empresa_id, tabla.sector_id),
   index('conversaciones_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+  // Índice para la carpeta "Entrada" (filtra por tiene_mensaje_entrante + estado).
+  index('conversaciones_entrada_idx').on(
+    tabla.empresa_id,
+    tabla.tipo_canal,
+    tabla.tiene_mensaje_entrante,
+    tabla.estado,
+  ),
 ])
 
 // Mensajes — contenido de cada conversación

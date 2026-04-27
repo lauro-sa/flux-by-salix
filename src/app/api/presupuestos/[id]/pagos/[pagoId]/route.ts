@@ -13,9 +13,8 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { sincronizarEstadoPresupuesto } from '@/lib/presupuesto-auto-transicion'
 import { descontarUsoStorage } from '@/lib/uso-storage'
-import type { MetodoPago, PresupuestoPagoComprobante } from '@/tipos/presupuesto-pago'
-
-const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'deposito', 'otro']
+import { EditarPagoSchema, parsearPago } from '@/lib/schemas/pago'
+import type { PresupuestoPagoComprobante } from '@/tipos/presupuesto-pago'
 
 export async function GET(
   _request: NextRequest,
@@ -86,7 +85,30 @@ export async function PATCH(
 
     if (!pagoExistente) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
 
-    const body = await request.json()
+    const bodyRaw = await request.json()
+    // Validación con Zod: misma fuente de reglas que POST. Aquí también
+    // validamos que percepciones nunca superen el monto efectivo (con
+    // valores del body o, si no vienen, del registro existente).
+    const parseado = parsearPago(EditarPagoSchema, bodyRaw)
+    if (!parseado.ok) {
+      return NextResponse.json(
+        { error: parseado.error, detalles: parseado.detalles },
+        { status: 400 }
+      )
+    }
+    const body = parseado.datos
+    // Refuerzo: validar percepciones contra monto vigente (puede ser el del
+    // body o el del pagoExistente si no se cambió).
+    if (body.monto_percepciones !== undefined) {
+      const montoVigente =
+        body.monto !== undefined ? body.monto : Number(pagoExistente.monto)
+      if (body.monto_percepciones > montoVigente) {
+        return NextResponse.json(
+          { error: 'Las percepciones no pueden superar el monto del pago' },
+          { status: 400 }
+        )
+      }
+    }
 
     const actualizacion: Record<string, unknown> = {
       editado_por: user.id,
@@ -107,17 +129,18 @@ export async function PATCH(
     // false y no llega cuota_id, dejamos el cuota_id existente.
     let esAdicional: boolean | undefined
     if (body.es_adicional !== undefined) {
-      esAdicional = !!body.es_adicional
+      esAdicional = body.es_adicional
       actualizacion.es_adicional = esAdicional
       if (esAdicional) actualizacion.cuota_id = null
     }
 
     if (body.concepto_adicional !== undefined) {
-      const v = (body.concepto_adicional as string | null) ?? null
+      const v = body.concepto_adicional ?? null
       actualizacion.concepto_adicional = v ? v.trim() || null : null
     }
 
-    // Validar campos editables
+    // cuota_id: validar pertenencia. El schema ya rechazó cuota_id si
+    // es_adicional=true. Acá solo aceptamos cuotas reales del presupuesto.
     if (body.cuota_id !== undefined && !esAdicional) {
       if (body.cuota_id) {
         const { data: cuota } = await admin
@@ -132,62 +155,60 @@ export async function PATCH(
       actualizacion.cuota_id = body.cuota_id || null
     }
 
-    if (body.monto !== undefined) {
-      const monto = Number(body.monto)
-      if (!isFinite(monto) || monto <= 0) {
-        return NextResponse.json({ error: 'Monto inválido' }, { status: 400 })
-      }
-      actualizacion.monto = String(monto)
-    }
-
+    if (body.monto !== undefined) actualizacion.monto = String(body.monto)
     if (body.monto_percepciones !== undefined) {
-      const mp = Number(body.monto_percepciones)
-      if (!isFinite(mp) || mp < 0) {
-        return NextResponse.json({ error: 'Monto de percepciones inválido' }, { status: 400 })
+      actualizacion.monto_percepciones = String(body.monto_percepciones)
+    }
+    if (body.moneda !== undefined) {
+      // Validar contra monedas activas configuradas (igual que POST). La
+      // moneda actual del pago siempre se acepta (puede ser legacy).
+      if (body.moneda !== pagoExistente.moneda) {
+        const { data: cfg } = await admin
+          .from('config_presupuestos')
+          .select('monedas')
+          .eq('empresa_id', empresaId)
+          .maybeSingle()
+        const monedasActivas = ((cfg?.monedas as Array<{ id: string; activo?: boolean }>) || [])
+          .filter((m) => m.activo !== false)
+          .map((m) => m.id)
+        if (monedasActivas.length > 0 && !monedasActivas.includes(body.moneda)) {
+          return NextResponse.json(
+            { error: `Moneda "${body.moneda}" no está habilitada para esta empresa` },
+            { status: 400 }
+          )
+        }
       }
-      actualizacion.monto_percepciones = String(mp)
+      actualizacion.moneda = body.moneda
     }
-
-    if (body.moneda !== undefined) actualizacion.moneda = body.moneda
-
     if (body.cotizacion_cambio !== undefined) {
-      const c = Number(body.cotizacion_cambio)
-      if (c <= 0) return NextResponse.json({ error: 'Cotización inválida' }, { status: 400 })
-      actualizacion.cotizacion_cambio = String(c)
+      actualizacion.cotizacion_cambio = String(body.cotizacion_cambio)
     }
 
-    // Recalcular monto_en_moneda_presupuesto si cambió monto, percepciones o cotización
+    // Recalcular monto_en_moneda_presupuesto si cambió monto, percepciones
+    // o cotización. Fórmula: (monto + monto_percepciones) * cotizacion.
     if (
       body.monto !== undefined ||
       body.monto_percepciones !== undefined ||
       body.cotizacion_cambio !== undefined
     ) {
-      const m = body.monto !== undefined ? Number(body.monto) : Number(pagoExistente.monto)
+      const m = body.monto !== undefined ? body.monto : Number(pagoExistente.monto)
       const mp = body.monto_percepciones !== undefined
-        ? Number(body.monto_percepciones)
+        ? body.monto_percepciones
         : Number(pagoExistente.monto_percepciones || 0)
       const c = body.cotizacion_cambio !== undefined
-        ? Number(body.cotizacion_cambio)
+        ? body.cotizacion_cambio
         : Number(pagoExistente.cotizacion_cambio)
-      actualizacion.monto_en_moneda_presupuesto = String((m + mp) * c)
+      actualizacion.monto_en_moneda_presupuesto = String(
+        Math.round((m + mp) * c * 100) / 100
+      )
     }
 
     if (body.fecha_pago !== undefined) {
-      const fp = new Date(body.fecha_pago)
-      if (isNaN(fp.getTime())) return NextResponse.json({ error: 'Fecha inválida' }, { status: 400 })
-      if (fp.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
-        return NextResponse.json({ error: 'La fecha no puede ser futura' }, { status: 400 })
-      }
-      actualizacion.fecha_pago = fp.toISOString()
+      // Schema ya validó parseable + no futura.
+      actualizacion.fecha_pago = new Date(body.fecha_pago).toISOString()
     }
 
-    if (body.metodo !== undefined) {
-      if (!METODOS_VALIDOS.includes(body.metodo)) {
-        return NextResponse.json({ error: 'Método inválido' }, { status: 400 })
-      }
-      actualizacion.metodo = body.metodo
-    }
-
+    if (body.metodo !== undefined) actualizacion.metodo = body.metodo
     if (body.referencia !== undefined) actualizacion.referencia = body.referencia || null
     if (body.descripcion !== undefined) actualizacion.descripcion = body.descripcion || null
 

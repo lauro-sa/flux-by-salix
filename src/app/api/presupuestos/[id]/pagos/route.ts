@@ -22,13 +22,14 @@ import { registrarChatter } from '@/lib/chatter'
 import { sincronizarEstadoPresupuesto } from '@/lib/presupuesto-auto-transicion'
 import { validarArchivo, TAMANO_MAXIMO_BYTES, comprimirImagen } from '@/lib/comprimir-imagen'
 import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
+import { CrearPagoSchema, parsearPago } from '@/lib/schemas/pago'
+import { verificarRateLimit } from '@/lib/rate-limit'
 import type {
   MetodoPago,
   PresupuestoPagoComprobante,
   TipoComprobantePago,
 } from '@/tipos/presupuesto-pago'
 
-const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cheque', 'tarjeta', 'deposito', 'otro']
 const TIPOS_COMPROBANTE_VALIDOS: TipoComprobantePago[] = ['comprobante', 'percepcion']
 
 export async function GET(
@@ -116,6 +117,22 @@ export async function POST(
     const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'editar')
     if (!permitido) return NextResponse.json({ error: 'Sin permiso para registrar pagos' }, { status: 403 })
 
+    // Rate limit: máximo 30 pagos por minuto por usuario+empresa. Suficiente
+    // para flujos legítimos (carga masiva manual) y bloquea scripts.
+    const rl = verificarRateLimit(`pagos-post:${empresaId}:${user.id}`, {
+      maximo: 30,
+      ventanaSegundos: 60,
+    })
+    if (!rl.permitido) {
+      return NextResponse.json(
+        {
+          error: 'Demasiados pagos en poco tiempo. Esperá un momento e intentá de nuevo.',
+          reseteaEn: rl.reseteaEn,
+        },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.reseteaEn - Date.now()) / 1000)) } }
+      )
+    }
+
     const admin = crearClienteAdmin()
 
     // Verificar presupuesto (incluyendo campos necesarios para materializar
@@ -165,34 +182,47 @@ export async function POST(
       datos = await request.json()
     }
 
-    // Validaciones
-    const monto = Number(datos.monto)
-    if (!isFinite(monto) || monto <= 0) {
-      return NextResponse.json({ error: 'Monto inválido' }, { status: 400 })
+    // Validación con Zod (monto > 0, percepciones <= monto, método válido,
+    // fecha no futura, coherencia es_adicional/cuota_id, etc.). El schema
+    // unifica las reglas que antes estaban dispersas en el endpoint.
+    const parseado = parsearPago(CrearPagoSchema, datos)
+    if (!parseado.ok) {
+      return NextResponse.json(
+        { error: parseado.error, detalles: parseado.detalles },
+        { status: 400 }
+      )
     }
-    const montoPercepciones = Number(datos.monto_percepciones) || 0
-    if (!isFinite(montoPercepciones) || montoPercepciones < 0) {
-      return NextResponse.json({ error: 'Monto de percepciones inválido' }, { status: 400 })
-    }
-    const metodo = (datos.metodo as MetodoPago) || 'transferencia'
-    if (!METODOS_VALIDOS.includes(metodo)) {
-      return NextResponse.json({ error: 'Método de pago inválido' }, { status: 400 })
-    }
-    const moneda = (datos.moneda as string) || presupuesto.moneda || 'ARS'
-    const cotizacion = Number(datos.cotizacion_cambio) || 1
-    if (cotizacion <= 0) return NextResponse.json({ error: 'Cotización inválida' }, { status: 400 })
+    const datosVal = parseado.datos
+    const monto = datosVal.monto
+    const montoPercepciones = datosVal.monto_percepciones ?? 0
+    const metodo: MetodoPago = (datosVal.metodo ?? 'transferencia') as MetodoPago
+    const moneda = datosVal.moneda || presupuesto.moneda || 'ARS'
+    const cotizacion = datosVal.cotizacion_cambio ?? 1
+    const fechaPago = datosVal.fecha_pago ? new Date(datosVal.fecha_pago) : new Date()
 
-    const fechaPago = datos.fecha_pago ? new Date(datos.fecha_pago as string) : new Date()
-    if (isNaN(fechaPago.getTime())) {
-      return NextResponse.json({ error: 'Fecha de pago inválida' }, { status: 400 })
-    }
-    if (fechaPago.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
-      return NextResponse.json({ error: 'La fecha del pago no puede ser futura' }, { status: 400 })
+    // Si el cliente mandó una moneda explícita, validamos que esté entre
+    // las monedas activas configuradas para la empresa. La del presupuesto
+    // siempre se acepta (puede ser legacy si la config cambió después).
+    if (datosVal.moneda && datosVal.moneda !== presupuesto.moneda) {
+      const { data: cfg } = await admin
+        .from('config_presupuestos')
+        .select('monedas')
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      const monedasActivas = ((cfg?.monedas as Array<{ id: string; activo?: boolean }>) || [])
+        .filter((m) => m.activo !== false)
+        .map((m) => m.id)
+      if (monedasActivas.length > 0 && !monedasActivas.includes(datosVal.moneda)) {
+        return NextResponse.json(
+          { error: `Moneda "${datosVal.moneda}" no está habilitada para esta empresa` },
+          { status: 400 }
+        )
+      }
     }
 
-    const esAdicional = !!datos.es_adicional
+    const esAdicional = !!datosVal.es_adicional
     const conceptoAdicional = esAdicional
-      ? ((datos.concepto_adicional as string)?.trim() || null)
+      ? (datosVal.concepto_adicional?.trim() || null)
       : null
 
     // Validar cuota_id. Soporta IDs reales (uuid) y sintéticos (formato
@@ -200,7 +230,7 @@ export async function POST(
     // tipo "hitos" pero todavía no se materializaron las cuotas en BD.
     // Si llega un ID sintético, primero materializamos todas las cuotas
     // según la configuración y mapeamos al ID real correspondiente.
-    let cuotaId = (datos.cuota_id as string | null | undefined) || null
+    let cuotaId = datosVal.cuota_id || null
 
     // Adicional → cuota_id ignorado (siempre null)
     if (esAdicional) cuotaId = null
@@ -351,11 +381,11 @@ export async function POST(
     // Auto-vincular OT: si el cliente la mandó explícitamente la respetamos
     // (validando ownership), si no buscamos la OT activa única del presupuesto.
     let ordenTrabajoId: string | null = null
-    if (datos.orden_trabajo_id) {
+    if (datosVal.orden_trabajo_id) {
       const { data: otCliente } = await admin
         .from('ordenes_trabajo')
         .select('id')
-        .eq('id', datos.orden_trabajo_id as string)
+        .eq('id', datosVal.orden_trabajo_id)
         .eq('presupuesto_id', presupuestoId)
         .eq('empresa_id', empresaId)
         .maybeSingle()
@@ -390,8 +420,8 @@ export async function POST(
         monto_en_moneda_presupuesto: String(montoEnPresupuesto),
         fecha_pago: fechaPago.toISOString(),
         metodo,
-        referencia: (datos.referencia as string) || null,
-        descripcion: (datos.descripcion as string) || null,
+        referencia: datosVal.referencia || null,
+        descripcion: datosVal.descripcion || null,
         es_adicional: esAdicional,
         concepto_adicional: conceptoAdicional,
         comprobante_url: principal?.url || null,
@@ -399,8 +429,8 @@ export async function POST(
         comprobante_nombre: principal?.nombre || null,
         comprobante_tipo: principal?.mimeTipo || null,
         comprobante_tamano_bytes: principal?.tamanoBytes || null,
-        mensaje_origen_id: (datos.mensaje_origen_id as string) || null,
-        chatter_origen_id: (datos.chatter_origen_id as string) || null,
+        mensaje_origen_id: datosVal.mensaje_origen_id || null,
+        chatter_origen_id: datosVal.chatter_origen_id || null,
         creado_por: user.id,
         creado_por_nombre: nombreUsuario,
       })
@@ -472,7 +502,7 @@ export async function POST(
     const contenido = esAdicional
       ? `Adicional cobrado: ${formatoMonto}${conceptoAdicional ? ` — ${conceptoAdicional}` : ''}`
       : `Pago registrado: ${formatoMonto}${
-          datos.descripcion ? ` — ${datos.descripcion as string}` : ''
+          datosVal.descripcion ? ` — ${datosVal.descripcion}` : ''
         }`
 
     await registrarChatter({
@@ -488,7 +518,7 @@ export async function POST(
         accion: 'pago_confirmado',
         cuota_id: cuotaId || undefined,
         monto_pago: String(monto),
-        descripcion_pago: (datos.descripcion as string) || undefined,
+        descripcion_pago: datosVal.descripcion || undefined,
         // La timeline del chatter ordena por este campo si está presente,
         // así un pago con fecha anterior a la de carga queda en el lugar correcto.
         fecha_evento: fechaPago.toISOString(),

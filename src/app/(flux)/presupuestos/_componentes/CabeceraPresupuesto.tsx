@@ -8,7 +8,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import {
-  Cloud, X, Info, RefreshCw,
+  Cloud, CloudCheck, X, Info, RefreshCw,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
   Loader2, MoreHorizontal, Wrench,
 } from 'lucide-react'
@@ -28,6 +28,9 @@ interface PropsCabeceraPresupuesto {
   estaCancelado: boolean
   estadosPosibles: EstadoPresupuesto[]
   guardando: boolean
+  /** Timestamp del último guardado exitoso. Se usa para mostrar el feedback
+   *  "Guardado ✓" durante unos segundos después del autoguardado. */
+  ultimoGuardadoEn?: number | null
   generandoPdf: boolean
   contactoId: string | null
   idPresupuesto: string | null | undefined
@@ -62,6 +65,7 @@ export default function CabeceraPresupuesto({
   estaCancelado,
   estadosPosibles,
   guardando,
+  ultimoGuardadoEn,
   generandoPdf,
   contactoId,
   idPresupuesto,
@@ -86,6 +90,17 @@ export default function CabeceraPresupuesto({
 }: PropsCabeceraPresupuesto) {
   const { t } = useTraduccion()
 
+  // Indicador "Guardado ✓" verde por 2s después de cada guardado exitoso.
+  // Después vuelve al icono Cloud normal. Permite confirmación visual de
+  // los autoguardados sin necesidad de toasts ruidosos.
+  const [mostrarGuardado, setMostrarGuardado] = useState(false)
+  useEffect(() => {
+    if (!ultimoGuardadoEn) return
+    setMostrarGuardado(true)
+    const t = setTimeout(() => setMostrarGuardado(false), 2000)
+    return () => clearTimeout(t)
+  }, [ultimoGuardadoEn])
+
   return (
     <div className="px-6 pt-5 pb-4 border-b border-borde-sutil">
       {/* Fila 1: Título + badge re-emisión */}
@@ -106,7 +121,38 @@ export default function CabeceraPresupuesto({
       {/* Fila 2: Iconos izquierda + Barra de estados derecha */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-1">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Cloud size={16} />} onClick={modo === 'crear' && !idPresupuesto ? onCrearPresupuesto : onGuardar} disabled={modo === 'crear' && (!contactoId || guardando)} titulo={guardando ? 'Guardando...' : idPresupuesto ? 'Guardado' : modo === 'crear' && contactoId ? 'Guardar presupuesto' : 'Selecciona un cliente primero'} className={guardando ? 'text-texto-marca animate-pulse' : ''} />
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={
+              guardando
+                ? <Cloud size={16} />
+                : mostrarGuardado
+                  ? <CloudCheck size={16} />
+                  : <Cloud size={16} />
+            }
+            onClick={modo === 'crear' && !idPresupuesto ? onCrearPresupuesto : onGuardar}
+            disabled={modo === 'crear' && (!contactoId || guardando)}
+            titulo={
+              guardando
+                ? 'Guardando…'
+                : mostrarGuardado
+                  ? 'Guardado'
+                  : idPresupuesto
+                    ? 'Guardado'
+                    : modo === 'crear' && contactoId
+                      ? 'Guardar presupuesto'
+                      : 'Selecciona un cliente primero'
+            }
+            className={
+              guardando
+                ? 'text-texto-marca animate-pulse'
+                : mostrarGuardado
+                  ? 'text-insignia-exito'
+                  : ''
+            }
+          />
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={onDescartar} titulo={idPresupuesto ? 'Eliminar presupuesto' : 'Descartar'} className={idPresupuesto ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10' : ''} />
           {/* Info y RefreshCw en modo editar o post-creación */}
           {(modo === 'editar' || presupuestoIdCreado) && (
