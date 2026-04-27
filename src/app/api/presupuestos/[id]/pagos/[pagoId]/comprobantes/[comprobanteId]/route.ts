@@ -1,8 +1,9 @@
 /**
  * DELETE — Eliminar un comprobante específico de un pago.
- *          Borra el archivo del Storage y la fila. Si el comprobante
- *          eliminado coincide con los campos legacy `comprobante_*` del
- *          pago, los limpia para mantener consistencia.
+ *          Borra el archivo del Storage y la fila. La tabla canónica es
+ *          presupuesto_pago_comprobantes; las columnas legacy
+ *          comprobante_* en presupuesto_pagos fueron eliminadas (ver
+ *          migración 20260427020000).
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -31,7 +32,7 @@ export async function DELETE(
     // Validar pago
     const { data: pago } = await admin
       .from('presupuesto_pagos')
-      .select('id, comprobante_storage_path')
+      .select('id')
       .eq('id', pagoId)
       .eq('presupuesto_id', presupuestoId)
       .eq('empresa_id', empresaId)
@@ -64,44 +65,6 @@ export async function DELETE(
 
     if (error) {
       return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
-    }
-
-    // Si el comprobante eliminado era el principal (legacy), promover el
-    // siguiente o limpiar los campos.
-    if (pago.comprobante_storage_path === comprobante.storage_path) {
-      const { data: nuevoPrincipal } = await admin
-        .from('presupuesto_pago_comprobantes')
-        .select('*')
-        .eq('pago_id', pagoId)
-        .eq('empresa_id', empresaId)
-        .eq('tipo', 'comprobante')
-        .order('creado_en', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (nuevoPrincipal) {
-        await admin
-          .from('presupuesto_pagos')
-          .update({
-            comprobante_url: nuevoPrincipal.url,
-            comprobante_storage_path: nuevoPrincipal.storage_path,
-            comprobante_nombre: nuevoPrincipal.nombre,
-            comprobante_tipo: nuevoPrincipal.mime_tipo,
-            comprobante_tamano_bytes: nuevoPrincipal.tamano_bytes,
-          })
-          .eq('id', pagoId)
-      } else {
-        await admin
-          .from('presupuesto_pagos')
-          .update({
-            comprobante_url: null,
-            comprobante_storage_path: null,
-            comprobante_nombre: null,
-            comprobante_tipo: null,
-            comprobante_tamano_bytes: null,
-          })
-          .eq('id', pagoId)
-      }
     }
 
     return NextResponse.json({ ok: true })

@@ -368,8 +368,7 @@ export async function DELETE(
 
     if (!pago) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
 
-    // Borrar TODOS los comprobantes de Storage. La fila legacy y las
-    // de la tabla nueva pueden apuntar al mismo path — usamos un Set.
+    // Borrar TODOS los comprobantes de Storage desde la tabla canónica.
     const { data: comprobantes } = await admin
       .from('presupuesto_pago_comprobantes')
       .select('storage_path, tamano_bytes')
@@ -383,10 +382,6 @@ export async function DELETE(
         paths.add(c.storage_path)
         if (c.tamano_bytes) bytesTotal += Number(c.tamano_bytes)
       }
-    }
-    if (pago.comprobante_storage_path && !paths.has(pago.comprobante_storage_path)) {
-      paths.add(pago.comprobante_storage_path)
-      if (pago.comprobante_tamano_bytes) bytesTotal += Number(pago.comprobante_tamano_bytes)
     }
 
     if (paths.size > 0) {

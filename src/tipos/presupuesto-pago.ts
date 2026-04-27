@@ -76,14 +76,6 @@ export interface PresupuestoPago {
   /** Concepto corto del adicional (sólo aplica si es_adicional=true). */
   concepto_adicional: string | null
 
-  // Campos legacy del comprobante (un solo archivo). Reemplazados por
-  // la tabla presupuesto_pago_comprobantes; quedan acá por compat.
-  comprobante_url: string | null
-  comprobante_storage_path: string | null
-  comprobante_nombre: string | null
-  comprobante_tipo: string | null
-  comprobante_tamano_bytes: number | null
-
   /** Lista completa de comprobantes adjuntos al pago. Cuando el endpoint
    *  GET hidrata el pago, se popula con todos los archivos de la tabla
    *  presupuesto_pago_comprobantes. */

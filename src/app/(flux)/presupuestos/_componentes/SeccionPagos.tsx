@@ -165,13 +165,12 @@ export default function SeccionPagos({
     const monedaPago = p.moneda
     const tieneCotizacion = monedaPago !== monedaPresupuesto
 
-    // Lista de comprobantes (nueva tabla); si no vino, caemos al campo legacy.
-    const comprobantes =
-      (p.comprobantes && p.comprobantes.length > 0)
-        ? p.comprobantes.map((c) => ({ url: c.url, nombre: c.nombre, tipo: c.tipo }))
-        : p.comprobante_url
-          ? [{ url: p.comprobante_url, nombre: p.comprobante_nombre || 'comprobante', tipo: 'comprobante' as const }]
-          : []
+    // Lista de comprobantes desde la tabla canónica.
+    const comprobantes = (p.comprobantes || []).map((c) => ({
+      url: c.url,
+      nombre: c.nombre,
+      tipo: c.tipo,
+    }))
 
     return (
       <div

@@ -628,6 +628,11 @@ export const presupuestos = pgTable('presupuestos', {
   // ordenar listados por "recién aceptados / completados" sin importar creado_en.
   estado_cambiado_en: timestamp('estado_cambiado_en', { withTimezone: true }).defaultNow().notNull(),
 
+  // Actividad desde la que se creó este presupuesto (si aplica). El listener
+  // en PATCH usa esto para completar la actividad cuando el estado pasa a 'enviado'
+  // y el tipo de actividad tiene evento_auto_completar = 'al_enviar'.
+  actividad_origen_id: uuid('actividad_origen_id'),
+
   // Soft delete
   activo: boolean('activo').notNull().default(true),
   en_papelera: boolean('en_papelera').notNull().default(false),
@@ -639,6 +644,7 @@ export const presupuestos = pgTable('presupuestos', {
   index('presupuestos_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('presupuestos_fecha_idx').on(tabla.empresa_id, tabla.fecha_emision),
   index('presupuestos_empresa_estado_cambiado_idx').on(tabla.empresa_id, tabla.estado_cambiado_en),
+  index('presupuestos_actividad_origen_idx').on(tabla.actividad_origen_id),
 ])
 
 // Líneas de presupuesto — productos, servicios, secciones, notas, descuentos
@@ -743,14 +749,6 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   // el monto NO descuenta saldo de cuotas, suma aparte.
   es_adicional: boolean('es_adicional').notNull().default(false),
   concepto_adicional: text('concepto_adicional'),
-
-  // Comprobante adjunto (legacy, ahora se usa la tabla
-  // presupuesto_pago_comprobantes para soportar múltiples adjuntos).
-  comprobante_url: text('comprobante_url'),
-  comprobante_storage_path: text('comprobante_storage_path'),
-  comprobante_nombre: text('comprobante_nombre'),
-  comprobante_tipo: text('comprobante_tipo'),
-  comprobante_tamano_bytes: bigint('comprobante_tamano_bytes', { mode: 'number' }),
 
   // Origen opcional: vinculación con un mensaje del chatter/inbox
   mensaje_origen_id: uuid('mensaje_origen_id'),
@@ -1162,6 +1160,12 @@ export const tipos_actividad = pgTable('tipos_actividad', {
   campo_prioridad: boolean('campo_prioridad').notNull().default(false),
   campo_checklist: boolean('campo_checklist').notNull().default(false),
   campo_calendario: boolean('campo_calendario').notNull().default(false),
+  // Acción al ejecutar el tipo: define a qué módulo navega y qué documento crea.
+  // 'presupuesto' | 'visita' | 'correo' | null (null = abre modal de edición default)
+  accion_destino: text('accion_destino'),
+  // Cuándo se autocompleta la actividad al ejecutar la acción.
+  // 'al_crear' | 'al_enviar' | 'al_finalizar' | null (null = manual)
+  evento_auto_completar: text('evento_auto_completar'),
   // Orden, estado, predefinido
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
@@ -2797,7 +2801,8 @@ export const visitas = pgTable('visitas', {
   aviso_en_camino_eta_min: integer('aviso_en_camino_eta_min'), // ETA redondeado que se comunicó
 
   // Vinculación con actividades
-  actividad_id: uuid('actividad_id'), // actividad asociada si se creó desde una
+  actividad_id: uuid('actividad_id'), // actividad ESPEJO creada en paralelo (sincronización con módulo Actividades)
+  actividad_origen_id: uuid('actividad_origen_id'), // actividad ORIGEN desde la que se programó esta visita (auto-completar al_finalizar)
   vinculos: jsonb('vinculos').notNull().default(sql`'[]'`), // [{tipo, id, nombre}]
 
   // Archivo automático (visitas completadas > 30 días)
@@ -2823,6 +2828,7 @@ export const visitas = pgTable('visitas', {
   index('visitas_fecha_idx').on(tabla.empresa_id, tabla.fecha_programada),
   index('visitas_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
   index('visitas_archivada_idx').on(tabla.empresa_id, tabla.archivada),
+  index('visitas_actividad_origen_idx').on(tabla.actividad_origen_id),
 ])
 
 // ═══════════════════════════════════════════════════════════════
