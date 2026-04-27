@@ -92,6 +92,10 @@
     {
       "path": "/api/cron/sla-vencido",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/purgar-pagos-eliminados",
+      "schedule": "30 4 * * *"
     }
   ]
 }
