@@ -188,8 +188,14 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Parámetros de contexto de navegación (reactivos via useSearchParams)
-  const origenActual = searchParams.get('origen') || searchParams.get('desde') || null
+  // Parámetros de contexto de navegación (reactivos via useSearchParams).
+  // `?desde=` puede traer query string (ej: `/inbox?conv=xxx&tab=correo`) cuando
+  // queremos volver no solo al módulo sino al estado exacto (conversación abierta).
+  // Separamos en `origenRaw` (URL completa con query) y `origenPath` (solo el path,
+  // sin query) para mapearlo a MIGAJAS_MODULOS.
+  const origenRaw = searchParams.get('origen') || searchParams.get('desde') || null
+  const origenPath = origenRaw ? origenRaw.split('?')[0] : null
+  const origenActual = origenPath
 
   // Agregar al historial cuando cambia la ruta
   if (
@@ -226,9 +232,16 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
     })
     .map(([ruta, etiqueta]) => ({ ruta, etiqueta }))
 
-  // Si hay ?desde= y es un módulo estático, agregar como migaja intermedia
+  // Si hay ?desde= y es un módulo estático, agregar como migaja intermedia.
+  // Si traía query string (ej: `/inbox?conv=xxx`), preservarlo en `ruta` para
+  // que al hacer click en la migaja se vuelva al estado exacto (conversación
+  // abierta, filtros, etc.), no solo al listado del módulo.
   if (origenActual && MIGAJAS_MODULOS[origenActual] && !extras.some(e => e.ruta === origenActual)) {
-    extras.unshift(MIGAJAS_MODULOS[origenActual])
+    const baseMigaja = MIGAJAS_MODULOS[origenActual]
+    const conRuta = origenRaw && origenRaw !== origenActual
+      ? { ...baseMigaja, ruta: origenRaw }
+      : baseMigaja
+    extras.unshift(conRuta)
   }
   const migajas = generarMigajas(pathname, extras.length > 0 ? extras : undefined)
 

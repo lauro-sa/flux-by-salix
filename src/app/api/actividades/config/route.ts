@@ -107,7 +107,8 @@ export async function PUT(request: NextRequest) {
             campo_prioridad: datos.campo_prioridad ?? false,
             campo_checklist: datos.campo_checklist ?? false,
             campo_calendario: datos.campo_calendario ?? false,
-            auto_completar: datos.auto_completar ?? false,
+            accion_destino: datos.accion_destino || null,
+            evento_auto_completar: datos.evento_auto_completar || null,
             resumen_predeterminado: datos.resumen_predeterminado || null,
             nota_predeterminada: datos.nota_predeterminada || null,
             usuario_predeterminado: datos.usuario_predeterminado || null,
@@ -140,9 +141,13 @@ export async function PUT(request: NextRequest) {
         const campos: Record<string, unknown> = {}
 
         if (tipoActual?.es_sistema) {
-          // Tipos del sistema: solo se puede cambiar activo, orden y modulos_disponibles
+          // Tipos del sistema: la identidad (clave/nombre/icono/color) está fija,
+          // pero la empresa SÍ puede ajustar comportamiento — qué módulo dispara,
+          // cuándo se autocompleta, y módulos donde aparece.
           if (datos.activo !== undefined) campos.activo = datos.activo
           if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles
+          if (datos.accion_destino !== undefined) campos.accion_destino = datos.accion_destino || null
+          if (datos.evento_auto_completar !== undefined) campos.evento_auto_completar = datos.evento_auto_completar || null
         } else {
           // Tipos normales: se puede editar todo
           if (datos.etiqueta !== undefined) campos.etiqueta = datos.etiqueta.trim()
@@ -157,7 +162,8 @@ export async function PUT(request: NextRequest) {
           if (datos.campo_prioridad !== undefined) campos.campo_prioridad = datos.campo_prioridad
           if (datos.campo_checklist !== undefined) campos.campo_checklist = datos.campo_checklist
           if (datos.campo_calendario !== undefined) campos.campo_calendario = datos.campo_calendario
-          if (datos.auto_completar !== undefined) campos.auto_completar = datos.auto_completar
+          if (datos.accion_destino !== undefined) campos.accion_destino = datos.accion_destino || null
+          if (datos.evento_auto_completar !== undefined) campos.evento_auto_completar = datos.evento_auto_completar || null
           if (datos.resumen_predeterminado !== undefined) campos.resumen_predeterminado = datos.resumen_predeterminado
           if (datos.nota_predeterminada !== undefined) campos.nota_predeterminada = datos.nota_predeterminada
           if (datos.usuario_predeterminado !== undefined) campos.usuario_predeterminado = datos.usuario_predeterminado

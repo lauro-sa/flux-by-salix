@@ -7,6 +7,7 @@ import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, sincronizarRegistrosVinculados, eliminarRegistrosVinculados } from '@/lib/visitas-sync'
 import { COLOR_NOTIFICACION, COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
+import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /** Calcula distancia en metros entre dos coordenadas (fórmula de Haversine) */
 function calcularDistanciaMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -317,10 +318,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // ── Acción: completar ──
     if (body.accion === 'completar') {
-      // Obtener la visita para calcular duración
+      // Obtener la visita para calcular duración + saber si tiene actividad origen
       const { data: visitaActual } = await admin
         .from('visitas')
-        .select('fecha_llegada, contacto_id, contacto_nombre')
+        .select('fecha_llegada, contacto_id, contacto_nombre, actividad_origen_id')
         .eq('id', id)
         .single()
 
@@ -395,6 +396,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           estado: 'completada', motivo: data.motivo, prioridad: data.prioridad,
           actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
         }, tiposComp)
+      }
+
+      // Listener de auto-completar al finalizar la visita. Solo dispara si el tipo
+      // de la actividad origen tiene `evento_auto_completar = 'al_finalizar'`.
+      if (visitaActual?.actividad_origen_id) {
+        await autoCompletarActividad({
+          admin,
+          empresaId,
+          actividadId: visitaActual.actividad_origen_id,
+          eventoEsperado: 'al_finalizar',
+          usuarioId: user.id,
+          usuarioNombre: nombreEditor,
+          mensajeChatter: `Completada automáticamente al finalizar visita a ${data.contacto_nombre || 'contacto'}`,
+          metadataChatter: { visita_id: id },
+        })
       }
 
       registrarReciente({
@@ -624,8 +640,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (body.contacto_nombre) {
         campos.contacto_nombre = body.contacto_nombre
       } else {
-        const { data: c } = await admin.from('contactos').select('nombre, empresa_nombre').eq('id', body.contacto_id).single()
-        campos.contacto_nombre = c?.nombre || c?.empresa_nombre || 'Sin nombre'
+        const { data: c } = await admin.from('contactos').select('nombre').eq('id', body.contacto_id).single()
+        campos.contacto_nombre = c?.nombre || 'Sin nombre'
       }
     }
     if (body.direccion_id !== undefined) {

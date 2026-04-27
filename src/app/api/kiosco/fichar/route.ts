@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     // Obtener datos del miembro para resolución de turno
     const { data: miembro } = await admin
       .from('miembros')
-      .select('id, turno_id, sector')
+      .select('id, turno_id')
       .eq('id', miembroId)
       .eq('empresa_id', empresaId)
       .single()

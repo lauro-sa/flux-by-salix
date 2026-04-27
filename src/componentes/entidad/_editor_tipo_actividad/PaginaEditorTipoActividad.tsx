@@ -9,7 +9,7 @@
  * - Main: identidad (nombre, abreviación, color), módulos, siguiente actividad, valores por defecto
  */
 
-import { useEffect, useState, useLayoutEffect, useRef } from 'react'
+import { useEffect, useState, useLayoutEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { Save, Trash2, Check, Pipette } from 'lucide-react'
@@ -52,6 +52,33 @@ const CAMPOS_DISPONIBLES = [
   { clave: 'campo_checklist', etiqueta: 'Checklist' },
   { clave: 'campo_calendario', etiqueta: 'Agendar en calendario' },
 ]
+
+/** Acciones que un tipo de actividad puede disparar al ejecutarse. */
+const ACCIONES_DESTINO = [
+  { valor: '', etiqueta: 'Ninguna — abrir editor' },
+  { valor: 'presupuesto', etiqueta: 'Crear presupuesto' },
+  { valor: 'visita', etiqueta: 'Programar visita' },
+  { valor: 'correo', etiqueta: 'Enviar correo' },
+] as const
+
+/** Eventos de auto-completado disponibles según la acción destino. */
+const EVENTOS_POR_ACCION: Record<string, { valor: string; etiqueta: string }[]> = {
+  presupuesto: [
+    { valor: '', etiqueta: 'Manual — el usuario la completa' },
+    { valor: 'al_crear', etiqueta: 'Al crear el presupuesto' },
+    { valor: 'al_enviar', etiqueta: 'Al enviar el presupuesto' },
+  ],
+  visita: [
+    { valor: '', etiqueta: 'Manual — el usuario la completa' },
+    { valor: 'al_crear', etiqueta: 'Al programar la visita' },
+    { valor: 'al_finalizar', etiqueta: 'Al finalizar la visita' },
+  ],
+  correo: [
+    { valor: '', etiqueta: 'Manual — el usuario la completa' },
+    { valor: 'al_crear', etiqueta: 'Al abrir el correo' },
+    { valor: 'al_enviar', etiqueta: 'Al enviar el correo' },
+  ],
+}
 
 /** Genera abreviación automática: iniciales de palabras significativas, o primeras 4 letras si es una sola palabra */
 function generarAbreviacion(etiqueta: string): string {
@@ -102,7 +129,8 @@ export function PaginaEditorTipoActividad({
     campo_checklist: tipo?.campo_checklist ?? false,
     campo_calendario: tipo?.campo_calendario ?? false,
   })
-  const [autoCompletar, setAutoCompletar] = useState(tipo?.auto_completar ?? false)
+  const [accionDestino, setAccionDestino] = useState<string>(tipo?.accion_destino || '')
+  const [eventoAutoCompletar, setEventoAutoCompletar] = useState<string>(tipo?.evento_auto_completar || '')
   const [resumenPredeterminado, setResumenPredeterminado] = useState(tipo?.resumen_predeterminado || '')
   const [notaPredeterminada, setNotaPredeterminada] = useState(tipo?.nota_predeterminada || '')
   const [usuarioPredeterminado, setUsuarioPredeterminado] = useState(tipo?.usuario_predeterminado || '')
@@ -150,6 +178,25 @@ export function PaginaEditorTipoActividad({
     setModulos(prev => prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod])
   }
 
+  // Eventos de auto-completado disponibles según la acción seleccionada.
+  // Si no hay acción, no se muestra el selector de eventos.
+  const eventosDisponibles = useMemo(() => {
+    if (!accionDestino) return null
+    return EVENTOS_POR_ACCION[accionDestino] ?? null
+  }, [accionDestino])
+
+  // Cuando cambia la acción destino, resetear el evento si ya no aplica.
+  useEffect(() => {
+    if (!accionDestino) {
+      if (eventoAutoCompletar) setEventoAutoCompletar('')
+      return
+    }
+    const validos = (EVENTOS_POR_ACCION[accionDestino] ?? []).map(e => e.valor)
+    if (eventoAutoCompletar && !validos.includes(eventoAutoCompletar)) {
+      setEventoAutoCompletar('')
+    }
+  }, [accionDestino, eventoAutoCompletar])
+
   // ─── Guardar ───
   const handleGuardar = async () => {
     if (!etiqueta.trim()) {
@@ -165,7 +212,9 @@ export function PaginaEditorTipoActividad({
         color,
         modulos_disponibles: modulos,
         dias_vencimiento: diasVencimiento,
-        auto_completar: autoCompletar,
+        accion_destino: accionDestino || null,
+        // Si no hay acción destino, no tiene sentido tener evento de auto-completar.
+        evento_auto_completar: accionDestino && eventoAutoCompletar ? eventoAutoCompletar : null,
         resumen_predeterminado: resumenPredeterminado.trim() || null,
         nota_predeterminada: notaPredeterminada.trim() || null,
         usuario_predeterminado: usuarioPredeterminado || null,
@@ -306,18 +355,41 @@ export function PaginaEditorTipoActividad({
         </div>
       </div>
 
-      {/* Comportamiento */}
+      {/* Comportamiento — acción del tipo + auto-completado */}
       <div className="space-y-2">
         <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
           Comportamiento
         </label>
-        <div className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-card border border-white/[0.06] bg-white/[0.03]">
-          <div>
-            <p className="text-xs font-medium text-texto-secundario">Auto-completar al ejecutar</p>
-            <p className="text-[11px] text-texto-terciario mt-0.5">Se completa al crear el documento</p>
-          </div>
-          <Interruptor activo={autoCompletar} onChange={setAutoCompletar} />
+
+        {/* Acción al ejecutar el tipo (qué documento crea) */}
+        <div className="space-y-1.5">
+          <p className="text-xs text-texto-secundario">Acción al ejecutar</p>
+          <Select
+            valor={accionDestino}
+            onChange={setAccionDestino}
+            opciones={ACCIONES_DESTINO.map(a => ({ valor: a.valor, etiqueta: a.etiqueta }))}
+          />
+          <p className="text-[11px] text-texto-terciario leading-snug">
+            {accionDestino
+              ? 'Al ejecutar la actividad se abre el módulo elegido con los datos precargados.'
+              : 'Conectá este tipo a un módulo del sistema para que la actividad se pueda completar sola cuando corresponda.'}
+          </p>
         </div>
+
+        {/* Cuándo auto-completar la actividad — solo aparece si hay acción */}
+        {eventosDisponibles && (
+          <div className="space-y-1.5 pt-1">
+            <p className="text-xs text-texto-secundario">Auto-completar la actividad</p>
+            <Select
+              valor={eventoAutoCompletar}
+              onChange={setEventoAutoCompletar}
+              opciones={eventosDisponibles.map(e => ({ valor: e.valor, etiqueta: e.etiqueta }))}
+            />
+            <p className="text-[11px] text-texto-terciario leading-snug">
+              Cuándo cerrar la actividad sin que el usuario tenga que marcarla a mano.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

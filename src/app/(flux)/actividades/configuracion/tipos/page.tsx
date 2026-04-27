@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import {
-  Plus, Tag, Trash2, RotateCcw, Calendar, Type, Zap,
+  Plus, Tag, Trash2, RotateCcw, Calendar, Type, Zap, Workflow,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -24,8 +24,16 @@ import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { normalizarBusqueda } from '@/lib/validaciones'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import type { TipoActividad } from '../_tipos'
+import { ACCIONES_TIPO_ACTIVIDAD } from '../../_componentes/_acciones_tipo'
 
 const I = 13
+
+/** Etiqueta legible para el evento de auto-completar — usada en la columna "Acción". */
+const ETIQUETA_EVENTO_AUTO: Record<string, string> = {
+  al_crear: 'al crear',
+  al_enviar: 'al enviar',
+  al_finalizar: 'al finalizar',
+}
 
 export default function PaginaListadoTiposActividad() {
   const router = useRouter()
@@ -193,6 +201,30 @@ export default function PaginaListadoTiposActividad() {
           {t.dias_vencimiento === 0 ? 'Sin plazo' : `${t.dias_vencimiento} día${t.dias_vencimiento !== 1 ? 's' : ''}`}
         </span>
       ),
+    },
+    {
+      clave: 'accion', etiqueta: 'Acción', ancho: 220, grupo: 'Comportamiento', icono: <Workflow size={I} />,
+      render: (t) => {
+        const accion = t.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[t.accion_destino] : null
+        if (!accion) {
+          return <span className="text-[11px] text-texto-terciario">—</span>
+        }
+        const IconoAccion = accion.icono
+        const eventoTxt = t.evento_auto_completar ? ETIQUETA_EVENTO_AUTO[t.evento_auto_completar] : null
+        return (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md bg-texto-marca/10 border border-texto-marca/20 text-texto-marca whitespace-nowrap">
+              <IconoAccion size={11} />
+              {accion.etiqueta}
+            </span>
+            {eventoTxt && (
+              <span className="text-[11px] text-texto-terciario whitespace-nowrap">
+                cierra {eventoTxt}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       clave: 'origen', etiqueta: 'Origen', ancho: 120, grupo: 'Clasificación',

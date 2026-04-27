@@ -116,7 +116,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   const actividadOrigenIdRef = useRef<string | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    // Guardar actividad_origen_id si viene de una actividad con auto_completar
+    // Guardar actividad_origen_id si viene de una actividad con evento_auto_completar configurado
     if (params.get('actividad_origen_id')) {
       actividadOrigenIdRef.current = params.get('actividad_origen_id')
     }
@@ -385,7 +385,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
 
   const crearVisita = async (datos: Record<string, unknown>) => {
     try {
-      // Incluir actividad_origen_id si viene de una actividad con auto_completar
+      // Incluir actividad_origen_id si viene de una actividad con evento_auto_completar configurado
       const payload = actividadOrigenIdRef.current
         ? { ...datos, actividad_origen_id: actividadOrigenIdRef.current }
         : datos

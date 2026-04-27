@@ -45,8 +45,13 @@ export async function GET(request: NextRequest) {
     const noLeidas = conteoNoLeidas.count
 
     // Enriquecer notificaciones de actividades con tipo (etiqueta + color)
-    // Usa foreign key join para resolver en 1 sola query en vez de 3 secuenciales
-    const notificacionesEnriquecidas = data || []
+    // Usa foreign key join para resolver en 1 sola query en vez de 3 secuenciales.
+    // tipo_etiqueta/tipo_color son campos derivados que el cliente espera, no viven en la tabla.
+    type NotificacionEnriquecida = (typeof data extends (infer T)[] | null ? T : never) & {
+      tipo_etiqueta?: string
+      tipo_color?: string
+    }
+    const notificacionesEnriquecidas: NotificacionEnriquecida[] = (data || []) as NotificacionEnriquecida[]
     const refsActividad = notificacionesEnriquecidas
       .filter(n => n.referencia_tipo === 'actividad' && n.referencia_id)
       .map(n => n.referencia_id!)

@@ -11,7 +11,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, ClipboardList, CalendarClock,
-  CheckCircle, Clock, User, FileText, MapPin, Trash2, History,
+  CheckCircle, Clock, User, Trash2, History,
   RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
@@ -24,6 +24,7 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalActividad } from './ModalActividad'
 import type { Actividad, Vinculo } from './ModalActividad'
+import { ACCIONES_TIPO_ACTIVIDAD } from './_acciones_tipo'
 import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -605,34 +606,25 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     return acciones
   }, [completarLote, puedeCompletar, puedeEditar, puedeEliminar, t])
 
-  /** Acción inteligente por tipo — presupuestar abre /presupuestos/nuevo con contacto */
+  /**
+   * Acción inteligente por tipo. Despacha por `tipo.accion_destino` (configurable
+   * por la empresa) en vez de hardcodear por `tipo.clave`. Si el tipo no tiene
+   * acción destino, se abre el modal de edición default.
+   */
   const ejecutarAccionTipo = (act: Actividad) => {
     const tipo = tiposPorId[act.tipo_id]
     if (!tipo) return
-    const contacto = (act.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
-    // Si el tipo tiene auto_completar, pasar el ID de la actividad para completarla al guardar
-    const paramAuto = tipo.auto_completar ? `&actividad_origen_id=${act.id}` : ''
-
-    switch (tipo.clave) {
-      case 'presupuestar':
-        if (contacto) {
-          router.push(`/presupuestos/nuevo?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
-        } else {
-          router.push(`/presupuestos/nuevo?desde=/actividades${paramAuto}`)
-        }
-        return
-      case 'visita':
-        if (contacto) {
-          router.push(`/visitas?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
-        }
-        return
-      case 'correo':
-        if (contacto) {
-          router.push(`/inbox?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
-        }
-        return
+    const accion = tipo.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
+    if (accion) {
+      const contacto = (act.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
+      // Pasar siempre el origen si el tipo tiene algún evento de auto-completar
+      // configurado: el backend decide cuándo cerrar la actividad ('al_crear',
+      // 'al_enviar' o 'al_finalizar').
+      const actOrigenId = tipo.evento_auto_completar ? act.id : undefined
+      router.push(accion.ruta(contacto?.id, actOrigenId))
+      return
     }
-    // Default: abrir modal de edición
+    // Sin acción destino: abrir el modal de edición.
     setActividadEditando(act)
     setModalAbierto(true)
   }
@@ -777,18 +769,20 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
         const esPendiente = fila.estado_clave !== 'completada' && fila.estado_clave !== 'cancelada'
         const estado = estadosPorClave[fila.estado_clave]
         const tipo = tiposPorId[fila.tipo_id]
-        const tieneAccionTipo = esPendiente && tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave)
+        const accionTipo = tipo?.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
+        const tieneAccionTipo = esPendiente && accionTipo
+        const IconoAccion = accionTipo?.icono ?? ClipboardList
         return (
           <div className="flex items-center gap-0.5 justify-end">
             {/* Acción inteligente según tipo — espacio fijo */}
             <div className="size-6 shrink-0 flex items-center justify-center">
               {tieneAccionTipo && (
-                <Tooltip contenido={tipo?.clave === 'presupuestar' ? 'Crear presupuesto' : tipo?.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
+                <Tooltip contenido={accionTipo.etiqueta}>
                   <Boton
                     variante="fantasma"
                     tamano="xs"
                     soloIcono
-                    icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
+                    icono={<IconoAccion size={14} />}
                     onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
                     titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
                   />
@@ -945,17 +939,20 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
               {fila.prioridad === 'baja' && <Insignia color="info">Baja</Insignia>}
             </div>
 
-            {esPendiente && (
+            {esPendiente && (() => {
+              const accionTipoMobile = tipo?.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
+              const IconoAccionMobile = accionTipoMobile?.icono ?? ClipboardList
+              return (
               <div className="flex items-center gap-0.5">
-                {tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave) && (
-                  <Tooltip contenido={tipo.clave === 'presupuestar' ? 'Crear presupuesto' : tipo.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
+                {accionTipoMobile && (
+                  <Tooltip contenido={accionTipoMobile.etiqueta}>
                     <Boton
                       variante="fantasma"
                       tamano="xs"
                       soloIcono
-                      icono={tipo.clave === 'presupuestar' ? <FileText size={15} /> : tipo.clave === 'visita' ? <MapPin size={15} /> : <ClipboardList size={15} />}
+                      icono={<IconoAccionMobile size={15} />}
                       onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
-                      titulo={`Ir a ${tipo.etiqueta?.toLowerCase()}`}
+                      titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
                     />
                   </Tooltip>
                 )}
@@ -991,7 +988,8 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
                   </div>
                 </div>
               </div>
-            )}
+              )
+            })()}
           </div>
         </div>
       </div>

@@ -145,6 +145,7 @@ export interface Conversacion {
   ultimo_mensaje_texto: string | null
   ultimo_mensaje_en: string | null
   ultimo_mensaje_es_entrante: boolean
+  tiene_mensaje_entrante: boolean
   mensajes_sin_leer: number
   primera_respuesta_en: string | null
   tiempo_sin_respuesta_desde: string | null

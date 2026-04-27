@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
     const canal_id = params.get('canal_id')
     const busqueda = params.get('busqueda') || ''
     const enviados = params.get('enviados') === 'true'
+    // Carpeta "Entrada": solo conversaciones que recibieron al menos un
+    // mensaje del contacto. Las solo salientes (sin respuesta) quedan únicamente
+    // en "Enviados".
+    const soloRecibidos = params.get('solo_recibidos') === 'true'
     const soloNoLeidos = params.get('no_leidos') === 'true'
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '500'), 500)
@@ -83,6 +87,12 @@ export async function GET(request: NextRequest) {
     // Filtro enviados: solo conversaciones donde el último mensaje es saliente
     if (enviados) {
       query = query.eq('ultimo_mensaje_es_entrante', false)
+    }
+
+    // Filtro entrada: excluir conversaciones que solo tienen mensajes salientes
+    // (hilos donde nunca respondió el contacto). Esos viven solo en "Enviados".
+    if (soloRecibidos) {
+      query = query.eq('tiene_mensaje_entrante', true)
     }
 
     // Filtro no leídos: solo conversaciones con mensajes sin leer

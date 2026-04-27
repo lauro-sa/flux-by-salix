@@ -55,10 +55,10 @@ export async function GET(
     if (!visibilidad) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
+    // Las conversaciones se crean por webhook (no tienen creador humano):
+    // soloPropio se valida únicamente contra el agente asignado.
     if (visibilidad.soloPropio) {
-      const esAsignado = data.asignado_a === user.id
-      const esCreador = data.creado_por === user.id
-      if (!esAsignado && !esCreador) {
+      if (data.asignado_a !== user.id) {
         return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
       }
     }
@@ -74,7 +74,7 @@ export async function GET(
       usuarioId: user.id,
       tipoEntidad: 'conversacion',
       entidadId: id,
-      titulo: data.contacto_nombre || data.remitente_nombre || 'Conversación',
+      titulo: data.contacto_nombre || 'Conversación',
       subtitulo: nombreCanal,
       accion: 'visto',
     })
@@ -107,7 +107,7 @@ export async function PATCH(
     const adminAcceso = crearClienteAdmin()
     const { data: convAcceso } = await adminAcceso
       .from('conversaciones')
-      .select('tipo_canal, asignado_a, creado_por')
+      .select('tipo_canal, asignado_a')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -120,12 +120,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Sin permiso para modificar conversaciones de este canal' }, { status: 403 })
     }
     const visibilidadMod = await verificarVisibilidad(user.id, empresaId, moduloCanal)
-    if (visibilidadMod?.soloPropio) {
-      const esAsignado = convAcceso.asignado_a === user.id
-      const esCreador = convAcceso.creado_por === user.id
-      if (!esAsignado && !esCreador) {
-        return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
-      }
+    if (visibilidadMod?.soloPropio && convAcceso.asignado_a !== user.id) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
 
     const body = await request.json()

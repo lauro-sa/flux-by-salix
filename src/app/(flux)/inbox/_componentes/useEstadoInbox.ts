@@ -14,7 +14,7 @@ import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { DatosCorreo } from './CompositorCorreo'
 import type { CarpetaCorreo } from './SidebarCorreo'
 import { useTraduccion } from '@/lib/i18n'
-import { DEBOUNCE_BUSQUEDA, INTERVALO_HEARTBEAT, INTERVALO_POLLING } from '@/lib/constantes/timeouts'
+import { DEBOUNCE_BUSQUEDA, INTERVALO_HEARTBEAT, INTERVALO_POLLING, INTERVALO_SYNC_CORREO_BACKGROUND } from '@/lib/constantes/timeouts'
 
 /**
  * Hook principal del Inbox — centraliza estado de Correo e Interno.
@@ -29,7 +29,7 @@ export function useEstadoInbox() {
   const { t } = useTraduccion()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { mostrar } = useToast()
+  const { mostrar, mostrarProgreso, actualizarProgreso, cerrarProgreso } = useToast()
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
   // ─── Estado global del inbox ───
@@ -168,7 +168,12 @@ export function useEstadoInbox() {
         params.set('canal_id', canalCorreoActivo)
       }
       switch (carpetaCorreo) {
-        case 'entrada': params.set('estado', 'abierta'); break
+        case 'entrada':
+          // Entrada = hilos abiertos que recibieron al menos un mensaje del
+          // contacto. Los hilos solo salientes viven solo en "Enviados".
+          params.set('estado', 'abierta')
+          params.set('solo_recibidos', 'true')
+          break
         case 'enviados': params.set('enviados', 'true'); break
         case 'spam': params.set('estado', 'spam'); break
         case 'archivado': params.set('estado', 'resuelta'); break
@@ -391,15 +396,30 @@ export function useEstadoInbox() {
     return () => clearInterval(intervalo)
   }, [tabActivo, cargarContadores, configCargada])
 
-  // Sincronizar correos
+  // Sincronizar correos.
+  // Modo `silencioso`: para el polling automático. NO muestra el indicador
+  // "Sincronizando…" salvo que el sync efectivamente traiga mensajes nuevos.
+  // Así evitamos que la barra parpadee cada vuelta cuando no hay novedades.
+  // Modo normal (sin silencioso): se usa cuando el usuario dispara el sync
+  // manualmente — siempre mostramos feedback visible.
   const sincronizandoRef = useRef(false)
-  const sincronizarCorreos = useCallback(async () => {
+  const sincronizarCorreos = useCallback(async (opciones?: { silencioso?: boolean }) => {
     if (sincronizandoRef.current) return
+    const silencioso = opciones?.silencioso === true
     sincronizandoRef.current = true
-    setSincronizando(true)
+    if (!silencioso) setSincronizando(true)
     try {
       const res = await fetch('/api/inbox/correo/sincronizar', { method: 'POST' })
-      const data = await res.json()
+      const data = await res.json() as { resultados?: { mensajes_nuevos?: number }[] }
+      const mensajesNuevos = (data.resultados || []).reduce(
+        (acc, r) => acc + (r.mensajes_nuevos || 0),
+        0,
+      )
+      // Si era silencioso pero llegaron mensajes, mostrar el indicador igual
+      // (señal visual de "acaba de llegar algo") por un instante.
+      if (silencioso && mensajesNuevos > 0) {
+        setSincronizando(true)
+      }
       await Promise.all([cargarConversaciones(), cargarContadores()])
       setUltimoSync(new Date())
       return data
@@ -411,10 +431,32 @@ export function useEstadoInbox() {
     }
   }, [cargarConversaciones, cargarContadores])
 
+  // Polling automático de correos:
+  // - Cada 3 minutos (INTERVALO_SYNC_CORREO_BACKGROUND) en vez de 60 seg.
+  //   Servidores IMAP (Hotmail/Outlook por IMAP) penalizan polling agresivo.
+  // - Pausa cuando la pestaña está oculta (Page Visibility API): no tiene
+  //   sentido sincronizar mientras el usuario trabaja en otra ventana.
+  // - Al volver al foco hace sync inmediato (catch-up).
   useEffect(() => {
     if (tabActivo !== 'correo' || !configCargada) return
-    const intervalo = setInterval(sincronizarCorreos, INTERVALO_HEARTBEAT)
-    return () => clearInterval(intervalo)
+
+    const tick = () => {
+      if (document.hidden) return
+      sincronizarCorreos({ silencioso: true })
+    }
+
+    const intervalo = setInterval(tick, INTERVALO_SYNC_CORREO_BACKGROUND)
+
+    // Sync inmediato al volver del background.
+    const onVisibilityChange = () => {
+      if (!document.hidden) sincronizarCorreos({ silencioso: true })
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      clearInterval(intervalo)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [tabActivo, sincronizarCorreos, configCargada])
 
   // Obtener userId
@@ -789,32 +831,73 @@ export function useEstadoInbox() {
   }, [conversacionSeleccionada, mostrar])
 
   const eliminarMultiples = useCallback(async (ids: string[]) => {
-    let errores = 0
-    for (const id of ids) {
-      try {
-        if (tabActivo === 'correo') {
-          await fetch('/api/inbox/correo/eliminar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conversacion_id: id }),
-          })
-        } else {
-          await fetch(`/api/inbox/conversaciones/${id}`, { method: 'DELETE' })
-        }
-      } catch { errores++ }
-    }
+    if (ids.length === 0) return
+    const total = ids.length
+
+    // Optimistic UI: sacar de la lista al toque para feedback inmediato.
+    // Si algún delete falla, esos quedan registrados para mostrar en el toast final.
     setConversaciones(prev => prev.filter(c => !ids.includes(c.id)))
     if (conversacionSeleccionada && ids.includes(conversacionSeleccionada.id)) {
       setConversacionSeleccionada(null)
       setMensajes([])
     }
-    cargarContadores()
-    if (errores > 0) {
-      mostrar('advertencia', `${ids.length - errores} de ${ids.length} eliminadas (${errores} fallaron)`)
-    } else {
-      mostrar('exito', `${ids.length} conversación${ids.length > 1 ? 'es' : ''} eliminada${ids.length > 1 ? 's' : ''}`)
+
+    // Toast persistente con barra de progreso. Para tandas chicas (≤3) no vale
+    // la pena, basta el toast final. Para más, mostramos progreso real porque
+    // borrar 600 correos contra IMAP/Gmail puede tardar minutos.
+    const usaProgreso = total > 3
+    const idToast = usaProgreso
+      ? mostrarProgreso(`Eliminando 0 de ${total}…`, total)
+      : null
+
+    let hechos = 0
+    let errores = 0
+    const CONCURRENCIA = 5 // 5 deletes en paralelo equilibra velocidad y carga
+
+    const eliminarUno = async (id: string) => {
+      try {
+        if (tabActivo === 'correo') {
+          const res = await fetch('/api/inbox/correo/eliminar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversacion_id: id }),
+          })
+          if (!res.ok) errores++
+        } else {
+          const res = await fetch(`/api/inbox/conversaciones/${id}`, { method: 'DELETE' })
+          if (!res.ok) errores++
+        }
+      } catch {
+        errores++
+      } finally {
+        hechos++
+        if (idToast) {
+          actualizarProgreso(idToast, hechos, `Eliminando ${hechos} de ${total}…`)
+        }
+      }
     }
-  }, [conversacionSeleccionada, cargarContadores, tabActivo, mostrar])
+
+    // Procesar en lotes de CONCURRENCIA: arrancamos N promesas y avanzamos
+    // a la siguiente tanda recién cuando todas terminan.
+    for (let i = 0; i < ids.length; i += CONCURRENCIA) {
+      const lote = ids.slice(i, i + CONCURRENCIA)
+      await Promise.all(lote.map(eliminarUno))
+    }
+
+    cargarContadores()
+
+    const exitos = total - errores
+    const mensajeFinal = errores > 0
+      ? `${exitos} de ${total} eliminadas (${errores} fallaron)`
+      : `${total} ${total === 1 ? 'conversación eliminada' : 'conversaciones eliminadas'}`
+    const tipoFinal = errores > 0 ? 'advertencia' : 'exito'
+
+    if (idToast) {
+      cerrarProgreso(idToast, mensajeFinal, tipoFinal)
+    } else {
+      mostrar(tipoFinal, mensajeFinal)
+    }
+  }, [conversacionSeleccionada, cargarContadores, tabActivo, mostrar, mostrarProgreso, actualizarProgreso, cerrarProgreso])
 
   const eliminarConversacion = useCallback(async (conversacionId: string) => {
     try {

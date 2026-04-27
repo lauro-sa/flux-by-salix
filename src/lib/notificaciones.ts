@@ -262,17 +262,17 @@ async function notificarAdminsObservadores({
 
   if (!miembros || miembros.length === 0) return
 
-  // Verificar cuáles tienen la preferencia activada
+  // Verificar cuáles tienen la preferencia activada en alguno de sus dispositivos.
+  // preferencias_usuario es por (usuario_id, dispositivo_id) — basta con que un
+  // dispositivo tenga el flag para considerar al usuario observador.
   const { data: preferencias } = await admin
     .from('preferencias_usuario')
-    .select('usuario_id, preferencias')
-    .eq('empresa_id', empresaId)
+    .select('usuario_id')
     .in('usuario_id', miembros.map(m => m.usuario_id))
+    .eq('recibir_todas_notificaciones', true)
 
-  const observadores = miembros.filter(m => {
-    const pref = preferencias?.find(p => p.usuario_id === m.usuario_id)
-    return pref?.preferencias?.recibir_todas_notificaciones === true
-  })
+  const observadoresIds = new Set(preferencias?.map(p => p.usuario_id) ?? [])
+  const observadores = miembros.filter(m => observadoresIds.has(m.usuario_id))
 
   if (observadores.length === 0) return
 

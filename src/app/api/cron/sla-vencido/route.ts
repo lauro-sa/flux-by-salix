@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Buscar conversaciones con SLA vencido que todavía no fueron respondidas
     const { data: conversaciones, error } = await admin
       .from('conversaciones')
-      .select('id, empresa_id, contacto_nombre, canal, tipo_canal, asignado_a, asignado_nombre, sla_primera_respuesta_vence_en')
+      .select('id, empresa_id, contacto_nombre, tipo_canal, asignado_a, asignado_a_nombre, sla_primera_respuesta_vence_en')
       .not('sla_primera_respuesta_vence_en', 'is', null)
       .is('sla_primera_respuesta_en', null)
       .lt('sla_primera_respuesta_vence_en', ahora)
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     let notificadas = 0
 
     for (const conv of conversaciones) {
-      const tipo = (conv as { tipo_canal?: string }).tipo_canal || conv.canal
+      const tipo = conv.tipo_canal
       const config = tipo === 'whatsapp' ? configWhatsAppMap.get(conv.empresa_id)
         : tipo === 'correo' ? configCorreoMap.get(conv.empresa_id)
         : null
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         usuarioId: destinatario,
         tipo: 'sla_vencido',
         titulo: `⏰ SLA vencido hace ${tiempoTexto}`,
-        cuerpo: `${conv.contacto_nombre || 'Sin nombre'} · ${conv.canal === 'whatsapp' ? 'WhatsApp' : conv.canal === 'correo' ? 'Correo' : 'Mensaje'}`,
+        cuerpo: `${conv.contacto_nombre || 'Sin nombre'} · ${tipo === 'whatsapp' ? 'WhatsApp' : tipo === 'correo' ? 'Correo' : 'Mensaje'}`,
         icono: 'AlertTriangle',
         color: COLOR_NOTIFICACION.peligro,
         url: `/inbox?conv=${conv.id}`,

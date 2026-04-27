@@ -100,12 +100,7 @@ interface Miembro {
   apellido: string
 }
 
-/** Mapeo tipo → acción inteligente */
-const ACCIONES_TIPO: Record<string, { etiqueta: string; icono: typeof FileText; ruta: (contactoId?: string, actividadOrigenId?: string) => string }> = {
-  presupuestar: { etiqueta: 'Crear presupuesto', icono: FileText, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/presupuestos/nuevo?${params}` } },
-  visita: { etiqueta: 'Ir a visitas', icono: MapPin, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/visitas?${params}` } },
-  correo: { etiqueta: 'Enviar correo', icono: MailIcon, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/inbox?${params}` } },
-}
+import { ACCIONES_TIPO_ACTIVIDAD } from './_acciones_tipo'
 
 interface PresetPosposicion {
   id: string
@@ -502,11 +497,14 @@ function ModalActividad({
           )}
           {(() => {
             const tipoAct = tiposActivos.find(t => t.id === actividad.tipo_id)
-            const accion = tipoAct ? ACCIONES_TIPO[tipoAct.clave] : null
+            // Despacho por accion_destino (configurable por la empresa), no por clave.
+            const accion = tipoAct?.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipoAct.accion_destino] : null
             if (!accion || !tipoAct) return null
             const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
             const IconoAccion = accion.icono
-            const actOrigenId = tipoAct.auto_completar ? actividad.id : undefined
+            // Pasar la actividad origen siempre que el tipo tenga algún evento de auto-completar:
+            // el backend decide si completarla 'al_crear', 'al_enviar' o 'al_finalizar'.
+            const actOrigenId = tipoAct.evento_auto_completar ? actividad.id : undefined
             return (
               <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
                 onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id, actOrigenId)) }}

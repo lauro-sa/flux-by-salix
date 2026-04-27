@@ -9,8 +9,10 @@ import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import {
   Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan, ShieldCheck,
   Paperclip, ChevronDown, ChevronUp, Download, MailOpen, Mail as MailIcon,
-  FileText, Image, Film, Tag, MoreHorizontal,
+  FileText, Image, Film, Tag, MoreHorizontal, ExternalLink,
+  Users, MapPin, Wrench, Zap,
 } from 'lucide-react'
+import Link from 'next/link'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
 import { PanelIA } from '@/componentes/mensajeria/PanelIA'
 import { ModalEtiquetas } from '@/componentes/mensajeria/ModalEtiquetas'
@@ -81,15 +83,27 @@ function VisorCorreoHTML({ html }: { html: string }) {
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus'],
   })
 
-  // Correo con fondo blanco fijo (como Gmail/Outlook), para que los estilos inline
-  // del remitente se lean siempre, sin importar el tema de la app.
+  // Correo con fondo blanco fijo (como Gmail/Outlook), para que los estilos
+  // inline del remitente se lean siempre, sin importar el tema de la app.
+  //
+  // Override de colores forzados: la plantilla vieja de presupuesto (correos
+  // ya enviados, guardados en BD) usa `@media (prefers-color-scheme: dark)`
+  // con `!important` para texto claro. Eso quedaba invisible cuando el SO
+  // del usuario estaba en dark. Acá agregamos reglas de mayor especificidad
+  // (selector encadenado `html body .email-body …`) dentro de la misma media
+  // query: como van DESPUÉS y tienen mayor especificidad, ganan al CSS de la
+  // plantilla. Solo afecta a la clase `.email-body` (nuestra plantilla),
+  // los correos externos no la usan, así que no rompe nada.
   const documentoCompleto = `<!DOCTYPE html>
-<html>
+<html style="color-scheme: light;">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <base target="_blank">
 <style>
+:root { color-scheme: light; }
 html, body {
   background-color: #ffffff !important;
   color: #1a1a1a;
@@ -113,6 +127,20 @@ img[src=""] { display: none !important; }
 img:not([src]) { display: none !important; }
 table { max-width: 100% !important; }
 pre { white-space: pre-wrap; }
+/* Override para correos viejos guardados con plantilla que forzaba texto
+   claro en dark mode. Mayor especificidad gana al !important de la plantilla. */
+@media (prefers-color-scheme: dark) {
+  html body .email-body,
+  html body .email-body p,
+  html body .email-body td,
+  html body .email-body span,
+  html body .email-body div,
+  html body .email-body li,
+  html body .email-body strong,
+  html body .email-body em { color: #1a1a1a !important; }
+  html body .email-body a:not([style*="background"]) { color: #2563eb !important; }
+  html body .email-body hr { border-color: #e2e8f0 !important; }
+}
 </style>
 </head>
 <body>${htmlSeguro}</body>
@@ -181,6 +209,32 @@ function extraerEmail(dir: string): string {
   return match ? match[1].toLowerCase() : dir.trim().toLowerCase()
 }
 
+/** Entidad del sistema vinculada al hilo (presupuesto, orden, etc.). */
+interface EntidadVinculada {
+  tipo: string
+  id: string
+  nombre: string
+  ruta: string
+}
+
+/** Mapa de tipo de entidad → ícono mostrado en el chip. */
+const ICONO_ENTIDAD: Record<string, React.ComponentType<{ size?: number }>> = {
+  presupuesto: FileText,
+  orden: Wrench,
+  contacto: Users,
+  visita: MapPin,
+  actividad: Zap,
+}
+
+/** Etiqueta legible (singular) para cada tipo de entidad. */
+const ETIQUETA_ENTIDAD: Record<string, string> = {
+  presupuesto: 'Presupuesto',
+  orden: 'Orden',
+  contacto: 'Contacto',
+  visita: 'Visita',
+  actividad: 'Actividad',
+}
+
 export function PanelCorreo({
   conversacion,
   mensajes,
@@ -214,6 +268,34 @@ export function PanelCorreo({
   const [textoIA, setTextoIA] = useState('')
   const [mensajesExpandidos, setMensajesExpandidos] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Entidades del sistema vinculadas a la conversación (presupuesto, orden, etc.).
+  // Se reconstruyen desde chatter buscando los correos enviados desde la entidad.
+  // Permite saltar al presupuesto y volver al hilo con las migajas (Inbox > Pres).
+  const [entidadesVinculadas, setEntidadesVinculadas] = useState<EntidadVinculada[]>([])
+  useEffect(() => {
+    if (!conversacion?.id) {
+      setEntidadesVinculadas([])
+      return
+    }
+    let cancelado = false
+    fetch(`/api/inbox/conversaciones/${conversacion.id}/entidades-vinculadas`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelado) return
+        setEntidadesVinculadas(data.entidades || [])
+      })
+      .catch(() => { if (!cancelado) setEntidadesVinculadas([]) })
+    return () => { cancelado = true }
+  }, [conversacion?.id])
+
+  // Construye el href para el chip — preserva el conv_id en el ?desde= para que
+  // las migajas puedan volver a este mismo hilo, no solo al listado del Inbox.
+  const construirHref = useCallback((ruta: string) => {
+    if (!conversacion?.id) return ruta
+    const desde = encodeURIComponent(`/inbox?conv=${conversacion.id}&tab=correo`)
+    return `${ruta}?desde=${desde}`
+  }, [conversacion?.id])
 
   // Expandir el último mensaje por defecto
   useEffect(() => {
@@ -334,13 +416,36 @@ export function PanelCorreo({
             <h2 className="text-base font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {conversacion.asunto || `(${t('inbox.sin_asunto')})`}
             </h2>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center flex-wrap gap-2 mt-1">
               <Insignia color="neutro" tamano="sm">
                 {mensajes.length} {mensajes.length === 1 ? 'mensaje' : 'mensajes'}
               </Insignia>
               {conversacion.etiquetas?.map((tag) => (
                 <Insignia key={tag} color="primario" tamano="sm">{tag}</Insignia>
               ))}
+              {/* Chips de entidades vinculadas — saltan al presupuesto/orden/etc.
+                  preservando el conv_id en ?desde= para volver al hilo. */}
+              {entidadesVinculadas.map((ent) => {
+                const Icono = ICONO_ENTIDAD[ent.tipo] || FileText
+                const etiquetaTipo = ETIQUETA_ENTIDAD[ent.tipo] || ent.tipo
+                return (
+                  <Link
+                    key={`${ent.tipo}:${ent.id}`}
+                    href={construirHref(ent.ruta)}
+                    title={`Ir al ${etiquetaTipo.toLowerCase()}: ${ent.nombre}`}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors hover:opacity-80"
+                    style={{
+                      background: 'var(--insignia-info-fondo)',
+                      color: 'var(--insignia-info-texto)',
+                      border: '1px solid var(--borde-sutil)',
+                    }}
+                  >
+                    <Icono size={12} />
+                    <span className="truncate max-w-[200px]">{ent.nombre}</span>
+                    <ExternalLink size={10} style={{ opacity: 0.6 }} />
+                  </Link>
+                )
+              })}
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">

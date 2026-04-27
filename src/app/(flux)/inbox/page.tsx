@@ -162,7 +162,7 @@ function PaginaInbox() {
             vistaMovil={estado.vistaMovilCorreo}
             onCambiarVistaMovil={estado.setVistaMovilCorreo}
             onLimpiarSeleccion={limpiarSeleccionCorreo}
-            onRefresh={estado.sincronizarCorreos}
+            onRefresh={async () => { await estado.sincronizarCorreos() }}
             t={estado.t}
           />
         )}

@@ -90,23 +90,18 @@ function construirPieEmpresa(datos: DatosPieEmpresa): string {
 // ─── Wrapper principal con dark mode ───
 
 function envolverHtmlCorreo(cuerpoHtml: string): string {
+  // No forzamos colores con `@media (prefers-color-scheme: dark)`: los clientes
+  // de correo modernos (Gmail, Outlook, Apple Mail) hacen inversión automática
+  // ("smart invert") cuando el destinatario está en dark mode. Forzar colores
+  // con !important además rompe el visor del propio Inbox cuando el SO está en
+  // dark. La plantilla queda con colores claros (texto oscuro sobre claro) y
+  // cada cliente decide cómo presentarla.
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
-<style>
-:root{color-scheme:light dark;}
-@media(prefers-color-scheme:dark){
-.email-body{color:#e0e0e0 !important;}
-.email-body p{color:#e0e0e0 !important;}
-.email-body td{color:#e0e0e0 !important;}
-.email-body span{color:#e0e0e0 !important;}
-.email-body a{color:#7cacf8 !important;}
-.email-body a[style*="background"]{color:#ffffff !important;}
-.email-body hr{border-color:#555 !important;}
-}
-</style></head>
-<body style="margin:0;padding:0;">
-<div class="email-body" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;max-width:680px;margin:0 auto;padding:16px;">
+<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
+<style>:root{color-scheme:light;}</style></head>
+<body style="margin:0;padding:0;background:#ffffff;">
+<div class="email-body" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;max-width:680px;margin:0 auto;padding:16px;background:#ffffff;">
 ${cuerpoHtml}
 </div></body></html>`
 }

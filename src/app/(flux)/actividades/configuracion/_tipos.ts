@@ -18,7 +18,10 @@ export interface TipoActividad {
   campo_prioridad: boolean
   campo_checklist: boolean
   campo_calendario: boolean
-  auto_completar: boolean
+  /** Qué módulo/documento crea este tipo al ejecutarlo. null = sin acción (solo edita). */
+  accion_destino: 'presupuesto' | 'visita' | 'correo' | null
+  /** Cuándo se autocompleta la actividad. null = manual. */
+  evento_auto_completar: 'al_crear' | 'al_enviar' | 'al_finalizar' | null
   resumen_predeterminado: string | null
   nota_predeterminada: string | null
   usuario_predeterminado: string | null

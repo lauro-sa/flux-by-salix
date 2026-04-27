@@ -543,27 +543,17 @@ export function ListaConversaciones({
                       </p>
                     )}
 
-                    {/* Preview mensaje con indicador enviado/recibido */}
+                    {/* Preview del último mensaje. Estilo Gmail/Apple Mail:
+                        cuando el último mensaje es saliente, prefijamos "Tú:"
+                        en lugar de mostrar un badge "Enviado/Recibido" — el
+                        badge era ruido visual que confundía al ver hilos en
+                        Bandeja de entrada donde el último msg podía ser una
+                        respuesta nuestra. Aplica para todos los canales. */}
                     <p className="text-xs truncate mt-0.5 flex items-center gap-1" style={{
                       color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
                     }}>
-                      {tipoCanal === 'correo' && conv.ultimo_mensaje_texto && (
-                        <span
-                          className="text-xxs font-medium px-1 py-px rounded flex-shrink-0"
-                          style={{
-                            background: conv.ultimo_mensaje_es_entrante
-                              ? 'var(--insignia-info-fondo)'
-                              : 'var(--superficie-hover)',
-                            color: conv.ultimo_mensaje_es_entrante
-                              ? 'var(--insignia-info-texto)'
-                              : 'var(--texto-terciario)',
-                          }}
-                        >
-                          {conv.ultimo_mensaje_es_entrante ? '↙ Recibido' : '↗ Enviado'}
-                        </span>
-                      )}
                       <span className="truncate">
-                        {conv.ultimo_mensaje_es_entrante === false && tipoCanal !== 'correo' && (
+                        {conv.ultimo_mensaje_es_entrante === false && (
                           <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>
                         )}
                         {conv.ultimo_mensaje_texto || 'Sin mensajes'}

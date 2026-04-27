@@ -23,22 +23,22 @@ export default async function PaginaPapelera() {
       .eq('en_papelera', true),
     admin
       .from('presupuestos')
-      .select('id, titulo, codigo, papelera_en, actualizado_en, editado_por')
+      .select('id, numero, contacto_nombre, papelera_en, actualizado_en, editado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
     admin
       .from('actividades')
-      .select('id, titulo, asunto, tipo, papelera_en, actualizado_en, editado_por')
+      .select('id, titulo, tipo_clave, papelera_en, actualizado_en, editado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
     admin
       .from('productos')
-      .select('id, nombre, codigo, sku, papelera_en, actualizado_en, editado_por')
+      .select('id, nombre, codigo, papelera_en, actualizado_en, editado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
     admin
       .from('visitas')
-      .select('id, titulo, contacto_nombre, estado, papelera_en, actualizado_en, editado_por')
+      .select('id, motivo, contacto_nombre, estado, papelera_en, actualizado_en, editado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
     admin
@@ -48,7 +48,7 @@ export default async function PaginaPapelera() {
       .eq('en_papelera', true),
     admin
       .from('conversaciones')
-      .select('id, contacto_nombre, remitente_nombre, asunto, tipo_canal, papelera_en, actualizado_en, actualizado_por')
+      .select('id, contacto_nombre, asunto, tipo_canal, papelera_en, actualizado_en')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
     admin
@@ -74,7 +74,7 @@ export default async function PaginaPapelera() {
   recolectarIds(productosRes.data, 'editado_por')
   recolectarIds(visitasRes.data, 'editado_por')
   recolectarIds(notasRes.data, 'actualizado_por')
-  recolectarIds(conversacionesRes.data, 'actualizado_por')
+  // Las conversaciones no registran quién las mandó a papelera (no hay columna).
   recolectarIds(eventosRes.data, 'editado_por')
   recolectarIds(recorridosRes.data, 'creado_por')
 
@@ -106,24 +106,24 @@ export default async function PaginaPapelera() {
   for (const p of (presupuestosRes.data || [])) {
     resultados.push({
       id: p.id,
-      nombre: p.titulo || p.codigo || 'Sin título',
+      nombre: p.numero || 'Sin número',
       tipo: 'presupuestos',
       eliminado_en: p.papelera_en || p.actualizado_en,
       eliminado_por: p.editado_por,
       eliminado_por_nombre: nombresUsuarios[p.editado_por] || null,
-      subtitulo: p.codigo,
+      subtitulo: p.contacto_nombre || undefined,
     })
   }
 
   for (const a of (actividadesRes.data || [])) {
     resultados.push({
       id: a.id,
-      nombre: a.titulo || a.asunto || 'Sin título',
+      nombre: a.titulo || 'Sin título',
       tipo: 'actividades',
       eliminado_en: a.papelera_en || a.actualizado_en,
       eliminado_por: a.editado_por,
       eliminado_por_nombre: nombresUsuarios[a.editado_por] || null,
-      subtitulo: a.tipo,
+      subtitulo: a.tipo_clave || undefined,
     })
   }
 
@@ -135,19 +135,19 @@ export default async function PaginaPapelera() {
       eliminado_en: p.papelera_en || p.actualizado_en,
       eliminado_por: p.editado_por,
       eliminado_por_nombre: nombresUsuarios[p.editado_por] || null,
-      subtitulo: p.codigo || p.sku,
+      subtitulo: p.codigo || undefined,
     })
   }
 
   for (const v of (visitasRes.data || [])) {
     resultados.push({
       id: v.id,
-      nombre: v.titulo || 'Sin título',
+      nombre: v.contacto_nombre || v.motivo || 'Sin título',
       tipo: 'visitas',
       eliminado_en: v.papelera_en || v.actualizado_en,
       eliminado_por: v.editado_por,
       eliminado_por_nombre: nombresUsuarios[v.editado_por] || null,
-      subtitulo: v.contacto_nombre || v.estado,
+      subtitulo: v.estado,
     })
   }
 
@@ -166,15 +166,14 @@ export default async function PaginaPapelera() {
   }
 
   for (const c of (conversacionesRes.data || [])) {
-    const uid = c.actualizado_por
     const canal = c.tipo_canal === 'whatsapp' ? 'WhatsApp' : c.tipo_canal === 'correo' ? 'Correo' : 'Chat'
     resultados.push({
       id: c.id,
-      nombre: c.contacto_nombre || c.remitente_nombre || c.asunto || 'Sin nombre',
+      nombre: c.contacto_nombre || c.asunto || 'Sin nombre',
       tipo: 'conversaciones',
       eliminado_en: c.papelera_en || c.actualizado_en,
-      eliminado_por: uid,
-      eliminado_por_nombre: nombresUsuarios[uid] || null,
+      eliminado_por: null,
+      eliminado_por_nombre: null,
       subtitulo: canal,
     })
   }

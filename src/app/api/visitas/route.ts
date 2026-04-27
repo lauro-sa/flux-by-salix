@@ -10,6 +10,7 @@ import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
+import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -231,13 +232,13 @@ export async function POST(request: NextRequest) {
       { data: config },
       { data: perfil },
     ] = await Promise.all([
-      admin.from('contactos').select('nombre, empresa_nombre').eq('id', body.contacto_id).single(),
+      admin.from('contactos').select('nombre').eq('id', body.contacto_id).single(),
       admin.from('config_visitas').select('*').eq('empresa_id', empresaId).single(),
       admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single(),
     ])
 
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
-    const contactoNombre = contacto?.nombre || contacto?.empresa_nombre || body.contacto_nombre || 'Sin nombre'
+    const contactoNombre = contacto?.nombre || body.contacto_nombre || 'Sin nombre'
 
     // Snapshot de dirección si se proporcionó
     let direccionTexto = body.direccion_texto || null
@@ -282,6 +283,9 @@ export async function POST(request: NextRequest) {
         recibe_nombre: body.recibe_nombre || null,
         recibe_telefono: body.recibe_telefono || null,
         actividad_id: body.actividad_id || null,
+        // Persistir el vínculo a la actividad ORIGEN (la que originó la visita)
+        // para que el PATCH pueda completarla cuando se finalice la visita.
+        actividad_origen_id: body.actividad_origen_id || null,
         vinculos,
         creado_por: user.id,
         creado_por_nombre: nombreCreador,
@@ -362,40 +366,20 @@ export async function POST(request: NextRequest) {
       }, tipos)
     }
 
-    // Auto-completar actividad origen si se proporcionó
+    // Auto-completar la actividad origen SOLO si su tipo tiene
+    // `evento_auto_completar = 'al_crear'`. Si está configurado 'al_finalizar',
+    // se completará cuando el PATCH cambie el estado de la visita a 'completada'.
     if (body.actividad_origen_id) {
-      const { data: estadoCompletada } = await admin
-        .from('estados_actividad')
-        .select('id, clave')
-        .eq('empresa_id', empresaId)
-        .eq('grupo', 'completado')
-        .limit(1)
-        .single()
-
-      if (estadoCompletada) {
-        await admin
-          .from('actividades')
-          .update({
-            estado_id: estadoCompletada.id,
-            estado_clave: estadoCompletada.clave,
-            completado_en: new Date().toISOString(),
-            editado_por: user.id,
-            editado_por_nombre: nombreCreador,
-            actualizado_en: new Date().toISOString(),
-          })
-          .eq('id', body.actividad_origen_id)
-          .eq('empresa_id', empresaId)
-
-        registrarChatter({
-          empresaId,
-          entidadTipo: 'actividad',
-          entidadId: body.actividad_origen_id,
-          contenido: `Completada automáticamente al programar visita a ${contactoNombre}`,
-          autorId: user.id,
-          autorNombre: nombreCreador,
-          metadata: { accion: 'actividad_completada', detalles: { visita_id: data.id } },
-        })
-      }
+      await autoCompletarActividad({
+        admin,
+        empresaId,
+        actividadId: body.actividad_origen_id,
+        eventoEsperado: 'al_crear',
+        usuarioId: user.id,
+        usuarioNombre: nombreCreador,
+        mensajeChatter: `Completada automáticamente al programar visita a ${contactoNombre}`,
+        metadataChatter: { visita_id: data.id },
+      })
     }
 
     // Registrar en recientes
