@@ -337,7 +337,8 @@ export async function GET() {
             contacto_nombre, contacto_apellido
           )
         `)
-        .eq('empresa_id', empresaId),
+        .eq('empresa_id', empresaId)
+        .is('eliminado_en', null),
 
       // ─── Todas las cuotas: usadas para proyección y para conocer el
       // monto del adelanto (cuota 1) de cada presupuesto en orden_venta. ──

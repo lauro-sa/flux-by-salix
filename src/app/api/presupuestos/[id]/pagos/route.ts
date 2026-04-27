@@ -33,7 +33,7 @@ import type {
 const TIPOS_COMPROBANTE_VALIDOS: TipoComprobantePago[] = ['comprobante', 'percepcion']
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -62,12 +62,17 @@ export async function GET(
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
-    const { data: pagos, error } = await admin
+    // Por defecto excluimos pagos en papelera; si la UI quiere ver la
+    // lista completa (vista de auditoría), pasa ?incluir_eliminados=true.
+    const incluirEliminados = request.nextUrl.searchParams.get('incluir_eliminados') === 'true'
+
+    let q = admin
       .from('presupuesto_pagos')
       .select('*')
       .eq('presupuesto_id', id)
       .eq('empresa_id', empresaId)
-      .order('fecha_pago', { ascending: false })
+    if (!incluirEliminados) q = q.is('eliminado_en', null)
+    const { data: pagos, error } = await q.order('fecha_pago', { ascending: false })
 
     if (error) {
       console.error('Error al listar pagos:', error)

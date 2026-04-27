@@ -97,6 +97,11 @@ export interface PresupuestoPago {
   editado_por_nombre: string | null
   creado_en: string
   actualizado_en: string
+
+  // Soft-delete (papelera). Si eliminado_en != null, el pago no debe contar.
+  eliminado_en: string | null
+  eliminado_por: string | null
+  eliminado_por_nombre: string | null
 }
 
 /** Payload para crear un pago. Los comprobantes se suben por separado vía FormData. */

@@ -9,16 +9,31 @@ import { sonidos } from '@/hooks/useSonido'
 
 type TipoToast = 'exito' | 'error' | 'advertencia' | 'info'
 
+interface AccionToast {
+  /** Texto del botón. Ej: "Deshacer". */
+  etiqueta: string
+  /** Callback al hacer click. El toast se cierra automáticamente después. */
+  onClick: () => void
+}
+
 interface DatosToast {
   id: string
   tipo: TipoToast
   mensaje: string
   duracion: number
   creado: number
+  /** Acción opcional al final del toast (ej. botón Deshacer en eliminar). */
+  accion?: AccionToast
+}
+
+interface OpcionesToast {
+  duracion?: number
+  /** Acción tipo "deshacer". Se renderiza como botón al final del toast. */
+  accion?: AccionToast
 }
 
 interface ContextoToast {
-  mostrar: (tipo: TipoToast, mensaje: string, duracion?: number) => void
+  mostrar: (tipo: TipoToast, mensaje: string, opcionesODuracion?: OpcionesToast | number) => void
 }
 
 const ContextoToastInterno = createContext<ContextoToast | null>(null)
@@ -67,10 +82,23 @@ function ProveedorToast({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const arriba = RUTAS_TOAST_ARRIBA.some(r => pathname.startsWith(r))
 
-  const mostrar = useCallback((tipo: TipoToast, mensaje: string, duracion = 4000) => {
+  const mostrar = useCallback((
+    tipo: TipoToast,
+    mensaje: string,
+    opcionesODuracion?: OpcionesToast | number,
+  ) => {
+    // Compat: el tercer parámetro acepta number (legacy) u objeto OpcionesToast.
+    const opciones: OpcionesToast =
+      typeof opcionesODuracion === 'number'
+        ? { duracion: opcionesODuracion }
+        : opcionesODuracion ?? {}
+    const duracion = opciones.duracion ?? 4000
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
     setToasts((prev) => {
-      const nuevos = [...prev, { id, tipo, mensaje, duracion, creado: Date.now() }]
+      const nuevos = [
+        ...prev,
+        { id, tipo, mensaje, duracion, creado: Date.now(), accion: opciones.accion },
+      ]
       return nuevos.slice(-5)
     })
     // Sonido sutil según tipo
@@ -163,6 +191,20 @@ function ToastItem({ toast, onRemover }: { toast: DatosToast; onRemover: () => v
         <span className="flex-1 text-sm text-texto-primario font-medium leading-snug">
           {toast.mensaje}
         </span>
+
+        {/* Acción opcional (ej. "Deshacer"). Click ejecuta callback y cierra. */}
+        {toast.accion && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.accion?.onClick()
+              onRemover()
+            }}
+            className="text-xs font-medium text-texto-marca hover:underline px-1.5 py-1 rounded transition-colors"
+          >
+            {toast.accion.etiqueta}
+          </button>
+        )}
 
         {/* Botón cerrar */}
         <Boton

@@ -70,6 +70,7 @@ export async function sincronizarEstadoPresupuesto({
         .select('monto_en_moneda_presupuesto, es_adicional')
         .eq('presupuesto_id', presupuestoId)
         .eq('empresa_id', empresaId)
+        .is('eliminado_en', null)
       const cobrado = (pagos || [])
         .filter((p) => !p.es_adicional)
         .reduce((s, p) => s + Number(p.monto_en_moneda_presupuesto || 0), 0)

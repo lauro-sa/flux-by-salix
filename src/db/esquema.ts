@@ -772,6 +772,13 @@ export const presupuesto_pagos = pgTable('presupuesto_pagos', {
   editado_por_nombre: text('editado_por_nombre'),
   creado_en: timestamp('creado_en', { withTimezone: true }).notNull().defaultNow(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
+
+  // Soft-delete: si está seteado el pago se considera eliminado (papelera).
+  // No cuenta en saldos ni cobrado. Un cron lo purga físicamente después
+  // de 7 días junto con sus comprobantes en Storage.
+  eliminado_en: timestamp('eliminado_en', { withTimezone: true }),
+  eliminado_por: uuid('eliminado_por'),
+  eliminado_por_nombre: text('eliminado_por_nombre'),
 }, (tabla) => [
   index('presupuesto_pagos_presupuesto_idx').on(tabla.presupuesto_id),
   index('presupuesto_pagos_cuota_idx').on(tabla.cuota_id),

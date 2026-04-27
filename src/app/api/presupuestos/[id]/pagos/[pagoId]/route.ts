@@ -84,6 +84,12 @@ export async function PATCH(
       .single()
 
     if (!pagoExistente) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
+    if (pagoExistente.eliminado_en) {
+      return NextResponse.json(
+        { error: 'No se puede editar un pago eliminado. Restauralo primero.' },
+        { status: 409 }
+      )
+    }
 
     const bodyRaw = await request.json()
     // Validación con Zod: misma fuente de reglas que POST. Aquí también
@@ -341,6 +347,17 @@ export async function PATCH(
   }
 }
 
+/**
+ * DELETE — Soft-delete del pago. NO borra los archivos de Storage ni los
+ * comprobantes; solo marca eliminado_en. El cron de purga (a implementar)
+ * borrará físicamente después de 7 días. Hasta entonces se puede restaurar
+ * con POST /pagos/[pagoId]/restaurar.
+ *
+ * También oculta la entrada del chatter vinculada (delete real, ese rastro
+ * confunde a usuarios finales cuando el pago fue cargado por error).
+ * Si se restaura el pago, la entrada del chatter NO se restaura — el
+ * frontend muestra el pago restaurado con un evento nuevo de "restauración".
+ */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; pagoId: string }> }
@@ -360,39 +377,47 @@ export async function DELETE(
 
     const { data: pago } = await admin
       .from('presupuesto_pagos')
-      .select('*')
+      .select('id, eliminado_en, cuota_id')
       .eq('id', pagoId)
       .eq('presupuesto_id', presupuestoId)
       .eq('empresa_id', empresaId)
       .single()
 
     if (!pago) return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 })
+    if (pago.eliminado_en) {
+      return NextResponse.json({ error: 'El pago ya estaba eliminado' }, { status: 409 })
+    }
 
-    // Borrar TODOS los comprobantes de Storage desde la tabla canónica.
-    const { data: comprobantes } = await admin
-      .from('presupuesto_pago_comprobantes')
-      .select('storage_path, tamano_bytes')
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+    const nombreUsuario = perfil ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() : 'Usuario'
+
+    // Soft-delete. El trigger BEFORE UPDATE no se dispara para columnas
+    // de auditoría, pero SÍ el AFTER UPDATE de presupuesto_pagos_recalcular_cuotas
+    // lo cual fuerza recálculo del estado de la cuota (ahora que el pago
+    // ya no cuenta).
+    const { error } = await admin
+      .from('presupuesto_pagos')
+      .update({
+        eliminado_en: new Date().toISOString(),
+        eliminado_por: user.id,
+        eliminado_por_nombre: nombreUsuario,
+      })
+      .eq('id', pagoId)
       .eq('empresa_id', empresaId)
-      .eq('pago_id', pagoId)
+      .is('eliminado_en', null)
 
-    const paths = new Set<string>()
-    let bytesTotal = 0
-    for (const c of comprobantes || []) {
-      if (c.storage_path) {
-        paths.add(c.storage_path)
-        if (c.tamano_bytes) bytesTotal += Number(c.tamano_bytes)
-      }
+    if (error) {
+      console.error('Error al eliminar pago:', error)
+      return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
     }
 
-    if (paths.size > 0) {
-      await admin.storage.from('documentos-pdf').remove(Array.from(paths))
-      if (bytesTotal > 0) descontarUsoStorage(empresaId, 'documentos-pdf', bytesTotal)
-    }
-
-    // Eliminar la entrada del chatter vinculada al pago (si existe). Antes
-    // creábamos una nueva entrada `pago_rechazado` como rastro, pero quedaba
-    // como evento confuso para el usuario final cuando lo eliminado era un
-    // error de carga. Política nueva: borrar la entrada original.
+    // Eliminar la entrada del chatter vinculada al pago. Política: el chatter
+    // refleja eventos visibles al usuario final; un pago en papelera no debería
+    // figurar como evento del presupuesto. Si se restaura, se crea uno nuevo.
     await admin
       .from('chatter')
       .delete()
@@ -401,28 +426,8 @@ export async function DELETE(
       .eq('entidad_id', presupuestoId)
       .contains('metadata', { pago_id: pagoId })
 
-    // Borrar el pago (CASCADE borra las filas de presupuesto_pago_comprobantes)
-    const { error } = await admin
-      .from('presupuesto_pagos')
-      .delete()
-      .eq('id', pagoId)
-      .eq('empresa_id', empresaId)
-
-    if (error) {
-      console.error('Error al eliminar pago:', error)
-      return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
-    }
-
     // Sincronizar estado del presupuesto (puede revertir 'completado' →
-    // 'orden_venta' si quedó saldo pendiente, o avanzar si ahora está
-    // todo cobrado por otro motivo).
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido')
-      .eq('id', user.id)
-      .single()
-    const nombreUsuario = perfil ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() : 'Usuario'
-
+    // 'orden_venta' si quedó saldo pendiente).
     await sincronizarEstadoPresupuesto({
       admin,
       presupuestoId,
@@ -432,7 +437,7 @@ export async function DELETE(
       razon: 'pago eliminado',
     })
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, soft_delete: true })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

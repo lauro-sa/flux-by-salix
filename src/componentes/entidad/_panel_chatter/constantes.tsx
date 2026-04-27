@@ -58,6 +58,11 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     color: 'bg-insignia-peligro/10 text-insignia-peligro',
     etiqueta: 'Pago rechazado',
   },
+  pago_restaurado: {
+    icono: <RotateCcw size={14} />,
+    color: 'bg-insignia-info/10 text-insignia-info',
+    etiqueta: 'Pago restaurado',
+  },
   pdf_generado: {
     icono: <FileText size={14} />,
     color: 'bg-texto-terciario/10 text-texto-terciario',

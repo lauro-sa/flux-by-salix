@@ -18,6 +18,7 @@ export type AccionSistema =
   | 'portal_comprobante'
   | 'pago_confirmado'
   | 'pago_rechazado'
+  | 'pago_restaurado'
   | 'pdf_generado'
   | 'campo_editado'
   | 'actividad_creada'

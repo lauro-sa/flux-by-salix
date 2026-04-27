@@ -6,6 +6,7 @@ import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
+import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -258,7 +259,8 @@ export async function GET(request: NextRequest) {
         admin
           .from('presupuesto_pagos')
           .select('presupuesto_id, monto_en_moneda_presupuesto, es_adicional')
-          .in('presupuesto_id', ids),
+          .in('presupuesto_id', ids)
+          .is('eliminado_en', null),
       ])
 
       // Agrupar cuotas por presupuesto, ordenadas por numero ascendente.
@@ -404,6 +406,9 @@ export async function POST(request: NextRequest) {
       condiciones_html: body.condiciones_html || config?.condiciones_predeterminadas || null,
       nota_plan_pago: condDefault?.notaPlanPago || null,
       columnas_lineas: body.columnas_lineas || config?.columnas_lineas_default || ['producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal'],
+      // Persistir el vínculo a la actividad origen (si vino) para que el listener
+      // del PATCH pueda completar la actividad cuando el presupuesto cambie de estado.
+      actividad_origen_id: body.actividad_origen_id || null,
       creado_por: user.id,
       creado_por_nombre: nombreUsuario,
     }
@@ -461,42 +466,20 @@ export async function POST(request: NextRequest) {
       metadata: { accion: 'creado' },
     })
 
-    // Auto-completar actividad origen si se proporcionó
+    // Auto-completar la actividad origen SOLO si su tipo tiene
+    // `evento_auto_completar = 'al_crear'`. Si está configurado 'al_enviar',
+    // se completará cuando el PATCH cambie el estado del presupuesto a 'enviado'.
     if (body.actividad_origen_id) {
-      // Buscar el estado 'completada' de la empresa
-      const { data: estadoCompletada } = await admin
-        .from('estados_actividad')
-        .select('id, clave')
-        .eq('empresa_id', empresaId)
-        .eq('grupo', 'completado')
-        .limit(1)
-        .single()
-
-      if (estadoCompletada) {
-        await admin
-          .from('actividades')
-          .update({
-            estado_id: estadoCompletada.id,
-            estado_clave: estadoCompletada.clave,
-            completado_en: new Date().toISOString(),
-            editado_por: user.id,
-            editado_por_nombre: nombreUsuario,
-            actualizado_en: new Date().toISOString(),
-          })
-          .eq('id', body.actividad_origen_id)
-          .eq('empresa_id', empresaId)
-
-        // Registrar en chatter de la actividad
-        await registrarChatter({
-          empresaId,
-          entidadTipo: 'actividad',
-          entidadId: body.actividad_origen_id,
-          contenido: `Completada automáticamente al crear presupuesto ${presupuesto.numero}`,
-          autorId: user.id,
-          autorNombre: nombreUsuario || 'Usuario',
-          metadata: { accion: 'actividad_completada', detalles: { presupuesto_id: presupuesto.id, presupuesto_numero: presupuesto.numero } },
-        })
-      }
+      await autoCompletarActividad({
+        admin,
+        empresaId,
+        actividadId: body.actividad_origen_id,
+        eventoEsperado: 'al_crear',
+        usuarioId: user.id,
+        usuarioNombre: nombreUsuario,
+        mensajeChatter: `Completada automáticamente al crear presupuesto ${presupuesto.numero}`,
+        metadataChatter: { presupuesto_id: presupuesto.id, presupuesto_numero: presupuesto.numero },
+      })
     }
 
     // Crear líneas iniciales si se proporcionaron

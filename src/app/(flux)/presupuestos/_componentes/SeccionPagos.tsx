@@ -140,9 +140,10 @@ export default function SeccionPagos({
 
   const eliminarPago = useCallback(async () => {
     if (!pagoAEliminar) return
+    const idPago = pagoAEliminar.id
     try {
       const res = await fetch(
-        `/api/presupuestos/${presupuestoId}/pagos/${pagoAEliminar.id}`,
+        `/api/presupuestos/${presupuestoId}/pagos/${idPago}`,
         { method: 'DELETE' }
       )
       if (!res.ok) {
@@ -150,9 +151,34 @@ export default function SeccionPagos({
         mostrar('error', err.error || 'No se pudo eliminar el pago')
         return
       }
-      mostrar('exito', 'Pago eliminado')
       setPagoAEliminar(null)
       await cargar()
+      // Toast con acción "Deshacer": llama al endpoint /restaurar.
+      // El soft-delete mantiene los comprobantes en Storage por 7 días, así
+      // que la restauración es completa (no perdemos archivos adjuntos).
+      mostrar('exito', 'Pago eliminado', {
+        duracion: 6000,
+        accion: {
+          etiqueta: 'Deshacer',
+          onClick: async () => {
+            try {
+              const r = await fetch(
+                `/api/presupuestos/${presupuestoId}/pagos/${idPago}/restaurar`,
+                { method: 'POST' }
+              )
+              if (!r.ok) {
+                const e = await r.json().catch(() => ({}))
+                mostrar('error', e.error || 'No se pudo restaurar el pago')
+                return
+              }
+              mostrar('exito', 'Pago restaurado')
+              await cargar()
+            } catch {
+              mostrar('error', 'Error al restaurar')
+            }
+          },
+        },
+      })
     } catch {
       mostrar('error', 'Error al eliminar')
     }

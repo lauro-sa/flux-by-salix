@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarCambioEstado } from '@/lib/chatter'
 import { obtenerYVerificarPermiso, requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/presupuestos/[id] — Obtener detalle completo de un presupuesto.
@@ -70,15 +71,15 @@ export async function GET(
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .maybeSingle(),
-      // Pagos no-adicionales para calcular total cobrado (usado por el
-      // desglose de cuotas en el cabezal cuando la condición es plazo_fijo:
-      // ahí no hay cuotas materializadas, así que el estado se deriva del
-      // total cobrado vs total_final).
+      // Pagos no-adicionales y no-eliminados para calcular total cobrado.
+      // Usado en el cabezal cuando la condición es plazo_fijo (no hay
+      // cuotas materializadas → estado se deriva de cobrado vs total_final).
       admin
         .from('presupuesto_pagos')
         .select('monto_en_moneda_presupuesto, es_adicional')
         .eq('presupuesto_id', id)
-        .eq('empresa_id', empresaId),
+        .eq('empresa_id', empresaId)
+        .is('eliminado_en', null),
     ])
 
     const totalCobrado = (pagosRes.data || [])
@@ -291,16 +292,18 @@ export async function PATCH(
       }
     }
 
-    // Obtener estado anterior (para chatter)
+    // Obtener estado anterior + actividad origen (para chatter y listener de auto-completar)
     let estadoAnterior: string | null = null
+    let actividadOrigenId: string | null = null
     if (body.estado) {
       const { data: actual } = await admin
         .from('presupuestos')
-        .select('estado')
+        .select('estado, actividad_origen_id')
         .eq('id', id)
         .eq('empresa_id', empresaId)
         .single()
       estadoAnterior = actual?.estado || null
+      actividadOrigenId = actual?.actividad_origen_id || null
     }
 
     // Auto-llenar fecha_aceptacion al pasar a confirmado_cliente u orden_venta
@@ -342,6 +345,21 @@ export async function PATCH(
           usuarioId: user.id,
           usuarioNombre: nombreUsuario || 'Usuario',
           notas: body.notas_estado,
+        })
+      }
+
+      // Listener de auto-completar al cambiar a 'enviado'. Solo dispara si el tipo
+      // de la actividad origen tiene `evento_auto_completar = 'al_enviar'`.
+      if (actividadOrigenId && body.estado === 'enviado' && estadoAnterior !== 'enviado') {
+        await autoCompletarActividad({
+          admin,
+          empresaId,
+          actividadId: actividadOrigenId,
+          eventoEsperado: 'al_enviar',
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario,
+          mensajeChatter: `Completada automáticamente al enviar presupuesto ${actualizado.numero}`,
+          metadataChatter: { presupuesto_id: id, presupuesto_numero: actualizado.numero },
         })
       }
     }
