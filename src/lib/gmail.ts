@@ -321,6 +321,26 @@ export function generarMessageId(dominio?: string): string {
   return `<${ts}.${rand}@${dom}>`
 }
 
+/**
+ * Quiebra una cadena base64 en líneas de 76 caracteres separadas por CRLF.
+ * Requerido por RFC 2045 §6.8 — sin esto, MTAs externos rechazan o entregan
+ * adjuntos corruptos al superar el límite de 998 octetos/línea (RFC 5322).
+ */
+function quebrarBase64(base64: string): string {
+  return base64.match(/.{1,76}/g)?.join('\r\n') ?? base64
+}
+
+/**
+ * Codifica un valor a RFC 2047 ("encoded-word") si tiene caracteres no-ASCII.
+ * Necesario para nombres de archivo/asunto con acentos (ej. "Presupuesto N°1.pdf"),
+ * sin esto algunos clientes muestran el nombre corrupto o pierden el adjunto.
+ */
+function codificarRfc2047(valor: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(valor)) return valor
+  return `=?UTF-8?B?${Buffer.from(valor, 'utf-8').toString('base64')}?=`
+}
+
 /** Construye un mensaje RFC 2822 como string base64url para enviar via Gmail API.
  *  Retorna { raw, messageId } donde messageId es el Message-ID generado. */
 export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw: string; messageId: string } {
@@ -367,7 +387,7 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
     lineas.push('Content-Type: text/plain; charset="UTF-8"')
     lineas.push('Content-Transfer-Encoding: base64')
     lineas.push('')
-    lineas.push(Buffer.from(opciones.textoPlano).toString('base64'))
+    lineas.push(quebrarBase64(Buffer.from(opciones.textoPlano).toString('base64')))
     lineas.push('')
 
     // HTML
@@ -376,7 +396,7 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
       lineas.push('Content-Type: text/html; charset="UTF-8"')
       lineas.push('Content-Transfer-Encoding: base64')
       lineas.push('')
-      lineas.push(Buffer.from(opciones.html).toString('base64'))
+      lineas.push(quebrarBase64(Buffer.from(opciones.html).toString('base64')))
       lineas.push('')
     }
 
@@ -385,11 +405,14 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
     // Adjuntos
     for (const adj of opciones.adjuntos!) {
       lineas.push(`--${boundary}`)
-      lineas.push(`Content-Type: ${adj.tipoMime}; name="${adj.nombre}"`)
-      lineas.push(`Content-Disposition: attachment; filename="${adj.nombre}"`)
+      lineas.push(`Content-Type: ${adj.tipoMime}; name="${codificarRfc2047(adj.nombre)}"`)
+      lineas.push(`Content-Disposition: attachment; filename="${codificarRfc2047(adj.nombre)}"`)
       lineas.push('Content-Transfer-Encoding: base64')
       lineas.push('')
-      lineas.push(adj.contenido.toString('base64'))
+      // RFC 2045 §6.8: base64 debe quebrarse cada 76 caracteres. Sin esto, MTAs
+      // estrictos (Outlook/Exchange/corporativos) strippean o entregan el adjunto
+      // corrupto al violar el límite de 998 octetos por línea (RFC 5322).
+      lineas.push(quebrarBase64(adj.contenido.toString('base64')))
       lineas.push('')
     }
 
@@ -404,7 +427,7 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
     lineas.push('Content-Type: text/plain; charset="UTF-8"')
     lineas.push('Content-Transfer-Encoding: base64')
     lineas.push('')
-    lineas.push(Buffer.from(opciones.textoPlano).toString('base64'))
+    lineas.push(quebrarBase64(Buffer.from(opciones.textoPlano).toString('base64')))
     lineas.push('')
 
     // HTML
@@ -412,7 +435,7 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
     lineas.push('Content-Type: text/html; charset="UTF-8"')
     lineas.push('Content-Transfer-Encoding: base64')
     lineas.push('')
-    lineas.push(Buffer.from(opciones.html).toString('base64'))
+    lineas.push(quebrarBase64(Buffer.from(opciones.html).toString('base64')))
     lineas.push('')
 
     lineas.push(`--${boundary}--`)
@@ -421,7 +444,7 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw
     lineas.push('Content-Type: text/plain; charset="UTF-8"')
     lineas.push('Content-Transfer-Encoding: base64')
     lineas.push('')
-    lineas.push(Buffer.from(opciones.textoPlano).toString('base64'))
+    lineas.push(quebrarBase64(Buffer.from(opciones.textoPlano).toString('base64')))
   }
 
   const raw = lineas.join('\r\n')

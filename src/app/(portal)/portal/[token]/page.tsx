@@ -25,23 +25,41 @@ function obtenerLocale(zona?: string): string {
   return 'es'
 }
 
-// ── Función cacheada: una sola ejecución por request ──────────────────────
-const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | null> => {
+/**
+ * Resultado tri-estado de la carga del portal:
+ *  - 'expirado': token no existe, no está activo o expiró → mostrar PortalExpirado
+ *  - 'error': falla interna (Supabase/PDF/etc) → mostrar PortalExpirado pero loguear con detalle
+ *  - DatosPortal: todo OK
+ *
+ * Antes existía un único `null` que mezclaba ambos casos: cualquier excepción
+ * intermedia (DB hiccup, query del vendedor, dato faltante) se interpretaba
+ * como "enlace expirado" y el cliente veía el error sin que el token tuviera
+ * realmente nada malo. El catch silencioso impedía diagnosticar en producción.
+ */
+type ResultadoPortal = DatosPortal | 'expirado' | 'error'
+
+const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal> => {
   try {
     const admin = crearClienteAdmin()
 
     // 1. Buscar token activo
-    const { data: portalToken } = await admin
+    const { data: portalToken, error: errToken } = await admin
       .from('portal_tokens')
       .select('*')
       .eq('token', token)
       .eq('activo', true)
       .single()
 
-    if (!portalToken) return null
+    // PGRST116 = "no rows" → token inválido (caso esperado, no es error)
+    if (errToken && errToken.code !== 'PGRST116') {
+      console.error('[portal] error consultando token', { token, err: errToken.message })
+      return 'error'
+    }
+
+    if (!portalToken) return 'expirado'
 
     // 2. Verificar expiración
-    if (new Date(portalToken.expira_en).getTime() < Date.now()) return null
+    if (new Date(portalToken.expira_en).getTime() < Date.now()) return 'expirado'
 
     // 3. Preparar update de vista (siempre incrementar contador)
     const esPrimeraVista = !portalToken.visto_en
@@ -110,7 +128,14 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       admin.from('perfiles').select('nombre, apellido, correo, telefono').eq('id', portalToken.creado_por).single(),
     ])
 
-    if (!presupuesto || !empresa) return null
+    if (!presupuesto || !empresa) {
+      // Token válido pero el presupuesto/empresa relacionados no existen — datos
+      // inconsistentes en BD. No es expiración: dejarlo claro en logs.
+      console.error('[portal] token válido pero faltan datos relacionados', {
+        token, presupuesto_id: portalToken.presupuesto_id, tiene_presupuesto: !!presupuesto, tiene_empresa: !!empresa,
+      })
+      return 'error'
+    }
 
     // 5. Auto-generar PDF si falta o está desactualizado
     let pdfUrl = presupuesto.pdf_url
@@ -215,21 +240,27 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
         datos_fiscales: empresa.datos_fiscales || null,
       },
       vendedor: await (async () => {
-        if (!vendedor) return { nombre: 'Sin asignar', correo: null, telefono: null }
-        // Buscar sector primario del vendedor para mostrar al cliente
-        let sectorNombre: string | null = null
-        const { data: miembro } = await admin.from('miembros').select('id').eq('usuario_id', portalToken.creado_por).eq('empresa_id', portalToken.empresa_id).single()
-        if (miembro) {
-          const { data: ms } = await admin.from('miembros_sectores').select('sector_id').eq('miembro_id', miembro.id).eq('es_primario', true).single()
-          if (ms) {
-            const { data: sector } = await admin.from('sectores').select('nombre').eq('id', ms.sector_id).single()
-            if (sector) sectorNombre = sector.nombre
+        // Datos del vendedor son opcionales/cosméticos — si algo falla acá NO
+        // debe tumbar el portal completo. Catch local con fallback seguro.
+        try {
+          if (!vendedor) return { nombre: 'Sin asignar', correo: null, telefono: null }
+          let sectorNombre: string | null = null
+          const { data: miembro } = await admin.from('miembros').select('id').eq('usuario_id', portalToken.creado_por).eq('empresa_id', portalToken.empresa_id).maybeSingle()
+          if (miembro) {
+            const { data: ms } = await admin.from('miembros_sectores').select('sector_id').eq('miembro_id', miembro.id).eq('es_primario', true).maybeSingle()
+            if (ms) {
+              const { data: sector } = await admin.from('sectores').select('nombre').eq('id', ms.sector_id).maybeSingle()
+              if (sector) sectorNombre = sector.nombre
+            }
           }
-        }
-        return {
-          nombre: sectorNombre || [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' '),
-          correo: vendedor.correo || null,
-          telefono: vendedor.telefono || null,
+          return {
+            nombre: sectorNombre || [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' ') || 'Sin asignar',
+            correo: vendedor.correo || null,
+            telefono: vendedor.telefono || null,
+          }
+        } catch (err) {
+          console.error('[portal] error resolviendo vendedor (no crítico)', err)
+          return { nombre: 'Sin asignar', correo: null, telefono: null }
         }
       })(),
       datos_bancarios: datosBancarios,
@@ -243,8 +274,12 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       mensajes: portalToken.mensajes || [],
       comprobantes: portalToken.comprobantes || [],
     }
-  } catch {
-    return null
+  } catch (err) {
+    // Antes este catch silencioso devolvía null y el cliente veía "Enlace
+    // expirado" aunque el token fuera válido. Ahora logueamos el motivo real
+    // para poder diagnosticar en producción.
+    console.error('[portal] excepción inesperada cargando datos', { token, err })
+    return 'error'
   }
 })
 
@@ -253,7 +288,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params
   const datos = await obtenerDatosPortal(token)
 
-  if (!datos) {
+  if (datos === 'expirado' || datos === 'error') {
     return { title: 'Enlace no válido — Flux by Salix' }
   }
 
@@ -286,7 +321,7 @@ export default async function PaginaPortal({ params }: Props) {
   const { token } = await params
   const datos = await obtenerDatosPortal(token)
 
-  if (!datos) {
+  if (datos === 'expirado' || datos === 'error') {
     return <PortalExpirado />
   }
 
