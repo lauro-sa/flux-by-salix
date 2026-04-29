@@ -1,20 +1,22 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { PlusCircle, Download, Wrench, Hammer, Trash2 } from 'lucide-react'
+import { PlusCircle, Download, Wrench, Hammer, Trash2, MapPin, User, FileText, CalendarClock, Bell } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 // Insignia no se usa — los badges de estado/prioridad se renderizan con <span> y clases dinámicas
 import { useToast } from '@/componentes/feedback/Toast'
 import {
@@ -37,7 +39,11 @@ interface FilaOrden {
   contacto_id: string | null
   contacto_nombre: string | null
   contacto_telefono: string | null
+  contacto_whatsapp: string | null
   contacto_direccion: string | null
+  atencion_contacto_id: string | null
+  atencion_nombre: string | null
+  atencion_telefono: string | null
   presupuesto_id: string | null
   presupuesto_numero: string | null
   asignado_a: string | null
@@ -68,71 +74,59 @@ function ContenidoOrdenesInterno() {
   const formato = useFormato()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const pathname = usePathname()
   const queryClient = useQueryClient()
   const { mostrar: mostrarToast } = useToast()
 
-  // Filtros — restaurar desde URL
-  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
-    const v = searchParams.get('estado')
-    return v ? v.split(',') : []
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/ordenes',
+    campos: {
+      estado: { defecto: [] as string[] },
+      prioridad: { defecto: [] as string[] },
+      tipo_contacto: { defecto: [] as string[] },
+      asignado_a: { defecto: [] as string[] },
+      sin_asignar: { defecto: false },
+      creado_por: { defecto: '' },
+      con_presupuesto: { defecto: '' },
+      vencida: { defecto: '' },
+      publicada: { defecto: '' },
+      fecha: { defecto: '' },
+      anio: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  const [filtroPrioridad, setFiltroPrioridad] = useState<string[]>(() => {
-    const v = searchParams.get('prioridad')
-    return v ? v.split(',') : []
-  })
-  const [filtroTipoContacto, setFiltroTipoContacto] = useState<string[]>(() => {
-    const v = searchParams.get('tipo_contacto')
-    return v ? v.split(',') : []
-  })
-  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
-    const v = searchParams.get('asignado_a')
-    return v ? v.split(',') : []
-  })
-  const [filtroSinAsignar, setFiltroSinAsignar] = useState(searchParams.get('sin_asignar') === 'true')
-  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
-  const [filtroConPresupuesto, setFiltroConPresupuesto] = useState(searchParams.get('con_presupuesto') || '')
-  const [filtroVencida, setFiltroVencida] = useState(searchParams.get('vencida') || '')
-  const [filtroPublicada, setFiltroPublicada] = useState(searchParams.get('publicada') || '')
-  const [filtroFecha, setFiltroFecha] = useState(searchParams.get('fecha') || '')
-  const [filtroAnio, setFiltroAnio] = useState(searchParams.get('anio') || '')
 
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroEstado, filtroPrioridad, filtroTipoContacto,
-      filtroAsignados, filtroSinAsignar, filtroCreadoPor,
-      filtroConPresupuesto, filtroVencida, filtroPublicada,
-      filtroFecha, filtroAnio,
-    ],
-    true,
-  )
-
-  // Sincronizar filtros → URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
-    if (filtroPrioridad.length > 0) params.set('prioridad', filtroPrioridad.join(','))
-    if (filtroTipoContacto.length > 0) params.set('tipo_contacto', filtroTipoContacto.join(','))
-    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
-    if (filtroSinAsignar) params.set('sin_asignar', 'true')
-    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
-    if (filtroConPresupuesto) params.set('con_presupuesto', filtroConPresupuesto)
-    if (filtroVencida) params.set('vencida', filtroVencida)
-    if (filtroPublicada) params.set('publicada', filtroPublicada)
-    if (filtroFecha) params.set('fecha', filtroFecha)
-    if (filtroAnio) params.set('anio', filtroAnio)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
-  }, [
-    busquedaDebounced, filtroEstado, filtroPrioridad, filtroTipoContacto,
-    filtroAsignados, filtroSinAsignar, filtroCreadoPor,
-    filtroConPresupuesto, filtroVencida, filtroPublicada,
-    filtroFecha, filtroAnio, pagina, pathname,
-  ])
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroEstado = f.estado
+  const filtroPrioridad = f.prioridad
+  const filtroTipoContacto = f.tipo_contacto
+  const filtroAsignados = f.asignado_a
+  const filtroSinAsignar = f.sin_asignar
+  const filtroCreadoPor = f.creado_por
+  const filtroConPresupuesto = f.con_presupuesto
+  const filtroVencida = f.vencida
+  const filtroPublicada = f.publicada
+  const filtroFecha = f.fecha
+  const filtroAnio = f.anio
+  const setFiltroEstado = (v: string[]) => filtros.set('estado', v)
+  const setFiltroPrioridad = (v: string[]) => filtros.set('prioridad', v)
+  const setFiltroTipoContacto = (v: string[]) => filtros.set('tipo_contacto', v)
+  const setFiltroAsignados = (v: string[]) => filtros.set('asignado_a', v)
+  const setFiltroSinAsignar = (v: boolean) => filtros.set('sin_asignar', v)
+  const setFiltroCreadoPor = (v: string) => filtros.set('creado_por', v)
+  const setFiltroConPresupuesto = (v: string) => filtros.set('con_presupuesto', v)
+  const setFiltroVencida = (v: string) => filtros.set('vencida', v)
+  const setFiltroPublicada = (v: string) => filtros.set('publicada', v)
+  const setFiltroFecha = (v: string) => filtros.set('fecha', v)
+  const setFiltroAnio = (v: string) => filtros.set('anio', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   const { datos: ordenes, total, cargando, cargandoInicial } = useListado<FilaOrden>({
     clave: 'ordenes',
@@ -207,6 +201,31 @@ function ContenidoOrdenesInterno() {
       mostrarToast('error', 'Error al enviar a papelera')
     }
   }, [mostrarToast, queryClient])
+
+  // Avisar llegada al cliente desde la tarjeta. Replica la misma lógica del
+  // botón "Avisar llegada" del detalle de la OT (VistaOrdenTrabajo.tsx):
+  // si la OT tiene "dirigido a" (atención) priorizamos esa persona — es el
+  // contacto específico para coordinar la llegada al lugar; si no, caemos al
+  // contacto principal (whatsapp > teléfono).
+  const avisarLlegada = useCallback((fila: FilaOrden) => {
+    const tieneAtencion = !!fila.atencion_nombre && !!fila.atencion_telefono
+    const nombreAviso = tieneAtencion ? fila.atencion_nombre! : (fila.contacto_nombre || '')
+    const telAviso = tieneAtencion
+      ? fila.atencion_telefono!
+      : (fila.contacto_whatsapp || fila.contacto_telefono || '')
+
+    const numero = telAviso.replace(/[^+\d]/g, '')
+    if (!numero) {
+      mostrarToast('error', 'No hay teléfono/WhatsApp cargado para avisar')
+      return
+    }
+    const direccion = fila.contacto_direccion || ''
+    const mensaje = encodeURIComponent(
+      `Hola${nombreAviso ? ` ${nombreAviso}` : ''}, le avisamos que estamos llegando${direccion ? ` a ${direccion}` : ''} para realizar el trabajo de la OT #${fila.numero}.`
+    )
+    window.open(`https://wa.me/${numero}?text=${mensaje}`, '_blank')
+    mostrarToast('exito', `Aviso de llegada enviado${nombreAviso ? ` a ${nombreAviso}` : ''}`)
+  }, [mostrarToast])
 
   // ── Columnas ──
 
@@ -326,25 +345,121 @@ function ContenidoOrdenesInterno() {
   const renderTarjeta = (fila: FilaOrden) => {
     const coloresEstado = COLORES_ESTADO_OT[fila.estado]
     const coloresPrioridad = COLORES_PRIORIDAD_OT[fila.prioridad]
+
+    // Datos para el footer mobile: avisar llegada (WhatsApp pre-armado al
+    // cliente o al "dirigido a") e ir al destino (Google Maps con direcciones).
+    // Priorizamos el teléfono de atención > whatsapp > teléfono principal —
+    // misma resolución que hace `avisarLlegada` para no mostrar el botón
+    // habilitado y después fallar con un toast.
+    const telParaAvisar = fila.atencion_telefono
+      || fila.contacto_whatsapp
+      || fila.contacto_telefono
+      || ''
+    const numeroAviso = telParaAvisar.replace(/[^\d]/g, '')
+    const urlMapa = fila.contacto_direccion
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fila.contacto_direccion)}&travelmode=driving`
+      : null
+
+    const fechaFin = fila.fecha_fin_estimada
+    const vencida = !!fechaFin && new Date(fechaFin) < new Date() && fila.estado !== 'completada'
+
     return (
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-texto-primario text-sm">{fila.numero}</span>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${coloresEstado.fondo} ${coloresEstado.texto}`}>
-            {ETIQUETAS_ESTADO_OT[fila.estado]}
-          </span>
-        </div>
-        <p className="text-sm text-texto-primario truncate">{fila.titulo}</p>
-        {fila.contacto_nombre && (
-          <p className="text-xs text-texto-terciario">{fila.contacto_nombre}</p>
-        )}
-        <div className="flex items-center justify-between">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${coloresPrioridad.fondo} ${coloresPrioridad.texto}`}>
-            {ETIQUETAS_PRIORIDAD_OT[fila.prioridad]}
-          </span>
-          {fila.asignado_nombre && (
-            <span className="text-xs text-texto-terciario">{fila.asignado_nombre}</span>
+      <div className="flex flex-col">
+        <div className="p-4 flex flex-col gap-3">
+          {/* Cabecera: número OT + estado.
+              pr-7 reserva espacio para el checkbox absolute de la tabla. */}
+          <div className="flex items-start justify-between gap-2 pr-7">
+            <span className="font-mono text-sm font-bold text-texto-primario">{fila.numero}</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${coloresEstado.fondo} ${coloresEstado.texto}`}>
+              {ETIQUETAS_ESTADO_OT[fila.estado]}
+            </span>
+          </div>
+
+          {/* Título de la OT (sin truncar, en 1 col mobile entra) + presupuesto
+              vinculado como subtítulo si existe. */}
+          <div className="flex flex-col gap-1">
+            <p className="text-base font-medium text-texto-primario leading-snug">
+              {fila.titulo}
+            </p>
+            {fila.presupuesto_numero && (
+              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                <FileText size={11} className="shrink-0 text-texto-terciario/70" />
+                {fila.presupuesto_numero}
+              </p>
+            )}
+          </div>
+
+          {/* Píldora de prioridad (alta/media/baja con su color semántico).
+              Las medias no son ruido — son la mayoría — pero igual la mostramos
+              porque el contexto es operativo (saber qué priorizar). */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${coloresPrioridad.fondo} ${coloresPrioridad.texto}`}>
+              {ETIQUETAS_PRIORIDAD_OT[fila.prioridad]}
+            </span>
+          </div>
+
+          {/* Meta: contacto + dirección + asignado + fecha estimada de fin.
+              Mismo patrón ícono+texto que el resto de los listados. */}
+          {(fila.contacto_nombre || fila.contacto_direccion || fila.asignado_nombre || fechaFin) && (
+            <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+              {fila.contacto_nombre && (
+                <LineaInfoTarjeta icono={<User size={13} />} truncar>
+                  {fila.contacto_nombre}
+                </LineaInfoTarjeta>
+              )}
+              {fila.contacto_direccion && (
+                <LineaInfoTarjeta icono={<MapPin size={13} />} alineacion="start">
+                  {urlMapa ? (
+                    <a
+                      href={urlMapa}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-texto-marca transition-colors underline decoration-borde-sutil decoration-dotted underline-offset-2"
+                    >
+                      {fila.contacto_direccion}
+                    </a>
+                  ) : fila.contacto_direccion}
+                </LineaInfoTarjeta>
+              )}
+              {fila.asignado_nombre && (
+                <LineaInfoTarjeta icono={<Hammer size={13} />} truncar>
+                  {fila.asignado_nombre}
+                </LineaInfoTarjeta>
+              )}
+              {fechaFin && (
+                <span className="flex items-center gap-2.5 text-xs">
+                  <CalendarClock size={13} className={`shrink-0 ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario/70'}`} />
+                  <span className={vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}>
+                    {formato.fecha(fechaFin, { corta: true })}
+                  </span>
+                </span>
+              )}
+            </div>
           )}
+        </div>
+
+        {/* Footer mobile: 2 acciones de campo — avisar al cliente que se está
+            llegando (WhatsApp con mensaje pre-armado) e ir al destino (abre
+            Google Maps con direcciones). */}
+        <div className="sm:hidden">
+          <PieAccionesTarjeta acciones={[
+            {
+              id: 'avisar',
+              icono: <Bell size={16} className="shrink-0" />,
+              etiqueta: 'Avisar llegada',
+              onClick: () => avisarLlegada(fila),
+              deshabilitado: !numeroAviso,
+            },
+            {
+              id: 'navegar',
+              icono: <MapPin size={16} className="shrink-0" />,
+              etiqueta: 'Navegar',
+              href: urlMapa || undefined,
+              target: '_blank',
+              deshabilitado: !urlMapa,
+            },
+          ] satisfies AccionTarjeta[]} />
         </div>
       </div>
     )
@@ -371,6 +486,7 @@ function ContenidoOrdenesInterno() {
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas']}
         renderTarjeta={renderTarjeta}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         seleccionables
         busqueda={busqueda}
         onBusqueda={setBusqueda}
@@ -477,19 +593,7 @@ function ContenidoOrdenesInterno() {
           { id: 'comercial', etiqueta: 'Comercial', filtros: ['con_presupuesto', 'vencida', 'publicada'] },
           { id: 'periodo', etiqueta: 'Período', filtros: ['fecha', 'anio'] },
         ]}
-        onLimpiarFiltros={() => {
-          setFiltroEstado([])
-          setFiltroPrioridad([])
-          setFiltroTipoContacto([])
-          setFiltroAsignados([])
-          setFiltroSinAsignar(false)
-          setFiltroCreadoPor('')
-          setFiltroConPresupuesto('')
-          setFiltroVencida('')
-          setFiltroPublicada('')
-          setFiltroFecha('')
-          setFiltroAnio('')
-        }}
+        onLimpiarFiltros={filtros.limpiar}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },

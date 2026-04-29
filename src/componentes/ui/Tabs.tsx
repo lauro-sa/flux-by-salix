@@ -19,20 +19,38 @@ interface PropiedadesTabs {
   layoutId?: string
   /** Ocultar la línea divisora inferior (útil cuando el contenedor padre maneja el borde) */
   sinBorde?: boolean
+  /**
+   * Cuando hay muchos tabs (>4) y poco ancho (mobile), por defecto se ocultan
+   * las etiquetas de los inactivos y se ven solo íconos — eso vuelve los tabs
+   * imposibles de leer cuando los íconos no son obvios. Con `scrollableMobile`
+   * el contenedor habilita scroll horizontal y mantiene las etiquetas siempre
+   * visibles, dejando que el usuario haga swipe.
+   */
+  scrollableMobile?: boolean
 }
 
 /**
  * Tabs — Pestañas con indicador animado.
  * Se usa en: vistas de módulos, configuración, dashboard (panel/métricas).
  */
-function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator', sinBorde = false }: PropiedadesTabs) {
+function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator', sinBorde = false, scrollableMobile = false }: PropiedadesTabs) {
   return (
     <div
-      className={`flex gap-0.5 px-3 ${sinBorde ? '' : 'border-b border-borde-sutil'} ${className}`}
+      className={[
+        'flex gap-0.5 px-3',
+        sinBorde ? '' : 'border-b border-borde-sutil',
+        scrollableMobile ? 'overflow-x-auto scrollbar-none' : '',
+        className,
+      ].join(' ')}
       role="tablist"
     >
       {tabs.map((tab) => {
         const esActivo = tab.clave === activo
+        // Cuando es scrollable mobile mostramos siempre la etiqueta — el scroll
+        // horizontal evita el problema de quedarse sin espacio.
+        const claseEtiqueta = scrollableMobile
+          ? 'inline'
+          : (esActivo ? 'inline' : 'hidden sm:inline')
         return (
           <button
             key={tab.clave}
@@ -45,7 +63,7 @@ function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicato
             ].join(' ')}
           >
             {tab.icono}
-            <span className={esActivo ? 'inline' : 'hidden sm:inline'}>{tab.etiqueta}</span>
+            <span className={claseEtiqueta}>{tab.etiqueta}</span>
             {tab.contador !== undefined && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${esActivo ? 'bg-insignia-primario-fondo text-insignia-primario-texto' : 'bg-superficie-hover text-texto-terciario'}`}>
                 {tab.contador}

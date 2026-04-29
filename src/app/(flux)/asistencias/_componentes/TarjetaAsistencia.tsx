@@ -195,7 +195,10 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
 
   return (
     <div className="flex flex-col w-full">
-      {/* ── Header: avatar + nombre + fecha + badge ── */}
+      {/* ── Header: avatar + nombre + fecha + badge ──
+          mr-7 en la píldora reserva espacio para el checkbox de selección
+          (TablaDinamica lo coloca en absolute top-2 right-2). Sin esto la
+          píldora "Cerrado/En turno" quedaba pegada al check. */}
       <div className="flex items-center justify-between gap-2 px-5 pt-[18px] pb-3.5 border-b border-white/[0.07]">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-[38px] rounded-full flex items-center justify-center text-[13px] font-semibold shrink-0 ${colorAvatar}`}>
@@ -209,7 +212,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             </p>
           </div>
         </div>
-        <span className={`inline-flex items-center gap-1 px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 mr-7 ${cfg.fondo} ${cfg.color}`}>
           {cfg.icono}
           {cfg.etiqueta}
         </span>
@@ -218,39 +221,45 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       {/* ── Bloque de tiempo ── */}
       {r.estado !== 'ausente' && r.estado !== 'feriado' && r.hora_entrada ? (
         <div className="px-5 py-4 border-b border-white/[0.07]">
-          {/* Hora entrada → salida · duración */}
-          <div className="flex items-baseline gap-2.5 mb-2">
-            <span className="text-[32px] font-semibold text-texto-primario tracking-tight leading-none font-[system-ui]">
-              {fmtHora(r.hora_entrada, formatoHora)}
-            </span>
-            <span className="text-xl text-texto-terciario/30">→</span>
-            <span className="text-xl font-medium text-texto-terciario/50 tracking-tight">
-              {enCurso ? '…' : fmtHora(r.hora_salida, formatoHora)}
-            </span>
-            <span className="text-xs text-texto-terciario/50 ml-1">· {dur}</span>
-          </div>
-
-          {/* Barra segmentada + tags de duración */}
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 px-2 py-[3px] rounded-boton bg-asistencia-presente-fondo border border-asistencia-presente/25">
-              <Calendar size={11} className="text-asistencia-presente" />
-              <span className="text-[11px] font-medium text-asistencia-presente">{dur}</span>
+          {/* Línea principal de jornada: entrada y salida con el mismo peso
+              visual (mismo tamaño/color) + duración total a la derecha. Antes
+              la salida se veía mucho más chica y el "·duración" repetía info
+              que después aparecía como píldora separada. */}
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <div className="flex items-baseline gap-2.5 whitespace-nowrap">
+              <span className="text-[28px] font-semibold text-texto-primario tracking-tight leading-none font-[system-ui]">
+                {fmtHora(r.hora_entrada, formatoHora)}
+              </span>
+              <span className="text-lg text-texto-terciario/40">→</span>
+              <span className="text-[28px] font-semibold tracking-tight leading-none font-[system-ui] text-texto-primario/50">
+                {enCurso ? '…' : fmtHora(r.hora_salida, formatoHora)}
+              </span>
             </div>
-            <span className={`text-xs font-medium ${colorDurTxt}`}>{dur} netos</span>
-
-            {minAlmuerzo > 0 && (
-              <span className="flex items-center gap-1 text-xs text-asistencia-tarde/80">
-                <UtensilsCrossed size={11} />
-                {fmtDurCorta(minAlmuerzo)}
-              </span>
-            )}
-            {minTramite > 0 && (
-              <span className="flex items-center gap-1 text-xs text-asistencia-particular/80">
-                <Footprints size={11} />
-                {fmtDurCorta(minTramite)}
-              </span>
-            )}
+            <span className={`text-base font-semibold whitespace-nowrap ${colorDurTxt}`}>{dur}</span>
           </div>
+
+          {/* Pausas (almuerzo/trámite) y aclaración de "netos" si difieren del
+              total. Solo se muestra esta fila cuando aporta algo distinto al
+              total grande de arriba — antes había una píldora redundante. */}
+          {(minAlmuerzo > 0 || minTramite > 0) && (
+            <div className="flex items-center gap-3 flex-wrap mt-2 text-xs">
+              <span className="text-texto-terciario/60 whitespace-nowrap">
+                Netos: <span className="text-texto-secundario font-medium">{dur}</span>
+              </span>
+              {minAlmuerzo > 0 && (
+                <span className="flex items-center gap-1 text-asistencia-tarde/80 whitespace-nowrap">
+                  <UtensilsCrossed size={11} />
+                  {fmtDurCorta(minAlmuerzo)}
+                </span>
+              )}
+              {minTramite > 0 && (
+                <span className="flex items-center gap-1 text-asistencia-particular/80 whitespace-nowrap">
+                  <Footprints size={11} />
+                  {fmtDurCorta(minTramite)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       ) : r.estado === 'feriado' ? (
         <div className="px-5 py-4 border-b border-white/[0.07]">

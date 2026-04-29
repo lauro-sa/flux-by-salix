@@ -19,10 +19,24 @@ import type {
 
 export type { MiembroVisita, ConfigVisita, VisitaExistente }
 
+// Datos mínimos para precargar el contacto al crear visita desde otro contexto
+// (chatter de presupuesto/orden/factura/contacto). El modal expande al shape completo.
+export interface ContactoInicialVisita {
+  id: string
+  nombre: string
+  apellido?: string | null
+}
+
+interface OpcionesAbrir {
+  visita?: VisitaExistente | null
+  contactoInicial?: ContactoInicialVisita | null
+}
+
 export function useModalVisita() {
   const { mostrar } = useToast()
   const [abierto, setAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<VisitaExistente | null>(null)
+  const [contactoInicial, setContactoInicial] = useState<ContactoInicialVisita | null>(null)
 
   // Cargar miembros visitadores (cache largo)
   const { data: miembros = [] } = useQuery<MiembroVisita[]>({
@@ -112,9 +126,18 @@ export function useModalVisita() {
     mostrar('info', 'Visita cancelada')
   }, [mostrar])
 
-  // Abrir modal para crear nueva visita
-  const abrir = useCallback((visita?: VisitaExistente | null) => {
-    setVisitaEditando(visita || null)
+  // Abrir modal — para editar (visita) o crear con contacto precargado (contactoInicial).
+  // Acepta también la firma vieja `abrir(visita)` por simplicidad de migración interna.
+  const abrir = useCallback((opciones?: OpcionesAbrir | VisitaExistente | null) => {
+    if (opciones && 'contacto_id' in opciones) {
+      // Firma legacy: visita directa
+      setVisitaEditando(opciones)
+      setContactoInicial(null)
+    } else {
+      const opts = (opciones || {}) as OpcionesAbrir
+      setVisitaEditando(opts.visita || null)
+      setContactoInicial(opts.contactoInicial || null)
+    }
     setAbierto(true)
   }, [])
 
@@ -122,6 +145,7 @@ export function useModalVisita() {
   const cerrar = useCallback(() => {
     setAbierto(false)
     setVisitaEditando(null)
+    setContactoInicial(null)
   }, [])
 
   // Handler unificado para guardar (crear o editar)
@@ -135,6 +159,7 @@ export function useModalVisita() {
   return {
     abierto,
     visitaEditando,
+    contactoInicial,
     miembros,
     config,
     abrir,

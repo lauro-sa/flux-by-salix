@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       admin
         .from('visitas')
-        .select('id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre, contacto:contactos!visitas_contacto_id_fkey(tipo_contacto:tipos_contacto(clave, etiqueta))')
+        .select('id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, tiene_hora_especifica, fecha_inicio, fecha_llegada, motivo, asignado_a, asignado_nombre, contacto:contactos!visitas_contacto_id_fkey(tipo_contacto:tipos_contacto(clave, etiqueta))')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado', ['provisoria', 'programada', 'reprogramada', 'en_camino', 'en_sitio', 'completada', 'cancelada'])
@@ -58,19 +58,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar visitas' }, { status: 500 })
     }
 
-    // Filtrar visitadores base:
-    // - Propietario: siempre puede ser visitador
-    // - Quien tiene permisos de recorrido (ver_propio / registrar) → visitador de campo
-    // - Quien tiene visitas.asignar o visitas.ver_todos → coordinador/admin (también puede tomar visitas)
+    // Filtrar visitadores base — solo quienes hacen visitas en campo:
+    //   - Propietario: siempre puede ser visitador
+    //   - Quien tiene permisos de recorrido (ver_propio / registrar) → visitador de campo
+    // Los coordinadores/admins (visitas.asignar / ver_todos) NO aparecen como columna:
+    // gestionan la planificación pero no van a hacer las visitas. Si tienen visitas
+    // asignadas por error o legacy, igual aparecen como columna extra abajo (idsAsignadosExtra).
     const permisosRecorrido = ['ver_propio', 'registrar']
-    const permisosCoordinador = ['asignar', 'ver_todos']
     const miembrosVisitadores = (miembros || []).filter(m => {
       if (m.rol === 'propietario') return true
       if (!m.permisos_custom) return false
       const permisos = m.permisos_custom as Record<string, string[]>
-      const esVisitador = permisos.recorrido?.some((p: string) => permisosRecorrido.includes(p)) ?? false
-      const esCoordinador = permisos.visitas?.some((p: string) => permisosCoordinador.includes(p)) ?? false
-      return esVisitador || esCoordinador
+      return permisos.recorrido?.some((p: string) => permisosRecorrido.includes(p)) ?? false
     })
 
     // Agrupar visitas por asignado_a

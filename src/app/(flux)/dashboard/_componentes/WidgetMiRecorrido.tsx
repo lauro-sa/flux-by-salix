@@ -16,6 +16,9 @@ interface VisitaCompacta {
   id: string
   fecha_programada: string | null
   hora_programada: string | null
+  tiene_hora_especifica?: boolean | null
+  fecha_inicio?: string | null
+  fecha_llegada?: string | null
   contacto_nombre: string | null
   direccion_texto: string | null
   estado: string
@@ -40,12 +43,19 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 }
 
 function fmtHora(v: VisitaCompacta): string {
+  // Hora real si la visita ya se inició; sino la programada solo si tiene hora específica.
+  // Para visitas programadas solo por día, mostramos "—" para no inventar un horario.
+  const horaReal = v.fecha_inicio || v.fecha_llegada
+  if (horaReal) {
+    const d = new Date(horaReal)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
   if (v.hora_programada) return v.hora_programada.slice(0, 5)
-  if (v.fecha_programada) {
+  if (v.fecha_programada && v.tiene_hora_especifica) {
     const d = new Date(v.fecha_programada)
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
-  return '--:--'
+  return '—'
 }
 
 export function WidgetMiRecorrido() {

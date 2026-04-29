@@ -1,5 +1,6 @@
 // Utilidades para mapas — navegación externa y cálculos geográficos
 
+import { abrirEnlaceExterno } from '@/lib/abrir-enlace-externo'
 import type { PreferenciaRuta } from './tipos-mapa'
 
 /**
@@ -23,7 +24,7 @@ export function abrirNavegacion(
 ) {
   const avoid = obtenerAvoid(preferencia)
   const url = `https://www.google.com/maps/dir/?api=1&destination=${destino.lat},${destino.lng}&travelmode=driving${avoid}`
-  window.open(url, '_blank')
+  abrirEnlaceExterno(url)
 }
 
 /**
@@ -52,7 +53,7 @@ export function abrirRutaCompleta(
     url += `&waypoints=${wp}`
   }
 
-  window.open(url, '_blank')
+  abrirEnlaceExterno(url)
 }
 
 /**

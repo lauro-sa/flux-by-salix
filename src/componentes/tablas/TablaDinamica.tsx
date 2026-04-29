@@ -6,7 +6,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Search, X, Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Columns3, SlidersHorizontal, Bookmark,
-  List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star, MoreVertical,
+  List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star,
   GripVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -81,6 +81,7 @@ function TablaDinamica<T>({
   accionDerecha,
   grupoTarjetas,
   etiquetaGrupoTarjetas,
+  gridTarjetas = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
   filasReordenables = false,
   onReordenarFilas,
   className = '',
@@ -110,7 +111,6 @@ function TablaDinamica<T>({
   const [vistaActual, setVistaActual] = useState<TipoVista>(
     (configGuardada?.tipoVista as TipoVista) || vistaInicial || vistas[0] || 'lista'
   )
-  const [menuVistasMobilAbierto, setMenuVistasMobilAbierto] = useState(false)
   const [esMobil, setEsMobil] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)')
@@ -1044,50 +1044,6 @@ function TablaDinamica<T>({
               className="shrink-0"
             />
 
-            {/* Mobile: menú de vistas (3 puntitos dentro del buscador) */}
-            {vistas.length > 1 && !ocultarSwitcherVistas && (
-              <div className="sm:hidden relative shrink-0">
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  icono={<MoreVertical size={14} />}
-                  titulo="Vista"
-                  onClick={() => setMenuVistasMobilAbierto(!menuVistasMobilAbierto)}
-                />
-                <AnimatePresence>
-                  {menuVistasMobilAbierto && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setMenuVistasMobilAbierto(false)} />
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.12 }}
-                        className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-popover shadow-lg z-50 overflow-hidden py-1"
-                      >
-                        {vistas.map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => { if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return } vistaManualRef.current = true; setVistaActual(v); setMenuVistasMobilAbierto(false) }}
-                            className={[
-                              'flex items-center gap-2.5 w-full px-3 py-2 text-sm cursor-pointer border-none transition-colors',
-                              v === vistaActual
-                                ? 'bg-superficie-seleccionada text-texto-marca font-medium'
-                                : 'bg-transparent text-texto-secundario hover:bg-superficie-hover',
-                            ].join(' ')}
-                          >
-                            {iconosVista[v]}
-                            <span>{v.charAt(0).toUpperCase() + v.slice(1)}</span>
-                          </button>
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
           </div>
 
           {/* Panel de filtros + vistas (desplegable) */}
@@ -1441,9 +1397,13 @@ function TablaDinamica<T>({
           </div>
         )}
 
-        {/* Switcher de vistas — desktop only (en mobile está dentro del buscador) */}
+        {/* Switcher de vistas (íconos directos para Lista/Tarjetas/Matriz/etc.).
+            Antes había dos switchers: uno desktop con íconos al final de la
+            barra y otro mobile como menú dropdown de "3 puntos" dentro del
+            buscador. Eran redundantes y se veían duplicados en pantallas
+            medianas. Ahora hay uno solo, visible en todos los tamaños. */}
         {vistas.length > 1 && !ocultarSwitcherVistas && (
-          <GrupoBotones className="hidden sm:inline-flex shrink-0">
+          <GrupoBotones className="shrink-0">
             {vistas.map((v) => {
               const esActiva = vistaExternaActiva ? v === vistaExternaActiva : v === vistaActual
               return (
@@ -1871,7 +1831,7 @@ function TablaDinamica<T>({
                                 transition={{ duration: 0.2 }}
                                 className="overflow-hidden"
                               >
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                                <div className={`grid ${gridTarjetas} gap-2`}>
                                   {filas.map(renderizarTarjetaItem)}
                                 </div>
                               </motion.div>
@@ -1883,7 +1843,7 @@ function TablaDinamica<T>({
                   </div>
                 ) : (
                   /* ── Vista plana (sin agrupación) ── */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+                  <div className={`grid ${gridTarjetas} gap-2`}>
                     {datosPaginados.map(renderizarTarjetaItem)}
                   </div>
                 )}

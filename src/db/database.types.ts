@@ -2183,6 +2183,7 @@ export type Database = {
           distancia_maxima_m: number
           duracion_estimada_default: number
           empresa_id: string
+          enviar_avisos_whatsapp: boolean
           id: string
           motivos_predefinidos: Json
           requiere_geolocalizacion: boolean
@@ -2195,6 +2196,7 @@ export type Database = {
           distancia_maxima_m?: number
           duracion_estimada_default?: number
           empresa_id: string
+          enviar_avisos_whatsapp?: boolean
           id?: string
           motivos_predefinidos?: Json
           requiere_geolocalizacion?: boolean
@@ -2207,6 +2209,7 @@ export type Database = {
           distancia_maxima_m?: number
           duracion_estimada_default?: number
           empresa_id?: string
+          enviar_avisos_whatsapp?: boolean
           id?: string
           motivos_predefinidos?: Json
           requiere_geolocalizacion?: boolean
@@ -4772,6 +4775,7 @@ export type Database = {
           metodo_fichaje: string | null
           numero_empleado: number
           permisos_custom: Json | null
+          permisos_recorrido_default: Json | null
           puesto_id: string | null
           rol: string
           salix_ia_habilitado: boolean | null
@@ -4804,6 +4808,7 @@ export type Database = {
           metodo_fichaje?: string | null
           numero_empleado?: number
           permisos_custom?: Json | null
+          permisos_recorrido_default?: Json | null
           puesto_id?: string | null
           rol?: string
           salix_ia_habilitado?: boolean | null
@@ -4836,6 +4841,7 @@ export type Database = {
           metodo_fichaje?: string | null
           numero_empleado?: number
           permisos_custom?: Json | null
+          permisos_recorrido_default?: Json | null
           puesto_id?: string | null
           rol?: string
           salix_ia_habilitado?: boolean | null
@@ -6980,6 +6986,7 @@ export type Database = {
           en_papelera: boolean
           estado: string
           fecha: string
+          hora_salida_planificada: string | null
           id: string
           notas: string | null
           origen_lat: number | null
@@ -7004,6 +7011,7 @@ export type Database = {
           en_papelera?: boolean
           estado?: string
           fecha: string
+          hora_salida_planificada?: string | null
           id?: string
           notas?: string | null
           origen_lat?: number | null
@@ -7028,6 +7036,7 @@ export type Database = {
           en_papelera?: boolean
           estado?: string
           fecha?: string
+          hora_salida_planificada?: string | null
           id?: string
           notas?: string | null
           origen_lat?: number | null
@@ -8074,6 +8083,7 @@ export type Database = {
           registro_precision_m: number | null
           resultado: string | null
           temperatura: string | null
+          tiene_hora_especifica: boolean
           vinculos: Json
         }
         Insert: {
@@ -8120,6 +8130,7 @@ export type Database = {
           registro_precision_m?: number | null
           resultado?: string | null
           temperatura?: string | null
+          tiene_hora_especifica?: boolean
           vinculos?: Json
         }
         Update: {
@@ -8166,6 +8177,7 @@ export type Database = {
           registro_precision_m?: number | null
           resultado?: string | null
           temperatura?: string | null
+          tiene_hora_especifica?: boolean
           vinculos?: Json
         }
         Relationships: [

@@ -187,6 +187,13 @@ export interface PropiedadesTablaDinamica<T> {
   grupoTarjetas?: (fila: T) => string
   /** Etiqueta legible del grupo (si no se pasa, usa la clave directa) */
   etiquetaGrupoTarjetas?: (clave: string) => string
+  /**
+   * Clases Tailwind para el grid de la vista tarjetas. Permite que cada módulo
+   * elija cuántas columnas usar por breakpoint según la densidad de su tarjeta.
+   * Default: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+   * (Contactos usa 1 col en mobile porque la tarjeta lleva footer de acciones).
+   */
+  gridTarjetas?: string
 
   /**
    * Filas reordenables por drag-and-drop. Cuando está activo, se agrega una columna de handle

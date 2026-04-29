@@ -45,8 +45,24 @@ export function useReactivacionPWA() {
       document.documentElement.style.setProperty('--vh', `${vh}px`)
     }
 
+    // Workaround para iOS standalone: al volver de una app externa
+    // (Maps, WhatsApp, tel:), el WebView a veces queda pintado en blanco.
+    // Un nudge de opacidad sobre el body fuerza un repaint sin afectar
+    // el layout ni provocar parpadeo perceptible.
+    const forzarRepaint = () => {
+      const body = document.body
+      if (!body) return
+      body.style.opacity = '0.999'
+      requestAnimationFrame(() => {
+        body.style.opacity = ''
+      })
+    }
+
     const onVisibilidad = () => {
-      if (document.visibilityState === 'visible') actualizarAltura()
+      if (document.visibilityState === 'visible') {
+        actualizarAltura()
+        forzarRepaint()
+      }
     }
 
     // `pageshow` con `persisted=true` indica restauración desde bfcache (iOS Safari).
@@ -55,6 +71,7 @@ export function useReactivacionPWA() {
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
         actualizarAltura()
+        forzarRepaint()
         window.dispatchEvent(new CustomEvent(EVENTO_REACTIVACION))
       }
     }

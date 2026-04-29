@@ -18,7 +18,7 @@
  * una visita ni contamina las métricas del contacto.
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { MapPin, User, X, Loader2, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { InputDireccion } from '@/componentes/ui/InputDireccion'
@@ -44,11 +44,25 @@ interface Props {
   onGuardar: (payload: PayloadParadaGenerica) => Promise<void> | void
   onCancelar: () => void
   guardando?: boolean
+  /** Si true, el form no renderiza su footer de Cancelar/Guardar — útil cuando se
+   *  usa dentro de un modal que ya provee accionPrimaria/accionSecundaria. */
+  sinFooter?: boolean
+  /** Callback que notifica al padre cuando cambia el flag "se puede guardar"
+   *  (validez del título). Lo usa el modal para habilitar/deshabilitar su botón. */
+  onCambioValidez?: (valido: boolean) => void
+}
+
+/** Handle imperativo para que el padre dispare el guardar desde un botón externo. */
+export interface FormParadaRecorridoHandle {
+  guardar: () => Promise<void> | void
 }
 
 type Modo = 'mano' | 'contacto'
 
-export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props) {
+export const FormParadaRecorrido = forwardRef<FormParadaRecorridoHandle, Props>(function FormParadaRecorrido(
+  { onGuardar, onCancelar, guardando, sinFooter, onCambioValidez },
+  ref
+) {
   const { tienePermiso } = useRol()
   const puedeVerContactos = tienePermiso('contactos', 'ver')
 
@@ -68,6 +82,11 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
   const [direccionContactoTexto, setDireccionContactoTexto] = useState<string | null>(null)
 
   const puedeGuardar = titulo.trim().length > 0 && !guardando
+
+  // Notificar al padre los cambios de validez (para sincronizar el botón externo)
+  useEffect(() => {
+    onCambioValidez?.(titulo.trim().length > 0)
+  }, [titulo, onCambioValidez])
 
   const manejarGuardar = async () => {
     if (!puedeGuardar) return
@@ -99,6 +118,12 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
 
     await onGuardar(payload)
   }
+
+  // Exponer la acción de guardar para que el padre pueda dispararla desde su footer.
+  // Tiene que ir DESPUÉS de declarar manejarGuardar (es un const, no se hoistea).
+  useImperativeHandle(ref, () => ({
+    guardar: () => manejarGuardar(),
+  }))
 
   const manejarCambioContacto = (c: ContactoResultado | null) => {
     if (!c) {
@@ -239,21 +264,26 @@ export function FormParadaRecorrido({ onGuardar, onCancelar, guardando }: Props)
         </div>
       )}
 
-      {/* Acciones — sticky al fondo para que no se tapen con la bottom bar del sheet */}
-      <div className="sticky bottom-0 -mx-3 -mb-3 mt-1 flex items-center justify-end gap-2 bg-superficie-app/95 backdrop-blur-sm border-t border-white/[0.06] px-3 py-2 rounded-b-card">
-        <Boton variante="fantasma" tamano="sm" onClick={onCancelar} icono={<X size={13} />}>
-          Cancelar
-        </Boton>
-        <Boton
-          variante="primario"
-          tamano="sm"
-          onClick={manejarGuardar}
-          disabled={!puedeGuardar}
-          icono={guardando ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-        >
-          Agregar parada
-        </Boton>
-      </div>
+      {/* Acciones — sticky al fondo para que no se tapen con la bottom bar del sheet.
+          Cuando se usa dentro de un Modal estándar (sinFooter=true), las acciones las
+          provee el modal vía accionPrimaria/accionSecundaria — acá no renderizamos
+          un footer propio para no duplicar. */}
+      {!sinFooter && (
+        <div className="sticky bottom-0 -mx-3 -mb-3 mt-1 flex items-center justify-end gap-2 bg-superficie-app/95 backdrop-blur-sm border-t border-white/[0.06] px-3 py-2 rounded-b-card">
+          <Boton variante="fantasma" tamano="sm" onClick={onCancelar} icono={<X size={13} />}>
+            Cancelar
+          </Boton>
+          <Boton
+            variante="primario"
+            tamano="sm"
+            onClick={manejarGuardar}
+            disabled={!puedeGuardar}
+            icono={guardando ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+          >
+            Agregar parada
+          </Boton>
+        </div>
+      )}
     </div>
   )
-}
+})

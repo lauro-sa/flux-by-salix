@@ -461,10 +461,13 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
         </div>
       </div>
 
-      {/* ═══ FILTROS — Tabs del sistema ═══ */}
+      {/* ═══ FILTROS — Tabs del sistema ═══
+          scrollableMobile: la papelera tiene un tab por tipo de entidad (10+),
+          en mobile no hay manera de mostrarlos sin scroll horizontal. */}
       <div className="shrink-0 px-2 sm:px-6 mb-4">
         <Tabs
           layoutId="papelera-tabs"
+          scrollableMobile
           tabs={tabsOrdenados
             .map(tab => ({
               clave: tab.id,
@@ -509,88 +512,113 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                    className="flex gap-3 px-4 py-3.5 rounded-card bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors"
+                    className="flex flex-col rounded-card bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors"
                   >
-                    {/* Ícono tipo + avatar eliminador apilados a las puntas */}
-                    <div className="flex flex-col items-center justify-between shrink-0 self-stretch">
-                      <div className="size-9 rounded-card flex items-center justify-center bg-superficie-hover">
+                    {/* Cuerpo de la tarjeta: 1 fila en desktop (icono + info +
+                        acciones), apilado en mobile para que las acciones
+                        bajen a un footer dedicado con botones legibles. */}
+                    <div className="flex gap-3 px-4 py-3.5">
+                      {/* Ícono del tipo de entidad — sin avatar de eliminador
+                          para evitar el "?" cuando no hay nombre. El nombre
+                          del eliminador igual se ve en la línea de texto. */}
+                      <div className="size-9 rounded-card flex items-center justify-center bg-superficie-hover shrink-0">
                         <Icono size={16} className="text-texto-terciario" />
                       </div>
-                      <Tooltip contenido={nombreEliminador || 'Usuario desconocido'} posicion="derecha" delay={300}>
-                        <Avatar
-                          nombre={nombreEliminador || '?'}
-                          tamano="xs"
-                          className="cursor-pointer"
-                        />
-                      </Tooltip>
-                    </div>
 
-                    {/* Info — cada dato en su propia línea */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      {/* Línea 1: Píldora tipo */}
-                      <div>
-                        <Insignia color={colorTipo} tamano="sm">
-                          <Icono size={10} className="shrink-0" />
-                          {ETIQUETA_ENTIDAD[elem.tipo]}
-                        </Insignia>
+                      {/* Info: tipo + nombre + meta + días restantes */}
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        {/* Tipo + nombre en la misma fila para ahorrar alto */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Insignia color={colorTipo} tamano="sm">
+                            <Icono size={10} className="shrink-0" />
+                            {ETIQUETA_ENTIDAD[elem.tipo]}
+                          </Insignia>
+                          <p className="text-sm font-medium text-texto-primario truncate min-w-0">{elem.nombre}</p>
+                        </div>
+
+                        {/* Quién eliminó + cuándo + canal/subtítulo si hay */}
+                        <div className="flex items-center gap-1.5 text-xs text-texto-terciario flex-wrap">
+                          <Clock size={11} className="shrink-0" />
+                          {nombreEliminador ? (
+                            <span>
+                              <span className="text-texto-secundario font-medium">{nombreEliminador}</span>
+                              {' eliminó '}
+                              <span className="lowercase">{textoTiempo(elem.eliminado_en)}</span>
+                            </span>
+                          ) : (
+                            <span>Eliminado {textoTiempo(elem.eliminado_en).toLowerCase()}</span>
+                          )}
+                          {elem.subtitulo && (
+                            <>
+                              <span className="text-borde-fuerte">·</span>
+                              <span className="truncate max-w-[200px]">{elem.subtitulo}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Días restantes hasta eliminación definitiva */}
+                        <div className={`flex items-center gap-1 text-xs ${
+                          urgente ? 'text-insignia-peligro font-medium' : 'text-texto-terciario'
+                        }`}>
+                          {urgente && <AlertTriangle size={11} className="shrink-0" />}
+                          {diasRestantes === 0
+                            ? 'Se elimina permanentemente hoy'
+                            : diasRestantes === 1
+                              ? 'Se elimina permanentemente mañana'
+                              : `Se elimina permanentemente en ${diasRestantes} días`
+                          }
+                        </div>
                       </div>
 
-                      {/* Línea 2: Nombre */}
-                      <p className="text-sm font-medium text-texto-primario truncate">{elem.nombre}</p>
-
-                      {/* Línea 2: Quién eliminó + cuándo */}
-                      <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
-                        <Clock size={11} className="shrink-0" />
-                        {nombreEliminador ? (
-                          <span>
-                            <span className="text-texto-secundario font-medium">{nombreEliminador}</span>
-                            {' eliminó '}
-                            <span className="lowercase">{textoTiempo(elem.eliminado_en)}</span>
-                          </span>
-                        ) : (
-                          <span>Eliminado {textoTiempo(elem.eliminado_en).toLowerCase()}</span>
-                        )}
-                        {elem.subtitulo && (
-                          <>
-                            <span className="text-borde-fuerte">·</span>
-                            <span className="truncate max-w-[200px]">{elem.subtitulo}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Línea 3: Días restantes */}
-                      <div className={`flex items-center gap-1 text-xs ${
-                        urgente ? 'text-insignia-peligro font-medium' : 'text-texto-terciario'
-                      }`}>
-                        {urgente && <AlertTriangle size={11} className="shrink-0" />}
-                        {diasRestantes === 0
-                          ? 'Se elimina permanentemente hoy'
-                          : diasRestantes === 1
-                            ? 'Se elimina permanentemente mañana'
-                            : `Se elimina permanentemente en ${diasRestantes} días`
-                        }
-                      </div>
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <Boton
-                        variante="secundario"
-                        tamano="xs"
-                        icono={<RotateCcw size={13} />}
-                        onClick={() => restaurar(elem)}
-                        cargando={restaurando === elem.id}
-                      >
-                        <span className="hidden sm:inline">Restaurar</span>
-                      </Boton>
-                      {puedeVerTodos && (
+                      {/* Acciones desktop (en mobile pasan al footer) */}
+                      <div className="hidden sm:flex items-center gap-1.5 shrink-0 self-center">
                         <Boton
-                          variante="fantasma"
+                          variante="secundario"
                           tamano="xs"
-                          icono={<Trash2 size={13} />}
-                          onClick={() => setConfirmacionEliminar(elem)}
-                          className="!text-insignia-peligro/60 hover:!text-insignia-peligro hover:!bg-insignia-peligro/10"
-                        />
+                          icono={<RotateCcw size={13} />}
+                          onClick={() => restaurar(elem)}
+                          cargando={restaurando === elem.id}
+                        >
+                          Restaurar
+                        </Boton>
+                        {puedeVerTodos && (
+                          <Boton
+                            variante="fantasma"
+                            tamano="xs"
+                            icono={<Trash2 size={13} />}
+                            onClick={() => setConfirmacionEliminar(elem)}
+                            className="!text-insignia-peligro/60 hover:!text-insignia-peligro hover:!bg-insignia-peligro/10"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer mobile: Restaurar + Eliminar como botones reales
+                        con label, mismo patrón que el resto de los listados. */}
+                    <div className="sm:hidden grid grid-cols-2 border-t border-borde-sutil divide-x divide-borde-sutil">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); restaurar(elem) }}
+                        disabled={restaurando === elem.id}
+                        className="flex items-center justify-center gap-1.5 py-3 text-sm text-texto-secundario hover:text-texto-marca active:bg-white/[0.03] transition-colors bg-transparent border-0 cursor-pointer w-full disabled:opacity-50 disabled:cursor-wait"
+                      >
+                        <RotateCcw size={16} className="shrink-0" />
+                        <span>Restaurar</span>
+                      </button>
+                      {puedeVerTodos ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setConfirmacionEliminar(elem) }}
+                          className="flex items-center justify-center gap-1.5 py-3 text-sm text-insignia-peligro/80 hover:text-insignia-peligro active:bg-insignia-peligro/10 transition-colors bg-transparent border-0 cursor-pointer w-full"
+                        >
+                          <Trash2 size={16} className="shrink-0" />
+                          <span>Eliminar</span>
+                        </button>
+                      ) : (
+                        <span className="flex items-center justify-center gap-1.5 py-3 text-sm text-texto-terciario/40 cursor-not-allowed select-none" aria-disabled="true">
+                          <Trash2 size={16} className="shrink-0" />
+                          <span>Eliminar</span>
+                        </span>
                       )}
                     </div>
                   </motion.div>

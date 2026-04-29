@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -12,11 +12,14 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, MapPin, MapPinOff,
   CheckCircle, User, Trash2, History,
-  CalendarClock, Route, List,
+  CalendarClock, Route, List, Phone,
   RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Tabs } from '@/componentes/ui/Tabs'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
@@ -26,11 +29,11 @@ import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
 import { ModalConfirmarVisita } from './ModalConfirmarVisita'
 import PanelPlanificacion from './PanelPlanificacion'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 
 /**
  * ContenidoVisitas — Client Component principal del módulo de visitas.
@@ -131,77 +134,73 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   // Admins ven todas las visitas por defecto; usuarios con permisos restringidos ven solo propias
   const vistaDefault = soloPropio ? 'propias' : 'todas'
 
-  // Filtros — restaurar desde URL si existen
-  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
-    const v = searchParams.get('estado')
-    if (!v) return ESTADOS_ACTIVOS
-    const fromUrl = v.split(',')
-    // Migración automática: si la URL tiene los 4 estados activos "viejos" (sin provisoria),
-    // asumir default nuevo y sumar provisoria. Si el usuario la quitó explícitamente no va a tener los 4.
-    const viejosActivos = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
-    if (viejosActivos.every(e => fromUrl.includes(e)) && !fromUrl.includes('provisoria') && fromUrl.length === viejosActivos.length) {
-      return ESTADOS_ACTIVOS
-    }
-    return fromUrl
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/visitas',
+    campos: {
+      estado: {
+        defecto: ESTADOS_ACTIVOS as string[],
+        // Migración: URLs viejas con los 4 estados activos sin "provisoria"
+        // se asumen como default nuevo (sumarle provisoria).
+        parser: (raw: string | null): string[] => {
+          if (!raw) return ESTADOS_ACTIVOS
+          const fromUrl = raw.split(',').filter(Boolean)
+          const viejosActivos = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
+          if (
+            viejosActivos.every(e => fromUrl.includes(e))
+            && !fromUrl.includes('provisoria')
+            && fromUrl.length === viejosActivos.length
+          ) {
+            return ESTADOS_ACTIVOS
+          }
+          return fromUrl
+        },
+      },
+      prioridad: { defecto: [] as string[] },
+      vista: { defecto: vistaDefault },
+      asignado_a: { defecto: [] as string[] },
+      sin_asignado: { defecto: false },
+      creado_por: { defecto: '' },
+      temperatura: { defecto: [] as string[] },
+      fecha: { defecto: '' },
+      contacto_id: { defecto: '' },
+      actividad_id: { defecto: '' },
+      creado_rango: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  const [filtroPrioridad, setFiltroPrioridad] = useState<string[]>(() => {
-    const v = searchParams.get('prioridad')
-    return v ? v.split(',') : []
-  })
-  const [filtroVista, setFiltroVista] = useState(searchParams.get('vista') || vistaDefault)
-  // Nuevos
-  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
-    const v = searchParams.get('asignado_a')
-    return v ? v.split(',') : []
-  })
-  const [filtroSinAsignado, setFiltroSinAsignado] = useState(searchParams.get('sin_asignado') === 'true')
-  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
-  const [filtroTemperatura, setFiltroTemperatura] = useState<string[]>(() => {
-    const v = searchParams.get('temperatura')
-    return v ? v.split(',') : []
-  })
-  const [filtroFecha, setFiltroFecha] = useState(searchParams.get('fecha') || '')
-  const [filtroContacto, setFiltroContacto] = useState(searchParams.get('contacto_id') || '')
-  const [filtroActividad, setFiltroActividad] = useState(searchParams.get('actividad_id') || '')
-  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
 
-  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros)
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroEstado, filtroPrioridad, filtroVista,
-      filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroTemperatura,
-      filtroFecha, filtroContacto, filtroActividad, filtroCreadoRango,
-    ],
-  )
-
-  // Sincronizar filtros → URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroEstado.length > 0 && !(filtroEstado.length === ESTADOS_ACTIVOS.length && ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e)))) {
-      params.set('estado', filtroEstado.join(','))
-    }
-    if (filtroPrioridad.length > 0) params.set('prioridad', filtroPrioridad.join(','))
-    if (filtroVista && filtroVista !== vistaDefault) params.set('vista', filtroVista)
-    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
-    if (filtroSinAsignado) params.set('sin_asignado', 'true')
-    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
-    if (filtroTemperatura.length > 0) params.set('temperatura', filtroTemperatura.join(','))
-    if (filtroFecha) params.set('fecha', filtroFecha)
-    if (filtroContacto) params.set('contacto_id', filtroContacto)
-    if (filtroActividad) params.set('actividad_id', filtroActividad)
-    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `/visitas?${qs}` : '/visitas')
-  }, [
-    busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista,
-    filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroTemperatura,
-    filtroFecha, filtroContacto, filtroActividad, filtroCreadoRango,
-    pagina, vistaDefault,
-  ])
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroEstado = f.estado
+  const filtroPrioridad = f.prioridad
+  const filtroVista = f.vista
+  const filtroAsignados = f.asignado_a
+  const filtroSinAsignado = f.sin_asignado
+  const filtroCreadoPor = f.creado_por
+  const filtroTemperatura = f.temperatura
+  const filtroFecha = f.fecha
+  const filtroContacto = f.contacto_id
+  const filtroActividad = f.actividad_id
+  const filtroCreadoRango = f.creado_rango
+  const setFiltroEstado = (v: string[]) => filtros.set('estado', v)
+  const setFiltroPrioridad = (v: string[]) => filtros.set('prioridad', v)
+  const setFiltroVista = (v: string) => filtros.set('vista', v)
+  const setFiltroAsignados = (v: string[]) => filtros.set('asignado_a', v)
+  const setFiltroSinAsignado = (v: boolean) => filtros.set('sin_asignado', v)
+  const setFiltroCreadoPor = (v: string) => filtros.set('creado_por', v)
+  const setFiltroTemperatura = (v: string[]) => filtros.set('temperatura', v)
+  const setFiltroFecha = (v: string) => filtros.set('fecha', v)
+  const setFiltroContacto = (v: string) => filtros.set('contacto_id', v)
+  const setFiltroActividad = (v: string) => filtros.set('actividad_id', v)
+  const setFiltroCreadoRango = (v: string) => filtros.set('creado_rango', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   // Config de visitas (cache largo)
   const { datos: configData } = useConfig<Record<string, unknown>>(
@@ -254,39 +253,20 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
     datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
   })
 
-  // Miembros visitadores — solo los que tienen permiso en módulo recorrido (cache largo)
-  const { data: miembrosData } = useQuery({
-    queryKey: ['miembros-visitadores'],
-    queryFn: async () => {
-      const supabase = crearClienteNavegador()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return []
-      const { data: mRes } = await supabase
-        .from('miembros')
-        .select('usuario_id, rol, permisos_custom')
-        .eq('empresa_id', empresaId)
-        .eq('activo', true)
-      if (!mRes?.length) return []
-      // Filtrar visitadores:
-      // - Propietario: siempre puede ser visitador (tiene acceso total)
-      // - Otros: solo si tienen ver_propio o registrar en recorrido en permisos_custom
-      const permisosVisitador = ['ver_propio', 'registrar']
-      const esVisitador = (m: typeof mRes[0]) => {
+  // Miembros visitadores: filtrado local sobre la lista global de asignables.
+  // - Propietario: siempre es visitador (tiene acceso total)
+  // - Otros: solo si tienen ver_propio o registrar en módulo recorrido
+  const { data: miembrosTodos = [] } = useMiembrosAsignables()
+  const miembros = useMemo<Miembro[]>(() => {
+    const permisosVisitador = ['ver_propio', 'registrar']
+    return miembrosTodos
+      .filter(m => {
         if (m.rol === 'propietario') return true
-        if (!m.permisos_custom) return false
-        const permisos = m.permisos_custom as Record<string, string[]>
-        return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
-      }
-      const visitadores = mRes.filter(esVisitador)
-      if (!visitadores.length) return []
-      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', visitadores.map(m => m.usuario_id))
-      return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
-    },
-    staleTime: 5 * 60_000,
-  })
-  const miembros = (miembrosData || []) as Miembro[]
+        const permisos = m.permisos_custom?.recorrido
+        return permisos?.some(p => permisosVisitador.includes(p)) ?? false
+      })
+      .map(m => ({ usuario_id: m.usuario_id, nombre: m.nombre, apellido: m.apellido }))
+  }, [miembrosTodos])
 
   // Opciones de miembros para filtros (asignado a, creado por)
   const opcionesMiembros = useMemo(
@@ -363,7 +343,22 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
     },
     staleTime: 30_000,
   })
-  const finalizadasHoy = finalizadasHoyData || []
+  const finalizadasHoy = useMemo(() => finalizadasHoyData || [], [finalizadasHoyData])
+
+  // Lo que efectivamente se muestra en el listado: las visitas que devuelve la
+  // API según los filtros activos + las finalizadas hoy mezcladas automáticamente
+  // (deduplicadas por id). Pensado para que el visitador entre y vea su día
+  // entero (lo pendiente + lo que ya hizo) sin tener que filtrar a mano.
+  // Si el usuario filtró explícitamente por completada/cancelada, no agregamos
+  // las de hoy de nuevo (ya vienen en `visitas`).
+  const visitasMostradas = useMemo(() => {
+    const filtroIncluyeFinalizadas = filtroEstado.includes('completada') || filtroEstado.includes('cancelada')
+    if (filtroIncluyeFinalizadas || finalizadasHoy.length === 0) return visitas
+    const idsExistentes = new Set(visitas.map(v => v.id))
+    const extras = finalizadasHoy.filter(v => !idsExistentes.has(v.id))
+    if (extras.length === 0) return visitas
+    return [...visitas, ...extras]
+  }, [visitas, finalizadasHoy, filtroEstado])
 
   const reactivarVisita = useCallback(async (id: string) => {
     try {
@@ -558,15 +553,30 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
         const vencida = fecha < hoy && !['completada', 'cancelada'].includes(fila.estado)
         const esHoy = Math.abs(fecha.getTime() - hoy.getTime()) < 86400000
+        // Hora real (si la visita ya empezó) primero. Si no empezó pero tiene hora
+        // específica programada, mostramos la programada. Si no, "—" (solo día).
+        const horaReal = fila.fecha_inicio || fila.fecha_llegada
+        // Usar formato.hora() que respeta la config 24h/12h de la empresa, en vez
+        // de toLocaleTimeString que sigue el locale del navegador (puede mostrar AM/PM
+        // aunque la empresa esté configurada en 24h).
+        const mostrarHora = horaReal
+          ? formato.hora(horaReal)
+          : fila.tiene_hora_especifica
+            ? formato.hora(fila.fecha_programada)
+            : null
 
         return (
           <div className="flex flex-col">
             <span className={`text-sm ${vencida ? 'text-insignia-peligro' : esHoy ? 'text-insignia-advertencia' : 'text-texto-primario'}`}>
               {fechaCorta(fila.fecha_programada, formato.locale)}
             </span>
-            <span className="text-[11px] text-texto-terciario">
-              {fecha.toLocaleTimeString(formato.locale, { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            {mostrarHora ? (
+              <span className="text-[11px] text-texto-terciario">
+                {mostrarHora}{horaReal ? ' (real)' : ''}
+              </span>
+            ) : (
+              <span className="text-[11px] text-texto-terciario opacity-60">Sin hora</span>
+            )}
           </div>
         )
       },
@@ -674,56 +684,125 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   // ── Render tarjeta (vista tarjetas) ──
   const renderTarjeta = useCallback((fila: Visita) => {
     const estado = COLORES_ESTADO[fila.estado]
+
+    // Footer mobile: usamos el teléfono de la persona que recibe en sitio
+    // (recibe_telefono) — es el contacto útil para coordinar la visita
+    // mientras el visitador está en camino.
+    const numeroLlamar = (fila.recibe_telefono || '').replace(/[^+\d]/g, '')
+    const numeroWa = (fila.recibe_telefono || '').replace(/[^\d]/g, '')
+
+    // Para Maps preferimos lat/lng (abre en modo navegación con dirigirse a)
+    // y caemos a search por dirección textual cuando no hay coordenadas.
+    const tieneCoords = fila.direccion_lat != null && fila.direccion_lng != null
+    const urlMapa = tieneCoords
+      ? `https://www.google.com/maps/dir/?api=1&destination=${fila.direccion_lat},${fila.direccion_lng}&travelmode=driving`
+      : (fila.direccion_texto ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fila.direccion_texto)}` : null)
+
+    const esProvisoria = fila.estado === 'provisoria'
+
     return (
-      <div className="p-4 space-y-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <User size={14} className="text-texto-terciario" />
-            <span className="font-medium text-texto-primario">{fila.contacto_nombre}</span>
+      <div className="flex flex-col">
+        <div className="p-4 flex flex-col gap-3">
+          {/* ── Cabecera: chip de estado (con su color) + checkbox de selección
+                que la tabla coloca absoluto arriba-derecha (pr-7 reserva espacio). */}
+          <div className="flex items-start justify-between gap-2 pr-7">
+            {estado && (
+              <Insignia
+                color={estado.color as 'exito' | 'peligro' | 'advertencia' | 'info' | 'neutro'}
+                tamano="sm"
+              >
+                {estado.etiqueta}
+              </Insignia>
+            )}
+            {fila.prioridad === 'urgente' && <Insignia color="peligro" tamano="sm">Urgente</Insignia>}
+            {fila.prioridad === 'alta' && <Insignia color="peligro" tamano="sm" variante="outline">Alta</Insignia>}
           </div>
-          {estado && (
-            <Insignia color={estado.color as 'exito' | 'peligro' | 'advertencia' | 'info'}>
-              {estado.etiqueta}
-            </Insignia>
+
+          {/* ── Identidad de la visita: contacto + motivo ── */}
+          <div className="flex flex-col gap-1">
+            <p className="text-base font-medium text-texto-primario leading-snug">
+              {fila.contacto_nombre}
+            </p>
+            {fila.motivo && (
+              <p className="text-sm text-texto-secundario leading-snug">
+                {fila.motivo}
+              </p>
+            )}
+          </div>
+
+          {/* ── Meta: fecha + dirección + asignado + receptor en sitio ── */}
+          <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+            <LineaInfoTarjeta icono={<CalendarClock size={13} />}>
+              {fechaCorta(fila.fecha_programada, formato.locale)}
+            </LineaInfoTarjeta>
+            {fila.direccion_texto && (
+              <LineaInfoTarjeta icono={<MapPin size={13} />} alineacion="start">
+                {fila.direccion_texto}
+              </LineaInfoTarjeta>
+            )}
+            {fila.asignado_nombre && (
+              <LineaInfoTarjeta icono={<User size={13} />} truncar>
+                {fila.asignado_nombre}
+              </LineaInfoTarjeta>
+            )}
+            {fila.recibe_nombre && (
+              <LineaInfoTarjeta icono={<Phone size={13} />} truncar>
+                {fila.recibe_nombre}
+              </LineaInfoTarjeta>
+            )}
+          </div>
+
+          {/* ── Banner provisoria: requiere acción del usuario antes de operar ── */}
+          {esProvisoria && (
+            <div className="flex items-center gap-2 pt-1 border-t border-borde-sutil">
+              <button
+                onClick={(e) => { e.stopPropagation(); setVisitaConfirmando(fila) }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-card text-xs font-medium bg-insignia-exito-fondo text-insignia-exito-texto hover:opacity-90 transition-opacity border-0 cursor-pointer"
+              >
+                <CheckCircle size={14} /> Confirmar
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); rechazarVisita(fila.id) }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-card text-xs font-medium text-texto-terciario hover:text-insignia-peligro-texto hover:bg-insignia-peligro-fondo transition-colors border border-borde-sutil bg-transparent cursor-pointer"
+              >
+                <XCircle size={14} /> Rechazar
+              </button>
+            </div>
           )}
         </div>
-        {fila.direccion_texto && (
-          <div className="flex items-center gap-2 text-sm text-texto-secundario">
-            <MapPin size={12} className="text-texto-terciario" />
-            <span className="truncate">{fila.direccion_texto}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-3 text-xs text-texto-terciario">
-          <span className="flex items-center gap-1">
-            <CalendarClock size={12} />
-            {fechaCorta(fila.fecha_programada, formato.locale)}
-          </span>
-          {fila.asignado_nombre && (
-            <span className="flex items-center gap-1">
-              <User size={12} />
-              {fila.asignado_nombre}
-            </span>
-          )}
+
+        {/* ── Footer mobile: llamar al receptor / WhatsApp / navegar al sitio ──
+            Slots siempre visibles para mantener layout consistente. Si la
+            visita no tiene receptor o no tiene dirección, los slots quedan
+            apagados — útil porque las visitas suelen tener todos los datos. */}
+        <div className="sm:hidden">
+          <PieAccionesTarjeta acciones={[
+            {
+              id: 'llamar',
+              icono: <Phone size={16} className="shrink-0" />,
+              etiqueta: 'Llamar',
+              href: numeroLlamar ? `tel:${numeroLlamar}` : undefined,
+              deshabilitado: !numeroLlamar,
+            },
+            {
+              id: 'whatsapp',
+              icono: <IconoWhatsApp size={16} className="shrink-0" />,
+              etiqueta: 'WhatsApp',
+              href: numeroWa ? `https://wa.me/${numeroWa}` : undefined,
+              target: '_blank',
+              color: 'var(--canal-whatsapp)',
+              deshabilitado: !numeroWa,
+            },
+            {
+              id: 'navegar',
+              icono: <MapPin size={16} className="shrink-0" />,
+              etiqueta: 'Navegar',
+              href: urlMapa || undefined,
+              target: '_blank',
+              deshabilitado: !urlMapa,
+            },
+          ] satisfies AccionTarjeta[]} />
         </div>
-        {fila.motivo && (
-          <p className="text-sm text-texto-secundario truncate">{fila.motivo}</p>
-        )}
-        {fila.estado === 'provisoria' && (
-          <div className="flex items-center gap-2 pt-2 border-t border-white/[0.06]">
-            <button
-              onClick={(e) => { e.stopPropagation(); setVisitaConfirmando(fila) }}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-insignia-exito/10 text-insignia-exito hover:bg-insignia-exito/20 transition-colors"
-            >
-              <CheckCircle size={12} /> Confirmar
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); rechazarVisita(fila.id) }}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors"
-            >
-              <XCircle size={12} /> Rechazar
-            </button>
-          </div>
-        )}
       </div>
     )
   }, [formato.locale, rechazarVisita])
@@ -789,7 +868,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
       <TablaDinamica
         columnas={columnas}
         columnasVisiblesDefault={['contacto_nombre', 'direccion_texto', 'fecha_programada', 'estado', 'prioridad', 'asignado_nombre', 'acciones']}
-        datos={visitas}
+        datos={visitasMostradas}
         claveFila={(r) => r.id}
         totalRegistros={total}
         registrosPorPagina={POR_PAGINA}
@@ -921,19 +1000,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
           { id: 'fechas', etiqueta: 'Fechas', filtros: ['fecha', 'creado_rango'] },
           { id: 'vinculos', etiqueta: 'Vínculos', filtros: ['actividad'] },
         ]}
-        onLimpiarFiltros={() => {
-          setFiltroEstado(ESTADOS_ACTIVOS)
-          setFiltroPrioridad([])
-          setFiltroVista(vistaDefault)
-          setFiltroAsignados([])
-          setFiltroSinAsignado(false)
-          setFiltroCreadoPor('')
-          setFiltroTemperatura([])
-          setFiltroFecha('')
-          setFiltroContacto('')
-          setFiltroActividad('')
-          setFiltroCreadoRango('')
-        }}
+        onLimpiarFiltros={filtros.limpiar}
         opcionesOrden={[
           { etiqueta: 'Fecha ↑', clave: 'fecha_programada', direccion: 'asc' },
           { etiqueta: 'Fecha ↓', clave: 'fecha_programada', direccion: 'desc' },
@@ -945,6 +1012,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         ]}
         idModulo="visitas"
         renderTarjeta={renderTarjeta}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         onClickFila={(fila) => router.push(`/visitas/${fila.id}`)}
         mostrarResumen
         estadoVacio={
@@ -961,59 +1029,6 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         }
       />
 
-      {/* Sección: finalizadas hoy */}
-      {finalizadasHoy.length > 0 && (
-        <div className="mt-4 border border-borde-sutil rounded-card overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setSeccionHoyAbierta(!seccionHoyAbierta)}
-            className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-          >
-            <span className="flex items-center gap-2 text-xs font-medium text-texto-terciario uppercase tracking-wider">
-              <CheckCircle size={13} />
-              Finalizadas hoy ({finalizadasHoy.length})
-            </span>
-            {seccionHoyAbierta ? <ChevronUp size={14} className="text-texto-terciario" /> : <ChevronDown size={14} className="text-texto-terciario" />}
-          </button>
-          {seccionHoyAbierta && (
-            <div className="divide-y divide-white/[0.05]">
-              {finalizadasHoy.map(v => (
-                <div key={v.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex-shrink-0">
-                    {v.estado === 'completada'
-                      ? <CheckCircle size={15} className="text-insignia-exito" />
-                      : <XCircle size={15} className="text-insignia-peligro" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-texto-secundario truncate">{v.contacto_nombre}</span>
-                      <Insignia color={v.estado === 'completada' ? 'exito' : 'peligro'} tamano="sm">
-                        {v.estado === 'completada' ? 'Completada' : 'Cancelada'}
-                      </Insignia>
-                    </div>
-                    {v.direccion_texto && (
-                      <span className="text-xs text-texto-terciario truncate block">{v.direccion_texto}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-texto-terciario flex-shrink-0">
-                    {v.actualizado_en ? new Date(v.actualizado_en).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => reactivarVisita(v.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-boton text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
-                    title="Reactivar visita"
-                  >
-                    <RotateCcw size={12} />
-                    Reactivar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       </>
       )}
 

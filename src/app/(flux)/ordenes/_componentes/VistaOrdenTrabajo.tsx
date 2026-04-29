@@ -12,6 +12,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import CabeceraOrden from './CabeceraOrden'
 import SeccionActividadesOrden from './SeccionActividadesOrden'
@@ -37,6 +38,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const { t } = useTraduccion()
   const formato = useFormato()
   const router = useRouter()
+  const { obtenerRutaModulo } = useNavegacion()
   const { mostrar: mostrarToast } = useToast()
   const { tienePermiso } = useRol()
   // Si el usuario no tiene acceso a presupuestos, el número de origen
@@ -111,7 +113,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const cargar = useCallback(async () => {
     try {
       const res = await fetch(`/api/ordenes/${ordenId}`)
-      if (!res.ok) { router.push('/ordenes'); return }
+      if (!res.ok) { router.push(obtenerRutaModulo('/ordenes')); return }
       const data = await res.json()
       setOrden(data.orden)
       setAsignados(data.asignados || [])

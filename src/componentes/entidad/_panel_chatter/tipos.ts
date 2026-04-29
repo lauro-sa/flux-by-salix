@@ -112,6 +112,13 @@ export interface PropsEntradaTimeline {
   onEditarPago?: (pagoId: string) => void
   /** Eliminar un pago existente (tacho en hover en EntradaPago) */
   onEliminarPago?: (pagoId: string, monto: string, moneda: string) => void
+  /** Si esta entrada (correo/WA/mensaje) ya fue convertida en pago, llega
+   *  acá la referencia al pago vinculado para mostrar un chip
+   *  "Registrado como pago $X" en lugar de duplicar el evento visualmente. */
+  pagoVinculado?: { pago_id: string; monto: string; moneda: string }
+  /** Autor + tipo de la entrada origen del pago (correo/WA/mensaje) cuando
+   *  esta entrada es un evento `pago_confirmado` registrado desde el chatter. */
+  autorOrigenPago?: { autor: string; tipo: string }
 }
 
 // ─── Props de EditorNota ───

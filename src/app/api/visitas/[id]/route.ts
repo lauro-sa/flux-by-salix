@@ -136,6 +136,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       // Permitir ajustar fecha/franja al confirmar
       if (body.fecha_programada) campos.fecha_programada = body.fecha_programada
+      if (body.tiene_hora_especifica !== undefined) campos.tiene_hora_especifica = body.tiene_hora_especifica === true
       if (body.duracion_estimada_min !== undefined) campos.duracion_estimada_min = body.duracion_estimada_min
       if (body.asignado_a !== undefined) {
         campos.asignado_a = body.asignado_a
@@ -517,6 +518,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .update({
           estado: 'reprogramada',
           fecha_programada: body.fecha_programada,
+          ...(body.tiene_hora_especifica !== undefined ? { tiene_hora_especifica: body.tiene_hora_especifica === true } : {}),
           fecha_inicio: null,
           fecha_llegada: null,
           editado_por: user.id,
@@ -655,6 +657,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       campos.asignado_nombre = body.asignado_nombre || null
     }
     if (body.fecha_programada !== undefined) campos.fecha_programada = body.fecha_programada
+    if (body.tiene_hora_especifica !== undefined) campos.tiene_hora_especifica = body.tiene_hora_especifica === true
     if (body.duracion_estimada_min !== undefined) campos.duracion_estimada_min = body.duracion_estimada_min
     if (body.motivo !== undefined) campos.motivo = body.motivo
     if (body.resultado !== undefined) campos.resultado = body.resultado
@@ -663,6 +666,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.checklist !== undefined) campos.checklist = body.checklist
     if (body.recibe_nombre !== undefined) campos.recibe_nombre = body.recibe_nombre
     if (body.recibe_telefono !== undefined) campos.recibe_telefono = body.recibe_telefono
+    if (body.recibe_contacto_id !== undefined) campos.recibe_contacto_id = body.recibe_contacto_id
     if (body.vinculos !== undefined) campos.vinculos = body.vinculos
 
     const { data, error } = await admin

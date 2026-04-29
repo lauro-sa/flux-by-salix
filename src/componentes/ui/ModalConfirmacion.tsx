@@ -19,7 +19,9 @@ interface PropiedadesModalConfirmacion {
   onCerrar: () => void
   onConfirmar: () => void
   titulo: string
-  descripcion?: string
+  /** Texto plano o JSX. Si es JSX se renderiza tal cual (útil para mostrar
+   *  diff de valores, listas, fechas con jerarquía, etc.). */
+  descripcion?: ReactNode
   tipo?: TipoConfirmacion
   etiquetaConfirmar?: string
   etiquetaCancelar?: string
@@ -72,11 +74,11 @@ function ModalConfirmacion({
           {titulo}
         </h3>
 
-        {/* Descripción */}
+        {/* Descripción — div en vez de p para permitir JSX con saltos / chips / etc. */}
         {descripcion && (
-          <p className="text-base text-texto-terciario mb-6 leading-relaxed">
+          <div className="text-base text-texto-terciario mb-6 leading-relaxed">
             {descripcion}
-          </p>
+          </div>
         )}
 
         {/* Acciones */}

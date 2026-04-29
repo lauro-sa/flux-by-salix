@@ -157,13 +157,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ recorrido: null, paradas: [] })
     }
 
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido, correo')
-      .eq('id', user.id)
-      .single()
+    const [{ data: perfil }, { data: miembro }] = await Promise.all([
+      admin.from('perfiles').select('nombre, apellido, correo').eq('id', user.id).single(),
+      admin.from('miembros')
+        .select('permisos_recorrido_default')
+        .eq('empresa_id', empresaId)
+        .eq('usuario_id', user.id)
+        .maybeSingle(),
+    ])
 
     const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : ''
+    // Heredar permisos default del visitador como config inicial del recorrido
+    const configInicial = miembro?.permisos_recorrido_default || {}
 
     const { data: nuevoRecorrido, error: errorRecorrido } = await admin
       .from('recorridos')
@@ -175,6 +180,7 @@ export async function GET(request: NextRequest) {
         estado: 'pendiente',
         total_visitas: visitasDelDia.length,
         visitas_completadas: 0,
+        config: configInicial,
         creado_por: user.id,
       })
       .select()

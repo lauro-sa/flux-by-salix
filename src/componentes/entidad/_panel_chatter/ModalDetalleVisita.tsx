@@ -35,6 +35,7 @@ export interface DatosVisitaDetalle {
   duracion_estimada_min?: number | null
   fecha_completada?: string | null
   fecha_programada?: string | null
+  tiene_hora_especifica?: boolean | null
   motivo?: string | null
   contacto_nombre?: string | null
   contacto_id?: string | null
@@ -65,16 +66,24 @@ interface Props {
 }
 
 // ─── Helpers ───
-function fechaCorta(iso?: string | null): string {
+// `conHora=false` se usa para visitas programadas solo por día (no contamina con
+// "00:00" un timestamp que en realidad no representa una hora elegida por el usuario).
+function fechaCorta(iso?: string | null, conHora: boolean = true): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('es-AR', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    ...(conHora ? { hour: '2-digit', minute: '2-digit' } : {}),
+  })
 }
 
-function fechaLarga(iso?: string | null): string {
+function fechaLarga(iso?: string | null, conHora: boolean = true): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('es-AR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    ...(conHora ? { hour: '2-digit', minute: '2-digit' } : {}),
+  })
 }
 
 // ─── Componente ───
@@ -91,6 +100,10 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
   const duracionEstimada = datosVisita?.duracion_estimada_min ?? m?.visita_duracion_estimada
   const fechaCompletada = datosVisita?.fecha_completada ?? m?.visita_fecha_completada
   const fechaProgramada = datosVisita?.fecha_programada ?? m?.visita_fecha_programada
+  // Para visitas completadas, fecha_completada es timestamp real (siempre con hora real).
+  // Para no completadas, mostramos hora solo si la programada tenía hora específica.
+  const conHoraEnSubheader = !!fechaCompletada || datosVisita?.tiene_hora_especifica === true
+  const conHoraPrincipal = datosVisita?.tiene_hora_especifica === true
   const motivo = datosVisita?.motivo ?? m?.visita_motivo
   const contactoNombre = datosVisita?.contacto_nombre ?? m?.visita_contacto_nombre
   const visitador = datosVisita?.editado_por_nombre ?? datosVisita?.asignado_nombre ?? entrada?.autor_nombre
@@ -141,7 +154,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
 
           {/* Fecha y visitador */}
           <p className="text-sm text-texto-terciario">
-            {fechaCorta(fechaCompletada || fechaProgramada)}
+            {fechaCorta(fechaCompletada || fechaProgramada, conHoraEnSubheader)}
             {visitador && <> · {visitador}</>}
           </p>
 
@@ -259,7 +272,10 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, na
             <div className="flex items-center gap-2.5">
               <CalendarClock size={13} className="text-texto-terciario shrink-0" />
               <span className="text-xs text-texto-terciario">Programada:</span>
-              <span className="text-xs text-texto-secundario">{fechaLarga(fechaProgramada)}</span>
+              <span className="text-xs text-texto-secundario">
+                {fechaLarga(fechaProgramada, conHoraPrincipal)}
+                {!conHoraPrincipal && <span className="text-texto-terciario opacity-70"> · sin hora</span>}
+              </span>
             </div>
           )}
 

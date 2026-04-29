@@ -62,7 +62,7 @@ export default function DetalleVisita({ visita: visitaInicial, adjuntos, hermana
   const formato = useFormato()
   const { t } = useTraduccion()
   const { mostrar } = useToast()
-  const { setMigajaDinamica } = useNavegacion()
+  const { setMigajaDinamica, obtenerRutaModulo } = useNavegacion()
   const [visita, setVisita] = useState(visitaInicial)
   const [accionando, setAccionando] = useState(false)
   const [fotoAbierta, setFotoAbierta] = useState<number | null>(null)
@@ -85,9 +85,11 @@ export default function DetalleVisita({ visita: visitaInicial, adjuntos, hermana
   }, [desde, visita.id, visita.contacto_nombre, setMigajaDinamica])
 
   // Botón atrás: vuelve al origen si existe, sino al listado de visitas
+  // restaurando los filtros que tenía el usuario (obtenerRutaModulo lee la última
+  // URL conocida del módulo, capturada cuando el listado sincroniza filtros a URL).
   const volverAtras = () => {
     if (desde) router.push(desde)
-    else router.push('/visitas')
+    else router.push(obtenerRutaModulo('/visitas'))
   }
 
   const esActiva = !['completada', 'cancelada'].includes(visita.estado)
@@ -236,11 +238,14 @@ export default function DetalleVisita({ visita: visitaInicial, adjuntos, hermana
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-4 md:p-6">
 
-          {/* Sub-header con fecha principal y asignado */}
+          {/* Sub-header con fecha principal y asignado.
+              Para visitas completadas usamos la hora REAL de finalización.
+              Para visitas no completadas mostramos la programada solo si el usuario eligió
+              hora puntual (tiene_hora_especifica); si no, solo el día. */}
           <p className="text-sm text-texto-terciario mb-4 md:mb-6">
             {visita.fecha_completada
               ? `Completada · ${formato.fecha(visita.fecha_completada)} ${formato.hora(visita.fecha_completada)}`
-              : `Programada · ${formato.fecha(visita.fecha_programada)} ${formato.hora(visita.fecha_programada)}`}
+              : `Programada · ${formato.fecha(visita.fecha_programada)}${visita.tiene_hora_especifica ? ` ${formato.hora(visita.fecha_programada)}` : ''}`}
             {visita.asignado_nombre && <> · {visita.asignado_nombre}</>}
           </p>
 
@@ -288,9 +293,13 @@ export default function DetalleVisita({ visita: visitaInicial, adjuntos, hermana
                     <div className="flex items-center gap-2">
                       <Calendar size={13} className="text-texto-terciario shrink-0" />
                       <span className="text-sm text-texto-primario">
-                        {formato.fecha(visita.fecha_programada)} · {formato.hora(visita.fecha_programada)}
+                        {formato.fecha(visita.fecha_programada)}
+                        {visita.tiene_hora_especifica && <> · {formato.hora(visita.fecha_programada)}</>}
                       </span>
                     </div>
+                    {!visita.tiene_hora_especifica && (
+                      <span className="text-[10px] text-texto-terciario opacity-70">Sin hora específica</span>
+                    )}
                   </div>
                   <div>
                     <label className="text-[11px] text-texto-terciario block mb-1">

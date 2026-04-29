@@ -10,6 +10,7 @@ import { Phone, Bell, X, MapPin, Navigation } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTraduccion } from '@/lib/i18n'
+import { abrirEnlaceExterno } from '@/lib/abrir-enlace-externo'
 
 interface PropiedadesModalLlegada {
   abierto: boolean
@@ -20,6 +21,10 @@ interface PropiedadesModalLlegada {
   direccionLat?: number | null
   direccionLng?: number | null
   onAvisarLlegada: () => void
+  // Si los avisos por WhatsApp están desactivados en config, ocultamos la acción
+  // principal de "Avisar que llegué" — el visitador igual ve nombre, dirección,
+  // llamar/WA manual y navegación.
+  mostrarAvisarLlegada?: boolean
 }
 
 function ModalLlegada({
@@ -31,6 +36,7 @@ function ModalLlegada({
   direccionLat,
   direccionLng,
   onAvisarLlegada,
+  mostrarAvisarLlegada = true,
 }: PropiedadesModalLlegada) {
   const { t } = useTraduccion()
 
@@ -43,12 +49,12 @@ function ModalLlegada({
     // Limpiar número: solo dígitos, agregar código de país si no tiene
     const num = telefono.replace(/\D/g, '')
     const mensaje = encodeURIComponent(`Hola ${contactoNombre}, ya llegué a ${direccionTexto}`)
-    window.open(`https://wa.me/${num}?text=${mensaje}`, '_blank')
+    abrirEnlaceExterno(`https://wa.me/${num}?text=${mensaje}`)
   }
 
   const navegarDireccion = () => {
     if (direccionLat && direccionLng) {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${direccionLat},${direccionLng}&travelmode=driving`, '_blank')
+      abrirEnlaceExterno(`https://www.google.com/maps/dir/?api=1&destination=${direccionLat},${direccionLng}&travelmode=driving`)
     }
   }
 
@@ -130,16 +136,19 @@ function ModalLlegada({
                 </button>
               )}
 
-              {/* Avisar que llegué — acción principal */}
-              <button
-                onClick={() => { onAvisarLlegada(); onCerrar() }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-card text-sm font-semibold text-white bg-insignia-exito transition-colors"
-              >
-                <Bell size={16} />
-                <span>{t('visitas.avisar_que_llegue')}</span>
-              </button>
+              {/* Avisar que llegué — acción principal. Solo cuando los avisos por WhatsApp
+                  están activos en config: si no, no tiene sentido enviar nada automático. */}
+              {mostrarAvisarLlegada && (
+                <button
+                  onClick={() => { onAvisarLlegada(); onCerrar() }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-card text-sm font-semibold text-white bg-insignia-exito transition-colors"
+                >
+                  <Bell size={16} />
+                  <span>{t('visitas.avisar_que_llegue')}</span>
+                </button>
+              )}
 
-              {!telefono && (
+              {mostrarAvisarLlegada && !telefono && (
                 <p className="text-center text-[11px] text-texto-terciario">
                   {t('visitas.sin_telefono')}
                 </p>

@@ -14,7 +14,6 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { TipoActividad } from '@/app/(flux)/actividades/configuracion/_tipos'
 import type { EstadoActividad } from '@/app/(flux)/actividades/configuracion/secciones/SeccionEstados'
 import type { Miembro } from '@/app/(flux)/actividades/_componentes/ModalActividad'
@@ -42,39 +41,21 @@ export function useConfigActividades() {
     setCargando(true)
 
     try {
-      const [configRes, miembrosData] = await Promise.all([
+      // Los miembros vienen de /api/miembros que ya excluye los kioscos sin
+      // usuario_id (ver src/app/api/miembros/route.ts). Antes se hacía la query
+      // directa a Supabase y el null en los kioscos rompía el .in('id', [...]).
+      const [configRes, miembrosRes] = await Promise.all([
         fetch('/api/actividades/config').then(r => r.json()),
-        (async () => {
-          const supabase = crearClienteNavegador()
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return [] as Miembro[]
-          const empresaId = user.app_metadata?.empresa_activa_id
-          if (!empresaId) return [] as Miembro[]
-
-          const { data: mRes } = await supabase
-            .from('miembros')
-            .select('usuario_id')
-            .eq('empresa_id', empresaId)
-            .eq('activo', true)
-
-          // Excluir kioscos (usuario_id nulo): pasarlos al .in('id', [...]) rompe
-          // la query de perfiles y devuelve vacío, lo que dejaba el selector de
-          // responsable sin opciones aunque la empresa tuviera miembros reales.
-          const ids = (mRes || []).map(m => m.usuario_id).filter((id): id is string => !!id)
-          if (!ids.length) return [] as Miembro[]
-
-          const { data: perfiles } = await supabase
-            .from('perfiles')
-            .select('id, nombre, apellido')
-            .in('id', ids)
-
-          return (perfiles || []).map(p => ({
-            usuario_id: p.id as string,
-            nombre: (p.nombre as string) || '',
-            apellido: (p.apellido as string) || '',
-          }))
-        })(),
+        fetch('/api/miembros').then(r => r.json()).catch(() => ({ miembros: [] })),
       ])
+
+      const miembrosData: Miembro[] = (miembrosRes.miembros || [])
+        .filter((m: { usuario_id: string | null; activo: boolean }) => !!m.usuario_id && m.activo)
+        .map((m: { usuario_id: string; nombre: string | null; apellido: string | null }) => ({
+          usuario_id: m.usuario_id,
+          nombre: m.nombre || '',
+          apellido: m.apellido || '',
+        }))
 
       const presets = (configRes.config?.presets_posposicion as PresetPosposicion[] | undefined) ?? []
 

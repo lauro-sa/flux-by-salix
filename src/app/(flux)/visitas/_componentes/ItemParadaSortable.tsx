@@ -14,7 +14,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, MapPin, Navigation, Clock, Trash2, Coffee } from 'lucide-react'
+import { GripVertical, MapPin, Navigation, Clock, Trash2, Coffee, ExternalLink } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 
 // ── Tipos exportados ──
@@ -30,6 +30,9 @@ export interface VisitaParada {
   motivo: string | null
   prioridad: string | null
   fecha_programada: string | null
+  tiene_hora_especifica?: boolean | null
+  fecha_inicio?: string | null
+  fecha_llegada?: string | null
   duracion_estimada_min: number | null
 }
 
@@ -67,9 +70,11 @@ interface Props {
   parada: Parada
   indice: number
   onQuitar?: (paradaId: string) => void
+  /** Solo aplica a paradas tipo='visita': abre el modal de detalle/edición. */
+  onAbrirVisita?: (visitaId: string) => void
 }
 
-export function ItemParadaSortable({ parada, indice, onQuitar }: Props) {
+export function ItemParadaSortable({ parada, indice, onQuitar, onAbrirVisita }: Props) {
   const formato = useFormato()
   const {
     attributes,
@@ -103,7 +108,13 @@ export function ItemParadaSortable({ parada, indice, onQuitar }: Props) {
   const estado = esParadaGenerica
     ? (parada.estado || 'programada')
     : (v?.estado || 'programada')
-  const horaFormateada = !esParadaGenerica && v?.fecha_programada ? formato.hora(v.fecha_programada) : null
+  // Hora real si existe (visita ya iniciada), sino la programada solo si tiene hora específica
+  const horaRealParada = !esParadaGenerica ? (v?.fecha_inicio || v?.fecha_llegada) : null
+  const horaFormateada = horaRealParada
+    ? formato.hora(horaRealParada)
+    : (!esParadaGenerica && v?.fecha_programada && v?.tiene_hora_especifica
+        ? formato.hora(v.fecha_programada)
+        : null)
   const duracionEstimada = esParadaGenerica ? null : v?.duracion_estimada_min
 
   const colorBorde = esParadaGenerica
@@ -193,34 +204,54 @@ export function ItemParadaSortable({ parada, indice, onQuitar }: Props) {
           </div>
         </div>
 
-        {/* Acciones */}
-        <div className="flex flex-col gap-0.5 shrink-0">
-          {lat && lng && (
-            <button
-              className="rounded p-1.5 text-texto-terciario hover:bg-white/[0.08] hover:text-texto-primario transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')
-              }}
-              title="Navegar"
-            >
-              <Navigation size={12} />
-            </button>
-          )}
-          {onQuitar && !esCompletada && !esActiva && (
-            <button
-              className="rounded p-1.5 text-texto-terciario hover:bg-insignia-peligro/15 hover:text-insignia-peligro transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                onQuitar(parada.id)
-              }}
-              title={esParadaGenerica ? 'Eliminar parada' : 'Quitar del recorrido'}
-            >
-              <Trash2 size={11} />
-            </button>
-          )}
-        </div>
+        {/* Quitar/eliminar — acción contextual de edición del recorrido, queda lateral
+            porque solo aplica mientras está borrador (no completada ni en curso). */}
+        {onQuitar && !esCompletada && !esActiva && (
+          <button
+            className="shrink-0 rounded p-1.5 text-texto-terciario hover:bg-insignia-peligro/15 hover:text-insignia-peligro transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              onQuitar(parada.id)
+            }}
+            title={esParadaGenerica ? 'Eliminar parada' : 'Quitar del recorrido'}
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
       </div>
+
+      {/* Footer con dos botones que ocupan todo el ancho de la tarjeta:
+          [Abrir visita | Navegar]. Solo se muestra si hay alguna acción disponible.
+          Stop propagation para no chocar con drag. */}
+      {(() => {
+        const tieneCoords = !!(lat && lng)
+        const mostrarAbrir = !esParadaGenerica && !!onAbrirVisita && !!v?.id
+        const mostrarNavegar = tieneCoords
+        if (!mostrarAbrir && !mostrarNavegar) return null
+        const cols = (mostrarAbrir && mostrarNavegar) ? 'grid-cols-2 divide-x divide-white/[0.06]' : 'grid-cols-1'
+        return (
+          <div className={`grid ${cols} border-t border-white/[0.06]`}>
+            {mostrarAbrir && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onAbrirVisita!(v!.id) }}
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-texto-secundario hover:bg-texto-marca/10 hover:text-texto-marca transition-colors"
+              >
+                <ExternalLink size={12} />
+                <span>Abrir visita</span>
+              </button>
+            )}
+            {mostrarNavegar && (
+              <button
+                onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank') }}
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
+              >
+                <Navigation size={12} />
+                <span>Navegar</span>
+              </button>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

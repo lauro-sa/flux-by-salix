@@ -46,9 +46,9 @@ export default async function PaginaVisitas() {
   }
 
   const { data, count } = await query
-    .order('fecha_programada', { ascending: true, nullsFirst: false })
+    .order('fecha_programada', { ascending: false, nullsFirst: false })
     .order('prioridad', { ascending: true })
-    .order('creado_en', { ascending: true })
+    .order('creado_en', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
   const datosInicialesJson = {

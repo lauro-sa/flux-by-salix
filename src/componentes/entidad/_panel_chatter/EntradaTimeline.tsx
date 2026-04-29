@@ -49,6 +49,8 @@ export function EntradaTimeline({
   onRegistrarPagoDesdeMensaje,
   onEditarPago,
   onEliminarPago,
+  pagoVinculado,
+  autorOrigenPago,
 }: PropsEntradaTimeline) {
   const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
@@ -73,6 +75,7 @@ export function EntradaTimeline({
         locale={locale}
         onEditar={onEditarPago}
         onEliminar={onEliminarPago}
+        autorOrigen={autorOrigenPago}
       />
     )
   }
@@ -101,6 +104,7 @@ export function EntradaTimeline({
         formatoHora={fh}
         locale={locale}
         onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+        pagoVinculado={pagoVinculado}
       />
     )
   }
@@ -111,6 +115,7 @@ export function EntradaTimeline({
         formatoHora={fh}
         locale={locale}
         onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+        pagoVinculado={pagoVinculado}
       />
     )
   }
@@ -135,6 +140,7 @@ export function EntradaTimeline({
       formatoHora={fh}
       locale={locale}
       onRegistrarPagoDesdeMensaje={onRegistrarPagoDesdeMensaje}
+      pagoVinculado={pagoVinculado}
     />
   )
 }
@@ -570,11 +576,13 @@ function EntradaCorreo({
   formatoHora,
   locale,
   onRegistrarPagoDesdeMensaje,
+  pagoVinculado,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   formatoHora: string
   locale: string
   onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+  pagoVinculado?: { pago_id: string; monto: string; moneda: string }
 }) {
   const [expandido, setExpandido] = useState(false)
   const accion = entrada.metadata?.accion as AccionSistema | undefined
@@ -672,13 +680,50 @@ function EntradaCorreo({
         <ChipsRelacionados items={relacionadoCon} />
       )}
 
-      {/* Acción: registrar como pago (si el panel lo soporta — solo presupuestos) */}
-      {onRegistrarPagoDesdeMensaje && (
+      {/* Acción: registrar como pago — solo en correos recibidos.
+          Un correo enviado por nosotros nunca es un comprobante, así que el botón
+          no tiene sentido ahí. */}
+      {onRegistrarPagoDesdeMensaje && esRecibido && !pagoVinculado && (
         <div className="ml-8 mt-1.5">
           <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
         </div>
       )}
+      {pagoVinculado && (
+        <div className="ml-8 mt-1.5">
+          <ChipPagoVinculado pago={pagoVinculado} />
+        </div>
+      )}
     </div>
+  )
+}
+
+// ─── Chip "Registrado como pago $X" ───
+// Aparece en correos/WA/mensajes cuando ya se cargó un pago tomando esa
+// entrada como origen. Reemplaza al botón "Registrar como pago" para que
+// el correo no parezca un evento duplicado del pago.
+function ChipPagoVinculado({ pago }: { pago: { pago_id: string; monto: string; moneda: string } }) {
+  const monto = Number(pago.monto || 0)
+  const formato = (() => {
+    try {
+      return new Intl.NumberFormat('es-AR', { style: 'currency', currency: pago.moneda, maximumFractionDigits: 2 }).format(monto)
+    } catch {
+      return `${monto.toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${pago.moneda}`
+    }
+  })()
+  const irAPago = () => {
+    const el = document.querySelector(`[data-pago-id="${pago.pago_id}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  return (
+    <button
+      type="button"
+      onClick={irAPago}
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-insignia-exito/30 bg-insignia-exito/10 text-xxs text-insignia-exito hover:bg-insignia-exito/15 transition-colors"
+      title="Ver pago vinculado en la timeline"
+    >
+      <CheckCircle2 size={10} />
+      Registrado como pago · {formato}
+    </button>
   )
 }
 
@@ -737,11 +782,13 @@ function EntradaWhatsApp({
   formatoHora,
   locale,
   onRegistrarPagoDesdeMensaje,
+  pagoVinculado,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   formatoHora: string
   locale: string
   onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+  pagoVinculado?: { pago_id: string; monto: string; moneda: string }
 }) {
   const numero = entrada.metadata?.whatsapp_numero || ''
   const destinatario = entrada.metadata?.whatsapp_destinatario || ''
@@ -822,9 +869,14 @@ function EntradaWhatsApp({
       <ListaAdjuntos adjuntos={entrada.adjuntos} />
 
       {/* Acción: registrar como pago (solo cuando el padre lo soporta) */}
-      {onRegistrarPagoDesdeMensaje && (
-        <div className="mt-1.5">
+      {onRegistrarPagoDesdeMensaje && !pagoVinculado && (
+        <div className="mt-1.5 px-3 pb-2">
           <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
+        </div>
+      )}
+      {pagoVinculado && (
+        <div className="mt-1.5 px-3 pb-2">
+          <ChipPagoVinculado pago={pagoVinculado} />
         </div>
       )}
     </div>
@@ -960,12 +1012,14 @@ function EntradaMensaje({
   formatoHora,
   locale,
   onRegistrarPagoDesdeMensaje,
+  pagoVinculado,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   esMensajePortal: boolean
   formatoHora: string
   locale: string
   onRegistrarPagoDesdeMensaje?: (entrada: PropsEntradaTimeline['entrada']) => void
+  pagoVinculado?: { pago_id: string; monto: string; moneda: string }
 }) {
   return (
     <div className={`flex items-start gap-2.5 py-2 ${
@@ -986,9 +1040,14 @@ function EntradaMensaje({
         </div>
         <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>
         <ListaAdjuntos adjuntos={entrada.adjuntos} />
-        {onRegistrarPagoDesdeMensaje && (
+        {onRegistrarPagoDesdeMensaje && !pagoVinculado && (
           <div className="mt-1.5">
             <BotonRegistrarPago onClick={() => onRegistrarPagoDesdeMensaje(entrada)} />
+          </div>
+        )}
+        {pagoVinculado && (
+          <div className="mt-1.5">
+            <ChipPagoVinculado pago={pagoVinculado} />
           </div>
         )}
       </div>

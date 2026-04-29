@@ -8,7 +8,7 @@
  * Se usa en: PanelPlanificacion, al hacer click en un grupo de fecha de un visitador.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -25,18 +25,20 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Route, Sparkles, ArrowUpDown,
-  Clock, Loader2, X, RotateCcw, Send, EyeOff, AlertTriangle, Bell, Plus,
+  Clock, Loader2, X, RotateCcw, Send, EyeOff, AlertTriangle, Bell, Plus, Settings2,
 } from 'lucide-react'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { ProveedorMapa, MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import { useEmpresa } from '@/hooks/useEmpresa'
-import { FormParadaRecorrido, type PayloadParadaGenerica } from '@/componentes/entidad/FormParadaRecorrido'
+import { FormParadaRecorrido, type PayloadParadaGenerica, type FormParadaRecorridoHandle } from '@/componentes/entidad/FormParadaRecorrido'
+import { calcularHorariosRecorrido, formatearHora, type ParadaHorario } from '@/lib/recorrido-horarios'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
 import { ItemParadaSortable, type Parada, type VisitaParada } from './ItemParadaSortable'
 
@@ -55,6 +57,7 @@ interface DatosRecorrido {
   origen_lat: number | null
   origen_lng: number | null
   origen_texto: string | null
+  hora_salida_planificada: string | null
 }
 
 interface PropiedadesModalRecorrido {
@@ -64,6 +67,8 @@ interface PropiedadesModalRecorrido {
   nombreVisitador: string
   fecha: string
   onActualizar: () => void
+  /** Abre el modal de detalle/edición de una visita desde una parada del recorrido. */
+  onAbrirVisita?: (visitaId: string) => void
 }
 
 // ── Modal principal ──
@@ -75,6 +80,7 @@ export default function ModalRecorrido({
   nombreVisitador,
   fecha,
   onActualizar,
+  onAbrirVisita,
 }: PropiedadesModalRecorrido) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -95,9 +101,21 @@ export default function ModalRecorrido({
   const [origenEmpresa, setOrigenEmpresa] = useState(true)
   const [destinoEmpresa, setDestinoEmpresa] = useState(true)
 
-  // Form inline para agregar parada genérica
+  // Modal para agregar parada genérica
   const [formParadaAbierto, setFormParadaAbierto] = useState(false)
   const [agregandoParada, setAgregandoParada] = useState(false)
+  const [paradaValida, setParadaValida] = useState(false)
+  const formParadaRef = useRef<FormParadaRecorridoHandle>(null)
+
+  // Modal de permisos del recorrido (lo controlamos desde el header con un botón
+  // con texto, en vez del trigger interno de ConfigRecorrido)
+  const [permisosAbierto, setPermisosAbierto] = useState(false)
+
+  // Hora de salida planificada — se sincroniza con recorrido.hora_salida_planificada
+  // y al cambiarla recalculamos los horarios estimados de cada parada (PATCH al
+  // endpoint de hora-salida que reescribe fecha_programada de las visitas).
+  const [horaSalidaInput, setHoraSalidaInput] = useState('')
+  const [aplicandoHoraSalida, setAplicandoHoraSalida] = useState(false)
 
   // Dirección de la empresa
   const coordsEmpresa = useMemo(() => {
@@ -141,6 +159,14 @@ export default function ModalRecorrido({
       const data = await resp.json()
       setRecorrido(data.recorrido)
       setParadas(data.paradas || [])
+      // Sincronizar el input de hora de salida con la planificación guardada
+      // (formato HH:MM en zona local del navegador, que coincide con la del usuario).
+      if (data.recorrido?.hora_salida_planificada) {
+        const d = new Date(data.recorrido.hora_salida_planificada)
+        setHoraSalidaInput(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
+      } else {
+        setHoraSalidaInput('')
+      }
     } catch {
       mostrar('error', 'No se pudo cargar el recorrido')
     } finally {
@@ -156,6 +182,58 @@ export default function ModalRecorrido({
       setEdicionConfirmada(false)
     }
   }, [abierto, cargarRecorrido])
+
+  // Aplica una hora de salida (formato HH:MM o null para limpiar). Combina con
+  // la fecha del recorrido para construir un timestamp local y dispara el PATCH
+  // que reprograma cada visita en cascada.
+  const aplicarHoraSalida = useCallback(async (horaHHMM: string | null) => {
+    if (!recorrido) return
+    setAplicandoHoraSalida(true)
+    try {
+      let isoSalida: string | null = null
+      if (horaHHMM && /^\d{2}:\d{2}$/.test(horaHHMM)) {
+        const [h, m] = horaHHMM.split(':').map(Number)
+        const [y, mo, d] = fecha.split('-').map(Number)
+        isoSalida = new Date(y, mo - 1, d, h, m, 0).toISOString()
+      }
+      const res = await fetch('/api/recorrido/hora-salida', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recorrido_id: recorrido.id, hora_salida: isoSalida }),
+      })
+      if (!res.ok) throw new Error()
+      const json = await res.json() as { visitas_actualizadas?: number }
+      mostrar('exito', isoSalida
+        ? `Salida ${horaHHMM} aplicada · ${json.visitas_actualizadas || 0} visitas reprogramadas`
+        : 'Hora de salida quitada')
+      await cargarRecorrido()
+    } catch {
+      mostrar('error', 'No se pudo aplicar la hora de salida')
+    } finally {
+      setAplicandoHoraSalida(false)
+    }
+  }, [recorrido, fecha, mostrar, cargarRecorrido])
+
+  // Helper para llamar después de cualquier reorden (drag, invertir, optimizar):
+  // si el recorrido tiene hora de salida planificada, vuelve a calcular las horas
+  // estimadas con el nuevo orden. No muestra toast (el toast ya lo dispara la
+  // acción que llamó: "Ruta invertida", "Ruta optimizada", etc).
+  const recalcularHorariosSiHaySalida = useCallback(async () => {
+    if (!recorrido?.hora_salida_planificada) return
+    try {
+      await fetch('/api/recorrido/hora-salida', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recorrido_id: recorrido.id,
+          hora_salida: recorrido.hora_salida_planificada,
+        }),
+      })
+    } catch {
+      // Si falla el recálculo, no rompemos el flujo principal. Las visitas
+      // quedan con sus horas anteriores; el usuario puede reaplicar manual.
+    }
+  }, [recorrido])
 
   // Mostrar confirmación si el recorrido está en curso
   useEffect(() => {
@@ -253,12 +331,14 @@ export default function ModalRecorrido({
             paradas: reordenadas.map(p => ({ id: p.id, orden: p.orden })),
           }),
         })
+        await recalcularHorariosSiHaySalida()
+        await cargarRecorrido()
       } catch {
         mostrar('error', 'Error al reordenar')
         cargarRecorrido()
       }
     }
-  }, [paradas, recorrido, mostrar, cargarRecorrido])
+  }, [paradas, recorrido, mostrar, cargarRecorrido, recalcularHorariosSiHaySalida])
 
   // Optimizar ruta — considera tanto visitas como paradas genéricas con lat/lng.
   // Usamos parada.id (id universal de recorrido_paradas) para identificar cada parada.
@@ -326,16 +406,18 @@ export default function ModalRecorrido({
             paradas: todasReordenadas.map(p => ({ id: p.id, orden: p.orden })),
           }),
         })
+        await recalcularHorariosSiHaySalida()
       }
 
       mostrar('exito', `Ruta optimizada · ${data.distancia_total_km} km · ${data.duracion_total_min} min`)
+      await cargarRecorrido()
     } catch {
       mostrar('error', 'No se pudo optimizar la ruta')
       cargarRecorrido()
     } finally {
       setOptimizando(false)
     }
-  }, [paradas, recorrido, mostrar, cargarRecorrido])
+  }, [paradas, recorrido, mostrar, cargarRecorrido, coordsDeParada, recalcularHorariosSiHaySalida])
 
   // Invertir ruta
   const invertirRuta = useCallback(async () => {
@@ -351,13 +433,15 @@ export default function ModalRecorrido({
             paradas: invertidas.map(p => ({ id: p.id, orden: p.orden })),
           }),
         })
+        await recalcularHorariosSiHaySalida()
+        await cargarRecorrido()
         mostrar('exito', 'Ruta invertida')
       } catch {
         mostrar('error', 'Error al invertir')
         cargarRecorrido()
       }
     }
-  }, [paradas, recorrido, mostrar, cargarRecorrido])
+  }, [paradas, recorrido, mostrar, cargarRecorrido, recalcularHorariosSiHaySalida])
 
   // Revertir optimización
   const revertirOptimizacion = useCallback(async () => {
@@ -375,13 +459,15 @@ export default function ModalRecorrido({
             paradas: restauradas.map(p => ({ id: p.id, orden: p.orden })),
           }),
         })
+        await recalcularHorariosSiHaySalida()
+        await cargarRecorrido()
         mostrar('info', 'Orden revertido')
       } catch {
         mostrar('error', 'Error al revertir')
         cargarRecorrido()
       }
     }
-  }, [paradasPreOptimizar, recorrido, mostrar, cargarRecorrido])
+  }, [paradasPreOptimizar, recorrido, mostrar, cargarRecorrido, recalcularHorariosSiHaySalida])
 
   // Guardar config permisos
   const guardarConfig = useCallback(async (config: ConfigPermisos) => {
@@ -640,33 +726,58 @@ export default function ModalRecorrido({
                 onInfoRuta={setInfoRuta}
               />
 
-              {/* Overlay con estadísticas */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
-                <div className="flex items-center gap-3 rounded-card bg-superficie-elevada/90 backdrop-blur-md border border-white/[0.08] px-3.5 py-2 text-[12px]">
-                  <span className="flex items-center gap-1.5 text-texto-primario font-medium">
-                    <Route size={12} className="text-texto-marca" />
-                    {totalParadas} paradas
-                  </span>
+              {/* Overlay de estadísticas — flotando arriba del mapa.
+                  Cada bloque comparte la misma estructura (label arriba + valor abajo)
+                  para que las alturas coincidan y todo quede centrado verticalmente.
+                  Los iconos contextuales (Route, Clock) van inline junto al valor, no
+                  como adornos al costado, para no romper el ritmo. */}
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-center pointer-events-none">
+                <div className="flex items-stretch gap-6 rounded-card bg-superficie-elevada/95 backdrop-blur-md border border-white/[0.08] px-6 py-3 shadow-lg pointer-events-auto">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Paradas</div>
+                    <div className="flex items-center gap-1.5 text-base font-semibold text-texto-primario">
+                      <Route size={14} className="text-texto-marca" />
+                      {totalParadas}
+                    </div>
+                  </div>
                   {completadas > 0 && (
-                    <span className="text-insignia-exito">
-                      {completadas} completadas
-                    </span>
+                    <>
+                      <div className="w-px bg-white/[0.08]" />
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Completadas</div>
+                        <div className="text-base font-semibold text-insignia-exito">{completadas}/{totalParadas}</div>
+                      </div>
+                    </>
                   )}
                   {(infoRuta?.distancia_km || 0) > 0 && (
-                    <span className="text-texto-terciario">
-                      {infoRuta!.distancia_km.toFixed(1)} km
-                    </span>
+                    <>
+                      <div className="w-px bg-white/[0.08]" />
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Distancia</div>
+                        <div className="text-base font-semibold text-texto-primario">{infoRuta!.distancia_km.toFixed(1)} km</div>
+                      </div>
+                    </>
                   )}
                   {(infoRuta?.duracion_min || 0) > 0 && (
-                    <span className="flex items-center gap-1 text-texto-terciario">
-                      <Clock size={10} />
-                      {Math.floor(infoRuta!.duracion_min / 60)}h {Math.round(infoRuta!.duracion_min % 60)}m
-                    </span>
+                    <>
+                      <div className="w-px bg-white/[0.08]" />
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Viaje</div>
+                        <div className="flex items-center gap-1.5 text-base font-semibold text-texto-primario">
+                          <Clock size={13} className="text-texto-terciario" />
+                          {Math.floor(infoRuta!.duracion_min / 60)}h {Math.round(infoRuta!.duracion_min % 60)}m
+                        </div>
+                      </div>
+                    </>
                   )}
                   {duracionEstimada > 0 && (
-                    <span className="text-texto-terciario">
-                      · ~{Math.floor(duracionEstimada / 60)}h {duracionEstimada % 60}m en sitio
-                    </span>
+                    <>
+                      <div className="w-px bg-white/[0.08]" />
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">En sitio</div>
+                        <div className="text-base font-semibold text-texto-primario">~{Math.floor(duracionEstimada / 60)}h {duracionEstimada % 60}m</div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -677,85 +788,135 @@ export default function ModalRecorrido({
 
             {/* ── Panel derecho: Lista de paradas ── */}
             <div className="w-full md:w-[380px] flex flex-col min-h-0">
-              {/* Header de la lista con herramientas */}
-              <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-white/[0.07]">
-                <div className="flex items-center gap-2">
+              {/* Header de la lista — tres filas:
+                    1) Contador de paradas / visitas
+                    2) Hora de salida planificada (input + aplicar)
+                    3) Botones con texto (Invertir, Optimizar, Permisos, Agregar parada) */}
+              <div className="shrink-0 px-4 pt-3 pb-3 border-b border-white/[0.07] space-y-2.5">
+                {/* Fila 1: contador */}
+                <div className="flex items-baseline gap-2">
                   <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
                     {t('recorrido.paradas')}
                   </span>
-                  <span className="text-[11px] text-texto-terciario">
-                    {totalVisitas} {totalVisitas === 1 ? t('visitas.visita') : t('visitas.visitas_label')}
-                    {totalParadasGenericas > 0 && ` · ${totalParadasGenericas} parada${totalParadasGenericas > 1 ? 's' : ''}`}
+                  <span className="text-sm text-texto-secundario">
+                    <span className="text-texto-primario font-semibold">{totalVisitas}</span> {totalVisitas === 1 ? t('visitas.visita') : t('visitas.visitas_label')}
+                    {totalParadasGenericas > 0 && (
+                      <> · <span className="text-texto-primario font-semibold">{totalParadasGenericas}</span> parada{totalParadasGenericas > 1 ? 's' : ''}</>
+                    )}
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5">
-                  {/* Agregar parada genérica */}
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    soloIcono
-                    icono={<Plus size={13} />}
-                    tooltip="Agregar parada (sin contar como visita)"
-                    onClick={() => setFormParadaAbierto(v => !v)}
-                  />
-                  {/* Revertir optimización */}
-                  {paradasPreOptimizar && (
-                    <Boton
-                      variante="fantasma"
-                      tamano="sm"
-                      soloIcono
-                      icono={<RotateCcw size={13} />}
-                      tooltip="Revertir optimización"
-                      onClick={revertirOptimizacion}
+
+                {/* Fila 2: Hora de salida — al cambiarla, el endpoint reescribe la
+                    fecha_programada de cada visita con la hora estimada de llegada
+                    según el orden actual de paradas. No es riguroso: es referencia
+                    inicial; la hora real se trackea cuando el visitador realmente
+                    marca "en camino" / "llegada". */}
+                <div className="flex items-center gap-2 rounded-card border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                  <Clock size={13} className="shrink-0 text-texto-terciario" />
+                  <div className="flex flex-col leading-tight min-w-0">
+                    <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">Hora de salida</span>
+                    <span className="text-[10px] text-texto-terciario opacity-80">Reprograma las visitas con la hora estimada de llegada</span>
+                  </div>
+                  <div className="ml-auto w-32">
+                    <SelectorHora
+                      valor={horaSalidaInput}
+                      onChange={(v) => setHoraSalidaInput(v || '')}
+                      disabled={aplicandoHoraSalida || paradas.length === 0}
+                      placeholder="HH:MM"
                     />
+                  </div>
+                  <button
+                    onClick={() => aplicarHoraSalida(horaSalidaInput || null)}
+                    disabled={aplicandoHoraSalida || paradas.length === 0 || (horaSalidaInput || '') === (recorrido?.hora_salida_planificada
+                      ? new Date(recorrido.hora_salida_planificada).toTimeString().slice(0, 5)
+                      : '')}
+                    className="px-2.5 py-1 rounded-card border border-texto-marca/30 bg-texto-marca/10 hover:bg-texto-marca/20 text-[11px] font-medium text-texto-marca transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Aplicar la hora de salida y reprogramar las visitas"
+                  >
+                    {aplicandoHoraSalida ? <Loader2 size={11} className="animate-spin" /> : 'Aplicar'}
+                  </button>
+                  {recorrido?.hora_salida_planificada && (
+                    <button
+                      onClick={() => { setHoraSalidaInput(''); aplicarHoraSalida(null) }}
+                      disabled={aplicandoHoraSalida}
+                      className="px-2 py-1 rounded-card text-[11px] text-texto-terciario hover:text-insignia-peligro transition-colors disabled:opacity-40"
+                      title="Quitar la hora de salida planificada"
+                    >
+                      <X size={11} />
+                    </button>
                   )}
-                  {/* Invertir ruta */}
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    soloIcono
-                    icono={<ArrowUpDown size={13} />}
-                    tooltip="Invertir ruta"
-                    onClick={invertirRuta}
-                    disabled={paradas.length < 2}
-                  />
-                  {/* Optimizar ruta */}
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    soloIcono
-                    icono={optimizando ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                    tooltip={t('visitas.optimizar_ruta')}
-                    onClick={optimizarRuta}
-                    disabled={paradas.length < 2 || optimizando}
-                  />
-                  {/* Config permisos + salida/regreso */}
-                  <ConfigRecorrido
-                    recorridoId={recorrido?.id || null}
-                    configActual={recorrido?.config}
-                    nombreVisitador={nombreVisitador}
-                    onGuardar={guardarConfig}
-                    origenDestino={coordsEmpresa ? {
-                      coordsEmpresa,
-                      origenEmpresa,
-                      destinoEmpresa,
-                      onToggleOrigen: toggleOrigen,
-                      onToggleDestino: toggleDestino,
-                    } : undefined}
-                  />
                 </div>
+
+                {/* Fila 2: acciones de orden/config en una sola línea (caben todas).
+                    Optimizar tiene énfasis (color marca) por ser la acción principal. */}
+                <div className="flex items-center gap-1 justify-between">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={invertirRuta}
+                      disabled={paradas.length < 2}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] text-[11px] font-medium text-texto-secundario transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Cambiar el orden de las paradas para empezar desde la última"
+                    >
+                      <ArrowUpDown size={12} />
+                      Invertir
+                    </button>
+                    <button
+                      onClick={optimizarRuta}
+                      disabled={paradas.length < 2 || optimizando}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-texto-marca/20 bg-texto-marca/[0.06] hover:bg-texto-marca/15 text-[11px] font-medium text-texto-marca transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Reordenar paradas para minimizar distancia y tiempo de viaje"
+                    >
+                      {optimizando ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      {optimizando ? 'Optimizando…' : 'Optimizar'}
+                    </button>
+                    {paradasPreOptimizar && (
+                      <button
+                        onClick={revertirOptimizacion}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] text-[11px] font-medium text-texto-terciario transition-colors"
+                        title="Volver al orden anterior a la optimización"
+                      >
+                        <RotateCcw size={12} />
+                        Revertir
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setPermisosAbierto(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] text-[11px] font-medium text-texto-secundario transition-colors"
+                    title="Qué puede hacer el visitador en este recorrido"
+                  >
+                    <Settings2 size={12} />
+                    Permisos
+                  </button>
+                </div>
+
+                {/* Agregar parada — full-width abajo, dashed para diferenciarlo de
+                    las acciones de orden y comunicar "agregar algo nuevo" claramente. */}
+                <button
+                  onClick={() => setFormParadaAbierto(true)}
+                  className="w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-card border border-dashed border-white/[0.12] hover:border-texto-marca/40 hover:bg-texto-marca/[0.04] hover:text-texto-marca text-[11px] font-medium text-texto-secundario transition-colors"
+                >
+                  <Plus size={13} />
+                  Agregar parada
+                </button>
               </div>
 
-              {/* Form inline para agregar parada genérica */}
-              {formParadaAbierto && (
-                <div className="shrink-0 px-4 py-3 border-b border-white/[0.07] bg-white/[0.01]">
-                  <FormParadaRecorrido
-                    onGuardar={agregarParadaGenerica}
-                    onCancelar={() => setFormParadaAbierto(false)}
-                    guardando={agregandoParada}
-                  />
-                </div>
-              )}
+              {/* Modal de permisos — controlado desde el botón de arriba */}
+              <ConfigRecorrido
+                recorridoId={recorrido?.id || null}
+                configActual={recorrido?.config}
+                visitadorUsuarioId={usuarioId}
+                nombreVisitador={nombreVisitador}
+                onGuardar={guardarConfig}
+                origenDestino={coordsEmpresa ? {
+                  coordsEmpresa,
+                  origenEmpresa,
+                  destinoEmpresa,
+                  onToggleOrigen: toggleOrigen,
+                  onToggleDestino: toggleDestino,
+                } : undefined}
+                controlado={{ abierto: permisosAbierto, onCerrar: () => setPermisosAbierto(false) }}
+              />
 
               {/* Barra de progreso compacta */}
               {esEnCurso && completadas > 0 && (
@@ -818,7 +979,12 @@ export default function ModalRecorrido({
 
                               {/* Tarjeta */}
                               <div className="flex-1 min-w-0">
-                                <ItemParadaSortable parada={parada} indice={i} onQuitar={quitarParada} />
+                                <ItemParadaSortable
+                                  parada={parada}
+                                  indice={i}
+                                  onQuitar={quitarParada}
+                                  onAbrirVisita={(vid) => { onAbrirVisita?.(vid); onCerrar() }}
+                                />
                               </div>
                             </motion.div>
                           )
@@ -833,6 +999,36 @@ export default function ModalRecorrido({
         </ProveedorMapa>
       )}
       </div>
+
+      {/* Modal para agregar una parada genérica (café, combustible, logística, etc.).
+          Las acciones de Cancelar/Agregar las provee el ModalAdaptable estándar; el
+          form expone su acción de guardar via ref para que el botón primario del modal
+          la dispare. Así seguimos el mismo patrón visual que todos los demás modales. */}
+      <ModalAdaptable
+        abierto={formParadaAbierto}
+        onCerrar={() => setFormParadaAbierto(false)}
+        titulo="Agregar parada al recorrido"
+        tamano="md"
+        accionPrimaria={{
+          etiqueta: 'Agregar parada',
+          onClick: () => formParadaRef.current?.guardar(),
+          disabled: !paradaValida,
+          cargando: agregandoParada,
+        }}
+        accionSecundaria={{
+          etiqueta: t('comun.cancelar'),
+          onClick: () => setFormParadaAbierto(false),
+        }}
+      >
+        <FormParadaRecorrido
+          ref={formParadaRef}
+          onGuardar={agregarParadaGenerica}
+          onCancelar={() => setFormParadaAbierto(false)}
+          guardando={agregandoParada}
+          sinFooter
+          onCambioValidez={setParadaValida}
+        />
+      </ModalAdaptable>
 
       {/* Modal de confirmación si el recorrido está en curso */}
       <ModalConfirmacion

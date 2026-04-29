@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -161,7 +161,6 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
   const puedeVerNomina = puedeVerNominaTodos || puedeVerNominaPropio
   const router = useRouter()
   const searchParams = useSearchParams()
-  const pathname = usePathname()
   const queryClient = useQueryClient()
   const { formatoHora, locale } = useFormato()
   const { preferencias, guardar: guardarPrefs } = usePreferencias()
@@ -176,69 +175,53 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
   }, [seccion, puedeVerNomina])
   const nominaRef = useRef<VistaNominaHandle>(null)
 
-  // ── Filtros — restaurar desde URL ──
-  const [filtroMiembros, setFiltroMiembros] = useState<string[]>(() => {
-    const v = searchParams.get('miembros')
-    return v ? v.split(',') : []
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/asistencias',
+    campos: {
+      miembros: { defecto: [] as string[] },
+      estados: { defecto: [] as string[] },
+      tipos: { defecto: [] as string[] },
+      metodos: { defecto: [] as string[] },
+      sectores: { defecto: [] as string[] },
+      turnos: { defecto: [] as string[] },
+      con_tardanza: { defecto: false },
+      sin_cerrar: { defecto: false },
+      preset_fecha: { defecto: '' },
+      creado_por: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  const [filtroEstados, setFiltroEstados] = useState<string[]>(() => {
-    const v = searchParams.get('estados')
-    return v ? v.split(',') : []
-  })
-  const [filtroTipos, setFiltroTipos] = useState<string[]>(() => {
-    const v = searchParams.get('tipos')
-    return v ? v.split(',') : []
-  })
-  const [filtroMetodos, setFiltroMetodos] = useState<string[]>(() => {
-    const v = searchParams.get('metodos')
-    return v ? v.split(',') : []
-  })
-  const [filtroSectores, setFiltroSectores] = useState<string[]>(() => {
-    const v = searchParams.get('sectores')
-    return v ? v.split(',') : []
-  })
-  const [filtroTurnos, setFiltroTurnos] = useState<string[]>(() => {
-    const v = searchParams.get('turnos')
-    return v ? v.split(',') : []
-  })
-  const [filtroConTardanza, setFiltroConTardanza] = useState(searchParams.get('con_tardanza') === 'true')
-  const [filtroSinCerrar, setFiltroSinCerrar] = useState(searchParams.get('sin_cerrar') === 'true')
-  const [filtroPresetFecha, setFiltroPresetFecha] = useState(searchParams.get('preset_fecha') || '')
-  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
 
-  // Búsqueda con debounce (igual que otros módulos)
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroMiembros, filtroEstados, filtroTipos, filtroMetodos, filtroSectores, filtroTurnos,
-      filtroConTardanza, filtroSinCerrar, filtroPresetFecha, filtroCreadoPor,
-    ],
-    true,
-  )
-
-  // Sincronizar filtros → URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroMiembros.length > 0) params.set('miembros', filtroMiembros.join(','))
-    if (filtroEstados.length > 0) params.set('estados', filtroEstados.join(','))
-    if (filtroTipos.length > 0) params.set('tipos', filtroTipos.join(','))
-    if (filtroMetodos.length > 0) params.set('metodos', filtroMetodos.join(','))
-    if (filtroSectores.length > 0) params.set('sectores', filtroSectores.join(','))
-    if (filtroTurnos.length > 0) params.set('turnos', filtroTurnos.join(','))
-    if (filtroConTardanza) params.set('con_tardanza', 'true')
-    if (filtroSinCerrar) params.set('sin_cerrar', 'true')
-    if (filtroPresetFecha) params.set('preset_fecha', filtroPresetFecha)
-    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname)
-  }, [
-    busquedaDebounced, filtroMiembros, filtroEstados, filtroTipos, filtroMetodos,
-    filtroSectores, filtroTurnos, filtroConTardanza, filtroSinCerrar,
-    filtroPresetFecha, filtroCreadoPor, pagina, pathname,
-  ])
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroMiembros = f.miembros
+  const filtroEstados = f.estados
+  const filtroTipos = f.tipos
+  const filtroMetodos = f.metodos
+  const filtroSectores = f.sectores
+  const filtroTurnos = f.turnos
+  const filtroConTardanza = f.con_tardanza
+  const filtroSinCerrar = f.sin_cerrar
+  const filtroPresetFecha = f.preset_fecha
+  const filtroCreadoPor = f.creado_por
+  const setFiltroMiembros = (v: string[]) => filtros.set('miembros', v)
+  const setFiltroEstados = (v: string[]) => filtros.set('estados', v)
+  const setFiltroTipos = (v: string[]) => filtros.set('tipos', v)
+  const setFiltroMetodos = (v: string[]) => filtros.set('metodos', v)
+  const setFiltroSectores = (v: string[]) => filtros.set('sectores', v)
+  const setFiltroTurnos = (v: string[]) => filtros.set('turnos', v)
+  const setFiltroConTardanza = (v: boolean) => filtros.set('con_tardanza', v)
+  const setFiltroSinCerrar = (v: boolean) => filtros.set('sin_cerrar', v)
+  const setFiltroPresetFecha = (v: string) => filtros.set('preset_fecha', v)
+  const setFiltroCreadoPor = (v: string) => filtros.set('creado_por', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   // Vista persistida por usuario+dispositivo
   // Si no tiene ver_todos forzamos lista (matriz es del equipo completo).
@@ -707,18 +690,7 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
             { id: 'periodo', etiqueta: 'Período', filtros: ['preset_fecha'] },
             { id: 'auditoria', etiqueta: 'Auditoría', filtros: ['creado_por'] },
           ]}
-          onLimpiarFiltros={() => {
-            setFiltroMiembros([])
-            setFiltroEstados([])
-            setFiltroTipos([])
-            setFiltroMetodos([])
-            setFiltroSectores([])
-            setFiltroTurnos([])
-            setFiltroConTardanza(false)
-            setFiltroSinCerrar(false)
-            setFiltroPresetFecha('')
-            setFiltroCreadoPor('')
-          }}
+          onLimpiarFiltros={filtros.limpiar}
           opcionesOrden={[
             { etiqueta: 'Más recientes', clave: 'fecha', direccion: 'desc' },
             { etiqueta: 'Más antiguas', clave: 'fecha', direccion: 'asc' },
@@ -742,6 +714,7 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
               if (encontrado) setEditando(encontrado)
             }} /> : undefined}
           renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
+          gridTarjetas="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
           onClickFila={async (r) => {
             const res = await fetch(`/api/asistencias/detalle?id=${r.id}`)
             if (res.ok) {

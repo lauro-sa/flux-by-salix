@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -72,23 +72,56 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   const puedeCrear = tienePermiso('productos', 'crear')
   const puedeEliminar = tienePermiso('productos', 'eliminar')
 
-  // ---- Estado ----
-  // Filtros server-side — restaurar desde URL si existen
-  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
-  const [filtroCategoria, setFiltroCategoria] = useState<string[]>(() => {
-    const v = searchParams.get('categoria')
-    return v ? v.split(',') : []
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/productos',
+    campos: {
+      tipo: { defecto: '' },
+      categoria: { defecto: [] as string[] },
+      origen: { defecto: '' },
+      favorito: { defecto: false },
+      activo: { defecto: '' },
+      puede_venderse: { defecto: '' },
+      puede_comprarse: { defecto: '' },
+      precio_rango: { defecto: '' },
+      presupuestado_min: { defecto: '' },
+      vendido_min: { defecto: '' },
+      creado_rango: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  // Nuevos
-  const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen') || '')
-  const [filtroFavorito, setFiltroFavorito] = useState(searchParams.get('favorito') === 'true')
-  const [filtroActivo, setFiltroActivo] = useState(searchParams.get('activo') || '')
-  const [filtroVendible, setFiltroVendible] = useState(searchParams.get('puede_venderse') || '')
-  const [filtroComprable, setFiltroComprable] = useState(searchParams.get('puede_comprarse') || '')
-  const [filtroPrecioRango, setFiltroPrecioRango] = useState(searchParams.get('precio_rango') || '')
-  const [filtroPresupuestadoMin, setFiltroPresupuestadoMin] = useState(searchParams.get('presupuestado_min') || '')
-  const [filtroVendidoMin, setFiltroVendidoMin] = useState(searchParams.get('vendido_min') || '')
-  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
+
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroTipo = f.tipo
+  const filtroCategoria = f.categoria
+  const filtroOrigen = f.origen
+  const filtroFavorito = f.favorito
+  const filtroActivo = f.activo
+  const filtroVendible = f.puede_venderse
+  const filtroComprable = f.puede_comprarse
+  const filtroPrecioRango = f.precio_rango
+  const filtroPresupuestadoMin = f.presupuestado_min
+  const filtroVendidoMin = f.vendido_min
+  const filtroCreadoRango = f.creado_rango
+  const setFiltroTipo = (v: string) => filtros.set('tipo', v)
+  const setFiltroCategoria = (v: string[]) => filtros.set('categoria', v)
+  const setFiltroOrigen = (v: string) => filtros.set('origen', v)
+  const setFiltroFavorito = (v: boolean) => filtros.set('favorito', v)
+  const setFiltroActivo = (v: string) => filtros.set('activo', v)
+  const setFiltroVendible = (v: string) => filtros.set('puede_venderse', v)
+  const setFiltroComprable = (v: string) => filtros.set('puede_comprarse', v)
+  const setFiltroPrecioRango = (v: string) => filtros.set('precio_rango', v)
+  const setFiltroPresupuestadoMin = (v: string) => filtros.set('presupuestado_min', v)
+  const setFiltroVendidoMin = (v: string) => filtros.set('vendido_min', v)
+  const setFiltroCreadoRango = (v: string) => filtros.set('creado_rango', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   // Mapeo del preset de "rango precio" a min/max para el backend
   const { precioMin, precioMax } = (() => {
@@ -100,41 +133,6 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
       default: return { precioMin: undefined, precioMax: undefined }
     }
   })()
-
-  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros)
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroTipo, filtroCategoria, filtroOrigen, filtroFavorito,
-      filtroActivo, filtroVendible, filtroComprable, filtroPrecioRango,
-      filtroPresupuestadoMin, filtroVendidoMin, filtroCreadoRango,
-    ],
-  )
-
-  // Sincronizar filtros → URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroTipo) params.set('tipo', filtroTipo)
-    if (filtroCategoria.length > 0) params.set('categoria', filtroCategoria.join(','))
-    if (filtroOrigen) params.set('origen', filtroOrigen)
-    if (filtroFavorito) params.set('favorito', 'true')
-    if (filtroActivo) params.set('activo', filtroActivo)
-    if (filtroVendible) params.set('puede_venderse', filtroVendible)
-    if (filtroComprable) params.set('puede_comprarse', filtroComprable)
-    if (filtroPrecioRango) params.set('precio_rango', filtroPrecioRango)
-    if (filtroPresupuestadoMin) params.set('presupuestado_min', filtroPresupuestadoMin)
-    if (filtroVendidoMin) params.set('vendido_min', filtroVendidoMin)
-    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `/productos?${qs}` : '/productos')
-  }, [
-    busquedaDebounced, filtroTipo, filtroCategoria, filtroOrigen, filtroFavorito,
-    filtroActivo, filtroVendible, filtroComprable, filtroPrecioRango,
-    filtroPresupuestadoMin, filtroVendidoMin, filtroCreadoRango, pagina,
-  ])
 
   // Modal
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -479,23 +477,38 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
     }).format(num)
 
     return (
-      <div className="px-2.5 py-2 pr-7 flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <div className="size-7 rounded-boton flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
-            {fila.tipo === 'servicio' ? <Wrench size={13} /> : <Package size={13} />}
+      <div className="p-3 pr-7 flex flex-col gap-2 h-full min-h-[100px]">
+        {/* Cabecera: ícono coloreado + nombre (hasta 2 líneas, sin truncar) +
+            estrella favorito. El padding-right reserva espacio para el
+            checkbox de selección que la tabla coloca absoluto. */}
+        <div className="flex items-start gap-2.5">
+          <div
+            className="size-8 rounded-boton flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}
+          >
+            {fila.tipo === 'servicio' ? <Wrench size={15} /> : <Package size={15} />}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-texto-primario truncate flex items-center gap-1">
+          <div className="min-w-0 flex-1 flex items-start gap-1.5">
+            <p className="text-sm font-medium text-texto-primario leading-snug line-clamp-2 min-w-0">
               {fila.nombre}
-              {fila.favorito && <Star size={10} className="text-insignia-advertencia fill-insignia-advertencia shrink-0" />}
-            </div>
-            <div className="text-[10px] text-texto-terciario font-mono leading-tight">{fila.codigo}</div>
+            </p>
+            {fila.favorito && (
+              <Star size={11} className="text-insignia-advertencia fill-insignia-advertencia shrink-0 mt-0.5" />
+            )}
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-1 border-t border-borde-sutil">
-          <span className="font-mono text-xs font-bold text-texto-primario">{precioStr}</span>
+        {/* Código del producto (info secundaria) */}
+        <p className="text-[10px] text-texto-terciario font-mono leading-tight pl-[42px]">{fila.codigo}</p>
+
+        {/* Spacer empuja el precio al fondo de la tarjeta para que cuando los
+            nombres tengan distinto largo (1 vs 2 líneas), todos los precios
+            queden alineados visualmente en la grilla. */}
+        <div className="flex-1" />
+
+        {/* Pie: precio prominente + unidad */}
+        <div className="flex items-baseline justify-between pt-2 border-t border-borde-sutil">
+          <span className="font-mono text-sm font-semibold text-texto-primario">{precioStr}</span>
           <span className="text-[10px] text-texto-terciario">{fila.unidad}</span>
         </div>
       </div>
@@ -668,19 +681,7 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
             { id: 'uso', etiqueta: 'Uso', filtros: ['presupuestado_min', 'vendido_min'] },
             { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango'] },
           ]}
-          onLimpiarFiltros={() => {
-            setFiltroTipo('')
-            setFiltroCategoria([])
-            setFiltroOrigen('')
-            setFiltroFavorito(false)
-            setFiltroActivo('')
-            setFiltroVendible('')
-            setFiltroComprable('')
-            setFiltroPrecioRango('')
-            setFiltroPresupuestadoMin('')
-            setFiltroVendidoMin('')
-            setFiltroCreadoRango('')
-          }}
+          onLimpiarFiltros={filtros.limpiar}
           idModulo="productos"
           columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
           opcionesOrden={[

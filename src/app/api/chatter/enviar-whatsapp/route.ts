@@ -8,6 +8,7 @@ import {
 } from '@/lib/whatsapp'
 import { registrarChatter } from '@/lib/chatter'
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
+import { obtenerConfigPausa, calcularPausaPorRespuestaHumana } from '@/lib/whatsapp-pausa'
 
 /**
  * POST /api/chatter/enviar-whatsapp
@@ -79,12 +80,14 @@ export async function POST(request: NextRequest) {
     const telConPlus = `+${telefonoCanónico}`
     const variantesTel = generarVariantesTelefono(telefono)
 
-    // 3. Buscar conversación existente con este número (cualquier variante)
+    // 3. Buscar conversación existente con este número (cualquier variante).
+    // Traemos `estado` para saber si hay que reabrirla (caso plantilla a conversación resuelta).
     let conversacionId: string | null = null
+    let conversacionEstaba: 'abierta' | 'en_espera' | 'resuelta' | 'spam' | null = null
     const orConv = variantesTel.map(v => `identificador_externo.eq.${v}`).join(',')
     const { data: convExistente, error: errConv } = await admin
       .from('conversaciones')
-      .select('id, identificador_externo, contacto_id')
+      .select('id, identificador_externo, contacto_id, estado')
       .eq('empresa_id', empresaId)
       .eq('tipo_canal', 'whatsapp')
       .or(orConv)
@@ -96,6 +99,7 @@ export async function POST(request: NextRequest) {
 
     if (convExistente?.length) {
       conversacionId = convExistente[0].id
+      conversacionEstaba = (convExistente[0].estado as typeof conversacionEstaba) || null
       // Migrar formato canónico + vincular contacto si no tiene
       const updates: Record<string, unknown> = {}
       if (convExistente[0].identificador_externo !== telefonoCanónico) {
@@ -193,14 +197,29 @@ export async function POST(request: NextRequest) {
         metadata: plantilla_botones?.length ? { botones: plantilla_botones } : {},
       })
 
-    // 8. Actualizar conversación
+    // 8. Actualizar conversación.
+    // Aplicamos la misma lógica de pausa de automatizaciones que /api/whatsapp/enviar:
+    // un humano enviando (incluso una plantilla desde una entidad) debe pausar chatbot/IA
+    // según la config de la empresa. Si la conversación estaba resuelta, la reabrimos
+    // acá mismo para no depender de que el cliente responda.
+    const ahoraISO = new Date().toISOString()
+    const configPausa = await obtenerConfigPausa(admin, empresaId)
+    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa)
+    const updateConv: Record<string, unknown> = {
+      ultimo_mensaje_texto: textoMensaje,
+      ultimo_mensaje_en: ahoraISO,
+      ultimo_mensaje_es_entrante: false,
+      actualizado_en: ahoraISO,
+      ...pausaUpdates,
+    }
+    if (conversacionEstaba === 'resuelta') {
+      updateConv.estado = 'abierta'
+      updateConv.cerrado_en = null
+      updateConv.cerrado_por = null
+    }
     await admin
       .from('conversaciones')
-      .update({
-        ultimo_mensaje_texto: textoMensaje,
-        ultimo_mensaje_en: new Date().toISOString(),
-        ultimo_mensaje_es_entrante: false,
-      })
+      .update(updateConv)
       .eq('id', conversacionId)
 
     // 9. Registrar en chatter del documento

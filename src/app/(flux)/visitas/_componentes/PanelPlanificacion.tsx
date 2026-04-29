@@ -19,11 +19,12 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
-import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
+import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical, ArrowRight } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import TarjetaVisitador from './TarjetaVisitador'
 import ModalRecorrido from './ModalRecorrido'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { ConfigPermisos } from './ConfigRecorrido'
 
 /**
@@ -42,6 +43,9 @@ interface VisitaPlan {
   prioridad: string
   duracion_estimada_min: number | null
   fecha_programada: string | null
+  tiene_hora_especifica?: boolean | null
+  fecha_inicio?: string | null
+  fecha_llegada?: string | null
   motivo: string | null
   asignado_a: string | null
   asignado_nombre: string | null
@@ -123,6 +127,25 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   const columnaOrigenRef = useRef<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
+
+  // Confirmación de cambio de fecha cuando se arrastra una visita entre grupos de día
+  // distintos en la misma columna. El estado se setea desde handleDragEnd y abre un modal;
+  // si el usuario confirma, se hace PATCH al endpoint con la fecha nueva (manteniendo
+  // la hora original si la tenía). Si cancela, refetch para volver al estado real.
+  // Si la visita ya estaba completada o cancelada, mostramos una advertencia distinta:
+  // reprogramarla implica reabrirla (vuelve al estado "programada") y eso impacta en
+  // métricas / chatter, así que el usuario tiene que confirmarlo a propósito.
+  const [cambioFechaPendiente, setCambioFechaPendiente] = useState<{
+    visitaId: string
+    visitaNombre: string
+    fechaOriginalTexto: string
+    fechaNuevaTexto: string
+    fechaNuevaISO: string
+    tieneHora: boolean
+    estabaCompletada: boolean
+    estabaCancelada: boolean
+  } | null>(null)
+  const [aplicandoCambioFecha, setAplicandoCambioFecha] = useState(false)
   // Modal de recorrido
   const [modalRecorrido, setModalRecorrido] = useState<{ abierto: boolean; usuarioId: string; nombreVisitador: string; fecha: string }>({
     abierto: false, usuarioId: '', nombreVisitador: '', fecha: '',
@@ -362,13 +385,41 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
     const newIndex = visitador.visitas.findIndex(v => v.id === overId)
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
 
-    // Solo permitir reorden dentro del mismo grupo de fecha (día local de la empresa)
-    const fpActiva = visitador.visitas[oldIndex].fecha_programada
-    const fpOver = visitador.visitas[newIndex].fecha_programada
+    const visitaMov = visitador.visitas[oldIndex]
+    const visitaDestino = visitador.visitas[newIndex]
+    const fpActiva = visitaMov.fecha_programada
+    const fpOver = visitaDestino.fecha_programada
     const fechaActiva = fpActiva ? formatearFechaISO(fpActiva, zonaHoraria) : ''
     const fechaOver = fpOver ? formatearFechaISO(fpOver, zonaHoraria) : ''
-    if (fechaActiva !== fechaOver) return // no mover entre fechas distintas
 
+    // ── Cambio entre grupos de fecha distintos: pedir confirmación.
+    // No movemos el item localmente; abrimos el modal y dejamos al usuario decidir.
+    // Si confirma, hacemos PATCH con la nueva fecha (manteniendo la hora si tenía).
+    if (fechaActiva !== fechaOver && fechaOver) {
+      const fechaOriginal = fpActiva ? new Date(fpActiva) : null
+      const tieneHora = visitaMov.tiene_hora_especifica === true
+      // Construir nueva fecha: día destino (en zona local) + hora original si existía
+      const [yearD, monthD, dayD] = fechaOver.split('-').map(Number)
+      const nuevaFecha = fechaOriginal ? new Date(fechaOriginal) : new Date(yearD, monthD - 1, dayD, 0, 0, 0)
+      nuevaFecha.setFullYear(yearD, monthD - 1, dayD)
+      const formatearTexto = (d: Date) => d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria }).replace(/^\w/, c => c.toUpperCase())
+      const fechaNuevaTexto = formatearTexto(nuevaFecha)
+      const fechaOriginalTexto = fechaOriginal ? formatearTexto(fechaOriginal) : 'sin fecha'
+      setCambioFechaPendiente({
+        visitaId: activeId,
+        visitaNombre: visitaMov.contacto_nombre || 'la visita',
+        fechaOriginalTexto,
+        fechaNuevaTexto,
+        fechaNuevaISO: nuevaFecha.toISOString(),
+        tieneHora,
+        estabaCompletada: visitaMov.estado === 'completada',
+        estabaCancelada: visitaMov.estado === 'cancelada',
+      })
+      return
+    }
+
+    // Reorden dentro del mismo día — sin pedir confirmación
+    if (fechaActiva !== fechaOver) return // sin fecha (edge case)
     const nuevasVisitas = arrayMove(visitador.visitas, oldIndex, newIndex)
     setVisitadoresLocal(prev => prev.map(v =>
       v.usuario_id === columnaActual ? { ...v, visitas: nuevasVisitas } : v
@@ -511,7 +562,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
         </div>}
       />
 
-      <div className="flex flex-col gap-3 px-2 sm:px-6 pt-3 flex-1 min-h-0">
+      <div className="flex flex-col gap-3 px-2 sm:px-6 pt-3 flex-1 min-h-0 min-w-0">
 
 
       {/* ── Kanban ── */}
@@ -556,7 +607,6 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
             <TarjetaVisitador
               usuarioId={ID_SIN_ASIGNAR} nombre={t('visitas.sin_asignar')} apellido="" avatarUrl={null}
               visitas={sinAsignarLocal} recorrido={null}
-              onOptimizarRuta={() => {}} onGuardarConfig={async () => {}}
               onAbrirVisita={onAbrirVisita}
               onConfirmarProvisoria={onConfirmarProvisoria}
               onRechazarProvisoria={onRechazarProvisoria}
@@ -571,18 +621,18 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
               avatarUrl={visitadoresLocal[tabMobile].avatar_url}
               visitas={visitadoresLocal[tabMobile].visitas}
               recorrido={visitadoresLocal[tabMobile].recorrido}
-              onOptimizarRuta={optimizarRuta} onGuardarConfig={guardarConfig}
               onAbrirRecorrido={abrirRecorrido}
               onAbrirVisita={onAbrirVisita}
               onConfirmarProvisoria={onConfirmarProvisoria}
               onRechazarProvisoria={onRechazarProvisoria}
-              optimizando={optimizandoUsuario === visitadoresLocal[tabMobile].usuario_id}
             />
           )}
         </div>
 
-        {/* Desktop kanban */}
-        <div className="hidden md:flex items-stretch gap-3 flex-1 min-h-0">
+        {/* Desktop kanban — columnas más anchas para que entren cómodo dirección,
+            mapa miniatura y los chips de fecha/hora sin truncar tanto. El scroll
+            horizontal vive acá y no en la página entera (overflow-x-auto + min-w-0). */}
+        <div className="hidden md:flex items-stretch gap-3 flex-1 min-h-0 min-w-0 overflow-x-auto pb-2 [&>*]:w-[360px] [&>*]:shrink-0">
           {/* Columna sin asignar — siempre visible */}
           <TarjetaVisitador
             usuarioId={ID_SIN_ASIGNAR}
@@ -591,8 +641,6 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
             avatarUrl={null}
             visitas={sinAsignarLocal}
             recorrido={null}
-            onOptimizarRuta={() => {}}
-            onGuardarConfig={async () => {}}
             onAbrirVisita={onAbrirVisita}
             onConfirmarProvisoria={onConfirmarProvisoria}
             onRechazarProvisoria={onRechazarProvisoria}
@@ -609,14 +657,11 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
               avatarUrl={visitador.avatar_url}
               visitas={visitador.visitas}
               recorrido={visitador.recorrido}
-              onOptimizarRuta={optimizarRuta}
-              onGuardarConfig={guardarConfig}
               onMoverColumna={moverColumna}
               onAbrirRecorrido={abrirRecorrido}
               onAbrirVisita={onAbrirVisita}
               onConfirmarProvisoria={onConfirmarProvisoria}
               onRechazarProvisoria={onRechazarProvisoria}
-              optimizando={optimizandoUsuario === visitador.usuario_id}
             />
           ))}
         </div>
@@ -681,6 +726,99 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
         nombreVisitador={modalRecorrido.nombreVisitador}
         fecha={modalRecorrido.fecha}
         onActualizar={refetch}
+        onAbrirVisita={onAbrirVisita}
+      />
+
+      {/* Confirmación de cambio de fecha al arrastrar una visita entre grupos.
+          Si confirma → PATCH con la nueva fecha y refetch; si cancela → refetch
+          para asegurar que el estado local refleje la BD.
+
+          Si la visita estaba completada o cancelada, el copy cambia para advertir
+          que se va a reabrir; usamos la acción `reprogramar` del endpoint para que
+          además limpie fecha_inicio/fecha_llegada y la deje en estado "reprogramada"
+          (no en "completada" con fecha distinta — sería incongruente). */}
+      <ModalConfirmacion
+        abierto={!!cambioFechaPendiente}
+        onCerrar={() => setCambioFechaPendiente(null)}
+        onConfirmar={async () => {
+          if (!cambioFechaPendiente) return
+          setAplicandoCambioFecha(true)
+          const debeReabrir = cambioFechaPendiente.estabaCompletada || cambioFechaPendiente.estabaCancelada
+          try {
+            const res = await fetch(`/api/visitas/${cambioFechaPendiente.visitaId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(debeReabrir ? {
+                accion: 'reprogramar',
+                fecha_programada: cambioFechaPendiente.fechaNuevaISO,
+                tiene_hora_especifica: cambioFechaPendiente.tieneHora,
+              } : {
+                fecha_programada: cambioFechaPendiente.fechaNuevaISO,
+                tiene_hora_especifica: cambioFechaPendiente.tieneHora,
+              }),
+            })
+            if (!res.ok) throw new Error()
+            mostrar('exito', debeReabrir ? 'Visita reprogramada' : 'Fecha actualizada')
+            setCambioFechaPendiente(null)
+            refetch()
+          } catch {
+            mostrar('error', 'No se pudo cambiar la fecha')
+            setCambioFechaPendiente(null)
+            refetch()
+          } finally {
+            setAplicandoCambioFecha(false)
+          }
+        }}
+        titulo={
+          cambioFechaPendiente?.estabaCompletada ? 'Reabrir visita completada'
+          : cambioFechaPendiente?.estabaCancelada ? 'Reabrir visita cancelada'
+          : 'Cambiar fecha de la visita'
+        }
+        descripcion={cambioFechaPendiente && (
+          <div className="text-left">
+            {/* Contexto: nombre + estado previo si aplicable */}
+            <p className="text-sm text-texto-secundario mb-4">
+              {cambioFechaPendiente.estabaCompletada ? (
+                <><span className="font-semibold text-texto-primario">{cambioFechaPendiente.visitaNombre}</span> ya estaba completada.</>
+              ) : cambioFechaPendiente.estabaCancelada ? (
+                <><span className="font-semibold text-texto-primario">{cambioFechaPendiente.visitaNombre}</span> estaba cancelada.</>
+              ) : (
+                <>Vas a reprogramar la visita de <span className="font-semibold text-texto-primario">{cambioFechaPendiente.visitaNombre}</span>.</>
+              )}
+            </p>
+
+            {/* Diff de fechas con jerarquía visual: De → A */}
+            <div className="flex items-stretch gap-2 mb-4">
+              <div className="flex-1 rounded-card border border-borde-sutil bg-white/[0.02] px-3 py-2.5">
+                <div className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider mb-1">De</div>
+                <div className="text-sm text-texto-secundario line-through decoration-texto-terciario/60">
+                  {cambioFechaPendiente.fechaOriginalTexto}
+                </div>
+              </div>
+              <div className="flex items-center justify-center text-texto-terciario shrink-0">
+                <ArrowRight size={16} />
+              </div>
+              <div className="flex-1 rounded-card border border-texto-marca/40 bg-texto-marca/5 px-3 py-2.5">
+                <div className="text-[10px] font-medium text-texto-marca uppercase tracking-wider mb-1">A</div>
+                <div className="text-sm font-semibold text-texto-primario">
+                  {cambioFechaPendiente.fechaNuevaTexto}
+                </div>
+              </div>
+            </div>
+
+            {/* Cierre / pregunta */}
+            <p className="text-sm text-texto-terciario">
+              {cambioFechaPendiente.estabaCompletada
+                ? 'Si la reprogramás vuelve al estado "reprogramada", como si se fuera a hacer de nuevo. ¿Continuar?'
+                : cambioFechaPendiente.estabaCancelada
+                ? 'Si la reprogramás vuelve a quedar activa. ¿Continuar?'
+                : '¿Confirmar el cambio de fecha?'}
+            </p>
+          </div>
+        )}
+        tipo={cambioFechaPendiente?.estabaCompletada || cambioFechaPendiente?.estabaCancelada ? 'advertencia' : 'info'}
+        etiquetaConfirmar="Sí, reprogramar"
+        cargando={aplicandoCambioFecha}
       />
       </div>
     </div>

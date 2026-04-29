@@ -58,6 +58,12 @@ export const miembros = pgTable('miembros', {
   rol: text('rol').notNull().default('colaborador'),
   activo: boolean('activo').notNull().default(false),
   permisos_custom: jsonb('permisos_custom'),
+  // Permisos default del visitador para sus recorridos: puede_reordenar,
+  // puede_cambiar_duracion, puede_agregar_paradas, puede_quitar_paradas,
+  // puede_cancelar. Si null, se usan los defaults del sistema (todos en false
+  // salvo reordenar y duración). El coordinador puede sobreescribirlos por día
+  // desde el modal de recorrido.
+  permisos_recorrido_default: jsonb('permisos_recorrido_default'),
   unido_en: timestamp('unido_en', { withTimezone: true }).defaultNow().notNull(),
   // Laboral. El nombre del puesto se obtiene por FK puesto_id → puestos.nombre;
   // el sector primario por miembros_sectores (es_primario=true) → sectores.nombre.
@@ -2780,6 +2786,11 @@ export const visitas = pgTable('visitas', {
 
   // Programación
   fecha_programada: timestamp('fecha_programada', { withTimezone: true }).notNull(),
+  // Si true, la hora dentro de fecha_programada se eligió a propósito (ej: "9:30 AM").
+  // Si false, solo importa el día — la hora es placeholder y la UI debe mostrar "sin
+  // hora específica". Esto permite que cada empresa programe visitas como prefiera:
+  // hora exacta, o solo día con hora real definida durante el recorrido.
+  tiene_hora_especifica: boolean('tiene_hora_especifica').notNull().default(false),
   fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }), // cuando arrancó (en_camino)
   fecha_llegada: timestamp('fecha_llegada', { withTimezone: true }), // cuando llegó (en_sitio)
   fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
@@ -2883,6 +2894,11 @@ export const recorridos = pgTable('recorridos', {
   // Config de permisos del visitador (qué puede hacer en este recorrido)
   config: jsonb('config').notNull().default(sql`'{}'`),
 
+  // Hora de salida planificada — cuando el coordinador la setea, las visitas
+  // del día se reprograman automáticamente con horarios estimados según el
+  // orden y los tiempos de viaje + tiempo en sitio.
+  hora_salida_planificada: timestamp('hora_salida_planificada', { withTimezone: true }),
+
   // Auditoría
   creado_por: uuid('creado_por').notNull(),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
@@ -2971,6 +2987,10 @@ export const config_visitas = pgTable('config_visitas', {
   motivos_predefinidos: jsonb('motivos_predefinidos').notNull().default(sql`'[]'`),
   // Resultados predefinidos
   resultados_predefinidos: jsonb('resultados_predefinidos').notNull().default(sql`'[]'`),
+  // Si está activo, el flujo de recorrido envía avisos por WhatsApp (en camino + llegada)
+  // al receptor de la visita. Cuando está apagado, los modales de envío no se abren
+  // y "Quién recibe el aviso por WhatsApp" desaparece del modal de visita.
+  enviar_avisos_whatsapp: boolean('enviar_avisos_whatsapp').notNull().default(false),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [

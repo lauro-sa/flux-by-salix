@@ -240,12 +240,12 @@ async function procesarMensajeEntrante(
     console.info('[WEBHOOK v2] Resuelta encontrada:', resuelta?.id, 'Error:', errResuelta?.message)
 
     if (resuelta) {
-      // Reabrir la conversación resuelta + migrar formato de teléfono si es necesario
+      // Reabrir la conversación resuelta + migrar formato de teléfono si es necesario.
+      // No tocamos chatbot_activo/agente_ia_activo: respetamos la decisión previa del agente.
       const updateData: Record<string, unknown> = {
         estado: 'abierta',
         cerrado_en: null,
         cerrado_por: null,
-        chatbot_activo: true,
         actualizado_en: new Date().toISOString(),
       }
       if (resuelta.identificador_externo !== telefonoRemitente) {

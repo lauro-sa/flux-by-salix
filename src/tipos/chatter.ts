@@ -151,6 +151,10 @@ export interface MetadataChatter {
   editado_por_nombre?: string
   /** Cuándo se editó por última vez (timestamptz ISO). */
   editado_en?: string
+  /** ID de la entrada de chatter que originó este pago (correo/WA/mensaje
+   *  desde donde se hizo "Registrar como pago"). El frontend lo usa para
+   *  cruzar contra la entrada original y mostrar chips bidireccionales. */
+  mensaje_origen_chatter_id?: string
 }
 
 // ─── Entrada de chatter ───

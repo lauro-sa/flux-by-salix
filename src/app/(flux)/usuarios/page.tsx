@@ -11,6 +11,7 @@ import {
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { normalizarBusqueda } from '@/lib/validaciones'
@@ -21,6 +22,9 @@ import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -43,9 +47,19 @@ interface MiembroTabla {
   nombre: string
   apellido: string
   avatar_url: string | null
+  /** Correo del campo legacy (puede ser personal o empresa según se cargó);
+   *  para nuevos consumidores preferir `correo_personal` y `correo_empresa`. */
   correo: string
+  correo_personal: string
+  correo_empresa: string
+  /** Teléfono personal (legacy `telefono` del perfil) */
   telefono: string
+  /** Teléfono de empresa (línea laboral) */
   telefono_empresa: string
+  /** Canal preferido para notificaciones de correo: 'personal' | 'empresa' */
+  canal_notif_correo: 'personal' | 'empresa' | null
+  /** Canal preferido para notificaciones telefónicas (llamadas/WhatsApp) */
+  canal_notif_telefono: 'personal' | 'empresa' | null
   rol: string
   activo: boolean
   estado: EstadoMiembro
@@ -536,25 +550,49 @@ export default function PaginaUsuarios() {
   const [sectoresDisponibles, setSectoresDisponibles] = useState<{ id: string; nombre: string }[]>([])
   const [puestosDisponibles, setPuestosDisponibles] = useState<{ id: string; nombre: string }[]>([])
 
-  // ── Filtros del listado ──
-  // Estado ciclo de vida (multi): activo, pendiente, fichaje, desactivado
-  const [filtroEstadoCiclo, setFiltroEstadoCiclo] = useState<EstadoMiembro[]>([])
-  // Rol (multi)
-  const [filtroRoles, setFiltroRoles] = useState<string[]>([])
-  // Sector/puesto (multi, por nombre)
-  const [filtroSectores, setFiltroSectores] = useState<string[]>([])
-  const [filtroPuestos, setFiltroPuestos] = useState<string[]>([])
-  // Horario y fichaje
-  const [filtroHorarioTipo, setFiltroHorarioTipo] = useState<string[]>([])
-  const [filtroHorarioFlexible, setFiltroHorarioFlexible] = useState('')
-  const [filtroMetodoFichaje, setFiltroMetodoFichaje] = useState<string[]>([])
-  // Compensación
-  const [filtroCompensacionTipo, setFiltroCompensacionTipo] = useState<string[]>([])
-  // Tipo de cuenta
-  const [filtroTipoCuenta, setFiltroTipoCuenta] = useState('')
-  // Presets de fecha
-  const [filtroUnidoRango, setFiltroUnidoRango] = useState('')
-  const [filtroCumpleRango, setFiltroCumpleRango] = useState('')
+  // ── Filtros del listado con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/usuarios',
+    campos: {
+      estado_ciclo: { defecto: [] as EstadoMiembro[] },
+      roles: { defecto: [] as string[] },
+      sectores: { defecto: [] as string[] },
+      puestos: { defecto: [] as string[] },
+      horario_tipo: { defecto: [] as string[] },
+      horario_flexible: { defecto: '' },
+      metodo_fichaje: { defecto: [] as string[] },
+      compensacion_tipo: { defecto: [] as string[] },
+      tipo_cuenta: { defecto: '' },
+      unido_rango: { defecto: '' },
+      cumple_rango: { defecto: '' },
+    },
+  })
+
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroEstadoCiclo = f.estado_ciclo
+  const filtroRoles = f.roles
+  const filtroSectores = f.sectores
+  const filtroPuestos = f.puestos
+  const filtroHorarioTipo = f.horario_tipo
+  const filtroHorarioFlexible = f.horario_flexible
+  const filtroMetodoFichaje = f.metodo_fichaje
+  const filtroCompensacionTipo = f.compensacion_tipo
+  const filtroTipoCuenta = f.tipo_cuenta
+  const filtroUnidoRango = f.unido_rango
+  const filtroCumpleRango = f.cumple_rango
+  const setFiltroEstadoCiclo = (v: EstadoMiembro[]) => filtros.set('estado_ciclo', v)
+  const setFiltroRoles = (v: string[]) => filtros.set('roles', v)
+  const setFiltroSectores = (v: string[]) => filtros.set('sectores', v)
+  const setFiltroPuestos = (v: string[]) => filtros.set('puestos', v)
+  const setFiltroHorarioTipo = (v: string[]) => filtros.set('horario_tipo', v)
+  const setFiltroHorarioFlexible = (v: string) => filtros.set('horario_flexible', v)
+  const setFiltroMetodoFichaje = (v: string[]) => filtros.set('metodo_fichaje', v)
+  const setFiltroCompensacionTipo = (v: string[]) => filtros.set('compensacion_tipo', v)
+  const setFiltroTipoCuenta = (v: string) => filtros.set('tipo_cuenta', v)
+  const setFiltroUnidoRango = (v: string) => filtros.set('unido_rango', v)
+  const setFiltroCumpleRango = (v: string) => filtros.set('cumple_rango', v)
 
   // Importación CSV
   const [modalImportar, setModalImportar] = useState(false)
@@ -582,7 +620,7 @@ export default function PaginaUsuarios() {
     // Cargar miembros
     const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('id, usuario_id, rol, activo, unido_en, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, puesto_id, numero_empleado, horario_tipo, horario_flexible, turno, metodo_fichaje')
+      .select('id, usuario_id, rol, activo, unido_en, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, puesto_id, numero_empleado, horario_tipo, horario_flexible, turno, metodo_fichaje, canal_notif_correo, canal_notif_telefono')
       .eq('empresa_id', empresa.id)
       .order('unido_en', { ascending: true })
 
@@ -673,8 +711,13 @@ export default function PaginaUsuarios() {
     const resultado: MiembroTabla[] = miembrosData.map(m => {
       const perfil = m.usuario_id ? perfilesMapa.get(m.usuario_id) : undefined
       const contacto = contactosMapa.get(m.id)
-      const correo = (perfil?.correo_empresa || perfil?.correo || contacto?.correo || '').trim()
-      const invitacion = correo ? invitacionesMapa.get(correo.toLowerCase()) : undefined
+      // Correos: mantenemos personal y empresa por separado, y dejamos `correo`
+      // legacy con la lógica vieja (preferimos empresa si hay) para no romper
+      // consumidores existentes (ej. invitaciones cruzan por este campo).
+      const correoPersonal = (perfil?.correo || contacto?.correo || '').trim()
+      const correoEmpresa = (perfil?.correo_empresa || '').trim()
+      const correoLegacy = (correoEmpresa || correoPersonal).trim()
+      const invitacion = correoLegacy ? invitacionesMapa.get(correoLegacy.toLowerCase()) : undefined
       const estado = calcularEstadoMiembro(
         { usuario_id: m.usuario_id, activo: m.activo },
         invitacion ? { expira_en: invitacion.expira_en, usado: invitacion.usado } : null,
@@ -685,9 +728,13 @@ export default function PaginaUsuarios() {
         nombre: perfil?.nombre || contacto?.nombre || 'Sin',
         apellido: perfil?.apellido || contacto?.apellido || 'nombre',
         avatar_url: perfil?.avatar_url || null,
-        correo,
+        correo: correoLegacy,
+        correo_personal: correoPersonal,
+        correo_empresa: correoEmpresa,
         telefono: perfil?.telefono || contacto?.telefono || '',
         telefono_empresa: perfil?.telefono_empresa || '',
+        canal_notif_correo: (m.canal_notif_correo as 'personal' | 'empresa' | null) || null,
+        canal_notif_telefono: (m.canal_notif_telefono as 'personal' | 'empresa' | null) || null,
         rol: m.rol,
         activo: m.activo,
         estado,
@@ -1169,107 +1216,211 @@ export default function PaginaUsuarios() {
           { id: 'fichaje', etiqueta: 'Fichaje', filtros: ['horario_tipo', 'horario_flexible', 'metodo_fichaje'] },
           { id: 'periodo', etiqueta: 'Período', filtros: ['unido_rango', 'cumple_rango'] },
         ]}
-        onLimpiarFiltros={() => {
-          setFiltroEstadoCiclo([])
-          setFiltroRoles([])
-          setFiltroSectores([])
-          setFiltroPuestos([])
-          setFiltroHorarioTipo([])
-          setFiltroHorarioFlexible('')
-          setFiltroMetodoFichaje([])
-          setFiltroCompensacionTipo([])
-          setFiltroTipoCuenta('')
-          setFiltroUnidoRango('')
-          setFiltroCumpleRango('')
-        }}
+        onLimpiarFiltros={filtros.limpiar}
         mostrarResumen
         onClickFila={(fila) => router.push(`/usuarios/${fila.id}`)}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         renderTarjeta={(fila) => {
           const dias = diasHastaCumple(fila.fecha_nacimiento)
           const esCumple = dias >= 0 && dias <= 7
           const ingreso = formatearIngreso(fila.unido_en, formato.locale)
-          const tieneDetalle = fila.telefono || fila.compensacion_monto > 0 || ingreso
           const etiquetaEstadoFila: Record<EstadoMiembro, string> = {
             fichaje: t('usuarios.estado_fichaje'),
             pendiente: t('usuarios.estado_pendiente'),
             activo: t('usuarios.estado_activo'),
             desactivado: t('usuarios.estado_desactivado'),
           }
-          return (
-            <div className="p-4 flex flex-col gap-3">
-              {/* ── Identidad ── */}
-              <div className="flex items-center gap-3">
-                <div className="relative shrink-0">
-                  <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="md" />
-                  {esCumple && (
-                    <motion.div
-                      animate={dias === 0 ? { scale: [1, 1.2, 1] } : undefined}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      className="absolute -top-1 -right-1 size-5 rounded-full bg-insignia-advertencia flex items-center justify-center"
-                    >
-                      <Cake size={10} className="text-white" />
-                    </motion.div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-texto-primario truncate">{fila.nombre} {fila.apellido}</p>
-                  <p className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</p>
-                  {esCumple && (
-                    dias === 0 ? (
-                      <motion.p
-                        animate={{ opacity: [1, 0.4, 1] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                        className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
-                      >
-                        <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
-                      </motion.p>
-                    ) : (
-                      <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
-                        <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
-                      </p>
-                    )
-                  )}
-                </div>
-              </div>
 
-              {/* ── Contexto laboral ── */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
-                  <Insignia color={ESTADOS_MIEMBRO[fila.estado].color} tamano="sm">
-                    {etiquetaEstadoFila[fila.estado]}
+          // Resolver canal preferido para footer (Llamar/WhatsApp/Correo).
+          // Si el usuario configuró canal_notif_*, lo respetamos; si no, caemos
+          // al primero disponible (empresa > personal). Así los botones siempre
+          // disparan al canal correcto sin que el usuario lo tenga que pensar.
+          const telPersonal = fila.telefono || ''
+          const telEmpresa = fila.telefono_empresa || ''
+          const telPreferido = fila.canal_notif_telefono === 'empresa'
+            ? (telEmpresa || telPersonal)
+            : fila.canal_notif_telefono === 'personal'
+              ? (telPersonal || telEmpresa)
+              : (telEmpresa || telPersonal)
+
+          const correoPreferido = fila.canal_notif_correo === 'empresa'
+            ? (fila.correo_empresa || fila.correo_personal)
+            : fila.canal_notif_correo === 'personal'
+              ? (fila.correo_personal || fila.correo_empresa)
+              : (fila.correo_empresa || fila.correo_personal)
+
+          const numeroLlamar = telPreferido.replace(/[^+\d]/g, '')
+          const numeroWa = telPreferido.replace(/[^\d]/g, '')
+
+          // Helper para etiqueta "(Personal)"/"(Empresa)" — solo si hay ambos
+          const tieneAmbosCorreos = !!fila.correo_personal && !!fila.correo_empresa
+          const tieneAmbosTelefonos = !!telPersonal && !!telEmpresa
+
+          // Subtítulo del nombre: priorizar Puesto · Sector porque es lo más
+          // útil para identificar a alguien laboralmente. El correo se ve
+          // abajo en la sección de contacto con su etiqueta de canal.
+          const subtituloLaboral = fila.puesto && fila.sector
+            ? `${fila.puesto} · ${fila.sector}`
+            : (fila.puesto || fila.sector || '')
+
+          const tieneContacto = !!fila.correo_personal || !!fila.correo_empresa || !!telPersonal || !!telEmpresa
+          const tieneAdmin = fila.compensacion_monto > 0 || ingreso
+
+          return (
+            <div className="flex flex-col">
+              <div className="p-4 flex flex-col gap-3">
+                {/* ── Identidad: avatar + nombre + (subtitulo laboral) +
+                    estado a la derecha. El subtítulo "Puesto · Sector" es lo
+                    más útil para identificar a alguien laboralmente. ── */}
+                <div className="flex items-start gap-3 pr-7">
+                  <div className="relative shrink-0">
+                    <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="md" />
+                    {esCumple && (
+                      <motion.div
+                        animate={dias === 0 ? { scale: [1, 1.2, 1] } : undefined}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute -top-1 -right-1 size-5 rounded-full bg-insignia-advertencia flex items-center justify-center"
+                      >
+                        <Cake size={10} className="text-white" />
+                      </motion.div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-texto-primario truncate">
+                        {fila.nombre} {fila.apellido}
+                      </p>
+                      <Insignia color={ESTADOS_MIEMBRO[fila.estado].color} tamano="sm">
+                        {etiquetaEstadoFila[fila.estado]}
+                      </Insignia>
+                    </div>
+                    {subtituloLaboral && (
+                      <p className="text-xs text-texto-secundario truncate">{subtituloLaboral}</p>
+                    )}
+                    {esCumple && (
+                      dias === 0 ? (
+                        <motion.p
+                          animate={{ opacity: [1, 0.4, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                          className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1"
+                        >
+                          <Cake size={10} />
+                          {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
+                        </motion.p>
+                      ) : (
+                        <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1">
+                          <Cake size={10} />
+                          {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
+                        </p>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Rol del sistema (Colaborador/Admin/etc) — píldora aparte
+                    porque es el permiso de Flux, distinto del puesto laboral. */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">
+                    {ETIQUETA_ROL[fila.rol] || fila.rol}
                   </Insignia>
                 </div>
-                {fila.sector && <p className="text-xs text-texto-terciario truncate">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
+
+                {/* ── Canales de contacto: muestro AMBOS correos y AMBOS
+                    teléfonos si están cargados. Etiqueta "(Personal)" o
+                    "(Empresa)" solo cuando hay duplicado para diferenciarlos. */}
+                {tieneContacto && (
+                  <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+                    {fila.correo_empresa && (
+                      <LineaInfoTarjeta icono={<Mail size={13} />} truncar>
+                        <span>
+                          {fila.correo_empresa}
+                          {tieneAmbosCorreos && <span className="text-texto-terciario/60"> · Empresa</span>}
+                        </span>
+                      </LineaInfoTarjeta>
+                    )}
+                    {fila.correo_personal && fila.correo_personal !== fila.correo_empresa && (
+                      <LineaInfoTarjeta icono={<Mail size={13} />} truncar>
+                        <span>
+                          {fila.correo_personal}
+                          {tieneAmbosCorreos && <span className="text-texto-terciario/60"> · Personal</span>}
+                        </span>
+                      </LineaInfoTarjeta>
+                    )}
+                    {telEmpresa && (
+                      <LineaInfoTarjeta icono={<Phone size={13} />} truncar>
+                        <span>
+                          {telEmpresa}
+                          {tieneAmbosTelefonos && <span className="text-texto-terciario/60"> · Empresa</span>}
+                        </span>
+                      </LineaInfoTarjeta>
+                    )}
+                    {telPersonal && telPersonal !== telEmpresa && (
+                      <LineaInfoTarjeta icono={<Phone size={13} />} truncar>
+                        <span>
+                          {telPersonal}
+                          {tieneAmbosTelefonos && <span className="text-texto-terciario/60"> · Personal</span>}
+                        </span>
+                      </LineaInfoTarjeta>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Datos administrativos: compensación + fecha de ingreso ── */}
+                {tieneAdmin && (
+                  <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+                    {fila.compensacion_monto > 0 && (
+                      <span className="flex items-center gap-2.5 text-xs">
+                        <Hash size={13} className="shrink-0 text-texto-terciario/70" />
+                        <span>
+                          <span className="font-medium text-texto-primario">
+                            {formatearMoneda(fila.compensacion_monto, formato.locale, formato.codigoMoneda)}
+                          </span>
+                          <span className="text-texto-terciario">
+                            {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)}
+                          </span>
+                        </span>
+                      </span>
+                    )}
+                    {ingreso && (
+                      <LineaInfoTarjeta icono={<Calendar size={13} />}>
+                        {ingreso}
+                      </LineaInfoTarjeta>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* ── Detalle (separador visual + datos compactos) ── */}
-              {tieneDetalle && (
-                <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-terciario">
-                  {fila.compensacion_monto > 0 && (
-                    <span className="text-xs font-medium text-texto-primario">
-                      {formatearMoneda(fila.compensacion_monto, formato.locale, formato.codigoMoneda)}
-                      <span className="text-texto-terciario font-normal">
-                        {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)}
-                      </span>
-                    </span>
-                  )}
-                  {fila.telefono && (
-                    <span className="flex items-center gap-1">
-                      <Phone size={10} className="shrink-0" />
-                      {fila.telefono}
-                    </span>
-                  )}
-                  {ingreso && (
-                    <span className="flex items-center gap-1">
-                      <Calendar size={10} className="shrink-0" />
-                      {ingreso}
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* ── Footer mobile: llamar / WhatsApp / correo. Los botones usan
+                  el canal preferido del miembro (canal_notif_correo /
+                  canal_notif_telefono); si no hay preferencia, default a
+                  empresa porque es lo habitual para contacto laboral. ── */}
+              <div className="sm:hidden">
+                <PieAccionesTarjeta acciones={[
+                  {
+                    id: 'llamar',
+                    icono: <Phone size={16} className="shrink-0" />,
+                    etiqueta: 'Llamar',
+                    href: numeroLlamar ? `tel:${numeroLlamar}` : undefined,
+                    deshabilitado: !numeroLlamar,
+                  },
+                  {
+                    id: 'whatsapp',
+                    icono: <IconoWhatsApp size={16} className="shrink-0" />,
+                    etiqueta: 'WhatsApp',
+                    href: numeroWa ? `https://wa.me/${numeroWa}` : undefined,
+                    target: '_blank',
+                    color: 'var(--canal-whatsapp)',
+                    deshabilitado: !numeroWa,
+                  },
+                  {
+                    id: 'correo',
+                    icono: <Mail size={16} className="shrink-0" />,
+                    etiqueta: 'Correo',
+                    href: correoPreferido ? `mailto:${correoPreferido}` : undefined,
+                    deshabilitado: !correoPreferido,
+                  },
+                ] satisfies AccionTarjeta[]} />
+              </div>
             </div>
           )
         }}

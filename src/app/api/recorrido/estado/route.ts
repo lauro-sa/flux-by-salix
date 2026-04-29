@@ -110,13 +110,12 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (estado === 'programada') {
-        actualizacion.fecha_inicio = null
-        actualizacion.fecha_llegada = null
-        actualizacion.fecha_completada = null
-        actualizacion.registro_lat = null
-        actualizacion.registro_lng = null
-        actualizacion.registro_precision_m = null
-        actualizacion.duracion_real_min = null
+        // NO borramos los timestamps reales: si la visita se reabre por error
+        // (botón "Reabrir" en /recorrido), preservar fecha_inicio/llegada/completada
+        // permite que el banner "Cancelar reapertura" la vuelva a marcar como
+        // completada con la hora original. Los timestamps se vuelven a setear
+        // si efectivamente se rehace el flujo en_camino → en_sitio → completada.
+        // El estado solo cambia; el chatter ya queda con el log del cambio.
       }
       if (estado === 'en_camino') actualizacion.fecha_inicio = ahora
       if (estado === 'en_sitio') {

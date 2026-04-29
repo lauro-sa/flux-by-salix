@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
+import { useNavegacion } from '@/hooks/useNavegacion'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ function estadoCelda(asist: CeldaAsistencia | undefined): string {
 
 export default function PaginaMatrizAsistencias() {
   const router = useRouter()
+  const { obtenerRutaModulo } = useNavegacion()
   const { locale, formatoHora: fmtHora } = useFormato()
   const hour12 = fmtHora === '12h'
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -149,7 +151,7 @@ export default function PaginaMatrizAsistencias() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <div className="flex items-center gap-3">
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Volver" icono={<ArrowLeft size={16} />} onClick={() => router.push('/asistencias')} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Volver" icono={<ArrowLeft size={16} />} onClick={() => router.push(obtenerRutaModulo('/asistencias'))} />
           <div className="flex items-center gap-2">
             <CalendarDays size={18} className="text-texto-marca" />
             <h1 className="text-base font-semibold text-texto-primario">Matriz de asistencias</h1>
@@ -158,7 +160,7 @@ export default function PaginaMatrizAsistencias() {
 
         <div className="flex items-center gap-2">
           {/* Toggle vista lista */}
-          <Boton variante="fantasma" tamano="xs" onClick={() => router.push('/asistencias')}>
+          <Boton variante="fantasma" tamano="xs" onClick={() => router.push(obtenerRutaModulo('/asistencias'))}>
             <List size={14} className="mr-1" /> Lista
           </Boton>
         </div>

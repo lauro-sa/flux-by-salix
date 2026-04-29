@@ -298,6 +298,108 @@ export async function GET(request: NextRequest) {
           total_cobrado: pagos.cobrado,
         }
       }
+
+      // ── Enriquecimiento adicional para la vista de tarjetas mobile ──
+      // Traemos en paralelo:
+      //   - teléfono y correo ACTUALES de contactos (principal y atención).
+      //     Los campos `contacto_telefono` / `contacto_correo` de la tabla
+      //     `presupuestos` son snapshots al momento de creación y no se
+      //     sincronizan: ~56% de los presupuestos tenían el snapshot vacío
+      //     aunque el contacto sí tenía teléfono. Pisamos con datos frescos.
+      //   - actividades pendientes vinculadas a cada presupuesto
+      //   - orden de trabajo asociada si existe (con su estado)
+      const idsContacto = [...new Set([
+        ...presupuestos.map((p) => p.contacto_id).filter((x): x is string => !!x),
+        ...presupuestos.map((p) => p.atencion_contacto_id).filter((x): x is string => !!x),
+      ])]
+
+      const [resContactos, resActividades, resOrdenes] = await Promise.all([
+        idsContacto.length > 0
+          ? admin.from('contactos').select('id, telefono, whatsapp, correo').in('id', idsContacto)
+          : Promise.resolve({ data: [] }),
+        // Las actividades se vinculan vía vinculo_ids (uuid[]). Filtramos las
+        // que tengan algún presupuesto_id de la página y no estén completadas.
+        admin
+          .from('actividades')
+          .select('vinculo_ids, tipo_id, tipo:tipos_actividad!tipo_id(id, etiqueta, color, icono)')
+          .eq('empresa_id', empresaId)
+          .filter('vinculo_ids', 'ov', `{${ids.join(',')}}`)
+          .eq('en_papelera', false)
+          .not('estado_clave', 'in', '(completada,cancelada)'),
+        admin
+          .from('ordenes_trabajo')
+          .select('id, presupuesto_id, estado')
+          .in('presupuesto_id', ids)
+          .eq('en_papelera', false),
+      ])
+
+      // Mapa id contacto → teléfono y correo actuales. Preferimos `telefono`,
+      // y como móvil = WhatsApp implícito en Flux, caemos a `whatsapp` si no
+      // hay teléfono fijo. Esto vale tanto para el contacto principal como
+      // para el de atención.
+      const datosContacto = new Map<string, { telefono: string | null; correo: string | null }>()
+      for (const c of (resContactos.data || []) as Array<{ id: string; telefono: string | null; whatsapp: string | null; correo: string | null }>) {
+        datosContacto.set(c.id, {
+          telefono: c.telefono || c.whatsapp || null,
+          correo: c.correo || null,
+        })
+      }
+
+      // Actividades pendientes agrupadas por presupuesto + tipo (con etiqueta/color)
+      type TipoResumen = { tipo_id: string; tipo_etiqueta: string; tipo_color: string; cantidad: number }
+      const setIdsPres = new Set(ids)
+      const actividadesPorPres: Record<string, Map<string, TipoResumen>> = {}
+      for (const a of resActividades.data || []) {
+        const vinculoIds = (a.vinculo_ids as string[] | null) || []
+        const tipo = a.tipo as unknown as { id: string; etiqueta: string; color: string } | null
+        if (!tipo) continue
+        for (const vid of vinculoIds) {
+          if (!setIdsPres.has(vid)) continue
+          if (!actividadesPorPres[vid]) actividadesPorPres[vid] = new Map()
+          const mapaTipos = actividadesPorPres[vid]
+          const ex = mapaTipos.get(tipo.id)
+          if (ex) ex.cantidad += 1
+          else mapaTipos.set(tipo.id, { tipo_id: tipo.id, tipo_etiqueta: tipo.etiqueta, tipo_color: tipo.color, cantidad: 1 })
+        }
+      }
+
+      // Orden de trabajo activa por presupuesto (solo una; la primera no completada)
+      const ordenPorPres = new Map<string, { id: string; estado: string }>()
+      for (const o of (resOrdenes.data || []) as Array<{ id: string; presupuesto_id: string; estado: string }>) {
+        // Preferir órdenes no completadas; si hay una activa la usamos antes que las completadas
+        const existente = ordenPorPres.get(o.presupuesto_id)
+        if (!existente || (existente.estado === 'completada' && o.estado !== 'completada')) {
+          ordenPorPres.set(o.presupuesto_id, { id: o.id, estado: o.estado })
+        }
+      }
+
+      for (const p of presupuestos as Array<Record<string, unknown>>) {
+        const id = p.id as string
+
+        // Pisar snapshot del contacto principal con los datos actuales del
+        // contacto vinculado. El snapshot se hace al crear el presupuesto y
+        // no se sincroniza después, lo que dejaba ~56% de los presupuestos
+        // sin teléfono visible aunque el contacto sí lo tenía.
+        if (p.contacto_id) {
+          const datos = datosContacto.get(p.contacto_id as string)
+          if (datos) {
+            if (datos.telefono) p.contacto_telefono = datos.telefono
+            if (datos.correo) p.contacto_correo = datos.correo
+          }
+        }
+
+        // Datos del "dirigido a" (atención) — análogo al principal
+        const datosAt = p.atencion_contacto_id
+          ? datosContacto.get(p.atencion_contacto_id as string)
+          : null
+        p.atencion_telefono = datosAt?.telefono || null
+        // Si el snapshot de atencion_correo está vacío pero el contacto sí
+        // tiene correo, también pisamos.
+        if (datosAt?.correo && !p.atencion_correo) p.atencion_correo = datosAt.correo
+
+        p.actividades_activas = actividadesPorPres[id] ? [...actividadesPorPres[id].values()] : []
+        p.orden_trabajo = ordenPorPres.get(id) || null
+      }
     }
 
     return NextResponse.json({

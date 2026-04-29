@@ -21,18 +21,22 @@ interface VisitaCompacta {
   contacto_nombre: string | null
   direccion_texto: string | null
   fecha_programada: string | null
+  tiene_hora_especifica?: boolean | null
   motivo: string | null
   creado_en: string
 }
 
-function fmtFechaCorta(iso: string | null): string {
+function fmtFechaCorta(iso: string | null, tieneHoraEspecifica?: boolean | null): string {
   if (!iso) return 'Sin fecha'
   const d = new Date(iso)
   const hoy = new Date()
   const diff = Math.floor((d.getTime() - hoy.setHours(0, 0, 0, 0)) / 86400000)
-  const hora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  if (diff === 0) return `Hoy ${hora}`
-  if (diff === 1) return `Mañana ${hora}`
+  // Solo mostramos hora si la visita la tiene puntual; si no, mostramos solo el día.
+  const hora = tieneHoraEspecifica
+    ? ` ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    : ''
+  if (diff === 0) return `Hoy${hora}`
+  if (diff === 1) return `Mañana${hora}`
   if (diff < 7 && diff > 0) return `En ${diff}d`
   if (diff < 0) return 'Vencida'
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -113,7 +117,7 @@ export function WidgetVisitasPorPlanificar() {
               </p>
             </div>
             <span className="text-xxs text-texto-terciario shrink-0 tabular-nums">
-              {fmtFechaCorta(v.fecha_programada)}
+              {fmtFechaCorta(v.fecha_programada, v.tiene_hora_especifica)}
             </span>
           </div>
         ))

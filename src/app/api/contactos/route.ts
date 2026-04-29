@@ -7,6 +7,7 @@ import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
+import { enriquecerContactos } from '@/lib/enriquecer-contactos'
 
 /**
  * GET /api/contactos — Listar contactos de la empresa activa.
@@ -427,34 +428,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener contactos' }, { status: 500 })
     }
 
-    // Enriquecer con la última etapa de conversación por contacto (en paralelo con nada — ya tenemos data)
+    // Enriquecer con la última etapa, actividades activas agrupadas por tipo
+    // y visitas programadas. La lógica vive en un helper compartido con el
+    // SSR de page.tsx para que ambos devuelvan la misma forma de datos.
     const contactoIds = (data || []).map(c => c.id).filter(Boolean)
-    const etapasPorContacto: Record<string, { etapa_etiqueta: string; etapa_color: string; tipo_canal: string }> = {}
-
-    if (contactoIds.length > 0) {
-      // Traer solo las conversaciones con etapa de los contactos de esta página
-      const { data: convEtapas } = await admin
-        .from('conversaciones')
-        .select('contacto_id, tipo_canal, etapa:etapas_conversacion!etapa_id(etiqueta, color)')
-        .in('contacto_id', contactoIds)
-        .not('etapa_id', 'is', null)
-        .order('ultimo_mensaje_en', { ascending: false })
-        .limit(contactoIds.length * 2) // Máximo 2 conversaciones por contacto es suficiente
-
-      if (convEtapas) {
-        for (const conv of convEtapas) {
-          if (!conv.contacto_id || etapasPorContacto[conv.contacto_id]) continue
-          const etapa = conv.etapa as unknown as { etiqueta: string; color: string } | null
-          if (etapa) {
-            etapasPorContacto[conv.contacto_id] = {
-              etapa_etiqueta: etapa.etiqueta,
-              etapa_color: etapa.color,
-              tipo_canal: conv.tipo_canal,
-            }
-          }
-        }
-      }
-    }
+    const enriquecimiento = await enriquecerContactos(admin, empresaId, contactoIds)
 
     // Resolver nombres de creador/editor
     const idsUsuarios = [...new Set(
@@ -473,7 +451,7 @@ export async function GET(request: NextRequest) {
 
     let contactosConEtapa = (data || []).map(c => ({
       ...c,
-      ultima_etapa: etapasPorContacto[c.id] || null,
+      ...(enriquecimiento[c.id] ?? { ultima_etapa: null, actividades_activas: [], cantidad_visitas_activas: 0 }),
       creador_nombre: c.creado_por ? (nombresMap.get(c.creado_por) || null) : null,
       editor_nombre: c.editado_por ? (nombresMap.get(c.editado_por) || null) : null,
     }))

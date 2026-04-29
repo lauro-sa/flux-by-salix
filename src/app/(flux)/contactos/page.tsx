@@ -5,6 +5,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { enriquecerContactos } from '@/lib/enriquecer-contactos'
 
 /**
  * Página de contactos — /contactos (Server Component)
@@ -52,7 +53,16 @@ export default async function PaginaContactos() {
     .order('codigo', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  const contactosConEtapa = (data || []).map(c => ({ ...c, ultima_etapa: null }))
+  // Enriquecer con etapa, actividades activas por tipo y visitas programadas
+  // usando el mismo helper que el endpoint /api/contactos. Sin esto el SSR
+  // hidrataba React Query con datos sin `actividades_activas` y la primera
+  // pintura no mostraba las píldoras.
+  const contactoIds = (data || []).map(c => c.id).filter(Boolean)
+  const enriquecimiento = await enriquecerContactos(admin, empresaId, contactoIds)
+  const contactosConEtapa = (data || []).map(c => ({
+    ...c,
+    ...(enriquecimiento[c.id] ?? { ultima_etapa: null, actividades_activas: [], cantidad_visitas_activas: 0 }),
+  }))
 
   const datosInicialesJson = {
     contactos: contactosConEtapa,

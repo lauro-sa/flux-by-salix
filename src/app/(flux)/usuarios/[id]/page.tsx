@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail } from 'lucide-react'
+import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail, BarChart3 } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -35,6 +35,7 @@ import { TabResumen } from './_componentes/TabResumen'
 import { TabInformacion } from './_componentes/TabInformacion'
 import { TabPagos } from './_componentes/TabPagos'
 import { TabCorreo } from './_componentes/TabCorreo'
+import { SeccionMetricasOperativas } from './_componentes/SeccionMetricasOperativas'
 import { calcularEstadoMiembro } from '@/lib/miembros/estado'
 
 /* ═══════════════════════════════════════════════════
@@ -48,7 +49,7 @@ export default function PaginaPerfilUsuario() {
   const miembroId = params.id as string
   const { usuario: usuarioActual } = useAuth()
   const { empresa } = useEmpresa()
-  const { setMigajaDinamica } = useNavegacion()
+  const { setMigajaDinamica, obtenerRutaModulo } = useNavegacion()
   const { t } = useTraduccion()
   const { esPropietario, esAdmin } = useRol()
   const fmt = useFormato()
@@ -452,7 +453,7 @@ export default function PaginaPerfilUsuario() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ miembro_id: miembroId }),
         })
-        router.push('/usuarios')
+        router.push(obtenerRutaModulo('/usuarios'))
         return
       }
     } finally {
@@ -930,6 +931,7 @@ export default function PaginaPerfilUsuario() {
     { clave: 'pagos', etiqueta: 'Pagos', icono: <Wallet size={15} /> },
     ...(miembro?.usuario_id ? [{ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={15} /> }] : []),
     ...(miembro?.usuario_id ? [{ clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> }] : []),
+    ...(miembro?.usuario_id ? [{ clave: 'metricas', etiqueta: 'Métricas', icono: <BarChart3 size={15} /> }] : []),
   ]
 
   /* ════════════ LOADING / ERROR ════════════ */
@@ -1142,6 +1144,10 @@ export default function PaginaPerfilUsuario() {
                 setMiembro(prev => prev ? { ...prev, permisos_custom: {} } : null)
               }}
             />
+          )}
+
+          {tab === 'metricas' && miembro && (
+            <SeccionMetricasOperativas miembroId={miembro.id} usuarioId={miembro.usuario_id} />
           )}
 
         </motion.div>

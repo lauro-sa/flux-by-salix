@@ -769,6 +769,7 @@ export default function PaginaCalendario() {
       <ModalVisita
         abierto={modalVisita.abierto}
         visita={modalVisita.visitaEditando}
+        contactoInicial={modalVisita.contactoInicial}
         miembros={modalVisita.miembros}
         config={modalVisita.config}
         onGuardar={async (datos) => { await modalVisita.guardar(datos); cargarEventos() }}

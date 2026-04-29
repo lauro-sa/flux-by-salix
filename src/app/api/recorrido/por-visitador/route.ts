@@ -141,14 +141,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ recorrido: null, paradas: [] })
     }
 
-    // Obtener nombre del visitador
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido')
-      .eq('id', usuarioId)
-      .single()
+    // Obtener nombre del visitador y sus permisos default del recorrido
+    const [{ data: perfil }, { data: miembro }] = await Promise.all([
+      admin.from('perfiles').select('nombre, apellido').eq('id', usuarioId).single(),
+      admin.from('miembros')
+        .select('permisos_recorrido_default')
+        .eq('empresa_id', empresaId)
+        .eq('usuario_id', usuarioId)
+        .maybeSingle(),
+    ])
 
     const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : ''
+    // Heredar los permisos default del visitador como config inicial del recorrido.
+    // Si el miembro no tiene defaults seteados, queda {} y el frontend usa los del sistema.
+    const configInicial = miembro?.permisos_recorrido_default || {}
 
     const { data: nuevoRecorrido, error: errorRecorrido } = await admin
       .from('recorridos')
@@ -160,6 +166,7 @@ export async function GET(request: NextRequest) {
         estado: 'borrador',
         total_visitas: visitasDelDia.length,
         visitas_completadas: 0,
+        config: configInicial,
         creado_por: user.id,
       })
       .select()

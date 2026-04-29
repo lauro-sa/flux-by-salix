@@ -83,7 +83,8 @@ export async function GET(request: NextRequest) {
       .from('ordenes_trabajo')
       .select(`
         id, numero, estado, prioridad, titulo, descripcion, publicada,
-        contacto_id, contacto_nombre, contacto_telefono, contacto_direccion,
+        contacto_id, contacto_nombre, contacto_telefono, contacto_whatsapp, contacto_direccion,
+        atencion_contacto_id, atencion_nombre, atencion_telefono,
         presupuesto_id, presupuesto_numero,
         fecha_inicio, fecha_fin_estimada, fecha_fin_real,
         creado_por, creado_por_nombre, creado_en, actualizado_en
@@ -327,6 +328,47 @@ export async function GET(request: NextRequest) {
         ot.asignados = asigs
         ot.asignado_nombre = cabecilla?.usuario_nombre || null
         ot.asignado_a = cabecilla?.usuario_id || null
+      }
+
+      // Pisar snapshots vacíos (contacto_telefono / contacto_whatsapp /
+      // atencion_telefono) con los datos actuales de los contactos vinculados.
+      // Los snapshots se guardan al crear la OT y no se sincronizan: ~75% de
+      // las órdenes tenían el snapshot vacío aunque el contacto sí tiene
+      // teléfono cargado en su ficha. Mismo patrón que en /api/presupuestos.
+      const idsContactoEnriquecer = [...new Set([
+        ...ordenesConAsignados.map(o => o.contacto_id).filter((x): x is string => !!x),
+        ...ordenesConAsignados.map(o => o.atencion_contacto_id).filter((x): x is string => !!x),
+      ])]
+      if (idsContactoEnriquecer.length > 0) {
+        const { data: contactosFresh } = await admin
+          .from('contactos')
+          .select('id, telefono, whatsapp, correo')
+          .in('id', idsContactoEnriquecer)
+        const datosFresh = new Map<string, { telefono: string | null; whatsapp: string | null; correo: string | null }>()
+        for (const c of contactosFresh || []) {
+          datosFresh.set(c.id, {
+            telefono: (c.telefono as string | null) || null,
+            whatsapp: (c.whatsapp as string | null) || null,
+            correo: (c.correo as string | null) || null,
+          })
+        }
+        for (const ot of ordenesConAsignados) {
+          if (ot.contacto_id) {
+            const d = datosFresh.get(ot.contacto_id as string)
+            if (d) {
+              if (!ot.contacto_telefono && d.telefono) ot.contacto_telefono = d.telefono
+              if (!ot.contacto_whatsapp && d.whatsapp) ot.contacto_whatsapp = d.whatsapp
+            }
+          }
+          if (ot.atencion_contacto_id) {
+            const d = datosFresh.get(ot.atencion_contacto_id as string)
+            if (d) {
+              if (!ot.atencion_telefono && (d.telefono || d.whatsapp)) {
+                ot.atencion_telefono = d.telefono || d.whatsapp
+              }
+            }
+          }
+        }
       }
     }
 

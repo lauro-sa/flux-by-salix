@@ -21,7 +21,7 @@ import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { SelectorRecurrencia, type ConfigRecurrencia, RECURRENCIA_DEFAULT } from '@/componentes/ui/SelectorRecurrencia'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 import type { EventoCalendario, TipoEventoCalendario } from './tipos'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
@@ -472,7 +472,12 @@ function ModalEvento({
 
   // Estado — asignados
   const [asignados, setAsignados] = useState<{ id: string; nombre: string }[]>([])
-  const [miembrosDisponibles, setMiembrosDisponibles] = useState<MiembroEquipo[]>([])
+  // Lista global de miembros asignables (excluye kioscos sin usuario_id).
+  const { data: miembrosTodos = [] } = useMiembrosAsignables()
+  const miembrosDisponibles = useMemo<MiembroEquipo[]>(
+    () => miembrosTodos.map(m => ({ usuario_id: m.usuario_id, nombre: m.nombre, apellido: m.apellido })),
+    [miembrosTodos],
+  )
 
   // Estado — vinculaciones
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
@@ -498,31 +503,7 @@ function ModalEvento({
     [tipos, tipoId],
   )
 
-  /* ── Cargar miembros del equipo al montar ── */
-  useEffect(() => {
-    const cargarMiembros = async () => {
-      const supabase = crearClienteNavegador()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return
-      const { data } = await supabase
-        .from('miembros')
-        .select('usuario_id, perfiles!inner(nombre, apellido)')
-        .eq('empresa_id', empresaId)
-        .eq('activo', true)
-      if (data) {
-        setMiembrosDisponibles(
-          data.map((m: Record<string, unknown>) => ({
-            usuario_id: m.usuario_id as string,
-            nombre: (m.perfiles as Record<string, unknown>).nombre as string,
-            apellido: (m.perfiles as Record<string, unknown>).apellido as string,
-          })),
-        )
-      }
-    }
-    cargarMiembros()
-  }, [])
+  // Miembros se cargan vía useMiembrosAsignables (cache compartido entre componentes).
 
   // Inicializar formulario cuando se abre el modal
   useEffect(() => {

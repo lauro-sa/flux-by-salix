@@ -112,9 +112,24 @@ function RegistroVisita({
     }
 
     cargarDatos()
+    // Limpiar fotos pendientes al re-abrir con otra visita — liberando los
+    // ObjectURL anteriores para no acumularlos en memoria.
     setFotosNuevas([])
-    setPreviewsNuevas([])
+    setPreviewsNuevas(prev => {
+      prev.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u) })
+      return []
+    })
   }, [abierto, visitaId])
+
+  // Liberar todos los ObjectURL de previews al desmontar.
+  useEffect(() => {
+    return () => {
+      setPreviewsNuevas(prev => {
+        prev.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u) })
+        return []
+      })
+    }
+  }, [])
 
   // Obtener ubicación
   const obtenerUbicacion = useCallback(() => {
@@ -143,16 +158,32 @@ function RegistroVisita({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto])
 
-  // Comprimir imagen: redimensionar a max 1200px y convertir a JPEG 80%
+  // Comprimir imagen: redimensionar a max 1600px y convertir a JPEG 82%.
+  // Conserva detalle suficiente para zoom técnico (placas electrónicas, cables,
+  // etiquetas) sin perder nitidez. El backend re-comprime a WebP @ 80% para
+  // achicar aún más el peso final en storage.
+  // Tiene timeout de 8s — si el <img> se cuelga decodificando HEIC en iOS, devuelve el original.
   const comprimirImagen = useCallback((archivo: File): Promise<File> => {
     return new Promise((resolve) => {
-      if (archivo.size < 500 * 1024) { resolve(archivo); return }
+      // Solo saltamos compresión si ya está muy chica (<200KB) — fotos del iPhone
+      // suelen venir mucho más pesadas, así que casi siempre pasa por compresión.
+      if (archivo.size < 200 * 1024) { resolve(archivo); return }
 
       const img = new Image()
       const url = URL.createObjectURL(archivo)
-      img.onload = () => {
+      let resuelto = false
+      const finalizar = (resultado: File) => {
+        if (resuelto) return
+        resuelto = true
         URL.revokeObjectURL(url)
-        const MAX = 1200
+        resolve(resultado)
+      }
+      // Timeout de seguridad: si la decodificación o el toBlob se cuelga
+      // (típico con HEIC en iOS bajo presión de memoria), seguimos con el original.
+      const timeout = setTimeout(() => finalizar(archivo), 8000)
+
+      img.onload = () => {
+        const MAX = 1600
         let { width, height } = img
         if (width > MAX || height > MAX) {
           if (width > height) { height = Math.round(height * MAX / width); width = MAX }
@@ -161,47 +192,52 @@ function RegistroVisita({
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, width, height)
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { clearTimeout(timeout); finalizar(archivo); return }
+        try { ctx.drawImage(img, 0, 0, width, height) }
+        catch { clearTimeout(timeout); finalizar(archivo); return }
         canvas.toBlob(
           (blob) => {
+            clearTimeout(timeout)
             if (blob) {
               const nombre = archivo.name.replace(/\.(heic|heif|png|webp)$/i, '.jpg') || `foto_${Date.now()}.jpg`
-              resolve(new File([blob], nombre, { type: 'image/jpeg' }))
+              finalizar(new File([blob], nombre, { type: 'image/jpeg' }))
             } else {
-              resolve(archivo)
+              finalizar(archivo)
             }
           },
           'image/jpeg',
-          0.8
+          0.82
         )
       }
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(archivo) }
+      img.onerror = () => { clearTimeout(timeout); finalizar(archivo) }
       img.src = url
     })
   }, [])
 
-  // Manejar selección de fotos (cámara o galería) — con compresión
+  // Manejar selección de fotos (cámara o galería) — compresión secuencial
+  // para no causar pico de memoria con varias fotos pesadas en iOS standalone.
+  // Previews con URL.createObjectURL (mucho más liviano que FileReader.readAsDataURL).
   const manejarFotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivosOriginales = Array.from(e.target.files || [])
+    e.target.value = ''
     if (!archivosOriginales.length) return
 
-    const archivosComprimidos = await Promise.all(
-      archivosOriginales.map(a => comprimirImagen(a))
-    )
-
-    setFotosNuevas(prev => [...prev, ...archivosComprimidos])
-    archivosComprimidos.forEach(archivo => {
-      const reader = new FileReader()
-      reader.onloadend = () => setPreviewsNuevas(prev => [...prev, reader.result as string])
-      reader.readAsDataURL(archivo)
-    })
-    e.target.value = ''
+    for (const original of archivosOriginales) {
+      const comprimido = await comprimirImagen(original)
+      const preview = URL.createObjectURL(comprimido)
+      setFotosNuevas(prev => [...prev, comprimido])
+      setPreviewsNuevas(prev => [...prev, preview])
+    }
   }
 
   const quitarFotoNueva = (indice: number) => {
+    setPreviewsNuevas(prev => {
+      const url = prev[indice]
+      if (url?.startsWith('blob:')) URL.revokeObjectURL(url)
+      return prev.filter((_, i) => i !== indice)
+    })
     setFotosNuevas(prev => prev.filter((_, i) => i !== indice))
-    setPreviewsNuevas(prev => prev.filter((_, i) => i !== indice))
   }
 
   // Eliminar foto ya subida

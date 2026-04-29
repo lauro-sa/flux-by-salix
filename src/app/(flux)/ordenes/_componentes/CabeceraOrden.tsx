@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, CheckCircle2, Ban, RotateCcw, Play, Pause, Send
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { useTraduccion } from '@/lib/i18n'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import {
   ETIQUETAS_ESTADO_OT, COLORES_ESTADO_OT,
   ETIQUETAS_PRIORIDAD_OT, COLORES_PRIORIDAD_OT,
@@ -43,6 +44,7 @@ export default function CabeceraOrden({
 }: Props) {
   const { t } = useTraduccion()
   const router = useRouter()
+  const { obtenerRutaModulo } = useNavegacion()
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false)
   const refMenu = useRef<HTMLDivElement>(null)
 
@@ -89,7 +91,7 @@ export default function CabeceraOrden({
           tamano="xs"
           soloIcono
           icono={<ArrowLeft size={18} />}
-          onClick={() => router.push('/ordenes')}
+          onClick={() => router.push(obtenerRutaModulo('/ordenes'))}
           titulo="Volver al listado"
         />
         <h1 className="text-xl sm:text-2xl font-semibold text-texto-secundario">{numero}</h1>

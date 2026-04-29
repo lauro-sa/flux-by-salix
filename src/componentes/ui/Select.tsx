@@ -102,11 +102,11 @@ function Select({ opciones, valor, placeholder = 'Seleccionar...', etiqueta, err
             : `px-3 py-2 rounded-input border bg-superficie-tarjeta ${error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte'}`,
         ].join(' ')}
       >
-        <span className={seleccionada ? 'text-texto-primario' : 'text-texto-terciario'}>
+        <span className={`min-w-0 truncate ${seleccionada ? 'text-texto-primario' : 'text-texto-terciario'}`}>
           {seleccionada ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-w-0">
               {seleccionada.icono}
-              {seleccionada.etiqueta}
+              <span className="truncate">{seleccionada.etiqueta}</span>
             </span>
           ) : placeholder}
         </span>

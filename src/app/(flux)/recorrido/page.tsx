@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, RotateCcw, Phone, Plus, Coffee, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -87,9 +88,8 @@ export default function PaginaRecorrido() {
   // Destino final: 'origen' (volver al inicio), 'ninguno', o { lat, lng, texto }
   const [destinoFinal, setDestinoFinal] = useState<'origen' | 'ninguno' | { lat: number; lng: number; texto: string }>('ninguno')
 
-  // Ubicación actual del usuario (para mostrar en el mapa como origen) + heading
+  // Ubicación actual del usuario (para mostrar en el mapa como origen)
   const [ubicacionUsuario, setUbicacionUsuario] = useState<{ lat: number; lng: number } | null>(null)
-  const [headingUsuario, setHeadingUsuario] = useState<number | null>(null)
 
   // Modal de llegada
   const [llegadaAbierta, setLlegadaAbierta] = useState(false)
@@ -102,6 +102,19 @@ export default function PaginaRecorrido() {
   // Modal de aviso "ya llegué" — análogo al de en camino pero sin ETA
   const [avisoLlegadaAbierto, setAvisoLlegadaAbierto] = useState(false)
   const [visitaAvisoLlegada, setVisitaAvisoLlegada] = useState<{ id: string; nombre: string; direccion: string } | null>(null)
+
+  // Config de visitas — necesitamos saber si los avisos por WhatsApp están activos para
+  // decidir si abrir los modales de envío al cambiar de estado durante el recorrido.
+  const { data: configVisitas } = useQuery<{ enviar_avisos_whatsapp?: boolean } | null>({
+    queryKey: ['config-visitas'],
+    queryFn: async () => {
+      const res = await fetch('/api/visitas/config')
+      if (!res.ok) return null
+      return res.json()
+    },
+    staleTime: 5 * 60_000,
+  })
+  const avisosWAActivos = configVisitas?.enviar_avisos_whatsapp === true
 
   // BottomSheet de registro
   const [registroAbierto, setRegistroAbierto] = useState(false)
@@ -138,9 +151,8 @@ export default function PaginaRecorrido() {
     }
   }, [fechaSeleccionada, mostrar])
 
-  // Tracking de la ubicación del usuario. Si el GPS reporta heading (cuando
-  // el usuario se mueve), lo usamos para que la flechita del marcador apunte
-  // en esa dirección; si no, queda como punto.
+  // Tracking de la ubicación del usuario — siempre como punto azul, sin
+  // rotación de heading (el cono confunde al usuario, queremos un dot estable).
   useEffect(() => {
     if (!navigator.geolocation) {
       if (coordsEmpresa) setUbicacionUsuario(coordsEmpresa)
@@ -150,9 +162,6 @@ export default function PaginaRecorrido() {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setUbicacionUsuario({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
-          setHeadingUsuario(pos.coords.heading)
-        }
       },
       () => { if (coordsEmpresa) setUbicacionUsuario(coordsEmpresa) },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
@@ -232,16 +241,51 @@ export default function PaginaRecorrido() {
   // Solo al cambiar hayVisitaEnSitio, no en cada render
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayVisitaEnSitio])
-  // Permisos del recorrido (por default todo permitido si no hay config)
+  // Permisos del recorrido. Política: si no hay config explícita, usamos los defaults
+  // del sistema (reordenar y cambiar duración: true; agregar/quitar/cancelar: false).
+  // Si el campo está seteado en false a propósito, lo respetamos.
   const cfg = recorrido?.config
   const puedeReordenar = cfg?.puede_reordenar !== false
-  const puedeAgregarParadas = cfg?.puede_agregar_paradas !== false
+  const puedeAgregarParadas = cfg?.puede_agregar_paradas === true
+  const puedeQuitarParadas = cfg?.puede_quitar_paradas === true
 
   const completadas = paradas.filter(p => estadoDe(p) === 'completada').length
   const duracionEstimada = recorrido?.duracion_total_min || paradas.reduce(
     (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.tipo === 'visita' ? (p.visita?.duracion_estimada_min || 15) : 10),
     0,
   )
+
+  // Paradas REABIERTAS: estaban completadas (tienen fecha_completada) pero ahora
+  // están en otro estado (típicamente 'programada'). Pasa cuando el visitador
+  // toca "Reabrir" sin querer; le ofrecemos un botón para volver a marcarlas
+  // como completadas y deshacer el cambio.
+  const paradasReabiertas = paradas.filter(p => {
+    const fechaCompl = p.tipo === 'visita' ? p.visita?.fecha_completada : p.fecha_completada
+    return !!fechaCompl && estadoDe(p) !== 'completada' && estadoDe(p) !== 'cancelada'
+  })
+
+  // Volver a marcar las paradas reabiertas como completadas (deshace la reapertura)
+  const cancelarReapertura = useCallback(async () => {
+    if (paradasReabiertas.length === 0) return
+    try {
+      const resultados = await Promise.all(
+        paradasReabiertas.map(p =>
+          fetch('/api/recorrido/estado', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parada_id: p.id, estado: 'completada' }),
+          })
+        )
+      )
+      if (resultados.some(r => !r.ok)) throw new Error()
+      mostrar('exito', paradasReabiertas.length === 1
+        ? 'Visita marcada como completada de nuevo'
+        : `${paradasReabiertas.length} visitas marcadas como completadas`)
+      await cargarRecorrido()
+    } catch {
+      mostrar('error', 'No se pudo cancelar la reapertura')
+    }
+  }, [paradasReabiertas, mostrar, cargarRecorrido])
 
   // Horarios estimados — se recalculan en cada render; el resultado es barato
   // (O(n) sobre paradas) y hace falta que se actualice cuando cambian datos o el usuario
@@ -317,9 +361,8 @@ export default function PaginaRecorrido() {
       puntos,
       origen: ubicacionUsuario ? { ...ubicacionUsuario, texto: 'Mi ubicación' } : undefined,
       destino,
-      heading: headingUsuario,
     }
-  }, [paradas, ubicacionUsuario, headingUsuario, destinoFinal])
+  }, [paradas, ubicacionUsuario, destinoFinal])
 
   // Reordenar paradas
   const manejarReordenar = useCallback(async (paradasReordenadas: Parada[]) => {
@@ -362,7 +405,9 @@ export default function PaginaRecorrido() {
     }
   }, [mostrar, cargarRecorrido])
 
-  // Marcar "en camino": cambia estado + abre modal de aviso (solo tipo visita)
+  // Marcar "en camino": cambia estado + abre modal de aviso (solo tipo visita).
+  // Si los avisos por WhatsApp están desactivados en config, NO abrimos el modal —
+  // simplemente cambiamos el estado para no estorbar al visitador.
   const iniciarEnCamino = useCallback((paradaId: string) => {
     const parada = paradas.find(p => p.id === paradaId)
     if (!parada) return
@@ -373,13 +418,14 @@ export default function PaginaRecorrido() {
     }
     const v = parada.visita
     manejarCambiarEstado(paradaId, 'en_camino')
+    if (!avisosWAActivos) return
     setVisitaAvisoCamino({
       id: v.id,
       nombre: v.recibe_nombre || v.contacto_nombre,
       direccion: v.direccion_texto,
     })
     setAvisoCaminoAbierto(true)
-  }, [paradas, manejarCambiarEstado])
+  }, [paradas, manejarCambiarEstado, avisosWAActivos])
 
   // Marcar llegada (solo visitas): cambia a en_sitio + abre modal con datos de quien recibe
   const manejarLlegada = useCallback((paradaId: string) => {
@@ -435,6 +481,19 @@ export default function PaginaRecorrido() {
     setParadaSeleccionada(null)
     cargarRecorrido()
   }, [cargarRecorrido])
+
+  // Navegación a una parada por índice — lee `paradas[i]` al ejecutar
+  // (no del closure de un render anterior) para garantizar que abre Maps
+  // con la dirección de la parada que el usuario está viendo en la tarjeta.
+  const navegarAParadaPorIndice = useCallback((i: number) => {
+    const p = paradas[i]
+    if (!p) return
+    const esGenerica = p.tipo === 'parada'
+    const lat = esGenerica ? p.direccion_lat : p.visita?.direccion_lat
+    const lng = esGenerica ? p.direccion_lng : p.visita?.direccion_lng
+    if (lat == null || lng == null) return
+    abrirRutaCompleta([{ lat, lng }])
+  }, [paradas])
 
   // Reabrir la visita que está abierta en RegistroVisita — cambia estado a
   // 'programada'. Se usa desde el footer del editor (accionPeligro).
@@ -859,6 +918,36 @@ export default function PaginaRecorrido() {
           <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
         </button>
 
+        {/* Banner de paradas reabiertas — solo cuando se reabrió alguna visita
+            ya completada y aún no se volvió a completar. Permite deshacer la
+            acción rápido sin que el visitador quede atrapado en un estado raro. */}
+        {paradasReabiertas.length > 0 && (
+          <div
+            className="mx-4 mb-2 mt-1 px-3 py-2.5 rounded-card border-l-2 flex items-start gap-2"
+            style={{
+              background: 'var(--insignia-advertencia-fondo)',
+              borderLeftColor: 'var(--insignia-advertencia)',
+            }}
+          >
+            <RotateCcw size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--insignia-advertencia-texto)' }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-semibold leading-tight" style={{ color: 'var(--insignia-advertencia-texto)' }}>
+                {paradasReabiertas.length === 1 ? 'Visita reabierta' : `${paradasReabiertas.length} visitas reabiertas`}
+              </p>
+              <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--insignia-advertencia-texto)', opacity: 0.85 }}>
+                Si lo hiciste sin querer, podés volver a marcarlas como completadas.
+              </p>
+            </div>
+            <button
+              onClick={cancelarReapertura}
+              className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-card bg-white/10 hover:bg-white/15 transition-colors"
+              style={{ color: 'var(--insignia-advertencia-texto)' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+
         {/* Barra de progreso + info — siempre visible */}
         {paradas.length > 0 && (
           <div className="px-4 pb-2 shrink-0 space-y-1.5">
@@ -1051,7 +1140,7 @@ export default function PaginaRecorrido() {
                     <div className="grid grid-cols-3 gap-2">
                       {/* Columna 1: Navegar (siempre) */}
                       <button
-                        onClick={() => tieneCoords && abrirRutaCompleta([{ lat: lat!, lng: lng! }])}
+                        onClick={() => navegarAParadaPorIndice(paradaVistaIndice)}
                         disabled={!tieneCoords || estado === 'completada'}
                         className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-card border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-25"
                       >
@@ -1257,7 +1346,7 @@ export default function PaginaRecorrido() {
                 }}
                 onRegistrar={manejarRegistrar}
                 onEditar={manejarEditar}
-                onQuitarParada={manejarQuitarParada}
+                onQuitarParada={puedeQuitarParadas ? manejarQuitarParada : undefined}
                 modoEdicion={modoEdicion}
                 destinoFinal={destinoFinal}
                 onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
@@ -1371,6 +1460,7 @@ export default function PaginaRecorrido() {
         telefono={visitaLlegada?.telefono}
         direccionLat={visitaLlegada?.lat}
         direccionLng={visitaLlegada?.lng}
+        mostrarAvisarLlegada={avisosWAActivos}
         onAvisarLlegada={() => {
           // Cierra el modal de llegada y abre el de envío de WhatsApp con preview.
           // Mantiene el flujo existente (Llegué → confirmar envío) pero ahora hace

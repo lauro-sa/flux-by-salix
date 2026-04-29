@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // 1) Traer miembros de la empresa
     let queryMiembros = admin
       .from('miembros')
-      .select('id, usuario_id, rol, activo, puesto_id')
+      .select('id, usuario_id, rol, activo, puesto_id, permisos_custom')
       .eq('empresa_id', empresaId)
 
     if (!incluirInactivos) queryMiembros = queryMiembros.eq('activo', true)
@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
         usuario_id: m.usuario_id,
         rol: m.rol,
         activo: m.activo,
+        permisos_custom: m.permisos_custom ?? null,
         puesto: et?.puesto ?? null,
         sector: et?.sector ?? null,
         perfil: perfil || null,

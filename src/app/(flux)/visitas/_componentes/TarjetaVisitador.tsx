@@ -5,15 +5,14 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Avatar } from '@/componentes/ui/Avatar'
-import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { formatearFechaISO } from '@/lib/formato-fecha'
-import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight, Map, ExternalLink, Play, Check, CheckCircle, XCircle, Sparkles } from 'lucide-react'
+import { MapPin, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight, Map, ExternalLink, Play, Check, CheckCircle, XCircle, Sparkles } from 'lucide-react'
 import { MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
-import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
+import type { ConfigPermisos } from './ConfigRecorrido'
 
 /**
  * TarjetaVisitador — Card tipo kanban para un visitador con sus visitas del día.
@@ -31,6 +30,9 @@ interface VisitaPlanificacion {
   prioridad: string
   duracion_estimada_min: number | null
   fecha_programada: string | null
+  tiene_hora_especifica?: boolean | null
+  fecha_inicio?: string | null
+  fecha_llegada?: string | null
   motivo: string | null
   contacto?: { tipo_contacto?: { clave: string; etiqueta: string } | null } | null
 }
@@ -52,14 +54,11 @@ interface Props {
   avatarUrl: string | null
   visitas: VisitaPlanificacion[]
   recorrido: RecorridoResumen | null
-  onOptimizarRuta: (usuarioId: string) => void
-  onGuardarConfig: (recorridoId: string, config: ConfigPermisos) => Promise<void>
   onMoverColumna?: (usuarioId: string, direccion: -1 | 1) => void
   onAbrirRecorrido?: (usuarioId: string, fecha: string) => void
   onAbrirVisita?: (visitaId: string) => void
   onConfirmarProvisoria?: (visitaId: string) => void
   onRechazarProvisoria?: (visitaId: string) => void
-  optimizando?: boolean
   esSinAsignar?: boolean
 }
 
@@ -113,7 +112,15 @@ function ItemVisitaSortable({
     opacity: isDragging ? 0.4 : 1,
   }
 
-  const horaFormateada = visita.fecha_programada ? formato.hora(visita.fecha_programada) : null
+  // Hora real si existe (visitador ya empezó), sino la programada solo si tiene hora
+  // específica. Si no tiene hora específica y no empezó, no mostramos hora — la visita
+  // está programada solo por día.
+  const horaReal = visita.fecha_inicio || visita.fecha_llegada
+  const horaFormateada = horaReal
+    ? formato.hora(horaReal)
+    : (visita.fecha_programada && visita.tiene_hora_especifica
+        ? formato.hora(visita.fecha_programada)
+        : null)
   const fechaConDia = visita.fecha_programada
     ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: formato.zonaHoraria })
         .replace(/^\w/, c => c.toUpperCase())
@@ -145,21 +152,15 @@ function ItemVisitaSortable({
         'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'
       }`}
     >
-      {/* Drag handle — solo si no está completada */}
-      {!esInactiva ? (
-        <div
-          className="flex justify-center py-0.5 opacity-30 cursor-grab active:cursor-grabbing touch-none"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={12} />
-        </div>
-      ) : (
-        <div className="h-1" />
-      )}
-
-      <div className="px-3 pb-2.5 space-y-1.5">
-        {/* Fila 1: Número + Nombre ... Estado/Tipo + Abrir */}
+      {/* Drag area = todo el cuerpo de info de la card (no el footer de botones).
+          Esto da mucho más superficie agarrable que un iconito chiquito. Los botones
+          del footer hacen stopPropagation para que no se interpreten como drag. */}
+      <div
+        className="px-3 pt-2.5 pb-2.5 space-y-1.5 cursor-grab active:cursor-grabbing touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        {/* Fila 1: Número + Nombre ... Estado/Tipo */}
         <div className="flex items-center gap-2">
           <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
             esCancelada ? 'bg-insignia-peligro/20 text-insignia-peligro' :
@@ -190,15 +191,6 @@ function ItemVisitaSortable({
               A confirmar
             </span>
           )}
-          {onAbrirVisita && (
-            <button
-              className="shrink-0 rounded p-1 text-texto-terciario hover:bg-texto-marca/10 hover:text-texto-marca transition-colors"
-              onClick={(e) => { e.stopPropagation(); onAbrirVisita(visita.id) }}
-              title="Abrir visita"
-            >
-              <ExternalLink size={11} />
-            </button>
-          )}
         </div>
 
         {/* Fila 2: Fecha + hora + duración */}
@@ -213,20 +205,11 @@ function ItemVisitaSortable({
           {visita.duracion_estimada_min && <span>· {visita.duracion_estimada_min}min</span>}
         </div>
 
-        {/* Fila 3: Dirección + botón navegar */}
+        {/* Fila 3: Dirección (texto solo) */}
         {visita.direccion_texto && (
           <div className="flex items-start gap-1.5 pl-7">
             <MapPin size={10} className="shrink-0 text-texto-terciario mt-0.5" />
             <span className="text-[11px] text-texto-terciario leading-tight line-clamp-2 flex-1">{visita.direccion_texto}</span>
-            {visita.direccion_lat && visita.direccion_lng && (
-              <button
-                className="shrink-0 rounded p-1 text-texto-terciario hover:bg-white/[0.08] hover:text-texto-primario transition-colors"
-                onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${visita.direccion_lat},${visita.direccion_lng}`, '_blank') }}
-                title="Navegar"
-              >
-                <Navigation size={11} />
-              </button>
-            )}
           </div>
         )}
 
@@ -252,6 +235,42 @@ function ItemVisitaSortable({
           </div>
         )}
       </div>
+
+      {/* Footer con dos botones que usan TODO el ancho de la tarjeta:
+          [Abrir visita | Navegar en Maps]. Si solo una acción está disponible,
+          ocupa el ancho completo. Se muestran SIEMPRE (incluso en visitas
+          completadas/canceladas) — abrirlas para revisar el registro o navegar
+          al lugar sigue siendo útil aunque ya hayan ocurrido.
+          Stop propagation para no chocar con dnd-kit. */}
+      {(() => {
+        const tieneCoords = !!(visita.direccion_lat && visita.direccion_lng)
+        const mostrarAbrir = !!onAbrirVisita
+        const mostrarNavegar = tieneCoords
+        if (!mostrarAbrir && !mostrarNavegar) return null
+        const cols = (mostrarAbrir && mostrarNavegar) ? 'grid-cols-2 divide-x divide-white/[0.06]' : 'grid-cols-1'
+        return (
+          <div className={`grid ${cols} border-t border-white/[0.06]`}>
+            {mostrarAbrir && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onAbrirVisita!(visita.id) }}
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-texto-secundario hover:bg-texto-marca/10 hover:text-texto-marca transition-colors"
+              >
+                <ExternalLink size={12} />
+                <span>Abrir visita</span>
+              </button>
+            )}
+            {mostrarNavegar && (
+              <button
+                onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${visita.direccion_lat},${visita.direccion_lng}`, '_blank') }}
+                className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
+              >
+                <Navigation size={12} />
+                <span>Navegar</span>
+              </button>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -263,14 +282,11 @@ export default function TarjetaVisitador({
   avatarUrl,
   visitas,
   recorrido,
-  onOptimizarRuta,
-  onGuardarConfig,
   onMoverColumna,
   onAbrirRecorrido,
   onAbrirVisita,
   onConfirmarProvisoria,
   onRechazarProvisoria,
-  optimizando,
   esSinAsignar,
 }: Props) {
   const { t } = useTraduccion()
@@ -311,7 +327,7 @@ export default function TarjetaVisitador({
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col rounded-card border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] md:h-[calc(100dvh-200px)]
+        flex flex-col rounded-card border bg-superficie-tarjeta transition-colors w-full md:min-w-[340px] md:max-w-[400px] md:h-[calc(100dvh-200px)]
         ${isOver ? 'border-texto-marca/40 bg-texto-marca/5' : 'border-borde-sutil'}
       `}
     >
@@ -332,35 +348,18 @@ export default function TarjetaVisitador({
           </p>
         </div>
 
-        {/* Acciones del header — solo para visitadores reales */}
-        {!esSinAsignar && (
+        {/* Acciones del header — solo reordenar columnas.
+            Optimizar ruta y config de recorrido viven adentro del modal de UN día
+            (donde tiene sentido hacerlo): la columna mensual mezcla varios días
+            y optimizar todo junto rompe el agrupamiento por fecha. */}
+        {!esSinAsignar && onMoverColumna && (
           <div className="flex items-center gap-0.5">
-            {onMoverColumna && (
-              <>
-                <button onClick={() => onMoverColumna(usuarioId, -1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover izquierda">
-                  <ChevronLeft size={12} />
-                </button>
-                <button onClick={() => onMoverColumna(usuarioId, 1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover derecha">
-                  <ChevronRight size={12} />
-                </button>
-              </>
-            )}
-            <Boton
-              variante="fantasma"
-              tamano="sm"
-              soloIcono
-              icono={<Route size={14} />}
-              tooltip={t('visitas.optimizar_ruta')}
-              onClick={() => onOptimizarRuta(usuarioId)}
-              cargando={optimizando}
-              disabled={visitas.length < 2}
-            />
-            <ConfigRecorrido
-              recorridoId={recorrido?.id || null}
-              configActual={recorrido?.config}
-              nombreVisitador={nombreCompleto}
-              onGuardar={(config) => onGuardarConfig(recorrido?.id || '', config)}
-            />
+            <button onClick={() => onMoverColumna(usuarioId, -1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover izquierda">
+              <ChevronLeft size={12} />
+            </button>
+            <button onClick={() => onMoverColumna(usuarioId, 1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover derecha">
+              <ChevronRight size={12} />
+            </button>
           </div>
         )}
         {esSinAsignar && visitas.length > 0 && (
@@ -398,100 +397,128 @@ export default function TarjetaVisitador({
         </div>
       )}
 
-      {/* Lista de visitas — agrupadas por fecha con separadores */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1">
+      {/* Lista de visitas — agrupadas por fecha en sub-cards.
+          Cada grupo es un bloque visual distinto con su header (fecha + CTA Recorrido)
+          y sus items adentro. Esto deja claro que MAR 28 es un bloque y JUE 23 es otro,
+          en vez de una lista plana con separadores. La numeración 1/2/3 reinicia por
+          grupo (orden del recorrido del día), no es un contador global del mes. */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2.5 space-y-3.5">
         <SortableContext items={idsVisitas} strategy={verticalListSortingStrategy}>
           {(() => {
-            let ultimaClave = ''
-            let contadorGlobal = 0
-
             // Clave de agrupamiento: día local en la zona horaria de la empresa.
-            // El render por `toLocaleDateString` convierte a local, así que agrupar
-            // por el día UTC (split('T')[0]) hacía aparecer dos cabeceras para la
-            // misma fecha visible cuando las visitas caían en distintos días UTC.
             const claveDia = (fecha: string | null): string =>
               fecha ? formatearFechaISO(fecha, zonaHoraria) : 'sin-fecha'
 
-            // Pre-calcular estado por fecha
-            const estadoPorFecha: Record<string, { enCurso: boolean; completadas: number; total: number }> = {}
-            visitas.forEach(v => {
+            // Agrupar visitas por día preservando el orden original de la lista.
+            const grupos: { fKey: string; fechaTexto: string; visitas: VisitaPlanificacion[] }[] = []
+            for (const v of visitas) {
               const fKey = claveDia(v.fecha_programada)
-              if (!estadoPorFecha[fKey]) estadoPorFecha[fKey] = { enCurso: false, completadas: 0, total: 0 }
-              const grupo = estadoPorFecha[fKey]
-              grupo.total++
-              if (v.estado === 'en_camino' || v.estado === 'en_sitio') grupo.enCurso = true
-              if (v.estado === 'completada') grupo.completadas++
-            })
+              let g = grupos.find(g => g.fKey === fKey)
+              if (!g) {
+                const fechaTexto = v.fecha_programada
+                  ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria })
+                      .replace(/^\w/, c => c.toUpperCase())
+                  : 'Sin fecha'
+                g = { fKey, fechaTexto, visitas: [] }
+                grupos.push(g)
+              }
+              g.visitas.push(v)
+            }
 
-            return visitas.map((visita) => {
-              const fKey = claveDia(visita.fecha_programada)
-              const fechaVisita = visita.fecha_programada
-                ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zonaHoraria })
-                    .replace(/^\w/, c => c.toUpperCase())
-                : 'Sin fecha'
-              const mostrarSeparador = fKey !== ultimaClave
-              ultimaClave = fKey
-              contadorGlobal++
+            // Ordenar visitas dentro de cada día por la hora que mejor representa
+            // su lugar real en la jornada:
+            //   1) hora real (fecha_inicio o fecha_llegada) — si el visitador ya pasó
+            //   2) hora programada (solo si tiene_hora_especifica)
+            //   3) sin hora — al final del grupo (no inventamos una posición)
+            // Así una visita completada a las 11:56 no aparece después de otra completada
+            // a las 14:03 sólo porque se cargó después.
+            const horaOrdenamiento = (v: VisitaPlanificacion): number => {
+              const real = v.fecha_inicio || v.fecha_llegada
+              if (real) return new Date(real).getTime()
+              if (v.tiene_hora_especifica && v.fecha_programada) return new Date(v.fecha_programada).getTime()
+              return Number.POSITIVE_INFINITY
+            }
+            for (const g of grupos) {
+              g.visitas.sort((a, b) => horaOrdenamiento(a) - horaOrdenamiento(b))
+            }
 
-              const estadoGrupo = estadoPorFecha[fKey]
-              const grupoEnCurso = estadoGrupo?.enCurso || false
-              const grupoCompletado = estadoGrupo ? estadoGrupo.completadas === estadoGrupo.total && estadoGrupo.total > 0 : false
+            return grupos.map((grupo) => {
+              const total = grupo.visitas.length
+              const completadas = grupo.visitas.filter(v => v.estado === 'completada').length
+              const enCurso = grupo.visitas.some(v => v.estado === 'en_camino' || v.estado === 'en_sitio')
+              const completado = total > 0 && completadas === total
+              const tieneCoords = grupo.visitas.some(v => v.direccion_lat != null && v.direccion_lng != null)
 
               return (
-                <div key={visita.id}>
-                  {mostrarSeparador && (
-                    <div className={`flex items-center gap-2 pt-3 pb-1.5 first:pt-0 ${grupoEnCurso ? '' : ''}`}>
-                      {/* Indicador de estado del grupo */}
-                      {!esSinAsignar && grupoEnCurso && (
-                        <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-insignia-advertencia/20">
-                          <Play size={7} className="text-insignia-advertencia ml-px" fill="currentColor" />
-                        </span>
-                      )}
-                      {!esSinAsignar && grupoCompletado && (
-                        <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-insignia-exito/20">
-                          <Check size={8} className="text-insignia-exito" />
-                        </span>
-                      )}
-                      <span className={`text-[10px] font-semibold uppercase tracking-wider ${
-                        grupoEnCurso ? 'text-insignia-advertencia' : grupoCompletado ? 'text-insignia-exito' : 'text-texto-terciario'
-                      }`}>
-                        {fechaVisita}
+                <div
+                  key={grupo.fKey}
+                  className={`rounded-card border overflow-hidden ${
+                    enCurso ? 'border-insignia-advertencia/30 bg-insignia-advertencia/[0.03]' :
+                    completado ? 'border-insignia-exito/20 bg-insignia-exito/[0.02]' :
+                    'border-borde-sutil bg-white/[0.015]'
+                  }`}
+                >
+                  {/* Header del grupo: fecha + estado + CTA Recorrido */}
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04]">
+                    {!esSinAsignar && enCurso && (
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-insignia-advertencia/20">
+                        <Play size={7} className="text-insignia-advertencia ml-px" fill="currentColor" />
                       </span>
-                      {grupoEnCurso && (
-                        <span className="text-[9px] font-medium text-insignia-advertencia bg-insignia-advertencia/10 px-1.5 py-0.5 rounded-full">
-                          en curso
-                        </span>
-                      )}
-                      {!esSinAsignar && estadoGrupo && estadoGrupo.completadas > 0 && !grupoCompletado && (
-                        <span className="text-[9px] text-texto-terciario">
-                          {estadoGrupo.completadas}/{estadoGrupo.total}
-                        </span>
-                      )}
-                      <div className="flex-1 h-px bg-white/[0.06]" />
-                      {!esSinAsignar && onAbrirRecorrido && visita.fecha_programada && (
-                        <button
-                          onClick={() => {
-                            onAbrirRecorrido(usuarioId, fKey)
-                          }}
-                          className={`shrink-0 rounded-boton px-1.5 py-1 transition-colors flex items-center gap-1 ${
-                            grupoEnCurso
-                              ? 'text-insignia-advertencia bg-insignia-advertencia/10 hover:bg-insignia-advertencia/20'
-                              : 'text-texto-terciario hover:bg-texto-marca/10 hover:text-texto-marca'
-                          }`}
-                          title="Organizar recorrido"
-                        >
-                          <Map size={12} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <ItemVisitaSortable
-                    visita={visita}
-                    indice={contadorGlobal - 1}
-                    onAbrirVisita={onAbrirVisita}
-                    onConfirmarProvisoria={onConfirmarProvisoria}
-                    onRechazarProvisoria={onRechazarProvisoria}
-                  />
+                    )}
+                    {!esSinAsignar && completado && (
+                      <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-insignia-exito/20">
+                        <Check size={8} className="text-insignia-exito" />
+                      </span>
+                    )}
+                    <span className={`text-[11px] font-semibold uppercase tracking-wider ${
+                      enCurso ? 'text-insignia-advertencia' :
+                      completado ? 'text-insignia-exito' :
+                      'text-texto-secundario'
+                    }`}>
+                      {grupo.fechaTexto}
+                    </span>
+                    {enCurso && (
+                      <span className="text-[9px] font-medium text-insignia-advertencia bg-insignia-advertencia/10 px-1.5 py-0.5 rounded-full">
+                        en curso
+                      </span>
+                    )}
+                    {!esSinAsignar && completadas > 0 && !completado && (
+                      <span className="text-[10px] text-texto-terciario">
+                        {completadas}/{total}
+                      </span>
+                    )}
+                    <div className="flex-1" />
+                    {/* CTA Recorrido — acción principal del grupo, con texto + icono.
+                        Solo aparece si hay coordenadas en al menos una visita. */}
+                    {!esSinAsignar && onAbrirRecorrido && tieneCoords && (
+                      <button
+                        onClick={() => onAbrirRecorrido(usuarioId, grupo.fKey)}
+                        className={`shrink-0 rounded-boton px-2 py-1 text-[11px] font-medium transition-colors flex items-center gap-1.5 ${
+                          enCurso
+                            ? 'bg-insignia-advertencia/15 text-insignia-advertencia hover:bg-insignia-advertencia/25'
+                            : 'bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/20'
+                        }`}
+                        title="Abrir recorrido del día"
+                      >
+                        <Map size={11} />
+                        <span>Recorrido</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Items del grupo — numeración local 1, 2, 3 dentro del día */}
+                  <div className="p-2 space-y-2">
+                    {grupo.visitas.map((visita, idx) => (
+                      <ItemVisitaSortable
+                        key={visita.id}
+                        visita={visita}
+                        indice={idx}
+                        onAbrirVisita={onAbrirVisita}
+                        onConfirmarProvisoria={onConfirmarProvisoria}
+                        onRechazarProvisoria={onRechazarProvisoria}
+                      />
+                    ))}
+                  </div>
                 </div>
               )
             })

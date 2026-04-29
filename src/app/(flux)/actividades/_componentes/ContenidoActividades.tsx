@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -13,8 +13,11 @@ import {
   PlusCircle, Download, ClipboardList, CalendarClock,
   CheckCircle, Clock, User, Trash2, History,
   RotateCcw, ChevronDown, ChevronUp, XCircle,
+  Users as UsersIcon,
 } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
@@ -25,9 +28,9 @@ import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalActividad } from './ModalActividad'
 import type { Actividad, Vinculo } from './ModalActividad'
 import { ACCIONES_TIPO_ACTIVIDAD } from './_acciones_tipo'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
@@ -173,63 +176,59 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     }
   }, [])
 
-  // Filtros server-side — restaurar desde URL si existen
-  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
-  const [filtroEstado, setFiltroEstado] = useState<string[] | null>(() => {
-    const v = searchParams.get('estado')
-    return v ? v.split(',') : null
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/actividades',
+    campos: {
+      tipo: { defecto: '' },
+      estado: { defecto: [] as string[] },
+      prioridad: { defecto: '' },
+      vista: { defecto: VISTA_DEFAULT },
+      asignado_a: { defecto: [] as string[] },
+      sin_asignado: { defecto: false },
+      creado_por: { defecto: '' },
+      fecha: { defecto: '' },
+      contacto_id: { defecto: '' },
+      orden_trabajo_id: { defecto: '' },
+      presupuesto_id: { defecto: '' },
+      creado_rango: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  const [filtroPrioridad, setFiltroPrioridad] = useState(searchParams.get('prioridad') || '')
-  const [filtroVista, setFiltroVista] = useState(searchParams.get('vista') || VISTA_DEFAULT)
-  // Nuevos filtros
-  const [filtroAsignados, setFiltroAsignados] = useState<string[]>(() => {
-    const v = searchParams.get('asignado_a')
-    return v ? v.split(',') : []
-  })
-  const [filtroSinAsignado, setFiltroSinAsignado] = useState(searchParams.get('sin_asignado') === 'true')
-  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
-  const [filtroVencimiento, setFiltroVencimiento] = useState(searchParams.get('fecha') || '')
-  const [filtroContacto, setFiltroContacto] = useState(searchParams.get('contacto_id') || '')
-  const [filtroOrden, setFiltroOrden] = useState(searchParams.get('orden_trabajo_id') || '')
-  const [filtroPresupuesto, setFiltroPresupuesto] = useState(searchParams.get('presupuesto_id') || '')
-  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
 
-  // Búsqueda con debounce + reset de página automático (incluye TODOS los filtros como deps)
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroTipo, filtroEstado, filtroPrioridad, filtroVista,
-      filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroVencimiento,
-      filtroContacto, filtroOrden, filtroPresupuesto, filtroCreadoRango,
-    ],
-  )
-
-  // Sincronizar filtros → URL (replaceState para no contaminar historial)
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroTipo) params.set('tipo', filtroTipo)
-    if (filtroEstado && filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
-    if (filtroPrioridad) params.set('prioridad', filtroPrioridad)
-    if (filtroVista && filtroVista !== VISTA_DEFAULT) params.set('vista', filtroVista)
-    if (filtroAsignados.length > 0) params.set('asignado_a', filtroAsignados.join(','))
-    if (filtroSinAsignado) params.set('sin_asignado', 'true')
-    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
-    if (filtroVencimiento) params.set('fecha', filtroVencimiento)
-    if (filtroContacto) params.set('contacto_id', filtroContacto)
-    if (filtroOrden) params.set('orden_trabajo_id', filtroOrden)
-    if (filtroPresupuesto) params.set('presupuesto_id', filtroPresupuesto)
-    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    const qs = params.toString()
-    const nuevaUrl = qs ? `/actividades?${qs}` : '/actividades'
-    window.history.replaceState(null, '', nuevaUrl)
-  }, [
-    busquedaDebounced, filtroTipo, filtroEstado, filtroPrioridad, filtroVista,
-    filtroAsignados, filtroSinAsignado, filtroCreadoPor, filtroVencimiento,
-    filtroContacto, filtroOrden, filtroPresupuesto, filtroCreadoRango, pagina,
-  ])
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroTipo = f.tipo
+  const filtroEstado = f.estado
+  const filtroPrioridad = f.prioridad
+  const filtroVista = f.vista
+  const filtroAsignados = f.asignado_a
+  const filtroSinAsignado = f.sin_asignado
+  const filtroCreadoPor = f.creado_por
+  const filtroVencimiento = f.fecha
+  const filtroContacto = f.contacto_id
+  const filtroOrden = f.orden_trabajo_id
+  const filtroPresupuesto = f.presupuesto_id
+  const filtroCreadoRango = f.creado_rango
+  const setFiltroTipo = (v: string) => filtros.set('tipo', v)
+  const setFiltroEstado = (v: string[]) => filtros.set('estado', v)
+  const setFiltroPrioridad = (v: string) => filtros.set('prioridad', v)
+  const setFiltroVista = (v: string) => filtros.set('vista', v)
+  const setFiltroAsignados = (v: string[]) => filtros.set('asignado_a', v)
+  const setFiltroSinAsignado = (v: boolean) => filtros.set('sin_asignado', v)
+  const setFiltroCreadoPor = (v: string) => filtros.set('creado_por', v)
+  const setFiltroVencimiento = (v: string) => filtros.set('fecha', v)
+  const setFiltroContacto = (v: string) => filtros.set('contacto_id', v)
+  const setFiltroOrden = (v: string) => filtros.set('orden_trabajo_id', v)
+  const setFiltroPresupuesto = (v: string) => filtros.set('presupuesto_id', v)
+  const setFiltroCreadoRango = (v: string) => filtros.set('creado_rango', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   // ═══════ Configuración (antes del listado para calcular filtros default) ═══════
 
@@ -843,137 +842,110 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     const completada = fila.estado_clave === 'completada' || fila.estado_clave === 'cancelada'
     const esPendiente = !completada
     const contacto = (fila.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
-    const vencida = fila.fecha_vencimiento && new Date(fila.fecha_vencimiento) < new Date() && esPendiente
+    const vencida = !!fila.fecha_vencimiento && new Date(fila.fecha_vencimiento) < new Date() && esPendiente
+    const seguimientos = Array.isArray(fila.seguimientos) ? fila.seguimientos.length : 0
+    const listaAsig = Array.isArray(fila.asignados) ? fila.asignados as { id: string; nombre: string }[] : []
+    const accionTipo = tipo?.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
+    const IconoAccion = accionTipo?.icono ?? ClipboardList
 
     return (
-      <div className="flex flex-col h-full">
-        {/* Header: tipo + estado (pr-6 para dejar espacio al checkbox de selección) */}
-        <div className="flex items-center justify-between mb-3 pr-6">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col">
+        <div className="p-4 flex flex-col gap-3">
+          {/* ── Cabecera: chip de tipo (icono+nombre con color dinámico) +
+                estado a la derecha. El padding-right reserva espacio para el
+                checkbox de selección que la tabla coloca en absolute. ── */}
+          <div className="flex items-start justify-between gap-2 pr-7">
             {tipo && (
-              <div
-                className="w-7 h-7 rounded-card flex items-center justify-center shrink-0"
-                style={{ backgroundColor: tipo.color + '15', color: tipo.color }}
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap min-w-0"
+                style={{ backgroundColor: tipo.color + '18', color: tipo.color }}
               >
-                {Icono && <Icono size={14} />}
-              </div>
+                {Icono && <Icono size={13} className="shrink-0" />}
+                <span className="truncate">{tipo.etiqueta || fila.tipo_clave}</span>
+              </span>
             )}
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: (tipo?.color || '#888') + '12', color: tipo?.color }}>
-              {tipo?.etiqueta || fila.tipo_clave}
-            </span>
+            {estado && (
+              <span className="text-xxs font-semibold uppercase tracking-wider whitespace-nowrap shrink-0 mt-0.5" style={{ color: estado.color }}>
+                {estado.etiqueta}
+              </span>
+            )}
           </div>
-          {estado && (
-            <span className="text-xxs font-medium" style={{ color: estado.color }}>
-              {estado.etiqueta}
-            </span>
+
+          {/* ── Título completo (sin truncar — en 1 col entra) + badge de
+                seguimientos pendientes a la derecha del título. ── */}
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm font-medium leading-snug min-w-0 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+              {fila.titulo}
+            </p>
+            {seguimientos > 0 && (
+              <span
+                className="inline-flex items-center gap-0.5 text-xxs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full shrink-0 mt-0.5"
+                title={`${seguimientos} seguimiento${seguimientos > 1 ? 's' : ''}`}
+              >
+                🔥{seguimientos}
+              </span>
+            )}
+          </div>
+
+          {/* ── Meta: contacto vinculado + asignado + fecha/prioridad ──
+                Cada línea con su ícono usa el mismo patrón visual que en la
+                tarjeta de Contactos para mantener consistencia. */}
+          {(contacto || listaAsig.length > 0 || fila.fecha_vencimiento || fila.prioridad === 'alta' || fila.prioridad === 'baja') && (
+            <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+              {contacto && (
+                <LineaInfoTarjeta icono={<User size={13} />} truncar>
+                  {contacto.nombre}
+                </LineaInfoTarjeta>
+              )}
+              {listaAsig.length > 0 && (
+                <LineaInfoTarjeta icono={<UsersIcon size={13} />} truncar>
+                  {listaAsig.length === 1 ? listaAsig[0].nombre : `${listaAsig.length} personas`}
+                </LineaInfoTarjeta>
+              )}
+              {(fila.fecha_vencimiento || fila.prioridad === 'alta' || fila.prioridad === 'baja') && (
+                <span className="flex items-center gap-2.5 text-xs">
+                  <CalendarClock size={13} className={`shrink-0 ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario/70'}`} />
+                  {fila.fecha_vencimiento && (
+                    <span className={`leading-snug ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
+                      {fechaCorta(fila.fecha_vencimiento, formato.locale)}
+                    </span>
+                  )}
+                  {fila.prioridad === 'alta' && <Insignia color="peligro" tamano="sm">Alta</Insignia>}
+                  {fila.prioridad === 'baja' && <Insignia color="info" tamano="sm">Baja</Insignia>}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Título + badge seguimientos */}
-        <p className={`text-sm font-medium mb-1 flex items-center gap-1.5 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
-          <span className="truncate">{fila.titulo}</span>
-          {Array.isArray(fila.seguimientos) && fila.seguimientos.length > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-xxs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full shrink-0">
-              🔥{fila.seguimientos.length}
-            </span>
-          )}
-        </p>
-
-        {/* Contacto vinculado */}
-        {contacto && (
-          <p className="text-xs text-texto-terciario mb-2 flex items-center gap-1">
-            <User size={10} />
-            {contacto.nombre}
-          </p>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Footer: responsable + fecha + prioridad + acciones */}
-        <div className="pt-3 mt-auto border-t border-borde-sutil space-y-2">
-          {/* Responsable */}
-          {(() => {
-            const listaAsig = Array.isArray(fila.asignados) ? fila.asignados as { id: string; nombre: string }[] : []
-            if (listaAsig.length === 0) return null
-            return (
-              <div className="flex items-center gap-1">
-                {listaAsig.slice(0, 3).map((a, i) => (
-                  <div key={a.id} className="size-5 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-bold text-texto-terciario shrink-0" title={a.nombre} style={i > 0 ? { marginLeft: -4 } : undefined}>
-                    {a.nombre.charAt(0).toUpperCase()}
-                  </div>
-                ))}
-                <span className="text-xs text-texto-terciario ml-1">
-                  {listaAsig.length === 1 ? listaAsig[0].nombre : `${listaAsig.length} personas`}
-                </span>
-              </div>
-            )
-          })()}
-
-          {/* Fecha + prioridad + botones */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {fila.fecha_vencimiento && (
-                <span className={`text-xs font-medium ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>
-                  {fechaCorta(fila.fecha_vencimiento, formato.locale)}
-                </span>
-              )}
-              {fila.prioridad === 'alta' && <Insignia color="peligro">Alta</Insignia>}
-              {fila.prioridad === 'baja' && <Insignia color="info">Baja</Insignia>}
-            </div>
-
-            {esPendiente && (() => {
-              const accionTipoMobile = tipo?.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
-              const IconoAccionMobile = accionTipoMobile?.icono ?? ClipboardList
-              return (
-              <div className="flex items-center gap-0.5">
-                {accionTipoMobile && (
-                  <Tooltip contenido={accionTipoMobile.etiqueta}>
-                    <Boton
-                      variante="fantasma"
-                      tamano="xs"
-                      soloIcono
-                      icono={<IconoAccionMobile size={15} />}
-                      onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
-                      titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
-                    />
-                  </Tooltip>
-                )}
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  icono={<CheckCircle size={15} />}
-                  onClick={(e) => { e.stopPropagation(); completarActividad(fila.id) }}
-                  titulo="Completar"
-                  className="hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto"
-                />
-                <div className="relative group/posponer">
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    soloIcono
-                    icono={<Clock size={15} />}
-                    onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1) }}
-                    titulo="Posponer"
-                    className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
-                  />
-                  <div className="absolute bottom-full right-0 mb-0.5 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
-                    {presetsPosposicion.map(op => (
-                      <button
-                        key={op.id}
-                        onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, op.dias) }}
-                        className="w-full px-3 py-1.5 text-xs text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
-                      >
-                        {op.etiqueta}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              )
-            })()}
-          </div>
+        {/* ── Footer mobile: completar / posponer / acción del tipo ──
+            Solo en celular, mismo patrón que Contactos. Si la actividad ya
+            está completada/cancelada, todos los botones se ven apagados
+            para preservar el layout sin sugerir acciones. */}
+        <div className="sm:hidden">
+          <PieAccionesTarjeta acciones={[
+            {
+              id: 'completar',
+              icono: <CheckCircle size={16} className="shrink-0" />,
+              etiqueta: 'Completar',
+              onClick: () => completarActividad(fila.id),
+              deshabilitado: !esPendiente,
+            },
+            {
+              id: 'posponer',
+              icono: <Clock size={16} className="shrink-0" />,
+              etiqueta: 'Posponer',
+              onClick: () => posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1),
+              deshabilitado: !esPendiente,
+            },
+            {
+              id: 'accion-tipo',
+              icono: <IconoAccion size={16} className="shrink-0" />,
+              etiqueta: accionTipo?.etiqueta || 'Abrir',
+              onClick: () => ejecutarAccionTipo(fila),
+              deshabilitado: !accionTipo || !esPendiente,
+            },
+          ] satisfies AccionTarjeta[]} />
         </div>
       </div>
     )
@@ -1121,20 +1093,7 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
           { id: 'vinculos', etiqueta: 'Vínculos', filtros: ['contacto', 'orden_trabajo', 'presupuesto'] },
           { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango'] },
         ]}
-        onLimpiarFiltros={() => {
-          setFiltroTipo('')
-          setFiltroEstado(null)
-          setFiltroPrioridad('')
-          setFiltroVista(VISTA_DEFAULT)
-          setFiltroAsignados([])
-          setFiltroSinAsignado(false)
-          setFiltroCreadoPor('')
-          setFiltroVencimiento('')
-          setFiltroContacto('')
-          setFiltroOrden('')
-          setFiltroPresupuesto('')
-          setFiltroCreadoRango('')
-        }}
+        onLimpiarFiltros={filtros.limpiar}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },
@@ -1146,6 +1105,7 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
         ]}
         idModulo="actividades"
         renderTarjeta={renderTarjeta}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         onClickFila={(fila) => {
           // Si es actividad tipo visita, intentar abrir ModalVisita con la visita vinculada
           if (fila.tipo_clave === 'visita') {
@@ -1293,6 +1253,7 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       <ModalVisita
         abierto={modalVisitaHook.abierto}
         visita={modalVisitaHook.visitaEditando}
+        contactoInicial={modalVisitaHook.contactoInicial}
         miembros={modalVisitaHook.miembros}
         config={modalVisitaHook.config}
         onGuardar={async (datos) => { await modalVisitaHook.guardar(datos); recargarActividades() }}

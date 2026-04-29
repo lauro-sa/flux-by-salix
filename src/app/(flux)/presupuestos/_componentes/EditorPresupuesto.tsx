@@ -22,6 +22,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
 import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
@@ -80,6 +81,7 @@ export default function EditorPresupuesto({
   onTituloCargado,
 }: PropsEditorPresupuesto) {
   const router = useRouter()
+  const { obtenerRutaModulo } = useNavegacion()
   const { t } = useTraduccion()
   const formato = useFormato()
   const { empresa } = useEmpresa()
@@ -733,10 +735,10 @@ export default function EditorPresupuesto({
       setProductosProvisionales([])
     }
     onDescartado?.()
-    // Si vino desde el dashboard, volver ahí
+    // Si vino desde el dashboard, volver ahí. Si no, al listado preservando filtros.
     const desde = new URLSearchParams(window.location.search).get('desde')
-    router.push(desde === 'dashboard' ? '/dashboard' : '/presupuestos')
-  }, [modo, router, onDescartado, productosProvisionales])
+    router.push(desde === 'dashboard' ? '/dashboard' : obtenerRutaModulo('/presupuestos'))
+  }, [modo, router, onDescartado, productosProvisionales, obtenerRutaModulo])
 
   // ─── Contacto: seleccionar y limpiar (modo crear) ──────────────────────
 
@@ -2055,6 +2057,16 @@ export default function EditorPresupuesto({
           pago={pagoEditando}
           monedasDisponibles={monedas}
           chatterOrigenId={chatterOrigenPago?.id || null}
+          adjuntosOrigen={chatterOrigenPago?.adjuntos}
+          origenDescripcion={
+            chatterOrigenPago
+              ? chatterOrigenPago.tipo === 'correo'
+                ? `correo de ${chatterOrigenPago.metadata?.correo_de || chatterOrigenPago.autor_nombre || 'origen'}`
+                : chatterOrigenPago.tipo === 'whatsapp'
+                  ? `WhatsApp de ${chatterOrigenPago.autor_nombre || 'origen'}`
+                  : `mensaje de ${chatterOrigenPago.autor_nombre || 'origen'}`
+              : null
+          }
           onPagoGuardado={() => setRecargaPagosNonce(n => n + 1)}
         />
       )}

@@ -36,6 +36,7 @@ interface Visita {
   checklist: unknown[] | null
   notas: string | null
   fecha_programada: string | null
+  tiene_hora_especifica?: boolean | null
   fecha_inicio?: string | null // timestamp cuando arrancó el trayecto
   fecha_llegada?: string | null // timestamp cuando llegó al sitio
   fecha_completada?: string | null // timestamp cuando se completó la visita
@@ -118,7 +119,13 @@ function TarjetaParada({
   const direccionLng = esGenerica ? parada.direccion_lng : v?.direccion_lng
   const estado = (esGenerica ? (parada.estado || 'programada') : (v?.estado || 'programada')) as EstadoVisita
   const notas = esGenerica ? (parada.motivo || null) : (v?.notas || null)
-  const hora = !esGenerica && v?.fecha_programada ? formato.hora(v.fecha_programada) : null
+  // Hora real si existe (visita iniciada/llegada), sino la programada solo si tiene hora específica
+  const horaRealParada = !esGenerica ? (v?.fecha_inicio || v?.fecha_llegada) : null
+  const hora = horaRealParada
+    ? formato.hora(horaRealParada)
+    : (!esGenerica && v?.fecha_programada && v?.tiene_hora_especifica
+        ? formato.hora(v.fecha_programada)
+        : null)
 
   const colorEstado = COLORES_ESTADO[estado]
   const esCompletada = estado === 'completada'

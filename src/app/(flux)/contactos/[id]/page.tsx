@@ -106,7 +106,7 @@ function PaginaContactoInterno() {
   const [contactoId, setContactoId] = useState<string | null>(params.id === 'nuevo' ? null : params.id)
   const esNuevo = contactoId === null
   const searchParams = useSearchParams()
-  const { setMigajaDinamica } = useNavegacion()
+  const { setMigajaDinamica, obtenerRutaModulo } = useNavegacion()
 
   // Contacto de origen (cuando se navega desde una vinculación)
   const desdeId = searchParams.get('desde')
@@ -433,7 +433,7 @@ function PaginaContactoInterno() {
 
   const moverAPapelera = async () => {
     await guardar({ en_papelera: true })
-    router.push('/contactos')
+    router.push(obtenerRutaModulo('/contactos'))
   }
 
   // ═══════════════════════════════════════════════════════════════

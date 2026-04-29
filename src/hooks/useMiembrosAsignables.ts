@@ -26,7 +26,11 @@ export interface MiembroAsignable {
   apellido: string
   avatar_url: string | null
   puesto: string | null
+  sector: string | null
   rol: string | null
+  /** Permisos custom por módulo (`{ recorrido: ['ver_propio', 'registrar'], ... }`).
+   *  Útil para consumidores que filtran por capacidad (ej. visitadores). */
+  permisos_custom: Record<string, string[]> | null
 }
 
 interface RespuestaApi {
@@ -37,7 +41,9 @@ interface RespuestaApi {
     nombre: string | null
     apellido: string | null
     puesto: string | null
+    sector: string | null
     perfil: { avatar_url: string | null } | null
+    permisos_custom: Record<string, string[]> | null
   }>
 }
 
@@ -58,7 +64,9 @@ export function useMiembrosAsignables() {
           apellido: m.apellido || '',
           avatar_url: m.perfil?.avatar_url ?? null,
           puesto: m.puesto ?? null,
+          sector: m.sector ?? null,
           rol: m.rol ?? null,
+          permisos_custom: m.permisos_custom ?? null,
         }))
     },
     staleTime: 5 * 60_000,

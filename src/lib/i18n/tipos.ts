@@ -227,6 +227,12 @@ export interface Traducciones {
     correo: string
     telefono: string
     whatsapp: string
+    llamar: string
+    mapa: string
+    visita_singular: string
+    visita_plural: string
+    actividad_singular: string
+    actividad_plural: string
     cuit: string
     dni: string
     tipo: string
@@ -413,6 +419,22 @@ export interface Traducciones {
     entrega: string
     recibe_opcional: string
     recibe_desc: string
+    recibe_aviso_titulo: string
+    recibe_aviso_desc: string
+    recibe_visita_titulo: string
+    recibe_visita_desc: string
+    recibe_vacio_titulo: string
+    recibe_vacio_desc: string
+    recibe_tocar_para_elegir: string
+    recibe_falta_titulo: string
+    recibe_falta_desc: string
+    sin_canal_aviso_titulo: string
+    sin_canal_aviso_desc: string
+    confirmar_sin_canal_titulo: string
+    confirmar_sin_canal_desc: string
+    guardar_igualmente: string
+    tiene_whatsapp: string
+    sin_whatsapp: string
     buscar_contacto_recibe: string
     cargar_a_mano: string
     buscar_contacto: string

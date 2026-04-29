@@ -542,6 +542,11 @@ export async function POST(
         // Marca de adicional + percepciones para que la timeline las muestre
         ...(esAdicional ? { es_adicional: true, concepto_adicional: conceptoAdicional || undefined } : {}),
         ...(montoPercepciones > 0 ? { monto_percepciones: String(montoPercepciones) } : {}),
+        // Vínculo al mensaje/correo origen (si el pago se registró desde el chatter).
+        // El frontend lo cruza con la entrada del correo para mostrar el chip
+        // "Registrado como pago $X" en el correo, evitando que parezca un
+        // pago duplicado del que llegó por email.
+        ...(datosVal.chatter_origen_id ? { mensaje_origen_chatter_id: datosVal.chatter_origen_id } : {}),
       } as Record<string, unknown>,
     })
 

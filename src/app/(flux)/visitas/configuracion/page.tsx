@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Settings2, MapPin, FileText, Clock, ListChecks,
-  Plus, Trash2, GripVertical, Check,
+  Settings2, MapPin, FileText, ListChecks,
+  Plus, Trash2, GripVertical, Check, MessageCircle,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -29,6 +29,7 @@ interface ConfigVisitas {
   duracion_estimada_default: number
   motivos_predefinidos: string[]
   resultados_predefinidos: string[]
+  enviar_avisos_whatsapp: boolean
 }
 
 export default function PaginaConfiguracionVisitas() {
@@ -70,6 +71,7 @@ export default function PaginaConfiguracionVisitas() {
       setConfigOriginal(data)
       // Invalidar cache de React Query para que el modal y listado tomen el valor nuevo
       queryClient.invalidateQueries({ queryKey: ['visitas-config'] })
+      queryClient.invalidateQueries({ queryKey: ['config-visitas'] })
       mostrar('exito', 'Configuración guardada')
     } catch {
       mostrar('error', 'Error al guardar')
@@ -100,6 +102,9 @@ export default function PaginaConfiguracionVisitas() {
     if (JSON.stringify(config.checklist_predeterminado) !== JSON.stringify(configOriginal.checklist_predeterminado)) {
       diffs.push({ campo: 'Checklist predeterminado', valor: `${config.checklist_predeterminado.length} items` })
     }
+    if (config.enviar_avisos_whatsapp !== configOriginal.enviar_avisos_whatsapp) {
+      diffs.push({ campo: 'Avisos por WhatsApp', valor: config.enviar_avisos_whatsapp ? 'activado' : 'desactivado' })
+    }
     return diffs
   }, [config, configOriginal])
 
@@ -118,6 +123,7 @@ export default function PaginaConfiguracionVisitas() {
         motivos_predefinidos: config.motivos_predefinidos,
         resultados_predefinidos: config.resultados_predefinidos,
         checklist_predeterminado: config.checklist_predeterminado,
+        enviar_avisos_whatsapp: config.enviar_avisos_whatsapp,
       })
     },
     onDescartar: () => { if (configOriginal) setConfig(configOriginal) },
@@ -125,6 +131,7 @@ export default function PaginaConfiguracionVisitas() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
+    { id: 'avisos', etiqueta: 'Avisos por WhatsApp', icono: <MessageCircle size={16} /> },
     { id: 'motivos', etiqueta: 'Motivos', icono: <FileText size={16} /> },
     { id: 'resultados', etiqueta: 'Resultados', icono: <ListChecks size={16} /> },
     { id: 'checklist', etiqueta: 'Checklist', icono: <Check size={16} /> },
@@ -181,6 +188,61 @@ export default function PaginaConfiguracionVisitas() {
                   </Boton>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Avisos por WhatsApp */}
+          {seccionActiva === 'avisos' && (
+            <div className="space-y-5 max-w-2xl">
+              <div>
+                <h3 className="text-sm font-medium text-texto-primario">Avisos automáticos por WhatsApp</h3>
+                <p className="text-xs text-texto-terciario mt-1 leading-relaxed">
+                  Cuando un visitador marca <span className="text-texto-secundario">en camino</span> y luego <span className="text-texto-secundario">llegué</span> durante un recorrido, Flux puede enviar automáticamente un WhatsApp al receptor de la visita avisándole. El primer mensaje incluye el ETA calculado por Google Maps; el segundo confirma la llegada.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-card border border-white/[0.06] bg-white/[0.03]">
+                <div className="min-w-0 pr-4">
+                  <p className="text-sm text-texto-primario font-medium">Enviar avisos por WhatsApp</p>
+                  <p className="text-xs text-texto-terciario mt-0.5 leading-relaxed">
+                    Mientras esté apagado, los modales de envío no aparecen y la sección &quot;Quién recibe el aviso&quot; se oculta del modal de visita.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    const nuevo = !config.enviar_avisos_whatsapp
+                    setConfig({ ...config, enviar_avisos_whatsapp: nuevo })
+                    guardar({ enviar_avisos_whatsapp: nuevo })
+                  }}
+                  disabled={!puedeEditar}
+                  className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                    config.enviar_avisos_whatsapp ? 'bg-texto-marca' : 'bg-white/[0.15]'
+                  }`}
+                >
+                  <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform ${
+                    config.enviar_avisos_whatsapp ? 'translate-x-5' : 'translate-x-0.5'
+                  }`} />
+                </button>
+              </div>
+
+              {config.enviar_avisos_whatsapp && (
+                <div className="rounded-card border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+                  <p className="text-xs font-medium text-texto-secundario uppercase tracking-wider">Plantillas usadas</p>
+                  <ul className="space-y-2 text-xs text-texto-terciario">
+                    <li className="flex items-start gap-2">
+                      <span className="text-texto-marca mt-0.5">•</span>
+                      <span><span className="text-texto-secundario font-medium">flux_aviso_en_camino</span> — al marcar &quot;voy en camino&quot;, con ETA de Google Maps.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-texto-marca mt-0.5">•</span>
+                      <span><span className="text-texto-secundario font-medium">flux_aviso_llegada_visita</span> — al confirmar llegada al destino.</span>
+                    </li>
+                  </ul>
+                  <p className="text-xs text-texto-terciario leading-relaxed pt-1 border-t border-white/[0.04]">
+                    Las plantillas deben estar aprobadas por Meta. Revisalas en <span className="text-texto-secundario">Inbox → Plantillas</span>. Si no están aprobadas, los avisos fallan con un error claro y no se envía nada.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -6,12 +6,12 @@ import { PlusCircle, CheckCircle, Clock, ChevronDown, ChevronUp } from 'lucide-r
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalActividad } from '../../actividades/_componentes/ModalActividad'
-import type { Actividad, Miembro } from '../../actividades/_componentes/ModalActividad'
+import type { Actividad } from '../../actividades/_componentes/ModalActividad'
 import type { TipoActividad } from '../../actividades/configuracion/_tipos'
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useModalVisita } from '@/hooks/useModalVisita'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 
 /**
@@ -29,34 +29,22 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
   const [estados, setEstados] = useState<EstadoActividad[]>([])
-  const [miembros, setMiembros] = useState<Miembro[]>([])
+  const { data: miembros = [] } = useMiembrosAsignables()
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [verCompletadas, setVerCompletadas] = useState(false)
   const modalVisitaHook = useModalVisita()
 
-  // Cargar datos
+  // Cargar datos. Los miembros vienen del hook useMiembrosAsignables (cache global).
   const cargar = useCallback(async () => {
     try {
-      const [actRes, configRes, miembrosData] = await Promise.all([
+      const [actRes, configRes] = await Promise.all([
         fetch(`/api/actividades?contacto_id=${contactoId}&por_pagina=50`).then(r => r.json()),
         fetch('/api/actividades/config').then(r => r.json()),
-        (async () => {
-          const supabase = crearClienteNavegador()
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return []
-          const empresaId = user.app_metadata?.empresa_activa_id
-          if (!empresaId) return []
-          const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-          if (!mRes?.length) return []
-          const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
-          return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
-        })(),
       ])
       setActividades(actRes.actividades || [])
       setTipos(configRes.tipos || [])
       setEstados(configRes.estados || [])
-      setMiembros(miembrosData)
     } catch {
       console.error('Error al cargar actividades del contacto')
     } finally {
@@ -188,13 +176,14 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
         modulo="contactos"
         onGuardar={crearActividad}
         onCerrar={() => setModalAbierto(false)}
-        onCambiarAVisita={() => { setModalAbierto(false); modalVisitaHook.abrir() }}
+        onCambiarAVisita={() => { setModalAbierto(false); modalVisitaHook.abrir({ contactoInicial: { id: contactoId, nombre: contactoNombre } }) }}
       />
 
       {/* Modal de visita — abierto cuando se selecciona tipo "visita" en actividades */}
       <ModalVisita
         abierto={modalVisitaHook.abierto}
         visita={modalVisitaHook.visitaEditando}
+        contactoInicial={modalVisitaHook.contactoInicial}
         miembros={modalVisitaHook.miembros}
         config={modalVisitaHook.config}
         onGuardar={async (datos) => { await modalVisitaHook.guardar(datos); cargar() }}

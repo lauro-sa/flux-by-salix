@@ -206,22 +206,22 @@ function DirigidoACrear({
       </span>
 
       {atencionSeleccionada ? (
-        <div className="mt-1.5">
+        <div className="mt-1.5 rounded-card bg-superficie-app/50 px-3 py-3">
           <div className="flex items-start justify-between">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <p className="text-sm font-semibold text-texto-primario">
                 {atencionSeleccionada.nombre} {atencionSeleccionada.apellido || ''}
               </p>
               {atencionSeleccionada.correo && (
                 <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                  <Mail size={13} className="shrink-0" />
+                  <Mail size={12} className="shrink-0" />
                   {atencionSeleccionada.correo}
                   <BotonCopiar valor={atencionSeleccionada.correo} />
                 </p>
               )}
               {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
                 <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                  <Phone size={13} className="shrink-0" />
+                  <Phone size={12} className="shrink-0" />
                   <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
                   <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
                 </p>
@@ -229,7 +229,9 @@ function DirigidoACrear({
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <Boton variante="fantasma" tamano="xs" onClick={onLimpiar}>Cambiar</Boton>
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)} titulo="Ver ficha del contacto" />
+              {atencionSeleccionada.id && (
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)} titulo="Ver ficha del contacto" />
+              )}
             </div>
           </div>
           <p className="text-xxs text-texto-terciario mt-2">
@@ -282,20 +284,20 @@ function DirigidoAEditarExistente({
       <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
         Dirigido a
       </span>
-      <div className="mt-1.5">
+      <div className="mt-1.5 rounded-card bg-superficie-app/50 px-3 py-3">
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
             {(atencionSeleccionada?.correo || presupuesto.atencion_correo) && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Mail size={13} className="shrink-0" />
+                <Mail size={12} className="shrink-0" />
                 {atencionSeleccionada?.correo || presupuesto.atencion_correo}
                 <BotonCopiar valor={atencionSeleccionada?.correo || presupuesto.atencion_correo || ''} />
               </p>
             )}
             {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Phone size={13} className="shrink-0" />
+                <Phone size={12} className="shrink-0" />
                 <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
                 <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
               </p>
@@ -304,16 +306,14 @@ function DirigidoAEditarExistente({
               <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
             )}
           </div>
-          {esEditable && (
-            <div className="flex items-center gap-1 shrink-0">
-              {vinculaciones.length > 0 && (
-                <Boton variante="fantasma" tamano="xs" onClick={onCambiar}>Cambiar</Boton>
-              )}
-              {presupuesto.atencion_contacto_id && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)} titulo="Ver ficha del contacto" />
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {esEditable && vinculaciones.length > 0 && (
+              <Boton variante="fantasma" tamano="xs" onClick={onCambiar}>Cambiar</Boton>
+            )}
+            {presupuesto.atencion_contacto_id && (
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)} titulo="Ver ficha del contacto" />
+            )}
+          </div>
         </div>
         <p className="text-xxs text-texto-terciario mt-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
       </div>

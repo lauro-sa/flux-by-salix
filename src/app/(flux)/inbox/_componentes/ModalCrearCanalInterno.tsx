@@ -8,6 +8,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Hash, Lock, Users, X, Building2, Search, MessageCircle } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 import type { TipoCanalInterno } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -54,13 +55,27 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
   const [busqueda, setBusqueda] = useState('')
   const [miembrosSeleccionados, setMiembrosSeleccionados] = useState<UsuarioBuscable[]>([])
   const [sectoresSeleccionados, setSectoresSeleccionados] = useState<SectorBuscable[]>([])
-  const [usuarios, setUsuarios] = useState<UsuarioBuscable[]>([])
   const [sectores, setSectores] = useState<SectorBuscable[]>([])
   const [cargando, setCargando] = useState(false)
   const [creando, setCreando] = useState(false)
   const [usuarioActualId, setUsuarioActualId] = useState('')
 
-  // Cargar usuarios y sectores al abrir
+  // Lista global de miembros (excluye kioscos sin usuario_id). Filtramos al
+  // usuario actual para que no aparezca en su propio selector.
+  const { data: miembrosTodos = [] } = useMiembrosAsignables()
+  const usuarios = useMemo<UsuarioBuscable[]>(
+    () => miembrosTodos
+      .filter(m => m.usuario_id !== usuarioActualId)
+      .map(m => ({
+        id: m.usuario_id,
+        nombre: m.nombre,
+        apellido: m.apellido,
+        avatar_url: m.avatar_url,
+      })),
+    [miembrosTodos, usuarioActualId],
+  )
+
+  // Cargar sectores y usuario actual al abrir
   useEffect(() => {
     if (!abierto) return
     const cargar = async () => {
@@ -71,30 +86,6 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
         setUsuarioActualId(user.id)
         const empresaId = user.app_metadata?.empresa_activa_id
         if (!empresaId) return
-
-        // Cargar miembros activos
-        const { data: miembros } = await supabase
-          .from('miembros')
-          .select('usuario_id')
-          .eq('empresa_id', empresaId)
-          .eq('activo', true)
-
-        if (miembros && miembros.length > 0) {
-          const ids = miembros.map(m => m.usuario_id).filter(id => id !== user.id)
-          const { data: perfiles } = await supabase
-            .from('perfiles')
-            .select('id, nombre, apellido, avatar_url')
-            .in('id', ids)
-
-          setUsuarios(
-            (perfiles || []).map(p => ({
-              id: p.id,
-              nombre: p.nombre || '',
-              apellido: p.apellido || '',
-              avatar_url: p.avatar_url,
-            }))
-          )
-        }
 
         // Cargar sectores
         const { data: sectoresData } = await supabase

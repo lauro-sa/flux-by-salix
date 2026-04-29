@@ -32,7 +32,7 @@ export function MapaRecorrido({
   onInfoRuta,
   enfocarParada = false,
 }: PropiedadesMapaRecorrido) {
-  const { puntos, origen, destino, heading } = ruta
+  const { puntos, origen, destino } = ruta
   const { temaActivo } = useTema()
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -143,9 +143,7 @@ export function MapaRecorrido({
           />
         )}
 
-        {/* Marcador de origen — punto azul GPS. Si el GPS reporta heading
-            (en movimiento) mostramos flechita que apunta hacia el rumbo;
-            en reposo queda como punto. */}
+        {/* Marcador de origen — punto azul GPS estilo Google Maps */}
         {origen && (
           <AdvancedMarker
             position={{ lat: origen.lat, lng: origen.lng }}
@@ -153,19 +151,7 @@ export function MapaRecorrido({
           >
             <div className="relative flex items-center justify-center">
               <div className="absolute size-10 rounded-full bg-insignia-info/15 animate-pulse" />
-              {heading != null ? (
-                <div
-                  className="flex items-center justify-center size-8 transition-transform duration-300"
-                  style={{ transform: `rotate(${heading}deg)` }}
-                >
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <circle cx="14" cy="14" r="10" fill="var(--insignia-info)" stroke="white" strokeWidth="2.5" />
-                    <path d="M14 5 L18 16 L14 13 L10 16 Z" fill="white" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="size-4 rounded-full bg-insignia-info border-[2.5px] border-white shadow-lg" />
-              )}
+              <div className="size-4 rounded-full bg-insignia-info border-[2.5px] border-white shadow-lg" />
             </div>
           </AdvancedMarker>
         )}

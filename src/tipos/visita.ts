@@ -31,6 +31,9 @@ export interface Visita {
   asignado_a: string | null
   asignado_nombre: string | null
   fecha_programada: string
+  // Si false, la hora dentro de fecha_programada es placeholder y la UI muestra
+  // "sin hora específica". Si true, la hora se eligió a propósito y se muestra.
+  tiene_hora_especifica: boolean
   fecha_inicio: string | null
   fecha_llegada: string | null
   fecha_completada: string | null
@@ -79,4 +82,8 @@ export interface ConfigVisitas {
   resultados_predefinidos?: string[]
   duracion_estimada_default?: number
   requiere_geolocalizacion?: boolean
+  // Si true, el flujo de recorrido envía avisos por WhatsApp (en camino + llegada)
+  // al receptor de la visita. Cuando está apagado, los modales no se abren y la
+  // sección "Quién recibe el aviso" se oculta del modal de creación/edición.
+  enviar_avisos_whatsapp?: boolean
 }

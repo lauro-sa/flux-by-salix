@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -16,11 +16,15 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
   Clock, CircleDot, FilePen, Trash2, X, FileDown, RefreshCw, History, CreditCard, Check,
+  Phone, Mail, CalendarClock,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ETIQUETAS_ESTADO, type EstadoPresupuesto } from '@/tipos/presupuesto'
@@ -49,6 +53,14 @@ interface FilaPresupuesto {
   atencion_nombre: string | null
   atencion_correo: string | null
   atencion_cargo: string | null
+  /** Teléfono actual del contacto de atención (resuelto vía JOIN en el endpoint).
+   *  Cuando hay un "dirigido a" preferimos llamarle a esa persona específica;
+   *  si no, caemos al teléfono del contacto principal del presupuesto. */
+  atencion_telefono: string | null
+  /** Tipos de actividad pendiente vinculados a este presupuesto. */
+  actividades_activas?: { tipo_id: string; tipo_etiqueta: string; tipo_color: string; cantidad: number }[]
+  /** Orden de trabajo asociada si existe (preferimos la activa sobre la completada). */
+  orden_trabajo?: { id: string; estado: string } | null
   moneda: string
   condicion_pago_label: string | null
   fecha_emision: string
@@ -99,25 +111,56 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const contactoIdFiltro = searchParams.get('contacto_id')
-  const origenUrl = searchParams.get('origen')
 
-  // Filtros server-side — restaurar desde URL
-  const [filtroEstado, setFiltroEstado] = useState<string[]>(() => {
-    const v = searchParams.get('estado')
-    return v ? v.split(',') : []
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/presupuestos',
+    campos: {
+      estado: { defecto: [] as string[] },
+      tipo_contacto: { defecto: [] as string[] },
+      en_orden_venta: { defecto: '' },
+      vencido: { defecto: '' },
+      con_descuento: { defecto: '' },
+      con_observaciones: { defecto: '' },
+      monto_rango: { defecto: '' },
+      anio: { defecto: '' },
+      creado_por: { defecto: '' },
+      // Params de contexto de navegación: se preservan en URL pero no son filtros del usuario.
+      contacto_id: { defecto: '' },
+      origen: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
   })
-  const [filtroTipoContacto, setFiltroTipoContacto] = useState<string[]>(() => {
-    const v = searchParams.get('tipo_contacto')
-    return v ? v.split(',') : []
-  })
-  const [filtroEnOrdenVenta, setFiltroEnOrdenVenta] = useState(searchParams.get('en_orden_venta') || '')
-  const [filtroVencido, setFiltroVencido] = useState(searchParams.get('vencido') || '')
-  const [filtroConDescuento, setFiltroConDescuento] = useState(searchParams.get('con_descuento') || '')
-  const [filtroConObservaciones, setFiltroConObservaciones] = useState(searchParams.get('con_observaciones') || '')
-  const [filtroMontoRango, setFiltroMontoRango] = useState(searchParams.get('monto_rango') || '')
-  const [filtroAnio, setFiltroAnio] = useState(searchParams.get('anio') || '')
-  const [filtroCreadoPor, setFiltroCreadoPor] = useState(searchParams.get('creado_por') || '')
+
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroEstado = f.estado
+  const filtroTipoContacto = f.tipo_contacto
+  const filtroEnOrdenVenta = f.en_orden_venta
+  const filtroVencido = f.vencido
+  const filtroConDescuento = f.con_descuento
+  const filtroConObservaciones = f.con_observaciones
+  const filtroMontoRango = f.monto_rango
+  const filtroAnio = f.anio
+  const filtroCreadoPor = f.creado_por
+  const contactoIdFiltro = f.contacto_id || null
+  const origenUrl = f.origen || null
+  const setFiltroEstado = (v: string[]) => filtros.set('estado', v)
+  const setFiltroTipoContacto = (v: string[]) => filtros.set('tipo_contacto', v)
+  const setFiltroEnOrdenVenta = (v: string) => filtros.set('en_orden_venta', v)
+  const setFiltroVencido = (v: string) => filtros.set('vencido', v)
+  const setFiltroConDescuento = (v: string) => filtros.set('con_descuento', v)
+  const setFiltroConObservaciones = (v: string) => filtros.set('con_observaciones', v)
+  const setFiltroMontoRango = (v: string) => filtros.set('monto_rango', v)
+  const setFiltroAnio = (v: string) => filtros.set('anio', v)
+  const setFiltroCreadoPor = (v: string) => filtros.set('creado_por', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   // Mapeo del preset de monto a min/max
   const { montoMin, montoMax } = (() => {
@@ -130,47 +173,9 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
     }
   })()
 
-  // Búsqueda con debounce + reset de página automático
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [
-      filtroEstado, filtroTipoContacto, filtroEnOrdenVenta, filtroVencido,
-      filtroConDescuento, filtroConObservaciones, filtroMontoRango,
-      filtroAnio, filtroCreadoPor,
-    ],
-    true,
-  )
-
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
-  const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
-
-  // Sincronizar filtros activos → URL (sin recargar, solo reemplaza)
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroEstado.length > 0) params.set('estado', filtroEstado.join(','))
-    if (filtroTipoContacto.length > 0) params.set('tipo_contacto', filtroTipoContacto.join(','))
-    if (filtroEnOrdenVenta) params.set('en_orden_venta', filtroEnOrdenVenta)
-    if (filtroVencido) params.set('vencido', filtroVencido)
-    if (filtroConDescuento) params.set('con_descuento', filtroConDescuento)
-    if (filtroConObservaciones) params.set('con_observaciones', filtroConObservaciones)
-    if (filtroMontoRango) params.set('monto_rango', filtroMontoRango)
-    if (filtroAnio) params.set('anio', filtroAnio)
-    if (filtroCreadoPor) params.set('creado_por', filtroCreadoPor)
-    if (pagina > 1) params.set('pagina', String(pagina))
-    if (contactoIdFiltro) params.set('contacto_id', contactoIdFiltro)
-    if (origenUrl) params.set('origen', origenUrl)
-    const qs = params.toString()
-    const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
-    window.history.replaceState(null, '', nuevaUrl)
-  }, [
-    busquedaDebounced, filtroEstado, filtroTipoContacto, filtroEnOrdenVenta, filtroVencido,
-    filtroConDescuento, filtroConObservaciones, filtroMontoRango, filtroAnio, filtroCreadoPor,
-    pagina, contactoIdFiltro, origenUrl, pathname,
-  ])
 
   // Solo usar datos iniciales cuando NO hay filtros activos
   const sinFiltros =
@@ -626,32 +631,137 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
         paginaExterna={pagina}
         onCambiarPagina={setPagina}
         vistas={['lista', 'tarjetas']}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         renderTarjeta={(fila) => {
           const nombre = fila.contacto_nombre
             ? `${fila.contacto_nombre}${fila.contacto_apellido ? ` ${fila.contacto_apellido}` : ''}`
             : null
-          const vencido = fila.fecha_vencimiento && new Date(fila.fecha_vencimiento) < new Date() && fila.estado === 'enviado'
+          const vencido = !!fila.fecha_vencimiento && new Date(fila.fecha_vencimiento) < new Date() && fila.estado === 'enviado'
+          const montoStr = formatoMonedaDoc(fila.total_final, fila.moneda)
+
+          // Para llamar/WhatsApp/correo: si el presupuesto tiene "dirigido a"
+          // (atención), priorizamos esos datos — es la persona específica con
+          // quien se trata. Si no hay, caemos al contacto principal.
+          const telefonoBase = fila.atencion_telefono || fila.contacto_telefono || ''
+          const correoBase = (fila.atencion_correo || fila.contacto_correo || '').trim()
+          const nombreSaludo = fila.atencion_nombre?.split(' ')[0]
+            || (nombre ? nombre.split(' ')[0] : '')
+
+          const numeroLlamar = telefonoBase.replace(/[^+\d]/g, '')
+          const numeroWa = telefonoBase.replace(/[^\d]/g, '')
+          const correo = correoBase
+          const mensajeWa = `Hola${nombreSaludo ? ` ${nombreSaludo}` : ''}, te paso el presupuesto ${fila.numero} por ${montoStr}.`
+          const asuntoCorreo = `Presupuesto ${fila.numero}`
+
+          // Estado de orden de trabajo asociada → color de píldora.
+          const colorOrden: Record<string, 'info' | 'advertencia' | 'exito'> = {
+            abierta: 'advertencia',
+            en_progreso: 'info',
+            completada: 'exito',
+          }
+          const etiquetaOrden: Record<string, string> = {
+            abierta: 'OT abierta',
+            en_progreso: 'OT en progreso',
+            completada: 'OT completada',
+          }
+
           return (
-            <div className="p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-bold text-texto-primario">{fila.numero}</span>
-                <Insignia color={COLOR_ESTADO_DOCUMENTO[fila.estado] || 'neutro'} tamano="sm">
-                  {ETIQUETAS_ESTADO[fila.estado] || fila.estado}
-                </Insignia>
+            <div className="flex flex-col">
+              <div className="p-4 flex flex-col gap-3">
+                {/* Cabecera: número del presupuesto + estado.
+                    El padding-right reserva espacio para el checkbox de selección. */}
+                <div className="flex items-start justify-between gap-2 pr-7">
+                  <span className="font-mono text-sm font-bold text-texto-primario">{fila.numero}</span>
+                  <Insignia color={COLOR_ESTADO_DOCUMENTO[fila.estado] || 'neutro'} tamano="sm">
+                    {ETIQUETAS_ESTADO[fila.estado] || fila.estado}
+                  </Insignia>
+                </div>
+
+                {/* Cliente (título) + persona de atención (subtítulo).
+                    Sin truncar — en 1 col mobile entra el nombre completo. */}
+                <div className="flex flex-col gap-0.5">
+                  {nombre ? (
+                    <p className="text-base font-medium text-texto-primario leading-snug">{nombre}</p>
+                  ) : (
+                    <p className="text-sm text-texto-terciario italic">Sin cliente</p>
+                  )}
+                  {fila.atencion_nombre && (
+                    <p className="text-xs text-texto-terciario">At. {fila.atencion_nombre}</p>
+                  )}
+                  {fila.referencia && (
+                    <p className="text-xs text-texto-terciario truncate">{fila.referencia}</p>
+                  )}
+                </div>
+
+                {/* Estado de la operación: orden de trabajo asociada y/o
+                    actividades pendientes vinculadas. Solo si hay algo. */}
+                {(fila.orden_trabajo || (fila.actividades_activas?.length ?? 0) > 0) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {fila.orden_trabajo && (
+                      <Insignia color={colorOrden[fila.orden_trabajo.estado] || 'neutro'} tamano="sm">
+                        {etiquetaOrden[fila.orden_trabajo.estado] || `OT ${fila.orden_trabajo.estado}`}
+                      </Insignia>
+                    )}
+                    {(fila.actividades_activas ?? []).map(act => (
+                      <span
+                        key={act.tipo_id}
+                        className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
+                        style={{ backgroundColor: `${act.tipo_color}18`, color: act.tipo_color }}
+                      >
+                        <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: act.tipo_color }} />
+                        {act.cantidad > 1 ? `${act.cantidad} ` : ''}{act.tipo_etiqueta}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Meta: monto destacado + fecha (con destaque rojo si está vencido). */}
+                <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+                  <span className="flex items-center gap-2.5 text-sm">
+                    <DollarSign size={13} className="shrink-0 text-texto-terciario/70" />
+                    <span className="font-mono font-semibold text-texto-primario">{montoStr}</span>
+                  </span>
+                  <LineaInfoTarjeta
+                    icono={<CalendarClock size={13} className={vencido ? 'text-estado-error' : ''} />}
+                  >
+                    <span className={vencido ? 'text-estado-error font-medium' : ''}>
+                      {formatoFecha(fila.fecha_emision)}
+                      {fila.fecha_vencimiento && ` · vence ${formatoFecha(fila.fecha_vencimiento)}`}
+                    </span>
+                  </LineaInfoTarjeta>
+                </div>
               </div>
-              <div className="space-y-0.5">
-                {nombre && <div className="text-sm text-texto-primario truncate">{nombre}</div>}
-                {fila.atencion_nombre && <div className="text-xs text-texto-terciario truncate">At. {fila.atencion_nombre}</div>}
-                {!nombre && !fila.atencion_nombre && <div className="text-xs text-texto-terciario">Sin cliente</div>}
-              </div>
-              {fila.referencia && <div className="text-xs text-texto-terciario truncate">{fila.referencia}</div>}
-              <div className="border-t border-borde-sutil pt-2.5 flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-semibold text-texto-primario">
-                  {formatoMonedaDoc(fila.total_final, fila.moneda)}
-                </span>
-                <span className={`text-xs ${vencido ? 'text-estado-error font-medium' : 'text-texto-terciario'}`}>
-                  {formatoFecha(fila.fecha_emision)}
-                </span>
+
+              {/* Footer mobile: vías típicas para enviar el presupuesto al
+                  cliente — llamar, WhatsApp con mensaje pre-armado, correo
+                  con asunto pre-armado. Slots siempre visibles, los que
+                  no tienen dato quedan apagados. */}
+              <div className="sm:hidden">
+                <PieAccionesTarjeta acciones={[
+                  {
+                    id: 'llamar',
+                    icono: <Phone size={16} className="shrink-0" />,
+                    etiqueta: 'Llamar',
+                    href: numeroLlamar ? `tel:${numeroLlamar}` : undefined,
+                    deshabilitado: !numeroLlamar,
+                  },
+                  {
+                    id: 'whatsapp',
+                    icono: <IconoWhatsApp size={16} className="shrink-0" />,
+                    etiqueta: 'WhatsApp',
+                    href: numeroWa ? `https://wa.me/${numeroWa}?text=${encodeURIComponent(mensajeWa)}` : undefined,
+                    target: '_blank',
+                    color: 'var(--canal-whatsapp)',
+                    deshabilitado: !numeroWa,
+                  },
+                  {
+                    id: 'correo',
+                    icono: <Mail size={16} className="shrink-0" />,
+                    etiqueta: 'Correo',
+                    href: correo ? `mailto:${correo}?subject=${encodeURIComponent(asuntoCorreo)}` : undefined,
+                    deshabilitado: !correo,
+                  },
+                ] satisfies AccionTarjeta[]} />
               </div>
             </div>
           )
@@ -774,15 +884,19 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
           { id: 'otros', etiqueta: 'Otros', filtros: ['con_observaciones'] },
         ]}
         onLimpiarFiltros={() => {
-          setFiltroEstado([])
-          setFiltroTipoContacto([])
-          setFiltroEnOrdenVenta('')
-          setFiltroVencido('')
-          setFiltroConDescuento('')
-          setFiltroConObservaciones('')
-          setFiltroMontoRango('')
-          setFiltroAnio('')
-          setFiltroCreadoPor('')
+          // No limpiamos contacto_id ni origen — esos vienen del contexto de navegación
+          // (no son filtros del usuario). Solo reseteamos los filtros de búsqueda.
+          filtros.setMultiple({
+            estado: [],
+            tipo_contacto: [],
+            en_orden_venta: '',
+            vencido: '',
+            con_descuento: '',
+            con_observaciones: '',
+            monto_rango: '',
+            anio: '',
+            creado_por: '',
+          })
         }}
         idModulo="presupuestos"
         opcionesOrden={[

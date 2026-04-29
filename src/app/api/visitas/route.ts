@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
     const fecha = params.get('fecha')
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'fecha_programada'
-    const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
+    // Default DESC: las visitas más recientes (de hoy hacia atrás) van arriba.
+    // El listado funciona como historial cronológico inverso. Para ver próximas
+    // primero el usuario tiene la pestaña "Planificación" o el orden "Fecha ↑".
+    const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : false
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
     const desde = (pagina - 1) * por_pagina
@@ -274,6 +277,9 @@ export async function POST(request: NextRequest) {
         asignado_a: body.asignado_a || null,
         asignado_nombre: body.asignado_nombre || null,
         fecha_programada: body.fecha_programada,
+        // tiene_hora_especifica: si el cliente lo marca, lo respetamos. Default false:
+        // las visitas creadas sin tocar la hora se guardan como "sin hora específica".
+        tiene_hora_especifica: body.tiene_hora_especifica === true,
         duracion_estimada_min: body.duracion_estimada_min || config?.duracion_estimada_default || 30,
         estado: 'programada',
         motivo: body.motivo || null,
@@ -282,6 +288,7 @@ export async function POST(request: NextRequest) {
         checklist: body.checklist || config?.checklist_predeterminado || [],
         recibe_nombre: body.recibe_nombre || null,
         recibe_telefono: body.recibe_telefono || null,
+        recibe_contacto_id: body.recibe_contacto_id || null,
         actividad_id: body.actividad_id || null,
         // Persistir el vínculo a la actividad ORIGEN (la que originó la visita)
         // para que el PATCH pueda completarla cuando se finalice la visita.

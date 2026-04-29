@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
@@ -9,8 +10,9 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import {
-  Plus, Trash2, X, Check, MapPin, Clock,
-  CheckCircle, Navigation, User, PenLine, Sparkles, XCircle,
+  Plus, Trash2, X, Check, Clock,
+  CheckCircle, User, PenLine, Sparkles, XCircle,
+  MessageCircle, AlertTriangle,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -52,6 +54,9 @@ interface PropiedadesModal {
   visita?: Visita | null
   miembros: Miembro[]
   config?: ConfigVisitas | null
+  /** Contacto a precargar al crear (ej: cliente del presupuesto/orden desde su chatter).
+   *  Se ignora si `visita` viene seteada (modo edición). */
+  contactoInicial?: { id: string; nombre: string; apellido?: string | null } | null
   onGuardar: (datos: Record<string, unknown>) => Promise<unknown>
   onCompletar?: (id: string) => Promise<void>
   onCancelar?: (id: string) => Promise<void>
@@ -83,6 +88,11 @@ interface ContactoVinculado {
   telefono: string | null
   puesto: string | null
   tipo_clave: string | null
+  // Si tiene al menos un teléfono móvil con flag WhatsApp en contacto_telefonos.
+  // Lo usamos para autoseleccionar y para pintar el indicador en el chip.
+  tiene_whatsapp: boolean
+  // Número WA principal (es_whatsapp + es_principal). Cae al primer WA si no hay principal.
+  whatsapp_principal: string | null
 }
 
 function ModalVisita({
@@ -90,6 +100,7 @@ function ModalVisita({
   visita,
   miembros,
   config,
+  contactoInicial,
   onGuardar,
   onCompletar,
   onCancelar,
@@ -128,6 +139,16 @@ function ModalVisita({
   const [vinculados, setVinculados] = useState<ContactoVinculado[]>([])
   const [cargandoVinculados, setCargandoVinculados] = useState(false)
 
+  // ── WhatsApp del contacto principal (si existe móvil flagueado en contacto_telefonos) ──
+  // Cuando el contacto principal es persona, suele tener WA y la sección "Recibe" no es
+  // crítica. Cuando es edificio/empresa, casi nunca tiene → hay que insistir con elegir un vinculado.
+  const [contactoPrincipalTieneWA, setContactoPrincipalTieneWA] = useState<boolean>(false)
+
+  // Flag para gestionar el flujo de "guardar sin canal de aviso" (mostrar confirm antes de guardar)
+  const [confirmarSinCanalAbierto, setConfirmarSinCanalAbierto] = useState(false)
+  // Marca para autoselección — se ejecuta solo en modo creación al cargar vinculados.
+  const [autoseleccionDone, setAutoseleccionDone] = useState(false)
+
   // ── Estado del contacto seleccionado para SelectorContacto ──
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoSeleccionado | null>(null)
 
@@ -160,7 +181,10 @@ function ModalVisita({
       setAsignadoNombre(visita.asignado_nombre)
       const fecha = new Date(visita.fecha_programada)
       setFechaProgramada(fecha.toISOString().split('T')[0])
-      setHoraProgramada(fecha.toTimeString().slice(0, 5))
+      // Si la visita NO tiene hora específica (programada solo por día), dejamos el
+      // input vacío para que el usuario decida si pone hora o no. Si sí la tiene,
+      // pre-llenamos con la guardada.
+      setHoraProgramada(visita.tiene_hora_especifica ? fecha.toTimeString().slice(0, 5) : '')
       setDuracionEstimada(visita.duracion_estimada_min || 30)
       setMotivo(visita.motivo || '')
       setPrioridad(visita.prioridad || 'normal')
@@ -187,10 +211,27 @@ function ModalVisita({
         setRecibeContactoSeleccionado(null)
       }
     } else {
-      // Modo creación — limpiar todo
-      setContactoId('')
-      setContactoNombre('')
-      setContactoSeleccionado(null)
+      // Modo creación — precargar contacto si viene desde otro contexto (chatter), o limpiar
+      if (contactoInicial) {
+        const nombreCompleto = `${contactoInicial.nombre}${contactoInicial.apellido ? ` ${contactoInicial.apellido}` : ''}`.trim()
+        setContactoId(contactoInicial.id)
+        setContactoNombre(nombreCompleto)
+        setContactoSeleccionado({
+          id: contactoInicial.id,
+          nombre: contactoInicial.nombre,
+          apellido: contactoInicial.apellido ?? null,
+          correo: null,
+          telefono: null,
+          tipo_contacto: null,
+          numero_identificacion: null,
+          condicion_iva: null,
+          direccion: null,
+        })
+      } else {
+        setContactoId('')
+        setContactoNombre('')
+        setContactoSeleccionado(null)
+      }
       setDireccionId(null)
       setDireccionTexto('')
       setDireccionLat(null)
@@ -200,7 +241,10 @@ function ModalVisita({
       const manana = new Date()
       manana.setDate(manana.getDate() + 1)
       setFechaProgramada(manana.toISOString().split('T')[0])
-      setHoraProgramada('09:00')
+      // Hora vacía por default: la mayoría de empresas no programa hora exacta y nos
+      // evitamos contaminar reportes con un "09:00" fantasma. Si el usuario quiere una
+      // hora puntual la tipea; si no, la visita queda como "sin hora específica".
+      setHoraProgramada('')
       setDuracionEstimada(config?.duracion_estimada_default || 30)
       setMotivo('')
       setPrioridad('normal')
@@ -212,7 +256,7 @@ function ModalVisita({
       setRecibeModoManual(false)
       setRecibeContactoSeleccionado(null)
     }
-  }, [abierto, visita, config])
+  }, [abierto, visita, config, contactoInicial])
 
   // ── Manejar selección de contacto desde SelectorContacto ──
   const manejarSeleccionContacto = useCallback((c: ContactoResultado | null) => {
@@ -280,15 +324,21 @@ function ModalVisita({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactoId])
 
-  // ── Cargar contactos vinculados al contacto seleccionado ──
+  // ── Cargar contactos vinculados + flags de WhatsApp ──
+  // En la misma carga resolvemos qué contactos (principal y vinculados) tienen un teléfono
+  // móvil con flag WhatsApp en contacto_telefonos. Esa es la fuente real para los avisos:
+  // si nadie en el set tiene WA, los modales del recorrido fallarían en runtime.
   useEffect(() => {
     if (!contactoId) {
       setVinculados([])
+      setContactoPrincipalTieneWA(false)
+      setAutoseleccionDone(false)
       return
     }
+    setAutoseleccionDone(false)
     setCargandoVinculados(true)
     const supabase = crearClienteNavegador()
-    // Buscar vinculaciones donde este contacto es el dueño
+    // 1. Vinculaciones donde este contacto es el dueño
     supabase
       .from('contacto_vinculaciones')
       .select(`
@@ -301,31 +351,103 @@ function ModalVisita({
         )
       `)
       .eq('contacto_id', contactoId)
-      .then(({ data }) => {
-        if (data) {
-          const mapeados: ContactoVinculado[] = data
-            .filter((v: Record<string, unknown>) => v.contacto_vinculado)
-            .map((v: Record<string, unknown>) => {
-              const cv = v.contacto_vinculado as Record<string, unknown>
-              const tipo = cv.tipo_contacto as Record<string, unknown> | null
-              return {
-                id: v.id as string,
-                vinculado_id: v.vinculado_id as string,
-                nombre: cv.nombre as string,
-                apellido: (cv.apellido as string) || null,
-                telefono: (cv.telefono as string) || null,
-                puesto: (v.puesto as string) || null,
-                tipo_clave: tipo?.clave as string || null,
-              }
-            })
-          setVinculados(mapeados)
-        } else {
-          setVinculados([])
+      .then(async ({ data }) => {
+        const vinculadosBase: ContactoVinculado[] = (data || [])
+          .filter((v: Record<string, unknown>) => v.contacto_vinculado)
+          .map((v: Record<string, unknown>) => {
+            const cv = v.contacto_vinculado as Record<string, unknown>
+            const tipo = cv.tipo_contacto as Record<string, unknown> | null
+            return {
+              id: v.id as string,
+              vinculado_id: v.vinculado_id as string,
+              nombre: cv.nombre as string,
+              apellido: (cv.apellido as string) || null,
+              telefono: (cv.telefono as string) || null,
+              puesto: (v.puesto as string) || null,
+              tipo_clave: tipo?.clave as string || null,
+              tiene_whatsapp: false,
+              whatsapp_principal: null,
+            }
+          })
+
+        // 2. Cargar todos los teléfonos WA (es_whatsapp = true) del contacto principal
+        //    + de los vinculados, en una sola query
+        const idsConsulta = [contactoId, ...vinculadosBase.map(v => v.vinculado_id)]
+        const { data: telefonos } = await supabase
+          .from('contacto_telefonos')
+          .select('contacto_id, valor, es_principal')
+          .in('contacto_id', idsConsulta)
+          .eq('es_whatsapp', true)
+          .order('es_principal', { ascending: false })
+
+        // 3. Indexar por contacto_id (primero principal, fallback al primero)
+        const waPorId = new Map<string, string>()
+        for (const tel of telefonos || []) {
+          if (!waPorId.has(tel.contacto_id)) {
+            waPorId.set(tel.contacto_id, tel.valor)
+          }
         }
+
+        // 4. Hidratar flags
+        const mapeados = vinculadosBase.map(v => ({
+          ...v,
+          tiene_whatsapp: waPorId.has(v.vinculado_id),
+          whatsapp_principal: waPorId.get(v.vinculado_id) || null,
+        }))
+
+        setVinculados(mapeados)
+        setContactoPrincipalTieneWA(waPorId.has(contactoId))
         setCargandoVinculados(false)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactoId])
+
+  // ── Flags derivados para la lógica de avisos por WhatsApp ──
+  // Avisos por WhatsApp habilitados a nivel empresa (config). Si está apagado,
+  // toda la sección "Recibe" se oculta (no agrega valor).
+  const avisosActivos = config?.enviar_avisos_whatsapp === true
+  // Hay un canal de aviso utilizable: receptor con teléfono cargado a mano,
+  // contacto vinculado con WA, o contacto principal con WA.
+  const tieneReceptorElegido = !!(recibeContactoSeleccionado || (recibeModoManual && recibeTelefono))
+  const algunVinculadoTieneWA = vinculados.some(v => v.tiene_whatsapp)
+  const hayCanalDisponible = tieneReceptorElegido || algunVinculadoTieneWA || contactoPrincipalTieneWA
+  // Mostrar banner cuando: avisos activos, hay canal posible (vinculados/principal con WA)
+  // pero el usuario aún no fijó receptor. Le insiste a que clickee el chip.
+  const mostrarBannerFaltaReceptor = avisosActivos && !cargandoVinculados && !tieneReceptorElegido && (algunVinculadoTieneWA || contactoPrincipalTieneWA)
+  // Mostrar banner severo cuando: avisos activos, no hay receptor, y NADIE
+  // (ni vinculados ni principal) tiene un móvil cargado. La visita se va a guardar
+  // pero los avisos van a fallar — pedimos cargar a mano o agregar móvil al contacto.
+  const mostrarBannerSinCanal = avisosActivos && !cargandoVinculados && !tieneReceptorElegido && !algunVinculadoTieneWA && !contactoPrincipalTieneWA
+
+  // ── Autoselección: si hay un único vinculado con WhatsApp y aún no se eligió receptor,
+  // lo fijamos automáticamente al cargar (solo en modo creación, una vez por contacto).
+  useEffect(() => {
+    if (!avisosActivos) return
+    if (esEdicion) return
+    if (autoseleccionDone) return
+    if (cargandoVinculados) return
+    if (recibeContactoId || recibeModoManual) return
+    const conWA = vinculados.filter(v => v.tiene_whatsapp)
+    if (conWA.length === 1) {
+      const v = conWA[0]
+      const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
+      setRecibeContactoId(v.vinculado_id)
+      setRecibeNombre(nombre)
+      setRecibeTelefono(v.whatsapp_principal || v.telefono || '')
+      setRecibeContactoSeleccionado({
+        id: v.vinculado_id,
+        nombre: v.nombre,
+        apellido: v.apellido,
+        correo: null,
+        telefono: v.whatsapp_principal || v.telefono,
+        tipo_contacto: null,
+        numero_identificacion: null,
+        condicion_iva: null,
+        direccion: null,
+      })
+    }
+    setAutoseleccionDone(true)
+  }, [avisosActivos, esEdicion, autoseleccionDone, cargandoVinculados, vinculados, recibeContactoId, recibeModoManual])
 
   // ── Manejar selección de contacto como receptor ──
   const manejarSeleccionReceptor = useCallback((c: ContactoResultado | null) => {
@@ -354,18 +476,20 @@ function ModalVisita({
     setRecibeModoManual(false)
   }, [])
 
-  // Seleccionar vinculado directamente (sin pasar por SelectorContacto)
+  // Seleccionar vinculado directamente (sin pasar por SelectorContacto).
+  // Prefiere el teléfono WA principal si existe; cae al teléfono legacy si no.
   const seleccionarReceptorVinculado = (v: ContactoVinculado) => {
     const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
+    const tel = v.whatsapp_principal || v.telefono || ''
     setRecibeContactoId(v.vinculado_id)
     setRecibeNombre(nombre)
-    setRecibeTelefono(v.telefono || '')
+    setRecibeTelefono(tel)
     setRecibeContactoSeleccionado({
       id: v.vinculado_id,
       nombre: v.nombre,
       apellido: v.apellido,
       correo: null,
-      telefono: v.telefono,
+      telefono: tel || null,
       tipo_contacto: null,
       numero_identificacion: null,
       condicion_iva: null,
@@ -436,12 +560,20 @@ function ModalVisita({
   }, [])
 
   // ── Guardar ──
-  const manejarGuardar = async () => {
+  // Si los avisos están activos y la visita no tiene ningún canal de aviso disponible
+  // (ni receptor cargado, ni vinculados con WA, ni contacto principal con WA), pedimos
+  // confirmación explícita antes de guardar — porque al iniciar el recorrido los modales
+  // de aviso van a fallar y eso es trabajo perdido para quien arma el recorrido.
+  const ejecutarGuardado = async () => {
     if (!contactoId || !fechaProgramada) return
     setGuardando(true)
     try {
+      // Hora específica: true solo si el usuario tipeó una hora. Si quedó vacía,
+      // guardamos un placeholder de medianoche (00:00) y marcamos el flag en false
+      // para que la UI muestre "sin hora específica" en lugar del 00:00.
+      const tieneHora = !!horaProgramada
       const [_a, _m, _d] = fechaProgramada.split('-').map(Number)
-      const [_h, _mn] = (horaProgramada || '09:00').split(':').map(Number)
+      const [_h, _mn] = tieneHora ? horaProgramada.split(':').map(Number) : [0, 0]
       const fechaCompleta = new Date(_a, _m - 1, _d, _h, _mn, 0).toISOString()
       await onGuardar({
         ...(esEdicion ? { id: visita!.id } : {}),
@@ -454,6 +586,7 @@ function ModalVisita({
         asignado_a: asignadoA,
         asignado_nombre: asignadoNombre,
         fecha_programada: fechaCompleta,
+        tiene_hora_especifica: tieneHora,
         duracion_estimada_min: duracionEstimada,
         motivo: motivo || null,
         prioridad,
@@ -469,10 +602,23 @@ function ModalVisita({
     }
   }
 
+  // Wrapper: si vamos a guardar y no hay canal disponible y los avisos están activos,
+  // mostramos el confirm modal en vez de proceder. El usuario elige guardar igualmente
+  // o volver al modal a cargar un teléfono / vinculado con WA.
+  const manejarGuardar = async () => {
+    if (!contactoId || !fechaProgramada) return
+    if (avisosActivos && !hayCanalDisponible) {
+      setConfirmarSinCanalAbierto(true)
+      return
+    }
+    await ejecutarGuardado()
+  }
+
   const esProvisoria = visita?.estado === 'provisoria'
   const esActiva = visita && !['completada', 'cancelada', 'provisoria'].includes(visita.estado)
 
   return (
+    <>
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
@@ -610,52 +756,84 @@ function ModalVisita({
             </div>
           )}
 
-          {/* Motivo */}
-          <div className="px-6 py-4 border-b border-white/[0.07]">
-            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-              {t('visitas.motivo')}
-            </label>
-            {config?.motivos_predefinidos && config.motivos_predefinidos.length > 0 ? (
-              <Select
-                valor={motivo}
-                onChange={setMotivo}
-                opciones={[
-                  { valor: '', etiqueta: t('visitas.seleccionar_motivo') },
-                  ...config.motivos_predefinidos.map(m => ({ valor: m, etiqueta: m })),
-                  { valor: '__otro', etiqueta: t('visitas.otro_texto_libre') },
-                ]}
-                placeholder={t('visitas.seleccionar_motivo')}
-              />
-            ) : (
-              <Input
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Ej: visita comercial, soporte técnico..."
-              />
-            )}
-            {motivo === '__otro' && (
-              <Input
-                value=""
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder={t('visitas.escribir_motivo')}
-                className="mt-2"
-              />
-            )}
-          </div>
-
-          {/* Recibe — quien recibe al visitador (opcional) */}
+          {/* Quién recibe la visita — siempre visible cuando hay contacto seleccionado.
+              Cuando los avisos por WhatsApp están activos en config, el copy y los banners
+              se enfocan en "aviso automático". Cuando están off, sigue siendo información
+              operativa útil para el visitador (saber a quién buscar y a qué número llamar
+              manualmente al llegar). Ubicada después de Dirección porque es contexto previo
+              al recorrido. */}
           {contactoId && (
             <div className="px-6 py-4 border-b border-white/[0.07]">
-              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-                {t('visitas.recibe_opcional')}
-              </label>
-              <p className="text-xs text-texto-terciario mb-3">{t('visitas.recibe_desc')}</p>
+              <div className="flex items-center gap-2 mb-1">
+                {avisosActivos ? (
+                  <MessageCircle size={13} className="text-canal-whatsapp" />
+                ) : (
+                  <User size={13} className="text-texto-terciario" />
+                )}
+                <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+                  {avisosActivos ? t('visitas.recibe_aviso_titulo') : t('visitas.recibe_visita_titulo')}
+                </label>
+              </div>
+              <p className="text-xs text-texto-terciario mb-3 leading-relaxed">
+                {avisosActivos ? t('visitas.recibe_aviso_desc') : t('visitas.recibe_visita_desc')}
+              </p>
 
-              {/* Receptor ya seleccionado — pill estilo marca */}
-              {(recibeContactoSeleccionado || (recibeModoManual && recibeNombre)) ? (
+              {/* Banner ámbar: hay vinculados o contacto principal con WA, pero el usuario aún no fijó receptor */}
+              {mostrarBannerFaltaReceptor && (
+                <div
+                  className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-card border-l-2"
+                  style={{
+                    background: 'var(--insignia-advertencia-fondo)',
+                    borderLeftColor: 'var(--insignia-advertencia)',
+                  }}
+                >
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--insignia-advertencia-texto)' }} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--insignia-advertencia-texto)' }}>
+                      {t('visitas.recibe_falta_titulo')}
+                    </p>
+                    <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--insignia-advertencia-texto)', opacity: 0.85 }}>
+                      {t('visitas.recibe_falta_desc')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Banner severo: nadie tiene WA cargado — sugerir cargar a mano o agregar móvil */}
+              {mostrarBannerSinCanal && (
+                <div
+                  className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-card border-l-2"
+                  style={{
+                    background: 'var(--insignia-peligro-fondo)',
+                    borderLeftColor: 'var(--insignia-peligro)',
+                  }}
+                >
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--insignia-peligro)' }} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--insignia-peligro)' }}>
+                      {t('visitas.sin_canal_aviso_titulo')}
+                    </p>
+                    <p className="text-[11px] mt-0.5 leading-snug text-texto-secundario">
+                      {t('visitas.sin_canal_aviso_desc')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Receptor ya seleccionado de un contacto existente — pill compacto.
+                  Solo se muestra cuando el receptor vino de un vinculado o búsqueda
+                  (recibeContactoSeleccionado != null). El modo manual mantiene sus inputs
+                  abiertos mientras el usuario tipea para que pueda completar nombre + teléfono.
+                  Ícono cambia según si los avisos por WhatsApp están activos: WA verde
+                  cuando sí, persona cuando no (evita sugerir aviso automático que no va a llegar). */}
+              {recibeContactoSeleccionado ? (
                 <div className="space-y-2">
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-card border border-texto-marca/40 bg-texto-marca/10">
-                    <User size={13} className="text-texto-marca shrink-0" />
+                    {avisosActivos ? (
+                      <MessageCircle size={13} className="text-texto-marca shrink-0" />
+                    ) : (
+                      <User size={13} className="text-texto-marca shrink-0" />
+                    )}
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-texto-primario">
                         {recibeNombre}
@@ -669,23 +847,28 @@ function ModalVisita({
                     <button
                       onClick={limpiarReceptor}
                       className="text-texto-terciario hover:text-estado-error transition-colors shrink-0"
+                      aria-label={t('comun.cancelar')}
                     >
                       <X size={14} />
                     </button>
                   </div>
                 </div>
               ) : recibeModoManual ? (
-                /* ── Modo manual: inputs libres ── */
+                /* ── Modo manual: inputs libres con auto-formato.
+                    Nombre: capitalización tipo "Juan Pérez". Teléfono: formato AR/internacional
+                    con preview "Se guardará como +54 9 11 1234-5678". ── */
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
                       value={recibeNombre}
-                      onChange={(e) => { setRecibeNombre(e.target.value); setRecibeContactoId(null); setRecibeContactoSeleccionado(null) }}
+                      onChange={(e) => setRecibeNombre(e.target.value)}
                       placeholder="Nombre"
+                      formato="nombre_persona"
                     />
                     <Input
+                      tipo="tel"
                       value={recibeTelefono}
-                      onChange={(e) => { setRecibeTelefono(e.target.value); setRecibeContactoId(null); setRecibeContactoSeleccionado(null) }}
+                      onChange={(e) => setRecibeTelefono(e.target.value)}
                       placeholder="Teléfono"
                     />
                   </div>
@@ -698,29 +881,55 @@ function ModalVisita({
                   </button>
                 </div>
               ) : (
-                /* ── Modo buscador: vinculados + SelectorContacto ── */
+                /* ── Modo buscador: empty state + vinculados clickeables + SelectorContacto ── */
                 <div className="space-y-3">
-                  {/* Sugerencias rápidas: contactos vinculados */}
+                  {/* Empty state explícito: comunica que NO hay receptor elegido todavía
+                      y le dice al usuario qué hacer. Tinte de advertencia sutil (borde
+                      punteado + ícono + título en color advertencia, fondo apenas teñido)
+                      para que se note que falta un paso, sin saturar visualmente. */}
+                  <div className="rounded-card border border-dashed border-insignia-advertencia/40 bg-insignia-advertencia/[0.04] px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangle size={13} className="text-insignia-advertencia" />
+                      <span className="text-xs font-medium text-insignia-advertencia">
+                        {t('visitas.recibe_vacio_titulo')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-texto-terciario mt-0.5 leading-snug">
+                      {t('visitas.recibe_vacio_desc')}
+                    </p>
+                  </div>
+
+                  {/* Sugerencias rápidas: contactos vinculados como botones explícitos para elegir.
+                      Cada chip lleva ícono "+" para comunicar acción de agregar; los que tienen
+                      WhatsApp llevan badge verde adicional al final del nombre. */}
                   {vinculados.length > 0 && !cargandoVinculados && (
                     <div>
-                      <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">{t('visitas.vinculados')}</span>
+                      <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                        {t('visitas.recibe_tocar_para_elegir')}
+                      </span>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {vinculados.map(v => {
-                          const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
-                          return (
-                            <button
-                              key={v.id}
-                              onClick={() => seleccionarReceptorVinculado(v)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-texto-marca/10 hover:border-texto-marca/30 transition-colors"
-                            >
-                              <User size={11} className="text-texto-terciario" />
-                              <span>{nombre}</span>
-                              {v.puesto && (
-                                <span className="text-xxs text-texto-terciario">· {v.puesto}</span>
-                              )}
-                            </button>
-                          )
-                        })}
+                        {[...vinculados]
+                          .sort((a, b) => Number(b.tiene_whatsapp) - Number(a.tiene_whatsapp))
+                          .map(v => {
+                            const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
+                            return (
+                              <button
+                                key={v.id}
+                                onClick={() => seleccionarReceptorVinculado(v)}
+                                title={v.tiene_whatsapp ? t('visitas.tiene_whatsapp') : t('visitas.sin_whatsapp')}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-card border border-borde-sutil bg-white/[0.03] text-xs text-texto-secundario hover:bg-texto-marca/10 hover:border-texto-marca/40 hover:text-texto-primario transition-colors"
+                              >
+                                <Plus size={11} className="text-texto-marca" />
+                                <span>{nombre}</span>
+                                {v.puesto && (
+                                  <span className="text-xxs text-texto-terciario">· {v.puesto}</span>
+                                )}
+                                {v.tiene_whatsapp && (
+                                  <MessageCircle size={11} className="text-canal-whatsapp ml-0.5" />
+                                )}
+                              </button>
+                            )
+                          })}
                       </div>
                     </div>
                   )}
@@ -790,8 +999,15 @@ function ModalVisita({
               <SelectorHora
                 valor={horaProgramada}
                 onChange={(v) => setHoraProgramada(v || '')}
+                placeholder="Hora opcional"
               />
             </div>
+            {!horaProgramada && (
+              <p className="text-[11px] text-texto-terciario mt-1.5 leading-snug">
+                Sin hora específica — la visita queda programada para el día. La hora real
+                queda registrada cuando el visitador la inicia.
+              </p>
+            )}
             <div className="mt-3">
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">
                 {t('visitas.duracion_estimada')} (min)
@@ -811,29 +1027,66 @@ function ModalVisita({
             </div>
           </div>
 
-          {/* Prioridad */}
-          <div className="px-6 py-4 border-b border-white/[0.07]">
-            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-              {t('visitas.prioridad')}
-            </label>
-            <div className="flex gap-1.5">
-              {(['baja', 'normal', 'alta', 'urgente'] as const).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPrioridad(p)}
-                  className={`px-3 py-1.5 rounded-card text-xs font-medium border transition-colors ${
-                    prioridad === p
-                      ? p === 'urgente'
-                        ? 'bg-insignia-peligro/15 border-insignia-peligro/40 text-insignia-peligro'
-                        : p === 'alta'
-                        ? 'bg-insignia-advertencia/15 border-insignia-advertencia/40 text-insignia-advertencia'
-                        : 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
-                      : 'border-borde-sutil text-texto-terciario hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {t(`visitas.prioridades.${p}`)}
-                </button>
-              ))}
+          {/* Motivo + Prioridad — unificados en una sola sección porque conceptualmente
+              son la "naturaleza" de la visita: qué se va a hacer y con qué urgencia.
+              Las píldoras de prioridad son compactas para que no compitan con el motivo. */}
+          <div className="px-6 py-4 border-b border-white/[0.07] space-y-3">
+            <div>
+              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
+                {t('visitas.motivo')}
+              </label>
+              {config?.motivos_predefinidos && config.motivos_predefinidos.length > 0 ? (
+                <Select
+                  valor={motivo}
+                  onChange={setMotivo}
+                  opciones={[
+                    { valor: '', etiqueta: t('visitas.seleccionar_motivo') },
+                    ...config.motivos_predefinidos.map(m => ({ valor: m, etiqueta: m })),
+                    { valor: '__otro', etiqueta: t('visitas.otro_texto_libre') },
+                  ]}
+                  placeholder={t('visitas.seleccionar_motivo')}
+                />
+              ) : (
+                <Input
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder="Ej: visita comercial, soporte técnico..."
+                />
+              )}
+              {motivo === '__otro' && (
+                <Input
+                  value=""
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder={t('visitas.escribir_motivo')}
+                  className="mt-2"
+                />
+              )}
+            </div>
+
+            {/* Prioridad inline: label chico + píldoras compactas en la misma fila */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                {t('visitas.prioridad')}
+              </span>
+              <div className="flex gap-1">
+                {(['baja', 'normal', 'alta', 'urgente'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPrioridad(p)}
+                    className={`px-2 py-0.5 rounded-card text-[11px] font-medium border transition-colors ${
+                      prioridad === p
+                        ? p === 'urgente'
+                          ? 'bg-insignia-peligro/15 border-insignia-peligro/40 text-insignia-peligro'
+                          : p === 'alta'
+                          ? 'bg-insignia-advertencia/15 border-insignia-advertencia/40 text-insignia-advertencia'
+                          : 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                        : 'border-borde-sutil text-texto-terciario hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    {t(`visitas.prioridades.${p}`)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -899,6 +1152,24 @@ function ModalVisita({
         </div>
       </div>
     </Modal>
+
+    {/* Confirmación al guardar cuando avisos están activos pero no hay canal disponible.
+        Permite al usuario continuar guardando aún sabiendo que los avisos no se enviarán
+        (ej: cliente ya avisado por otro medio), o volver a cargar un teléfono. */}
+    <ModalConfirmacion
+      abierto={confirmarSinCanalAbierto}
+      onCerrar={() => setConfirmarSinCanalAbierto(false)}
+      onConfirmar={async () => {
+        setConfirmarSinCanalAbierto(false)
+        await ejecutarGuardado()
+      }}
+      titulo={t('visitas.confirmar_sin_canal_titulo')}
+      descripcion={t('visitas.confirmar_sin_canal_desc')}
+      tipo="advertencia"
+      etiquetaConfirmar={t('visitas.guardar_igualmente')}
+      cargando={guardando}
+    />
+    </>
   )
 }
 

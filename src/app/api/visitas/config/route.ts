@@ -30,6 +30,7 @@ export async function GET() {
       duracion_estimada_default: 30,
       motivos_predefinidos: [],
       resultados_predefinidos: [],
+      enviar_avisos_whatsapp: false,
     }
 
     return NextResponse.json(configFinal)
@@ -65,6 +66,7 @@ export async function PATCH(request: NextRequest) {
     if (body.duracion_estimada_default !== undefined) campos.duracion_estimada_default = body.duracion_estimada_default
     if (body.motivos_predefinidos !== undefined) campos.motivos_predefinidos = body.motivos_predefinidos
     if (body.resultados_predefinidos !== undefined) campos.resultados_predefinidos = body.resultados_predefinidos
+    if (body.enviar_avisos_whatsapp !== undefined) campos.enviar_avisos_whatsapp = body.enviar_avisos_whatsapp
 
     // Upsert: crear si no existe
     const { data, error } = await admin

@@ -14,8 +14,6 @@ export interface RutaMapa {
   origen?: { lat: number; lng: number; texto?: string }
   /** Destino final de la ruta. Si es igual al origen, la ruta es circular. */
   destino?: { lat: number; lng: number; texto?: string }
-  /** Heading/dirección de movimiento del usuario en grados (0-360) */
-  heading?: number | null
 }
 
 export type ModoNavegacion = 'completa' | 'siguiente'

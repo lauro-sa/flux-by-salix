@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
+import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -18,7 +18,7 @@ import {
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Trash2, X, FileDown, KanbanSquare, History,
+  Trash2, X, FileDown, KanbanSquare, History, Zap,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
@@ -31,6 +31,8 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
+import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
+import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import type { TipoContacto } from '@/tipos'
 import { useFormato } from '@/hooks/useFormato'
@@ -83,6 +85,11 @@ interface FilaContacto {
   responsables: { usuario_id: string }[]
   vinculaciones: { vinculado: { id: string; nombre: string; apellido: string | null } }[]
   ultima_etapa: { etapa_etiqueta: string; etapa_color: string; tipo_canal: string } | null
+  /** Tipos de actividad pendientes (no completada/cancelada) con su color
+      configurado por la empresa. Una entrada por tipo distinto + cantidad. */
+  actividades_activas?: { tipo_id: string; tipo_etiqueta: string; tipo_color: string; tipo_icono: string | null; cantidad: number }[]
+  /** Visitas programadas (módulo Visitas, planificación de recorrido). */
+  cantidad_visitas_activas?: number
 }
 
 const POR_PAGINA = 50
@@ -106,35 +113,77 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const vinculadoDe = searchParams.get('vinculado_de')
-  const origenUrl = searchParams.get('origen')
 
-  // Filtros server-side — restaurar desde URL
-  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
-  const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen_filtro') || '')
-  const [filtroIva, setFiltroIva] = useState(searchParams.get('condicion_iva') || '')
-  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa_id') || '')
-  // Filtros nuevos (multi-select se persiste como csv)
-  const [filtroResponsable, setFiltroResponsable] = useState(searchParams.get('responsable_id') || '')
-  const [filtroEtiquetas, setFiltroEtiquetas] = useState<string[]>(searchParams.get('etiquetas_multi')?.split(',').filter(Boolean) || [])
-  const [filtroCanales, setFiltroCanales] = useState<string[]>(searchParams.get('tiene_canales')?.split(',').filter(Boolean) || [])
-  const [filtroPresupuesto, setFiltroPresupuesto] = useState(searchParams.get('presupuesto') || '')
-  const [filtroEstadoPres, setFiltroEstadoPres] = useState<string[]>(searchParams.get('estado_presupuesto')?.split(',').filter(Boolean) || [])
-  const [filtroActividades, setFiltroActividades] = useState(searchParams.get('actividades') || '')
-  const [filtroProvincia, setFiltroProvincia] = useState(searchParams.get('provincia') || '')
-  const [filtroCiudad, setFiltroCiudad] = useState(searchParams.get('ciudad') || '')
-  const [filtroCreadoRango, setFiltroCreadoRango] = useState(searchParams.get('creado_rango') || '')
-  const [filtroUltimaInteraccion, setFiltroUltimaInteraccion] = useState(searchParams.get('ultima_interaccion') || '')
-  const [filtroRubros, setFiltroRubros] = useState<string[]>(searchParams.get('rubros')?.split(',').filter(Boolean) || [])
-  const [filtroRelaciones, setFiltroRelaciones] = useState<string[]>(searchParams.get('relaciones')?.split(',').filter(Boolean) || [])
+  // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
+  // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
+  const filtros = useFiltrosUrl({
+    pathname: '/contactos',
+    campos: {
+      tipo: { defecto: '' },
+      origen_filtro: { defecto: '' },
+      condicion_iva: { defecto: '' },
+      etapa_id: { defecto: '' },
+      responsable_id: { defecto: '' },
+      etiquetas_multi: { defecto: [] as string[] },
+      tiene_canales: { defecto: [] as string[] },
+      presupuesto: { defecto: '' },
+      estado_presupuesto: { defecto: [] as string[] },
+      actividades: { defecto: '' },
+      provincia: { defecto: '' },
+      ciudad: { defecto: '' },
+      creado_rango: { defecto: '' },
+      ultima_interaccion: { defecto: '' },
+      rubros: { defecto: [] as string[] },
+      relaciones: { defecto: [] as string[] },
+      // Params de contexto de navegación: se preservan en URL pero no son filtros del usuario.
+      vinculado_de: { defecto: '' },
+      origen: { defecto: '' },
+    },
+    busqueda: { claveUrl: 'q' },
+    pagina: { defecto: 1 },
+  })
 
-  // Búsqueda con debounce + reset de página automático (restaura desde URL, salta primer reset)
-  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
-    searchParams.get('q') || '',
-    Number(searchParams.get('pagina')) || 1,
-    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas.join(','), filtroCanales.join(','), filtroPresupuesto, filtroEstadoPres.join(','), filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, filtroRubros.join(','), filtroRelaciones.join(',')],
-    true,
-  )
+  // Aliases para compatibilidad con el resto del componente.
+  const f = filtros.valores
+  const filtroTipo = f.tipo
+  const filtroOrigen = f.origen_filtro
+  const filtroIva = f.condicion_iva
+  const filtroEtapa = f.etapa_id
+  const filtroResponsable = f.responsable_id
+  const filtroEtiquetas = f.etiquetas_multi
+  const filtroCanales = f.tiene_canales
+  const filtroPresupuesto = f.presupuesto
+  const filtroEstadoPres = f.estado_presupuesto
+  const filtroActividades = f.actividades
+  const filtroProvincia = f.provincia
+  const filtroCiudad = f.ciudad
+  const filtroCreadoRango = f.creado_rango
+  const filtroUltimaInteraccion = f.ultima_interaccion
+  const filtroRubros = f.rubros
+  const filtroRelaciones = f.relaciones
+  const vinculadoDe = f.vinculado_de || null
+  const origenUrl = f.origen || null
+  const setFiltroTipo = (v: string) => filtros.set('tipo', v)
+  const setFiltroOrigen = (v: string) => filtros.set('origen_filtro', v)
+  const setFiltroIva = (v: string) => filtros.set('condicion_iva', v)
+  const setFiltroEtapa = (v: string) => filtros.set('etapa_id', v)
+  const setFiltroResponsable = (v: string) => filtros.set('responsable_id', v)
+  const setFiltroEtiquetas = (v: string[]) => filtros.set('etiquetas_multi', v)
+  const setFiltroCanales = (v: string[]) => filtros.set('tiene_canales', v)
+  const setFiltroPresupuesto = (v: string) => filtros.set('presupuesto', v)
+  const setFiltroEstadoPres = (v: string[]) => filtros.set('estado_presupuesto', v)
+  const setFiltroActividades = (v: string) => filtros.set('actividades', v)
+  const setFiltroProvincia = (v: string) => filtros.set('provincia', v)
+  const setFiltroCiudad = (v: string) => filtros.set('ciudad', v)
+  const setFiltroCreadoRango = (v: string) => filtros.set('creado_rango', v)
+  const setFiltroUltimaInteraccion = (v: string) => filtros.set('ultima_interaccion', v)
+  const setFiltroRubros = (v: string[]) => filtros.set('rubros', v)
+  const setFiltroRelaciones = (v: string[]) => filtros.set('relaciones', v)
+  const busqueda = filtros.busquedaInput
+  const setBusqueda = filtros.setBusquedaInput
+  const busquedaDebounced = filtros.busquedaActiva
+  const pagina = filtros.pagina
+  const setPagina = filtros.setPagina
 
   const [modalImportar, setModalImportar] = useState(false)
   const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
@@ -142,36 +191,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
-  const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
-
-  // Sincronizar filtros → URL (replaceState para no contaminar historial)
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (busquedaDebounced) params.set('q', busquedaDebounced)
-    if (filtroTipo) params.set('tipo', filtroTipo)
-    if (filtroOrigen) params.set('origen_filtro', filtroOrigen)
-    if (filtroIva) params.set('condicion_iva', filtroIva)
-    if (filtroEtapa) params.set('etapa_id', filtroEtapa)
-    if (filtroResponsable) params.set('responsable_id', filtroResponsable)
-    if (filtroEtiquetas.length) params.set('etiquetas_multi', filtroEtiquetas.join(','))
-    if (filtroCanales.length) params.set('tiene_canales', filtroCanales.join(','))
-    if (filtroPresupuesto) params.set('presupuesto', filtroPresupuesto)
-    if (filtroEstadoPres.length) params.set('estado_presupuesto', filtroEstadoPres.join(','))
-    if (filtroActividades) params.set('actividades', filtroActividades)
-    if (filtroProvincia) params.set('provincia', filtroProvincia)
-    if (filtroCiudad) params.set('ciudad', filtroCiudad)
-    if (filtroCreadoRango) params.set('creado_rango', filtroCreadoRango)
-    if (filtroUltimaInteraccion) params.set('ultima_interaccion', filtroUltimaInteraccion)
-    if (filtroRubros.length) params.set('rubros', filtroRubros.join(','))
-    if (filtroRelaciones.length) params.set('relaciones', filtroRelaciones.join(','))
-    if (pagina > 1) params.set('pagina', String(pagina))
-    if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
-    if (origenUrl) params.set('origen', origenUrl)
-    const qs = params.toString()
-    const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
-    window.history.replaceState(null, '', nuevaUrl)
-  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, filtroResponsable, filtroEtiquetas, filtroCanales, filtroPresupuesto, filtroEstadoPres, filtroActividades, filtroProvincia, filtroCiudad, filtroCreadoRango, filtroUltimaInteraccion, filtroRubros, filtroRelaciones, pagina, vinculadoDe, origenUrl, pathname])
 
   // Solo usar datosInicialesJson (SSR) cuando NINGÚN filtro está activo.
   // Si alguno cambia → useListado hace request con params y el SSR se descarta.
@@ -719,56 +739,163 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
     const color = tipo ? (COLOR_TIPO_CONTACTO[tipo.clave] || 'neutro') as ColorInsignia : 'neutro'
     const nombreCompleto = `${fila.nombre}${fila.apellido ? ` ${fila.apellido}` : ''}`
     const dir = fila.direcciones?.find(d => d.es_principal) || fila.direcciones?.[0]
+    // Para Maps preferimos `texto` (dirección formateada por Google) sobre `calle`
+    const direccionParaMapa = dir?.texto || dir?.calle || ''
     const ubicacion = dir?.calle || dir?.texto
     const tieneDetalle = fila.telefono || fila.whatsapp || ubicacion
 
+    // Datos para el footer de acciones rápidas (solo mobile).
+    // Se renderizan siempre los 3 slots: si falta el dato, se muestra opaco y no clickeable.
+    const numeroLlamar = (fila.telefono || fila.whatsapp || '').replace(/[^+\d]/g, '')
+    const numeroWhatsapp = (fila.whatsapp || fila.telefono || '').replace(/[^\d]/g, '')
+
     return (
-      <div className="p-4 flex flex-col gap-3">
-        {/* ── Identidad ── */}
-        <div className="flex items-center gap-2.5">
-          <Avatar nombre={nombreCompleto} tamano="md" />
-          <div className="min-w-0 flex-1">
-            <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
-            <div className="text-xs text-texto-terciario truncate">{fila.correo || t('comun.sin_correo')}</div>
-          </div>
-        </div>
-
-        {/* ── Tipo + Cargo ── */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            {tipo && <Insignia color={color} tamano="sm">{tipo.etiqueta}</Insignia>}
-            {fila.codigo && <span className="text-xs text-texto-terciario font-mono">{fila.codigo}</span>}
-          </div>
-          {fila.cargo && <p className="text-xs text-texto-terciario truncate">{fila.cargo}{fila.rubro ? ` · ${fila.rubro}` : ''}</p>}
-        </div>
-
-        {/* ── Etiquetas ── */}
-        {fila.etiquetas?.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            {fila.etiquetas.slice(0, 3).map(e => (
-              <Insignia key={e} color={coloresEtiquetas.get(e) || 'neutro'} tamano="sm">{e}</Insignia>
-            ))}
-            {fila.etiquetas.length > 3 && <span className="text-xs text-texto-terciario">+{fila.etiquetas.length - 3}</span>}
-          </div>
+      <div className="flex flex-col">
+        {/* Código del contacto al lado del checkbox (top-right). Mantiene la
+            referencia visible sin comerse espacio en el bloque de identidad. */}
+        {fila.codigo && (
+          <span className="absolute top-2.5 right-10 text-[11px] text-texto-terciario font-mono pointer-events-none">
+            {fila.codigo}
+          </span>
         )}
 
-        {/* ── Detalle ── */}
-        {tieneDetalle && (
-          <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-terciario">
-            {(fila.telefono || fila.whatsapp) && (
-              <span className="flex items-center gap-1">
-                <Phone size={10} className="shrink-0" />
-                <TextoTelefono valor={fila.telefono || fila.whatsapp} />
-              </span>
+        <div className="p-4 flex flex-col gap-3">
+          {/* ── Identidad ── */}
+          <div className="flex items-center gap-2.5">
+            <Avatar nombre={nombreCompleto} tamano="md" />
+            <div className="min-w-0 flex-1 pr-16">
+              <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
+              <div className="text-xs text-texto-terciario truncate">{fila.correo || t('comun.sin_correo')}</div>
+            </div>
+          </div>
+
+          {/* ── Identidad: tipo + etapa + etiquetas en una fila ──
+              Tipo y etapa (filled) son marcadores de "qué es este contacto".
+              Las etiquetas (outline) son categorías editoriales. Se separan con
+              un divisor sutil para que la diferencia de estilo + el divisor
+              dejen claro qué es qué. */}
+          <div className="space-y-1.5">
+            {(() => {
+              const tieneEstado = !!tipo || !!fila.ultima_etapa
+              const etiquetasVisibles = fila.etiquetas?.slice(0, 3) ?? []
+              const restoEtiquetas = (fila.etiquetas?.length ?? 0) - etiquetasVisibles.length
+              const tieneEtiquetas = etiquetasVisibles.length > 0
+              if (!tieneEstado && !tieneEtiquetas) return null
+              return (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {tipo && <Insignia color={color} tamano="sm">{tipo.etiqueta}</Insignia>}
+                  {fila.ultima_etapa && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
+                      style={{ backgroundColor: `${fila.ultima_etapa.etapa_color}18`, color: fila.ultima_etapa.etapa_color }}
+                    >
+                      <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: fila.ultima_etapa.etapa_color }} />
+                      {fila.ultima_etapa.etapa_etiqueta}
+                    </span>
+                  )}
+                  {tieneEstado && tieneEtiquetas && (
+                    <span className="h-3.5 w-px bg-borde-fuerte/40 mx-0.5 shrink-0" aria-hidden />
+                  )}
+                  {etiquetasVisibles.map(e => (
+                    <Insignia key={e} color={coloresEtiquetas.get(e) || 'neutro'} tamano="sm" variante="outline">{e}</Insignia>
+                  ))}
+                  {restoEtiquetas > 0 && (
+                    <span className="text-xxs text-texto-terciario">+{restoEtiquetas}</span>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ── Pendientes: visitas + actividades por tipo ──
+                Va en su propia fila con un label "ACTIVIDADES" delante para que
+                se entienda qué son las píldoras (los tipos de actividad son
+                dinámicos y pueden tener nombres custom: "Presupuestar",
+                "Cobrar", "Reunión X", etc., y sin contexto se confunden con
+                etiquetas o categorías). */}
+            {((fila.cantidad_visitas_activas ?? 0) > 0 || (fila.actividades_activas?.length ?? 0) > 0) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Zap size={14} className="shrink-0 text-texto-terciario/70" />
+                {(fila.cantidad_visitas_activas ?? 0) > 0 && (
+                  <Insignia color="info" tamano="sm">
+                    {fila.cantidad_visitas_activas} {fila.cantidad_visitas_activas === 1 ? t('contactos.visita_singular') : t('contactos.visita_plural')}
+                  </Insignia>
+                )}
+                {(fila.actividades_activas ?? []).map(act => (
+                  <span
+                    key={act.tipo_id}
+                    className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
+                    style={{ backgroundColor: `${act.tipo_color}18`, color: act.tipo_color }}
+                    title={`${act.cantidad} ${act.cantidad === 1 ? t('contactos.actividad_singular') : t('contactos.actividad_plural')}: ${act.tipo_etiqueta}`}
+                  >
+                    <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: act.tipo_color }} />
+                    {act.cantidad > 1 ? `${act.cantidad} ` : ''}{act.tipo_etiqueta}
+                  </span>
+                ))}
+              </div>
             )}
-            {ubicacion && (
-              <span className="flex items-center gap-1">
-                <MapPin size={10} className="shrink-0" />
-                {ubicacion}
-              </span>
+
+            {fila.cargo && <p className="text-xs text-texto-terciario truncate">{fila.cargo}{fila.rubro ? ` · ${fila.rubro}` : ''}</p>}
+            {/* Vinculación: explica por qué un contacto puede no tener dirección
+                ni teléfono propios — los hereda del contacto vinculado (ej.
+                persona ↳ empresa, persona ↳ edificio). */}
+            {fila.vinculaciones && fila.vinculaciones.length > 0 && (
+              <LineaInfoTarjeta icono={<Link2 size={13} />} truncar>
+                {fila.vinculaciones[0].vinculado.nombre}
+                {fila.vinculaciones[0].vinculado.apellido ? ` ${fila.vinculaciones[0].vinculado.apellido}` : ''}
+                {fila.vinculaciones.length > 1 && ` +${fila.vinculaciones.length - 1}`}
+              </LineaInfoTarjeta>
             )}
           </div>
-        )}
+
+          {/* ── Detalle: cada dato en su propia línea con ícono más grande y
+                separado del texto para que se lea como ícono + dato. ── */}
+          {tieneDetalle && (
+            <div className="border-t border-borde-sutil pt-3 flex flex-col gap-2">
+              {(fila.telefono || fila.whatsapp) && (
+                <LineaInfoTarjeta icono={<Phone size={13} />}>
+                  <TextoTelefono valor={fila.telefono || fila.whatsapp} />
+                </LineaInfoTarjeta>
+              )}
+              {ubicacion && (
+                <LineaInfoTarjeta icono={<MapPin size={13} />} alineacion="start">
+                  {ubicacion}
+                </LineaInfoTarjeta>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer mobile: llamar / WhatsApp / mapa con apps nativas ──
+            Slots siempre visibles para mantener un layout consistente entre
+            tarjetas; los que no tienen dato quedan apagados. */}
+        <div className="sm:hidden">
+          <PieAccionesTarjeta acciones={[
+            {
+              id: 'llamar',
+              icono: <Phone size={16} className="shrink-0" />,
+              etiqueta: t('contactos.llamar'),
+              href: numeroLlamar ? `tel:${numeroLlamar}` : undefined,
+              deshabilitado: !numeroLlamar,
+            },
+            {
+              id: 'whatsapp',
+              icono: <IconoWhatsApp size={16} className="shrink-0" />,
+              etiqueta: 'WhatsApp',
+              href: numeroWhatsapp ? `https://wa.me/${numeroWhatsapp}` : undefined,
+              target: '_blank',
+              color: 'var(--canal-whatsapp)',
+              deshabilitado: !numeroWhatsapp,
+            },
+            {
+              id: 'navegar',
+              icono: <MapPin size={16} className="shrink-0" />,
+              etiqueta: 'Navegar',
+              href: direccionParaMapa ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(direccionParaMapa)}&travelmode=driving` : undefined,
+              target: '_blank',
+              deshabilitado: !direccionParaMapa,
+            },
+          ] satisfies AccionTarjeta[]} />
+        </div>
       </div>
     )
   }
@@ -1038,22 +1165,25 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
           { id: 'fechas', etiqueta: 'Fechas', filtros: ['creado_rango', 'ultima_interaccion'] },
         ]}
         onLimpiarFiltros={() => {
-          setFiltroTipo('')
-          setFiltroOrigen('')
-          setFiltroIva('')
-          setFiltroEtapa('')
-          setFiltroResponsable('')
-          setFiltroEtiquetas([])
-          setFiltroCanales([])
-          setFiltroPresupuesto('')
-          setFiltroEstadoPres([])
-          setFiltroActividades('')
-          setFiltroProvincia('')
-          setFiltroCiudad('')
-          setFiltroCreadoRango('')
-          setFiltroUltimaInteraccion('')
-          setFiltroRubros([])
-          setFiltroRelaciones([])
+          // No limpiamos vinculado_de ni origen — esos vienen del contexto de navegación.
+          filtros.setMultiple({
+            tipo: '',
+            origen_filtro: '',
+            condicion_iva: '',
+            etapa_id: '',
+            responsable_id: '',
+            etiquetas_multi: [],
+            tiene_canales: [],
+            presupuesto: '',
+            estado_presupuesto: [],
+            actividades: '',
+            provincia: '',
+            ciudad: '',
+            creado_rango: '',
+            ultima_interaccion: '',
+            rubros: [],
+            relaciones: [],
+          })
         }}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
@@ -1071,6 +1201,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
           router.push(`/contactos/${fila.id}`)
         }}
         renderTarjeta={renderizarTarjeta}
+        gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         mostrarResumen
         estadoVacio={
           <EstadoVacio

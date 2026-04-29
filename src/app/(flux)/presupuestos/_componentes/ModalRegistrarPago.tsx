@@ -23,7 +23,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Paperclip, MessageSquare, CreditCard, Trash2, ReceiptText, Sparkles,
-  Check, AlertCircle, Calculator, Upload,
+  Check, AlertCircle, Calculator, Upload, Mail, FileText, Image as ImageIcon,
 } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Input } from '@/componentes/ui/Input'
@@ -46,6 +46,7 @@ import {
   type TipoComprobantePago,
 } from '@/tipos/presupuesto-pago'
 import type { CuotaPago, Moneda } from '@/tipos/presupuesto'
+import type { AdjuntoChatter } from '@/tipos/chatter'
 import {
   calcularResumenesCuotas,
   calcularTotalCobradoPresupuesto,
@@ -76,6 +77,12 @@ interface PropsModalRegistrarPago {
   chatterOrigenId?: string | null
   /** ID de mensaje de inbox de origen */
   mensajeOrigenId?: string | null
+  /** Adjuntos del mensaje/correo de origen — el usuario puede tildar
+   *  cuáles tomar como comprobante del pago en lugar de re-subir archivos. */
+  adjuntosOrigen?: AdjuntoChatter[]
+  /** Texto descriptivo del origen para el card del selector
+   *  (ej: "correo de Romina Fraiese"). */
+  origenDescripcion?: string | null
   /** Callback al guardar exitoso. En "Pagaron el total" multi-cuota
    *  se llama una sola vez (sin pago concreto) tras crear todos los pagos. */
   onPagoGuardado?: (pago?: PresupuestoPago) => void
@@ -136,6 +143,8 @@ export function ModalRegistrarPago({
   monedasDisponibles,
   chatterOrigenId,
   mensajeOrigenId,
+  adjuntosOrigen,
+  origenDescripcion,
   onPagoGuardado,
 }: PropsModalRegistrarPago) {
   const { mostrar } = useToast()
@@ -163,6 +172,9 @@ export function ModalRegistrarPago({
 
   const [archivosLocales, setArchivosLocales] = useState<ArchivoLocal[]>([])
   const [comprobantesExistentes, setComprobantesExistentes] = useState<PresupuestoPagoComprobante[]>([])
+  // Tipo elegido por adjunto del correo origen (si la entrada está, está
+  // tildado y se sube como ese tipo; si no, no se incluye).
+  const [tiposAdjuntosOrigen, setTiposAdjuntosOrigen] = useState<Record<number, TipoComprobantePago>>({})
   // URLs firmadas de los comprobantes existentes (bucket privado obliga a
   // pasar por el endpoint /descargar). Se llenan al cargar el pago en modo
   // editar. Las URLs duran 5 min — al expirar se vuelven a firmar al next render.
@@ -229,8 +241,9 @@ export function ModalRegistrarPago({
     if (!METODOS_REQUIEREN_COMPROBANTE.has(metodo)) return false
     const tieneNuevo = archivosLocales.some((a) => a.tipo === 'comprobante')
     const tieneExistente = comprobantesExistentes.some((c) => c.tipo === 'comprobante')
-    return !tieneNuevo && !tieneExistente
-  }, [metodo, archivosLocales, comprobantesExistentes])
+    const tieneDesdeCorreo = Object.values(tiposAdjuntosOrigen).some((t) => t === 'comprobante')
+    return !tieneNuevo && !tieneExistente && !tieneDesdeCorreo
+  }, [metodo, archivosLocales, comprobantesExistentes, tiposAdjuntosOrigen])
 
   const porcentajeCobrado = useMemo(() => {
     if (totalPresupuesto <= 0) return 0
@@ -282,7 +295,19 @@ export function ModalRegistrarPago({
     setComprobantesExistentes([])
     setArchivosLocales([])
     setTipoSiguienteArchivo('comprobante')
-  }, [abierto, pago, monedaPresupuesto, hoyISO])
+
+    // Pre-selección de adjuntos del correo origen: si solo hay 1 archivo
+    // pdf/imagen, lo marcamos como comprobante automáticamente. Con varios,
+    // el usuario tildará a mano para evitar adjuntar firmas/anexos.
+    const seleccionInicial: Record<number, TipoComprobantePago> = {}
+    if (adjuntosOrigen && adjuntosOrigen.length === 1) {
+      const a = adjuntosOrigen[0]
+      if (a.tipo.startsWith('image/') || a.tipo === 'application/pdf') {
+        seleccionInicial[0] = 'comprobante'
+      }
+    }
+    setTiposAdjuntosOrigen(seleccionInicial)
+  }, [abierto, pago, monedaPresupuesto, hoyISO, adjuntosOrigen])
 
   // ─── Firmar URLs de comprobantes existentes ────────────────────────────
   // Bucket privado: las URLs en BD están vacías para comprobantes nuevos.
@@ -583,6 +608,34 @@ export function ModalRegistrarPago({
     inputArchivoEdicionRef.current?.click()
   }, [])
 
+  // ─── Descargar adjuntos del correo origen ──────────────────────────────
+  // Toma cada adjunto tildado, hace fetch al storage del correo y lo
+  // convierte en un File propio del pago. Esto desacopla el pago del correo:
+  // si después se borra el correo, el comprobante sobrevive en el bucket
+  // 'comprobantes-pago' del pago.
+  const descargarAdjuntosOrigen = useCallback(async (): Promise<{ archivo: File; tipo: TipoComprobantePago }[]> => {
+    if (!adjuntosOrigen || adjuntosOrigen.length === 0) return []
+    const indices = Object.keys(tiposAdjuntosOrigen).map((k) => Number(k)).filter((i) => !!tiposAdjuntosOrigen[i])
+    if (indices.length === 0) return []
+
+    const resultado: { archivo: File; tipo: TipoComprobantePago }[] = []
+    for (const idx of indices) {
+      const adj = adjuntosOrigen[idx]
+      if (!adj?.url) continue
+      try {
+        const res = await fetch(adj.url)
+        if (!res.ok) continue
+        const blob = await res.blob()
+        const file = new File([blob], adj.nombre, { type: adj.tipo || blob.type })
+        resultado.push({ archivo: file, tipo: tiposAdjuntosOrigen[idx] })
+      } catch {
+        // Si falla un adjunto puntual seguimos con el resto en lugar de abortar
+        // — el toast final igualmente avisará si quedó sin comprobante.
+      }
+    }
+    return resultado
+  }, [adjuntosOrigen, tiposAdjuntosOrigen])
+
   // ─── Guardar ───────────────────────────────────────────────────────────
   const handleGuardar = useCallback(async () => {
     if (!isFinite(montoNum) || montoNum <= 0) {
@@ -643,6 +696,15 @@ export function ModalRegistrarPago({
         return
       }
 
+      // Descarga del/los adjunto(s) elegidos del correo origen — se hace
+      // una sola vez antes de los POST (incluso si son N pagos en el flujo
+      // "total"). Cada blob descargado se trata como un archivo local más.
+      const adjuntosDelCorreo = await descargarAdjuntosOrigen()
+      const archivosCombinados: { archivo: File; tipo: TipoComprobantePago }[] = [
+        ...archivosLocales.map((a) => ({ archivo: a.file, tipo: a.tipo })),
+        ...adjuntosDelCorreo,
+      ]
+
       // ──────────────────────────────────────────────────────────────────
       // FLUJO 2: "Pagaron el total" con 2+ cuotas pendientes
       // → genera N pagos imputados a las cuotas con saldo, distribuyendo
@@ -696,10 +758,10 @@ export function ModalRegistrarPago({
           }
           let respuesta: Response
           // Sólo el primer pago lleva comprobantes (para evitar duplicar archivos)
-          if (i === 0 && archivosLocales.length > 0) {
+          if (i === 0 && archivosCombinados.length > 0) {
             const fd = new FormData()
-            for (const a of archivosLocales) fd.append('archivos', a.file)
-            fd.append('tipos_archivos', JSON.stringify(archivosLocales.map((a) => a.tipo)))
+            for (const a of archivosCombinados) fd.append('archivos', a.archivo)
+            fd.append('tipos_archivos', JSON.stringify(archivosCombinados.map((a) => a.tipo)))
             fd.append('datos', JSON.stringify(datos))
             respuesta = await fetch(`/api/presupuestos/${presupuestoId}/pagos`, { method: 'POST', body: fd })
           } else {
@@ -740,10 +802,10 @@ export function ModalRegistrarPago({
         mensaje_origen_id: mensajeOrigenId || null,
       }
       let respuesta: Response
-      if (archivosLocales.length > 0) {
+      if (archivosCombinados.length > 0) {
         const fd = new FormData()
-        for (const a of archivosLocales) fd.append('archivos', a.file)
-        fd.append('tipos_archivos', JSON.stringify(archivosLocales.map((a) => a.tipo)))
+        for (const a of archivosCombinados) fd.append('archivos', a.archivo)
+        fd.append('tipos_archivos', JSON.stringify(archivosCombinados.map((a) => a.tipo)))
         fd.append('datos', JSON.stringify(datos))
         respuesta = await fetch(`/api/presupuestos/${presupuestoId}/pagos`, { method: 'POST', body: fd })
       } else {
@@ -771,7 +833,7 @@ export function ModalRegistrarPago({
     montoNum, percepNum, fechaPago, horaPago, cuotaIdSeleccionada, moneda, cotizacionNum, metodo,
     referencia, descripcion, esAdicional, conceptoAdicional, esTotal, hayMultiplesCuotas, resumenes,
     archivosLocales, modoEditar, pago, presupuestoId, chatterOrigenId, mensajeOrigenId,
-    mostrar, onCerrar, onPagoGuardado,
+    descargarAdjuntosOrigen, mostrar, onCerrar, onPagoGuardado,
   ])
 
   // ─── Etiqueta del botón principal ──────────────────────────────────────
@@ -913,6 +975,18 @@ export function ModalRegistrarPago({
               <span className="text-xxs text-texto-terciario">opcional · podés adjuntar varios</span>
             )}
           </div>
+
+          {/* Selector de adjuntos del correo origen — sólo en modo crear y
+              cuando la entrada del chatter trajo archivos. Permite tomar el
+              comprobante directamente del correo sin re-subirlo. */}
+          {!modoEditar && adjuntosOrigen && adjuntosOrigen.length > 0 && (
+            <SelectorAdjuntosOrigen
+              adjuntos={adjuntosOrigen}
+              tiposSeleccion={tiposAdjuntosOrigen}
+              onCambiar={setTiposAdjuntosOrigen}
+              origenDescripcion={origenDescripcion}
+            />
+          )}
 
           <input
             ref={inputArchivoRef}
@@ -1062,7 +1136,7 @@ export function ModalRegistrarPago({
         {(chatterOrigenId || mensajeOrigenId) && !modoEditar && (
           <div className="flex items-center gap-1.5 text-xs text-texto-terciario pt-1">
             <MessageSquare className="size-3" />
-            Vinculado al mensaje del chatter de origen
+            Quedará vinculado al {origenDescripcion || 'mensaje del chatter'}
           </div>
         )}
       </div>
@@ -1719,6 +1793,116 @@ function ChipComprobante({
         />
       )}
     </>
+  )
+}
+
+// ─── Selector de adjuntos del correo origen ──────────────────────────────
+// Lista los archivos adjuntos del correo desde donde se invocó "Registrar
+// como pago" y permite tildar cuáles tomar (y como qué tipo). Al guardar,
+// el modal los descarga del storage del correo y los sube al bucket del
+// pago — desacoplando el ciclo de vida de ambos.
+function SelectorAdjuntosOrigen({
+  adjuntos,
+  tiposSeleccion,
+  onCambiar,
+  origenDescripcion,
+}: {
+  adjuntos: AdjuntoChatter[]
+  tiposSeleccion: Record<number, TipoComprobantePago>
+  onCambiar: (next: Record<number, TipoComprobantePago>) => void
+  origenDescripcion?: string | null
+}) {
+  const togglearAdjunto = (idx: number) => {
+    const next = { ...tiposSeleccion }
+    if (next[idx]) delete next[idx]
+    else next[idx] = 'comprobante'
+    onCambiar(next)
+  }
+
+  const cambiarTipo = (idx: number, tipo: TipoComprobantePago) => {
+    onCambiar({ ...tiposSeleccion, [idx]: tipo })
+  }
+
+  return (
+    <div className="rounded-lg border border-canal-correo/30 bg-canal-correo/[0.04] px-3 py-2.5 space-y-2">
+      <div className="flex items-center gap-1.5 text-xs text-texto-secundario">
+        <Mail className="size-3.5 text-canal-correo" />
+        <span className="font-medium">Tomar comprobante del {origenDescripcion || 'correo'}</span>
+        <span className="text-xxs text-texto-terciario">· {adjuntos.length} archivo{adjuntos.length === 1 ? '' : 's'}</span>
+      </div>
+      <div className="space-y-1">
+        {adjuntos.map((a, idx) => {
+          const tipoElegido = tiposSeleccion[idx] || null
+          const tildado = !!tipoElegido
+          const esImagen = (a.tipo || '').startsWith('image/')
+          const esPDF = a.tipo === 'application/pdf' || /\.pdf$/i.test(a.nombre)
+          const tamano = a.tamano !== undefined
+            ? a.tamano < 1024 * 1024
+              ? `${(a.tamano / 1024).toFixed(0)} KB`
+              : `${(a.tamano / 1024 / 1024).toFixed(1)} MB`
+            : null
+
+          return (
+            <div
+              key={`${a.url}-${idx}`}
+              className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md border transition-colors ${
+                tildado
+                  ? 'border-canal-correo/40 bg-canal-correo/[0.06]'
+                  : 'border-borde-sutil bg-superficie-tarjeta/30'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => togglearAdjunto(idx)}
+                className={`size-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                  tildado
+                    ? 'border-canal-correo bg-canal-correo text-white'
+                    : 'border-borde-fuerte hover:border-canal-correo'
+                }`}
+                aria-label={tildado ? 'Quitar de comprobantes' : 'Agregar como comprobante'}
+              >
+                {tildado && <Check className="size-3" />}
+              </button>
+              <div className="size-7 rounded bg-white/[0.05] text-texto-terciario flex items-center justify-center shrink-0">
+                {esImagen ? <ImageIcon className="size-3.5" /> : esPDF ? <FileText className="size-3.5 text-insignia-peligro" /> : <Paperclip className="size-3.5" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-texto-primario truncate">{a.nombre}</p>
+                <p className="text-xxs text-texto-terciario">
+                  {tamano ? `${tamano} · ` : ''}{a.tipo || 'archivo'}
+                </p>
+              </div>
+              {tildado && (
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => cambiarTipo(idx, 'comprobante')}
+                    className={`px-2 py-0.5 rounded-full border text-xxs transition-colors ${
+                      tipoElegido === 'comprobante'
+                        ? 'border-texto-marca/40 bg-texto-marca/15 text-texto-marca'
+                        : 'border-borde-sutil text-texto-terciario hover:text-texto-secundario'
+                    }`}
+                  >
+                    Pago
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cambiarTipo(idx, 'percepcion')}
+                    className={`px-2 py-0.5 rounded-full border text-xxs transition-colors ${
+                      tipoElegido === 'percepcion'
+                        ? 'border-insignia-advertencia/40 bg-insignia-advertencia/15 text-insignia-advertencia'
+                        : 'border-borde-sutil text-texto-terciario hover:text-texto-secundario'
+                    }`}
+                  >
+                    Retención
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

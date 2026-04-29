@@ -10,9 +10,9 @@
 
 import { useMemo, useRef, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 import {
   mismoDia,
   esHoy,
@@ -190,40 +190,17 @@ function VistaCalendarioEquipo({
   const { t } = useTraduccion()
   const es24h = formatoHora !== '12h'
   const refCuadricula = useRef<HTMLDivElement>(null)
-  const [miembrosInternos, setMiembrosInternos] = useState<MiembroEquipo[]>([])
+  const { data: miembrosTodos = [] } = useMiembrosAsignables()
+  const miembrosInternos = useMemo<MiembroEquipo[]>(
+    () => miembrosTodos.map(m => ({ usuario_id: m.usuario_id, nombre: m.nombre, apellido: m.apellido })),
+    [miembrosTodos],
+  )
 
   // Usar miembros externos si los hay, si no cargar internamente
   const miembros = miembrosExternos.length > 0 ? miembrosExternos : miembrosInternos
 
-  // Cargar miembros del equipo desde Supabase si no se pasan por props
-  useEffect(() => {
-    if (miembrosExternos.length > 0) return
-
-    const cargarMiembros = async () => {
-      const supabase = crearClienteNavegador()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const empresaId = user.app_metadata?.empresa_activa_id
-      if (!empresaId) return
-
-      const { data } = await supabase
-        .from('miembros')
-        .select('usuario_id, perfiles!inner(nombre, apellido)')
-        .eq('empresa_id', empresaId)
-        .eq('activo', true)
-
-      if (data) {
-        setMiembrosInternos(
-          data.map((m: Record<string, unknown>) => ({
-            usuario_id: m.usuario_id as string,
-            nombre: (m.perfiles as Record<string, unknown>).nombre as string,
-            apellido: (m.perfiles as Record<string, unknown>).apellido as string,
-          })),
-        )
-      }
-    }
-    cargarMiembros()
-  }, [miembrosExternos.length])
+  // Los miembros internos vienen del hook useMiembrosAsignables (cache compartido).
+  // Si el padre pasa miembrosExternos, esos tienen prioridad.
 
   // Filtrar eventos del día actual
   const eventosDelDia = useMemo(() => {

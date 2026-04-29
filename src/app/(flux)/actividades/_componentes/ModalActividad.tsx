@@ -102,6 +102,31 @@ interface Miembro {
 
 import { ACCIONES_TIPO_ACTIVIDAD } from './_acciones_tipo'
 
+/** Mensaje que se muestra debajo del selector de tipo cuando la actividad
+ *  tiene auto-completar configurado. Permite al usuario entender de antemano
+ *  qué va a pasar con la actividad sin tener que adivinar. */
+function avisoAutoCompletar(tipo: TipoActividad | null | undefined): string | null {
+  if (!tipo?.evento_auto_completar) return null
+  const accion = tipo.accion_destino
+  const evento = tipo.evento_auto_completar
+  const mensajes: Record<string, Partial<Record<typeof evento, string>>> = {
+    presupuesto: {
+      al_crear: 'Esta actividad se cierra sola al crear el presupuesto.',
+      al_enviar: 'Esta actividad se cierra sola al enviar el presupuesto.',
+    },
+    visita: {
+      al_crear: 'Esta actividad se cierra sola al programar la visita.',
+      al_finalizar: 'Esta actividad se cierra sola al finalizar la visita.',
+    },
+    correo: {
+      al_crear: 'Esta actividad se cierra sola al abrir el correo.',
+      al_enviar: 'Esta actividad se cierra sola al enviar el correo.',
+    },
+  }
+  if (!accion) return null
+  return mensajes[accion]?.[evento] ?? null
+}
+
 interface PresetPosposicion {
   id: string
   etiqueta: string
@@ -521,54 +546,81 @@ function ModalActividad({
 
         {/* ── COL IZQUIERDA — tipo, título, descripción, checklist ── */}
         <div className="space-y-0">
-          {/* Tipo — colapsado muestra solo el seleccionado, expandido muestra todos */}
+          {/* Tipo — botón compacto + popover absoluto con todos los tipos.
+              El popover NO afecta el flujo del modal (no empuja contenido hacia
+              abajo), así el modal mantiene tamaño constante al cambiar de tipo. */}
           <div className="p-6">
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Tipo</p>
-              {tipoSeleccionado && !tiposExpandidos && (
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
+
+            <div className="relative" ref={refTipos}>
+              {/* Botón con el tipo seleccionado — abre el popover */}
+              {tipoSeleccionado ? (() => {
+                const IconoSel = obtenerIcono(tipoSeleccionado.icono)
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setTiposExpandidos(v => !v)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium border-transparent text-white shadow-sm cursor-pointer border hover:opacity-85 transition-opacity"
+                    style={{ backgroundColor: tipoSeleccionado.color }}
+                  >
+                    {IconoSel && <IconoSel size={13} />}
+                    {tipoSeleccionado.etiqueta}
+                    <ChevronDown size={12} className="opacity-70" />
+                  </button>
+                )
+              })() : (
                 <button
-                  onClick={() => setTiposExpandidos(true)}
-                  className="text-xxs text-texto-terciario hover:text-texto-marca bg-transparent border-none cursor-pointer transition-colors"
+                  type="button"
+                  onClick={() => setTiposExpandidos(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium bg-white/[0.03] text-texto-terciario border border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12] cursor-pointer transition-colors"
                 >
-                  Cambiar
+                  Elegir tipo
+                  <ChevronDown size={12} className="opacity-70" />
                 </button>
               )}
+
+              {/* Popover absoluto — flota sobre el contenido sin empujarlo */}
+              <AnimatePresence>
+                {tiposExpandidos && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute left-0 top-full mt-1.5 z-30 max-h-72 overflow-y-auto p-2 rounded-card bg-superficie-elevada border border-borde-sutil shadow-lg flex flex-wrap gap-1.5 min-w-[280px] max-w-[420px]"
+                  >
+                    {tiposActivos.map(tipo => {
+                      const Icono = obtenerIcono(tipo.icono)
+                      const sel = tipoId === tipo.id
+                      return (
+                        <button key={tipo.id} type="button"
+                          onClick={() => { manejarCambioTipo(tipo.id); setTiposExpandidos(false) }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium transition-all cursor-pointer border ${
+                            sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
+                          }`}
+                          style={sel ? { backgroundColor: tipo.color } : undefined}>
+                          {Icono && <Icono size={13} />}
+                          {tipo.etiqueta}
+                        </button>
+                      )
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Tipo seleccionado — pill solo */}
-            {tipoSeleccionado && !tiposExpandidos && (() => {
-              const IconoSel = obtenerIcono(tipoSeleccionado.icono)
+            {/* Aviso de auto-completar — explica al usuario qué va a pasar
+                con esta actividad cuando se ejecute la acción del tipo. */}
+            {(() => {
+              const aviso = avisoAutoCompletar(tipoSeleccionado)
+              if (!aviso) return null
               return (
-                <button
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium border-transparent text-white shadow-sm cursor-pointer border hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: tipoSeleccionado.color }}
-                  onClick={() => setTiposExpandidos(true)}
-                >
-                  {IconoSel && <IconoSel size={13} />}
-                  {tipoSeleccionado.etiqueta}
-                </button>
+                <p className="mt-2 text-[11px] text-texto-terciario leading-snug flex items-start gap-1.5">
+                  <CheckCircle size={11} className="mt-0.5 shrink-0 text-insignia-exito-texto" />
+                  <span>{aviso}</span>
+                </p>
               )
             })()}
-
-            {/* Todos los tipos — expandidos, se cierra con click fuera */}
-            {tiposExpandidos && (
-              <div className="flex flex-wrap gap-1.5" ref={refTipos}>
-                {tiposActivos.map(tipo => {
-                  const Icono = obtenerIcono(tipo.icono)
-                  const sel = tipoId === tipo.id
-                  return (
-                    <button key={tipo.id} onClick={() => { manejarCambioTipo(tipo.id); setTiposExpandidos(false) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium transition-all cursor-pointer border ${
-                        sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
-                      }`}
-                      style={sel ? { backgroundColor: tipo.color } : undefined}>
-                      {Icono && <Icono size={13} />}
-                      {tipo.etiqueta}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
           </div>
 
           {/* Título */}

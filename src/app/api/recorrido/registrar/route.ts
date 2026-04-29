@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       const timestamp = Date.now()
       const bufferOriginal = Buffer.from(await archivo.arrayBuffer())
 
-      // Comprimir imágenes: max 1600px ancho, JPEG 80%
+      // Comprimir imágenes: max 1600px ancho, WebP 80% — preserva detalle
+      // técnico (placas, cables, etiquetas) para zoom y mantiene peso razonable.
       const { buffer, tipo } = await comprimirImagen(bufferOriginal, archivo.type, {
         anchoMaximo: 1600,
         calidad: 80,

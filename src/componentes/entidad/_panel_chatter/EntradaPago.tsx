@@ -11,7 +11,8 @@
  */
 
 import { useState } from 'react'
-import { Paperclip, Check, Pencil, Trash2, Sparkles, ReceiptText, AlertCircle } from 'lucide-react'
+import { Paperclip, Check, Pencil, Trash2, Sparkles, ReceiptText, AlertCircle, Mail, MessageSquare } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Lightbox } from '@/componentes/ui/Lightbox'
 import { ETIQUETAS_METODO_PAGO, type MetodoPago } from '@/tipos/presupuesto-pago'
 import type { EntradaChatter } from '@/tipos/chatter'
@@ -27,6 +28,10 @@ interface PropsEntradaPago {
   locale: string
   onEditar?: (pagoId: string) => void
   onEliminar?: (pagoId: string, monto: string, moneda: string) => void
+  /** Autor + tipo del mensaje desde el que se registró el pago (correo /
+   *  WhatsApp / mensaje). Permite mostrar un chip "desde correo de X" que
+   *  scrollea al evento origen. */
+  autorOrigen?: { autor: string; tipo: string }
 }
 
 function fmtMoneda(monto: number, moneda: string) {
@@ -41,7 +46,7 @@ function fmtMoneda(monto: number, moneda: string) {
   }
 }
 
-export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar }: PropsEntradaPago) {
+export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar, autorOrigen }: PropsEntradaPago) {
   const [lightbox, setLightbox] = useState<
     { url: string; nombre: string; tipo: string } | null
   >(null)
@@ -112,8 +117,15 @@ export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar
   const puedeEditar = !!onEditar && !!pagoId && !esPortal
   const puedeEliminar = !!onEliminar && !!pagoId && !esPortal
 
+  const mensajeOrigenId = entrada.metadata?.mensaje_origen_chatter_id
+  const irAOrigen = () => {
+    if (!mensajeOrigenId) return
+    const el = document.querySelector(`[data-chatter-entrada-id="${mensajeOrigenId}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   return (
-    <div className="group flex items-stretch gap-2.5">
+    <div className="group flex items-stretch gap-2.5" data-pago-id={pagoId}>
       {/* Ribete lateral vertical (identidad visual del pago) */}
       <div className={`w-0.5 rounded-full shrink-0 ${tema.ribete} opacity-70`} />
 
@@ -201,7 +213,7 @@ export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar
           )}
         </div>
 
-        {/* Chip: cuota / a cuenta / adicional + indicador "editado por X" */}
+        {/* Chip: cuota / a cuenta / adicional + origen + indicador "editado por X" */}
         <div className="ml-7 mt-1 flex items-center gap-2 flex-wrap">
           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-xxs bg-superficie-tarjeta/40 ${
             cuotaNumero || esAdicional
@@ -210,6 +222,23 @@ export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar
           }`}>
             {etiquetaCuota}
           </span>
+          {autorOrigen && mensajeOrigenId && (
+            <button
+              type="button"
+              onClick={irAOrigen}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-borde-sutil bg-superficie-tarjeta/40 text-xxs text-texto-secundario hover:border-canal-correo/40 hover:text-canal-correo hover:bg-canal-correo/5 transition-colors"
+              title="Ver mensaje origen del pago"
+            >
+              {autorOrigen.tipo === 'correo' ? (
+                <Mail size={10} />
+              ) : autorOrigen.tipo === 'whatsapp' ? (
+                <IconoWhatsApp size={10} />
+              ) : (
+                <MessageSquare size={10} />
+              )}
+              desde {autorOrigen.tipo === 'correo' ? 'correo' : autorOrigen.tipo === 'whatsapp' ? 'WhatsApp' : 'mensaje'} de {autorOrigen.autor}
+            </button>
+          )}
           {fueEditadoPorOtro && (
             <span
               className="inline-flex items-center gap-1 text-xxs text-texto-terciario italic"

@@ -247,12 +247,12 @@ function PillMobile({
         {tieneTransiciones && <ChevronDown size={14} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />}
       </button>
 
-      <div className="absolute -bottom-1.5 left-1 right-1 h-[3px] rounded-full bg-white/10 overflow-hidden">
+      <div className="absolute -bottom-2 left-3 right-3 h-[3px] rounded-full bg-white/10 overflow-hidden">
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progreso}%`, backgroundColor: `rgba(${rgb}, 0.6)` }} />
       </div>
 
       {abierto && (
-        <div className="absolute top-full mt-2 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
+        <div className="absolute top-full mt-3 right-0 z-50 min-w-44 max-w-[calc(100vw-1.5rem)] bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden py-1">
           {[...FLUJO_ESTADO, ...(esTerminal ? [estadoActual] : [])].map((estado, i) => {
             const esActual = estado === estadoActual
             const esPasado = esTerminal ? (i < FLUJO_ESTADO.length) : (i < idxEfectivo)

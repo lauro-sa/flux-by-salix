@@ -273,6 +273,36 @@ export function PanelChatter({
     return resultado
   }, [entradas])
 
+  // ─── Mapa: entrada de chatter origen → datos del pago vinculado ───
+  // Permite mostrar en correos/WA el chip "Registrado como pago $X" cuando
+  // se registró un pago desde ahí, evitando que parezca un evento duplicado.
+  // Se construye recorriendo las entradas de pago_confirmado que llevan en
+  // su metadata el id del mensaje origen.
+  const pagosPorOrigenChatter = useMemo(() => {
+    const m = new Map<string, { pago_id: string; monto: string; moneda: string }>()
+    for (const e of entradas) {
+      const origenId = e.metadata?.mensaje_origen_chatter_id
+      if (e.metadata?.accion === 'pago_confirmado' && origenId && e.metadata.pago_id) {
+        m.set(origenId, {
+          pago_id: e.metadata.pago_id,
+          monto: e.metadata.monto_pago || '0',
+          moneda: e.metadata.pago_moneda || 'ARS',
+        })
+      }
+    }
+    return m
+  }, [entradas])
+
+  // Mapa inverso: id de entrada → autor_nombre. Sirve para mostrar el chip
+  // "desde correo de X" en EntradaPago a partir del mensaje_origen_chatter_id.
+  const autoresPorEntradaId = useMemo(() => {
+    const m = new Map<string, { autor: string; tipo: string }>()
+    for (const e of entradas) {
+      m.set(e.id, { autor: e.autor_nombre, tipo: e.tipo })
+    }
+    return m
+  }, [entradas])
+
   // ─── Confirmar/rechazar comprobante ───
   const accionComprobante = async (_entradaId: string, comprobanteId: string, accion: 'confirmar' | 'rechazar') => {
     try {
@@ -349,6 +379,17 @@ export function PanelChatter({
 
     return vinculos.length > 0 ? vinculos : null
   }, [contacto?.id, contacto?.nombre, contactoPrincipal, entidadTipo, entidadId, datosDocumento?.numero, tipoDocumento])
+
+  // Contacto a precargar al crear una visita desde el chatter (ej: cliente del presupuesto)
+  const contactoInicialVisita = useMemo(() => {
+    if (contactoPrincipal?.id && contactoPrincipal?.nombre) {
+      return { id: contactoPrincipal.id, nombre: contactoPrincipal.nombre }
+    }
+    if (contacto?.id && contacto?.nombre) {
+      return { id: contacto.id, nombre: contacto.nombre }
+    }
+    return null
+  }, [contactoPrincipal, contacto?.id, contacto?.nombre])
 
   // ─── Actividades resueltas (completadas/canceladas) — para ocultar botones en el timeline ───
   const actividadesResueltas = useMemo(() => {
@@ -526,7 +567,7 @@ export function PanelChatter({
                 onWhatsApp={() => setModalWhatsApp(true)}
                 onNota={() => setModoNota(!modoNota)}
                 onActividad={abrirActividad}
-                onVisita={() => modalVisitaHook.abrir()}
+                onVisita={() => modalVisitaHook.abrir({ contactoInicial: contactoInicialVisita })}
                 onPago={onRegistrarPago ? () => onRegistrarPago(null) : undefined}
                 tieneCorreo={entidadTipo !== 'orden_trabajo' && !!onAbrirCorreo}
                 tieneWhatsApp={entidadTipo !== 'orden_trabajo'}
@@ -651,8 +692,8 @@ export function PanelChatter({
                   </div>
                 ) : (
                   entradasFiltradas.map(entrada => (
+                    <div key={entrada.id} data-chatter-entrada-id={entrada.id}>
                     <EntradaTimeline
-                      key={entrada.id}
                       entrada={entrada}
                       entidadTipo={entidadTipo}
                       entidadId={entidadId}
@@ -693,7 +734,14 @@ export function PanelChatter({
                       }
                       onEditarPago={onEditarPago}
                       onEliminarPago={onEliminarPago}
+                      pagoVinculado={pagosPorOrigenChatter.get(entrada.id)}
+                      autorOrigenPago={
+                        entrada.metadata?.mensaje_origen_chatter_id
+                          ? autoresPorEntradaId.get(entrada.metadata.mensaje_origen_chatter_id)
+                          : undefined
+                      }
                     />
+                    </div>
                   ))
                 )}
               </div>
@@ -730,7 +778,7 @@ export function PanelChatter({
           onCompletar={completarActividadDesdeChatter}
           onPosponer={posponerActividadDesdeChatter}
           onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
-          onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir() }}
+          onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir({ contactoInicial: contactoInicialVisita }) }}
         />
       )}
 
@@ -757,6 +805,7 @@ export function PanelChatter({
       <ModalVisita
         abierto={modalVisitaHook.abierto}
         visita={modalVisitaHook.visitaEditando}
+        contactoInicial={modalVisitaHook.contactoInicial}
         miembros={modalVisitaHook.miembros}
         config={modalVisitaHook.config}
         onGuardar={modalVisitaHook.guardar}

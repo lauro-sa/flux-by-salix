@@ -17,6 +17,7 @@ import { PERMISOS_POR_ROL } from '@/hooks/useRol'
 import type { Rol, Modulo, Miembro, Perfil } from '@/tipos'
 import { ACCIONES_POR_MODULO } from '@/tipos'
 import { TarjetaStat, MiniCalendario } from './ComponentesComunes'
+import { ResumenMetricasMini } from './ResumenMetricasMini'
 import { MODULOS_PREVIEW, ETIQUETA_ROL, type Periodo, type TabPerfil } from './constantes'
 import Image from 'next/image'
 
@@ -221,6 +222,9 @@ export function TabResumen({
           )}
         </div>
       </div>
+
+      {/* Mini-resumen de actividad operativa con link al tab "Métricas" completo */}
+      <ResumenMetricasMini miembroId={miembro.id} setTab={setTab} />
 
       {/* Resumen de permisos */}
       <Tarjeta titulo={t('usuarios.permisos')} subtitulo={`Rol base: ${ETIQUETA_ROL[rolActual]}`}

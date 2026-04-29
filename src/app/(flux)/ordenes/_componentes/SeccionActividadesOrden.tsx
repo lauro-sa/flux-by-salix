@@ -10,9 +10,9 @@ import type { Actividad, Miembro } from '../../actividades/_componentes/ModalAct
 import type { TipoActividad } from '../../actividades/configuracion/_tipos'
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
 import type { AsignadoOrdenTrabajo } from '@/tipos/orden-trabajo'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
 
 /**
  * SeccionActividadesOrden — Tareas y actividades vinculadas a una orden de trabajo.
@@ -61,7 +61,7 @@ export default function SeccionActividadesOrden({
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
   const [estados, setEstados] = useState<EstadoActividad[]>([])
-  const [miembros, setMiembros] = useState<Miembro[]>([])
+  const { data: miembros = [] } = useMiembrosAsignables()
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [cancelarId, setCancelarId] = useState<string | null>(null)
@@ -77,21 +77,10 @@ export default function SeccionActividadesOrden({
 
   const cargar = useCallback(async () => {
     try {
-      const [tareasRes, actRes, configRes, miembrosData] = await Promise.all([
+      const [tareasRes, actRes, configRes] = await Promise.all([
         fetch(`/api/ordenes/${ordenId}/tareas`).then(r => r.json()),
         fetch(`/api/actividades?orden_trabajo_id=${ordenId}&por_pagina=50`).then(r => r.json()),
         fetch('/api/actividades/config').then(r => r.json()),
-        (async () => {
-          const supabase = crearClienteNavegador()
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return []
-          const empresaId = user.app_metadata?.empresa_activa_id
-          if (!empresaId) return []
-          const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-          if (!mRes?.length) return []
-          const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
-          return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
-        })(),
       ])
       const tareasOT = tareasRes.tareas || []
       const acts = actRes.actividades || []
@@ -99,7 +88,6 @@ export default function SeccionActividadesOrden({
       setActividades(acts)
       setTipos(configRes.tipos || [])
       setEstados(configRes.estados || [])
-      setMiembros(miembrosData)
 
       // Progreso: combinar tareas + actividades
       const totalTareas = tareasOT.length
