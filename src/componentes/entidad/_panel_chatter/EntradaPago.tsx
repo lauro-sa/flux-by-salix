@@ -10,7 +10,7 @@
  *   - portal_comprobante : el cliente subió un comprobante por el portal
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Paperclip, Check, Pencil, Trash2, Sparkles, ReceiptText, AlertCircle, Mail, MessageSquare } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Lightbox } from '@/componentes/ui/Lightbox'
@@ -48,7 +48,7 @@ function fmtMoneda(monto: number, moneda: string) {
 
 export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar, autorOrigen }: PropsEntradaPago) {
   const [lightbox, setLightbox] = useState<
-    { url: string; nombre: string; tipo: string } | null
+    { url: string; nombre: string; tipo: string; endpointDescarga?: string } | null
   >(null)
 
   const accion = entrada.metadata?.accion
@@ -270,7 +270,13 @@ export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar
                 url={c.url}
                 nombre={c.nombre}
                 tipo={c.tipo}
-                onVer={() => setLightbox({ url: c.url, nombre: c.nombre, tipo: c.tipo })}
+                endpointDescarga={c.endpoint_descarga}
+                onVer={() => setLightbox({
+                  url: c.url,
+                  nombre: c.nombre,
+                  tipo: c.tipo,
+                  endpointDescarga: c.endpoint_descarga,
+                })}
               />
             ))}
           </div>
@@ -299,6 +305,7 @@ export function EntradaPago({ entrada, formatoHora, locale, onEditar, onEliminar
           url={lightbox.url}
           nombre={lightbox.nombre}
           tipo={lightbox.tipo}
+          endpointDescarga={lightbox.endpointDescarga}
           onCerrar={() => setLightbox(null)}
         />
       )}
@@ -311,11 +318,13 @@ function ComprobanteChip({
   url,
   nombre,
   tipo,
+  endpointDescarga,
   onVer,
 }: {
   url: string
   nombre: string
   tipo: string
+  endpointDescarga?: string
   onVer: () => void
 }) {
   const esImagen = tipo.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic|bmp)$/i.test(nombre)
@@ -326,6 +335,23 @@ function ComprobanteChip({
   // que detectamos por nombre.
   const esRetencion = /retenci|percepc/i.test(nombre)
 
+  // Para bucket privado: la url viene vacía y hay endpoint_descarga.
+  // Pedimos la signed URL una sola vez para mostrar el thumb de imagen.
+  const [urlThumb, setUrlThumb] = useState<string>(url)
+  useEffect(() => {
+    if (url) { setUrlThumb(url); return }
+    if (!esImagen || !endpointDescarga) return
+    let cancelado = false
+    fetch(endpointDescarga)
+      .then(async (r) => {
+        if (!r.ok) return
+        const data = (await r.json()) as { url: string }
+        if (!cancelado) setUrlThumb(data.url)
+      })
+      .catch(() => { /* silencioso: cae al ícono genérico */ })
+    return () => { cancelado = true }
+  }, [url, esImagen, endpointDescarga])
+
   return (
     <button
       type="button"
@@ -333,11 +359,13 @@ function ComprobanteChip({
       className="inline-flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border border-borde-sutil bg-superficie-tarjeta/60 hover:bg-white/[0.04] max-w-full group/chip cursor-pointer"
       title="Ver comprobante"
     >
-      {esImagen ? (
+      {esImagen && urlThumb ? (
         <div className="size-6 rounded-full border border-borde-sutil bg-black/20 overflow-hidden shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="" className="w-full h-full object-cover" />
+          <img src={urlThumb} alt="" className="w-full h-full object-cover" />
         </div>
+      ) : esImagen ? (
+        <div className="size-6 rounded-full border border-borde-sutil bg-black/20 shrink-0" />
       ) : esPDF ? (
         <div className="size-6 rounded-full bg-insignia-peligro/10 text-insignia-peligro flex items-center justify-center shrink-0 text-[8px] font-semibold">
           PDF

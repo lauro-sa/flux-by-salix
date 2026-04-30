@@ -73,7 +73,7 @@ interface PropsSeccionDatosPresupuesto {
   onCondicionPagoChange: (v: string) => void
   onMonedaChange: (v: string) => void
   onPlantillaIdChange: (id: string | null) => void
-  onCargarPlantilla: (tpl: { id: string; moneda?: string; condicion_pago_id?: string; dias_vencimiento?: number; lineas?: unknown[]; notas_html?: string; condiciones_html?: string }) => void
+  onCargarPlantilla: (tpl: { id: string; moneda?: string; condicion_pago_id?: string; dias_vencimiento?: number; lineas?: unknown[]; notas_html?: string; condiciones_html?: string; columnas_lineas?: string[] }) => void
   onGuardarComoPlantilla: (nombre: string) => Promise<void>
   onGuardarCambiosPlantilla: () => Promise<void>
   onEliminarPlantilla: (id: string) => Promise<void>

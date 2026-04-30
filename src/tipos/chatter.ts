@@ -45,10 +45,17 @@ export type AccionSistema =
 
 // ─── Adjunto ───
 export interface AdjuntoChatter {
+  /** URL del archivo. Vacío cuando el archivo vive en un bucket privado y se
+   *  resuelve on-demand a través de `endpoint_descarga`. */
   url: string
   nombre: string
   tipo: string // MIME type
   tamano?: number // bytes
+  /** Endpoint REST que retorna `{ url }` con una signed URL de corta duración.
+   *  Usado para adjuntos en buckets privados (ej. comprobantes de pago) que
+   *  no se sirven con URL pública. Si está presente, el frontend debe
+   *  fetchear desde acá en lugar de usar `url`. */
+  endpoint_descarga?: string
 }
 
 // ─── Metadata de evento de sistema ───

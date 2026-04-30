@@ -42,7 +42,7 @@ import type {
 } from './tipos-editor'
 
 // ─── Sub-componentes extraídos ──────────────────────────────────────────────
-import CabeceraPresupuesto, { BannerBloqueo } from './CabeceraPresupuesto'
+import CabeceraPresupuesto, { BannerBloqueo, BannerEdicionAdmin } from './CabeceraPresupuesto'
 import SeccionEmisor from './SeccionEmisor'
 import SeccionCliente from './SeccionCliente'
 import SeccionDatosPresupuesto from './SeccionDatosPresupuesto'
@@ -101,6 +101,11 @@ export default function EditorPresupuesto({
   // el check verde "Guardado" unos segundos después del autoguardado, y así
   // el usuario tiene confirmación de que su `onBlur` se persistió.
   const [ultimoGuardadoEn, setUltimoGuardadoEn] = useState<number | null>(null)
+  // Modo edición administrativa: permite a admin/propietario corregir un
+  // documento ya enviado/confirmado/etc. sin cambiar el estado ni las fechas.
+  // Se activa desde el menú ··· y se cierra con "Guardar correcciones".
+  const [modoEdicionAdmin, setModoEdicionAdmin] = useState(false)
+  const [guardandoEdicionAdmin, setGuardandoEdicionAdmin] = useState(false)
   const [cargando, setCargando] = useState(modo === 'editar')
   const [config, setConfig] = useState<ConfigPresupuestos | null>(null)
   const [datosEmpresa, setDatosEmpresa] = useState<DatosEmpresa | null>(null)
@@ -1456,6 +1461,61 @@ export default function EditorPresupuesto({
     } catch { /* silenciar */ }
   }
 
+  // ─── Edición administrativa ────────────────────────────────────────────
+  // Permite corregir un documento fuera de borrador sin alterar estado,
+  // fecha de envío ni contadores. Deja traza en historial + chatter y
+  // regenera el PDF al cerrar el modo.
+  const activarEdicionAdmin = () => {
+    if (!puedeEdicionAdmin) return
+    setModoEdicionAdmin(true)
+  }
+
+  const cancelarEdicionAdmin = () => {
+    setModoEdicionAdmin(false)
+  }
+
+  const guardarEdicionAdmin = async () => {
+    if (!idPresupuesto || guardandoEdicionAdmin) return
+    setGuardandoEdicionAdmin(true)
+    try {
+      // 1) Persistir cambios pendientes (debe ir antes de regenerar el PDF)
+      await guardarTodo()
+
+      // 2) Disparar traza y regeneración de PDF en paralelo: ambas son
+      //    independientes y la regeneración del PDF es lo más lento.
+      setGenerandoPdf(true)
+      const trazaPromise = fetch(`/api/presupuestos/${idPresupuesto}/edicion-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const pdfPromise = fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forzar: true }),
+      }).finally(() => setGenerandoPdf(false))
+
+      // 3) Cerrar el banner apenas se confirme la traza. La regeneración
+      //    del PDF sigue en background con su propio spinner en la cabecera.
+      const resTraza = await trazaPromise
+      if (!resTraza.ok) {
+        const err = await resTraza.json().catch(() => ({}))
+        mostrarToast('error', err.error || 'No se pudo registrar la corrección')
+      }
+
+      setModoEdicionAdmin(false)
+      mostrarToast('exito', 'Correcciones guardadas')
+
+      // 4) Esperar el PDF en silencio para reportar fallos sin bloquear la UI
+      const resPdf = await pdfPromise
+      if (!resPdf.ok) mostrarToast('error', 'No se pudo regenerar el PDF')
+    } catch {
+      mostrarToast('error', 'Error al guardar las correcciones')
+      setGenerandoPdf(false)
+    } finally {
+      setGuardandoEdicionAdmin(false)
+    }
+  }
+
   const handleRegenerarPdf = async () => {
     if (!idPresupuesto || generandoPdf) return
     setGenerandoPdf(true)
@@ -1523,7 +1583,12 @@ export default function EditorPresupuesto({
   const unidadesList = (config?.unidades || []) as UnidadMedida[]
 
   const estadoActual = (presupuesto?.estado || 'borrador') as EstadoPresupuesto
-  const esEditable = modo === 'crear' || estadoActual === 'borrador'
+  // Solo propietarios y administradores pueden activar la edición administrativa.
+  // Superadmins de Salix también, vía esPropietario virtual del JWT.
+  const puedeEdicionAdmin = (esAdmin || esPropietario) && modo === 'editar'
+  const esEditable = modo === 'crear'
+    || estadoActual === 'borrador'
+    || (modoEdicionAdmin && puedeEdicionAdmin)
   const estadosPosibles = modo === 'editar' ? (TRANSICIONES_ESTADO[estadoActual] || []) : []
   const estaCancelado = modo === 'editar' && estadoActual === 'cancelado'
 
@@ -1604,6 +1669,9 @@ export default function EditorPresupuesto({
           onVerOT={handleVerOT}
           generandoOT={generandoOT}
           ordenTrabajoVinculada={presupuesto?.orden_trabajo ?? null}
+          puedeEdicionAdmin={puedeEdicionAdmin}
+          modoEdicionAdmin={modoEdicionAdmin}
+          onActivarEdicionAdmin={activarEdicionAdmin}
         />
 
         {/* ─── Banner deshacer re-emisión ─── */}
@@ -1634,6 +1702,16 @@ export default function EditorPresupuesto({
             estadoActual={estadoActual}
             estadosPosibles={estadosPosibles}
             onCambiarEstado={cambiarEstado}
+          />
+        )}
+
+        {/* ─── Banner de edición administrativa ─── */}
+        {modo === 'editar' && modoEdicionAdmin && (
+          <BannerEdicionAdmin
+            estadoActual={estadoActual}
+            guardando={guardandoEdicionAdmin}
+            onGuardar={guardarEdicionAdmin}
+            onCancelar={cancelarEdicionAdmin}
           />
         )}
 
@@ -1788,6 +1866,11 @@ export default function EditorPresupuesto({
               if (tpl.lineas) setLineas(tpl.lineas as LineaTemporal[])
               if (tpl.notas_html) setNotasHtml(tpl.notas_html)
               if (tpl.condiciones_html) setCondicionesHtml(tpl.condiciones_html)
+              if (Array.isArray(tpl.columnas_lineas) && tpl.columnas_lineas.length) {
+                const cols = tpl.columnas_lineas as string[]
+                setColumnasVisibles(cols)
+                autoguardar({ columnas_lineas: cols })
+              }
             }}
             onGuardarComoPlantilla={async (nombre) => {
               const nuevaPlantilla = {
@@ -1803,6 +1886,7 @@ export default function EditorPresupuesto({
                   return sinTemp
                 }),
                 notas_html: notasHtml, condiciones_html: condicionesHtml,
+                columnas_lineas: columnasVisibles,
               }
               const plantillasActuales = (config?.plantillas || []) as unknown[]
               await fetch('/api/presupuestos/config', {
@@ -1824,6 +1908,7 @@ export default function EditorPresupuesto({
                     return sinTemp
                   }),
                   notas_html: notasHtml, condiciones_html: condicionesHtml,
+                  columnas_lineas: columnasVisibles,
                 } : p
               )
               await fetch('/api/presupuestos/config', {

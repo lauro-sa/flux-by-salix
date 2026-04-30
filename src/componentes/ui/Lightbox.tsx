@@ -7,22 +7,51 @@
  * del chatter, etc.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X as XIcon, Paperclip } from 'lucide-react'
 
 interface PropsLightbox {
+  /** URL pública del archivo. Si está vacía pero se pasa `endpointDescarga`,
+   *  el visor pide la signed URL al endpoint antes de mostrar. */
   url: string
   nombre: string
   /** MIME type o cadena que empieza con `image/` / `application/pdf`.
    *  Si se omite, se infiere por la extensión del nombre. */
   tipo?: string
+  /** Endpoint que retorna `{ url }` con una signed URL de corta duración.
+   *  Se usa para archivos en buckets privados (ej. comprobantes de pago). */
+  endpointDescarga?: string
   onCerrar: () => void
 }
 
-export function Lightbox({ url, nombre, tipo, onCerrar }: PropsLightbox) {
+export function Lightbox({ url, nombre, tipo, endpointDescarga, onCerrar }: PropsLightbox) {
   const esImagen = (tipo || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic|bmp|svg)$/i.test(nombre)
   const esPDF = (tipo || '') === 'application/pdf' || /\.pdf$/i.test(nombre)
+
+  // Resolver URL real: si vino vacía pero hay endpoint, fetcheamos signed URL.
+  const [urlReal, setUrlReal] = useState<string>(url)
+  const [errorCarga, setErrorCarga] = useState(false)
+
+  useEffect(() => {
+    if (url) {
+      setUrlReal(url)
+      return
+    }
+    if (!endpointDescarga) return
+    let cancelado = false
+    setErrorCarga(false)
+    fetch(endpointDescarga)
+      .then(async (r) => {
+        if (!r.ok) throw new Error('descarga')
+        const data = (await r.json()) as { url: string }
+        if (!cancelado) setUrlReal(data.url)
+      })
+      .catch(() => {
+        if (!cancelado) setErrorCarga(true)
+      })
+    return () => { cancelado = true }
+  }, [url, endpointDescarga])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -64,16 +93,25 @@ export function Lightbox({ url, nombre, tipo, onCerrar }: PropsLightbox) {
         className="relative max-w-full max-h-full flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
-        {esImagen ? (
+        {errorCarga ? (
+          <div className="px-6 py-8 rounded bg-superficie-elevada border border-borde-sutil text-center">
+            <p className="text-sm text-texto-primario mb-1">{nombre}</p>
+            <p className="text-xs text-insignia-peligro">No se pudo cargar el archivo.</p>
+          </div>
+        ) : !urlReal ? (
+          <div className="px-6 py-8 rounded bg-superficie-elevada border border-borde-sutil text-center">
+            <p className="text-xs text-texto-terciario">Cargando…</p>
+          </div>
+        ) : esImagen ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={url}
+            src={urlReal}
             alt={nombre}
             className="max-w-full max-h-[90vh] object-contain rounded shadow-2xl"
           />
         ) : esPDF ? (
           <iframe
-            src={url}
+            src={urlReal}
             title={nombre}
             className="w-[90vw] h-[88vh] rounded shadow-2xl bg-white"
           />
@@ -85,7 +123,7 @@ export function Lightbox({ url, nombre, tipo, onCerrar }: PropsLightbox) {
               Este tipo de archivo no se puede previsualizar.
             </p>
             <a
-              href={url}
+              href={urlReal}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-texto-marca text-white text-sm hover:bg-texto-marca/90"

@@ -285,7 +285,7 @@ export default function SelectorContactoPresupuesto({
             {telefonoMostrar && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Phone size={12} className="shrink-0" />
-                {telefonoMostrar}
+                {formatearParaMostrar(telefonoMostrar)}
                 <BotonCopiar valor={telefonoMostrar} />
               </p>
             )}
@@ -444,7 +444,7 @@ export default function SelectorContactoPresupuesto({
                                 <div className="text-xs text-texto-terciario mt-0.5">
                                   {v.vinculado.correo}
                                   {v.vinculado.correo && v.vinculado.telefono && ' · '}
-                                  {v.vinculado.telefono}
+                                  {formatearParaMostrar(v.vinculado.telefono)}
                                 </div>
                               )}
                             </button>

@@ -211,24 +211,28 @@ function useVistasGuardadas(modulo?: string) {
     } catch { /* silencioso */ }
   }, [])
 
-  /* ── Marcar/desmarcar como predefinida ── */
+  /* ── Marcar/desmarcar como predefinida (toggle) ── */
   const marcarPredefinida = useCallback(async (id: string) => {
     if (!modulo) return
+    // Toggle: si ya está predefinida, la desmarcamos.
+    const yaPredefinida = vistas.find(v => v.id === id)?.predefinida === true
+    const nuevoValor = !yaPredefinida
     try {
       const res = await fetch('/api/vistas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, predefinida: true, modulo }),
+        body: JSON.stringify({ id, predefinida: nuevoValor, modulo }),
       })
       if (res.ok) {
-        /* Solo una predefinida por módulo — desmarcar las demás */
         setVistas(prev => prev.map(v => ({
           ...v,
-          predefinida: v.id === id,
+          // Solo una predefinida por módulo: si marcamos una, las demás quedan en false.
+          // Si desmarcamos, solo afecta a la propia.
+          predefinida: nuevoValor ? v.id === id : (v.id === id ? false : v.predefinida),
         })))
       }
     } catch { /* silencioso */ }
-  }, [modulo])
+  }, [modulo, vistas])
 
   /* ── Obtener la vista predefinida (para aplicar al entrar al módulo) ── */
   const vistaPredefinida = useMemo(

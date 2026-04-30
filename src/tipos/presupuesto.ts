@@ -349,6 +349,7 @@ export interface PlantillaPresupuesto {
   lineas?: unknown[]
   notas_html?: string
   condiciones_html?: string
+  columnas_lineas?: string[]
 }
 
 export interface ConfigPresupuestos {

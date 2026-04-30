@@ -15,7 +15,7 @@ import {
   Upload, Eye, EyeOff,
   AlertCircle, Pencil, Camera,
   Heart, X, Nfc, Cake,
-  Bell, AlertTriangle, LogIn,
+  Bell, AlertTriangle, LogIn, Lock,
 } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Input } from '@/componentes/ui/Input'
@@ -27,6 +27,7 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
 import { RecortadorImagen } from '@/componentes/ui/RecortadorImagen'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Rol, Miembro, Perfil, HorarioTipo, MetodoFichaje } from '@/tipos'
 import { SeccionEncabezado } from './ComponentesComunes'
 import Image from 'next/image'
@@ -169,7 +170,13 @@ export function TabInformacion({
   const [pinVisible, setPinVisible] = useState(false)
   const [capturandoRfid, setCapturandoRfid] = useState(false)
   const rfidInputRef = useRef<HTMLInputElement>(null)
+  const pinInputRef = useRef<HTMLInputElement>(null)
   const [recortador, setRecortador] = useState<{ imagen: string; tipo: 'avatar' | 'kiosco' } | null>(null)
+  // Edición de RFID/PIN bloqueada por defecto: requiere confirmación explícita
+  // antes de poder modificarlos. Evita cambios accidentales.
+  const [rfidEditable, setRfidEditable] = useState(false)
+  const [pinEditable, setPinEditable] = useState(false)
+  const [confirmandoDesbloqueo, setConfirmandoDesbloqueo] = useState<'rfid' | 'pin' | null>(null)
 
   /* ── Canal de login: el cambio actualiza miembros + sincroniza auth.users.email
         en un solo POST. El endpoint valida permisos y responde 400 si falta el
@@ -441,6 +448,8 @@ export function TabInformacion({
                       } else {
                         guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
                       }
+                      // Re-bloquear al perder foco para evitar ediciones posteriores accidentales
+                      setRfidEditable(false)
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -454,30 +463,46 @@ export function TabInformacion({
                     }}
                     placeholder={capturandoRfid ? 'Esperando...' : 'Sin asignar'}
                     formato={null}
-                    disabled={!puedeEditar}
+                    disabled={!puedeEditar || !rfidEditable}
                     compacto
                   />
                 </div>
                 {puedeEditar && (
-                  <Boton
-                    variante={capturandoRfid ? 'primario' : 'secundario'}
-                    tamano="sm"
-                    icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
-                    onClick={() => {
-                      if (capturandoRfid) {
-                        setCapturandoRfid(false)
-                        return
-                      }
-                      setCapturandoRfid(true)
-                      setTimeout(() => rfidInputRef.current?.focus(), 50)
-                    }}
-                  >
-                    {capturandoRfid ? 'Capturando...' : 'Capturar'}
-                  </Boton>
+                  rfidEditable ? (
+                    <Boton
+                      variante={capturandoRfid ? 'primario' : 'secundario'}
+                      tamano="sm"
+                      icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
+                      onClick={() => {
+                        if (capturandoRfid) {
+                          setCapturandoRfid(false)
+                          return
+                        }
+                        setCapturandoRfid(true)
+                        setTimeout(() => rfidInputRef.current?.focus(), 50)
+                      }}
+                    >
+                      {capturandoRfid ? 'Capturando...' : 'Capturar'}
+                    </Boton>
+                  ) : (
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      icono={<Lock size={14} />}
+                      titulo="Editar llavero RFID"
+                      onClick={() => setConfirmandoDesbloqueo('rfid')}
+                    >
+                      Editar
+                    </Boton>
+                  )
                 )}
               </div>
               <p className="text-xs text-texto-terciario">
-                {capturandoRfid ? 'Pasá el llavero por el lector USB...' : 'Clic en Capturar y pasá el llavero.'}
+                {!rfidEditable
+                  ? 'Bloqueado. Tocá Editar para modificar.'
+                  : capturandoRfid
+                    ? 'Pasá el llavero por el lector USB...'
+                    : 'Clic en Capturar y pasá el llavero.'}
               </p>
             </div>
 
@@ -488,12 +513,16 @@ export function TabInformacion({
                 <div className="flex-1 min-w-0">
                   <Input
                     tipo={pinVisible ? 'text' : 'password'}
+                    ref={pinInputRef}
                     value={miembro.kiosco_pin || ''}
                     onChange={(e) => setMiembro(p => p ? { ...p, kiosco_pin: e.target.value.replace(/\D/g, '').slice(0, 6) } : null)}
-                    onBlur={() => guardarMiembro({ kiosco_pin: miembro.kiosco_pin || null })}
+                    onBlur={() => {
+                      guardarMiembro({ kiosco_pin: miembro.kiosco_pin || null })
+                      setPinEditable(false)
+                    }}
                     placeholder="000000"
                     formato={null}
-                    disabled={!puedeEditar}
+                    disabled={!puedeEditar || !pinEditable}
                     compacto
                     iconoDerecho={
                       <Boton
@@ -508,22 +537,38 @@ export function TabInformacion({
                   />
                 </div>
                 {puedeEditar && (
-                  <Boton
-                    variante="secundario"
-                    tamano="sm"
-                    icono={<KeyRound size={14} />}
-                    onClick={() => {
-                      const pin = String(Math.floor(100000 + Math.random() * 900000))
-                      setMiembro(p => p ? { ...p, kiosco_pin: pin } : null)
-                      guardarMiembroInmediato({ kiosco_pin: pin })
-                      setPinVisible(true)
-                    }}
-                  >
-                    Generar
-                  </Boton>
+                  pinEditable ? (
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      icono={<KeyRound size={14} />}
+                      onClick={() => {
+                        const pin = String(Math.floor(100000 + Math.random() * 900000))
+                        setMiembro(p => p ? { ...p, kiosco_pin: pin } : null)
+                        guardarMiembroInmediato({ kiosco_pin: pin })
+                        setPinVisible(true)
+                      }}
+                    >
+                      Generar
+                    </Boton>
+                  ) : (
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      icono={<Lock size={14} />}
+                      titulo="Editar PIN del kiosco"
+                      onClick={() => setConfirmandoDesbloqueo('pin')}
+                    >
+                      Editar
+                    </Boton>
+                  )
                 )}
               </div>
-              <p className="text-xs text-texto-terciario">Alternativa al llavero. Ej: últimos 6 dígitos del DNI.</p>
+              <p className="text-xs text-texto-terciario">
+                {!pinEditable
+                  ? 'Bloqueado. Tocá Editar para modificar.'
+                  : 'Alternativa al llavero. Ej: últimos 6 dígitos del DNI.'}
+              </p>
             </div>
           </div>
 
@@ -787,6 +832,30 @@ export function TabInformacion({
           })}
         </div>
       </section>
+
+      {/* Confirmación para desbloquear edición de RFID o PIN del kiosco */}
+      <ModalConfirmacion
+        abierto={confirmandoDesbloqueo !== null}
+        onCerrar={() => setConfirmandoDesbloqueo(null)}
+        onConfirmar={() => {
+          if (confirmandoDesbloqueo === 'rfid') {
+            setRfidEditable(true)
+            setTimeout(() => rfidInputRef.current?.focus(), 50)
+          } else if (confirmandoDesbloqueo === 'pin') {
+            setPinEditable(true)
+            setTimeout(() => pinInputRef.current?.focus(), 50)
+          }
+          setConfirmandoDesbloqueo(null)
+        }}
+        titulo={confirmandoDesbloqueo === 'rfid' ? '¿Editar llavero RFID?' : '¿Editar PIN del kiosco?'}
+        descripcion={
+          confirmandoDesbloqueo === 'rfid'
+            ? 'Vas a modificar el llavero RFID asociado a este usuario. Si lo cambiás, dejará de funcionar el llavero anterior para fichar en el kiosco.'
+            : 'Vas a modificar el PIN del kiosco. Si lo cambiás, el usuario deberá usar el nuevo PIN para fichar.'
+        }
+        tipo="advertencia"
+        etiquetaConfirmar="Sí, editar"
+      />
     </div>
   )
 }

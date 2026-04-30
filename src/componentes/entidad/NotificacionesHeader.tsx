@@ -558,6 +558,12 @@ function NotificacionesHeader() {
           /* Badge: solo notificaciones no leídas (recordatorios tienen su propio indicador en la pestaña) */
           const badgeCount = noLeidas
 
+          /* Para el ícono de Inbox usamos un badge bicolor que distingue WhatsApp del resto.
+           * Verde = WhatsApp (lo urgente), morado = correo/interno. */
+          const esInbox = config.categoria === 'inbox'
+          const waCount = esInbox ? conteosInbox.whatsapp : 0
+          const otrosCount = esInbox ? conteosInbox.correo + conteosInbox.interno : 0
+
           return (
             <Popover
               key={config.categoria}
@@ -639,15 +645,45 @@ function NotificacionesHeader() {
                       : 'text-texto-terciario hover:text-texto-secundario',
                   ].join(' ')}
                 />
-                {badgeCount > 0 && (
-                  <span className={[
-                    'absolute -top-0.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xxs font-bold leading-none pointer-events-none',
-                    silenciada
-                      ? 'bg-texto-terciario/20 text-texto-terciario'
-                      : 'bg-texto-marca text-white',
-                  ].join(' ')}>
-                    {badgeCount > 99 ? '99+' : badgeCount}
-                  </span>
+                {esInbox ? (
+                  /* Inbox: dos badges separados, correos arriba-derecha (morado), WhatsApp abajo-izquierda (verde) */
+                  <>
+                    {otrosCount > 0 && (
+                      <span
+                        className={[
+                          'absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-[3px] rounded-full font-bold leading-none pointer-events-none ring-1 ring-superficie-sidebar',
+                          silenciada ? 'bg-texto-terciario/20 text-texto-terciario' : 'bg-texto-marca text-white',
+                        ].join(' ')}
+                        style={{ fontSize: '9px' }}
+                      >
+                        {otrosCount > 99 ? '99+' : otrosCount}
+                      </span>
+                    )}
+                    {waCount > 0 && (
+                      <span
+                        className={[
+                          'absolute -top-0.5 -left-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-[3px] rounded-full font-bold leading-none pointer-events-none ring-1 ring-superficie-sidebar text-white',
+                          silenciada ? 'opacity-40' : '',
+                        ].join(' ')}
+                        style={{ fontSize: '9px', backgroundColor: 'var(--insignia-exito)' }}
+                      >
+                        {waCount > 99 ? '99+' : waCount}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  badgeCount > 0 && (
+                    <span
+                      className={[
+                        'absolute -top-0.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xxs font-bold leading-none pointer-events-none',
+                        silenciada
+                          ? 'bg-texto-terciario/20 text-texto-terciario'
+                          : 'bg-texto-marca text-white',
+                      ].join(' ')}
+                    >
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )
                 )}
                 {/* Indicador de pendientes (dot marca) — cuando no hay badge */}
                 {badgeCount === 0 && pendientes.hayPendientes(config.categoria) && (

@@ -27,6 +27,7 @@ interface Plantilla {
   lineas?: unknown[]
   notas_html?: string
   condiciones_html?: string
+  columnas_lineas?: string[]
 }
 
 interface PropiedadesSelectorPlantilla {
@@ -53,6 +54,7 @@ const CAMPOS_PLANTILLA = [
   'Líneas de productos/servicios',
   'Notas del presupuesto',
   'Condiciones comerciales',
+  'Columnas visibles y su orden',
 ]
 
 export default function SelectorPlantilla({

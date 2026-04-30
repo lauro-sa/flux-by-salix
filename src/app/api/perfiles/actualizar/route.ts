@@ -79,6 +79,23 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Error al actualizar perfil' }, { status: 500 })
     }
 
+    // Espejar nombre/apellido a auth.user_metadata para que sidebar/header/menú
+    // móvil (que leen del JWT, no de perfiles) muestren el nombre actualizado
+    // sin fetch extra. perfiles es la fuente de verdad; esto es solo el espejo.
+    if ('nombre' in actualizar || 'apellido' in actualizar) {
+      const { data: existente } = await admin.auth.admin.getUserById(perfil_id)
+      const metaActual = existente?.user?.user_metadata ?? {}
+      const nombreFinal = ('nombre' in actualizar ? actualizar.nombre : data.nombre) ?? null
+      const apellidoFinal = ('apellido' in actualizar ? actualizar.apellido : data.apellido) ?? null
+      await admin.auth.admin.updateUserById(perfil_id, {
+        user_metadata: {
+          ...metaActual,
+          nombre: nombreFinal,
+          apellido: apellidoFinal,
+        },
+      })
+    }
+
     return NextResponse.json(data)
   } catch (err) {
     console.error('Error interno en /api/perfiles/actualizar:', err)

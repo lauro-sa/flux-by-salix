@@ -808,19 +808,29 @@ export function FilaVista({
       {vista.es_sistema && (
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-texto-terciario shrink-0">Sistema</span>
       )}
-      {vista.predefinida && <Star size={11} className="text-texto-marca fill-current shrink-0" />}
+      {/* Estrella siempre visible cuando es predefinida — se queda persistente
+          (no en hover) para que el usuario sepa cuál es la predefinida.
+          El click toggle vive en el botón de acciones de abajo. */}
+      {vista.predefinida && !onMarcarPredefinida && (
+        <Star size={11} className="text-texto-marca fill-current shrink-0" />
+      )}
       {esActiva && <Check size={13} className="text-texto-marca shrink-0" />}
 
-      {/* Acciones (solo visibles en hover) */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
-        {onMarcarPredefinida && !vista.predefinida && !vista.es_sistema && (
-          <Tooltip contenido="Marcar como predefinida">
+      {/* Acciones (la estrella queda visible si es predefinida; el resto en hover) */}
+      <div className="flex items-center gap-0.5 transition-all shrink-0">
+        {onMarcarPredefinida && !vista.es_sistema && (
+          <Tooltip contenido={vista.predefinida ? 'Quitar como predefinida' : 'Marcar como predefinida'}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onMarcarPredefinida() }}
-              className="size-5 inline-flex items-center justify-center rounded-boton hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors"
+              className={[
+                'size-5 inline-flex items-center justify-center rounded-boton cursor-pointer border-none bg-transparent transition-colors',
+                vista.predefinida
+                  ? 'text-texto-marca hover:bg-superficie-hover'
+                  : 'opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-texto-marca hover:bg-superficie-hover',
+              ].join(' ')}
             >
-              <Star size={11} />
+              <Star size={11} className={vista.predefinida ? 'fill-current' : ''} />
             </button>
           </Tooltip>
         )}
@@ -829,7 +839,7 @@ export function FilaVista({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onEliminar() }}
-              className="size-5 inline-flex items-center justify-center rounded-boton hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors"
+              className="size-5 inline-flex items-center justify-center rounded-boton hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors opacity-0 group-hover:opacity-100"
             >
               <X size={11} />
             </button>

@@ -228,11 +228,18 @@ function TablaDinamica<T>({
     })
   }, [columnasFiltrable, filtrosInternos])
 
-  /* Combinar filtros externos (prop) con auto-generados */
-  const todosLosFiltros = useMemo(
-    () => [...filtros, ...filtrosAutoGenerados],
-    [filtros, filtrosAutoGenerados]
-  )
+  /* Combinar filtros externos (prop) con auto-generados.
+     Si una misma `id` aparece en ambos lados (ej. una columna filtrable
+     que también está declarada como filtro externo con un tipo distinto),
+     el externo gana — porque el caller suele saber mejor qué tipo de
+     selector quiere (multi vs single, etiquetas custom, etc.). Sin esta
+     dedup, Map.get(id) en consumidores se queda con el auto-generado y
+     pierde el tipo declarado por el caller. */
+  const todosLosFiltros = useMemo(() => {
+    const idsExternos = new Set(filtros.map(f => f.id))
+    const autoSinDuplicar = filtrosAutoGenerados.filter(f => !idsExternos.has(f.id))
+    return [...filtros, ...autoSinDuplicar]
+  }, [filtros, filtrosAutoGenerados])
 
   /* ── Vistas guardadas (auto-gestión cuando hay idModulo) ── */
   const {
@@ -946,8 +953,9 @@ function TablaDinamica<T>({
 
         {/* Buscador — ancho adaptativo:
              - Cerrado: mobile w-full, desktop dinámico según texto (max 700px)
-             - Abierto: crece a 660px para recibir el panel como grupo unificado */}
-        <div className={`min-w-0 relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''} ${panelFiltrosAbierto ? 'w-full sm:max-w-[660px]' : 'w-full sm:w-auto sm:max-w-[700px]'}`} style={(esMobil || panelFiltrosAbierto) ? undefined : { width: anchoBuscador > 0 ? anchoBuscador : undefined }}>
+             - Abierto: crece a 940px para que el panel avanzado de 3 columnas
+               (nav 180 + detalle + contexto 200) tenga aire suficiente. */}
+        <div className={`min-w-0 relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''} ${panelFiltrosAbierto ? 'w-full sm:max-w-[940px]' : 'w-full sm:w-auto sm:max-w-[700px]'}`} style={(esMobil || panelFiltrosAbierto) ? undefined : { width: anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[

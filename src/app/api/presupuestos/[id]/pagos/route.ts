@@ -494,12 +494,15 @@ export async function POST(
       }
     }
 
-    // Adjuntos para el chatter — mostramos todos los comprobantes
+    // Adjuntos para el chatter — mostramos todos los comprobantes.
+    // url va vacía porque el bucket es privado: el frontend pide la signed
+    // URL al endpoint de descarga (resuelta on-demand, dura 5 min).
     const adjuntos = comprobantesGuardados.map((c) => ({
-      url: c.url,
+      url: '',
       nombre: c.nombre,
       tipo: c.mime_tipo || 'application/octet-stream',
       tamano: c.tamano_bytes || 0,
+      endpoint_descarga: `/api/presupuestos/${presupuestoId}/pagos/${pagoCreado.id}/comprobantes/${c.id}/descargar`,
     }))
 
     const formatoMonto = new Intl.NumberFormat('es-AR', {

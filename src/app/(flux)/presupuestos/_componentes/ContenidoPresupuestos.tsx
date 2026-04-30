@@ -147,6 +147,11 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
   const filtroCreadoPor = f.creado_por
   const contactoIdFiltro = f.contacto_id || null
   const origenUrl = f.origen || null
+  // Si estamos filtrando por contacto, el botón "Nuevo presupuesto" arrastra
+  // el contacto al editor para crearlo ya pre-seleccionado.
+  const urlNuevoPresupuesto = contactoIdFiltro
+    ? `/presupuestos/nuevo?contacto_id=${contactoIdFiltro}`
+    : '/presupuestos/nuevo'
   const setFiltroEstado = (v: string[]) => filtros.set('estado', v)
   const setFiltroTipoContacto = (v: string[]) => filtros.set('tipo_contacto', v)
   const setFiltroEnOrdenVenta = (v: string) => filtros.set('en_orden_venta', v)
@@ -602,7 +607,7 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
     <PlantillaListado
       titulo={t('navegacion.presupuestos')}
       icono={<FileText size={20} />}
-      accionPrincipal={tienePermiso('presupuestos', 'crear') ? { etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') } : undefined}
+      accionPrincipal={tienePermiso('presupuestos', 'crear') ? { etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push(urlNuevoPresupuesto) } : undefined}
       acciones={[
         { id: 'exportar', etiqueta: 'Exportar', icono: <FileDown size={14} />, onClick: () => {} },
       ]}
@@ -920,7 +925,7 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
             titulo="Sin presupuestos todavía"
             descripcion="Armá tu primer presupuesto y empezá a cerrar negocios."
             accion={
-              <Boton onClick={() => router.push('/presupuestos/nuevo')}>
+              <Boton onClick={() => router.push(urlNuevoPresupuesto)}>
                 <Plus size={16} />
                 Crear primer presupuesto
               </Boton>

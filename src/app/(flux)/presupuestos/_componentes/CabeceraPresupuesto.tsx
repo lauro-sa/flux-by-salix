@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Cloud, CloudCheck, X, Info, RefreshCw,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Loader2, MoreHorizontal, Wrench,
+  Loader2, MoreHorizontal, Wrench, ShieldCheck, Save,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
@@ -55,6 +55,11 @@ interface PropsCabeceraPresupuesto {
   generandoOT?: boolean
   /** OT viva vinculada al presupuesto; si existe, se oculta "Generar OT" y se muestra "Ver OT". */
   ordenTrabajoVinculada?: { id: string; numero: string } | null
+  /** True si el usuario es propietario o administrador y puede activar la edición administrativa */
+  puedeEdicionAdmin?: boolean
+  /** True si el documento está actualmente en modo de edición administrativa */
+  modoEdicionAdmin?: boolean
+  onActivarEdicionAdmin?: () => void
 }
 
 export default function CabeceraPresupuesto({
@@ -87,6 +92,9 @@ export default function CabeceraPresupuesto({
   onVerOT,
   generandoOT,
   ordenTrabajoVinculada,
+  puedeEdicionAdmin = false,
+  modoEdicionAdmin = false,
+  onActivarEdicionAdmin,
 }: PropsCabeceraPresupuesto) {
   const { t } = useTraduccion()
 
@@ -187,6 +195,9 @@ export default function CabeceraPresupuesto({
             onVerOT={onVerOT}
             generandoOT={generandoOT}
             ordenTrabajoVinculada={ordenTrabajoVinculada}
+            puedeEdicionAdmin={puedeEdicionAdmin}
+            modoEdicionAdmin={modoEdicionAdmin}
+            onActivarEdicionAdmin={onActivarEdicionAdmin}
             t={t}
           />
         </div>
@@ -207,7 +218,8 @@ function BotonesAccion({
   estadoActual, estaCancelado, estadosPosibles, generandoPdf,
   presupuestoFechaEmision, fechaEmision,
   onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir,
-  onGenerarOT, onVerOT, generandoOT, ordenTrabajoVinculada, t,
+  onGenerarOT, onVerOT, generandoOT, ordenTrabajoVinculada,
+  puedeEdicionAdmin, modoEdicionAdmin, onActivarEdicionAdmin, t,
 }: {
   estadoActual: EstadoPresupuesto
   estaCancelado: boolean
@@ -225,6 +237,9 @@ function BotonesAccion({
   onVerOT?: () => void
   generandoOT?: boolean
   ordenTrabajoVinculada?: { id: string; numero: string } | null
+  puedeEdicionAdmin?: boolean
+  modoEdicionAdmin?: boolean
+  onActivarEdicionAdmin?: () => void
   t: (key: string) => string
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -273,6 +288,22 @@ function BotonesAccion({
   const opcionesMenu: { icono: typeof Send; label: string; onClick: () => void; peligro?: boolean }[] = []
   opcionesMenu.push({ icono: Receipt, label: 'Enviar Factura Proforma', onClick: onEnviarProforma })
   if (puedeReEmitir) opcionesMenu.push({ icono: RefreshCw, label: 'Re-emitir', onClick: onReEmitir })
+  // Edición administrativa: solo para admin/propietario, en estados no
+  // editables (≠ borrador) y cuando aún no se activó. La salida del modo
+  // se hace desde el banner (botón "Guardar correcciones"), no desde aquí.
+  if (
+    puedeEdicionAdmin
+    && !modoEdicionAdmin
+    && estadoActual !== 'borrador'
+    && !estaCancelado
+    && onActivarEdicionAdmin
+  ) {
+    opcionesMenu.push({
+      icono: ShieldCheck,
+      label: 'Editar como administrador',
+      onClick: onActivarEdicionAdmin,
+    })
+  }
 
   // Orden fijo: Confirmar/Aprobar OV → Enviar → Imprimir → ··· → Cancelar
   const labelConfirmar = esConfirmadoCliente ? 'Aprobar Orden de Venta' : t('comun.confirmar')
@@ -365,6 +396,55 @@ export function BannerBloqueo({
       {estadosPosibles.includes('borrador') && (
         <Boton variante="fantasma" tamano="xs" onClick={() => onCambiarEstado('borrador')} className="ml-1">Volver a Borrador</Boton>
       )}
+    </div>
+  )
+}
+
+/** Banner de edición administrativa — se muestra cuando un admin/propietario
+ *  activó la corrección del documento. El estado, las fechas de envío y los
+ *  contadores se preservan; al guardar se regenera el PDF y queda traza en
+ *  historial + chatter. */
+export function BannerEdicionAdmin({
+  estadoActual,
+  guardando,
+  onGuardar,
+  onCancelar,
+}: {
+  estadoActual: EstadoPresupuesto
+  guardando: boolean
+  onGuardar: () => void
+  onCancelar: () => void
+}) {
+  return (
+    <div className="px-6 py-3 bg-insignia-info/10 border-b border-insignia-info/30 flex items-center gap-3">
+      <ShieldCheck size={15} className="text-insignia-info shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-texto-secundario">
+          <strong className="text-texto-primario">Edición administrativa</strong>
+          {' — '}
+          se mantiene el estado <strong>{ETIQUETAS_ESTADO[estadoActual]}</strong> y las fechas originales.
+          Al guardar se regenera el PDF y queda traza en el historial.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          onClick={onCancelar}
+          disabled={guardando}
+        >
+          Cancelar
+        </Boton>
+        <Boton
+          variante="primario"
+          tamano="xs"
+          onClick={onGuardar}
+          disabled={guardando}
+          icono={<Save size={14} className={guardando ? 'animate-pulse' : ''} />}
+        >
+          {guardando ? 'Guardando…' : 'Guardar correcciones'}
+        </Boton>
+      </div>
     </div>
   )
 }
