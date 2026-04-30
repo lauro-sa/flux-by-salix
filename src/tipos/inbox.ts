@@ -127,6 +127,15 @@ export interface ConfigWhatsAppTwilio {
 export type EstadoConversacion = 'abierta' | 'en_espera' | 'resuelta' | 'spam' | 'snooze'
 export type PrioridadConversacion = 'baja' | 'normal' | 'alta' | 'urgente'
 
+/**
+ * Motivo por el cual se pausó el chatbot o agente IA en una conversación.
+ *  - 'manual'           — el usuario clickeó el pill y pausó la conversación
+ *  - 'respuesta_humana' — el agente envió un mensaje manual (texto/media)
+ *  - 'plantilla'        — se envió una plantilla desde una entidad (presupuesto, factura, etc.)
+ *  - 'sistema'          — el webhook pausó la automatización por un patrón configurado
+ */
+export type MotivoPausa = 'manual' | 'respuesta_humana' | 'plantilla' | 'sistema'
+
 export interface Conversacion {
   id: string
   empresa_id: string
@@ -177,6 +186,12 @@ export interface Conversacion {
   agente_ia_activo: boolean
   chatbot_pausado_hasta: string | null
   ia_pausado_hasta: string | null
+  chatbot_pausado_motivo: MotivoPausa | null
+  ia_pausado_motivo: MotivoPausa | null
+  chatbot_pausado_por: string | null
+  ia_pausado_por: string | null
+  chatbot_pausado_en: string | null
+  ia_pausado_en: string | null
   // Snooze / recordatorio
   snooze_hasta: string | null
   snooze_nota: string | null

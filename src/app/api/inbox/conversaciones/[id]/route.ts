@@ -153,14 +153,38 @@ export async function PATCH(
       }
     }
 
-    // Exclusión mutua: chatbot vs agente IA
+    // Cualquier cambio del estado de chatbot/IA desde este endpoint es accionado
+    // manualmente por el usuario (el popover del pill llama acá). Reflejar motivo,
+    // usuario y timestamp; al reactivar se limpia toda la trazabilidad.
+    const ahoraISOPausa = new Date().toISOString()
     if (body.chatbot_activo === true) {
+      cambios.chatbot_pausado_motivo = null
+      cambios.chatbot_pausado_por = null
+      cambios.chatbot_pausado_en = null
+      // Exclusión mutua con IA (apagar la otra automatización es también acción manual)
       cambios.agente_ia_activo = false
       cambios.ia_pausado_hasta = null
+      cambios.ia_pausado_motivo = 'manual'
+      cambios.ia_pausado_por = user.id
+      cambios.ia_pausado_en = ahoraISOPausa
+    } else if (body.chatbot_activo === false) {
+      cambios.chatbot_pausado_motivo = 'manual'
+      cambios.chatbot_pausado_por = user.id
+      cambios.chatbot_pausado_en = ahoraISOPausa
     }
     if (body.agente_ia_activo === true) {
+      cambios.ia_pausado_motivo = null
+      cambios.ia_pausado_por = null
+      cambios.ia_pausado_en = null
       cambios.chatbot_activo = false
       cambios.chatbot_pausado_hasta = null
+      cambios.chatbot_pausado_motivo = 'manual'
+      cambios.chatbot_pausado_por = user.id
+      cambios.chatbot_pausado_en = ahoraISOPausa
+    } else if (body.agente_ia_activo === false) {
+      cambios.ia_pausado_motivo = 'manual'
+      cambios.ia_pausado_por = user.id
+      cambios.ia_pausado_en = ahoraISOPausa
     }
 
     // Al mover a papelera, registrar timestamp

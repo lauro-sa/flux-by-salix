@@ -574,7 +574,13 @@ async function procesarMensajeEntrante(
         if (Date.now() >= new Date(convActualizada.ia_pausado_hasta).getTime()) {
           await admin
             .from('conversaciones')
-            .update({ agente_ia_activo: true, ia_pausado_hasta: null })
+            .update({
+              agente_ia_activo: true,
+              ia_pausado_hasta: null,
+              ia_pausado_motivo: null,
+              ia_pausado_por: null,
+              ia_pausado_en: null,
+            })
             .eq('id', conversacion.id)
           iaActiva = true
         }
@@ -1161,7 +1167,13 @@ async function procesarChatbot(
     if (Date.now() >= new Date(conv.chatbot_pausado_hasta).getTime()) {
       await admin
         .from('conversaciones')
-        .update({ chatbot_activo: true, chatbot_pausado_hasta: null })
+        .update({
+          chatbot_activo: true,
+          chatbot_pausado_hasta: null,
+          chatbot_pausado_motivo: null,
+          chatbot_pausado_por: null,
+          chatbot_pausado_en: null,
+        })
         .eq('id', conversacionId)
       chatbotActivo = true
     }
@@ -1178,7 +1190,12 @@ async function procesarChatbot(
     if (matchea) {
       await admin
         .from('conversaciones')
-        .update({ chatbot_activo: false })
+        .update({
+          chatbot_activo: false,
+          chatbot_pausado_motivo: 'sistema',
+          chatbot_pausado_en: new Date().toISOString(),
+          chatbot_pausado_por: null,
+        })
         .eq('id', conversacionId)
       console.log('[CHATBOT] Patrón configurado detectado — chatbot salteado, deriva al agente IA')
       return false
@@ -1298,7 +1315,12 @@ async function procesarChatbot(
   // 4. Transferencia a agente
   if (configBot.palabra_transferir && textoNormalizado.includes(configBot.palabra_transferir.toLowerCase())) {
     // Desactivar bot en esta conversación
-    await admin.from('conversaciones').update({ chatbot_activo: false }).eq('id', conversacionId)
+    await admin.from('conversaciones').update({
+      chatbot_activo: false,
+      chatbot_pausado_motivo: 'sistema',
+      chatbot_pausado_en: new Date().toISOString(),
+      chatbot_pausado_por: null,
+    }).eq('id', conversacionId)
 
     if (configBot.mensaje_transferencia) {
       await enviarRespuestaBot(configBot.mensaje_transferencia)
@@ -1382,7 +1404,12 @@ async function procesarChatbot(
     if (opcionElegida) {
       // Si la opción no tiene respuesta, desactivar chatbot y dejar que el agente IA o humano responda
       if (!opcionElegida.respuesta) {
-        await admin.from('conversaciones').update({ chatbot_activo: false }).eq('id', conversacionId)
+        await admin.from('conversaciones').update({
+          chatbot_activo: false,
+          chatbot_pausado_motivo: 'sistema',
+          chatbot_pausado_en: new Date().toISOString(),
+          chatbot_pausado_por: null,
+        }).eq('id', conversacionId)
 
         // Si hay agente IA activo, dejar que él responda (no enviar mensaje de transferencia)
         const { data: configAgenteMenu } = await admin
@@ -1433,7 +1460,12 @@ async function procesarChatbot(
     // El agente IA se encarga — desactivar chatbot para esta conversación
     await admin
       .from('conversaciones')
-      .update({ chatbot_activo: false })
+      .update({
+        chatbot_activo: false,
+        chatbot_pausado_motivo: 'sistema',
+        chatbot_pausado_en: new Date().toISOString(),
+        chatbot_pausado_por: null,
+      })
       .eq('id', conversacionId)
     return false
   }

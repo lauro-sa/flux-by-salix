@@ -239,7 +239,8 @@ export async function POST(request: NextRequest) {
     // se apagan chatbot y/o agente IA según modo (siempre_activo, manual, temporal).
     const ahoraISO = new Date().toISOString()
     const configPausa = await obtenerConfigPausa(admin, empresaId)
-    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa)
+    const motivoPausa = tipo === 'plantilla' ? 'plantilla' : 'respuesta_humana'
+    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa, motivoPausa, userId)
     await admin
       .from('conversaciones')
       .update({

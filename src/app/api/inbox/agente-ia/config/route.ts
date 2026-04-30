@@ -84,7 +84,13 @@ export async function PUT(request: NextRequest) {
     if (datosFiltrados.activo === false) {
       await admin
         .from('conversaciones')
-        .update({ agente_ia_activo: false, ia_pausado_hasta: null })
+        .update({
+          agente_ia_activo: false,
+          ia_pausado_hasta: null,
+          ia_pausado_motivo: 'sistema',
+          ia_pausado_en: new Date().toISOString(),
+          ia_pausado_por: null,
+        })
         .eq('empresa_id', empresaId)
         .eq('agente_ia_activo', true)
     }

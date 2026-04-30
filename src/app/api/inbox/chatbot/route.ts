@@ -53,7 +53,13 @@ export async function PUT(request: NextRequest) {
     if (body.activo === false) {
       await admin
         .from('conversaciones')
-        .update({ chatbot_activo: false, chatbot_pausado_hasta: null })
+        .update({
+          chatbot_activo: false,
+          chatbot_pausado_hasta: null,
+          chatbot_pausado_motivo: 'sistema',
+          chatbot_pausado_en: new Date().toISOString(),
+          chatbot_pausado_por: null,
+        })
         .eq('empresa_id', empresaId)
         .eq('chatbot_activo', true)
     }

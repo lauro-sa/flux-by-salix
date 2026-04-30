@@ -1705,6 +1705,12 @@ export const conversaciones = pgTable('conversaciones', {
   // Bot / IA pause
   chatbot_pausado_hasta: timestamp('chatbot_pausado_hasta', { withTimezone: true }),
   ia_pausado_hasta: timestamp('ia_pausado_hasta', { withTimezone: true }),
+  chatbot_pausado_motivo: text('chatbot_pausado_motivo'),
+  ia_pausado_motivo: text('ia_pausado_motivo'),
+  chatbot_pausado_por: uuid('chatbot_pausado_por'),
+  ia_pausado_por: uuid('ia_pausado_por'),
+  chatbot_pausado_en: timestamp('chatbot_pausado_en', { withTimezone: true }),
+  ia_pausado_en: timestamp('ia_pausado_en', { withTimezone: true }),
   // Snooze / recordatorio
   snooze_hasta: timestamp('snooze_hasta', { withTimezone: true }),
   snooze_nota: text('snooze_nota'),

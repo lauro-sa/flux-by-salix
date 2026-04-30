@@ -204,7 +204,10 @@ export async function POST(request: NextRequest) {
     // acá mismo para no depender de que el cliente responda.
     const ahoraISO = new Date().toISOString()
     const configPausa = await obtenerConfigPausa(admin, empresaId)
-    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa)
+    // Desde chatter siempre se envía una plantilla (es el único path); si en el
+    // futuro se permite texto libre desde una entidad, ajustar el motivo.
+    const motivoPausa = esPlantilla ? 'plantilla' : 'respuesta_humana'
+    const pausaUpdates = calcularPausaPorRespuestaHumana(configPausa, motivoPausa, user.id)
     const updateConv: Record<string, unknown> = {
       ultimo_mensaje_texto: textoMensaje,
       ultimo_mensaje_en: ahoraISO,

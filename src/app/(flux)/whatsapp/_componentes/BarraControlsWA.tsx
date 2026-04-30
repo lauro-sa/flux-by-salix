@@ -10,9 +10,10 @@ import { Popover } from '@/componentes/ui/Popover'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { useAuth } from '@/hooks/useAuth'
+import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
-import type { ConversacionConDetalles, Conversacion, EtapaConversacion } from '@/tipos/inbox'
+import type { ConversacionConDetalles, Conversacion, EtapaConversacion, MotivoPausa } from '@/tipos/inbox'
 
 /**
  * BarraControlsWA — Fila de controles interactivos (píldoras) debajo del header del chat WA.
@@ -51,22 +52,120 @@ interface SectorItem {
   color: string
 }
 
-type EstadoBot = 'activo' | 'pausado' | 'inactivo'
+// Estados a nivel conversación. La distinción entre "pausa manual indefinida" e
+// "inactivo" no existe en datos (ambos son activo=false + pausado_hasta=null) y
+// tampoco semánticamente: en ambos casos el bot/IA queda apagado en esta
+// conversación hasta que el usuario lo reactive. El "deshabilitado por config
+// de empresa" vive aparte en config_chatbot.activo y se rendea con otro pill
+// vía la prop botHabilitado/iaHabilitada.
+type EstadoBot = 'activo' | 'pausado-temporal' | 'pausado-indefinido'
 
 // ─── Utilidades ───
 
 /** Determina el estado de bot/IA a partir de activo + pausado_hasta */
 function calcularEstado(activo: boolean, pausadoHasta: string | null): EstadoBot {
   if (activo) return 'activo'
-  if (pausadoHasta && new Date(pausadoHasta) > new Date()) return 'pausado'
-  return 'inactivo'
+  if (pausadoHasta && new Date(pausadoHasta) > new Date()) return 'pausado-temporal'
+  return 'pausado-indefinido'
 }
 
 /** Color del indicador según estado */
 function colorIndicador(estado: EstadoBot, tipo: 'bot' | 'ia'): string {
   if (estado === 'activo') return tipo === 'ia' ? 'var(--insignia-violeta)' : 'var(--insignia-exito)'
-  if (estado === 'pausado') return 'var(--insignia-advertencia)'
+  if (estado === 'pausado-temporal') return 'var(--insignia-advertencia)'
   return 'var(--insignia-neutro)'
+}
+
+/**
+ * Formatea un instante absoluto en formato natural según cercanía:
+ * "hoy a las 16:47", "ayer a las 22:30", "mañana a las 09:00",
+ * "el 27 abr a las 14:00". Respeta formato 12h/24h y locale de la empresa.
+ */
+function formatearMomento(
+  fecha: Date,
+  formatearHora: (d: Date) => string,
+  locale: string,
+): string {
+  const ahora = new Date()
+  const hoyKey = ahora.toDateString()
+  const ayerDate = new Date(ahora); ayerDate.setDate(ahora.getDate() - 1)
+  const mananaDate = new Date(ahora); mananaDate.setDate(ahora.getDate() + 1)
+  const fechaKey = fecha.toDateString()
+
+  const hora = formatearHora(fecha)
+
+  if (fechaKey === hoyKey) return `hoy a las ${hora}`
+  if (fechaKey === ayerDate.toDateString()) return `ayer a las ${hora}`
+  if (fechaKey === mananaDate.toDateString()) return `mañana a las ${hora}`
+
+  const mismoAnio = fecha.getFullYear() === ahora.getFullYear()
+  const fechaCorta = fecha.toLocaleDateString(locale, mismoAnio
+    ? { day: 'numeric', month: 'short' }
+    : { day: 'numeric', month: 'short', year: 'numeric' })
+  return `el ${fechaCorta} a las ${hora}`
+}
+
+/** Frase nominal que describe la causa de la pausa (impersonal, no acción del usuario). */
+function describirCausa(motivo: MotivoPausa | null): string {
+  if (motivo === 'plantilla') return 'envío de plantilla'
+  if (motivo === 'respuesta_humana') return 'respuesta manual al cliente'
+  if (motivo === 'sistema') return 'transferencia automática'
+  return 'pausa manual'
+}
+
+interface DatosPausa {
+  estado: EstadoBot
+  pausadoHasta: string | null
+  motivo: MotivoPausa | null
+  porUsuarioId: string | null
+  pausadoEn: string | null
+}
+
+/** Texto del tooltip para el pill de Bot o IA según su estado y trazabilidad. */
+function tooltipEstado(
+  datos: DatosPausa,
+  tipo: 'bot' | 'ia',
+  /** Resuelve "Nombre Apellido" o "vos" para un user_id. null si no se identifica. */
+  resolverNombre: (id: string | null) => string | null,
+  /** Formatea una hora respetando 12h/24h de la config de empresa. */
+  formatearHora: (d: Date) => string,
+  /** Locale derivado de la zona horaria de la empresa (ej: 'es-AR'). */
+  locale: string,
+): string {
+  const nombre = tipo === 'ia' ? 'Agente IA' : 'Chatbot'
+  const { estado, pausadoHasta, motivo, porUsuarioId, pausadoEn } = datos
+
+  if (estado === 'activo') return `${nombre} activo en esta conversación`
+
+  const quien = resolverNombre(porUsuarioId)
+
+  // Encabezado: solo decimos "por X" cuando fue acción directa (motivo='manual').
+  // En los demás casos la pausa es automática (consecuencia de otra acción), aunque
+  // la haya disparado un usuario, así que decimos "pausado automáticamente".
+  const encabezado = motivo === 'manual' && quien
+    ? `${nombre} pausado por ${quien}`
+    : motivo === 'manual'
+      ? `${nombre} pausado`
+      : `${nombre} pausado automáticamente`
+
+  // Línea en blanco después del encabezado para que destaque, y cada dato en su
+  // propia línea para que el tooltip sea fácil de escanear sin wraps raros.
+  const lineas: string[] = [encabezado, '']
+  lineas.push(`Motivo: ${describirCausa(motivo)}`)
+
+  // Línea de "cuándo" + autor de la acción que disparó la pausa.
+  // Para motivo='manual' el autor ya está en el encabezado, no lo repetimos.
+  if (pausadoEn) {
+    const cuando = formatearMomento(new Date(pausadoEn), formatearHora, locale)
+    const incluirAutor = motivo !== 'manual' && motivo !== 'sistema' && quien
+    lineas.push(incluirAutor ? `Por ${quien} · ${cuando}` : `Pausado ${cuando}`)
+  }
+
+  lineas.push(estado === 'pausado-temporal' && pausadoHasta
+    ? `Se reactiva ${formatearMomento(new Date(pausadoHasta), formatearHora, locale)}`
+    : 'No se va a reactivar hasta que lo enciendas manualmente')
+
+  return lineas.join('\n')
 }
 
 // ─── Componente principal ───
@@ -80,6 +179,7 @@ export function BarraControlsWA({
   botHabilitado = true,
 }: PropiedadesBarraControlsWA) {
   const { usuario } = useAuth()
+  const formato = useFormato()
 
   // ─── Estado local ───
   // Lista de miembros desde el hook común. El popover de "Agente" sigue
@@ -112,6 +212,17 @@ export function BarraControlsWA({
     () => calcularEstado(conversacion.agente_ia_activo, conversacion.ia_pausado_hasta),
     [conversacion.agente_ia_activo, conversacion.ia_pausado_hasta],
   )
+
+  // Resuelve el id de usuario al texto que se muestra en el tooltip.
+  // Si es el usuario actual → "vos". Si está en miembros → "Nombre Apellido".
+  // Si no se encuentra (kiosco, ex-miembro, etc.) → null para que el tooltip omita el "por X".
+  const resolverNombreUsuario = useCallback((id: string | null): string | null => {
+    if (!id) return null
+    if (usuario?.id === id) return 'vos'
+    const m = miembros.find(x => x.usuario_id === id)
+    if (!m) return null
+    return `${m.nombre || ''} ${m.apellido || ''}`.trim() || null
+  }, [usuario?.id, miembros])
 
   // ─── Comprobar si el usuario sigue la conversación ───
   useEffect(() => {
@@ -441,12 +552,20 @@ export function BarraControlsWA({
                 <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
                   Estado del chatbot
                 </p>
-                {([
-                  { etiqueta: 'Activo', estado: 'activo' as const, cambios: { chatbot_activo: true, chatbot_pausado_hasta: null, agente_ia_activo: false, ia_pausado_hasta: null } },
-                  { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
-                  { etiqueta: 'Pausado 24h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 86400_000).toISOString() } },
-                  { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: null } },
-                ]).map((opcion) => (
+                {(() => {
+                  const ahora = new Date().toISOString()
+                  // Optimistic update: incluímos motivo/por/en para que el tooltip refleje
+                  // los datos al instante. El backend ignora estos campos del cliente y
+                  // los completa server-side desde /api/inbox/conversaciones/[id].
+                  const metaPausa = { chatbot_pausado_motivo: 'manual' as MotivoPausa, chatbot_pausado_por: usuario?.id ?? null, chatbot_pausado_en: ahora }
+                  const metaLimpia = { chatbot_pausado_motivo: null, chatbot_pausado_por: null, chatbot_pausado_en: null }
+                  return [
+                    { etiqueta: 'Activo', estado: 'activo' as const, cambios: { chatbot_activo: true, chatbot_pausado_hasta: null, agente_ia_activo: false, ia_pausado_hasta: null, ...metaLimpia } },
+                    { etiqueta: 'Pausado 1h', estado: 'pausado-temporal' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 3600_000).toISOString(), ...metaPausa } },
+                    { etiqueta: 'Pausado 24h', estado: 'pausado-temporal' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 86400_000).toISOString(), ...metaPausa } },
+                    { etiqueta: 'Pausar hasta reactivar', estado: 'pausado-indefinido' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: null, ...metaPausa } },
+                  ]
+                })().map((opcion) => (
                   <button
                     key={opcion.etiqueta}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
@@ -460,15 +579,21 @@ export function BarraControlsWA({
               </div>
             }
           >
-            <Tooltip contenido={`Bot: ${estadoBot}`}>
+            <Tooltip contenido={tooltipEstado({
+              estado: estadoBot,
+              pausadoHasta: conversacion.chatbot_pausado_hasta,
+              motivo: conversacion.chatbot_pausado_motivo,
+              porUsuarioId: conversacion.chatbot_pausado_por,
+              pausadoEn: conversacion.chatbot_pausado_en,
+            }, 'bot', resolverNombreUsuario, formato.hora, formato.locale)}>
               <div
                 className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
                 style={{
                   padding: esMovil ? undefined : '0 0.625rem',
-                  background: estadoBot !== 'inactivo'
+                  background: estadoBot !== 'pausado-indefinido'
                     ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
                     : 'var(--superficie-hover)',
-                  color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
+                  color: estadoBot !== 'pausado-indefinido' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
                 }}
               >
                 <Bot size={esMovil ? 16 : 12} />
@@ -504,12 +629,17 @@ export function BarraControlsWA({
                 <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
                   Estado del agente IA
                 </p>
-                {([
-                  { etiqueta: 'Activo', estado: 'activo' as const, cambios: { agente_ia_activo: true, ia_pausado_hasta: null, chatbot_activo: false, chatbot_pausado_hasta: null } },
-                  { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
-                  { etiqueta: 'Pausado 8h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 28800_000).toISOString() } },
-                  { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: null } },
-                ]).map((opcion) => (
+                {(() => {
+                  const ahora = new Date().toISOString()
+                  const metaPausa = { ia_pausado_motivo: 'manual' as MotivoPausa, ia_pausado_por: usuario?.id ?? null, ia_pausado_en: ahora }
+                  const metaLimpia = { ia_pausado_motivo: null, ia_pausado_por: null, ia_pausado_en: null }
+                  return [
+                    { etiqueta: 'Activo', estado: 'activo' as const, cambios: { agente_ia_activo: true, ia_pausado_hasta: null, chatbot_activo: false, chatbot_pausado_hasta: null, ...metaLimpia } },
+                    { etiqueta: 'Pausado 1h', estado: 'pausado-temporal' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 3600_000).toISOString(), ...metaPausa } },
+                    { etiqueta: 'Pausado 8h', estado: 'pausado-temporal' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 28800_000).toISOString(), ...metaPausa } },
+                    { etiqueta: 'Pausar hasta reactivar', estado: 'pausado-indefinido' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: null, ...metaPausa } },
+                  ]
+                })().map((opcion) => (
                   <button
                     key={opcion.etiqueta}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
@@ -526,15 +656,21 @@ export function BarraControlsWA({
               </div>
             }
           >
-            <Tooltip contenido={`IA: ${estadoIA}`}>
+            <Tooltip contenido={tooltipEstado({
+              estado: estadoIA,
+              pausadoHasta: conversacion.ia_pausado_hasta,
+              motivo: conversacion.ia_pausado_motivo,
+              porUsuarioId: conversacion.ia_pausado_por,
+              pausadoEn: conversacion.ia_pausado_en,
+            }, 'ia', resolverNombreUsuario, formato.hora, formato.locale)}>
               <div
                 className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
                 style={{
                   padding: esMovil ? undefined : '0 0.625rem',
-                  background: estadoIA !== 'inactivo'
+                  background: estadoIA !== 'pausado-indefinido'
                     ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
                     : 'var(--superficie-hover)',
-                  color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
+                  color: estadoIA !== 'pausado-indefinido' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
                 }}
               >
                 <Sparkles size={esMovil ? 16 : 12} />
