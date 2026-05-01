@@ -3206,3 +3206,105 @@ export const notas_rapidas_compartidas = pgTable('notas_rapidas_compartidas', {
   uniqueIndex('notas_compartidas_nota_usuario_idx').on(tabla.nota_id, tabla.usuario_id),
   index('notas_compartidas_usuario_idx').on(tabla.usuario_id),
 ])
+
+// ═══════════════════════════════════════════════════════════════
+// INFRAESTRUCTURA GENÉRICA DE ESTADOS Y TRANSICIONES
+// ═══════════════════════════════════════════════════════════════
+// Soporte transversal para todas las entidades con estado en Flux
+// (presupuestos, órdenes, visitas, conversaciones, asistencias,
+// cuotas, actividades, etc.). Es la base sobre la que se va a
+// construir el motor futuro de workflows / automatizaciones.
+//
+// Migración fuente: sql/044_estados_infraestructura.sql
+// ═══════════════════════════════════════════════════════════════
+
+// Cambios de estado — auditoría unificada de cambios de estado de
+// cualquier entidad. Cada vez que una entidad cambia de estado se
+// inserta un row acá. Es la fuente única de eventos para workflows.
+export const cambios_estado = pgTable('cambios_estado', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Identificación de la entidad que cambió.
+  // entidad_tipo es el discriminador genérico:
+  // 'presupuesto' | 'orden' | 'visita' | 'conversacion' | 'asistencia' | 'cuota' | 'actividad' | etc.
+  entidad_tipo: text('entidad_tipo').notNull(),
+  entidad_id: uuid('entidad_id').notNull(),
+
+  // Cambio: clave del estado antes y después.
+  // estado_anterior es NULL en la creación inicial.
+  estado_anterior: text('estado_anterior'),
+  estado_nuevo: text('estado_nuevo').notNull(),
+
+  // Snapshot del grupo (semántica) en el momento del cambio:
+  // 'inicial' | 'activo' | 'espera' | 'completado' | 'cancelado' | 'error'
+  grupo_anterior: text('grupo_anterior'),
+  grupo_nuevo: text('grupo_nuevo'),
+
+  // Origen del cambio: 'manual' | 'sistema' | 'workflow' | 'api' | 'webhook' | 'cron'
+  origen: text('origen').notNull().default('manual'),
+
+  // Quién hizo el cambio. NULL si fue sistema/workflow/cron.
+  usuario_id: uuid('usuario_id'),
+  usuario_nombre: text('usuario_nombre'), // snapshot
+
+  // Motivo opcional (útil para cancelaciones, rechazos, reprogramaciones).
+  motivo: text('motivo'),
+
+  // Metadatos flexibles (workflow_id, regla_id, condiciones, etc.).
+  metadatos: jsonb('metadatos').notNull().default(sql`'{}'::jsonb`),
+
+  // Snapshot de campos relevantes de la entidad al momento del cambio.
+  contexto: jsonb('contexto').notNull().default(sql`'{}'::jsonb`),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  // Historial de una entidad puntual (lo que muestra el chatter).
+  index('cambios_estado_entidad_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.entidad_id, tabla.creado_en),
+  // Feed por tipo de entidad.
+  index('cambios_estado_tipo_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.creado_en),
+  // Feed por estado destino (clave para workflows).
+  index('cambios_estado_estado_nuevo_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.estado_nuevo, tabla.creado_en),
+  // Auditar lo que viene de workflows vs manual.
+  index('cambios_estado_origen_idx').on(tabla.empresa_id, tabla.origen, tabla.creado_en),
+])
+
+// Transiciones de estado — catálogo de transiciones válidas por entidad.
+// Sirve para validación API y para generar el catálogo de triggers que
+// el editor de workflows va a exponer. empresa_id NULL = transición del
+// sistema (válida para todas las empresas).
+export const transiciones_estado = pgTable('transiciones_estado', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+
+  entidad_tipo: text('entidad_tipo').notNull(),
+
+  // desde_clave NULL = transición desde cualquier estado.
+  desde_clave: text('desde_clave'),
+  hasta_clave: text('hasta_clave').notNull(),
+
+  // Etiqueta amigable de la transición ("Enviar presupuesto", "Aceptar", etc.).
+  etiqueta: text('etiqueta'),
+  descripcion: text('descripcion'),
+
+  // Si la dispara el sistema sin intervención del usuario.
+  es_automatica: boolean('es_automatica').notNull().default(false),
+  // Si requiere motivo obligatorio (cancelaciones, rechazos).
+  requiere_motivo: boolean('requiere_motivo').notNull().default(false),
+  // Si requiere confirmación explícita del usuario.
+  requiere_confirmacion: boolean('requiere_confirmacion').notNull().default(false),
+
+  // Condiciones declarativas opcionales (futuro, motor de workflows).
+  condiciones: jsonb('condiciones').notNull().default(sql`'[]'::jsonb`),
+
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  // Lookup rápido al validar una transición específica.
+  index('transiciones_estado_lookup_idx').on(tabla.entidad_tipo, tabla.desde_clave, tabla.hasta_clave),
+  // Lookup por empresa para listar transiciones disponibles.
+  index('transiciones_estado_empresa_idx').on(tabla.empresa_id, tabla.entidad_tipo),
+])
