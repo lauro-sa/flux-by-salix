@@ -183,10 +183,19 @@ export interface PropiedadesTablaDinamica<T> {
   /** Elemento extra a la derecha de la barra de herramientas (ej: botón de config) */
   accionDerecha?: ReactNode
 
-  /** Agrupación en vista tarjetas — función que extrae la clave del grupo desde cada fila */
-  grupoTarjetas?: (fila: T) => string
-  /** Etiqueta legible del grupo (si no se pasa, usa la clave directa) */
-  etiquetaGrupoTarjetas?: (clave: string) => string
+  /**
+   * Agrupador de filas — función que recibe una fila y devuelve la clave del grupo al que pertenece.
+   * Aplica tanto a vista tabla (header de grupo en una fila colSpan) como a vista tarjetas (sección).
+   * Si se omite, no hay agrupación.
+   */
+  agrupador?: (fila: T) => string
+  /** Etiqueta legible del grupo a partir de su clave (default: la clave directa). */
+  etiquetaGrupo?: (clave: string) => string
+  /**
+   * Orden explícito de los grupos por clave. Las claves no listadas van al final
+   * (ordenadas alfabéticamente entre sí). Si se omite, todo orden es alfabético.
+   */
+  ordenGrupos?: string[]
   /**
    * Clases Tailwind para el grid de la vista tarjetas. Permite que cada módulo
    * elija cuántas columnas usar por breakpoint según la densidad de su tarjeta.

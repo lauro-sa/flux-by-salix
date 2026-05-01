@@ -5,6 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { ordenarActividadesInteligente } from '@/lib/orden-actividades'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * Página de actividades — /actividades (Server Component)
@@ -43,39 +45,15 @@ export default async function PaginaActividades() {
     .order('creado_en', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  // Orden: Activas (Hoy → Vencidas → Futuras → Sin fecha) → Completadas/Canceladas al final
-  const ahora = new Date()
-  const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
-  const mananaInicio = new Date(hoyInicio); mananaInicio.setDate(mananaInicio.getDate() + 1)
-  const esCerrada = (estadoClave: string | null): boolean =>
-    estadoClave === 'completada' || estadoClave === 'cancelada'
-  const pesoGrupo = (fecha: string | null): number => {
-    if (!fecha) return 4
-    const f = new Date(fecha)
-    if (f >= hoyInicio && f < mananaInicio) return 1
-    if (f < hoyInicio) return 2
-    return 3
-  }
-  const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
-  const actividades = (data || []).sort((a, b) => {
-    // Las cerradas (completadas/canceladas) siempre al final
-    const ca = esCerrada(a.estado_clave) ? 1 : 0
-    const cb = esCerrada(b.estado_clave) ? 1 : 0
-    if (ca !== cb) return ca - cb
-    const ga = pesoGrupo(a.fecha_vencimiento)
-    const gb = pesoGrupo(b.fecha_vencimiento)
-    if (ga !== gb) return ga - gb
-    const pa = pesoPrioridad[a.prioridad] || 2
-    const pb = pesoPrioridad[b.prioridad] || 2
-    if (pa !== pb) return pa - pb
-    if (a.fecha_vencimiento && b.fecha_vencimiento) {
-      const fa = new Date(a.fecha_vencimiento).getTime()
-      const fb = new Date(b.fecha_vencimiento).getTime()
-      if (ga === 2) return fb - fa
-      return fa - fb
-    }
-    return 0
-  })
+  // "Hoy" en zona de la empresa para que el grupo "Hoy" coincida con la API y con la UI.
+  const { data: emp } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
+  const zona = (emp?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+  const rango = obtenerInicioFinDiaEnZona(zona, new Date())
+  const actividades = ordenarActividadesInteligente(
+    data || [],
+    new Date(rango.inicio),
+    new Date(rango.fin),
+  )
 
   const datosInicialesJson = {
     actividades,

@@ -106,11 +106,12 @@ function ItemSortable({
             if (itemRef.current) onAbrirMenu(item.id, itemRef.current)
           }
         }}
-        style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-primario)', opacity: activo ? 1 : 0.65 }}
         className={[
-          'flex items-center rounded-boton text-[13px] cursor-pointer transition-all duration-100 relative select-none',
+          'flex items-center rounded-boton text-sm cursor-pointer transition-all duration-100 relative select-none',
           colapsado ? 'justify-center py-2.5 mx-auto w-10' : 'px-2 py-2 pr-7',
-          activo ? 'font-semibold bg-superficie-activa' : 'font-normal hover:bg-superficie-hover hover:opacity-90!',
+          activo
+            ? 'text-texto-primario font-semibold bg-superficie-activa'
+            : 'text-texto-secundario font-normal hover:bg-superficie-hover hover:text-texto-primario',
         ].join(' ')}
       >
         {/* Zona izquierda: indicador (dot sutil cuando hay pendientes) / grip en hover */}

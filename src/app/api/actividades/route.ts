@@ -8,6 +8,7 @@ import { registrarReciente } from '@/lib/recientes'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
+import { ordenarActividadesInteligente } from '@/lib/orden-actividades'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -206,55 +207,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar actividades' }, { status: 500 })
     }
 
-    // Orden inteligente: Activas (Hoy → Vencidas → Futuras → Sin fecha) → Cerradas al final
-    // Con prioridad como desempate dentro de cada grupo
+    // Orden inteligente unificado (helper compartido con el Server Component)
     let actividades = data || []
     if (orden_campo === 'fecha_vencimiento') {
       // "Hoy" en zona de empresa para clasificar correctamente las actividades del día local.
       const { data: empOrden } = await admin.from('empresas').select('zona_horaria').eq('id', empresaId).maybeSingle()
       const zonaOrden = (empOrden?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
       const rangoOrden = obtenerInicioFinDiaEnZona(zonaOrden, new Date())
-      const hoy = new Date(rangoOrden.inicio)
-      const manana = new Date(rangoOrden.fin)
-
-      const esCerrada = (estadoClave: string | null): boolean =>
-        estadoClave === 'completada' || estadoClave === 'cancelada'
-
-      const pesoGrupo = (fecha: string | null): number => {
-        if (!fecha) return 4 // sin fecha al final
-        const f = new Date(fecha)
-        if (f >= hoy && f < manana) return 1 // hoy primero
-        if (f < hoy) return 2 // vencidas después
-        return 3 // futuras
-      }
-
-      const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
-
-      actividades = actividades.sort((a, b) => {
-        // Cerradas (completadas/canceladas) siempre al final
-        const ca = esCerrada(a.estado_clave) ? 1 : 0
-        const cb = esCerrada(b.estado_clave) ? 1 : 0
-        if (ca !== cb) return ca - cb
-
-        const ga = pesoGrupo(a.fecha_vencimiento)
-        const gb = pesoGrupo(b.fecha_vencimiento)
-        if (ga !== gb) return ga - gb
-
-        // Dentro del mismo grupo: por prioridad (alta primero)
-        const pa = pesoPrioridad[a.prioridad] || 2
-        const pb = pesoPrioridad[b.prioridad] || 2
-        if (pa !== pb) return pa - pb
-
-        // Dentro de misma prioridad: por fecha (más próxima primero para futuras, más reciente para vencidas)
-        if (a.fecha_vencimiento && b.fecha_vencimiento) {
-          const fa = new Date(a.fecha_vencimiento).getTime()
-          const fb = new Date(b.fecha_vencimiento).getTime()
-          if (ga === 2) return fb - fa // vencidas: más reciente primero
-          return fa - fb // futuras: más próxima primero
-        }
-
-        return 0
-      })
+      actividades = ordenarActividadesInteligente(
+        actividades,
+        new Date(rangoOrden.inicio),
+        new Date(rangoOrden.fin),
+      )
     }
 
     return NextResponse.json({

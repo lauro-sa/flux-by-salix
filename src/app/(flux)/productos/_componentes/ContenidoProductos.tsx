@@ -696,8 +696,8 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
           ]}
           onClickFila={(fila) => abrirEdicion(fila)}
           renderTarjeta={renderizarTarjeta}
-          grupoTarjetas={obtenerGrupoCategoria}
-          etiquetaGrupoTarjetas={obtenerEtiquetaGrupo}
+          agrupador={obtenerGrupoCategoria}
+          etiquetaGrupo={obtenerEtiquetaGrupo}
           mostrarResumen
           estadoVacio={
             <EstadoVacio

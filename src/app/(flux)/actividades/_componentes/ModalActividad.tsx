@@ -27,6 +27,7 @@ import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 import { BarraPresetsModal } from '@/componentes/entidad/BarraPresetsModal'
+import { useToast } from '@/componentes/feedback/Toast'
 
 // Forma del blob de valores guardados en un preset de actividad.
 // Cada campo es opcional y solo se aplica si el tipo activo tiene el campo_X correspondiente.
@@ -157,6 +158,7 @@ function ModalActividad({
 }: PropiedadesModal) {
   const router = useRouter()
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   const esEdicion = !!actividad
   // Filtrar tipos: solo activos + disponibles para el módulo actual (si se especifica)
   // modulos_disponibles usa plural (ej: "presupuestos"), entidadTipo puede ser singular (ej: "presupuesto")
@@ -403,9 +405,24 @@ function ModalActividad({
             }),
           })
         ))
-        const fallos = resultadosBloques.filter(r => r.status === 'rejected')
-        if (fallos.length > 0) {
-          console.error(`Error al crear ${fallos.length} bloque(s) de calendario:`, fallos)
+        // Detectar fallos: tanto rechazos de red como respuestas HTTP no-OK
+        let mensajeError: string | null = null
+        for (const r of resultadosBloques) {
+          if (r.status === 'rejected') {
+            mensajeError = 'Error de red al crear bloque'
+            console.error('Bloque rechazado:', r.reason)
+          } else if (!r.value.ok) {
+            try {
+              const cuerpo = await r.value.clone().json()
+              mensajeError = cuerpo?.error || `Error ${r.value.status}`
+            } catch {
+              mensajeError = `Error ${r.value.status}`
+            }
+            console.error('Bloque falló:', r.value.status, mensajeError)
+          }
+        }
+        if (mensajeError) {
+          mostrar('error', `No se pudo agregar al calendario: ${mensajeError}`)
         }
       }
 
@@ -441,8 +458,26 @@ function ModalActividad({
                 }),
               })
             ))
-            const fallos = resultados.filter(r => r.status === 'rejected')
-            if (fallos.length > 0) console.error(`Error al crear ${fallos.length} bloque(s):`, fallos)
+            // Detectar fallos: tanto rechazos de red como respuestas HTTP no-OK
+            // (Promise.allSettled NO marca como rejected las respuestas 4xx/5xx)
+            let mensajeError: string | null = null
+            for (const r of resultados) {
+              if (r.status === 'rejected') {
+                mensajeError = 'Error de red al crear bloque'
+                console.error('Bloque rechazado:', r.reason)
+              } else if (!r.value.ok) {
+                try {
+                  const cuerpo = await r.value.clone().json()
+                  mensajeError = cuerpo?.error || `Error ${r.value.status}`
+                } catch {
+                  mensajeError = `Error ${r.value.status}`
+                }
+                console.error('Bloque falló:', r.value.status, mensajeError)
+              }
+            }
+            if (mensajeError) {
+              mostrar('error', `No se pudo crear el bloque: ${mensajeError}`)
+            }
             // Si no tiene fecha de vencimiento, usar la fecha del primer bloque
             if (!fechaVencimiento && nuevos.length > 0) {
               const fechaBloque = nuevos[0].fecha
@@ -1272,6 +1307,7 @@ function SeccionBloquesCalendario({
   const [nuevaHoraInicio, setNuevaHoraInicio] = useState('08:00')
   const [nuevaHoraFin, setNuevaHoraFin] = useState('17:00')
   const formato = useFormato()
+  const { mostrar } = useToast()
 
   // Cargar bloques vinculados a esta actividad
   useEffect(() => {
@@ -1323,9 +1359,19 @@ function SeccionBloquesCalendario({
         setNuevaFechaInicio('')
         setNuevaHoraInicio('08:00')
         setNuevaHoraFin('17:00')
+      } else {
+        // Surface real backend error en lugar de tragárselo
+        let detalle = `Error ${res.status}`
+        try {
+          const cuerpo = await res.json()
+          if (cuerpo?.error) detalle = cuerpo.error
+        } catch { /* sin body JSON */ }
+        console.error('Falló POST /api/calendario:', res.status, detalle)
+        mostrar('error', `No se pudo agregar al calendario: ${detalle}`)
       }
-    } catch {
-      // Silenciar
+    } catch (err) {
+      console.error('Error de red al crear bloque:', err)
+      mostrar('error', 'Error de red al agregar al calendario')
     } finally {
       setCreando(false)
     }

@@ -162,8 +162,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Las fechas de inicio y fin son obligatorias' }, { status: 400 })
     }
 
-    // Obtener tipo si se proporcionó
-    let tipoClave: string | null = null
+    // Obtener tipo si se proporcionó. Si no hay tipo_id pero sí tipo_clave en el body
+    // (ej: bloques creados desde una actividad con tipo_clave: 'tarea'), respetarlo.
+    let tipoClave: string | null = typeof body.tipo_clave === 'string' && body.tipo_clave.trim() ? body.tipo_clave.trim() : null
     if (body.tipo_id) {
       const { data: tipo } = await admin
         .from('tipos_evento_calendario')

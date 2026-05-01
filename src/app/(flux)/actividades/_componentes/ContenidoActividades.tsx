@@ -37,6 +37,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import { useRol } from '@/hooks/useRol'
+import { useAuth } from '@/hooks/useAuth'
 
 /**
  * Contenido interactivo de actividades — Client Component.
@@ -163,6 +164,10 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   // Estado local de UI
   const [modalAbierto, setModalAbierto] = useState(false)
   const [actividadEditando, setActividadEditando] = useState<Actividad | null>(null)
+
+  // ID del usuario actual — usado para agrupar la tabla en "Para mí" / "Otras"
+  const { usuario } = useAuth()
+  const usuarioActualId = usuario?.id ?? null
 
   // Abrir modal de creación si viene ?crear=true desde el dashboard
   const vieneDeDashboardRef = useRef(false)
@@ -744,6 +749,20 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       },
     },
     {
+      clave: 'creado_en',
+      etiqueta: 'Creada',
+      ancho: 110,
+      ordenable: true,
+      render: (fila) => {
+        if (!fila.creado_en) return <span className="text-xs text-texto-terciario/50">—</span>
+        return (
+          <span className="text-xs text-texto-terciario">
+            {fechaCorta(fila.creado_en, formato.locale)}
+          </span>
+        )
+      },
+    },
+    {
       clave: 'acciones',
       etiqueta: '',
       ancho: 110,
@@ -968,9 +987,16 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     >
       <TablaDinamica
         columnas={columnas}
-        columnasVisiblesDefault={['estado_clave', 'titulo', 'tipo_clave', 'prioridad', 'asignados', 'fecha_vencimiento', 'acciones']}
+        columnasVisiblesDefault={['estado_clave', 'titulo', 'tipo_clave', 'prioridad', 'asignados', 'fecha_vencimiento', 'creado_en', 'acciones']}
         datos={actividades}
         claveFila={(r) => r.id}
+        agrupador={(fila) => {
+          // Mientras carga el ID, todo cae en 'otras' para evitar parpadeo de re-agrupado
+          if (!usuarioActualId) return 'otras'
+          return fila.asignados_ids?.includes(usuarioActualId) ? 'para_mi' : 'otras'
+        }}
+        etiquetaGrupo={(clave) => clave === 'para_mi' ? 'Para mí' : 'Otras'}
+        ordenGrupos={['para_mi', 'otras']}
         totalRegistros={total}
         registrosPorPagina={POR_PAGINA}
         paginaExterna={pagina}

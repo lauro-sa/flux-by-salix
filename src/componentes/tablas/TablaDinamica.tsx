@@ -79,8 +79,9 @@ function TablaDinamica<T>({
   chipFiltro,
   opcionesOrden,
   accionDerecha,
-  grupoTarjetas,
-  etiquetaGrupoTarjetas,
+  agrupador,
+  etiquetaGrupo,
+  ordenGrupos,
   gridTarjetas = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
   filasReordenables = false,
   onReordenarFilas,
@@ -832,6 +833,28 @@ function TablaDinamica<T>({
     ? datosOrdenados // datos ya vienen paginados del servidor
     : datosOrdenados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
 
+  /* Agrupado: si hay agrupador, calcular [clave, filas[]] respetando ordenGrupos */
+  const gruposOrdenados = useMemo(() => {
+    if (!agrupador) return null
+    const mapa = new Map<string, T[]>()
+    for (const fila of datosPaginados) {
+      const clave = agrupador(fila)
+      if (!mapa.has(clave)) mapa.set(clave, [])
+      mapa.get(clave)!.push(fila)
+    }
+    const entradas = [...mapa.entries()]
+    return entradas.sort((a, b) => {
+      if (ordenGrupos && ordenGrupos.length > 0) {
+        const ia = ordenGrupos.indexOf(a[0])
+        const ib = ordenGrupos.indexOf(b[0])
+        const oa = ia === -1 ? Infinity : ia
+        const ob = ib === -1 ? Infinity : ib
+        if (oa !== ob) return oa - ob
+      }
+      return a[0].localeCompare(b[0], locale)
+    })
+  }, [agrupador, datosPaginados, ordenGrupos, locale])
+
   /* Columnas visibles en orden */
   const columnasRenderizar = useMemo(() => {
     return ordenColumnas
@@ -1576,17 +1599,22 @@ function TablaDinamica<T>({
 
                 {/* Body */}
                 <tbody>
-                  {datosPaginados.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={columnasRenderizar.length + (seleccionables ? 1 : 0)}
-                        className="text-center py-16 text-texto-terciario text-sm"
-                      >
-                        {t('comun.sin_resultados')}
-                      </td>
-                    </tr>
-                  ) : (
-                    datosPaginados.map((fila, indice) => {
+                  {(() => {
+                    if (datosPaginados.length === 0) {
+                      return (
+                        <tr>
+                          <td
+                            colSpan={columnasRenderizar.length + (seleccionables ? 1 : 0)}
+                            className="text-center py-16 text-texto-terciario text-sm"
+                          >
+                            {t('comun.sin_resultados')}
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    /* Renderizado de una fila individual — extraído para reuso entre flujo plano y agrupado */
+                    const renderizarFila = (fila: T, indice: number) => {
                       const id = claveFila(fila)
                       const estaSeleccionado = seleccionados.has(id)
                       const esAlterna = opcionesVisuales.filasAlternas && indice % 2 === 1
@@ -1710,8 +1738,53 @@ function TablaDinamica<T>({
                           })}
                         </tr>
                       )
-                    })
-                  )}
+                    }
+
+                    /* Vista agrupada: header-row colSpan + filas del grupo (colapsable) */
+                    if (gruposOrdenados) {
+                      const colSpanTotal = columnasRenderizar.length + (seleccionables ? 1 : 0) + (dragActivo ? 1 : 0)
+                      const filas: ReactNode[] = []
+                      let indiceGlobal = 0
+                      for (const [claveGrupo, filasGrupo] of gruposOrdenados) {
+                        const colapsado = gruposColapsados.has(claveGrupo)
+                        const etiqueta = etiquetaGrupo ? etiquetaGrupo(claveGrupo) : claveGrupo
+                        filas.push(
+                          <tr key={`__grupo__${claveGrupo}`} className="bg-superficie-app/50 hover:bg-superficie-app/70 transition-colors">
+                            <td
+                              colSpan={colSpanTotal}
+                              className="px-4 py-2 cursor-pointer select-none"
+                              onClick={() => toggleGrupo(claveGrupo)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <ChevronDown
+                                  size={13}
+                                  className={`text-texto-terciario transition-transform duration-150 ${colapsado ? '-rotate-90' : ''}`}
+                                />
+                                <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
+                                  {etiqueta}
+                                </span>
+                                <span className="text-[11px] text-texto-terciario/60 font-mono">
+                                  {filasGrupo.length}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                        if (!colapsado) {
+                          for (const fila of filasGrupo) {
+                            filas.push(renderizarFila(fila, indiceGlobal))
+                            indiceGlobal++
+                          }
+                        } else {
+                          indiceGlobal += filasGrupo.length
+                        }
+                      }
+                      return filas
+                    }
+
+                    /* Vista plana */
+                    return datosPaginados.map((fila, indice) => renderizarFila(fila, indice))
+                  })()}
                 </tbody>
                 {/* Footer de cálculos — sticky abajo dentro de la tabla */}
                 {mostrarResumen && datos.length > 0 && (
@@ -1775,19 +1848,6 @@ function TablaDinamica<T>({
               )
             }
 
-            /* Agrupar datos si se provee grupoTarjetas */
-            const gruposOrdenados = grupoTarjetas
-              ? (() => {
-                  const mapa = new Map<string, T[]>()
-                  for (const fila of datosPaginados) {
-                    const clave = grupoTarjetas(fila)
-                    if (!mapa.has(clave)) mapa.set(clave, [])
-                    mapa.get(clave)!.push(fila)
-                  }
-                  return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], locale))
-                })()
-              : null
-
             return (
               <motion.div
                 key="tarjetas"
@@ -1807,7 +1867,7 @@ function TablaDinamica<T>({
                   <div className="space-y-4">
                     {gruposOrdenados.map(([claveGrupo, filas]) => {
                       const colapsado = gruposColapsados.has(claveGrupo)
-                      const etiqueta = etiquetaGrupoTarjetas ? etiquetaGrupoTarjetas(claveGrupo) : claveGrupo
+                      const etiqueta = etiquetaGrupo ? etiquetaGrupo(claveGrupo) : claveGrupo
                       return (
                         <div key={claveGrupo}>
                           {/* Cabecera del grupo */}

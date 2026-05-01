@@ -53,19 +53,19 @@
 
 /* ---------- LIGHT MODE (default) ---------- */
 :root {
-  /* Texto — estilo iOS HIG con alpha para adaptarse a cualquier superficie */
+  /* Texto — colores sólidos estilo Linear/Attio para mejor contraste sobre blanco */
   --texto-primario: #0a0a0a;
-  --texto-secundario: rgba(60, 60, 67, 0.80);
-  --texto-terciario: rgba(60, 60, 67, 0.65);
-  --texto-placeholder: rgba(60, 60, 67, 0.42);
+  --texto-secundario: #4a4a52;
+  --texto-terciario: #6e6e76;
+  --texto-placeholder: #a0a0a8;
   --texto-inverso: #ffffff;
   --texto-marca: #5b5bd6; /* Índigo Attio — se sobreescribe por empresa */
 
   /* Superficies — Desktop (macOS): ventana gris con cards blancas encima */
-  --superficie-app: #f6f6f6;
+  --superficie-app: #f0f0f1;
   --superficie-tarjeta: #ffffff;
   --superficie-elevada: #ffffff;
-  --superficie-sidebar: #ececec;
+  --superficie-sidebar: #e3e3e5;
   --superficie-hover: rgba(0, 0, 0, 0.04);
   --superficie-activa: rgba(0, 0, 0, 0.07);
   --superficie-seleccionada: rgba(91, 91, 214, 0.08);
@@ -241,7 +241,7 @@
      Siempre opacos, incluso en modo cristal, para evitar que el contenido
      se vea por detrás de columnas ancladas. */
   --superficie-anclada: #ffffff;
-  --superficie-anclada-alterna: #f6f6f6;
+  --superficie-anclada-alterna: #f0f0f1;
   --superficie-anclada-seleccionada: #eaeaf4;
 
   /* Overlay — para modales y sheets */
