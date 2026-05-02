@@ -10,6 +10,7 @@ import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, CanalInterno, CanalMensajeria, ModuloEmpresa,
 } from '@/tipos/inbox'
+import { EstadosConversacion } from '@/tipos/conversacion'
 import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { DatosCorreo } from './CompositorCorreo'
 import type { CarpetaCorreo } from './SidebarCorreo'
@@ -175,8 +176,8 @@ export function useEstadoInbox() {
           params.set('solo_recibidos', 'true')
           break
         case 'enviados': params.set('enviados', 'true'); break
-        case 'spam': params.set('estado', 'spam'); break
-        case 'archivado': params.set('estado', 'resuelta'); break
+        case 'spam': params.set('estado', EstadosConversacion.SPAM); break
+        case 'archivado': params.set('estado', EstadosConversacion.RESUELTA); break
       }
     } else {
       if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
@@ -923,7 +924,7 @@ export function useEstadoInbox() {
       await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: 'resuelta' }),
+        body: JSON.stringify({ estado: EstadosConversacion.RESUELTA }),
       })
       setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
       if (conversacionSeleccionada?.id === conversacionId) {

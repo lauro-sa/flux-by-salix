@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/inbox/correo/contadores — Contadores por canal y carpeta.
@@ -64,19 +65,19 @@ export async function GET(_request: NextRequest) {
         }
 
         switch (conv.estado) {
-          case 'abierta':
-          case 'en_espera':
+          case EstadosConversacion.ABIERTA:
+          case EstadosConversacion.EN_ESPERA:
             // "Entrada" excluye hilos solo salientes (sin respuesta del contacto).
             if (conv.tiene_mensaje_entrante) {
               c.entrada += sinLeer
               c.entrada_total++
             }
             break
-          case 'spam':
+          case EstadosConversacion.SPAM:
             c.spam += sinLeer
             c.spam_total++
             break
-          case 'resuelta':
+          case EstadosConversacion.RESUELTA:
             c.archivado_total++
             break
         }
@@ -105,19 +106,19 @@ export async function GET(_request: NextRequest) {
       }
 
       switch (fila.estado) {
-        case 'abierta':
-        case 'en_espera':
+        case EstadosConversacion.ABIERTA:
+        case EstadosConversacion.EN_ESPERA:
           // "Entrada" excluye hilos solo salientes.
           if (fila.tiene_mensaje_entrante) {
             c.entrada += fila.sin_leer
             c.entrada_total += fila.total
           }
           break
-        case 'spam':
+        case EstadosConversacion.SPAM:
           c.spam += fila.sin_leer
           c.spam_total += fila.total
           break
-        case 'resuelta':
+        case EstadosConversacion.RESUELTA:
           c.archivado_total += fila.total
           break
       }

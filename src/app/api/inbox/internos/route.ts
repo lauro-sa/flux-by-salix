@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/inbox/internos — Listar canales internos del usuario.
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
           // También reabrir la conversación asociada
           await admin
             .from('conversaciones')
-            .update({ estado: 'abierta', actualizado_en: new Date().toISOString() })
+            .update({ estado: EstadosConversacion.ABIERTA, actualizado_en: new Date().toISOString() })
             .eq('canal_interno_id', existente.id)
           existente.archivado = false
         }

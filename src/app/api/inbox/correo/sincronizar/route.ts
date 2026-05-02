@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { EstadosConversacion, type EstadoConversacion } from '@/tipos/conversacion'
 import {
   listarMensajesGmail,
   obtenerMensajeCompleto,
@@ -337,14 +338,14 @@ async function sincronizarIMAP(
   }
 
   // Carpetas a sincronizar (solo las que existen)
-  const carpetas: { nombre: string; tipo: 'inbox' | 'sent' | 'junk'; desdeUID: number; estado: 'abierta' | 'spam' }[] = [
-    { nombre: 'INBOX', tipo: 'inbox', desdeUID: ultimoUIDInbox, estado: 'abierta' },
+  const carpetas: { nombre: string; tipo: 'inbox' | 'sent' | 'junk'; desdeUID: number; estado: EstadoConversacion }[] = [
+    { nombre: 'INBOX', tipo: 'inbox', desdeUID: ultimoUIDInbox, estado: EstadosConversacion.ABIERTA },
   ]
   if (carpetaSent) {
-    carpetas.push({ nombre: carpetaSent, tipo: 'sent', desdeUID: ultimoUIDSent, estado: 'abierta' })
+    carpetas.push({ nombre: carpetaSent, tipo: 'sent', desdeUID: ultimoUIDSent, estado: EstadosConversacion.ABIERTA })
   }
   if (carpetaJunk) {
-    carpetas.push({ nombre: carpetaJunk, tipo: 'junk', desdeUID: ultimoUIDJunk, estado: 'spam' })
+    carpetas.push({ nombre: carpetaJunk, tipo: 'junk', desdeUID: ultimoUIDJunk, estado: EstadosConversacion.SPAM })
   }
 
   for (const carpeta of carpetas) {
@@ -443,7 +444,7 @@ async function procesarCorreoEntrante(
   const esEntrante = emailRemitente.toLowerCase() !== emailCanal.toLowerCase()
 
   // 2.5. Verificar listas de permitidos/bloqueados (solo entrantes)
-  let estadoInicial: 'abierta' | 'spam' = 'abierta'
+  let estadoInicial: EstadoConversacion = EstadosConversacion.ABIERTA
   if (esEntrante) {
     const { data: configInbox } = await admin
       .from('config_correo')
@@ -464,7 +465,7 @@ async function procesarCorreoEntrante(
       )
 
       if (estaBloqueado && !estaPermitido) {
-        estadoInicial = 'spam'
+        estadoInicial = EstadosConversacion.SPAM
       }
     }
   }
@@ -795,7 +796,7 @@ async function crearConversacion(
   canalId: string,
   esEntrante: boolean,
   emailCanal: string,
-  estado: 'abierta' | 'spam' = 'abierta',
+  estado: EstadoConversacion = EstadosConversacion.ABIERTA,
   syncInicial = false,
 ): Promise<string> {
   // El identificador externo es la contraparte (no nuestro email)
@@ -1018,7 +1019,7 @@ async function ejecutarReglas(
 
         case 'archivar':
           await admin.from('conversaciones').update({
-            estado: 'resuelta',
+            estado: EstadosConversacion.RESUELTA,
             cerrado_en: new Date().toISOString(),
             actualizado_en: new Date().toISOString(),
           }).eq('id', conversacionId)

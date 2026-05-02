@@ -6,8 +6,9 @@ import { registrarReciente } from '@/lib/recientes'
 import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 import { resolverCanales } from '@/lib/canales'
 import type { Modulo } from '@/tipos/permisos'
+import { ESTADOS_CONVERSACION, EstadosConversacion } from '@/tipos/conversacion'
 
-const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
+const ESTADOS_VALIDOS = ESTADOS_CONVERSACION
 
 /**
  * Mapea el tipo de canal de la conversación al módulo de permisos.
@@ -193,7 +194,7 @@ export async function PATCH(
     }
 
     // Si se cierra la conversación
-    if (body.estado === 'resuelta') {
+    if (body.estado === EstadosConversacion.RESUELTA) {
       cambios.cerrado_en = new Date().toISOString()
       cambios.cerrado_por = user.id
     }

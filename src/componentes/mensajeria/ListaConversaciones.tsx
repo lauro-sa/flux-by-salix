@@ -21,6 +21,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * Panel izquierdo del inbox — lista de conversaciones con filtros.
@@ -79,7 +80,6 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
   en_espera: 'advertencia',
   resuelta: 'neutro',
   spam: 'peligro',
-  snooze: 'info',
 }
 
 // Formato estilo WhatsApp: hoy → hora, ayer → "ayer", esta semana → día, después → fecha
@@ -191,10 +191,10 @@ export function ListaConversaciones({
 
   const estados: { clave: EstadoConversacion | 'todas'; etiqueta: string }[] = [
     { clave: 'todas', etiqueta: t('inbox.todas') },
-    { clave: 'abierta', etiqueta: t('inbox.abiertas') },
-    { clave: 'en_espera', etiqueta: t('inbox.en_espera') },
-    { clave: 'resuelta', etiqueta: t('inbox.resueltas') },
-    { clave: 'spam', etiqueta: t('inbox.spam') },
+    { clave: EstadosConversacion.ABIERTA,   etiqueta: t('inbox.abiertas') },
+    { clave: EstadosConversacion.EN_ESPERA, etiqueta: t('inbox.en_espera') },
+    { clave: EstadosConversacion.RESUELTA,  etiqueta: t('inbox.resueltas') },
+    { clave: EstadosConversacion.SPAM,      etiqueta: t('inbox.spam') },
   ]
 
   return (

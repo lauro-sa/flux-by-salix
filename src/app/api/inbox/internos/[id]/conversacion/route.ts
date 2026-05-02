@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * POST /api/inbox/internos/[id]/conversacion — Asegurar que existe una conversación
@@ -59,7 +60,7 @@ export async function POST(
         canal_interno_id: canalInternoId,
         contacto_nombre: canal.nombre,
         asunto: canal.nombre,
-        estado: 'abierta',
+        estado: EstadosConversacion.ABIERTA,
         asignado_a: user.id,
         asignado_a_nombre: nombreRemitente,
       })

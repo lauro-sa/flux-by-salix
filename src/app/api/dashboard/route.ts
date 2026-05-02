@@ -7,6 +7,7 @@ import { formatearFechaISO, obtenerComponentesFecha } from '@/lib/formato-fecha'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import type { Modulo, Accion } from '@/tipos/permisos'
 import { EstadosCuota } from '@/tipos/cuota'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/dashboard — Estadísticas completas para la página de inicio.
@@ -131,7 +132,7 @@ export async function GET() {
         .from('conversaciones')
         .select('id, estado, tipo_canal', { count: 'exact' })
         .eq('empresa_id', empresaId)
-        .in('estado', ['abierta', 'en_espera']),
+        .in('estado', [EstadosConversacion.ABIERTA, EstadosConversacion.EN_ESPERA]),
 
       // Mensajes sin leer
       admin

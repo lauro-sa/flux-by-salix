@@ -124,7 +124,13 @@ export interface ConfigWhatsAppTwilio {
 
 // ─── Conversaciones ───
 
-export type EstadoConversacion = 'abierta' | 'en_espera' | 'resuelta' | 'spam' | 'snooze'
+// EstadoConversacion ahora vive como source of truth en @/tipos/conversacion.
+// Se importa y reexporta acá para retrocompatibilidad con imports existentes.
+// (Se removió 'snooze' del tipo: no es un estado real, es un mecanismo
+// paralelo via snooze_hasta. PanelWhatsApp.tsx tenía un envío erróneo
+// de estado:'snooze' que era rechazado por el backend.)
+import type { EstadoConversacion } from '@/tipos/conversacion'
+export type { EstadoConversacion }
 export type PrioridadConversacion = 'baja' | 'normal' | 'alta' | 'urgente'
 
 /**

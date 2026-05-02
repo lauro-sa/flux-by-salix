@@ -9,6 +9,7 @@ import VistaPipeline from '@/componentes/mensajeria/VistaPipeline'
 import type { ConversacionConDetalles, MensajeConAdjuntos, EstadoConversacion } from '@/tipos/inbox'
 import type { DatosMensaje } from '@/componentes/mensajeria/CompositorMensaje'
 import type { VistaMovilWA } from '@/tipos/inbox'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * Layout del tab de WhatsApp — lista de conversaciones + panel de chat + info contacto.
@@ -168,7 +169,7 @@ export function LayoutWhatsApp({
               }
               if (accion === 'marcar_leido') await patchMultiple({ mensajes_sin_leer: 0 })
               if (accion === 'marcar_no_leido') await patchMultiple({ mensajes_sin_leer: 1 })
-              if (accion === 'cerrar') await patchMultiple({ estado: 'resuelta' })
+              if (accion === 'cerrar') await patchMultiple({ estado: EstadosConversacion.RESUELTA })
             }}
             onAccionMenu={async (accion, convId, datos) => {
               const patchConv = async (cambios: Record<string, unknown>) => {

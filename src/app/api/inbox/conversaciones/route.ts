@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { resolverCanales } from '@/lib/canales'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/inbox/conversaciones — Listar conversaciones con filtros.
@@ -301,7 +302,7 @@ export async function POST(request: NextRequest) {
         asunto: asunto || null,
         identificador_externo: identificador_externo || null,
         canal_interno_id: canal_interno_id || null,
-        estado: 'abierta',
+        estado: EstadosConversacion.ABIERTA,
         asignado_a: user.id,
         asignado_a_nombre: `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim(),
       })

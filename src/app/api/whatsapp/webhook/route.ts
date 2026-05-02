@@ -10,6 +10,7 @@ import {
 } from '@/lib/whatsapp'
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 import { buscarContactoPorTelefono } from '@/lib/contacto-telefonos'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
@@ -210,7 +211,7 @@ async function procesarMensajeEntrante(
     .eq('empresa_id', canal.empresa_id)
     .eq('canal_id', canal.id)
     .or(orConv)
-    .in('estado', ['abierta', 'en_espera'])
+    .in('estado', [EstadosConversacion.ABIERTA, EstadosConversacion.EN_ESPERA])
     .order('creado_en', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -232,7 +233,7 @@ async function procesarMensajeEntrante(
       .eq('empresa_id', canal.empresa_id)
       .eq('canal_id', canal.id)
       .or(orConv)
-      .eq('estado', 'resuelta')
+      .eq('estado', EstadosConversacion.RESUELTA)
       .order('creado_en', { ascending: false })
       .limit(1)
       .maybeSingle()

@@ -1679,6 +1679,26 @@ export const canal_agentes = pgTable('canal_agentes', {
   primaryKey({ columns: [tabla.canal_id, tabla.usuario_id] }),
 ])
 
+// Estados de conversación — configurables por empresa (con set por defecto del sistema).
+// Migración fuente: sql/046_estados_conversaciones.sql
+export const estados_conversacion = pgTable('estados_conversacion', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo semántico: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_conversacion_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Conversaciones — hilos de comunicación con contactos externos
 export const conversaciones = pgTable('conversaciones', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1689,7 +1709,14 @@ export const conversaciones = pgTable('conversaciones', {
   hilo_externo_id: text('hilo_externo_id'), // thread ID externo
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
   contacto_nombre: text('contacto_nombre'),
-  estado: text('estado').notNull().default('abierta'), // 'abierta', 'cerrada', 'archivada'
+  // Estado legacy text. Se sincroniza con estado_clave vía trigger durante la transición.
+  // Valores: abierta | en_espera | resuelta | spam.
+  estado: text('estado').notNull().default('abierta'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  estado_id: uuid('estado_id').references(() => estados_conversacion.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_conversacion.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   prioridad: text('prioridad').notNull().default('normal'),
   asignado_a: uuid('asignado_a'),
   asignado_a_nombre: text('asignado_a_nombre'),
@@ -1751,6 +1778,7 @@ export const conversaciones = pgTable('conversaciones', {
   index('conversaciones_canal_idx').on(tabla.canal_id),
   index('conversaciones_contacto_idx').on(tabla.contacto_id),
   index('conversaciones_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('conversaciones_estado_clave_idx').on(tabla.empresa_id, tabla.estado_clave),
   index('conversaciones_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
   index('conversaciones_ultimo_mensaje_idx').on(tabla.empresa_id, tabla.ultimo_mensaje_en),
   index('conversaciones_etapa_idx').on(tabla.empresa_id, tabla.etapa_id),

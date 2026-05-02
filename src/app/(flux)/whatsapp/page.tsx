@@ -13,6 +13,7 @@ import { PanelInfoContacto } from '@/componentes/mensajeria/PanelInfoContacto'
 import VistaPipeline from '@/componentes/mensajeria/VistaPipeline'
 import { ModalNuevoWhatsApp } from './_componentes/ModalNuevoWhatsApp'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * Página principal de WhatsApp — sección independiente del sidebar.
@@ -123,7 +124,7 @@ function PaginaWhatsApp() {
                     }
                     if (accion === 'marcar_leido') await patchMultiple({ mensajes_sin_leer: 0 })
                     if (accion === 'marcar_no_leido') await patchMultiple({ mensajes_sin_leer: 1 })
-                    if (accion === 'cerrar') await patchMultiple({ estado: 'resuelta' })
+                    if (accion === 'cerrar') await patchMultiple({ estado: EstadosConversacion.RESUELTA })
                   }}
                   onAccionMenu={async (accion, convId, datos) => {
                     const patchConv = async (cambios: Record<string, unknown>) => {
