@@ -37,6 +37,8 @@ import {
 } from './_panel_chatter'
 import type { PropsPanelChatter } from './_panel_chatter/tipos'
 import type { AdjuntoConOrigen } from './_panel_chatter/SeccionAdjuntos'
+import { HistorialEstados } from './HistorialEstados'
+import { esEntidadConEstado } from '@/tipos/estados'
 
 // ─── Definición de filtros ───
 // 'pagos' se agrega condicionalmente según entidadTipo (solo en presupuesto).
@@ -745,6 +747,16 @@ export function PanelChatter({
                   ))
                 )}
               </div>
+
+              {/* ─── Historial de estados (solo entidades migradas al sistema genérico) ─── */}
+              {esEntidadConEstado(entidadTipo) && entidadId && (
+                <div className="px-3 pb-3">
+                  <HistorialEstados
+                    entidadTipo={entidadTipo}
+                    entidadId={entidadId}
+                  />
+                </div>
+              )}
 
             </motion.div>
           )}
