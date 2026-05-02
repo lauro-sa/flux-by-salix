@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { registrarChatter } from '@/lib/chatter'
+import { EstadosCuota } from '@/tipos/cuota'
 
 interface SyncEstadoParams {
   admin: SupabaseClient
@@ -61,7 +62,7 @@ export async function sincronizarEstadoPresupuesto({
   //    sumar todos los pagos no-adicionales y comparar con total_final.
   let totalmenteCobrado = false
   if (tieneCuotas) {
-    totalmenteCobrado = cuotas.every((c) => c.estado === 'cobrada')
+    totalmenteCobrado = cuotas.every((c) => c.estado === EstadosCuota.COBRADA)
   } else {
     const totalFinal = Number(presupuesto.total_final) || 0
     if (totalFinal > 0) {

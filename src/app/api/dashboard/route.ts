@@ -6,6 +6,7 @@ import { registrarError } from '@/lib/logger'
 import { formatearFechaISO, obtenerComponentesFecha } from '@/lib/formato-fecha'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import type { Modulo, Accion } from '@/tipos/permisos'
+import { EstadosCuota } from '@/tipos/cuota'
 
 /**
  * GET /api/dashboard — Estadísticas completas para la página de inicio.
@@ -547,14 +548,14 @@ export async function GET() {
       // Acumular conteo de cuotas por presupuesto
       const conteo = cuotasCountPorPresupuesto.get(c.presupuesto_id) || { total: 0, cobradas: 0 }
       conteo.total++
-      if (c.estado === 'cobrada') conteo.cobradas++
+      if (c.estado === EstadosCuota.COBRADA) conteo.cobradas++
       cuotasCountPorPresupuesto.set(c.presupuesto_id, conteo)
 
       if (c.numero === 1) {
         adelantoPorPresupuesto.set(c.presupuesto_id, monto)
       }
 
-      if (c.estado === 'pendiente' || c.estado === 'parcial') {
+      if (c.estado === EstadosCuota.PENDIENTE || c.estado === EstadosCuota.PARCIAL) {
         const fechaBase = new Date(pres.fecha_emision)
         fechaBase.setDate(fechaBase.getDate() + (c.dias_desde_emision || 0))
         const clave = `${fechaBase.getFullYear()}-${String(fechaBase.getMonth() + 1).padStart(2, '0')}`

@@ -228,8 +228,9 @@ export interface CuotaPago {
   porcentaje: string
   monto: string
   dias_desde_emision: number
-  // Estado derivado automáticamente desde presupuesto_pagos
-  estado: 'pendiente' | 'parcial' | 'cobrada'
+  // Estado derivado automáticamente desde presupuesto_pagos.
+  // Tipo canónico definido en @/tipos/cuota.
+  estado: import('./cuota').EstadoCuota
   fecha_cobro: string | null
   cobrado_por_nombre: string | null
 }

@@ -28,6 +28,7 @@ import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ETIQUETAS_ESTADO, type EstadoPresupuesto } from '@/tipos/presupuesto'
+import { EstadosCuota } from '@/tipos/cuota'
 
 /**
  * Contenido interactivo de presupuestos — Client Component.
@@ -990,8 +991,8 @@ function IndicadorPagos({
   const cubierto = totalFinal > 0 && total_cobrado + 0.01 >= totalFinal
   let porcentaje: number
   if (cuotas.length > 0) {
-    const cobradas = cuotas.filter((e) => e === 'cobrada').length
-    const parciales = cuotas.filter((e) => e === 'parcial').length
+    const cobradas = cuotas.filter((e) => e === EstadosCuota.COBRADA).length
+    const parciales = cuotas.filter((e) => e === EstadosCuota.PARCIAL).length
     // Cada cuota pesa 1/N. Las parciales cuentan como 1/2.
     porcentaje = Math.round(((cobradas + parciales * 0.5) / cuotas.length) * 100)
   } else {
@@ -1021,7 +1022,7 @@ function IndicadorPagos({
     }
     linea2 = sufijoPagos
   } else {
-    const cobradas = cuotas.filter((e) => e === 'cobrada').length
+    const cobradas = cuotas.filter((e) => e === EstadosCuota.COBRADA).length
     if (cubierto) {
       linea1 = `${cuotas.length} cuota${cuotas.length !== 1 ? 's' : ''}`
       colorTexto = 'text-insignia-exito'
@@ -1038,8 +1039,8 @@ function IndicadorPagos({
   // Tooltip
   const partes: string[] = []
   if (cuotas.length > 0) {
-    const cobradas = cuotas.filter((e) => e === 'cobrada').length
-    const parciales = cuotas.filter((e) => e === 'parcial').length
+    const cobradas = cuotas.filter((e) => e === EstadosCuota.COBRADA).length
+    const parciales = cuotas.filter((e) => e === EstadosCuota.PARCIAL).length
     const pendientes = cuotas.length - cobradas - parciales
     partes.push(`${cuotas.length} cuotas`)
     if (cobradas > 0) partes.push(`${cobradas} cobrada${cobradas !== 1 ? 's' : ''}`)

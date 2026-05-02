@@ -13,6 +13,7 @@ import { Check, Copy, Upload, FileText, Loader2, CircleDollarSign } from 'lucide
 import { Boton } from '@/componentes/ui/Boton'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
+import { EstadosCuota } from '@/tipos/cuota'
 import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 import type { CuotaPago } from '@/tipos/presupuesto'
 import type { ComprobantePortal } from '@/tipos/portal'
@@ -55,7 +56,7 @@ export default function SeccionCuotas({
   const [copiado, setCopiado] = useState<string | null>(null)
 
   const tieneCuotas = cuotas.length > 1
-  const cuotasPendientes = cuotas.filter(c => c.estado !== 'cobrada')
+  const cuotasPendientes = cuotas.filter(c => c.estado !== EstadosCuota.COBRADA)
 
   // Etiqueta automática: primera = Adelanto, última = Pago final, medio = Cuota N
   const etiquetaCuota = (cuota: CuotaPago, indice: number) => {
@@ -119,7 +120,7 @@ export default function SeccionCuotas({
           </p>
           <div className="space-y-2">
             {cuotas.map((cuota, i) => {
-              const esCobrada = cuota.estado === 'cobrada'
+              const esCobrada = cuota.estado === EstadosCuota.COBRADA
               const esSeleccionada = cuotaSeleccionada === cuota.id
               const etiqueta = etiquetaCuota(cuota, i)
 

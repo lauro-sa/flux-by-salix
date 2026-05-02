@@ -16,6 +16,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import type { CondicionPago, ConfigPresupuestos, PresupuestoConLineas } from '@/tipos/presupuesto'
 import type { LineaTemporal } from './tipos-editor'
+import { EstadosCuota, type EstadoCuota } from '@/tipos/cuota'
 
 /** Botoncito de copiar al portapapeles */
 function BotonCopiar({ valor }: { valor: string }) {
@@ -297,7 +298,7 @@ export default function SeccionDatosPresupuesto({
               key: string
               descripcion: string
               porcentaje: number
-              estado: 'pendiente' | 'parcial' | 'cobrada'
+              estado: EstadoCuota
             }> = []
 
             if (condSeleccionada.tipo === 'hitos' && condSeleccionada.hitos.length > 0) {
@@ -307,7 +308,7 @@ export default function SeccionDatosPresupuesto({
                   key: h.id,
                   descripcion: h.descripcion,
                   porcentaje: h.porcentaje,
-                  estado: (cuotaReal?.estado as 'pendiente' | 'parcial' | 'cobrada') || 'pendiente',
+                  estado: (cuotaReal?.estado as EstadoCuota) || EstadosCuota.PENDIENTE,
                 })
               })
             } else if (condSeleccionada.tipo === 'plazo_fijo') {
@@ -321,10 +322,10 @@ export default function SeccionDatosPresupuesto({
                   : `${condSeleccionada.diasVencimiento} días`)
               const cobrado = Number(presupuesto?.total_cobrado || 0)
               const totalFinal = Number(presupuesto?.total_final || totalDocumento) || 0
-              let estado: 'pendiente' | 'parcial' | 'cobrada' = 'pendiente'
+              let estado: EstadoCuota = EstadosCuota.PENDIENTE
               if (totalFinal > 0) {
-                if (cobrado + 0.01 >= totalFinal) estado = 'cobrada'
-                else if (cobrado > 0) estado = 'parcial'
+                if (cobrado + 0.01 >= totalFinal) estado = EstadosCuota.COBRADA
+                else if (cobrado > 0) estado = EstadosCuota.PARCIAL
               }
               tramos.push({ key: 'plazo-fijo-100', descripcion, porcentaje: 100, estado })
             }
@@ -338,9 +339,9 @@ export default function SeccionDatosPresupuesto({
                 {tramos.map((tramo) => {
                   const montoTotal = totalDocumento * tramo.porcentaje / 100
                   const montoNeto = subtotalNeto * tramo.porcentaje / 100
-                  const indicadorEstado = tramo.estado === 'cobrada'
+                  const indicadorEstado = tramo.estado === EstadosCuota.COBRADA
                     ? { icon: <Check size={11} strokeWidth={3} />, color: 'text-insignia-exito', bg: 'bg-insignia-exito/15', label: 'Cobrada' }
-                    : tramo.estado === 'parcial'
+                    : tramo.estado === EstadosCuota.PARCIAL
                       ? { icon: <CircleDot size={11} />, color: 'text-insignia-advertencia', bg: 'bg-insignia-advertencia/15', label: 'Parcial' }
                       : { icon: <CircleDashed size={11} />, color: 'text-texto-terciario', bg: 'bg-white/[0.04]', label: 'Pendiente' }
                   return (

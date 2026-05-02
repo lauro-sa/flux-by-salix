@@ -54,6 +54,7 @@ import {
   TOLERANCIA_SALDO,
   type ResumenCuota as ResumenCuotaLib,
 } from '@/lib/calculo-cuotas'
+import { EstadosCuota } from '@/tipos/cuota'
 
 interface PropsModalRegistrarPago {
   abierto: boolean
@@ -1229,7 +1230,7 @@ function SeccionImputacion({
       <div className="grid gap-1.5">
         {/* Cuotas */}
         {fuente.map((r) => {
-          const esCobrada = r.cuota.estado === 'cobrada' || r.saldo <= TOLERANCIA_SALDO
+          const esCobrada = r.cuota.estado === EstadosCuota.COBRADA || r.saldo <= TOLERANCIA_SALDO
           const seleccionada = imputacion === r.cuota.id
           const acento = esCobrada ? 'cobrada' : seleccionada ? 'activa' : 'normal'
           return (

@@ -703,6 +703,29 @@ export const presupuesto_historial = pgTable('presupuesto_historial', {
   index('presupuesto_historial_presupuesto_idx').on(tabla.presupuesto_id),
 ])
 
+// Estados de cuota — configurables por empresa (con set por defecto del sistema).
+// Estados de sistema (empresa_id NULL): pendiente, parcial, cobrada.
+// Migración fuente: sql/045_estados_cuotas.sql
+export const estados_cuota = pgTable('estados_cuota', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // empresa_id NULL = estado del sistema (visible para todas las empresas).
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo semántico: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  // Estados de sistema no se pueden eliminar/editar nombre desde la app.
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_cuota_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Cuotas de pago de presupuesto (para condición tipo 'hitos')
 export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -713,13 +736,21 @@ export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
   porcentaje: numeric('porcentaje').notNull(),
   monto: numeric('monto').notNull().default('0'),
   dias_desde_emision: integer('dias_desde_emision').default(0),
-  // Estado derivado automáticamente desde presupuesto_pagos por trigger:
-  // pendiente | parcial | cobrada
+  // Estado legacy (text). Se mantiene durante la transición y se sincroniza
+  // automáticamente con estado_clave vía trigger. Se elimina en el cleanup
+  // final (PR de drop columnas viejas).
   estado: text('estado').notNull().default('pendiente'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  // Sincronizado automáticamente con `estado` vía trigger en ambas direcciones.
+  estado_id: uuid('estado_id').references(() => estados_cuota.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_cuota.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   fecha_cobro: timestamp('fecha_cobro', { withTimezone: true }),
   cobrado_por_nombre: text('cobrado_por_nombre'),
 }, (tabla) => [
   index('presupuesto_cuotas_presupuesto_idx').on(tabla.presupuesto_id),
+  index('presupuesto_cuotas_estado_idx').on(tabla.empresa_id, tabla.estado_clave),
 ])
 
 // Pagos reales recibidos contra un presupuesto. Múltiples pagos por cuota

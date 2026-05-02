@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { EstadosCuota } from '@/tipos/cuota'
 
 /**
  * PATCH /api/presupuestos/[id]/comprobantes — Confirmar o rechazar un comprobante.
@@ -87,7 +88,7 @@ export async function PATCH(
       await admin
         .from('presupuesto_cuotas')
         .update({
-          estado: 'cobrada',
+          estado: EstadosCuota.COBRADA,
           fecha_cobro: new Date().toISOString(),
           cobrado_por_nombre: nombreUsuario,
         })
@@ -121,7 +122,7 @@ export async function PATCH(
         .select('id, estado')
         .eq('presupuesto_id', presupuestoId)
 
-      const todasCobradas = cuotas && cuotas.length > 0 && cuotas.every(c => c.estado === 'cobrada')
+      const todasCobradas = cuotas && cuotas.length > 0 && cuotas.every(c => c.estado === EstadosCuota.COBRADA)
 
       if (todasCobradas) {
         // Verificar que el presupuesto está en confirmado_cliente
