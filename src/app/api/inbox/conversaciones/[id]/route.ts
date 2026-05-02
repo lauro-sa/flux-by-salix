@@ -132,6 +132,36 @@ export async function PATCH(
       return NextResponse.json({ error: `Estado inválido. Permitidos: ${ESTADOS_VALIDOS.join(', ')}` }, { status: 400 })
     }
 
+    // Validación adicional: si hay cambio de estado real, verificar que la
+    // transición es legal según el catálogo `transiciones_estado`. Esto
+    // evita transiciones inválidas (ej: spam → resuelta) aunque el estado
+    // destino sea "válido" individualmente.
+    if (body.estado !== undefined) {
+      const adminCatalogo = crearClienteAdmin()
+      const { data: convPrevia } = await adminCatalogo
+        .from('conversaciones')
+        .select('estado_clave')
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      const estadoAnterior = (convPrevia?.estado_clave as string | null) ?? null
+
+      if (estadoAnterior && estadoAnterior !== body.estado) {
+        const { data: esValida } = await adminCatalogo.rpc('validar_transicion_estado', {
+          p_empresa_id: empresaId,
+          p_entidad_tipo: 'conversacion',
+          p_desde_clave: estadoAnterior,
+          p_hasta_clave: body.estado,
+        })
+        if (!esValida) {
+          return NextResponse.json(
+            { error: `Transición no permitida: ${estadoAnterior} → ${body.estado}` },
+            { status: 400 },
+          )
+        }
+      }
+    }
+
     // Validar mensajes_sin_leer si se envía
     if (body.mensajes_sin_leer !== undefined && (typeof body.mensajes_sin_leer !== 'number' || body.mensajes_sin_leer < 0)) {
       return NextResponse.json({ error: 'mensajes_sin_leer debe ser un número >= 0' }, { status: 400 })
