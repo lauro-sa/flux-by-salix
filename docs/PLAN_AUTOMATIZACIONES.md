@@ -5,7 +5,9 @@
 > memoria del chat). Refleja el estado actual + el plan completo hasta
 > llegar al motor de workflows funcional.
 >
-> Última actualización: 2026-05-02 · Branch `feat/estados-configurables`
+> Última actualización: 2026-05-03 · Branch `feat/estados-configurables`
+> Estado: **Refactor base completo (PR 1-12 cerrados). Listo para arrancar
+> motor de workflows (PR 13+).**
 
 ---
 
@@ -129,8 +131,31 @@ Primer caso de **transiciones manuales** (el usuario las cambia desde la UI). Tr
 - Se integra automáticamente en `PanelChatter` para entidades migradas.
 - **Cuando los workflows ejecuten acciones, las van a mostrar acá con badge "Automatización" + nombre del flujo.**
 
-**PR 6 — UI configuración de estados (en curso, sin commit todavía)**
-Cada módulo de configuración (`/presupuestos/configuracion`, `/inbox/configuracion`, etc.) tiene una sección **"Estados"** donde el admin puede ver los estados de sistema (read-only) y crear/editar/eliminar los propios de la empresa.
+**PR 6 — UI configuración de estados (`83bf15f`)**
+Cada módulo de configuración (`/presupuestos/configuracion`, `/inbox/configuracion`, etc.) tiene una sección **"Estados"** donde el admin puede ver los estados de sistema (read-only) y crear/editar/eliminar los propios de la empresa. Componente reutilizable en `src/componentes/configuracion/SeccionEstadosEntidad.tsx`.
+
+**PR 7 — Actividades (`381f417`)**
+Reusa la tabla `estados_actividad` existente. Trigger BEFORE/AFTER para tracking + 8 transiciones del sistema sembradas. Coexiste con la SeccionEstados existente en /actividades/configuracion.
+
+**PR 8 — Visitas (`cbc1c72`)**
+6 estados sin renombres (programada, en_camino, en_sitio, completada, cancelada, reprogramada). 11 transiciones. 10 visitas backfill 100%.
+
+**PR 9 — Órdenes (`65ba7c3`)** — primer renombre real
+5 estados con `esperando` → `en_espera`. 9 transiciones. 5 hardcodeados migrados. Trigger BEFORE traduce alias defensivamente.
+
+**PR 10 — Presupuestos (`d3104e1`)**
+8 estados reales del flujo del negocio (no los del comentario obsoleto). 21 transiciones. 482 presupuestos backfill 100%. EstadosPresupuesto constantes tipadas.
+
+**PR 11 — Asistencias (`2d72d17`)** — el más pesado en alcance
+7 estados con renombres `almuerzo` → `en_almuerzo` y `particular` → `en_particular`. 12 transiciones. 379 asistencias backfill 100%. ~100 hardcodeados migrados en 17 archivos críticos.
+
+**PR 11.5 — Adelantos y pagos de nómina (`047da2b`)**
+Entidades extra para automatización. `adelanto_nomina` (4 estados) + `pago_nomina` (3 estados disponibles, default 'pagado'). Trigger AFTER INSERT especial en pagos_nomina registra la creación como evento — habilita "cuando se paga al empleado, mandar plantilla WhatsApp".
+
+**PR 12 — Cleanup arquitectónico (`59040a7`)**
+NOT NULL en `estado_clave` y `estado_id` de las 9 entidades migradas. Comentarios deprecation en columnas legacy. 0 desincronizaciones verificadas. Sistema 100% íntegro y listo para workflows.
+
+> **PR 12bis pendiente** (drop columnas `estado` text + migración de 130 archivos consumidores) — ver §11.
 
 ### 3.2 Lo que ya existe en el proyecto y se va a integrar (no hay que construirlo)
 
@@ -144,16 +169,24 @@ Cada módulo de configuración (`/presupuestos/configuracion`, `/inbox/configura
 - **Webhooks de WhatsApp Meta** y de chatter.
 - **Crons de Vercel** — ya hay 3 crons activos (`enviar-programados`, `sincronizar-correo`, `recordatorios`). Se puede agregar uno para workflows time-based.
 
-### 3.3 Lo que falta migrar al sistema de estados (PRs 7-12)
+### 3.3 Estado de migración de entidades
 
-| PR | Entidad | Por qué importante |
-|----|---------|-------------------|
-| 7 | Actividades | Integrar el sistema viejo `estados_actividad` con `cambios_estado` |
-| 8 | Visitas | Estados con muchos triggers existentes |
-| 9 | Órdenes | Renombre `esperando` → `en_espera` |
-| 10 | Presupuestos | Alto volumen de hardcodeados (~270 ocurrencias) |
-| 11 | Asistencias | El más pesado: 100+ ocurrencias + renombres |
-| 12 | Cleanup final | Drop columnas `estado` legacy |
+| Entidad | Tabla | Estados sembrados | Estado |
+|---------|-------|-------------------|--------|
+| Cuotas | `presupuesto_cuotas` | pendiente, parcial, cobrada | ✓ PR 2 |
+| Conversaciones | `conversaciones` | abierta, en_espera, resuelta, spam | ✓ PR 3 |
+| Actividades | `actividades` | pendiente, completada, cancelada, vencida | ✓ PR 7 |
+| Visitas | `visitas` | programada, en_camino, en_sitio, completada, cancelada, reprogramada | ✓ PR 8 |
+| Órdenes | `ordenes_trabajo` | abierta, en_progreso, en_espera, completada, cancelada | ✓ PR 9 |
+| Presupuestos | `presupuestos` | borrador, enviado, confirmado_cliente, orden_venta, completado, vencido, rechazado, cancelado | ✓ PR 10 |
+| Asistencias | `asistencias` | activo, en_almuerzo, en_particular, cerrado, feriado, auto_cerrado, ausente | ✓ PR 11 |
+| Adelantos nómina | `adelantos_nomina` | pendiente, activo, pagado, cancelado | ✓ PR 11.5 |
+| Pagos nómina | `pagos_nomina` | programado, pagado (default), fallido | ✓ PR 11.5 |
+
+**Las 9 entidades están conectadas al sistema genérico.** Cualquier cambio
+de estado en cualquiera de ellas se registra automáticamente en
+`cambios_estado` con origen, usuario, motivo y metadatos. Esto es
+exactamente lo que el motor de workflows va a consumir.
 
 ---
 
@@ -466,14 +499,59 @@ Cuando un admin agrega un estado custom (`en_revision` para presupuestos), los f
 
 ## 9. Cómo retomar este plan en otra sesión
 
-Si abrís un chat nuevo y querés retomar este plan:
+### Si abrís un chat nuevo, deciles esto:
 
-1. Cargar este archivo: `docs/PLAN_AUTOMATIZACIONES.md`
-2. Cargar la memoria: `~/.claude/projects/-Users-sal-dev-Salix-flux-2-0/memory/project_estados_configurables.md`
-3. Revisar el estado del branch: `git log --oneline feat/estados-configurables` muestra hasta dónde se llegó.
-4. El próximo PR pendiente es el primero después del último commit de la rama.
+> *"Estoy continuando el refactor de estados configurables / motor de
+> workflows en el branch `feat/estados-configurables`. Lee
+> `docs/PLAN_AUTOMATIZACIONES.md` (este archivo) y la memoria
+> `project_estados_configurables.md`. El refactor base (PR 1-12) está
+> completo. Vamos a arrancar con el PR 13 (motor de workflows)."*
 
-Si hay diferencia entre lo que dice este documento y lo que está en el código (porque el código avanzó), **el código es la fuente de verdad**. Este documento se actualiza al final de cada fase.
+Con eso solo, el nuevo Claude tiene todo el contexto que necesita.
+
+### Estado actual al cierre de esta sesión (2026-05-03)
+
+- **Branch:** `feat/estados-configurables`
+- **Último commit:** `59040a7 feat(estados): cleanup arquitectónico PR 12 — refactor base completo`
+- **PRs cerrados:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12 (13 PRs en total)
+- **PR siguiente sugerido:** PR 13 — Motor de workflows, fase 1 (schema)
+- **Tarea diferida:** PR 12bis (ver §11)
+
+### Comandos útiles para retomar
+
+```bash
+# Ver todos los commits del refactor
+git log --oneline feat/estados-configurables ^main
+
+# Ver el estado de una migración específica
+ls sql/044_estados_infraestructura.sql sql/045_*.sql sql/046_*.sql ...
+
+# Ver entidades migradas en código
+cat src/lib/estados/mapeo.ts
+
+# Ver el componente reutilizable de configuración
+cat src/componentes/configuracion/SeccionEstadosEntidad.tsx
+
+# Verificar integridad en Supabase
+# (vía MCP execute_sql:)
+# SELECT count(*) FROM cambios_estado;  -- todos los eventos
+# SELECT count(*) FROM transiciones_estado WHERE empresa_id IS NULL;  -- catálogo del sistema
+```
+
+### Próximo paso concreto: PR 13 — Motor de workflows, fase 1
+
+Crear las tablas que el motor va a usar (ver §4.1 para el schema completo):
+- `flujos` — definiciones de cada workflow (trigger + condiciones + acciones en JSON)
+- `ejecuciones_flujo` — log de cada ejecución con estado y timeline
+- `acciones_pendientes` — cola de acciones diferidas (delays, schedules)
+
+Después PR 14 (dispatcher), PR 15 (worker), PR 16 (variables), PR 17 (cron), PR 18 (CRUD), y **PARAR antes de tocar UI** (PR 19+ se diseña con el usuario).
+
+### Si hay diferencia entre código y documento
+
+**El código es la fuente de verdad.** Este documento se actualiza al final
+de cada fase pero puede quedar atrás. Verificá siempre con `git log` y
+con `mcp__supabase__execute_sql`.
 
 ---
 
@@ -491,6 +569,8 @@ Si hay diferencia entre lo que dice este documento y lo que está en el código 
 | Editor visual con React Flow (open-source) | 2026-04-XX | Gratis, ya validado en otros productos |
 | Motor: Supabase Edge Functions + pgmq | 2026-04-XX | Sin servidor extra, todo en Supabase |
 | PR 12bis (drop legacy) diferido por riesgo en producción | 2026-05-02 | 130 archivos consumidores con accesos `obj.estado` requieren migración cuidadosa. Hacer cleanup arquitectónico ahora (NOT NULL + deprecation) y diferir el drop a una sesión dedicada con QA. |
+| Trigger AFTER INSERT especial para pagos_nomina | PR 11.5 | Pagos no tienen ciclo de vida normal (la creación es el evento). El trigger registra estado_anterior=NULL → estado_nuevo='pagado' al insertar. Sin esto, los workflows tipo "cuando se paga al empleado" no podrían dispararse. |
+| `pago_nomina` agrega columna `estado` aunque conceptualmente no la necesita | PR 11.5 | Mantiene el modelo uniforme con todas las demás entidades migradas. Hoy todos los pagos son 'pagado'; en el futuro pueden sumarse 'programado', 'fallido', etc. sin migración mayor. |
 
 ---
 
