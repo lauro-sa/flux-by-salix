@@ -27,6 +27,8 @@ export type EntidadConEstado =
   | 'asistencia'
   | 'cuota'
   | 'actividad'
+  | 'adelanto_nomina'
+  | 'pago_nomina'
 
 export const ENTIDADES_CON_ESTADO: readonly EntidadConEstado[] = [
   'presupuesto',
@@ -36,6 +38,8 @@ export const ENTIDADES_CON_ESTADO: readonly EntidadConEstado[] = [
   'asistencia',
   'cuota',
   'actividad',
+  'adelanto_nomina',
+  'pago_nomina',
 ] as const
 
 export const ETIQUETAS_ENTIDAD: Record<EntidadConEstado, string> = {
@@ -46,6 +50,8 @@ export const ETIQUETAS_ENTIDAD: Record<EntidadConEstado, string> = {
   asistencia: 'Asistencia',
   cuota: 'Cuota',
   actividad: 'Actividad',
+  adelanto_nomina: 'Adelanto de nómina',
+  pago_nomina: 'Pago de nómina',
 }
 
 // ─── Grupo semántico ──────────────────────────────────────────

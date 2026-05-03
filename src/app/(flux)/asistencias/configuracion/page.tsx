@@ -107,9 +107,11 @@ export default function PaginaConfiguracionAsistencias() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} />, grupo: 'Configuración' },
-    { id: 'estados', etiqueta: 'Estados', icono: <ListChecks size={16} />, grupo: 'Configuración' },
+    { id: 'estados', etiqueta: 'Estados de asistencia', icono: <ListChecks size={16} />, grupo: 'Configuración' },
     { id: 'turnos', etiqueta: 'Turnos laborales', icono: <Clock size={16} />, grupo: 'Configuración' },
     { id: 'nomina', etiqueta: 'Nómina', icono: <Coins size={16} />, grupo: 'Configuración' },
+    { id: 'estados_adelanto', etiqueta: 'Estados de adelantos', icono: <ListChecks size={16} />, grupo: 'Nómina' },
+    { id: 'estados_pago', etiqueta: 'Estados de pagos', icono: <ListChecks size={16} />, grupo: 'Nómina' },
     { id: 'kiosco', etiqueta: 'Kiosco', icono: <Monitor size={16} />, grupo: 'Fichaje' },
     { id: 'terminales', etiqueta: 'Terminales', icono: <Shield size={16} />, grupo: 'Fichaje' },
     { id: 'auto_checkout', etiqueta: 'Auto-checkout', icono: <Timer size={16} />, grupo: 'Automatización' },
@@ -148,6 +150,12 @@ export default function PaginaConfiguracionAsistencias() {
           )}
           {seccionActiva === 'estados' && (
             <SeccionEstadosEntidad entidadTipo="asistencia" />
+          )}
+          {seccionActiva === 'estados_adelanto' && (
+            <SeccionEstadosEntidad entidadTipo="adelanto_nomina" />
+          )}
+          {seccionActiva === 'estados_pago' && (
+            <SeccionEstadosEntidad entidadTipo="pago_nomina" />
           )}
           {seccionActiva === 'nomina' && (
             <SeccionNomina config={config} onGuardar={guardarConfig} />

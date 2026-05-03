@@ -163,11 +163,54 @@ export const permisos_auditoria = pgTable('permisos_auditoria', {
   index('permisos_auditoria_empresa_idx').on(tabla.empresa_id),
 ])
 
+// Estados configurables de pagos de nómina y de adelantos.
+// Migración fuente: sql/052_estados_nomina.sql
+export const estados_pago_nomina = pgTable('estados_pago_nomina', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_pago_nomina_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
+export const estados_adelanto_nomina = pgTable('estados_adelanto_nomina', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_adelanto_nomina_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Pagos de nómina — registros de liquidación por miembro
 export const pagos_nomina = pgTable('pagos_nomina', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Estado del pago. Por defecto 'pagado' — la creación es el evento.
+  // Sincronizado con estado_clave vía trigger.
+  estado: text('estado').notNull().default('pagado'),
+  estado_id: uuid('estado_id').references(() => estados_pago_nomina.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_pago_nomina.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   // Período
   fecha_inicio_periodo: date('fecha_inicio_periodo').notNull(),
   fecha_fin_periodo: date('fecha_fin_periodo').notNull(),
@@ -242,8 +285,13 @@ export const adelantos_nomina = pgTable('adelantos_nomina', {
   // Fechas
   fecha_solicitud: date('fecha_solicitud').notNull(),
   fecha_inicio_descuento: date('fecha_inicio_descuento').notNull(),
-  // Estado
-  estado: text('estado').notNull().default('activo'), // 'activo' | 'pagado' | 'cancelado'
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores: pendiente | activo | pagado | cancelado.
+  estado: text('estado').notNull().default('activo'),
+  estado_id: uuid('estado_id').references(() => estados_adelanto_nomina.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_adelanto_nomina.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   notas: text('notas'),
   referencia_contable: text('referencia_contable'),
   // Auditoría
