@@ -1275,6 +1275,10 @@ export const actividades = pgTable('actividades', {
   tipo_clave: text('tipo_clave').notNull(), // snapshot para queries rápidas
   estado_id: uuid('estado_id').notNull().references(() => estados_actividad.id),
   estado_clave: text('estado_clave').notNull().default('pendiente'),
+  // Tracking de cambios de estado (PR 7 — sistema unificado de estados).
+  // Capturados por trigger BEFORE UPDATE en cada cambio.
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_actividad.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Prioridad
   prioridad: text('prioridad').notNull().default('normal'), // 'baja' | 'normal' | 'alta'

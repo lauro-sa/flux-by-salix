@@ -18,8 +18,8 @@ import type { EntidadConEstado } from '@/tipos/estados'
 export const TABLA_PRINCIPAL_POR_ENTIDAD: Partial<Record<EntidadConEstado, string>> = {
   cuota:        'presupuesto_cuotas',
   conversacion: 'conversaciones',
+  actividad:    'actividades',
   // PRs siguientes:
-  //   actividad:    'actividades',
   //   visita:       'visitas',
   //   orden:        'ordenes_trabajo',
   //   presupuesto:  'presupuestos',
@@ -33,8 +33,8 @@ export const TABLA_PRINCIPAL_POR_ENTIDAD: Partial<Record<EntidadConEstado, strin
 export const TABLA_ESTADOS_POR_ENTIDAD: Partial<Record<EntidadConEstado, string>> = {
   cuota:        'estados_cuota',
   conversacion: 'estados_conversacion',
+  actividad:    'estados_actividad',
   // PRs siguientes:
-  //   actividad:    'estados_actividad',  (ya existe)
   //   visita:       'estados_visita',
   //   orden:        'estados_orden',
   //   presupuesto:  'estados_presupuesto',
