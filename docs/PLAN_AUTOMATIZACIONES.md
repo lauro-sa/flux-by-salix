@@ -6,8 +6,8 @@
 > llegar al motor de workflows funcional.
 >
 > Última actualización: 2026-05-03 · Branch `feat/estados-configurables`
-> Estado: **Refactor base completo (PR 1-12 cerrados). Listo para arrancar
-> motor de workflows (PR 13+).**
+> Estado: **Refactor base completo (PR 1-12). PR 13 (schema motor de
+> workflows) aplicado. Próximo: PR 14 (dispatcher).**
 
 ---
 
@@ -414,7 +414,7 @@ PR 12bis ⌛ Drop columnas legacy `estado` text + migración de ~130 archivos co
 ### Fase 2 — Motor de workflows (PRs 13-19)
 
 ```
-PR 13     Schema: tablas flujos + ejecuciones_flujo + acciones_pendientes
+PR 13   ✓ Schema: tablas flujos + ejecuciones_flujo + acciones_pendientes (sql/054)
 PR 14     Catálogo de triggers + dispatcher SQL (LISTEN/NOTIFY de cambios_estado)
 PR 15     Catálogo de acciones + worker (Edge Function que ejecuta)
 PR 16     Sistema de variables y contexto + resolución de plantillas con {{vars}}
@@ -513,8 +513,9 @@ Con eso solo, el nuevo Claude tiene todo el contexto que necesita.
 
 - **Branch:** `feat/estados-configurables`
 - **Último commit:** `59040a7 feat(estados): cleanup arquitectónico PR 12 — refactor base completo`
-- **PRs cerrados:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12 (13 PRs en total)
-- **PR siguiente sugerido:** PR 13 — Motor de workflows, fase 1 (schema)
+- **PRs cerrados:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12, 13 (14 PRs en total)
+- **PR 13 aplicado a Supabase (proyecto flux-dev), sin advisors nuevos. Pendiente de commit.**
+- **PR siguiente sugerido:** PR 14 — Catálogo de triggers (TS) + dispatcher SQL
 - **Tarea diferida:** PR 12bis (ver §11)
 
 ### Comandos útiles para retomar
