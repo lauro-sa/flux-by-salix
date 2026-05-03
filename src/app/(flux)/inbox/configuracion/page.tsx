@@ -11,8 +11,9 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import {
   Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, MessagesSquare,
-  Zap, TrendingUp, Tag,
+  Zap, TrendingUp, Tag, ListChecks,
 } from 'lucide-react'
+import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
 import type { CanalMensajeria, ConfigMensajeria, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { useRol } from '@/hooks/useRol'
@@ -125,6 +126,7 @@ export default function PaginaConfiguracionInbox() {
     { id: 'interno', etiqueta: t('inbox.config.interno'), icono: <Hash size={16} /> },
     { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: t('inbox.plantillas') },
     { id: 'plantillas_correo', etiqueta: t('inbox.config.plantillas_correo'), icono: <FileText size={16} />, grupo: t('inbox.plantillas') },
+    { id: 'estados', etiqueta: 'Estados de conversación', icono: <ListChecks size={16} />, grupo: 'Personalización' },
     { id: 'etiquetas', etiqueta: t('inbox.etiquetar'), icono: <Tag size={16} />, grupo: 'Correo avanzado' },
     { id: 'reglas', etiqueta: 'Reglas automáticas', icono: <Zap size={16} />, grupo: 'Correo avanzado' },
     { id: 'metricas', etiqueta: 'Métricas', icono: <TrendingUp size={16} />, grupo: 'Correo avanzado' },
@@ -238,6 +240,11 @@ export default function PaginaConfiguracionInbox() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Estados de conversación */}
+      {seccionActiva === 'estados' && (
+        <SeccionEstadosEntidad entidadTipo="conversacion" />
       )}
 
       {/* Etiquetas */}

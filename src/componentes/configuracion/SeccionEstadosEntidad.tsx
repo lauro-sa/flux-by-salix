@@ -2,10 +2,17 @@
 
 /**
  * SeccionEstadosEntidad — Lista de estados configurables para UNA entidad
- * puntual (cuota, conversación, etc.). Usa ListaConfiguracion estándar.
+ * puntual (cuota, conversación, presupuesto, etc.). Usa ListaConfiguracion
+ * estándar.
  *
  * Estados del sistema → badge "Sistema", no editables/eliminables.
  * Estados propios → editables y eliminables.
+ *
+ * Se usa desde la pantalla de configuración de cada módulo:
+ *   - /inbox/configuracion (tab: Estados de conversación)
+ *   - /presupuestos/configuracion (tab: Estados de cuotas)
+ *   - /actividades/configuracion ya tiene su propia sección (no usa este)
+ *   - PRs 7-11 sumarán las demás entidades.
  *
  * Backend: GET /api/estados (listar) + POST/PATCH/DELETE /api/estados/items.
  */
@@ -113,7 +120,6 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         }
         toast.mostrar('exito', 'Estado actualizado')
       } else {
-        // Crear nuevo
         if (!clave.trim()) {
           toast.mostrar('error', 'La clave es obligatoria')
           setGuardando(false)
@@ -265,7 +271,6 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         }
       >
         <div className="space-y-4">
-          {/* Clave: solo se edita en creación */}
           {!editando && (
             <div>
               <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
