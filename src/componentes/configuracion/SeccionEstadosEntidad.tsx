@@ -17,10 +17,10 @@
  * Backend: GET /api/estados (listar) + POST/PATCH/DELETE /api/estados/items.
  */
 
-import { useState, useEffect, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Check, Pipette } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
+import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -29,9 +29,9 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEstados, type EstadoConfig } from '@/hooks/useEstados'
+import { PALETA_COLORES_ESTADO } from '@/lib/colores_entidad'
 import {
   ETIQUETAS_GRUPO,
-  GRUPOS_ESTADO,
   type EntidadConEstado,
   type GrupoEstado,
 } from '@/tipos/estados'
@@ -40,9 +40,16 @@ interface Props {
   entidadTipo: EntidadConEstado
 }
 
-const COLORES_DISPONIBLES = [
-  '#6b7280', '#5b5bd6', '#16a34a', '#d97706', '#dc2626',
-  '#0891b2', '#9333ea', '#ec4899', '#84cc16', '#475569',
+// Grupos con descripción explicativa (igual que /actividades/configuracion).
+// Los grupos clasifican el comportamiento del estado para que workflows
+// futuros y reportes razonen sobre semántica, no sobre claves técnicas.
+const GRUPOS: { valor: GrupoEstado; etiqueta: string; descripcion: string; colorBolita: string }[] = [
+  { valor: 'inicial',    etiqueta: 'Inicial',    descripcion: 'Estado al crearse la entidad (ej: Borrador, Programada)',          colorBolita: 'bg-insignia-info' },
+  { valor: 'activo',     etiqueta: 'Activo',     descripcion: 'En uso normal, en curso (ej: En progreso, Abierta)',                colorBolita: 'bg-insignia-advertencia' },
+  { valor: 'espera',     etiqueta: 'En espera',  descripcion: 'Bloqueada esperando algo externo (ej: En espera, Pendiente aprobación)', colorBolita: 'bg-insignia-advertencia' },
+  { valor: 'completado', etiqueta: 'Completado', descripcion: 'Terminó exitosamente (ej: Cobrada, Resuelta, Pagado)',               colorBolita: 'bg-insignia-exito' },
+  { valor: 'cancelado',  etiqueta: 'Cancelado',  descripcion: 'Se canceló o rechazó (ej: Spam, Rechazado, Ausente)',                colorBolita: 'bg-insignia-peligro' },
+  { valor: 'error',      etiqueta: 'Error',      descripcion: 'Terminó con error (ej: Fallido, Cerrado automático por inactividad)', colorBolita: 'bg-insignia-peligro' },
 ]
 
 export function SeccionEstadosEntidad({ entidadTipo }: Props) {
@@ -222,9 +229,10 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
             onClick: abrirModalNuevo,
           },
         ]}
-        grupos={GRUPOS_ESTADO.map(g => ({
-          clave: g,
-          etiqueta: ETIQUETAS_GRUPO[g],
+        grupos={GRUPOS.map(g => ({
+          clave: g.valor,
+          etiqueta: g.etiqueta,
+          descripcion: g.descripcion,
         }))}
         onToggleActivo={(item) => {
           const estado = estados.find(e => e.id === item.id)
@@ -253,7 +261,8 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         onCerrar={() => setConfirmarEliminar(null)}
       />
 
-      {/* Modal crear/editar */}
+      {/* Modal crear/editar — sigue el mismo patrón visual que
+          /actividades/configuracion para consistencia entre módulos */}
       <Modal
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
@@ -264,100 +273,158 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
             <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>
               Cancelar
             </Boton>
-            <Boton tamano="sm" onClick={guardar} cargando={guardando} disabled={!etiqueta.trim()}>
-              {editando ? 'Guardar' : 'Crear'}
+            <Boton tamano="sm" onClick={guardar} cargando={guardando} disabled={!etiqueta.trim() || (!editando && !clave.trim())}>
+              {editando ? 'Guardar' : 'Crear estado'}
             </Boton>
           </>
         }
       >
-        <div className="space-y-4">
-          {!editando && (
-            <div>
-              <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
-                Clave técnica
-              </label>
-              <Input
-                value={clave}
-                onChange={(e) => setClave(e.target.value)}
-                placeholder="ej. en_revision"
-                className="mt-1"
-              />
-              <p className="text-[11px] text-texto-terciario mt-1">
-                Identificador interno (snake_case, sin tildes). No se podrá cambiar después.
-              </p>
+        <div className="space-y-5">
+          {/* Preview en vivo */}
+          <div className="flex items-center gap-3 p-3 rounded-card bg-superficie-hover/50">
+            <div
+              className="w-9 h-9 rounded-card flex items-center justify-center"
+              style={{ backgroundColor: color + '18', color }}
+            >
+              {(() => {
+                const I = obtenerIcono(icono)
+                return I ? <I size={18} /> : null
+              })()}
             </div>
+            <span className="text-sm font-semibold text-texto-primario">
+              {etiqueta || 'Nuevo estado'}
+            </span>
+          </div>
+
+          <Input
+            tipo="text"
+            etiqueta="Nombre"
+            value={etiqueta}
+            onChange={(e) => setEtiqueta(e.target.value)}
+            placeholder="Ej: En revisión, Aprobado, Pausado..."
+            autoFocus
+          />
+
+          {!editando && (
+            <Input
+              tipo="text"
+              etiqueta="Clave técnica"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              placeholder="Ej: en_revision"
+              ayuda="Identificador interno usado por el sistema (snake_case, sin tildes ni espacios). No se podrá cambiar después de crear el estado."
+            />
           )}
 
-          <div>
-            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
-              Etiqueta visible
-            </label>
-            <Input
-              value={etiqueta}
-              onChange={(e) => setEtiqueta(e.target.value)}
-              placeholder="ej. En revisión"
-              className="mt-1"
-            />
-          </div>
+          <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
 
-          <div>
-            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
-              Grupo de comportamiento
-            </label>
-            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-              {GRUPOS_ESTADO.map(g => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGrupo(g)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    grupo === g
-                      ? 'bg-texto-marca/15 border border-texto-marca/40 text-texto-marca'
-                      : 'border border-borde-sutil text-texto-terciario hover:bg-white/[0.03]'
-                  }`}
-                >
-                  {ETIQUETAS_GRUPO[g]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SelectorColorEstado valor={color} onChange={setColor} colores={PALETA_COLORES_ESTADO} />
 
+          {/* Grupo de comportamiento — con descripción inline */}
           <div>
-            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
-              Color
+            <label className="text-sm font-medium text-texto-secundario block mb-1">
+              Tipo de comportamiento
             </label>
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {COLORES_DISPONIBLES.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`size-5 rounded-full transition-all ${
-                    color === c ? 'ring-2 ring-white/80 ring-offset-2 ring-offset-superficie-tarjeta' : ''
-                  }`}
-                  style={{ backgroundColor: c }}
-                  aria-label={`Color ${c}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wider">
-              Icono
-            </label>
-            <Input
-              value={icono}
-              onChange={(e) => setIcono(e.target.value)}
-              placeholder="Circle"
-              className="mt-1"
-            />
-            <p className="text-[11px] text-texto-terciario mt-1">
-              Nombre del icono Lucide (ej: Circle, CheckCircle, AlertCircle).
+            <p className="text-xs text-texto-terciario mb-3 leading-relaxed">
+              Clasifica cómo se comporta este estado en la app. Lo usan los reportes,
+              filtros y las automatizaciones para decidir qué hacer
+              (ej: una automatización "cuando el documento se completa" reacciona
+              a cualquier estado de tipo <strong className="text-texto-secundario">Completado</strong>,
+              sin importar la clave técnica).
             </p>
+            <div className="space-y-1.5">
+              {GRUPOS.map(g => (
+                <Boton
+                  key={g.valor}
+                  variante={grupo === g.valor ? 'secundario' : 'fantasma'}
+                  tamano="sm"
+                  anchoCompleto
+                  onClick={() => setGrupo(g.valor)}
+                  className={grupo === g.valor ? 'bg-texto-marca/8 border-texto-marca/25' : ''}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${g.colorBolita}`} />
+                    <div className="text-left flex-1">
+                      <p className="text-sm font-medium">{g.etiqueta}</p>
+                      <p className="text-xs text-texto-terciario leading-snug">{g.descripcion}</p>
+                    </div>
+                  </div>
+                </Boton>
+              ))}
+            </div>
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// ─── Selector de color con paleta + gotero personalizado ──────
+// Mismo patrón que SelectorColorDots de /actividades/configuracion.
+// Permite elegir un color de la paleta del sistema o usar un color custom
+// vía gotero nativo del navegador.
+
+function SelectorColorEstado({
+  valor,
+  onChange,
+  colores,
+}: {
+  valor: string
+  onChange: (c: string) => void
+  colores: string[]
+}) {
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const esCustom = !colores.some(c => c.toLowerCase() === valor.toLowerCase())
+
+  return (
+    <div>
+      <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
+      <div className="flex flex-wrap gap-2.5 items-center">
+        {colores.map(c => {
+          const sel = valor.toLowerCase() === c.toLowerCase()
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange(c)}
+              className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                sel ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
+              }`}
+              style={{ backgroundColor: c }}
+              aria-label={`Elegir color ${c}`}
+            >
+              {sel && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+            </button>
+          )
+        })}
+        <button
+          type="button"
+          onClick={() => colorInputRef.current?.click()}
+          className={`relative size-8 rounded-full border-2 border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+            esCustom
+              ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110 border-transparent'
+              : 'border-borde-fuerte'
+          }`}
+          style={esCustom ? { backgroundColor: valor } : undefined}
+          title="Elegir color personalizado"
+          aria-label="Elegir color personalizado"
+        >
+          {esCustom ? (
+            <Check size={14} className="text-white drop-shadow-sm" />
+          ) : (
+            <Pipette size={14} className="text-texto-terciario" />
+          )}
+        </button>
+        <input
+          ref={colorInputRef}
+          type="color"
+          value={valor}
+          onChange={(e) => onChange(e.target.value)}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
     </div>
   )
 }
