@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     // Sin cerrar → estados activos
     if (sin_cerrar) {
-      query = query.in('estado', ['activo', 'almuerzo', 'particular'])
+      query = query.in('estado', ['activo', 'en_almuerzo', 'en_particular'])
     }
 
     // Tipos

@@ -69,7 +69,7 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
       .from('asistencias')
       .select('id, hora_entrada, hora_salida')
       .eq('empresa_id', config.empresa_id)
-      .in('estado', ['activo', 'almuerzo', 'particular'])
+      .in('estado', ['activo', 'en_almuerzo', 'en_particular'])
       .lte('hora_entrada', cutoff)
 
     if (!abiertos || abiertos.length === 0) continue
@@ -108,7 +108,7 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
   const { data: abiertosSinConfig } = await admin
     .from('asistencias')
     .select('id, empresa_id, hora_entrada, hora_salida')
-    .in('estado', ['activo', 'almuerzo', 'particular'])
+    .in('estado', ['activo', 'en_almuerzo', 'en_particular'])
     .lte('hora_entrada', cutoffDefault)
 
   for (const turno of (abiertosSinConfig || [])) {
@@ -148,7 +148,7 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
   const { data: huerfanos } = await admin
     .from('asistencias')
     .select('id, empresa_id, hora_entrada, hora_salida')
-    .in('estado', ['activo', 'almuerzo', 'particular'])
+    .in('estado', ['activo', 'en_almuerzo', 'en_particular'])
     .lt('fecha', ayerUTC)
 
   for (const turno of (huerfanos || [])) {
@@ -182,7 +182,7 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
   const { data: inactivos } = await admin
     .from('asistencias')
     .select('id, hora_salida')
-    .in('estado', ['activo', 'almuerzo', 'particular'])
+    .in('estado', ['activo', 'en_almuerzo', 'en_particular'])
     .not('hora_salida', 'is', null)
     .lte('hora_salida', cutoffInactividad)
 

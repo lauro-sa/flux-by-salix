@@ -6,7 +6,7 @@ import { formatearFechaISO } from '@/lib/formato-fecha'
 /**
  * POST /api/asistencias/fichar — Registrar acción de fichaje.
  * Body: {
- *   accion: 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
+ *   accion: 'entrada' | 'salida' | 'en_almuerzo' | 'volver_almuerzo' | 'en_particular' | 'volver_particular'
  *   ubicacion?: { lat: number, lng: number, direccion?: string, barrio?: string, ciudad?: string }
  *   metodo?: 'manual' | 'automatico'
  * }
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     // Paso 2: turnoHoy + turnoViejo + sector + turnoDefault — todo en paralelo
     const [turnoHoyRes, turnoViejoRes, memSectorRes, turnoDefaultRes] = await Promise.all([
       admin.from('asistencias').select('*').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).eq('fecha', fechaHoy).maybeSingle(),
-      admin.from('asistencias').select('id, fecha, hora_salida').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'almuerzo', 'particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
+      admin.from('asistencias').select('id, fecha, hora_salida').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'en_almuerzo', 'en_particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
       !miembro.turno_id
         ? admin.from('miembros_sectores').select('sector:sectores(turno_id)').eq('miembro_id', miembro.id).eq('es_primario', true).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ accion: 'salida', registro: actualizado })
       }
 
-      case 'almuerzo': {
+      case 'en_almuerzo': {
         if (!turnoHoy || turnoHoy.estado !== 'activo') {
           return NextResponse.json({ error: 'No estás en turno activo' }, { status: 400 })
         }
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
           .from('asistencias')
           .update({
             inicio_almuerzo: ahora,
-            estado: 'almuerzo',
+            estado: 'en_almuerzo',
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)
@@ -174,11 +174,11 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-        return NextResponse.json({ accion: 'almuerzo', registro: actualizado })
+        return NextResponse.json({ accion: 'en_almuerzo', registro: actualizado })
       }
 
       case 'volver_almuerzo': {
-        if (!turnoHoy || turnoHoy.estado !== 'almuerzo') {
+        if (!turnoHoy || turnoHoy.estado !== 'en_almuerzo') {
           return NextResponse.json({ error: 'No estás en almuerzo' }, { status: 400 })
         }
 
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ accion: 'volver_almuerzo', registro: actualizado })
       }
 
-      case 'particular': {
+      case 'en_particular': {
         if (!turnoHoy || turnoHoy.estado !== 'activo') {
           return NextResponse.json({ error: 'No estás en turno activo' }, { status: 400 })
         }
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
           .from('asistencias')
           .update({
             salida_particular: ahora,
-            estado: 'particular',
+            estado: 'en_particular',
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)
@@ -214,11 +214,11 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-        return NextResponse.json({ accion: 'particular', registro: actualizado })
+        return NextResponse.json({ accion: 'en_particular', registro: actualizado })
       }
 
       case 'volver_particular': {
-        if (!turnoHoy || turnoHoy.estado !== 'particular') {
+        if (!turnoHoy || turnoHoy.estado !== 'en_particular') {
           return NextResponse.json({ error: 'No estás en trámite' }, { status: 400 })
         }
 
@@ -281,7 +281,7 @@ export async function GET() {
     const [turnoHoyRes, configRes, turnoViejoRes, memSectorRes, horarioEmpresaRes, turnoDefaultRes, turnoMiembroRes] = await Promise.all([
       admin.from('asistencias').select('*').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).eq('fecha', fechaHoy).maybeSingle(),
       admin.from('config_asistencias').select('fichaje_auto_habilitado, descontar_almuerzo, duracion_almuerzo_min').eq('empresa_id', empresaId).maybeSingle(),
-      admin.from('asistencias').select('id, hora_salida, hora_entrada').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'almuerzo', 'particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
+      admin.from('asistencias').select('id, hora_salida, hora_entrada').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'en_almuerzo', 'en_particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
       // Sector primario (para resolver turno laboral si miembro no tiene uno directo)
       !miembro.turno_id
         ? admin.from('miembros_sectores').select('sector:sectores(turno_id)').eq('miembro_id', miembro.id).eq('es_primario', true).maybeSingle()

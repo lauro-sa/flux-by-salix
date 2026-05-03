@@ -2557,6 +2557,26 @@ export const turnos_laborales = pgTable('turnos_laborales', {
   index('turnos_laborales_orden_idx').on(tabla.empresa_id, tabla.orden),
 ])
 
+// Estados de asistencia — configurables por empresa.
+// Migración fuente: sql/051_estados_asistencias.sql
+// Renombres (PR 11): almuerzo→en_almuerzo, particular→en_particular.
+export const estados_asistencia = pgTable('estados_asistencia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_asistencia_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Asistencias — registro diario de fichaje por miembro (un registro por persona por día)
 export const asistencias = pgTable('asistencias', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -2570,8 +2590,14 @@ export const asistencias = pgTable('asistencias', {
   fin_almuerzo: timestamp('fin_almuerzo', { withTimezone: true }),
   salida_particular: timestamp('salida_particular', { withTimezone: true }), // salida breve (trámite)
   vuelta_particular: timestamp('vuelta_particular', { withTimezone: true }),
-  // Estado de la jornada (máquina de estados)
-  estado: text('estado').notNull().default('activo'), // 'activo' | 'almuerzo' | 'particular' | 'cerrado' | 'auto_cerrado' | 'ausente'
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores (renombrados PR 11): activo | en_almuerzo | en_particular |
+  // cerrado | feriado | auto_cerrado | ausente.
+  estado: text('estado').notNull().default('activo'),
+  estado_id: uuid('estado_id').references(() => estados_asistencia.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_asistencia.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   // Clasificación
   tipo: text('tipo').notNull().default('normal'), // 'normal' | 'tardanza' | 'ausencia' | 'flexible'
   puntualidad_min: integer('puntualidad_min'), // minutos de desvío vs horario esperado

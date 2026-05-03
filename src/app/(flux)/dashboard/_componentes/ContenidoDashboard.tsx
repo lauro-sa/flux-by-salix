@@ -769,7 +769,7 @@ function PestanaMetricas({
 function LineaJornada({ fichaje }: { fichaje: NonNullable<DatosDashboard['asistencia']>['detalle_hoy'][number] }) {
   const ahora = Date.now()
   const min = fichaje.hora_entrada
-    ? Math.max(0, Math.round(((['activo', 'almuerzo', 'particular'].includes(fichaje.estado) ? ahora : (fichaje.hora_salida ? new Date(fichaje.hora_salida).getTime() : ahora)) - new Date(fichaje.hora_entrada).getTime()) / 60000))
+    ? Math.max(0, Math.round(((['activo', 'en_almuerzo', 'en_particular'].includes(fichaje.estado) ? ahora : (fichaje.hora_salida ? new Date(fichaje.hora_salida).getTime() : ahora)) - new Date(fichaje.hora_entrada).getTime()) / 60000))
     : 0
   const h = Math.floor(min / 60)
   const m = min % 60
@@ -777,15 +777,15 @@ function LineaJornada({ fichaje }: { fichaje: NonNullable<DatosDashboard['asiste
 
   const etiquetaEstado =
     fichaje.estado === 'activo' ? 'En turno'
-    : fichaje.estado === 'almuerzo' ? 'Almorzando'
-    : fichaje.estado === 'particular' ? 'Trámite'
+    : fichaje.estado === 'en_almuerzo' ? 'Almorzando'
+    : fichaje.estado === 'en_particular' ? 'Trámite'
     : fichaje.estado === 'cerrado' ? 'Cerrado'
     : fichaje.estado === 'ausente' ? 'Ausente'
     : fichaje.estado
 
   const colorPunto =
     fichaje.estado === 'activo' ? 'bg-asistencia-presente'
-    : fichaje.estado === 'almuerzo' ? 'bg-asistencia-almuerzo'
+    : fichaje.estado === 'en_almuerzo' ? 'bg-asistencia-almuerzo'
     : fichaje.estado === 'cerrado' ? 'bg-texto-terciario'
     : 'bg-asistencia-ausente'
 

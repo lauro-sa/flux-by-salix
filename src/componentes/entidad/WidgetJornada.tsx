@@ -44,7 +44,7 @@ function calcularMinutosTrabajados(turno: TurnoHoy): number {
   const entrada = new Date(turno.hora_entrada).getTime()
 
   // Si el turno está abierto, siempre calcular hasta ahora (no usar hora_salida del snapshot)
-  const estaAbierto = ['activo', 'almuerzo', 'particular'].includes(turno.estado)
+  const estaAbierto = ['activo', 'en_almuerzo', 'en_particular'].includes(turno.estado)
   const fin = estaAbierto ? Date.now() : (turno.hora_salida ? new Date(turno.hora_salida).getTime() : Date.now())
   let min = Math.round((fin - entrada) / 60000)
 
@@ -52,7 +52,7 @@ function calcularMinutosTrabajados(turno: TurnoHoy): number {
   if (turno.inicio_almuerzo && turno.fin_almuerzo) {
     const almMin = Math.round((new Date(turno.fin_almuerzo).getTime() - new Date(turno.inicio_almuerzo).getTime()) / 60000)
     min -= almMin
-  } else if (turno.inicio_almuerzo && !turno.fin_almuerzo && turno.estado === 'almuerzo') {
+  } else if (turno.inicio_almuerzo && !turno.fin_almuerzo && turno.estado === 'en_almuerzo') {
     const almMin = Math.round((Date.now() - new Date(turno.inicio_almuerzo).getTime()) / 60000)
     min -= almMin
   }
@@ -61,7 +61,7 @@ function calcularMinutosTrabajados(turno: TurnoHoy): number {
   if (turno.salida_particular && turno.vuelta_particular) {
     const partMin = Math.round((new Date(turno.vuelta_particular).getTime() - new Date(turno.salida_particular).getTime()) / 60000)
     min -= partMin
-  } else if (turno.salida_particular && !turno.vuelta_particular && turno.estado === 'particular') {
+  } else if (turno.salida_particular && !turno.vuelta_particular && turno.estado === 'en_particular') {
     const partMin = Math.round((Date.now() - new Date(turno.salida_particular).getTime()) / 60000)
     min -= partMin
   }
@@ -97,7 +97,7 @@ const COLOR_ESTADO: Record<string, string> = {
 interface SegmentoTimeline {
   inicio: number // minutos desde medianoche
   fin: number
-  tipo: 'trabajo' | 'almuerzo' | 'particular' | 'inactivo' | 'extra'
+  tipo: 'trabajo' | 'en_almuerzo' | 'en_particular' | 'inactivo' | 'extra'
 }
 
 const COLORES_SEGMENTO: Record<string, string> = {
@@ -122,7 +122,7 @@ function construirSegmentos(
   const segmentos: SegmentoTimeline[] = []
   const entrada = minutosDesdeMedianoche(turno.hora_entrada)
   // Si el turno está abierto, siempre usar hora actual (no el snapshot de hora_salida)
-  const estaAbierto = ['activo', 'almuerzo', 'particular'].includes(turno.estado)
+  const estaAbierto = ['activo', 'en_almuerzo', 'en_particular'].includes(turno.estado)
   const minutosAhora = Math.floor((Date.now() - new Date(new Date().toDateString()).getTime()) / 60000)
   const salida = estaAbierto
     ? minutosAhora
@@ -142,10 +142,10 @@ function construirSegmentos(
     }
     const finAlm = turno.fin_almuerzo
       ? minutosDesdeMedianoche(turno.fin_almuerzo)
-      : turno.estado === 'almuerzo'
+      : turno.estado === 'en_almuerzo'
         ? Math.floor((Date.now() - new Date(new Date().toDateString()).getTime()) / 60000)
         : inicioAlm
-    segmentos.push({ inicio: inicioAlm, fin: finAlm, tipo: 'almuerzo' })
+    segmentos.push({ inicio: inicioAlm, fin: finAlm, tipo: 'en_almuerzo' })
     cursor = finAlm
   }
 
@@ -157,15 +157,15 @@ function construirSegmentos(
     }
     const finPartic = turno.vuelta_particular
       ? minutosDesdeMedianoche(turno.vuelta_particular)
-      : turno.estado === 'particular'
+      : turno.estado === 'en_particular'
         ? Math.floor((Date.now() - new Date(new Date().toDateString()).getTime()) / 60000)
         : inicioPartic
-    segmentos.push({ inicio: inicioPartic, fin: finPartic, tipo: 'particular' })
+    segmentos.push({ inicio: inicioPartic, fin: finPartic, tipo: 'en_particular' })
     cursor = finPartic
   }
 
   // Trabajo restante después del último break hasta ahora/salida
-  if (cursor < salida && turno.estado !== 'almuerzo' && turno.estado !== 'particular') {
+  if (cursor < salida && turno.estado !== 'en_almuerzo' && turno.estado !== 'en_particular') {
     segmentos.push({ inicio: cursor, fin: salida, tipo: 'trabajo' })
   }
 
@@ -301,13 +301,13 @@ function BarraTimeline({ turno, horarioEsperado, hour12 }: {
             Trabajo
           </span>
         )}
-        {segmentos.some(s => s.tipo === 'almuerzo') && (
+        {segmentos.some(s => s.tipo === 'en_almuerzo') && (
           <span className="flex items-center gap-1">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: COLORES_SEGMENTO.almuerzo }} />
             Almuerzo
           </span>
         )}
-        {segmentos.some(s => s.tipo === 'particular') && (
+        {segmentos.some(s => s.tipo === 'en_particular') && (
           <span className="flex items-center gap-1">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: COLORES_SEGMENTO.particular }} />
             Trámite
@@ -410,7 +410,7 @@ function WidgetJornada() {
 
   // Timer que actualiza duración en vivo
   useEffect(() => {
-    if (turno && ['activo', 'almuerzo', 'particular'].includes(turno.estado)) {
+    if (turno && ['activo', 'en_almuerzo', 'en_particular'].includes(turno.estado)) {
       setMinutosVivos(calcularMinutosTrabajados(turno))
       intervaloRef.current = setInterval(() => {
         setMinutosVivos(calcularMinutosTrabajados(turno))
@@ -430,12 +430,12 @@ function WidgetJornada() {
       if (!prev) return prev
       const ahora = new Date().toISOString()
       switch (accion) {
-        case 'almuerzo':
-          return { ...prev, estado: 'almuerzo', inicio_almuerzo: ahora }
+        case 'en_almuerzo':
+          return { ...prev, estado: 'en_almuerzo', inicio_almuerzo: ahora }
         case 'volver_almuerzo':
           return { ...prev, estado: 'activo', fin_almuerzo: ahora }
-        case 'particular':
-          return { ...prev, estado: 'particular', salida_particular: ahora }
+        case 'en_particular':
+          return { ...prev, estado: 'en_particular', salida_particular: ahora }
         case 'volver_particular':
           return { ...prev, estado: 'activo', vuelta_particular: ahora }
         case 'salida':
@@ -485,7 +485,7 @@ function WidgetJornada() {
   }, [cargar])
 
   const esAutomatico = metodoFichaje === 'automatico'
-  const estaAbierto = turno && ['activo', 'almuerzo', 'particular'].includes(turno.estado)
+  const estaAbierto = turno && ['activo', 'en_almuerzo', 'en_particular'].includes(turno.estado)
   const estaCerrado = turno && ['cerrado', 'auto_cerrado'].includes(turno.estado)
 
   // Color del indicador en el botón del header
@@ -651,7 +651,7 @@ function WidgetJornada() {
                             variante="secundario"
                             tamano="sm"
                             className="w-full"
-                            onClick={() => fichar('almuerzo')}
+                            onClick={() => fichar('en_almuerzo')}
                             disabled={ejecutando}
                           >
                             <UtensilsCrossed size={13} className="mr-1.5" /> Almorzar
@@ -661,7 +661,7 @@ function WidgetJornada() {
                           variante="secundario"
                           tamano="sm"
                           className="w-full"
-                          onClick={() => fichar('particular')}
+                          onClick={() => fichar('en_particular')}
                           disabled={ejecutando}
                         >
                           <Footprints size={13} className="mr-1.5" /> Trámite
@@ -680,7 +680,7 @@ function WidgetJornada() {
                     )}
 
                     {/* En almuerzo */}
-                    {turno?.estado === 'almuerzo' && (
+                    {turno?.estado === 'en_almuerzo' && (
                       <>
                         <Boton
                           variante="primario"
@@ -710,7 +710,7 @@ function WidgetJornada() {
                     )}
 
                     {/* En trámite */}
-                    {turno?.estado === 'particular' && (
+                    {turno?.estado === 'en_particular' && (
                       <>
                         <Boton
                           variante="primario"

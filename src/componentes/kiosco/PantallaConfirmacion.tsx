@@ -14,7 +14,7 @@ import {
 
 import Image from 'next/image'
 
-type TipoAccion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
+type TipoAccion = 'entrada' | 'salida' | 'en_almuerzo' | 'volver_almuerzo' | 'en_particular' | 'volver_particular'
 
 interface PropsPantallaConfirmacion {
   nombre: string
@@ -47,9 +47,9 @@ function obtenerMensaje(
   if (accion === 'entrada' && esCumpleanos) return `¡Feliz cumpleaños, ${corto}! 🎂 Que tengas un excelente día.`
   if (accion === 'salida' && esCumpleanos) return `¡A celebrar, ${corto}! 🎈 Disfrutá tu día.`
   if (accion === 'entrada') return `¡Buen turno, ${corto}!`
-  if (accion === 'almuerzo') return `¡Buen provecho, ${corto}!`
+  if (accion === 'en_almuerzo') return `¡Buen provecho, ${corto}!`
   if (accion === 'volver_almuerzo') return `¡De vuelta al trabajo, ${corto}!`
-  if (accion === 'particular') return `¡Hasta pronto, ${corto}!`
+  if (accion === 'en_particular') return `¡Hasta pronto, ${corto}!`
   if (accion === 'volver_particular') return `¡De vuelta, ${corto}!`
   if (accion === 'salida' && jornadaCompleta) return `¡Hasta luego, ${corto}! Jornada completa.`
   if (accion === 'salida' && horasTrabajadas) return `¡Hasta luego, ${corto}! Hoy trabajaste ${horasTrabajadas}.`

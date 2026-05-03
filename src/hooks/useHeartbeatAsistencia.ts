@@ -82,7 +82,7 @@ export function useHeartbeatAsistencia(habilitado: boolean) {
 
         // Retorno automático de almuerzo/trámite
         if (data.accion === 'retorno_automatico') {
-          const etiqueta = data.retorno_de === 'almuerzo' ? 'almuerzo' : 'trámite'
+          const etiqueta = data.retorno_de === 'en_almuerzo' ? 'en_almuerzo' : 'trámite'
           mostrar('info', `Retorno de ${etiqueta} registrado automáticamente.`, 10000)
         }
       }

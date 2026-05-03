@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Settings2, Clock, CalendarCheck, Monitor, Timer, Zap,
-  Plus, Trash2, Shield,
+  Plus, Trash2, Shield, ListChecks,
   Link2, Copy, RefreshCw, Ban, Globe, Coins,
 } from 'lucide-react'
+import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { Input } from '@/componentes/ui/Input'
@@ -106,6 +107,7 @@ export default function PaginaConfiguracionAsistencias() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} />, grupo: 'Configuración' },
+    { id: 'estados', etiqueta: 'Estados', icono: <ListChecks size={16} />, grupo: 'Configuración' },
     { id: 'turnos', etiqueta: 'Turnos laborales', icono: <Clock size={16} />, grupo: 'Configuración' },
     { id: 'nomina', etiqueta: 'Nómina', icono: <Coins size={16} />, grupo: 'Configuración' },
     { id: 'kiosco', etiqueta: 'Kiosco', icono: <Monitor size={16} />, grupo: 'Fichaje' },
@@ -143,6 +145,9 @@ export default function PaginaConfiguracionAsistencias() {
         <>
           {seccionActiva === 'general' && (
             <SeccionGeneral config={config} onGuardar={guardarConfig} />
+          )}
+          {seccionActiva === 'estados' && (
+            <SeccionEstadosEntidad entidadTipo="asistencia" />
           )}
           {seccionActiva === 'nomina' && (
             <SeccionNomina config={config} onGuardar={guardarConfig} />

@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      case 'almuerzo': {
+      case 'en_almuerzo': {
         if (!turnoHoy) {
           return NextResponse.json({ error: 'No tenés turno abierto' }, { status: 400 })
         }
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
           .from('asistencias')
           .update({
             inicio_almuerzo: ahora,
-            estado: 'almuerzo',
+            estado: 'en_almuerzo',
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
         break
       }
 
-      case 'particular': {
+      case 'en_particular': {
         if (!turnoHoy) {
           return NextResponse.json({ error: 'No tenés turno abierto' }, { status: 400 })
         }
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
           .from('asistencias')
           .update({
             salida_particular: ahora,
-            estado: 'particular',
+            estado: 'en_particular',
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)

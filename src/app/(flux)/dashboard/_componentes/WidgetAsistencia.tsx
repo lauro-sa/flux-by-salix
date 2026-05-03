@@ -58,7 +58,7 @@ function fmtDuracion(min: number): string {
 function calcMinTrabajados(d: DetalleMiembro): number {
   if (!d.hora_entrada) return 0
   const entrada = new Date(d.hora_entrada).getTime()
-  const estaAbierto = ['activo', 'almuerzo', 'particular'].includes(d.estado)
+  const estaAbierto = ['activo', 'en_almuerzo', 'en_particular'].includes(d.estado)
   const salida = estaAbierto ? Date.now() : (d.hora_salida ? new Date(d.hora_salida).getTime() : Date.now())
   return Math.max(0, Math.round((salida - entrada) / 60000))
 }
@@ -125,12 +125,12 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
                 <div className="flex items-center gap-1.5">
                   <div className={`size-[7px] rounded-full ${
                     miFichaje.estado === 'activo' ? 'bg-asistencia-presente shadow-[0_0_5px_var(--asistencia-presente-fondo)]' :
-                    miFichaje.estado === 'almuerzo' ? 'bg-asistencia-almuerzo' :
+                    miFichaje.estado === 'en_almuerzo' ? 'bg-asistencia-almuerzo' :
                     miFichaje.estado === 'cerrado' ? 'bg-texto-terciario' : 'bg-asistencia-ausente'
                   }`} />
                   <span className="text-xs font-medium text-texto-secundario">
-                    {miFichaje.estado === 'activo' ? 'En turno' : miFichaje.estado === 'almuerzo' ? 'Almorzando' :
-                     miFichaje.estado === 'particular' ? 'Trámite' : miFichaje.estado === 'cerrado' ? 'Cerrado' : miFichaje.estado}
+                    {miFichaje.estado === 'activo' ? 'En turno' : miFichaje.estado === 'en_almuerzo' ? 'Almorzando' :
+                     miFichaje.estado === 'en_particular' ? 'Trámite' : miFichaje.estado === 'cerrado' ? 'Cerrado' : miFichaje.estado}
                   </span>
                 </div>
                 <span className="flex items-center gap-1 text-[10px] text-texto-terciario/40">

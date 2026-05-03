@@ -144,9 +144,9 @@ export async function POST(request: NextRequest) {
     if (turnoHoy?.hora_entrada) {
       const entrada = new Date(turnoHoy.hora_entrada as string).getTime()
       let corte: number
-      if (turnoHoy.estado === 'almuerzo' && turnoHoy.inicio_almuerzo && descontarAlmuerzo) {
+      if (turnoHoy.estado === 'en_almuerzo' && turnoHoy.inicio_almuerzo && descontarAlmuerzo) {
         corte = new Date(turnoHoy.inicio_almuerzo as string).getTime()
-      } else if (turnoHoy.estado === 'particular' && turnoHoy.salida_particular) {
+      } else if (turnoHoy.estado === 'en_particular' && turnoHoy.salida_particular) {
         corte = new Date(turnoHoy.salida_particular as string).getTime()
       } else {
         corte = Date.now()
