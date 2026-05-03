@@ -6,8 +6,8 @@
 > llegar al motor de workflows funcional.
 >
 > Última actualización: 2026-05-03 · Branch `feat/estados-configurables`
-> Estado: **Refactor base completo (PR 1-12). PR 13 (schema motor de
-> workflows) aplicado. Próximo: PR 14 (dispatcher).**
+> Estado: **Refactor base completo (PR 1-12). PR 13 (schema) y PR 14
+> (dispatcher) aplicados y verificados E2E. Próximo: PR 15 (worker).**
 
 ---
 
@@ -415,7 +415,9 @@ PR 12bis ⌛ Drop columnas legacy `estado` text + migración de ~130 archivos co
 
 ```
 PR 13   ✓ Schema: tablas flujos + ejecuciones_flujo + acciones_pendientes (sql/054)
-PR 14     Catálogo de triggers + dispatcher SQL (LISTEN/NOTIFY de cambios_estado)
+PR 14   ✓ Dispatcher: src/tipos/workflow.ts + matchearFlujos pura + Edge Function Deno
+          (Database Webhook ON INSERT cambios_estado → POST con WEBHOOK_SECRET).
+          Catálogo de tipos como discriminated unions en TS (no SQL).
 PR 15     Catálogo de acciones + worker (Edge Function que ejecuta)
 PR 16     Sistema de variables y contexto + resolución de plantillas con {{vars}}
 PR 17     Triggers de tiempo (cron diario que evalúa flujos time-based)
@@ -512,11 +514,32 @@ Con eso solo, el nuevo Claude tiene todo el contexto que necesita.
 ### Estado actual al cierre de esta sesión (2026-05-03)
 
 - **Branch:** `feat/estados-configurables`
-- **Último commit:** `59040a7 feat(estados): cleanup arquitectónico PR 12 — refactor base completo`
-- **PRs cerrados:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12, 13 (14 PRs en total)
-- **PR 13 aplicado a Supabase (proyecto flux-dev), sin advisors nuevos. Pendiente de commit.**
-- **PR siguiente sugerido:** PR 14 — Catálogo de triggers (TS) + dispatcher SQL
-- **Tarea diferida:** PR 12bis (ver §11)
+- **Último commit:** `d94df9c feat(workflows): PR 14 — dispatcher (catálogo de tipos + Edge Function + idempotencia)`
+- **PRs cerrados:** 1-12, 12.5 (=11.5 nóm.), 13, 14 (15 PRs en total)
+- **Edge Function `dispatcher-workflows` deployada (v3) y verificada E2E (UPDATE conversación → trigger → webhook → ejecución, 1.077s round-trip)**
+- **PR siguiente sugerido:** PR 15 — Worker (consume ejecuciones_flujo en estado pendiente, ejecuta acciones, agenda diferidas en acciones_pendientes)
+- **Tarea diferida:** PR 12bis (ver §11) + housekeeping del .env.local (legacy JWT → sb_secret_)
+
+### Setup operacional fuera del repo (válido al cierre del PR 14)
+
+- **Edge Functions Settings → Secrets:** `WEBHOOK_SECRET` configurado.
+- **Database → Webhooks:** webhook `dispatcher-workflows` ON INSERT en
+  `public.cambios_estado` → POST a la Edge Function con header
+  `Authorization: Bearer <WEBHOOK_SECRET>`.
+- Si se rota el secret hay que actualizarlo en ambos lados (Edge
+  Functions Settings + el header del webhook).
+
+### Por qué WEBHOOK_SECRET y no SUPABASE_SERVICE_ROLE_KEY
+
+Documentado en el header de
+`supabase/functions/dispatcher-workflows/index.ts`. Resumen: Supabase
+está migrando keys de legacy JWT (`eyJh...`, ~219 chars) a
+`sb_secret_...` (~41 chars). El runtime inyecta una y el dashboard
+puede exponer la otra; comparación literal de strings falla en
+silencio cuando las dos keys autorizan al mismo proyecto pero no son
+strings iguales. Probado y descartado en PR 14. La regla "soluciones
+definitivas, no parches" aplica: el secret custom es independiente del
+formato/rotación de las keys de plataforma.
 
 ### Comandos útiles para retomar
 
