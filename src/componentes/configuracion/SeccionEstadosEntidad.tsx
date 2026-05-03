@@ -29,7 +29,8 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEstados, type EstadoConfig } from '@/hooks/useEstados'
-import { PALETA_COLORES_ESTADO } from '@/lib/colores_entidad'
+// Misma paleta que se usa en ModalEtiquetas y otros selectores del proyecto.
+import { PALETA_COLORES_ETIQUETA } from '@/lib/colores_entidad'
 import {
   ETIQUETAS_GRUPO,
   type EntidadConEstado,
@@ -261,13 +262,14 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         onCerrar={() => setConfirmarEliminar(null)}
       />
 
-      {/* Modal crear/editar — sigue el mismo patrón visual que
-          /actividades/configuracion para consistencia entre módulos */}
+      {/* Modal crear/editar — layout en 2 columnas (lg) para que la
+          configuración de estados sea cómoda de entender y editar.
+          Sigue el patrón de los modales de configuración (CLAUDE.md). */}
       <Modal
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo={editando ? `Editar: ${editando.etiqueta}` : 'Nuevo estado'}
-        tamano="md"
+        tamano="lg"
         acciones={
           <>
             <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>
@@ -280,7 +282,7 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         }
       >
         <div className="space-y-5">
-          {/* Preview en vivo */}
+          {/* Preview en vivo (ancho completo) */}
           <div className="flex items-center gap-3 p-3 rounded-card bg-superficie-hover/50">
             <div
               className="w-9 h-9 rounded-card flex items-center justify-center"
@@ -296,61 +298,70 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
             </span>
           </div>
 
-          <Input
-            tipo="text"
-            etiqueta="Nombre"
-            value={etiqueta}
-            onChange={(e) => setEtiqueta(e.target.value)}
-            placeholder="Ej: En revisión, Aprobado, Pausado..."
-            autoFocus
-          />
+          {/* Grid 2 columnas en desktop, 1 en mobile */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-5">
+            {/* ─── Columna izquierda: identidad del estado ─── */}
+            <div className="space-y-4">
+              <Input
+                tipo="text"
+                etiqueta="Nombre"
+                value={etiqueta}
+                onChange={(e) => setEtiqueta(e.target.value)}
+                placeholder="Ej: En revisión, Aprobado, Pausado..."
+                autoFocus
+              />
 
-          {!editando && (
-            <Input
-              tipo="text"
-              etiqueta="Clave técnica"
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              placeholder="Ej: en_revision"
-              ayuda="Identificador interno usado por el sistema (snake_case, sin tildes ni espacios). No se podrá cambiar después de crear el estado."
-            />
-          )}
+              {!editando && (
+                <Input
+                  tipo="text"
+                  etiqueta="Clave técnica"
+                  value={clave}
+                  onChange={(e) => setClave(e.target.value)}
+                  placeholder="Ej: en_revision"
+                  ayuda="Identificador interno (snake_case, sin tildes). No se podrá cambiar después."
+                />
+              )}
 
-          <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
+              <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
 
-          <SelectorColorEstado valor={color} onChange={setColor} colores={PALETA_COLORES_ESTADO} />
+              <SelectorColorEstado valor={color} onChange={setColor} colores={PALETA_COLORES_ETIQUETA} />
+            </div>
 
-          {/* Grupo de comportamiento — con descripción inline */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-1">
-              Tipo de comportamiento
-            </label>
-            <p className="text-xs text-texto-terciario mb-3 leading-relaxed">
-              Clasifica cómo se comporta este estado en la app. Lo usan los reportes,
-              filtros y las automatizaciones para decidir qué hacer
-              (ej: una automatización "cuando el documento se completa" reacciona
-              a cualquier estado de tipo <strong className="text-texto-secundario">Completado</strong>,
-              sin importar la clave técnica).
-            </p>
-            <div className="space-y-1.5">
-              {GRUPOS.map(g => (
-                <Boton
-                  key={g.valor}
-                  variante={grupo === g.valor ? 'secundario' : 'fantasma'}
-                  tamano="sm"
-                  anchoCompleto
-                  onClick={() => setGrupo(g.valor)}
-                  className={grupo === g.valor ? 'bg-texto-marca/8 border-texto-marca/25' : ''}
-                >
-                  <div className="flex items-center gap-3 w-full">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${g.colorBolita}`} />
-                    <div className="text-left flex-1">
-                      <p className="text-sm font-medium">{g.etiqueta}</p>
-                      <p className="text-xs text-texto-terciario leading-snug">{g.descripcion}</p>
+            {/* Divisor vertical (desktop) */}
+            <div className="hidden md:block bg-white/[0.07]" />
+
+            {/* ─── Columna derecha: tipo de comportamiento ─── */}
+            <div>
+              <label className="text-sm font-medium text-texto-secundario block mb-1">
+                Tipo de comportamiento
+              </label>
+              <p className="text-xs text-texto-terciario mb-3 leading-relaxed">
+                Clasifica cómo se comporta este estado en la app. Lo usan los reportes,
+                filtros y las automatizaciones para decidir qué hacer
+                (ej: una automatización "cuando el documento se completa" reacciona
+                a cualquier estado de tipo <strong className="text-texto-secundario">Completado</strong>,
+                sin importar la clave técnica).
+              </p>
+              <div className="space-y-1.5">
+                {GRUPOS.map(g => (
+                  <Boton
+                    key={g.valor}
+                    variante={grupo === g.valor ? 'secundario' : 'fantasma'}
+                    tamano="sm"
+                    anchoCompleto
+                    onClick={() => setGrupo(g.valor)}
+                    className={grupo === g.valor ? 'bg-texto-marca/8 border-texto-marca/25' : ''}
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${g.colorBolita}`} />
+                      <div className="text-left flex-1">
+                        <p className="text-sm font-medium">{g.etiqueta}</p>
+                        <p className="text-xs text-texto-terciario leading-snug">{g.descripcion}</p>
+                      </div>
                     </div>
-                  </div>
-                </Boton>
-              ))}
+                  </Boton>
+                ))}
+              </div>
             </div>
           </div>
         </div>
