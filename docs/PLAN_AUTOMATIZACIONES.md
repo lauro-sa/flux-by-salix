@@ -362,18 +362,20 @@ Casos especiales:
 ### Fase 1 — Estados configurables (en curso)
 
 ```
-PR 1   ✓  Infraestructura genérica (cambios_estado + transiciones_estado)
-PR 2   ✓  Cuotas migradas
-PR 3   ✓  Conversaciones inbox migradas
-PR 4   ✓  Helper backend + hooks client-side
-PR 5   ✓  Historial de estados en chatter
-PR 6   ⌛ UI configuración de estados (sección dentro de cada /modulo/configuracion)
-PR 7      Actividades (integrar estados_actividad con cambios_estado)
-PR 8      Visitas
-PR 9      Órdenes (renombre esperando → en_espera)
-PR 10     Presupuestos (alto volumen)
-PR 11     Asistencias (el más pesado)
-PR 12     Cleanup final (drop columnas legacy)
+PR 1     ✓  Infraestructura genérica (cambios_estado + transiciones_estado)
+PR 2     ✓  Cuotas migradas
+PR 3     ✓  Conversaciones inbox migradas
+PR 4     ✓  Helper backend + hooks client-side
+PR 5     ✓  Historial de estados en chatter
+PR 6     ✓  UI configuración de estados (sección dentro de cada /modulo/configuracion)
+PR 7     ✓  Actividades (integrar estados_actividad con cambios_estado)
+PR 8     ✓  Visitas
+PR 9     ✓  Órdenes (renombre esperando → en_espera)
+PR 10    ✓  Presupuestos (alto volumen)
+PR 11    ✓  Asistencias (renombres almuerzo→en_almuerzo, particular→en_particular)
+PR 11.5  ✓  Adelantos + pagos de nómina (entidades extra para automatización)
+PR 12    ✓  Cleanup arquitectónico: NOT NULL en estado_clave/estado_id, comentarios deprecation, integridad verificada
+PR 12bis ⌛ Drop columnas legacy `estado` text + migración de ~130 archivos consumidores (programado, ver §10)
 ```
 
 ### Fase 2 — Motor de workflows (PRs 13-19)
@@ -488,3 +490,65 @@ Si hay diferencia entre lo que dice este documento y lo que está en el código 
 | Multi-empresa: catálogo global, flujos por empresa | base del proyecto | Software multi-tenant desde el inicio |
 | Editor visual con React Flow (open-source) | 2026-04-XX | Gratis, ya validado en otros productos |
 | Motor: Supabase Edge Functions + pgmq | 2026-04-XX | Sin servidor extra, todo en Supabase |
+| PR 12bis (drop legacy) diferido por riesgo en producción | 2026-05-02 | 130 archivos consumidores con accesos `obj.estado` requieren migración cuidadosa. Hacer cleanup arquitectónico ahora (NOT NULL + deprecation) y diferir el drop a una sesión dedicada con QA. |
+
+---
+
+## 11. PR 12bis — Drop columnas legacy (tarea futura programada)
+
+> Esta sección detalla el trabajo pendiente al cerrar el refactor en PR 12.
+> Hacerlo en una sesión dedicada con tiempo y revisión cuidadosa.
+
+### Estado actual (post PR 12)
+
+- 9 tablas con doble columna: `estado` text (legacy) + `estado_clave` text (fuente de verdad).
+- Trigger BEFORE en cada tabla mantiene sincronía bidireccional.
+- `estado_clave` y `estado_id` son NOT NULL — integridad garantizada.
+- Comentarios en BD marcan `estado` como DEPRECATED.
+- ~130 archivos del código consumidor todavía usan `estado` directamente
+  (queries Supabase + accesos `obj.estado` en TypeScript).
+
+### Lo que hace falta para PR 12bis
+
+**Paso 1 — Migrar queries Supabase (1 entidad por vez):**
+- `eq('estado', X)` → `eq('estado_clave', X)`
+- `in('estado', [...])` → `in('estado_clave', [...])`
+- `neq('estado', X)` → `neq('estado_clave', X)`
+- `order('estado'...)` → `order('estado_clave'...)`
+- `update({ estado: X })` → `update({ estado_clave: X })`
+- `insert({ estado: X })` → `insert({ estado_clave: X })`
+- `select('id, estado, ...')` → `select('id, estado_clave, ...')`
+
+**Paso 2 — Migrar accesos en código TypeScript:**
+- `presupuesto.estado` → `presupuesto.estado_clave` (en interfaces Drizzle/manual)
+- Tipos en `src/tipos/*.ts`: las interfaces deben usar `estado_clave: EstadoX`
+- Componentes que muestran `obj.estado` deben actualizarse
+
+**Paso 3 — SQL final:**
+- Drop columna `estado` text de las 8 tablas con doble columna
+  (actividades NO la tiene, no aplica).
+- Drop de la lógica de sincronización bidireccional en triggers BEFORE
+  (mantener solo la captura de estado_anterior_id + estado_cambio_at).
+- Tirar también el trigger BEFORE de PR 9 que traduce 'esperando' → 'en_espera' (ya nadie lo usa).
+- Tirar el trigger BEFORE de PR 11 que traduce 'almuerzo'/'particular'.
+
+**Paso 4 — Verificar:**
+- `tsc --noEmit` sin errores.
+- Tests SQL: confirmar que no hay desincronización (no aplica más, columna eliminada).
+- Smoke test E2E: crear, leer, actualizar, filtrar, eliminar en cada módulo.
+- Advisors limpios.
+
+### Estimación
+
+- 6-8 horas de trabajo concentrado.
+- Riesgo: medio (queries automatizables con perl/sed, accesos `.estado` requieren más cuidado).
+- Debería hacerse cuando se pueda dedicar una sesión completa con QA en staging.
+
+### Archivos afectados (por entidad)
+
+Para localizar archivos rápidamente:
+
+```bash
+grep -rln "\.from('presupuesto_cuotas')\|\.from('conversaciones')\|\.from('visitas')\|\.from('ordenes_trabajo')\|\.from('presupuestos')\|\.from('asistencias')\|\.from('adelantos_nomina')\|\.from('pagos_nomina')\|\.from('actividades')" --include="*.ts" --include="*.tsx" src/
+```
+
