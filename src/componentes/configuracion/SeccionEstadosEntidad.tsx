@@ -17,8 +17,8 @@
  * Backend: GET /api/estados (listar) + POST/PATCH/DELETE /api/estados/items.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Check, Pipette } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Check } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -269,17 +269,17 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo={editando ? `Editar: ${editando.etiqueta}` : 'Nuevo estado'}
-        tamano="lg"
-        acciones={
-          <>
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>
-              Cancelar
-            </Boton>
-            <Boton tamano="sm" onClick={guardar} cargando={guardando} disabled={!etiqueta.trim() || (!editando && !clave.trim())}>
-              {editando ? 'Guardar' : 'Crear estado'}
-            </Boton>
-          </>
-        }
+        tamano="5xl"
+        accionPrimaria={{
+          etiqueta: editando ? 'Guardar' : 'Crear estado',
+          onClick: guardar,
+          cargando: guardando,
+          disabled: !etiqueta.trim() || (!editando && !clave.trim()),
+        }}
+        accionSecundaria={{
+          etiqueta: 'Cancelar',
+          onClick: () => setModalAbierto(false),
+        }}
       >
         <div className="space-y-5">
           {/* Preview en vivo (ancho completo) */}
@@ -335,32 +335,37 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
               <label className="text-sm font-medium text-texto-secundario block mb-1">
                 Tipo de comportamiento
               </label>
-              <p className="text-xs text-texto-terciario mb-3 leading-relaxed">
-                Clasifica cómo se comporta este estado en la app. Lo usan los reportes,
-                filtros y las automatizaciones para decidir qué hacer
-                (ej: una automatización "cuando el documento se completa" reacciona
-                a cualquier estado de tipo <strong className="text-texto-secundario">Completado</strong>,
-                sin importar la clave técnica).
+              <p className="text-xs text-texto-terciario mb-3 leading-snug">
+                Lo usan reportes, filtros y automatizaciones (ej: "cuando el documento se completa" reacciona a cualquier tipo <strong className="text-texto-secundario">Completado</strong>, sin importar la clave).
               </p>
-              <div className="space-y-1.5">
-                {GRUPOS.map(g => (
-                  <Boton
-                    key={g.valor}
-                    variante={grupo === g.valor ? 'secundario' : 'fantasma'}
-                    tamano="sm"
-                    anchoCompleto
-                    onClick={() => setGrupo(g.valor)}
-                    className={grupo === g.valor ? 'bg-texto-marca/8 border-texto-marca/25' : ''}
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${g.colorBolita}`} />
-                      <div className="text-left flex-1">
-                        <p className="text-sm font-medium">{g.etiqueta}</p>
-                        <p className="text-xs text-texto-terciario leading-snug">{g.descripcion}</p>
+              <div className="space-y-1">
+                {GRUPOS.map(g => {
+                  const sel = grupo === g.valor
+                  return (
+                    <button
+                      key={g.valor}
+                      type="button"
+                      onClick={() => setGrupo(g.valor)}
+                      className={`w-full text-left rounded-lg px-2.5 py-1.5 transition-colors ${
+                        sel
+                          ? 'bg-texto-marca/15 border border-texto-marca/40'
+                          : 'border border-borde-sutil/0 hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${g.colorBolita}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium ${sel ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                            {g.etiqueta}
+                          </p>
+                          <p className="text-[11px] text-texto-terciario leading-snug">
+                            {g.descripcion}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </Boton>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -370,10 +375,9 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
   )
 }
 
-// ─── Selector de color con paleta + gotero personalizado ──────
-// Mismo patrón que SelectorColorDots de /actividades/configuracion.
-// Permite elegir un color de la paleta del sistema o usar un color custom
-// vía gotero nativo del navegador.
+// ─── Selector de color compacto ───────────────────────────────
+// Mismo patrón que ModalEtiquetas: círculos size-5, gap-1.5, sin gotero.
+// Para casos de uso simples como "elegir color de un estado".
 
 function SelectorColorEstado({
   valor,
@@ -384,13 +388,10 @@ function SelectorColorEstado({
   onChange: (c: string) => void
   colores: string[]
 }) {
-  const colorInputRef = useRef<HTMLInputElement>(null)
-  const esCustom = !colores.some(c => c.toLowerCase() === valor.toLowerCase())
-
   return (
     <div>
       <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
-      <div className="flex flex-wrap gap-2.5 items-center">
+      <div className="flex flex-wrap gap-1.5 items-center">
         {colores.map(c => {
           const sel = valor.toLowerCase() === c.toLowerCase()
           return (
@@ -398,43 +399,16 @@ function SelectorColorEstado({
               key={c}
               type="button"
               onClick={() => onChange(c)}
-              className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
-                sel ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
+              className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                sel ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
               }`}
               style={{ backgroundColor: c }}
-              aria-label={`Elegir color ${c}`}
+              aria-label={`Color ${c}`}
             >
-              {sel && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+              {sel && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
             </button>
           )
         })}
-        <button
-          type="button"
-          onClick={() => colorInputRef.current?.click()}
-          className={`relative size-8 rounded-full border-2 border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
-            esCustom
-              ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110 border-transparent'
-              : 'border-borde-fuerte'
-          }`}
-          style={esCustom ? { backgroundColor: valor } : undefined}
-          title="Elegir color personalizado"
-          aria-label="Elegir color personalizado"
-        >
-          {esCustom ? (
-            <Check size={14} className="text-white drop-shadow-sm" />
-          ) : (
-            <Pipette size={14} className="text-texto-terciario" />
-          )}
-        </button>
-        <input
-          ref={colorInputRef}
-          type="color"
-          value={valor}
-          onChange={(e) => onChange(e.target.value)}
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
       </div>
     </div>
   )
