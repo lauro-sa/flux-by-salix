@@ -5,15 +5,18 @@
 
 // ─── Estados del presupuesto ───
 
-export type EstadoPresupuesto =
-  | 'borrador'
-  | 'enviado'
-  | 'confirmado_cliente'
-  | 'orden_venta'
-  | 'completado'
-  | 'rechazado'
-  | 'vencido'
-  | 'cancelado'
+export const EstadosPresupuesto = {
+  BORRADOR:           'borrador',
+  ENVIADO:            'enviado',
+  CONFIRMADO_CLIENTE: 'confirmado_cliente',
+  ORDEN_VENTA:        'orden_venta',
+  COMPLETADO:         'completado',
+  RECHAZADO:          'rechazado',
+  VENCIDO:            'vencido',
+  CANCELADO:          'cancelado',
+} as const
+
+export type EstadoPresupuesto = typeof EstadosPresupuesto[keyof typeof EstadosPresupuesto]
 
 export const ETIQUETAS_ESTADO: Record<EstadoPresupuesto, string> = {
   borrador: 'Borrador',

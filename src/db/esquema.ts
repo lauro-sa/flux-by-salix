@@ -560,11 +560,37 @@ export const secuencias = pgTable('secuencias', {
 // ═══════════════════════════════════════════════════════════════
 
 // Presupuestos — cotizaciones comerciales vinculadas a contactos
+// Estados de presupuesto — configurables por empresa.
+// Migración fuente: sql/050_estados_presupuestos.sql
+export const estados_presupuesto = pgTable('estados_presupuesto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_presupuesto_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const presupuestos = pgTable('presupuestos', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   numero: text('numero').notNull(), // P-0001 (generado por secuencia)
-  estado: text('estado').notNull().default('borrador'), // borrador, enviado, aceptado, rechazado, vencido, cancelado
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores reales: borrador | enviado | confirmado_cliente | orden_venta |
+  // completado | vencido | rechazado | cancelado.
+  estado: text('estado').notNull().default('borrador'),
+  estado_id: uuid('estado_id').references(() => estados_presupuesto.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_presupuesto.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Contacto vinculado (snapshot al crear)
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
