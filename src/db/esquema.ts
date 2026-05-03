@@ -82,11 +82,14 @@ export const miembros = pgTable('miembros', {
   // Backup del usuario_id cuando el miembro pasa a "Solo fichaje". Permite
   // reactivar restaurando el vínculo sin perder perfil/auth/datos.
   usuario_id_anterior: uuid('usuario_id_anterior'),
-  // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp)
+  // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp).
+  // Estos dos flags deciden DÓNDE puede usar Salix; el nivel_salix decide QUÉ puede hacer.
   salix_ia_web: boolean('salix_ia_web').notNull().default(false),
   salix_ia_whatsapp: boolean('salix_ia_whatsapp').notNull().default(false),
-  // DEPRECATED: mantenido por compatibilidad con datos históricos. Usar salix_ia_web / salix_ia_whatsapp.
-  salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
+  // Nivel de acceso al asistente: 'ninguno' (sin acceso), 'personal' (solo tools sobre los
+  // datos propios del empleado: recibo, próximo pago, asistencia) o 'completo' (todas las
+  // tools scope-eadas por rol/permisos). Los flags de canal no tienen efecto si es 'ninguno'.
+  nivel_salix: text('nivel_salix').notNull().default('ninguno'),
   // Kiosco
   kiosco_rfid: text('kiosco_rfid'),
   kiosco_pin: text('kiosco_pin'),
@@ -228,6 +231,8 @@ export const adelantos_nomina = pgTable('adelantos_nomina', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Tipo: distingue dinero entregado al empleado (adelanto) de penalidades/multas (descuento).
+  tipo: text('tipo').notNull().default('adelanto'), // 'adelanto' | 'descuento'
   // Monto y cuotas
   monto_total: numeric('monto_total').notNull(),
   cuotas_totales: integer('cuotas_totales').notNull().default(1),
@@ -395,6 +400,7 @@ export const contactos = pgTable('contactos', {
 
   // Datos personales (sincronizados desde el perfil del miembro vinculado vía trigger)
   fecha_nacimiento: date('fecha_nacimiento'),
+  genero: text('genero'), // 'masculino' | 'femenino' | 'otro' (mismo formato que perfiles.genero)
 
   // Auditoría
   creado_por: uuid('creado_por').notNull(),
@@ -1709,6 +1715,9 @@ export const conversaciones = pgTable('conversaciones', {
   hilo_externo_id: text('hilo_externo_id'), // thread ID externo
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
   contacto_nombre: text('contacto_nombre'),
+  // Si está seteado, la conversación es con un empleado (no con un cliente).
+  // Permite separar la bandeja de WhatsApp en pestañas Clientes/Empleados.
+  miembro_id: uuid('miembro_id').references(() => miembros.id, { onDelete: 'set null' }),
   // Estado legacy text. Se sincroniza con estado_clave vía trigger durante la transición.
   // Valores: abierta | en_espera | resuelta | spam.
   estado: text('estado').notNull().default('abierta'),
@@ -1777,6 +1786,7 @@ export const conversaciones = pgTable('conversaciones', {
   index('conversaciones_empresa_idx').on(tabla.empresa_id),
   index('conversaciones_canal_idx').on(tabla.canal_id),
   index('conversaciones_contacto_idx').on(tabla.contacto_id),
+  index('conversaciones_miembro_idx').on(tabla.empresa_id, tabla.tipo_canal, tabla.miembro_id),
   index('conversaciones_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('conversaciones_estado_clave_idx').on(tabla.empresa_id, tabla.estado_clave),
   index('conversaciones_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),

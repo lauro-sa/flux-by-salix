@@ -52,6 +52,12 @@ interface PropiedadesPlantillaEditor {
   panelConfig?: ReactNode
 
   /**
+   * Clase Tailwind para el ancho del panel en desktop. Default: `lg:w-[320px]`.
+   * Pasar como literal estático para que Tailwind la detecte (ej: `lg:w-[400px]`).
+   */
+  anchoPanel?: string
+
+  /**
    * Contenido principal del editor (columna derecha en desktop).
    * Ideal para: editor de contenido, canvas, WYSIWYG.
    */
@@ -78,6 +84,7 @@ function PlantillaEditor({
   acciones = [],
   banner,
   panelConfig,
+  anchoPanel = 'lg:w-[320px]',
   children,
   className = '',
 }: PropiedadesPlantillaEditor) {
@@ -171,7 +178,7 @@ function PlantillaEditor({
       {/* ═══ CONTENIDO — 2 columnas en desktop, 1 en mobile ═══ */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {panelConfig && (
-          <aside className="w-full lg:w-[320px] shrink-0 lg:border-r border-borde-sutil overflow-y-auto">
+          <aside className={`w-full ${anchoPanel} shrink-0 lg:border-r border-borde-sutil overflow-y-auto`}>
             <div className="p-4 sm:p-5">{panelConfig}</div>
           </aside>
         )}

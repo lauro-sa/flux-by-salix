@@ -13,8 +13,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
+import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEnviarDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { resolverVariables } from '@/lib/variables/resolver'
+import {
+  construirDatosPlantilla,
+  resolverTextoPlantilla,
+} from '@/lib/whatsapp/variables'
+import { formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
 import {
   ASUNTO_RECIBO_NOMINA,
   HTML_RECIBO_NOMINA,
@@ -61,6 +67,11 @@ interface ResultadoNominaConCorreo {
   dias_trabajados_feriado: number
   monto_pagar: number
   monto_detalle: string
+  // Campos opcionales que ahora resuelve la plantilla nueva (neto + descuentos).
+  // El backend de /api/asistencias/nomina ya los devuelve; el padre los propaga.
+  monto_neto?: number
+  descuento_adelanto?: number
+  saldo_anterior?: number
 }
 
 interface PlantillaWA {
@@ -80,6 +91,11 @@ interface PropiedadesModal {
   onCerrar: () => void
   resultados: ResultadoNominaConCorreo[]
   etiquetaPeriodo: string
+  /** Fecha desde del período (YYYY-MM-DD). Necesaria para filtrar adelantos
+   *  que caen en el período y armar `detalle_descuentos` en el preview WA. */
+  periodoDesde?: string
+  /** Fecha hasta del período (YYYY-MM-DD). */
+  periodoHasta?: string
   nombreEmpresa: string
 }
 
@@ -134,36 +150,106 @@ function formatearTextoWA(texto: string): string {
   return html
 }
 
-/** Resuelve las variables de la plantilla WA con datos de un empleado */
+/**
+ * Resuelve las variables de la plantilla WA con datos del empleado.
+ * Usa el flujo unificado (`construirDatosPlantilla` + `resolverTextoPlantilla`)
+ * basado en el `mapeo_variables` de la plantilla — soporta cualquier número y
+ * orden de variables sin hardcodeo.
+ *
+ * `detalleDescuentos` se construye fuera (con `construirDetalleDescuentos`)
+ * porque requiere fetch de adelantos del empleado.
+ */
 function resolverPreviewWA(
   plantilla: PlantillaWA,
   r: ResultadoNominaConCorreo,
   etiquetaPeriodo: string,
+  detalleDescuentos: string,
 ): { encabezado: string; cuerpo: string; pie: string } {
-  const diasAHorario = Math.max(0, r.dias_trabajados - r.dias_tardanza)
+  const datos = construirDatosPlantilla({
+    nomina: {
+      nombre: r.nombre,
+      periodo: etiquetaPeriodo,
+      dias_trabajados: r.dias_trabajados,
+      dias_laborales: r.dias_laborales,
+      dias_tardanza: r.dias_tardanza,
+      monto_pagar: r.monto_pagar,
+      monto_neto: r.monto_neto ?? r.monto_pagar,
+      descuento_adelanto: r.descuento_adelanto ?? 0,
+      saldo_anterior: r.saldo_anterior ?? 0,
+      monto_detalle: r.monto_detalle,
+      detalle_descuentos: detalleDescuentos,
+    },
+  })
 
-  // Header {{1}} = periodo
-  let encabezado = plantilla.componentes.encabezado?.texto || ''
-  encabezado = encabezado.replace(/\{\{1\}\}/g, etiquetaPeriodo)
+  const cuerpoPlantilla = plantilla.componentes.cuerpo as
+    | { texto: string; mapeo_variables?: string[]; ejemplos?: string[] }
+    | undefined
 
-  // Body: {{1}}=nombre, {{2}}=dias_trabajados, {{3}}=dias_laborales,
-  //        {{4}}=dias_a_horario, {{5}}=dias_tardanza,
-  //        {{6}}=monto_bruto, {{7}}=compensacion_detalle
-  const valoresBody = [
-    r.nombre,
-    String(r.dias_trabajados),
-    String(r.dias_laborales),
-    String(diasAHorario),
-    String(r.dias_tardanza),
-    fmtMonto(r.monto_pagar),
-    r.monto_detalle,
-  ]
-  let cuerpo = plantilla.componentes.cuerpo?.texto || ''
-  cuerpo = cuerpo.replace(/\{\{(\d+)\}\}/g, (_, n) => valoresBody[parseInt(n) - 1] || `{{${n}}}`)
+  const cuerpo = resolverTextoPlantilla(
+    cuerpoPlantilla?.texto || '',
+    cuerpoPlantilla,
+    datos,
+  )
+
+  // Header: admite una sola variable {{1}}. Si la plantilla tiene `mapeo_variable`
+  // (ej. "periodo"), usamos el dato real de ese campo. Caso contrario, fallback
+  // al período del modal (compat con plantillas viejas sin mapeo).
+  const enc = plantilla.componentes.encabezado as
+    | { texto?: string; mapeo_variable?: string }
+    | undefined
+  const claveHeader = enc?.mapeo_variable
+  const valorHeader = (claveHeader && datos[claveHeader]) || etiquetaPeriodo
+  const encabezado = (enc?.texto || '').replace(/\{\{1\}\}/g, valorHeader)
 
   const pie = plantilla.componentes.pie_pagina?.texto || ''
-
   return { encabezado, cuerpo, pie }
+}
+
+/**
+ * Construye el detalle multilínea de descuentos del período a partir de los
+ * adelantos cargados desde `/api/adelantos`. Mismo formato que el preview
+ * del editor de nómina: orden cronológico ascendente, con tipo + fecha corta.
+ */
+function construirDetalleDescuentos(
+  adelantos: Array<Record<string, unknown>>,
+  saldoAnterior: number,
+  periodoDesde: string,
+  periodoHasta: string,
+  locale = 'es-AR',
+): string {
+  type Item = {
+    notas: string;
+    numeroCuota: number; cuotasTotales: number;
+    monto: number; fechaSolicitud: string;
+  }
+  const items: Item[] = []
+  for (const a of adelantos) {
+    if (a.estado === 'cancelado') continue
+    const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
+    const cuota = cuotas.find(c => {
+      const f = c.fecha_programada as string
+      return f >= periodoDesde && f <= periodoHasta
+    })
+    if (!cuota) continue
+    items.push({
+      notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
+      numeroCuota: cuota.numero_cuota as number,
+      cuotasTotales: a.cuotas_totales as number,
+      monto: parseFloat(cuota.monto_cuota as string),
+      fechaSolicitud: a.fecha_solicitud as string,
+    })
+  }
+  items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
+
+  const fmt = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  const lineas: string[] = []
+  if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmt(saldoAnterior)}`)
+  for (const it of items) {
+    const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
+    const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
+    lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
+  }
+  return lineas.join('\n')
 }
 
 // ─── Estado del envío en lote ────────────────────────────────
@@ -184,6 +270,8 @@ export function ModalEnviarReciboNomina({
   onCerrar,
   resultados,
   etiquetaPeriodo,
+  periodoDesde,
+  periodoHasta,
   nombreEmpresa,
 }: PropiedadesModal) {
   const { t } = useTraduccion()
@@ -198,7 +286,7 @@ export function ModalEnviarReciboNomina({
   const [canalCorreoSeleccionado, setCanalCorreoSeleccionado] = useState('')
 
   // Canal y plantilla de WhatsApp
-  const [canalesWA, setCanalesWA] = useState<{ id: string; nombre: string }[]>([])
+  const [canalesWA, setCanalesWA] = useState<{ id: string; nombre: string; credenciales_validas?: boolean; credenciales_faltantes?: string[] }[]>([])
   const [canalWASeleccionado, setCanalWASeleccionado] = useState('')
   const [plantillaWA, setPlantillaWA] = useState<PlantillaWA | null>(null)
 
@@ -223,6 +311,10 @@ export function ModalEnviarReciboNomina({
   // Plantilla de nómina de BD (si existe, sobreescribe las constantes)
   const [asuntoNomina, setAsuntoNomina] = useState(ASUNTO_RECIBO_NOMINA)
   const [htmlNomina, setHtmlNomina] = useState(HTML_RECIBO_NOMINA)
+
+  // Detalle de adelantos/descuentos del primer empleado para el preview WA.
+  // Se carga al abrir el modal si tenemos rango de fechas del período.
+  const [detalleDescuentosPreview, setDetalleDescuentosPreview] = useState('')
 
   // Cargar canales al abrir
   useEffect(() => {
@@ -251,13 +343,20 @@ export function ModalEnviarReciboNomina({
       })
       .catch(() => {})
 
-    // Canales de WhatsApp
+    // Canales de WhatsApp — incluimos los marcados "conectado" pero exponemos
+    // si tienen credenciales válidas para que la UI bloquee el envío con un
+    // mensaje claro en vez de fallar contra Meta con error 190.
     fetch('/api/whatsapp/canales')
       .then(r => r.json())
       .then(data => {
         const mapped = ((data.canales || []) as Record<string, unknown>[])
           .filter((c) => c.tipo === 'whatsapp' && c.estado_conexion === 'conectado')
-          .map((c) => ({ id: c.id as string, nombre: c.nombre as string }))
+          .map((c) => ({
+            id: c.id as string,
+            nombre: c.nombre as string,
+            credenciales_validas: (c.credenciales_validas as boolean | undefined) ?? true,
+            credenciales_faltantes: (c.credenciales_faltantes as string[] | undefined) ?? [],
+          }))
         setCanalesWA(mapped)
         setCanalWASeleccionado(mapped[0]?.id || '')
       })
@@ -285,7 +384,24 @@ export function ModalEnviarReciboNomina({
         if (nominaBD?.contenido_html) setHtmlNomina(nominaBD.contenido_html)
       })
       .catch(() => {})
-  }, [abierto])
+
+    // Detalle de adelantos/descuentos para el preview WA. Tomamos el primer
+    // empleado con teléfono (envío real) o el primero a secas (preview puro).
+    const empleadoPreview = resultados.find(r => r.telefono) || resultados[0]
+    if (empleadoPreview && periodoDesde && periodoHasta) {
+      fetch(`/api/adelantos?miembro_id=${empleadoPreview.miembro_id}`)
+        .then(r => r.json())
+        .then(data => {
+          const adelantos = (data?.adelantos || []) as Array<Record<string, unknown>>
+          const saldo = empleadoPreview.saldo_anterior ?? 0
+          const detalle = construirDetalleDescuentos(adelantos, saldo, periodoDesde, periodoHasta)
+          setDetalleDescuentosPreview(detalle)
+        })
+        .catch(() => setDetalleDescuentosPreview(''))
+    } else {
+      setDetalleDescuentosPreview('')
+    }
+  }, [abierto, resultados, periodoDesde, periodoHasta])
 
   // Ya no abrimos automáticamente el modal individual — el usuario elige canal primero
 
@@ -300,10 +416,15 @@ export function ModalEnviarReciboNomina({
   const asuntoPreview = useMemo(() => resolverVariables(asuntoNomina, contextoPrimerEmpleado), [asuntoNomina, contextoPrimerEmpleado])
 
   // ─── Preview WhatsApp ───
+  // Mostrar preview con el primer empleado disponible (con o sin teléfono).
+  // La previsualización es independiente del envío real: el usuario debe
+  // poder evaluar el mensaje aunque el empleado no tenga teléfono o la
+  // plantilla esté en BORRADOR/PENDING.
+  const empleadoParaPreview = empleadosConTelefono[0] || resultados[0] || null
   const previewWA = useMemo(() => {
-    if (!plantillaWA || !empleadosConTelefono.length) return null
-    return resolverPreviewWA(plantillaWA, empleadosConTelefono[0], etiquetaPeriodo)
-  }, [plantillaWA, empleadosConTelefono, etiquetaPeriodo])
+    if (!plantillaWA || !empleadoParaPreview) return null
+    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, detalleDescuentosPreview)
+  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, detalleDescuentosPreview])
 
   // ─── Enviar correo en lote ───
   const enviarCorreoEnLote = useCallback(async () => {
@@ -338,14 +459,22 @@ export function ModalEnviarReciboNomina({
     if (!canalWASeleccionado || !plantillaWA || !empleadosConTelefono.length) return
     setEstadoEnvio('enviando')
 
+    // Mandamos todos los campos brutos al backend; las variables a Meta se
+    // resuelven server-side usando el `mapeo_variables` de la plantilla
+    // aprobada — así sumar/quitar variables sólo requiere editar la plantilla.
     const empleadosData = empleadosConTelefono.map(r => ({
+      miembro_id: r.miembro_id,
       nombre: r.nombre,
       telefono: r.telefono,
       dias_trabajados: r.dias_trabajados,
       dias_laborales: r.dias_laborales,
       dias_a_horario: Math.max(0, r.dias_trabajados - r.dias_tardanza),
       dias_tardanza: r.dias_tardanza,
+      monto_pagar: r.monto_pagar,
       monto_bruto: fmtMonto(r.monto_pagar),
+      monto_neto: r.monto_neto ?? r.monto_pagar,
+      descuento_adelanto: r.descuento_adelanto ?? 0,
+      saldo_anterior: r.saldo_anterior ?? 0,
       compensacion_detalle: r.monto_detalle,
       periodo: etiquetaPeriodo,
     }))
@@ -357,6 +486,10 @@ export function ModalEnviarReciboNomina({
         body: JSON.stringify({
           canal_id: canalWASeleccionado,
           plantilla_id: plantillaWA.id,
+          // Necesario para que el backend filtre adelantos del período al
+          // armar `detalle_descuentos`.
+          periodo_desde: periodoDesde,
+          periodo_hasta: periodoHasta,
           empleados: empleadosData,
         }),
       })
@@ -367,7 +500,7 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
       setResultadoLote({ enviados: 0, fallidos: empleadosConTelefono.length, total: empleadosConTelefono.length, resultados: [] })
     }
-  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo])
+  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta])
 
   const enviarEnLote = useCallback(() => {
     // Modo individual correo: abrir editor completo
@@ -428,7 +561,12 @@ export function ModalEnviarReciboNomina({
 
   // ─── Validaciones WhatsApp ───
   const plantillaWAAprobada = plantillaWA?.estado_meta === 'APPROVED'
-  const puedeEnviarWA = canalWASeleccionado && plantillaWAAprobada && empleadosConTelefono.length > 0
+  // Un canal puede estar marcado "conectado" pero sin credenciales (token vacío,
+  // expirado, etc.). Si no tiene credenciales no se puede enviar — Meta devuelve
+  // error 190. Bloqueamos el botón con mensaje claro antes de llegar a la API.
+  const canalActual = canalesWA.find(c => c.id === canalWASeleccionado)
+  const canalTieneCredenciales = canalActual?.credenciales_validas !== false
+  const puedeEnviarWA = canalWASeleccionado && plantillaWAAprobada && canalTieneCredenciales && empleadosConTelefono.length > 0
   const puedeEnviarCorreo = canalCorreoSeleccionado && empleadosConCorreo.length > 0
 
   // ─── Sub-modal individual correo (se abre desde el botón Enviar) ───
@@ -603,6 +741,23 @@ export function ModalEnviarReciboNomina({
           {/* ─── Contenido WHATSAPP ─── */}
           {canalTipo === 'whatsapp' && (
             <div className="space-y-4">
+              {/* Alerta: canal sin credenciales (token vacío/expirado) — bloquea envío */}
+              {canalActual && !canalTieneCredenciales && (
+                <div className="flex items-start gap-2 text-xs text-insignia-peligro bg-insignia-peligro/10 rounded-card px-3 py-2.5">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Canal sin credenciales</p>
+                    <p className="text-texto-terciario mt-0.5">
+                      El canal <strong>{canalActual.nombre}</strong> está marcado como conectado pero le faltan credenciales
+                      {canalActual.credenciales_faltantes && canalActual.credenciales_faltantes.length > 0
+                        ? <>: <strong>{canalActual.credenciales_faltantes.join(', ')}</strong>.</>
+                        : '.'}
+                      {' '}Reconectalo desde Inbox → Configuración → Canales antes de enviar.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Alerta si la plantilla no está aprobada */}
               {plantillaWA && !plantillaWAAprobada && (
                 <div className="flex items-start gap-2 text-xs text-insignia-advertencia bg-insignia-advertencia/10 rounded-card px-3 py-2.5">
@@ -635,16 +790,21 @@ export function ModalEnviarReciboNomina({
               {/* Preview WhatsApp */}
               {previewWA && (
                 <div>
-                  <label className="text-xs font-medium text-texto-terciario mb-2 block">
-                    Preview para {empleadosConTelefono[0]?.nombre || 'empleado'}
+                  <label className="text-xs font-medium text-texto-terciario mb-2 flex items-center gap-2 flex-wrap">
+                    <span>Preview para {empleadoParaPreview?.nombre || 'empleado'}</span>
+                    {!plantillaWAAprobada && plantillaWA && (
+                      <Insignia color="advertencia" tamano="sm">
+                        {plantillaWA.estado_meta === 'BORRADOR' ? 'Borrador — no enviable' : `${plantillaWA.estado_meta} — no enviable hasta aprobar`}
+                      </Insignia>
+                    )}
                   </label>
-                  <div className="max-w-[320px] mx-auto">
+                  <div className="max-w-[380px] mx-auto">
                     <div className="flex items-center gap-2 px-3 py-2 rounded-t-xl bg-[#075E54]">
                       <IconoWhatsApp size={14} style={{ color: '#fff' }} />
                       <span className="text-xs font-medium text-white">Vista previa</span>
                     </div>
                     <div className="p-3 bg-[#ECE5DD] dark:bg-[#0b141a]">
-                      <div className="rounded-card p-2.5 max-w-[290px] shadow-sm bg-white dark:bg-[#1f2c33]">
+                      <div className="rounded-card p-3 max-w-[350px] shadow-sm bg-white dark:bg-[#1f2c33]">
                         {previewWA.encabezado && (
                           <p className="text-sm font-semibold mb-1 text-gray-900 dark:text-gray-100">
                             {previewWA.encabezado}

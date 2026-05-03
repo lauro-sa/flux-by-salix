@@ -252,10 +252,10 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
     return items.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))
   }, [tiposContactoData])
 
-  /** Miembros para el filtro "Creado por" */
+  /** Miembros para el filtro "Creado por" — solo con cuenta (creado_por es usuario_id). */
   const { data: miembrosData } = useQuery({
-    queryKey: ['miembros-empresa'],
-    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    queryKey: ['miembros-empresa-con-cuenta'],
+    queryFn: () => fetch('/api/miembros?incluir_sin_cuenta=false').then(r => r.json()),
     staleTime: 5 * 60_000,
   })
   const opcionesMiembros = useMemo(() => {

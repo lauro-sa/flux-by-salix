@@ -18,6 +18,13 @@ export type CompensacionFrecuencia = 'semanal' | 'quincenal' | 'mensual' | 'even
 export type HorarioTipo = 'lunes_viernes' | 'lunes_sabado' | 'todos' | 'custom'
 export type MetodoFichaje = 'kiosco' | 'automatico' | 'manual'
 
+// Nivel de acceso al asistente Salix IA por miembro.
+//   'ninguno'  — sin acceso (endpoint y botón flotante bloqueados)
+//   'personal' — solo tools sobre los datos propios del empleado
+//                (recibo del periodo, próximo pago, asistencia propia)
+//   'completo' — todas las tools, scope-eadas por rol/permisos
+export type NivelSalix = 'completo' | 'personal' | 'ninguno'
+
 export interface Miembro {
   id: string
   usuario_id: string
@@ -55,12 +62,13 @@ export interface Miembro {
   // endpoint de reactivar pide enviar invitación nueva.
   usuario_id_anterior: string | null
 
-  // Acceso a Salix IA separado por canal
+  // Acceso a Salix IA separado por canal — DÓNDE puede usar Salix
   salix_ia_web: boolean       // asistente dentro de la app
   salix_ia_whatsapp: boolean  // copilot por WhatsApp
 
-  /** @deprecated Usar salix_ia_web / salix_ia_whatsapp. Se mantiene por compatibilidad de lectura. */
-  salix_ia_habilitado: boolean
+  // Nivel de acceso al asistente — QUÉ puede hacer Salix para este miembro.
+  // Ortogonal a los flags de canal: si es 'ninguno', los flags no tienen efecto.
+  nivel_salix: NivelSalix
 
   // Kiosco
   kiosco_rfid: string | null

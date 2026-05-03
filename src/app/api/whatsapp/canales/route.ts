@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import {
+  diagnosticarCredencialesCanal,
+  type CredencialesCanalWA,
+} from '@/lib/whatsapp/canal-credenciales'
 
 // GET /api/whatsapp/canales — listar canales WhatsApp de la empresa
 export async function GET(request: NextRequest) {
@@ -54,10 +58,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const canalesConTipo = canales.map((c: Record<string, unknown>) => ({
-      ...c,
-      tipo: 'whatsapp',
-    }))
+    const canalesConTipo = canales.map((c: Record<string, unknown>) => {
+      // Diagnosticar credenciales: un canal puede estar marcado "conectado" en
+      // BD pero quedar sin token/phone_id (token expirado, migración, etc.).
+      // Exponemos un flag derivado para que la UI no muestre "conectado" cuando
+      // realmente no se puede enviar.
+      const diag = diagnosticarCredencialesCanal(c.config_conexion as CredencialesCanalWA | null)
+      return {
+        ...c,
+        tipo: 'whatsapp',
+        credenciales_validas: diag.validas,
+        credenciales_faltantes: diag.faltantes,
+      }
+    })
 
     return NextResponse.json({ canales: canalesConTipo })
   } catch (err) {

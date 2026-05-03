@@ -39,10 +39,20 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
     setEliminando(false)
   }
 
-  const conectado = canal.estado_conexion === 'conectado'
+  const conectadoBD = canal.estado_conexion === 'conectado'
   const error = canal.estado_conexion === 'error'
   const config = canal.config_conexion as Record<string, unknown>
   const esWhatsApp = canal.tipo === 'whatsapp'
+  // Para canales de WhatsApp validamos también que las credenciales estén
+  // presentes — un canal puede quedar como "conectado" en BD pero sin token.
+  // El backend ya expone el flag `credenciales_validas`, pero por compat con
+  // canales que no lo traigan asumimos true.
+  const credencialesValidas =
+    !esWhatsApp || ((canal as unknown as { credenciales_validas?: boolean }).credenciales_validas !== false)
+  const credencialesFaltantes =
+    ((canal as unknown as { credenciales_faltantes?: string[] }).credenciales_faltantes) || []
+  const conectado = conectadoBD && credencialesValidas
+  const sinCredenciales = conectadoBD && !credencialesValidas
   const agentesIniciales = (canal.agentes || []).map(a => a.usuario_id)
   const [agentesActuales, setAgentesActuales] = useState<string[]>(agentesIniciales)
 
@@ -132,8 +142,12 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
               <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
                 {canal.nombre}
               </span>
-              <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
-                {conectado ? t('inbox.config.estado_conectado') : error ? t('inbox.config.estado_error') : t('inbox.config.estado_desconectado')}
+              <Insignia color={conectado ? 'exito' : (error || sinCredenciales) ? 'peligro' : 'neutro'} tamano="sm">
+                {sinCredenciales
+                  ? 'Sin credenciales'
+                  : conectado ? t('inbox.config.estado_conectado')
+                  : error ? t('inbox.config.estado_error')
+                  : t('inbox.config.estado_desconectado')}
               </Insignia>
               {canal.es_principal && (
                 <Insignia color="primario" tamano="sm">

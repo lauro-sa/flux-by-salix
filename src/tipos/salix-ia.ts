@@ -34,6 +34,28 @@ export type NombreHerramienta =
   | 'anotar_nota'
   | 'consultar_notas'
   | 'modificar_nota'
+  // ─── Tools personales: scope hardcodeado al propio empleado, disponibles
+  //     para nivel_salix='personal' o 'completo'. No chequean permisos de rol
+  //     porque son siempre sobre uno mismo.
+  | 'mi_recibo_periodo'
+  | 'mi_proximo_pago'
+  | 'mi_periodo_actual'
+  | 'mis_tardanzas_e_inasistencias'
+  | 'mi_historial_pagos'
+
+/**
+ * Categoría de la herramienta:
+ *  - 'gestion'  → herramientas que operan sobre datos del equipo/empresa,
+ *                 chequean permisos de rol vía verificarPermiso.
+ *  - 'personal' → herramientas con scope hardcodeado al propio empleado,
+ *                 no chequean permisos (todos los roles pueden ver sus datos).
+ *
+ * El nivel_salix del miembro decide qué categorías se exponen al modelo:
+ *  - 'ninguno'  → ninguna herramienta
+ *  - 'personal' → solo categoria='personal'
+ *  - 'completo' → ambas categorías (los admins también pueden preguntar por sus datos)
+ */
+export type CategoriaHerramienta = 'gestion' | 'personal'
 
 /** Definición de una herramienta con su schema Anthropic y metadata de permisos */
 export interface DefinicionHerramienta {
@@ -47,6 +69,8 @@ export interface DefinicionHerramienta {
   accion_requerida: Accion
   /** Si true, para ver_propio se filtra automáticamente por el usuario */
   soporta_visibilidad: boolean
+  /** Categoría: gestion (default) o personal. Las personales ignoran chequeos de rol. */
+  categoria?: CategoriaHerramienta
 }
 
 /** Resultado de la ejecución de una herramienta */
@@ -149,8 +173,8 @@ export interface MiembroSalixIA {
   usuario_id: string
   rol: string
   permisos_custom: Record<string, string[]> | null
-  /** @deprecated Usar salix_ia_web / salix_ia_whatsapp según el canal */
-  salix_ia_habilitado: boolean
+  /** Nivel de acceso al asistente: 'ninguno' | 'personal' | 'completo' */
+  nivel_salix: import('./miembro').NivelSalix
   salix_ia_web: boolean
   salix_ia_whatsapp: boolean
   /** Resuelto vía FK miembros.puesto_id → puestos.nombre */

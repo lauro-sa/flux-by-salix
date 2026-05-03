@@ -285,8 +285,9 @@ export function PaginaEditorNominaEmpleado({
   const [notasPago, setNotasPago] = useState('')
   const [pagando, setPagando] = useState(false)
 
-  // Adelanto nuevo
+  // Adelanto/descuento nuevo
   const [mostrarFormAdelanto, setMostrarFormAdelanto] = useState(false)
+  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento'>('adelanto')
   const [adelantoMonto, setAdelantoMonto] = useState('')
   const [adelantoCuotas, setAdelantoCuotas] = useState('1')
   const [adelantoNotas, setAdelantoNotas] = useState('')
@@ -587,15 +588,21 @@ export function PaginaEditorNominaEmpleado({
     setCreandoAdelanto(true)
 
     const frecuencia = compFrecuencia === 'eventual' ? 'mensual' : compFrecuencia
+    // La fecha del campo es la fecha real del adelanto/descuento: define cuándo ocurrió
+    // y desde dónde se descuenta (con 1 cuota cae en ese mismo período).
+    const fechaAdelanto = adelantoFecha || new Date().toISOString().split('T')[0]
+    // Los descuentos puntuales son siempre de 1 cuota (no se entregó dinero al empleado).
+    const cuotasTotales = adelantoTipo === 'descuento' ? 1 : (parseInt(adelantoCuotas) || 1)
     await fetch('/api/adelantos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         miembro_id: datosEmpleado.miembro_id,
+        tipo: adelantoTipo,
         monto_total: monto,
-        cuotas_totales: parseInt(adelantoCuotas) || 1,
-        fecha_solicitud: new Date().toISOString().split('T')[0],
-        fecha_inicio_descuento: adelantoFecha || new Date().toISOString().split('T')[0],
+        cuotas_totales: cuotasTotales,
+        fecha_solicitud: fechaAdelanto,
+        fecha_inicio_descuento: fechaAdelanto,
         frecuencia_descuento: frecuencia,
         notas: adelantoNotas || null,
       }),
@@ -604,7 +611,7 @@ export function PaginaEditorNominaEmpleado({
     await recargarDatos()
     setCreandoAdelanto(false)
     setMostrarFormAdelanto(false)
-    setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
+    setAdelantoTipo('adelanto'); setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
   }
 
   const handleEditarAdelanto = async (id: string) => {
@@ -643,7 +650,7 @@ export function PaginaEditorNominaEmpleado({
     : parseFloat(compMonto) || 0
 
   const cuotasInfoPeriodo = useMemo(() => {
-    return adelantos.map(a => {
+    const items = adelantos.map(a => {
       const cuotas = (a.cuotas || []) as Record<string, unknown>[]
       const cuotaDelPeriodo = cuotas.find(c =>
         (c.fecha_programada as string) >= periodoActual.desde &&
@@ -651,13 +658,26 @@ export function PaginaEditorNominaEmpleado({
       )
       if (!cuotaDelPeriodo) return null
       return {
+        tipo: ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento',
         numeroCuota: cuotaDelPeriodo.numero_cuota as number,
         cuotasTotales: a.cuotas_totales as number,
         monto: parseFloat(cuotaDelPeriodo.monto_cuota as string),
         notas: a.notas as string,
+        fechaSolicitud: a.fecha_solicitud as string,
       }
-    }).filter(Boolean) as { numeroCuota: number; cuotasTotales: number; monto: number; notas: string }[]
+    }).filter(Boolean) as { tipo: 'adelanto' | 'descuento'; numeroCuota: number; cuotasTotales: number; monto: number; notas: string; fechaSolicitud: string }[]
+    // Orden cronológico ascendente: más viejo arriba, más reciente abajo.
+    return items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
   }, [adelantos, periodoActual.desde, periodoActual.hasta])
+
+  // Mismo orden cronológico ascendente para la lista visible de adelantos.
+  const adelantosOrdenados = useMemo(() => {
+    return [...adelantos].sort((a, b) => {
+      const fa = (a.fecha_solicitud as string) || ''
+      const fb = (b.fecha_solicitud as string) || ''
+      return fa.localeCompare(fb)
+    })
+  }, [adelantos])
 
   const pagoDelPeriodo = pagos.length > 0 ? pagos[0] : null
   const montoAbonadoPeriodo = pagoDelPeriodo ? parseFloat(pagoDelPeriodo.monto_abonado as string) : 0
@@ -998,54 +1018,84 @@ export function PaginaEditorNominaEmpleado({
                   </Boton>
                 )}
               >
-                <div className="space-y-2.5 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-texto-primario">Horas netas trabajadas</p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">
-                        {emp.dias_trabajados} jornada{emp.dias_trabajados === 1 ? '' : 's'} registrada{emp.dias_trabajados === 1 ? '' : 's'}
-                      </p>
-                    </div>
-                    <span className="text-texto-primario font-medium tabular-nums">
-                      <NumeroAnimado claveAnim={animKey}>{fmtHoras(emp.horas_netas)}</NumeroAnimado>
-                    </span>
+                <div className="space-y-3">
+                  {/* ─── BRUTO — protagonista: lo que realmente generó el empleado ─── */}
+                  <div className="pb-3 border-b border-white/[0.07]">
+                    <p className="text-[11px] text-texto-terciario uppercase tracking-wider">Bruto del período</p>
+                    <p className="text-3xl font-bold tabular-nums mt-1 text-texto-primario">
+                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
+                    </p>
+                    <p className="text-[11px] text-texto-terciario mt-1">
+                      {emp.monto_detalle}
+                      {emp.horas_netas > 0 ? ` · ${fmtHoras(emp.horas_netas)} trabajadas` : ''}
+                    </p>
                   </div>
 
-                  <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.05]">
-                    <div>
-                      <p className="text-texto-primario">Bruto del período</p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">{emp.monto_detalle}</p>
-                    </div>
-                    <span className="text-texto-primario font-semibold tabular-nums">
-                      +<NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
-                    </span>
-                  </div>
-
-                  {(emp.descuento_adelanto > 0 || emp.saldo_anterior !== 0) && (
-                    <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.05]">
-                      <div>
-                        <p className="text-insignia-advertencia">Descuentos aplicados</p>
-                        <p className="text-[11px] text-texto-terciario mt-0.5">
-                          {[
-                            emp.descuento_adelanto > 0 ? `${emp.cuotas_adelanto} adelanto${emp.cuotas_adelanto === 1 ? '' : 's'}` : null,
-                            emp.saldo_anterior > 0 ? '1 saldo anterior' : null,
-                          ].filter(Boolean).join(' · ')}
-                        </p>
+                  {/* ─── DESCUENTOS Y AJUSTES — desglose línea por línea ─── */}
+                  <div className="space-y-2 text-sm">
+                    {(emp.descuento_adelanto > 0 || emp.saldo_anterior > 0) && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-insignia-advertencia">Descuentos del período</p>
+                          <span className="text-insignia-advertencia font-medium tabular-nums">
+                            −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
+                          </span>
+                        </div>
+                        <div className="space-y-1 ml-1.5 pl-2 border-l border-insignia-advertencia/20">
+                          {emp.saldo_anterior > 0 && (
+                            <div className="flex items-start justify-between gap-3 text-[11px]">
+                              <p className="text-texto-terciario">A favor del período anterior</p>
+                              <span className="text-texto-secundario tabular-nums shrink-0">
+                                −{fmtMonto(emp.saldo_anterior)}
+                              </span>
+                            </div>
+                          )}
+                          {cuotasInfoPeriodo.map((c, idx) => (
+                            <div key={idx} className="flex items-start justify-between gap-3 text-[11px]">
+                              <p className="text-texto-terciario truncate flex items-center gap-1.5">
+                                {c.tipo === 'descuento' && (
+                                  <span className="inline-flex items-center px-1 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide shrink-0">
+                                    Descuento
+                                  </span>
+                                )}
+                                <span className="truncate">
+                                  {c.notas || (c.tipo === 'descuento' ? `Descuento ${idx + 1}` : `Adelanto ${idx + 1}`)}
+                                  {c.tipo === 'adelanto' && c.cuotasTotales > 1 ? ` · cuota ${c.numeroCuota}/${c.cuotasTotales}` : ''}
+                                  {c.fechaSolicitud ? ` · ${fmtFecha(c.fechaSolicitud)}` : ''}
+                                </span>
+                              </p>
+                              <span className="text-texto-secundario tabular-nums shrink-0">
+                                −{fmtMonto(c.monto)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-insignia-advertencia font-semibold tabular-nums">
-                        −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
-                      </span>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="flex items-start justify-between gap-3 pt-2 border-t border-white/[0.07]">
+                    {/* Saldo en contra del período anterior (se suma al bruto) */}
+                    {emp.saldo_anterior < 0 && (
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-insignia-peligro">Quedó debiendo el período anterior</p>
+                          <p className="text-[11px] text-texto-terciario mt-0.5">Se suma a este período</p>
+                        </div>
+                        <span className="text-insignia-peligro font-medium tabular-nums">
+                          +{fmtMonto(Math.abs(emp.saldo_anterior))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ─── NETO — resultado final (cierre del cálculo) ─── */}
+                  <div className="flex items-start justify-between gap-3 pt-3 border-t border-white/[0.07]">
                     <div>
-                      <p className="text-texto-primario font-semibold">Neto del período</p>
+                      <p className="text-texto-primario font-semibold">Neto a transferir</p>
                       <p className="text-[11px] text-texto-terciario mt-0.5">
-                        Asistencia del {pctAsistencia}% {emp.monto_neto < 0 ? '· se arrastra al próximo período' : ''}
+                        Asistencia del {pctAsistencia}%{emp.monto_neto < 0 ? ' · se arrastra al próximo período' : ''}
                       </p>
                     </div>
-                    <span className={`text-base font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
+                    <span className={`text-xl font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
                       <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
                     </span>
                   </div>
@@ -1192,15 +1242,18 @@ export function PaginaEditorNominaEmpleado({
                 )}
               </TarjetaPanel>
 
-              {/* ─── DESCUENTOS DEL PERÍODO ─── */}
+              {/* ─── ADELANTOS DEL PERÍODO ─── */}
               <TarjetaPanel
-                titulo="Descuentos del período"
+                titulo="Adelantos del período"
                 icono={<TrendingDown size={13} />}
                 accion={!mostrarFormAdelanto ? (
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
-                        {adelantos.length + (emp.saldo_anterior !== 0 ? 1 : 0)} activos
+                        {[
+                          adelantos.length > 0 ? `${adelantos.length} adelanto${adelantos.length === 1 ? '' : 's'}` : null,
+                          emp.saldo_anterior !== 0 ? '1 ajuste' : null,
+                        ].filter(Boolean).join(' · ')}
                       </span>
                     )}
                     {puedeEditarNomina && (
@@ -1241,13 +1294,14 @@ export function PaginaEditorNominaEmpleado({
                 )}
 
                 <div className="space-y-2">
-                  {adelantos.map(a => {
+                  {adelantosOrdenados.map(a => {
                     const aid = a.id as string
+                    const tipoItem = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento'
+                    const esDescuento = tipoItem === 'descuento'
                     const cuotasT = a.cuotas_totales as number
                     const cuotasD = a.cuotas_descontadas as number
                     const saldo = parseFloat(a.saldo_pendiente as string)
                     const total = parseFloat(a.monto_total as string)
-                    const progreso = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
                     const esEditando = editandoAdelanto === aid
 
                     const cuotas = (a.cuotas || []) as Record<string, unknown>[]
@@ -1258,6 +1312,13 @@ export function PaginaEditorNominaEmpleado({
                     const numeroCuotaPeriodo = cuotaDelPeriodo ? (cuotaDelPeriodo.numero_cuota as number) : null
                     const montoCuotaPeriodo = cuotaDelPeriodo ? parseFloat(cuotaDelPeriodo.monto_cuota as string) : 0
                     const esUltimaCuota = numeroCuotaPeriodo === cuotasT
+
+                    // Progreso de la barra: segmento sólido = cuotas ya descontadas en períodos pasados;
+                    // segmento más claro = cuota que se va a descontar en este período (proyección).
+                    const progresoPrevio = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
+                    const progresoProyectado = cuotasT > 0
+                      ? ((cuotasD + (numeroCuotaPeriodo ? 1 : 0)) / cuotasT) * 100
+                      : 0
 
                     if (esEditando) {
                       return (
@@ -1283,18 +1344,20 @@ export function PaginaEditorNominaEmpleado({
 
                     return (
                       <div key={aid} className="flex items-start gap-3 py-2.5 px-3 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors">
-                        <Receipt size={14} className="text-insignia-advertencia shrink-0 mt-0.5" />
+                        <Receipt size={14} className={`shrink-0 mt-0.5 ${esDescuento ? 'text-insignia-peligro' : 'text-insignia-advertencia'}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <p className="text-sm font-medium text-texto-primario truncate">
-                              {(a.notas as string) || `Adelanto ${fmtMonto(total)}`}
+                              {(a.notas as string) || (esDescuento ? `Descuento ${fmtMonto(total)}` : `Adelanto ${fmtMonto(total)}`)}
                             </p>
                             <span className="text-sm font-semibold text-texto-primario tabular-nums">
                               -{fmtMonto(montoCuotaPeriodo || total)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {numeroCuotaPeriodo ? (
+                            {esDescuento ? (
+                              <Insignia color="peligro" tamano="sm">Descuento</Insignia>
+                            ) : numeroCuotaPeriodo ? (
                               <Insignia color="advertencia" tamano="sm">
                                 Cuota {numeroCuotaPeriodo}/{cuotasT}{esUltimaCuota ? ' · última' : ''}
                               </Insignia>
@@ -1302,18 +1365,34 @@ export function PaginaEditorNominaEmpleado({
                               <Insignia color="neutro" tamano="sm">{cuotasD}/{cuotasT} descontadas</Insignia>
                             )}
                             <span className="text-[11px] text-texto-terciario">
-                              Entregado {fmtFecha(a.fecha_solicitud as string)}
-                              {total > 0 ? ` · ${fmtMonto(total)} total` : ''}
+                              {esDescuento ? 'Aplicado' : 'Entregado'} {fmtFecha(a.fecha_solicitud as string)}
+                              {!esDescuento && total > 0 ? ` · ${fmtMonto(total)} total` : ''}
                             </span>
                           </div>
-                          {progreso > 0 && progreso < 100 && (
-                            <div className="h-1 bg-superficie-hover rounded-full overflow-hidden mt-1.5">
-                              <div className="h-full bg-insignia-advertencia rounded-full transition-all" style={{ width: `${progreso}%` }} />
+                          {cuotasT > 1 && (
+                            <div className="h-1 bg-superficie-hover rounded-full overflow-hidden mt-1.5 relative">
+                              {/* Segmento sólido: cuotas ya descontadas en períodos pasados */}
+                              {progresoPrevio > 0 && (
+                                <div
+                                  className="absolute inset-y-0 left-0 bg-insignia-advertencia transition-all"
+                                  style={{ width: `${progresoPrevio}%` }}
+                                />
+                              )}
+                              {/* Segmento semi-transparente: cuota a descontar en este período */}
+                              {progresoProyectado > progresoPrevio && (
+                                <div
+                                  className="absolute inset-y-0 bg-insignia-advertencia/40 transition-all"
+                                  style={{ left: `${progresoPrevio}%`, width: `${progresoProyectado - progresoPrevio}%` }}
+                                />
+                              )}
                             </div>
                           )}
                           {cuotasT > 1 && (
                             <p className="text-[10px] text-texto-terciario mt-1 tabular-nums">
                               {fmtMonto(total - saldo)} / {fmtMonto(total)}
+                              {numeroCuotaPeriodo ? (
+                                <span className="text-insignia-advertencia"> · este período +{fmtMonto(montoCuotaPeriodo)}</span>
+                              ) : null}
                             </p>
                           )}
                         </div>
@@ -1335,20 +1414,61 @@ export function PaginaEditorNominaEmpleado({
                   })}
                 </div>
 
-                {/* Formulario nuevo adelanto */}
+                {/* Formulario nuevo adelanto/descuento */}
                 {mostrarFormAdelanto && (
                   <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
+                    {/* Toggle tipo: adelanto (dinero entregado) vs descuento (multa/daño/falta) */}
+                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
+                      <button
+                        type="button"
+                        onClick={() => setAdelantoTipo('adelanto')}
+                        className={`text-xs py-1.5 rounded transition-colors ${
+                          adelantoTipo === 'adelanto'
+                            ? 'bg-texto-marca/15 text-texto-marca font-medium'
+                            : 'text-texto-terciario hover:text-texto-secundario'
+                        }`}
+                      >
+                        Adelanto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdelantoTipo('descuento')}
+                        className={`text-xs py-1.5 rounded transition-colors ${
+                          adelantoTipo === 'descuento'
+                            ? 'bg-insignia-peligro/15 text-insignia-peligro font-medium'
+                            : 'text-texto-terciario hover:text-texto-secundario'
+                        }`}
+                      >
+                        Descuento
+                      </button>
+                    </div>
                     <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
                     <div className="grid grid-cols-2 gap-2">
-                      <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
-                        className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                          <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
-                        ))}
-                      </select>
-                      <SelectorFecha valor={adelantoFecha || null} onChange={v => setAdelantoFecha(v || '')} placeholder="Inicio" />
+                      {/* Las cuotas solo aplican a adelantos. Descuentos siempre son 1 cuota. */}
+                      {adelantoTipo === 'adelanto' ? (
+                        <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
+                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                            <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-[11px] text-texto-terciario flex items-center px-2 py-1.5 rounded-card bg-superficie-elevada/50 border border-borde-sutil">
+                          Único · 1 cuota
+                        </div>
+                      )}
+                      <SelectorFecha
+                        valor={adelantoFecha || null}
+                        onChange={v => setAdelantoFecha(v || '')}
+                        placeholder={adelantoTipo === 'adelanto' ? 'Fecha del adelanto' : 'Fecha del descuento'}
+                      />
                     </div>
-                    <Input tipo="text" value={adelantoNotas} onChange={e => setAdelantoNotas(e.target.value)} placeholder="Nota (opcional)" />
+                    <Input
+                      tipo="text"
+                      value={adelantoNotas}
+                      onChange={e => setAdelantoNotas(e.target.value)}
+                      placeholder={adelantoTipo === 'adelanto' ? 'Nota (opcional)' : 'Motivo del descuento'}
+                    />
                     <div className="flex gap-2">
                       <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
                         disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
@@ -1510,6 +1630,8 @@ export function PaginaEditorNominaEmpleado({
         onCerrar={() => setModalEnvio(false)}
         resultados={[datosEmpleado]}
         etiquetaPeriodo={periodoActual.etiqueta}
+        periodoDesde={periodoActual.desde}
+        periodoHasta={periodoActual.hasta}
         nombreEmpresa={nombreEmpresa}
       />
     </>

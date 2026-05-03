@@ -7,6 +7,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { useEstadoWhatsApp } from './_componentes/useEstadoWhatsApp'
 import { BarraSuperiorWhatsApp } from './_componentes/BarraSuperiorWhatsApp'
+import { TabsAudienciaWA } from './_componentes/TabsAudienciaWA'
 import { ListaConversaciones } from '@/componentes/mensajeria/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia } from './_componentes/PanelWhatsApp'
 import { PanelInfoContacto } from '@/componentes/mensajeria/PanelInfoContacto'
@@ -89,9 +90,18 @@ function PaginaWhatsApp() {
             {/* Lista de conversaciones */}
             {(!estado.esMovil || estado.vistaMovilWA === 'lista') && (
               <div
-                className={estado.esMovil ? 'flex-1 min-w-0 overflow-hidden' : 'flex-shrink-0 relative'}
+                className={estado.esMovil ? 'flex-1 min-w-0 overflow-hidden flex flex-col' : 'flex-shrink-0 relative flex flex-col'}
                 style={estado.esMovil ? undefined : { width: estado.anchoLista, minWidth: 280, maxWidth: 500 }}
               >
+                <TabsAudienciaWA
+                  audiencia={estado.audiencia}
+                  onCambiar={(a) => {
+                    estado.setAudiencia(a)
+                    estado.setConversacionSeleccionada(null)
+                    estado.setMensajes([])
+                  }}
+                />
+                <div className="flex-1 min-h-0 overflow-hidden">
                 <ListaConversaciones
                   conversaciones={estado.conversaciones}
                   seleccionada={estado.conversacionSeleccionada?.id || null}
@@ -204,6 +214,7 @@ function PaginaWhatsApp() {
                   }}
                   esAdmin={true}
                 />
+                </div>
                 {/* Drag handle para redimensionar */}
                 {!estado.esMovil && (
                   <div

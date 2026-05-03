@@ -143,29 +143,59 @@ export default function PaginaPerfilUsuario() {
         // desde el contacto tipo equipo vinculado a este miembro. Esto permite
         // que la página /usuarios/[id] muestre los datos del empleado aunque
         // todavía no exista en auth.users. Los updates se redirigen al contacto.
+        //
+        // Mapeo perfiles ↔ contactos (la BD usa nombres distintos en algunos):
+        //   documento_numero ↔ contactos.numero_identificacion
+        //   direccion/domicilio ↔ contacto_direcciones (origen='manual')
+        //   genero, fecha_nacimiento, avatar_url ↔ columnas con el mismo nombre
+        //   telefono_empresa, correo_empresa: el contacto solo tiene UN correo
+        //     y UN teléfono — duplicamos el mismo valor para que la UI muestre
+        //     el dato sin importar qué canal_notif esté seleccionado.
         const { data: contacto } = await supabase
           .from('contactos')
-          .select('nombre, apellido, correo, telefono')
+          .select('id, nombre, apellido, correo, telefono, fecha_nacimiento, numero_identificacion, genero, avatar_url')
           .eq('miembro_id', miembroData.id)
           .eq('en_papelera', false)
           .maybeSingle()
+
+        let direccionSintetica: Record<string, unknown> | null = null
+        let domicilioSintetico: string | null = null
+        if (contacto?.id) {
+          const { data: dir } = await supabase
+            .from('contacto_direcciones')
+            .select('calle, numero, piso, departamento, barrio, ciudad, provincia, codigo_postal, pais, lat, lng, texto')
+            .eq('contacto_id', contacto.id)
+            .order('es_principal', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (dir) {
+            direccionSintetica = {
+              calle: dir.calle, numero: dir.numero, piso: dir.piso, departamento: dir.departamento,
+              barrio: dir.barrio, ciudad: dir.ciudad, provincia: dir.provincia,
+              codigoPostal: dir.codigo_postal, pais: dir.pais,
+              coordenadas: dir.lat != null && dir.lng != null ? { lat: dir.lat, lng: dir.lng } : null,
+              textoCompleto: dir.texto,
+            }
+            domicilioSintetico = (dir.texto as string | null) || null
+          }
+        }
 
         perfilData = {
           id: '', // vacío = perfil sintético; guardarPerfil lo usa como señal
           nombre: contacto?.nombre || '',
           apellido: contacto?.apellido || '',
-          avatar_url: null,
+          avatar_url: contacto?.avatar_url || null,
           telefono: contacto?.telefono || null,
           creado_en: miembroData.unido_en,
           actualizado_en: miembroData.unido_en,
           correo: contacto?.correo || null,
           correo_empresa: contacto?.correo || null,
-          telefono_empresa: null,
-          fecha_nacimiento: null,
-          genero: null,
-          documento_numero: null,
-          domicilio: null,
-          direccion: null,
+          telefono_empresa: contacto?.telefono || null,
+          fecha_nacimiento: contacto?.fecha_nacimiento || null,
+          genero: (contacto?.genero as Perfil['genero']) || null,
+          documento_numero: contacto?.numero_identificacion || null,
+          domicilio: domicilioSintetico,
+          direccion: direccionSintetica,
         }
       }
 
@@ -283,25 +313,93 @@ export default function PaginaPerfilUsuario() {
     // Perfil sintético (miembro sin cuenta Flux): los cambios se persisten
     // en el contacto tipo equipo vinculado en vez de en `perfiles`. Cuando
     // el empleado reclame su cuenta, el trigger de registro copia estos
-    // datos al perfil real.
+    // datos al perfil real. Mapeo completo perfiles → contactos:
+    //   nombre, apellido, fecha_nacimiento, genero, avatar_url → mismo nombre.
+    //   correo / correo_empresa → contactos.correo (único campo, sin canal).
+    //   telefono / telefono_empresa → contactos.telefono (único campo, sin canal).
+    //   documento_numero → contactos.numero_identificacion (donde el trigger
+    //                      sync_perfil_a_contactos copia el documento del perfil real).
+    //   direccion/domicilio → contacto_direcciones (manejado abajo, no es columna).
     if (!perfil.id) {
       const mapaContacto: Record<string, unknown> = {}
       if ('nombre' in datos) mapaContacto.nombre = datos.nombre
       if ('apellido' in datos) mapaContacto.apellido = datos.apellido
       if ('telefono' in datos) mapaContacto.telefono = datos.telefono
+      if ('telefono_empresa' in datos) mapaContacto.telefono = datos.telefono_empresa
       if ('correo_empresa' in datos) mapaContacto.correo = datos.correo_empresa
       if ('correo' in datos) mapaContacto.correo = datos.correo
       if ('fecha_nacimiento' in datos) mapaContacto.fecha_nacimiento = datos.fecha_nacimiento
-      if ('documento_numero' in datos) mapaContacto.documento_numero = datos.documento_numero
-      if ('domicilio' in datos) mapaContacto.domicilio = datos.domicilio
+      if ('genero' in datos) mapaContacto.genero = datos.genero
+      if ('avatar_url' in datos) mapaContacto.avatar_url = datos.avatar_url
+      if ('documento_numero' in datos) mapaContacto.numero_identificacion = datos.documento_numero
 
-      if (Object.keys(mapaContacto).length === 0) return true
+      let okContacto = true
+      if (Object.keys(mapaContacto).length > 0) {
+        const { error } = await supabase
+          .from('contactos')
+          .update(mapaContacto)
+          .eq('miembro_id', miembroId)
+        okContacto = !error
+      }
 
-      const { error } = await supabase
-        .from('contactos')
-        .update(mapaContacto)
-        .eq('miembro_id', miembroId)
-      return !error
+      // Dirección: vive en contacto_direcciones aparte (no columna en contactos).
+      // Se persiste como fila con origen='manual' — la dirección sincronizada
+      // del perfil usa origen='sync_perfil', así no chocan cuando el empleado
+      // reclame su cuenta y se active el trigger.
+      let okDireccion = true
+      if ('direccion' in datos) {
+        const { data: contactoFila } = await supabase
+          .from('contactos')
+          .select('id, empresa_id')
+          .eq('miembro_id', miembroId)
+          .eq('en_papelera', false)
+          .maybeSingle()
+        if (contactoFila?.id) {
+          const dir = (datos.direccion as Record<string, unknown> | null) ?? null
+          if (dir && typeof dir === 'object') {
+            const coords = dir.coordenadas as { lat?: number; lng?: number } | null | undefined
+            const filaDir = {
+              contacto_id: contactoFila.id,
+              tipo: 'principal',
+              calle: (dir.calle as string) || null,
+              numero: (dir.numero as string) || null,
+              piso: (dir.piso as string) || null,
+              departamento: (dir.departamento as string) || null,
+              barrio: (dir.barrio as string) || null,
+              ciudad: (dir.ciudad as string) || null,
+              provincia: (dir.provincia as string) || null,
+              codigo_postal: (dir.codigoPostal as string) || (dir.cp as string) || null,
+              pais: (dir.pais as string) || null,
+              lat: coords?.lat ?? null,
+              lng: coords?.lng ?? null,
+              texto: (dir.textoCompleto as string) || (datos.domicilio as string) || null,
+              es_principal: true,
+              origen: 'manual',
+            }
+            const { data: existente } = await supabase
+              .from('contacto_direcciones')
+              .select('id')
+              .eq('contacto_id', contactoFila.id)
+              .eq('origen', 'manual')
+              .limit(1)
+              .maybeSingle()
+            if (existente?.id) {
+              const { error } = await supabase
+                .from('contacto_direcciones')
+                .update(filaDir)
+                .eq('id', existente.id)
+              okDireccion = !error
+            } else {
+              const { error } = await supabase
+                .from('contacto_direcciones')
+                .insert(filaDir)
+              okDireccion = !error
+            }
+          }
+        }
+      }
+
+      return okContacto && okDireccion
     }
 
     try {
@@ -494,22 +592,26 @@ export default function PaginaPerfilUsuario() {
   useEffect(() => { cargarAdelantos() }, [cargarAdelantos])
 
   const crearAdelanto = useCallback(async (datos: {
+    tipo: 'adelanto' | 'descuento'
     monto_total: number
     cuotas_totales: number
     notas: string
-    fecha_inicio_descuento: string
+    fecha_adelanto: string
   }) => {
     if (!miembro) return
     const frecuencia = (miembro.compensacion_frecuencia as string) || 'mensual'
+    // La fecha del adelanto/descuento define cuándo ocurrió y desde cuándo se descuenta
+    // (con 1 cuota, la cuota cae en el mismo período donde se cargó).
     await fetch('/api/adelantos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         miembro_id: miembroId,
+        tipo: datos.tipo,
         monto_total: datos.monto_total,
         cuotas_totales: datos.cuotas_totales,
-        fecha_solicitud: new Date().toISOString().split('T')[0],
-        fecha_inicio_descuento: datos.fecha_inicio_descuento,
+        fecha_solicitud: datos.fecha_adelanto,
+        fecha_inicio_descuento: datos.fecha_adelanto,
         frecuencia_descuento: frecuencia === 'eventual' ? 'mensual' : frecuencia,
         notas: datos.notas || null,
       }),
@@ -924,14 +1026,19 @@ export default function PaginaPerfilUsuario() {
 
   const estadoIndicador = estadoPerfil !== 'idle' ? estadoPerfil : estadoMiembro
 
-  /* ── Tabs config — "Correo" y "Permisos" solo para miembros con cuenta Flux ── */
+  /* ── Tabs config —
+       Permisos y Métricas se muestran SIEMPRE: el rol/permisos de un empleado
+       sin cuenta Flux también se administran (define lo que verá cuando le
+       activen el acceso) y el componente de métricas tiene un estado vacío
+       específico para "sin cuenta". Correo se oculta porque depende de la
+       bandeja personal, que solo existe con cuenta. ── */
   const tabsConfig = [
     { clave: 'resumen', etiqueta: 'Resumen', icono: <User size={15} /> },
     { clave: 'informacion', etiqueta: 'Información', icono: <FileText size={15} /> },
     { clave: 'pagos', etiqueta: 'Pagos', icono: <Wallet size={15} /> },
     ...(miembro?.usuario_id ? [{ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={15} /> }] : []),
-    ...(miembro?.usuario_id ? [{ clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> }] : []),
-    ...(miembro?.usuario_id ? [{ clave: 'metricas', etiqueta: 'Métricas', icono: <BarChart3 size={15} /> }] : []),
+    { clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> },
+    { clave: 'metricas', etiqueta: 'Métricas', icono: <BarChart3 size={15} /> },
   ]
 
   /* ════════════ LOADING / ERROR ════════════ */

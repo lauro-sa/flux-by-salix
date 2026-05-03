@@ -72,6 +72,9 @@ const configCompleta: ConfigSalixIA = {
     'modificar_actividad', 'modificar_visita',
     'modificar_presupuesto', 'modificar_evento',
     'anotar_nota', 'consultar_notas', 'modificar_nota',
+    // Tools personales
+    'mi_recibo_periodo', 'mi_proximo_pago', 'mi_periodo_actual',
+    'mis_tardanzas_e_inasistencias', 'mi_historial_pagos',
   ],
   whatsapp_copilot_habilitado: false,
   max_iteraciones_herramientas: 5,
@@ -84,7 +87,7 @@ const crearMiembro = (rol: string, permisos_custom: Record<string, string[]> | n
   usuario_id: 'test-usuario',
   rol,
   permisos_custom,
-  salix_ia_habilitado: true,
+  nivel_salix: 'completo',
   salix_ia_web: true,
   salix_ia_whatsapp: true,
   puesto: null,

@@ -27,16 +27,19 @@ export async function POST(request: NextRequest) {
 
   const admin = crearClienteAdmin()
 
-  // Verificar que Salix IA esté habilitado en la app para este usuario
+  // Verificar que Salix IA esté habilitado en la app para este usuario.
+  // Hay dos gates: el flag de canal (salix_ia_web) decide si se ve en la app,
+  // y el nivel_salix decide si tiene capacidad de respuesta. Si nivel='ninguno',
+  // aunque el canal esté activo, el endpoint corta acá.
   const { data: miembro } = await admin
     .from('miembros')
-    .select('salix_ia_web')
+    .select('salix_ia_web, nivel_salix')
     .eq('usuario_id', user.id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
     .single()
 
-  if (!miembro?.salix_ia_web) {
+  if (!miembro?.salix_ia_web || (miembro?.nivel_salix ?? 'ninguno') === 'ninguno') {
     return NextResponse.json({ error: 'Salix IA no está habilitado para tu cuenta' }, { status: 403 })
   }
 

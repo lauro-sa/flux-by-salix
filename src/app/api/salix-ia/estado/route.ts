@@ -25,18 +25,24 @@ export async function GET() {
     return NextResponse.json({ habilitado: false })
   }
 
-  // Verificar que el miembro tiene habilitado Salix IA EN LA APP (web).
-  // El flag `salix_ia_whatsapp` no aplica acá — este endpoint lo consume el
-  // botón flotante de la app para saber si mostrarlo.
+  // Verificar que el miembro tiene habilitado Salix IA EN LA APP (web) y un
+  // nivel de acceso distinto de 'ninguno'. El botón flotante consume este
+  // endpoint: si responde habilitado=false, no se renderiza.
+  // Devolvemos también el nivel para que la UI pueda mostrar un indicador
+  // distinto (ej: "modo personal") si en el futuro se decide.
   const { data: miembro } = await admin
     .from('miembros')
-    .select('salix_ia_web')
+    .select('salix_ia_web, nivel_salix')
     .eq('usuario_id', user.id)
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
     .single()
 
+  const nivel = (miembro?.nivel_salix ?? 'ninguno') as 'completo' | 'personal' | 'ninguno'
+  const habilitado = !!miembro?.salix_ia_web && nivel !== 'ninguno'
+
   return NextResponse.json({
-    habilitado: miembro?.salix_ia_web ?? false,
+    habilitado,
+    nivel: habilitado ? nivel : 'ninguno',
   })
 }

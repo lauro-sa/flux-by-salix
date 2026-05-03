@@ -51,6 +51,9 @@ export async function GET(request: NextRequest) {
     // en "Enviados".
     const soloRecibidos = params.get('solo_recibidos') === 'true'
     const soloNoLeidos = params.get('no_leidos') === 'true'
+    // Pestañas Clientes/Empleados (solo aplica con tipo_canal=whatsapp).
+    // 'clientes' → conversaciones sin miembro vinculado. 'empleados' → con miembro.
+    const audiencia = params.get('audiencia')
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '500'), 500)
     const desde = (pagina - 1) * por_pagina
@@ -82,6 +85,13 @@ export async function GET(request: NextRequest) {
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
     if (estado) query = query.eq('estado', estado)
     if (canal_id) query = query.eq('canal_id', canal_id)
+
+    // Pestaña Clientes/Empleados — separa la bandeja según haya miembro vinculado.
+    if (audiencia === 'empleados') {
+      query = query.not('miembro_id', 'is', null)
+    } else if (audiencia === 'clientes') {
+      query = query.is('miembro_id', null)
+    }
     const contacto_id = params.get('contacto_id')
     if (contacto_id) query = query.eq('contacto_id', contacto_id)
 

@@ -25,12 +25,20 @@ interface PropiedadesInput extends Omit<InputHTMLAttributes<HTMLInputElement>, '
 
 /**
  * Input — Campo de entrada unificado con auto-formateo inteligente.
- * - email/url → minúsculas automáticas
- * - tel → formato de teléfono según país
- * - nombre_persona → capitalización (María García)
- * - nombre_empresa → capitalización + detección de siglas (SRL, SA)
- * - slug → minúsculas, sin espacios, solo a-z 0-9 y guiones
+ * - email/url → minúsculas automáticas (en onChange, sincrónico)
+ * - tel → formato de teléfono según país (en onBlur)
+ * - nombre_persona → capitalización (María García) (en onBlur)
+ * - nombre_empresa → capitalización + detección de siglas (SRL, SA) (en onBlur)
+ * - slug → minúsculas, sin espacios, solo a-z 0-9 y guiones (en onChange)
  * Para tipo="password" muestra toggle ojo para ver/ocultar.
+ *
+ * IMPORTANTE — formatos que se aplican en onBlur (tel, nombre_persona, nombre_empresa):
+ * el valor formateado llega vía un input event sintético después del onChange original,
+ * pero el setState del consumidor queda batched. Si el handler de onBlur lee del state
+ * (closure stale), va a guardar el valor crudo. Por eso, en onBlur **siempre** leer
+ * desde `e.target.value`, que ya tiene el valor formateado:
+ *   onBlur={(e) => autoGuardar({ telefono: e.target.value })}   ✓
+ *   onBlur={() => autoGuardar({ telefono: state.telefono })}    ✗ guarda crudo
  */
 const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
   ({ tipo = 'text', etiqueta, error, ayuda, icono, iconoDerecho, compacto, formato, variante = 'default', className = '', onChange, onBlur, ...rest }, ref) => {

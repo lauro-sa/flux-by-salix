@@ -693,4 +693,114 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     accion_requerida: 'ver_propio',
     soporta_visibilidad: false,
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // TOOLS PERSONALES — datos del propio empleado
+  // ═══════════════════════════════════════════════════════════════
+  // Disponibles para nivel_salix='personal' o 'completo'. Todas tienen scope
+  // hardcodeado a ctx.miembro.id: ningún parámetro permite consultar a otro
+  // empleado. Ventana histórica máxima: 3 periodos. Más atrás devuelven una
+  // sugerencia de "consultá con tu administrador".
+
+  {
+    nombre: 'mi_recibo_periodo',
+    definicion: {
+      name: 'mi_recibo_periodo',
+      description: 'Devuelve el recibo de nómina del propio empleado para el periodo solicitado: monto, días trabajados, ausencias, tardanzas, descuentos y feriados. Si no se especifica periodo, usa el "periodo relevante" (último cerrado pendiente de pago, o el actual si ya se cobró). Solo soporta el periodo en curso o los 2 anteriores; más atrás devuelve un aviso para consultar al administrador.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          periodo: {
+            type: 'string',
+            enum: ['actual', 'anterior', 'antepasado'],
+            description: 'Periodo a consultar relativo a hoy. Default: deja que la tool resuelva el periodo relevante (recomendado).',
+          },
+        },
+        required: [],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+    categoria: 'personal',
+  },
+
+  {
+    nombre: 'mi_proximo_pago',
+    definicion: {
+      name: 'mi_proximo_pago',
+      description: 'Devuelve cuándo va a cobrar el empleado: rango de días hábiles posibles según la regla de la empresa (por defecto, los primeros 3 días hábiles después del cierre del periodo). Considera fines de semana y feriados. Resuelve automáticamente si la pregunta apunta al periodo recién cerrado (pendiente de pago) o al próximo cierre.',
+      input_schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+    categoria: 'personal',
+  },
+
+  {
+    nombre: 'mi_periodo_actual',
+    definicion: {
+      name: 'mi_periodo_actual',
+      description: 'Devuelve el resumen del periodo en curso del propio empleado: días trabajados, días laborables hasta hoy, ausencias, tardanzas y horas. Útil para preguntas como "¿cómo voy este mes?" o "¿cuántos días llevo trabajados?".',
+      input_schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+    categoria: 'personal',
+  },
+
+  {
+    nombre: 'mis_tardanzas_e_inasistencias',
+    definicion: {
+      name: 'mis_tardanzas_e_inasistencias',
+      description: 'Lista tardanzas e inasistencias del propio empleado para el periodo indicado. Solo soporta el periodo actual o los 2 anteriores. Devuelve fechas, minutos de tardanza y motivo si está cargado.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          periodo: {
+            type: 'string',
+            enum: ['actual', 'anterior', 'antepasado'],
+            description: 'Periodo a consultar. Default: actual.',
+          },
+        },
+        required: [],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+    categoria: 'personal',
+  },
+
+  {
+    nombre: 'mi_historial_pagos',
+    definicion: {
+      name: 'mi_historial_pagos',
+      description: 'Devuelve los últimos pagos de nómina cobrados por el empleado (máximo 3). Cada entrada incluye periodo, fecha de pago y monto abonado. Útil para preguntas como "¿cuándo cobré la última vez?" o "¿cuánto cobré el mes pasado?".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          limite: {
+            type: 'number',
+            description: 'Cantidad de pagos a devolver (máximo 3). Default: 3.',
+          },
+        },
+        required: [],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+    categoria: 'personal',
+  },
 ]

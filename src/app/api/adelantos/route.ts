@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       miembro_id,
+      tipo,
       monto_total,
       cuotas_totales,
       fecha_solicitud,
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
       notas,
     } = body as {
       miembro_id: string
+      tipo?: 'adelanto' | 'descuento'
       monto_total: number
       cuotas_totales: number
       fecha_solicitud: string
@@ -155,6 +157,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
+    // Tipo por defecto: 'adelanto' (compat hacia atrás).
+    const tipoFinal = tipo === 'descuento' ? 'descuento' : 'adelanto'
+    // Los descuentos puntuales siempre son de 1 sola cuota (no se entregaron al empleado).
+    const cuotasFinales = tipoFinal === 'descuento' ? 1 : cuotas_totales
+
     const admin = crearClienteAdmin()
 
     // Obtener nombre del creador
@@ -165,14 +172,15 @@ export async function POST(request: NextRequest) {
       .single()
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sistema'
 
-    // Crear adelanto
+    // Crear adelanto/descuento
     const { data: adelanto, error: errAdelanto } = await admin
       .from('adelantos_nomina')
       .insert({
         empresa_id: empresaId,
         miembro_id,
+        tipo: tipoFinal,
         monto_total: String(monto_total),
-        cuotas_totales,
+        cuotas_totales: cuotasFinales,
         cuotas_descontadas: 0,
         saldo_pendiente: String(monto_total),
         frecuencia_descuento,
@@ -189,14 +197,14 @@ export async function POST(request: NextRequest) {
     if (errAdelanto) throw errAdelanto
 
     // Generar cuotas
-    const montoCuota = Math.round((monto_total / cuotas_totales) * 100) / 100
-    const fechas = calcularFechasCuotas(fecha_inicio_descuento, cuotas_totales, frecuencia_descuento)
+    const montoCuota = Math.round((monto_total / cuotasFinales) * 100) / 100
+    const fechas = calcularFechasCuotas(fecha_inicio_descuento, cuotasFinales, frecuencia_descuento)
 
     const cuotasData = fechas.map((fecha, idx) => {
       // Última cuota absorbe la diferencia de redondeo
-      const esUltima = idx === cuotas_totales - 1
+      const esUltima = idx === cuotasFinales - 1
       const montoEsta = esUltima
-        ? Math.round((monto_total - montoCuota * (cuotas_totales - 1)) * 100) / 100
+        ? Math.round((monto_total - montoCuota * (cuotasFinales - 1)) * 100) / 100
         : montoCuota
 
       return {

@@ -220,6 +220,7 @@ export type Database = {
           notas: string | null
           referencia_contable: string | null
           saldo_pendiente: number
+          tipo: string
         }
         Insert: {
           creado_en?: string
@@ -243,6 +244,7 @@ export type Database = {
           notas?: string | null
           referencia_contable?: string | null
           saldo_pendiente: number
+          tipo?: string
         }
         Update: {
           creado_en?: string
@@ -266,6 +268,7 @@ export type Database = {
           notas?: string | null
           referencia_contable?: string | null
           saldo_pendiente?: number
+          tipo?: string
         }
         Relationships: [
           {
@@ -2646,6 +2649,7 @@ export type Database = {
           es_provisorio: boolean
           etiquetas: string[] | null
           fecha_nacimiento: string | null
+          genero: string | null
           id: string
           idioma: string | null
           limite_credito: number | null
@@ -2688,6 +2692,7 @@ export type Database = {
           es_provisorio?: boolean
           etiquetas?: string[] | null
           fecha_nacimiento?: string | null
+          genero?: string | null
           id?: string
           idioma?: string | null
           limite_credito?: number | null
@@ -2730,6 +2735,7 @@ export type Database = {
           es_provisorio?: boolean
           etiquetas?: string[] | null
           fecha_nacimiento?: string | null
+          genero?: string | null
           id?: string
           idioma?: string | null
           limite_credito?: number | null
@@ -4778,7 +4784,7 @@ export type Database = {
           permisos_recorrido_default: Json | null
           puesto_id: string | null
           rol: string
-          salix_ia_habilitado: boolean | null
+          nivel_salix: string
           salix_ia_web: boolean
           salix_ia_whatsapp: boolean
           turno: string | null
@@ -4811,7 +4817,7 @@ export type Database = {
           permisos_recorrido_default?: Json | null
           puesto_id?: string | null
           rol?: string
-          salix_ia_habilitado?: boolean | null
+          nivel_salix?: string
           salix_ia_web?: boolean
           salix_ia_whatsapp?: boolean
           turno?: string | null
@@ -4844,7 +4850,7 @@ export type Database = {
           permisos_recorrido_default?: Json | null
           puesto_id?: string | null
           rol?: string
-          salix_ia_habilitado?: boolean | null
+          nivel_salix?: string
           salix_ia_web?: boolean
           salix_ia_whatsapp?: boolean
           turno?: string | null

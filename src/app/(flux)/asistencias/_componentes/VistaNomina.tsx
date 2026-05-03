@@ -374,6 +374,8 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         onCerrar={() => setModalEnvio(false)}
         resultados={resultados}
         etiquetaPeriodo={periodo.etiqueta}
+        periodoDesde={periodo.desde}
+        periodoHasta={periodo.hasta}
         nombreEmpresa={nombreEmpresa}
       />
     </div>

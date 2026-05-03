@@ -11,6 +11,8 @@ import {
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 import { buscarContactoPorTelefono } from '@/lib/contacto-telefonos'
 import { EstadosConversacion } from '@/tipos/conversacion'
+import { detectarEmpleado } from '@/lib/salix-ia/detectar-empleado'
+import { procesarMensajeCopiloto } from '@/lib/salix-ia/whatsapp-copiloto'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
@@ -175,9 +177,6 @@ async function procesarMensajeEntrante(
   // ─── Salix IA: detectar si es empleado para modo copilot ───
   console.info(`[WEBHOOK SALIX] Iniciando detección empleado para tel: ${telefonoRemitente}, empresa: ${canal.empresa_id}`)
   try {
-    const { detectarEmpleado } = await import('@/lib/salix-ia/detectar-empleado')
-    const { procesarMensajeCopiloto } = await import('@/lib/salix-ia/whatsapp-copiloto')
-
     const deteccion = await detectarEmpleado(admin, canal.empresa_id, telefonoRemitente)
     console.info(`[WEBHOOK SALIX] Resultado detección: es_empleado=${deteccion.es_empleado}, nombre=${deteccion.perfil?.nombre || 'N/A'}`)
 
@@ -193,16 +192,21 @@ async function procesarMensajeEntrante(
       )
 
       console.info(`[WEBHOOK SALIX] Copiloto procesado: ${procesado}`)
-      if (procesado) {
-        console.info(`[WEBHOOK SALIX] ✅ Mensaje de empleado procesado por Salix IA: ${deteccion.perfil.nombre}`)
-        return
-      }
+      // Si el remitente fue identificado como empleado, NUNCA caemos al flujo
+      // de cliente — los mensajes de empleados viven solo en la pestaña Empleados
+      // y nunca deben gatillar al chatbot/agente IA de clientes. Aún si Salix IA
+      // está apagada a nivel empresa, el mensaje ya quedó registrado en la
+      // bandeja del empleado por procesarMensajeCopiloto.
+      console.info(`[WEBHOOK SALIX] ✅ Mensaje de empleado procesado: ${deteccion.perfil.nombre}`)
+      return
     }
   } catch (err) {
     console.error('[WEBHOOK SALIX] ❌ Error en detección/copilot:', err)
   }
 
-  // Buscar conversación existente (abierta o en espera) — por cualquier variante del número
+  // Buscar conversación existente (abierta o en espera) — por cualquier variante del número.
+  // Filtramos `miembro_id IS NULL` para no mezclar con conversaciones de empleados
+  // (defensa en profundidad — los empleados ya retornaron arriba).
   const orConv = variantesTel.map(v => `identificador_externo.eq.${v}`).join(',')
   let esConversacionNueva = false
   let { data: conversacion } = await admin
@@ -210,6 +214,7 @@ async function procesarMensajeEntrante(
     .select('id, contacto_id, estado, identificador_externo')
     .eq('empresa_id', canal.empresa_id)
     .eq('canal_id', canal.id)
+    .is('miembro_id', null)
     .or(orConv)
     .in('estado', [EstadosConversacion.ABIERTA, EstadosConversacion.EN_ESPERA])
     .order('creado_en', { ascending: false })
@@ -232,6 +237,7 @@ async function procesarMensajeEntrante(
       .select('id, contacto_id, estado, identificador_externo')
       .eq('empresa_id', canal.empresa_id)
       .eq('canal_id', canal.id)
+      .is('miembro_id', null)
       .or(orConv)
       .eq('estado', EstadosConversacion.RESUELTA)
       .order('creado_en', { ascending: false })

@@ -219,6 +219,8 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
         onCerrar={() => setModalEnvioAbierto(false)}
         resultados={resultados}
         etiquetaPeriodo={etiquetaPeriodo}
+        periodoDesde={desde}
+        periodoHasta={hasta}
         nombreEmpresa={nombreEmpresa}
       />
     </Modal>

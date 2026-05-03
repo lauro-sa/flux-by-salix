@@ -31,20 +31,43 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
   const inicio = Date.now()
   const { admin, empresa_id, usuario_id, mensaje, historial = [], canal = 'app' } = params
 
+  // Helper: registra error temprano en `log_salix_ia` y devuelve resultado.
+  // Antes los errores de validación (sin contexto / sin config / sin api key)
+  // no quedaban registrados y el debugging se hacía a ciegas.
+  const errorTemprano = async (motivo: string): Promise<ResultadoPipeline> => {
+    await registrarLog(admin, {
+      empresa_id,
+      usuario_id,
+      conversacion_id: params.conversacion_id,
+      canal,
+      mensaje_usuario: mensaje.substring(0, 500),
+      respuesta: motivo,
+      herramientas_usadas: [],
+      tokens_entrada: 0,
+      tokens_salida: 0,
+      latencia_ms: Date.now() - inicio,
+      proveedor: 'anthropic',
+      modelo: '',
+      exito: false,
+      error: motivo,
+    })
+    return crearResultadoError(motivo)
+  }
+
   // 1. Cargar contexto, config y miembro
   const ctx = await construirContexto(admin, empresa_id, usuario_id)
   if (!ctx) {
-    return crearResultadoError('No se pudo cargar el contexto del usuario. Verificá que tu cuenta esté activa.')
+    return errorTemprano('No se pudo cargar el contexto del usuario. Verificá que tu cuenta esté activa.')
   }
 
   const configSalix = await cargarConfigSalixIA(admin, empresa_id)
   if (!configSalix || !configSalix.habilitado) {
-    return crearResultadoError('Salix IA no está habilitado para esta empresa.')
+    return errorTemprano('Salix IA no está habilitado para esta empresa.')
   }
 
   const configIA = await cargarConfigIA(admin, empresa_id)
   if (!configIA?.api_key_anthropic) {
-    return crearResultadoError('No hay API key de Anthropic configurada. Contactá al administrador.')
+    return errorTemprano('No hay API key de Anthropic configurada. Contactá al administrador.')
   }
 
   // 2. Filtrar herramientas por permisos

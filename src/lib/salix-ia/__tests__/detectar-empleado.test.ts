@@ -13,7 +13,7 @@ function miembro(canal: 'empresa' | 'personal') {
     usuario_id: 'user-1',
     rol: 'administrador',
     permisos_custom: null,
-    salix_ia_habilitado: true,
+    nivel_salix: 'completo',
     salix_ia_web: true,
     salix_ia_whatsapp: true,
     canal_notif_telefono: canal,
@@ -23,17 +23,18 @@ function miembro(canal: 'empresa' | 'personal') {
 }
 
 /**
- * Crea un mock de admin. Secuencia de llamadas:
- *  1. .from('miembros')  → miembros activos
- *  2. .from('perfiles')  → perfiles
- *  3. .from('contactos') → contactos de equipo (fallback para miembros sin cuenta)
+ * Crea un mock de admin que devuelve datos según la tabla consultada.
+ * Identifica por nombre de tabla, no por orden, para resistir cambios en el
+ * orden de queries (ej: skipear perfiles cuando no hay miembros con cuenta).
  */
-function crearMockAdmin(miembros: Record<string, unknown>[], perfiles: Record<string, unknown>[]) {
-  let llamada = 0
+function crearMockAdmin(
+  miembros: Record<string, unknown>[],
+  perfiles: Record<string, unknown>[],
+  contactosEquipo: Record<string, unknown>[] = [],
+) {
   return {
-    from: vi.fn(() => {
-      llamada++
-      if (llamada === 1) {
+    from: vi.fn((tabla: string) => {
+      if (tabla === 'miembros') {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
@@ -41,21 +42,30 @@ function crearMockAdmin(miembros: Record<string, unknown>[], perfiles: Record<st
             }),
           }),
         }
-      } else if (llamada === 2) {
+      }
+      if (tabla === 'perfiles') {
         return {
           select: vi.fn().mockReturnValue({
             in: vi.fn().mockResolvedValue({ data: perfiles, error: null }),
           }),
         }
-      } else {
-        // contactos (equipo) — vacío en estos tests
+      }
+      if (tabla === 'contactos') {
         return {
           select: vi.fn().mockReturnValue({
             in: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+              eq: vi.fn().mockResolvedValue({ data: contactosEquipo, error: null }),
             }),
           }),
         }
+      }
+      // miembros_sectores, puestos, sectores (cargarEtiquetasMiembros): vacío
+      return {
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
       }
     }),
   }
@@ -164,6 +174,53 @@ describe('detectarEmpleado', () => {
       [{ id: 'user-1', nombre: 'Test', apellido: 'Short', telefono: null, telefono_empresa: '12345' }]
     )
     const result = await detectarEmpleado(admin, 'empresa-1', '549112345')
+    expect(result.es_empleado).toBe(false)
+  })
+
+  it('empleado SIN cuenta Flux: matchea por contacto de equipo', async () => {
+    // Miembro sin perfil (usuario_id = null). Datos viven en contactos.miembro_id.
+    const sinCuenta = {
+      id: 'miembro-sin-cuenta',
+      usuario_id: null,
+      rol: 'colaborador',
+      permisos_custom: null,
+      nivel_salix: 'ninguno',
+      salix_ia_web: false,
+      salix_ia_whatsapp: false,
+      canal_notif_telefono: 'empresa', // se ignora — el contacto solo tiene un teléfono
+      puesto: null,
+      sector: null,
+    }
+    const admin = crearMockAdmin(
+      [sinCuenta],
+      [], // sin perfil
+      [{ miembro_id: 'miembro-sin-cuenta', nombre: 'Karina', apellido: 'Núñez', telefono: '+5491177889900' }],
+    )
+    const result = await detectarEmpleado(admin, 'empresa-1', '5491177889900')
+    expect(result.es_empleado).toBe(true)
+    expect(result.perfil?.nombre).toBe('Karina')
+    expect(result.miembro?.usuario_id).toBeNull()
+  })
+
+  it('empleado SIN cuenta Flux: NO matchea otro número', async () => {
+    const sinCuenta = {
+      id: 'miembro-sin-cuenta',
+      usuario_id: null,
+      rol: 'colaborador',
+      permisos_custom: null,
+      nivel_salix: 'ninguno',
+      salix_ia_web: false,
+      salix_ia_whatsapp: false,
+      canal_notif_telefono: 'empresa',
+      puesto: null,
+      sector: null,
+    }
+    const admin = crearMockAdmin(
+      [sinCuenta],
+      [],
+      [{ miembro_id: 'miembro-sin-cuenta', nombre: 'Lara', apellido: 'Vega', telefono: '+5491111111111' }],
+    )
+    const result = await detectarEmpleado(admin, 'empresa-1', '5491199999999')
     expect(result.es_empleado).toBe(false)
   })
 })
