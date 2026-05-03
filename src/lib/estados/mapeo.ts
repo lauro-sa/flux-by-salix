@@ -19,8 +19,8 @@ export const TABLA_PRINCIPAL_POR_ENTIDAD: Partial<Record<EntidadConEstado, strin
   cuota:        'presupuesto_cuotas',
   conversacion: 'conversaciones',
   actividad:    'actividades',
+  visita:       'visitas',
   // PRs siguientes:
-  //   visita:       'visitas',
   //   orden:        'ordenes_trabajo',
   //   presupuesto:  'presupuestos',
   //   asistencia:   'asistencias',
@@ -34,8 +34,8 @@ export const TABLA_ESTADOS_POR_ENTIDAD: Partial<Record<EntidadConEstado, string>
   cuota:        'estados_cuota',
   conversacion: 'estados_conversacion',
   actividad:    'estados_actividad',
+  visita:       'estados_visita',
   // PRs siguientes:
-  //   visita:       'estados_visita',
   //   orden:        'estados_orden',
   //   presupuesto:  'estados_presupuesto',
   //   asistencia:   'estados_asistencia',

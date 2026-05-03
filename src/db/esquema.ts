@@ -2847,6 +2847,26 @@ export const etiquetas_contacto = pgTable('etiquetas_contacto', {
 // ═══════════════════════════════════════════════════════════════
 
 // Visitas — registro de visita a un contacto en una dirección
+// Estados de visita — configurables por empresa con set por defecto del sistema.
+// Migración fuente: sql/048_estados_visitas.sql
+export const estados_visita = pgTable('estados_visita', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_visita_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const visitas = pgTable('visitas', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
@@ -2876,8 +2896,14 @@ export const visitas = pgTable('visitas', {
   duracion_estimada_min: integer('duracion_estimada_min').default(30),
   duracion_real_min: integer('duracion_real_min'),
 
-  // Estado
-  estado: text('estado').notNull().default('programada'), // programada, en_camino, en_sitio, completada, cancelada, reprogramada
+  // Estado legacy text. Sincronizado con estado_clave vía trigger durante la transición.
+  // Valores: programada | en_camino | en_sitio | completada | cancelada | reprogramada.
+  estado: text('estado').notNull().default('programada'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  estado_id: uuid('estado_id'),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id'),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Contenido
   motivo: text('motivo'), // por qué se hace la visita

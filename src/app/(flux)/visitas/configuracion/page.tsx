@@ -16,6 +16,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
+import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
 
 /**
  * Página de configuración de Visitas.
@@ -131,6 +132,7 @@ export default function PaginaConfiguracionVisitas() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
+    { id: 'estados', etiqueta: 'Estados de visita', icono: <ListChecks size={16} /> },
     { id: 'avisos', etiqueta: 'Avisos por WhatsApp', icono: <MessageCircle size={16} /> },
     { id: 'motivos', etiqueta: 'Motivos', icono: <FileText size={16} /> },
     { id: 'resultados', etiqueta: 'Resultados', icono: <ListChecks size={16} /> },
@@ -189,6 +191,11 @@ export default function PaginaConfiguracionVisitas() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Estados de visita */}
+          {seccionActiva === 'estados' && (
+            <SeccionEstadosEntidad entidadTipo="visita" />
           )}
 
           {/* Avisos por WhatsApp */}
