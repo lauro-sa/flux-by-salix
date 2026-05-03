@@ -907,11 +907,38 @@ export const config_presupuestos = pgTable('config_presupuestos', {
 // ═══════════════════════════════════════════════════════════════
 
 // Órdenes de trabajo — ficha operativa generada desde presupuestos confirmados
+// Estados de orden — configurables por empresa con set por defecto del sistema.
+// Migración fuente: sql/049_estados_ordenes.sql
+// Nota: la clave 'esperando' fue renombrada a 'en_espera' (PR 9). El trigger
+// BEFORE traduce 'esperando' a 'en_espera' por compatibilidad si llega.
+export const estados_orden = pgTable('estados_orden', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_orden_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   numero: text('numero').notNull(),
-  estado: text('estado').notNull().default('abierta'), // abierta, en_progreso, esperando, completada, cancelada
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores: abierta | en_progreso | en_espera | completada | cancelada.
+  estado: text('estado').notNull().default('abierta'),
+  estado_id: uuid('estado_id').references(() => estados_orden.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_orden.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   prioridad: text('prioridad').notNull().default('media'), // baja, media, alta, urgente
   titulo: text('titulo').notNull(),
   descripcion: text('descripcion'),
