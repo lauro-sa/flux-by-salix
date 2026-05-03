@@ -17,8 +17,8 @@
  * Backend: GET /api/estados (listar) + POST/PATCH/DELETE /api/estados/items.
  */
 
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Check } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Check, Pipette } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -376,8 +376,9 @@ export function SeccionEstadosEntidad({ entidadTipo }: Props) {
 }
 
 // ─── Selector de color compacto ───────────────────────────────
-// Mismo patrón que ModalEtiquetas: círculos size-5, gap-1.5, sin gotero.
-// Para casos de uso simples como "elegir color de un estado".
+// Patrón size-5 (compacto) + gotero nativo del navegador para color
+// custom. El gotero usa el input type="color" oculto por click en
+// el círculo dashed, igual que en otros selectores del proyecto.
 
 function SelectorColorEstado({
   valor,
@@ -388,6 +389,9 @@ function SelectorColorEstado({
   onChange: (c: string) => void
   colores: string[]
 }) {
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const esCustom = !colores.some(c => c.toLowerCase() === valor.toLowerCase())
+
   return (
     <div>
       <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
@@ -409,6 +413,35 @@ function SelectorColorEstado({
             </button>
           )
         })}
+
+        {/* Gotero — abre el color picker nativo del navegador */}
+        <button
+          type="button"
+          onClick={() => colorInputRef.current?.click()}
+          className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+            esCustom
+              ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent'
+              : 'border-borde-fuerte'
+          }`}
+          style={esCustom ? { backgroundColor: valor } : undefined}
+          title="Elegir color personalizado"
+          aria-label="Elegir color personalizado"
+        >
+          {esCustom ? (
+            <Check size={10} className="text-white drop-shadow-sm" />
+          ) : (
+            <Pipette size={10} className="text-texto-terciario" />
+          )}
+        </button>
+        <input
+          ref={colorInputRef}
+          type="color"
+          value={valor}
+          onChange={(e) => onChange(e.target.value)}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
       </div>
     </div>
   )
