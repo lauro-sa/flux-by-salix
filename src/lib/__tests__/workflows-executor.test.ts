@@ -327,7 +327,7 @@ describe('ejecutarAccion — acción no implementada en 15.1', () => {
       tipo: 'enviar_correo_plantilla',
       parametros: {},
     } as never
-    const r = await ejecutarAccion(accion, ctx, admin)
+    const r = await ejecutarAccion(accion, ctx, admin as never)
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.error.transitorio).toBe(false)
