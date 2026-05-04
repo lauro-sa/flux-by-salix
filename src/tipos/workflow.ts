@@ -34,6 +34,7 @@ export type TipoDisparador =
   | 'entidad.campo_cambia'
   | 'actividad.completada'
   | 'tiempo.cron'
+  | 'tiempo.relativo_a_campo'
   | 'webhook.entrante'
   | 'inbox.mensaje_recibido'
   | 'inbox.conversacion_sin_respuesta'
@@ -44,6 +45,7 @@ export const TIPOS_DISPARADOR: readonly TipoDisparador[] = [
   'entidad.campo_cambia',
   'actividad.completada',
   'tiempo.cron',
+  'tiempo.relativo_a_campo',
   'webhook.entrante',
   'inbox.mensaje_recibido',
   'inbox.conversacion_sin_respuesta',
@@ -93,13 +95,48 @@ export interface DisparadorActividadCompletada {
 export interface DisparadorTiempoCron {
   tipo: 'tiempo.cron'
   configuracion: {
-    /** Expresión cron estándar (5 campos). */
+    /**
+     * Expresión cron estándar de 5 campos: minuto hora día_mes mes día_semana.
+     * Operadores soportados: `*`, `*\/N`, `N-M`, `N,M,O`. Ej: `0 9 * * 1-5`
+     * (9am de lunes a viernes), `*\/15 * * * *` (cada 15 minutos).
+     */
     expresion: string
-    /** Scope opcional: filtra qué entidades evaluar. */
-    scope?: {
-      entidad_tipo?: EntidadConEstado
-      condicion?: unknown
-    }
+  }
+}
+
+/**
+ * Disparador time-driven que escanea entidades cuyo `campo_fecha`
+ * + `delta_dias` cae en el día actual (zona horaria de empresa).
+ *
+ * Casos típicos del plan §2:
+ *   - cuotas que vencen en 3 días        (entidad_tipo: cuota,
+ *                                          campo: fecha_vencimiento, delta: -3)
+ *   - presupuestos enviados hace 7 días  (entidad_tipo: presupuesto,
+ *                                          campo: actualizado_en,  delta: +7)
+ *   - revisión post-instalación          (entidad_tipo: visita,
+ *                                          campo: fecha_completada, delta: +7)
+ *
+ * El cron itera por cada entidad matching y crea una ejecución por
+ * cada una. La idempotencia es por (flujo_id, entidad_id, día) para
+ * que si el cron tick 60 veces el mismo día solo dispare una vez.
+ */
+export interface DisparadorTiempoRelativoACampo {
+  tipo: 'tiempo.relativo_a_campo'
+  configuracion: {
+    entidad_tipo: EntidadConEstado
+    /** Columna timestamptz/date de la tabla principal de la entidad. */
+    campo_fecha: string
+    /** Días relativos al campo. Negativo = antes, positivo = después. */
+    delta_dias: number
+    /** Hora del día (formato HH:MM) en zona horaria de empresa. Default '09:00'. */
+    hora_local?: string
+    /**
+     * Tolerancia hacia atrás (en días) para no perder ventanas si el cron
+     * estuvo caído. 0 = estricto (solo el día exacto). Default 0.
+     */
+    tolerancia_dias?: number
+    /** Si presente, solo dispara si el estado_clave de la entidad está en la lista. */
+    filtro_estado_clave?: string[]
   }
 }
 
@@ -134,6 +171,7 @@ export type DisparadorWorkflow =
   | DisparadorEntidadCampoCambia
   | DisparadorActividadCompletada
   | DisparadorTiempoCron
+  | DisparadorTiempoRelativoACampo
   | DisparadorWebhookEntrante
   | DisparadorInboxMensajeRecibido
   | DisparadorInboxConversacionSinRespuesta
@@ -542,6 +580,45 @@ export function esDisparadorEntidadEstadoCambio(
   ) {
     return false
   }
+  return true
+}
+
+// ─── Type guards de disparadores tiempo (PR 17) ───────────────
+
+export function esDisparadorTiempoCron(d: unknown): d is DisparadorTiempoCron {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'tiempo.cron') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  const c = r.configuracion as Record<string, unknown>
+  if (typeof c.expresion !== 'string' || c.expresion.length === 0) return false
+  return true
+}
+
+export function esDisparadorTiempoRelativoACampo(
+  d: unknown,
+): d is DisparadorTiempoRelativoACampo {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'tiempo.relativo_a_campo') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  const c = r.configuracion as Record<string, unknown>
+  if (typeof c.entidad_tipo !== 'string') return false
+  if (!(ENTIDADES_CON_ESTADO as readonly string[]).includes(c.entidad_tipo)) return false
+  if (typeof c.campo_fecha !== 'string' || c.campo_fecha.length === 0) return false
+  if (typeof c.delta_dias !== 'number' || !Number.isInteger(c.delta_dias)) return false
+  if (
+    c.hora_local !== undefined &&
+    (typeof c.hora_local !== 'string' || !/^\d{2}:\d{2}$/.test(c.hora_local))
+  ) return false
+  if (
+    c.tolerancia_dias !== undefined &&
+    (typeof c.tolerancia_dias !== 'number' || !Number.isInteger(c.tolerancia_dias) || c.tolerancia_dias < 0)
+  ) return false
+  if (
+    c.filtro_estado_clave !== undefined &&
+    (!Array.isArray(c.filtro_estado_clave) || !c.filtro_estado_clave.every((s) => typeof s === 'string'))
+  ) return false
   return true
 }
 
