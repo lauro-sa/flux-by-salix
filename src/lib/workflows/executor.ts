@@ -34,12 +34,19 @@ import type {
   AccionCrearActividad,
   AccionCambiarEstadoEntidad,
   AccionNotificarUsuario,
+  AccionEsperar,
+  AccionCondicionBranch,
+  AccionTerminarFlujo,
 } from '@/tipos/workflow'
 import {
   esAccionEnviarWhatsappPlantilla,
   esAccionCrearActividad,
   esAccionCambiarEstadoEntidad,
   esAccionNotificarUsuario,
+  esAccionEsperar,
+  esAccionCondicionBranch,
+  esAccionTerminarFlujo,
+  esAccionConocida,
 } from '@/tipos/workflow'
 import {
   enviarPlantillaWhatsApp,
@@ -52,6 +59,7 @@ import {
   leerNumeroTelefono,
 } from '@/lib/whatsapp/canal-credenciales'
 import { aplicarTransicionEstado } from '@/lib/estados/aplicar-transicion'
+import { evaluarCondicion } from './evaluar-condicion'
 
 // =============================================================
 // Contrato del resultado
@@ -76,12 +84,33 @@ export type ResultadoAccion =
     }
 
 // Contexto que el orquestador pasa al executor. PR 16 lo enriquece
-// con datos de la entidad disparadora, actor, empresa, etc.
+// con datos de la entidad disparadora, actor, empresa, etc. — por
+// ahora incluye `contexto_inicial` (jsonb del row de ejecuciones_flujo)
+// que el evaluador de condiciones lee con dot notation.
 export interface ContextoEjecucion {
   empresa_id: string
   ejecucion_id: string
   flujo_id: string
+  /**
+   * Snapshot del contexto al disparar (entidad, cambio, trigger).
+   * Usado por `condicion_branch` para evaluar contra estos campos.
+   */
+  contexto_inicial?: Record<string, unknown>
 }
+
+// =============================================================
+// Marcadores de control de flujo (sub-PR 15.2)
+// =============================================================
+// Las acciones de control devuelven `ok: true` con flags en el
+// `resultado` que el orquestador detecta:
+//   - esperando: true → marcar ejecución 'esperando', no avanzar
+//   - terminar: true → marcar 'completado', no avanzar
+//   - sub_pasos → log enriquecido del condicion_branch
+// Mantener estos campos en `resultado` (jsonb genérico) evita inflar
+// el tipo ResultadoAccion con shapes específicos por tipo.
+
+export const MARCADOR_ESPERANDO = '__workflow_esperando__'
+export const MARCADOR_TERMINAR = '__workflow_terminar__'
 
 // =============================================================
 // Punto de entrada — switch sobre el tipo de acción
@@ -104,7 +133,16 @@ export async function ejecutarAccion(
   if (esAccionNotificarUsuario(accion)) {
     return ejecutarNotificarUsuario(accion, contexto, admin)
   }
-  // Acciones del catálogo todavía no implementadas (sub-PR 15.2+).
+  if (esAccionEsperar(accion)) {
+    return ejecutarEsperar(accion, contexto, admin)
+  }
+  if (esAccionCondicionBranch(accion)) {
+    return ejecutarCondicionBranch(accion, contexto, admin)
+  }
+  if (esAccionTerminarFlujo(accion)) {
+    return ejecutarTerminarFlujo(accion)
+  }
+  // Acciones del catálogo todavía no implementadas (sub-PR 15.3+).
   return {
     ok: false,
     error: {
@@ -403,6 +441,218 @@ async function ejecutarNotificarUsuario(
   return {
     ok: true,
     resultado: { notificacion_id: data.id },
+  }
+}
+
+// =============================================================
+// 5) esperar (sub-PR 15.2)
+// =============================================================
+// Inserta una fila en `acciones_pendientes` con `ejecutar_en` en el
+// futuro. Devuelve un resultado con marcador MARCADOR_ESPERANDO que
+// el orquestador detecta para marcar la ejecución como 'esperando'
+// y no avanzar al siguiente paso.
+//
+// Cuando llegue el momento, el cron `/api/workflows/barrer-pendientes`
+// dispara fire-and-forget al endpoint del worker, que reanuda la
+// ejecución desde donde quedó (lee el log para saber el paso).
+
+async function ejecutarEsperar(
+  accion: AccionEsperar,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  // Calcular ejecutar_en: duracion_ms o hasta_fecha (mutuamente
+  // exclusivos según el type guard).
+  let ejecutarEn: Date
+  if (typeof accion.duracion_ms === 'number') {
+    ejecutarEn = new Date(Date.now() + accion.duracion_ms)
+  } else if (typeof accion.hasta_fecha === 'string') {
+    ejecutarEn = new Date(accion.hasta_fecha)
+    if (Number.isNaN(ejecutarEn.getTime())) {
+      return {
+        ok: false,
+        error: {
+          mensaje: `Fecha inválida en accion.esperar.hasta_fecha: "${accion.hasta_fecha}"`,
+          transitorio: false,
+          raw_class: 'FechaInvalida',
+        },
+      }
+    }
+  } else {
+    return {
+      ok: false,
+      error: {
+        mensaje: 'Acción esperar requiere duracion_ms o hasta_fecha',
+        transitorio: false,
+        raw_class: 'EsperarSinTiempo',
+      },
+    }
+  }
+
+  const { data, error } = await admin
+    .from('acciones_pendientes')
+    .insert({
+      empresa_id: contexto.empresa_id,
+      ejecucion_id: contexto.ejecucion_id,
+      tipo_accion: 'esperar',
+      parametros: {
+        duracion_ms: accion.duracion_ms ?? null,
+        hasta_fecha: accion.hasta_fecha ?? null,
+      },
+      ejecutar_en: ejecutarEn.toISOString(),
+      estado: 'pendiente',
+    })
+    .select('id')
+    .single()
+
+  if (error) return errSupabase(error, 'agendar acción esperar')
+
+  return {
+    ok: true,
+    resultado: {
+      [MARCADOR_ESPERANDO]: true,
+      accion_pendiente_id: data.id,
+      ejecutar_en: ejecutarEn.toISOString(),
+    },
+  }
+}
+
+// =============================================================
+// 6) condicion_branch (sub-PR 15.2)
+// =============================================================
+// Evalúa la condición contra el contexto_inicial de la ejecución y
+// ejecuta las sub-acciones de la rama matching en serie. Las
+// sub-acciones se ejecutan dentro del mismo paso del log padre
+// (campo `sub_pasos`), no como pasos separados al nivel del flujo.
+//
+// Limitación de scope sub-PR 15.2: las sub-acciones NO pueden ser
+// `esperar` ni `condicion_branch` anidados (sería complicado
+// reanudar). Solo acciones síncronas: las 4 originales + terminar_flujo.
+// Se valida en runtime: si una sub-acción retorna esperando o anidada,
+// se rechaza.
+
+async function ejecutarCondicionBranch(
+  accion: AccionCondicionBranch,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  const ctxParaEval = contexto.contexto_inicial ?? {}
+  const condicionVerdadera = evaluarCondicion(accion.condicion, ctxParaEval)
+  const sub = condicionVerdadera ? accion.acciones_si : accion.acciones_no
+
+  const subPasos: Array<Record<string, unknown>> = []
+  let terminarPropagado = false
+
+  for (let i = 0; i < sub.length; i++) {
+    const subAccion = sub[i] as unknown
+    if (!esAccionConocida(subAccion)) {
+      subPasos.push({
+        sub_paso: i + 1,
+        tipo: 'desconocido',
+        estado: 'fallado',
+        error: { mensaje: 'Sub-acción con shape inválido', raw_class: 'AccionInvalida' },
+      })
+      return {
+        ok: false,
+        error: {
+          mensaje: 'Sub-acción del condicion_branch inválida',
+          transitorio: false,
+          raw_class: 'SubAccionInvalida',
+        },
+      }
+    }
+    // Bloqueo de scope: esperar y condicion_branch anidados no soportados.
+    if (esAccionEsperar(subAccion) || esAccionCondicionBranch(subAccion)) {
+      return {
+        ok: false,
+        error: {
+          mensaje: 'sub-PR 15.2: esperar/condicion_branch anidados no soportados dentro de un branch (subir al nivel padre)',
+          transitorio: false,
+          raw_class: 'AnidamientoNoSoportado',
+        },
+      }
+    }
+
+    const inicio = Date.now()
+    const r = await ejecutarAccion(subAccion, contexto, admin)
+    const duracion = Date.now() - inicio
+
+    if (r.ok) {
+      // Si la sub-acción es terminar_flujo, propagamos al padre.
+      if (r.resultado[MARCADOR_TERMINAR] === true) {
+        subPasos.push({
+          sub_paso: i + 1,
+          tipo: subAccion.tipo,
+          estado: 'ok',
+          duracion_ms: duracion,
+          terminar: true,
+        })
+        terminarPropagado = true
+        break
+      }
+      subPasos.push({
+        sub_paso: i + 1,
+        tipo: subAccion.tipo,
+        estado: 'ok',
+        duracion_ms: duracion,
+        respuesta: r.resultado,
+      })
+    } else {
+      const continuarSiFalla = (subAccion as { continuar_si_falla?: boolean }).continuar_si_falla === true
+      subPasos.push({
+        sub_paso: i + 1,
+        tipo: subAccion.tipo,
+        estado: 'fallado',
+        duracion_ms: duracion,
+        error: {
+          mensaje: r.error.mensaje,
+          status: r.error.status,
+          raw_class: r.error.raw_class,
+        },
+        continuo_pese_a_fallo: continuarSiFalla || undefined,
+      })
+      if (!continuarSiFalla) {
+        // Sub-acción crítica falló. Reportamos al padre como falla
+        // del branch entero. El orquestador maneja según
+        // continuar_si_falla del propio branch.
+        return {
+          ok: false,
+          error: {
+            mensaje: `Sub-acción ${i + 1} del condicion_branch (${subAccion.tipo}) falló: ${r.error.mensaje}`,
+            transitorio: r.error.transitorio,
+            raw_class: r.error.raw_class,
+          },
+        }
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    resultado: {
+      rama_ejecutada: condicionVerdadera ? 'si' : 'no',
+      sub_pasos: subPasos,
+      ...(terminarPropagado ? { [MARCADOR_TERMINAR]: true } : {}),
+    },
+  }
+}
+
+// =============================================================
+// 7) terminar_flujo (sub-PR 15.2)
+// =============================================================
+// Devuelve un resultado con MARCADOR_TERMINAR. El orquestador detecta
+// el flag y rompe el loop, marcando la ejecución como 'completado'
+// sin procesar los pasos siguientes.
+
+function ejecutarTerminarFlujo(
+  accion: AccionTerminarFlujo,
+): ResultadoAccion {
+  return {
+    ok: true,
+    resultado: {
+      [MARCADOR_TERMINAR]: true,
+      motivo: accion.motivo ?? null,
+    },
   }
 }
 

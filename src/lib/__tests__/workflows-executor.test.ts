@@ -317,10 +317,174 @@ describe('ejecutarAccion — notificar_usuario', () => {
 })
 
 // =============================================================
-// 5) Acción no implementada del catálogo
+// 5) esperar (sub-PR 15.2)
 // =============================================================
 
-describe('ejecutarAccion — acción no implementada en 15.1', () => {
+describe('ejecutarAccion — esperar', () => {
+  it('inserta en acciones_pendientes y devuelve marcador esperando', async () => {
+    const admin = crearAdminMock({
+      acciones_pendientes: { data: { id: 'ap-1' } },
+    })
+    const r = await ejecutarAccion(
+      { tipo: 'esperar', duracion_ms: 60_000 },
+      ctx,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.resultado['__workflow_esperando__']).toBe(true)
+      expect(r.resultado.accion_pendiente_id).toBe('ap-1')
+      expect(typeof r.resultado.ejecutar_en).toBe('string')
+    }
+  })
+
+  it('respeta hasta_fecha como alternativa a duracion_ms', async () => {
+    const admin = crearAdminMock({
+      acciones_pendientes: { data: { id: 'ap-2' } },
+    })
+    const fecha = '2030-01-01T00:00:00.000Z'
+    const r = await ejecutarAccion(
+      { tipo: 'esperar', hasta_fecha: fecha },
+      ctx,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.ejecutar_en).toBe(fecha)
+  })
+
+  it('falla si hasta_fecha es un string no parseable', async () => {
+    const admin = crearAdminMock({
+      acciones_pendientes: { data: { id: 'ap-x' } },
+    })
+    const r = await ejecutarAccion(
+      { tipo: 'esperar', hasta_fecha: 'no-es-fecha' },
+      ctx,
+      admin as never,
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error.raw_class).toBe('FechaInvalida')
+      expect(r.error.transitorio).toBe(false)
+    }
+  })
+})
+
+// =============================================================
+// 6) condicion_branch (sub-PR 15.2)
+// =============================================================
+
+describe('ejecutarAccion — condicion_branch', () => {
+  const ctxConDatos = {
+    ...ctx,
+    contexto_inicial: {
+      entidad: { estado_nuevo: 'aceptado', monto: 200000 },
+    },
+  }
+
+  it('rama si: ejecuta acciones_si cuando condicion verdadera', async () => {
+    const admin = crearAdminMock({
+      notificaciones: { data: { id: 'notif-rama-si' } },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'condicion_branch',
+        condicion: { campo: 'entidad.estado_nuevo', operador: 'igual', valor: 'aceptado' },
+        acciones_si: [
+          { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'rama si' },
+        ],
+        acciones_no: [
+          { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'rama no' },
+        ],
+      },
+      ctxConDatos,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.resultado.rama_ejecutada).toBe('si')
+      const subPasos = r.resultado.sub_pasos as Array<{ tipo: string; estado: string }>
+      expect(subPasos).toHaveLength(1)
+      expect(subPasos[0].tipo).toBe('notificar_usuario')
+      expect(subPasos[0].estado).toBe('ok')
+    }
+  })
+
+  it('rama no: ejecuta acciones_no cuando condicion falsa', async () => {
+    const admin = crearAdminMock({
+      notificaciones: { data: { id: 'notif-rama-no' } },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'condicion_branch',
+        condicion: { campo: 'entidad.estado_nuevo', operador: 'igual', valor: 'rechazado' },
+        acciones_si: [{ tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'si' }],
+        acciones_no: [{ tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'no' }],
+      },
+      ctxConDatos,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.rama_ejecutada).toBe('no')
+  })
+
+  it('bloquea esperar anidado dentro del branch', async () => {
+    const admin = crearAdminMock({})
+    const r = await ejecutarAccion(
+      {
+        tipo: 'condicion_branch',
+        condicion: { campo: 'entidad.estado_nuevo', operador: 'igual', valor: 'aceptado' },
+        acciones_si: [{ tipo: 'esperar', duracion_ms: 60_000 }],
+        acciones_no: [],
+      },
+      ctxConDatos,
+      admin as never,
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.raw_class).toBe('AnidamientoNoSoportado')
+  })
+
+  it('propaga terminar_flujo al padre', async () => {
+    const admin = crearAdminMock({})
+    const r = await ejecutarAccion(
+      {
+        tipo: 'condicion_branch',
+        condicion: { campo: 'entidad.estado_nuevo', operador: 'igual', valor: 'aceptado' },
+        acciones_si: [{ tipo: 'terminar_flujo', motivo: 'corte por branch' }],
+        acciones_no: [],
+      },
+      ctxConDatos,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado['__workflow_terminar__']).toBe(true)
+  })
+})
+
+// =============================================================
+// 7) terminar_flujo (sub-PR 15.2)
+// =============================================================
+
+describe('ejecutarAccion — terminar_flujo', () => {
+  it('devuelve marcador terminar con motivo', async () => {
+    const admin = crearAdminMock({})
+    const r = await ejecutarAccion(
+      { tipo: 'terminar_flujo', motivo: 'sin más nada que hacer' },
+      ctx,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.resultado['__workflow_terminar__']).toBe(true)
+      expect(r.resultado.motivo).toBe('sin más nada que hacer')
+    }
+  })
+})
+
+// =============================================================
+// 8) Acción no implementada del catálogo
+// =============================================================
+
+describe('ejecutarAccion — acción no implementada en 15.2', () => {
   it('devuelve fallo permanente con AccionNoImplementada', async () => {
     const admin = crearAdminMock({})
     const accion = {

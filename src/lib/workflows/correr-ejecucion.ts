@@ -46,7 +46,8 @@ import type {
 import { esAccionConocida } from '@/tipos/workflow'
 import {
   ejecutarAccion,
-  type ContextoEjecucion,
+  MARCADOR_ESPERANDO,
+  MARCADOR_TERMINAR,
   type ResultadoAccion,
 } from './executor'
 
@@ -114,9 +115,11 @@ export async function correrEjecucion(
   const sleep = opts.sleep ?? sleepReal
 
   // 1) Cargar ejecución + flujo (acciones en jsonb).
+  //    contexto_inicial se incluye porque el evaluador de condiciones
+  //    de condicion_branch lee de ahí (sub-PR 15.2).
   const { data: ejecucion, error: errEj } = await admin
     .from('ejecuciones_flujo')
-    .select('id, empresa_id, flujo_id, estado, log, inicio_en')
+    .select('id, empresa_id, flujo_id, estado, log, inicio_en, contexto_inicial')
     .eq('id', ejecucionId)
     .maybeSingle()
 
@@ -126,19 +129,18 @@ export async function correrEjecucion(
     )
   }
 
-  // Cortocircuito en estados terminales o ya en progreso. Cubre dos
-  // casos: (1) doble fire del dispatcher post-INSERT y (2) reintentos
-  // automáticos del webhook de Supabase si el primer call timoutea.
-  // La idempotencia se mantiene sin duplicar acciones.
+  // Cortocircuito:
   //   - completado/fallado/cancelado → devolver tal cual.
   //   - corriendo → otro orquestador ya está procesando; no tocamos.
-  //   - esperando → ya está pausado a la espera (relevante en 15.2).
+  //   - esperando → permitido reanudar (sub-PR 15.2: el cron despertó
+  //                 esta ejecución después de un `esperar` y vino a
+  //                 retomarla). No cortocircuitamos.
+  //   - pendiente → primera invocación, se procesa.
   if (
     ejecucion.estado === 'completado' ||
     ejecucion.estado === 'fallado' ||
     ejecucion.estado === 'cancelado' ||
-    ejecucion.estado === 'corriendo' ||
-    ejecucion.estado === 'esperando'
+    ejecucion.estado === 'corriendo'
   ) {
     const log = (ejecucion.log as PasoLog[] | null) ?? []
     return {
@@ -234,6 +236,8 @@ export async function correrEjecucion(
           empresa_id: ejecucion.empresa_id as string,
           ejecucion_id: ejecucionId,
           flujo_id: ejecucion.flujo_id as string,
+          contexto_inicial:
+            (ejecucion.contexto_inicial as Record<string, unknown> | null) ?? undefined,
         },
         admin,
       )
@@ -275,6 +279,15 @@ export async function correrEjecucion(
 
     const finPaso = new Date().toISOString()
 
+    // Detección de marcadores de control de flujo (sub-PR 15.2):
+    // si la acción devolvió `esperando: true` o `terminar: true`
+    // en su resultado, manejamos esos casos especiales.
+    const respuestaOk = exitoso && resultadoFinal?.ok === true
+      ? resultadoFinal.resultado
+      : null
+    const esEsperando = respuestaOk?.[MARCADOR_ESPERANDO] === true
+    const esTerminar = respuestaOk?.[MARCADOR_TERMINAR] === true
+
     log.push({
       paso: numeroPaso,
       tipo,
@@ -295,6 +308,40 @@ export async function correrEjecucion(
 
     void inicioPasoMs // referenciar para no warn (lo usamos en duracion).
 
+    // 4a) Si la acción fue `esperar`, marcar la ejecución como
+    //     'esperando' con `proximo_paso_en` y RETURN. El cron va a
+    //     reanudar cuando llegue ejecutar_en (la fila de
+    //     acciones_pendientes ya quedó insertada por el executor).
+    if (esEsperando && respuestaOk) {
+      const proximoPasoEn =
+        typeof respuestaOk.ejecutar_en === 'string'
+          ? respuestaOk.ejecutar_en
+          : null
+
+      await admin
+        .from('ejecuciones_flujo')
+        .update({
+          estado: 'esperando',
+          proximo_paso_en: proximoPasoEn,
+          log,
+        })
+        .eq('id', ejecucionId)
+
+      return {
+        ejecucion_id: ejecucionId,
+        estado_final: 'esperando',
+        pasos_completados: log.filter((p) => p.estado === 'ok').length,
+        pasos_fallados: log.filter((p) => p.estado === 'fallado').length,
+      }
+    }
+
+    // 4b) Si la acción fue `terminar_flujo` (o un branch que la
+    //     contenía), break del loop con estado completado.
+    if (esTerminar) {
+      estadoFinal = 'completado'
+      break
+    }
+
     if (!exitoso && !continuarSiFalla) {
       estadoFinal = 'fallado'
       break
@@ -308,6 +355,8 @@ export async function correrEjecucion(
       estado: estadoFinal,
       fin_en: new Date().toISOString(),
       log,
+      // Limpiar proximo_paso_en si veníamos de esperando.
+      proximo_paso_en: null,
     })
     .eq('id', ejecucionId)
 

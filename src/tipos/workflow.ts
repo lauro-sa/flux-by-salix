@@ -252,9 +252,41 @@ export interface AccionNotificarUsuario extends AccionBase {
   notificacion_tipo?: string
 }
 
+// ─── Acciones de control de flujo (sub-PR 15.2) ───────────────
+
+export interface AccionEsperar extends AccionBase {
+  tipo: 'esperar'
+  /**
+   * Duración del delay en milisegundos. Mutuamente exclusivo con
+   * `hasta_fecha`. Mínimo 1000 (1s), máximo 30 días.
+   */
+  duracion_ms?: number
+  /**
+   * Fecha absoluta (ISO 8601) hasta cuándo esperar. Mutuamente
+   * exclusivo con `duracion_ms`. Útil para "esperar hasta el
+   * próximo lunes a las 9".
+   */
+  hasta_fecha?: string
+}
+
+export interface AccionCondicionBranch extends AccionBase {
+  tipo: 'condicion_branch'
+  condicion: CondicionWorkflow
+  /** Acciones a ejecutar si la condición evalúa true. */
+  acciones_si: AccionWorkflow[]
+  /** Acciones a ejecutar si la condición evalúa false. */
+  acciones_no: AccionWorkflow[]
+}
+
+export interface AccionTerminarFlujo extends AccionBase {
+  tipo: 'terminar_flujo'
+  /** Motivo opcional para auditar por qué el flujo se cortó. */
+  motivo?: string
+}
+
 // ─── Acciones del catálogo todavía no implementadas ───────────
 // Forma genérica: { tipo, parametros }. Cada una tendrá su shape
-// específico cuando se implemente (sub-PR 15.2+).
+// específico cuando se implemente (sub-PR 15.3+).
 export interface AccionGenerica extends AccionBase {
   tipo: Exclude<
     TipoAccion,
@@ -262,6 +294,9 @@ export interface AccionGenerica extends AccionBase {
     | 'crear_actividad'
     | 'cambiar_estado_entidad'
     | 'notificar_usuario'
+    | 'esperar'
+    | 'condicion_branch'
+    | 'terminar_flujo'
   >
   parametros: Record<string, unknown>
 }
@@ -271,22 +306,52 @@ export type AccionWorkflow =
   | AccionCrearActividad
   | AccionCambiarEstadoEntidad
   | AccionNotificarUsuario
+  | AccionEsperar
+  | AccionCondicionBranch
+  | AccionTerminarFlujo
   | AccionGenerica
 
-// Condiciones (filtros adicionales después del trigger). El motor del
-// PR 16 las evalúa contra el contexto de la ejecución.
-export interface CondicionWorkflow {
+// Condiciones (filtros adicionales después del trigger O dentro de
+// una acción condicion_branch). El evaluador en
+// src/lib/workflows/evaluar-condicion.ts las resuelve contra el
+// contexto de la ejecución.
+//
+// Discriminated union sobre la presencia de `condiciones` (compuesta)
+// vs `campo` (hoja). Soporta anidamiento Y/O ilimitado en estructura,
+// con guarda de profundidad runtime para evitar recursión maliciosa.
+
+export type OperadorComparacion =
+  | 'igual' | 'distinto'
+  | 'mayor' | 'menor' | 'mayor_o_igual' | 'menor_o_igual'
+  | 'contiene' | 'no_contiene'
+  | 'existe' | 'no_existe'
+  | 'en_lista' | 'no_en_lista'
+  | 'entre'
+  | 'dias_desde' | 'dias_hasta'
+
+export interface CondicionHoja {
+  /** Path al campo en el contexto. Soporta dot notation: `entidad.estado_nuevo`. */
   campo: string
-  operador:
-    | 'igual' | 'distinto'
-    | 'mayor' | 'menor' | 'mayor_o_igual' | 'menor_o_igual'
-    | 'contiene' | 'no_contiene'
-    | 'existe' | 'no_existe'
-    | 'en_lista' | 'no_en_lista'
-    | 'entre'
-    | 'dias_desde' | 'dias_hasta'
+  operador: OperadorComparacion
+  /**
+   * Valor a comparar. El tipo depende del operador:
+   *   - igual/distinto/contiene/no_contiene: string | number | boolean
+   *   - mayor/menor/...: number | Date-string
+   *   - existe/no_existe: ignorado
+   *   - en_lista/no_en_lista: array
+   *   - entre: [min, max]
+   *   - dias_desde/dias_hasta: number (cantidad de días)
+   */
   valor?: unknown
 }
+
+export interface CondicionCompuesta {
+  /** 'y' = AND lógico (todas verdaderas). 'o' = OR lógico (al menos una). */
+  operador: 'y' | 'o'
+  condiciones: CondicionWorkflow[]
+}
+
+export type CondicionWorkflow = CondicionHoja | CondicionCompuesta
 
 // =============================================================
 // Estados de la máquina interna del motor
@@ -536,6 +601,70 @@ export function esAccionNotificarUsuario(
   if (!esStringNoVacio(r.usuario_id)) return false
   if (!esStringNoVacio(r.titulo)) return false
   if (r.cuerpo !== undefined && typeof r.cuerpo !== 'string') return false
+  return true
+}
+
+export function esAccionEsperar(a: unknown): a is AccionEsperar {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'esperar') return false
+  // Exactamente uno de duracion_ms o hasta_fecha debe estar presente.
+  const tieneDuracion = typeof r.duracion_ms === 'number' && r.duracion_ms > 0
+  const tieneFecha = typeof r.hasta_fecha === 'string' && r.hasta_fecha.length > 0
+  if (tieneDuracion === tieneFecha) return false // ambos true o ambos false → inválido
+  if (tieneDuracion && (r.duracion_ms as number) < 1000) return false // mínimo 1s
+  if (tieneDuracion && (r.duracion_ms as number) > 30 * 24 * 3600 * 1000) return false // máx 30d
+  return true
+}
+
+export function esAccionCondicionBranch(
+  a: unknown,
+): a is AccionCondicionBranch {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'condicion_branch') return false
+  if (!esCondicionWorkflow(r.condicion)) return false
+  if (!Array.isArray(r.acciones_si)) return false
+  if (!Array.isArray(r.acciones_no)) return false
+  return true
+}
+
+export function esAccionTerminarFlujo(a: unknown): a is AccionTerminarFlujo {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'terminar_flujo') return false
+  if (r.motivo !== undefined && typeof r.motivo !== 'string') return false
+  return true
+}
+
+const OPERADORES_COMPARACION = new Set<string>([
+  'igual', 'distinto',
+  'mayor', 'menor', 'mayor_o_igual', 'menor_o_igual',
+  'contiene', 'no_contiene',
+  'existe', 'no_existe',
+  'en_lista', 'no_en_lista',
+  'entre',
+  'dias_desde', 'dias_hasta',
+])
+
+/**
+ * Valida una condición (hoja o compuesta). Recursivo para compuestas,
+ * con tope de profundidad razonable. La profundidad efectiva de
+ * ejecución se valida en `evaluar-condicion.ts` (3 niveles por defecto).
+ */
+export function esCondicionWorkflow(c: unknown, profundidad = 0): c is CondicionWorkflow {
+  if (typeof c !== 'object' || c === null) return false
+  if (profundidad > 10) return false // tope estructural duro
+  const r = c as Record<string, unknown>
+  // Compuesta: tiene `condiciones` array.
+  if (Array.isArray(r.condiciones)) {
+    if (r.operador !== 'y' && r.operador !== 'o') return false
+    return r.condiciones.every((sub) => esCondicionWorkflow(sub, profundidad + 1))
+  }
+  // Hoja: tiene `campo` + `operador`.
+  if (typeof r.campo !== 'string' || r.campo.length === 0) return false
+  if (typeof r.operador !== 'string') return false
+  if (!OPERADORES_COMPARACION.has(r.operador)) return false
   return true
 }
 

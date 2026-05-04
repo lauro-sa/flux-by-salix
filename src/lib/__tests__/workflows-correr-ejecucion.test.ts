@@ -20,6 +20,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 vi.mock('../workflows/executor', () => ({
   ejecutarAccion: vi.fn(),
+  MARCADOR_ESPERANDO: '__workflow_esperando__',
+  MARCADOR_TERMINAR: '__workflow_terminar__',
 }))
 
 import {
@@ -42,6 +44,8 @@ interface StoreEjecucion {
   log: PasoLog[]
   inicio_en: string | null
   fin_en: string | null
+  proximo_paso_en: string | null
+  contexto_inicial: Record<string, unknown> | null
 }
 
 interface StoreFlujo {
@@ -112,6 +116,8 @@ function nuevaStore(acciones: unknown[]): Store {
       log: [],
       inicio_en: null,
       fin_en: null,
+      proximo_paso_en: null,
+      contexto_inicial: {},
     },
     flujo: { id: 'flujo-1', acciones },
   }
@@ -283,5 +289,84 @@ describe('correrEjecucion', () => {
     expect(r.estado_final).toBe('fallado')
     expect(store.ejecucion.log[0].intentos).toHaveLength(4) // 1 inicial + 3 reintentos
     expect(ejecutarAccionMock).toHaveBeenCalledTimes(4)
+  })
+
+  // ─── Tests sub-PR 15.2 ─────────────────────────────────────
+
+  it('15.2: acción esperar marca ejecución esperando + proximo_paso_en, no avanza', async () => {
+    const store = nuevaStore([
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'a' },
+      { tipo: 'esperar', duracion_ms: 60000 },
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'b' }, // no debe ejecutar todavía
+    ])
+    const futuroIso = new Date(Date.now() + 60000).toISOString()
+    ejecutarAccionMock
+      .mockResolvedValueOnce({ ok: true, resultado: { notificacion_id: 'n-1' } })
+      .mockResolvedValueOnce({
+        ok: true,
+        resultado: {
+          ['__workflow_esperando__']: true,
+          accion_pendiente_id: 'ap-1',
+          ejecutar_en: futuroIso,
+        },
+      })
+    const admin = crearAdminMock(store)
+
+    const r = await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(r.estado_final).toBe('esperando')
+    expect(store.ejecucion.estado).toBe('esperando')
+    expect(store.ejecucion.proximo_paso_en).toBe(futuroIso)
+    expect(store.ejecucion.fin_en).toBeNull()
+    expect(store.ejecucion.log).toHaveLength(2)
+    expect(ejecutarAccionMock).toHaveBeenCalledTimes(2) // paso 3 NO ejecuta
+  })
+
+  it('15.2: reanuda desde el log si la ejecución llega en estado esperando', async () => {
+    const store = nuevaStore([
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'a' }, // ya hecha
+      { tipo: 'esperar', duracion_ms: 60000 },                       // ya hecha
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'b' }, // próxima
+    ])
+    // Simulamos retorno post-cron: estado esperando, log con 2 pasos.
+    store.ejecucion.estado = 'esperando'
+    store.ejecucion.log = [
+      { paso: 1, tipo: 'notificar_usuario', estado: 'ok', inicio_en: 'x', fin_en: 'y', intentos: [] },
+      { paso: 2, tipo: 'esperar', estado: 'ok', inicio_en: 'x', fin_en: 'y', intentos: [] },
+    ]
+    ejecutarAccionMock.mockResolvedValueOnce({
+      ok: true,
+      resultado: { notificacion_id: 'n-2' },
+    })
+    const admin = crearAdminMock(store)
+
+    const r = await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(r.estado_final).toBe('completado')
+    expect(store.ejecucion.log).toHaveLength(3)
+    expect(store.ejecucion.log[2].tipo).toBe('notificar_usuario')
+    // El executor solo se invocó para el paso 3.
+    expect(ejecutarAccionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('15.2: acción terminar_flujo corta el flujo con estado completado', async () => {
+    const store = nuevaStore([
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'a' },
+      { tipo: 'terminar_flujo', motivo: 'fin temprano' },
+      { tipo: 'notificar_usuario', usuario_id: 'u-1', titulo: 'no debe' },
+    ])
+    ejecutarAccionMock
+      .mockResolvedValueOnce({ ok: true, resultado: { notificacion_id: 'n-1' } })
+      .mockResolvedValueOnce({
+        ok: true,
+        resultado: { ['__workflow_terminar__']: true, motivo: 'fin temprano' },
+      })
+    const admin = crearAdminMock(store)
+
+    const r = await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(r.estado_final).toBe('completado')
+    expect(store.ejecucion.log).toHaveLength(2) // paso 3 no ejecuta
+    expect(ejecutarAccionMock).toHaveBeenCalledTimes(2)
   })
 })
