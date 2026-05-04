@@ -24,6 +24,14 @@ vi.mock('../workflows/executor', () => ({
   MARCADOR_TERMINAR: '__workflow_terminar__',
 }))
 
+// Mock del enriquecimiento de contexto (PR 16): los tests del
+// orquestador no validan la lógica de contexto.ts (eso vive en
+// workflows-contexto.test.ts). Devolvemos el contexto_inicial tal
+// cual para que el orquestador siga su curso sin tocar BD.
+vi.mock('../workflows/contexto', () => ({
+  enriquecerContexto: vi.fn(async (ej: { contexto_inicial: unknown }) => ej.contexto_inicial ?? {}),
+}))
+
 import {
   correrEjecucion,
   type PasoLog,
@@ -347,6 +355,72 @@ describe('correrEjecucion', () => {
     expect(store.ejecucion.log[2].tipo).toBe('notificar_usuario')
     // El executor solo se invocó para el paso 3.
     expect(ejecutarAccionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('PR 16: resuelve {{vars}} antes de invocar el executor', async () => {
+    const store = nuevaStore([
+      {
+        tipo: 'notificar_usuario',
+        usuario_id: 'u-1',
+        titulo: 'Hola {{contacto.nombre | nombre_corto}}',
+        cuerpo: 'Total: {{entidad.monto | numero}}',
+      },
+    ])
+    store.ejecucion.contexto_inicial = {
+      contacto: { nombre: 'Juan Pérez' },
+      entidad: { tipo: 'presupuesto', monto: 150000 },
+      empresa: { zona_horaria: 'America/Argentina/Buenos_Aires', moneda: 'ARS' },
+    }
+    ejecutarAccionMock.mockResolvedValue({ ok: true, resultado: { notificacion_id: 'n-1' } })
+    const admin = crearAdminMock(store)
+
+    await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(ejecutarAccionMock).toHaveBeenCalledTimes(1)
+    const accionRecibida = ejecutarAccionMock.mock.calls[0][0] as {
+      titulo: string
+      cuerpo: string
+    }
+    expect(accionRecibida.titulo).toBe('Hola Juan')
+    expect(accionRecibida.cuerpo).toBe('Total: 150.000')
+  })
+
+  it('PR 16: variable faltante sin default → falla permanente', async () => {
+    const store = nuevaStore([
+      {
+        tipo: 'notificar_usuario',
+        usuario_id: 'u-1',
+        titulo: 'Hola {{contacto.nada}}',
+      },
+    ])
+    store.ejecucion.contexto_inicial = { contacto: {} }
+    const admin = crearAdminMock(store)
+
+    const r = await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(r.estado_final).toBe('fallado')
+    expect(store.ejecucion.log[0].estado).toBe('fallado')
+    expect(store.ejecucion.log[0].intentos[0].error?.raw_class).toBe('VariableFaltante')
+    expect(ejecutarAccionMock).not.toHaveBeenCalled() // no llegó al executor
+  })
+
+  it('PR 16: helper con tipo invalido → falla permanente con HelperTipoInvalido', async () => {
+    const store = nuevaStore([
+      {
+        tipo: 'notificar_usuario',
+        usuario_id: 'u-1',
+        titulo: '{{entidad.numero | moneda}}',
+      },
+    ])
+    store.ejecucion.contexto_inicial = {
+      entidad: { numero: 'PR-001' }, // string, no number
+    }
+    const admin = crearAdminMock(store)
+
+    const r = await correrEjecucion('ej-1', admin as never, { sleep: sleepInstantaneo })
+
+    expect(r.estado_final).toBe('fallado')
+    expect(store.ejecucion.log[0].intentos[0].error?.raw_class).toBe('HelperTipoInvalido')
   })
 
   it('15.2: acción terminar_flujo corta el flujo con estado completado', async () => {

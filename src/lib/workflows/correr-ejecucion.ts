@@ -50,6 +50,14 @@ import {
   MARCADOR_TERMINAR,
   type ResultadoAccion,
 } from './executor'
+import { enriquecerContexto } from './contexto'
+import {
+  resolverEnObjeto,
+  VariableFaltanteError,
+  HelperTipoInvalidoError,
+  HelperDesconocidoError,
+  type ContextoVariables,
+} from './resolver-variables'
 
 // =============================================================
 // Constantes de reintentos
@@ -116,10 +124,12 @@ export async function correrEjecucion(
 
   // 1) Cargar ejecución + flujo (acciones en jsonb).
   //    contexto_inicial se incluye porque el evaluador de condiciones
-  //    de condicion_branch lee de ahí (sub-PR 15.2).
+  //    de condicion_branch lee de ahí (sub-PR 15.2) y el resolver de
+  //    variables {{vars}} también (PR 16). disparado_por se necesita
+  //    para enriquecer el actor cuando es primera invocación.
   const { data: ejecucion, error: errEj } = await admin
     .from('ejecuciones_flujo')
-    .select('id, empresa_id, flujo_id, estado, log, inicio_en, contexto_inicial')
+    .select('id, empresa_id, flujo_id, estado, log, inicio_en, contexto_inicial, disparado_por')
     .eq('id', ejecucionId)
     .maybeSingle()
 
@@ -167,7 +177,31 @@ export async function correrEjecucion(
     ? (flujo.acciones as unknown[])
     : []
 
-  // 2) Marcar corriendo + setear inicio_en si aún no estaba (idempotente).
+  // 2) Si es primera invocación (estado='pendiente' al arrancar),
+  //    enriquecer el contexto: cargar entidad completa + contacto +
+  //    actor + empresa. Persistir en contexto_inicial. PR 16.
+  //    En reanudaciones (estado='esperando'), el contexto ya está
+  //    enriquecido y no se vuelve a cargar — datos congelados.
+  let contextoVars: ContextoVariables =
+    (ejecucion.contexto_inicial as ContextoVariables | null) ?? {}
+
+  const esPrimeraInvocacion = ejecucion.estado === 'pendiente'
+  if (esPrimeraInvocacion) {
+    contextoVars = await enriquecerContexto(
+      {
+        empresa_id: ejecucion.empresa_id as string,
+        contexto_inicial: contextoVars,
+        disparado_por: (ejecucion.disparado_por as string | null) ?? null,
+      },
+      admin,
+    )
+    await admin
+      .from('ejecuciones_flujo')
+      .update({ contexto_inicial: contextoVars })
+      .eq('id', ejecucionId)
+  }
+
+  // 3) Marcar corriendo + setear inicio_en si aún no estaba (idempotente).
   const ahoraInicio = new Date().toISOString()
   const updateInicial: Record<string, unknown> = { estado: 'corriendo' }
   if (!ejecucion.inicio_en) updateInicial.inicio_en = ahoraInicio
@@ -230,14 +264,35 @@ export async function correrEjecucion(
     for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
       const tsIntento = new Date().toISOString()
       const tsMs = Date.now()
+
+      // Resolver {{vars}} en los parámetros de la acción contra el
+      // contexto enriquecido (PR 16). Si una variable falta, un helper
+      // recibe tipo invalido o se invoca un helper desconocido, el
+      // intento falla con error semántico (no transitorio).
+      let accionResuelta: typeof accion
+      try {
+        accionResuelta = resolverEnObjeto(accion, contextoVars) as typeof accion
+      } catch (e) {
+        const r: ResultadoAccion = clasificarErrorResolver(e)
+        const duracion_ms = Date.now() - tsMs
+        resultadoFinal = r
+        intentos.push({
+          n: intento,
+          ts: tsIntento,
+          duracion_ms,
+          resultado: 'fallo_permanente',
+          error: { mensaje: r.error.mensaje, status: r.error.status, raw_class: r.error.raw_class },
+        })
+        break
+      }
+
       const r = await ejecutarAccion(
-        accion,
+        accionResuelta,
         {
           empresa_id: ejecucion.empresa_id as string,
           ejecucion_id: ejecucionId,
           flujo_id: ejecucion.flujo_id as string,
-          contexto_inicial:
-            (ejecucion.contexto_inicial as Record<string, unknown> | null) ?? undefined,
+          contexto_inicial: contextoVars,
         },
         admin,
       )
@@ -365,5 +420,39 @@ export async function correrEjecucion(
     estado_final: estadoFinal,
     pasos_completados: log.filter((p) => p.estado === 'ok').length,
     pasos_fallados: log.filter((p) => p.estado === 'fallado').length,
+  }
+}
+
+/**
+ * Convierte excepciones del resolver de variables (PR 16) en un
+ * ResultadoAccion permanente. Estos errores son siempre semánticos
+ * (sintaxis del flujo, contrato de helpers): no se reintentan.
+ */
+function clasificarErrorResolver(e: unknown): {
+  ok: false
+  error: { mensaje: string; status?: number; transitorio: false; raw_class: string }
+} {
+  if (e instanceof VariableFaltanteError) {
+    return {
+      ok: false,
+      error: { mensaje: e.message, transitorio: false, raw_class: 'VariableFaltante' },
+    }
+  }
+  if (e instanceof HelperTipoInvalidoError) {
+    return {
+      ok: false,
+      error: { mensaje: e.message, transitorio: false, raw_class: 'HelperTipoInvalido' },
+    }
+  }
+  if (e instanceof HelperDesconocidoError) {
+    return {
+      ok: false,
+      error: { mensaje: e.message, transitorio: false, raw_class: 'HelperDesconocido' },
+    }
+  }
+  const mensaje = e instanceof Error ? e.message : String(e)
+  return {
+    ok: false,
+    error: { mensaje: `Error en resolver de variables: ${mensaje}`, transitorio: false, raw_class: 'ResolverError' },
   }
 }
