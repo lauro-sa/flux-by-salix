@@ -420,6 +420,21 @@ async function ejecutarNotificarUsuario(
   contexto: ContextoEjecucion,
   admin: SupabaseClient,
 ): Promise<ResultadoAccion> {
+  // referencia_tipo y referencia_id se dejan en NULL para evitar
+  // colisiones con el índice `notificaciones_dedup_no_leida_idx` que
+  // bloquea múltiples notificaciones no leídas para el mismo
+  // (empresa_id, usuario_id, referencia_tipo, referencia_id). Ese
+  // dedup tiene sentido para casos típicos (no spamear con la misma
+  // notif) pero NO para workflows que generan N notificaciones para
+  // un mismo usuario apuntando a la misma ejecución (caso real
+  // detectado en E2E del sub-PR 15.2: flujo con 2 notificar_usuario
+  // separados por esperar(60s)).
+  //
+  // La trazabilidad inversa "qué workflow generó esta notif" se
+  // pierde a nivel columna pero se mantiene a nivel `tipo` (default
+  // 'workflow') y opcionalmente en `cuerpo`. Si en el futuro hace
+  // falta linkear notif → ejecucion, una opción es agregar un
+  // campo metadatos jsonb a notificaciones (PR aparte).
   const { data, error } = await admin
     .from('notificaciones')
     .insert({
@@ -429,8 +444,6 @@ async function ejecutarNotificarUsuario(
       titulo: accion.titulo,
       cuerpo: accion.cuerpo ?? null,
       url: accion.url ?? null,
-      referencia_tipo: 'ejecucion_flujo',
-      referencia_id: contexto.ejecucion_id,
       leida: false,
     })
     .select('id')

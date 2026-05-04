@@ -161,25 +161,55 @@ export async function GET(request: NextRequest) {
     if (ejecucionesDisparadas.has(fila.ejecucion_id)) continue
     ejecucionesDisparadas.add(fila.ejecucion_id)
 
-    // fire-and-forget al worker. NO awaitamos — cada worker corre
-    // en su propia Vercel Function con timeout de 60s separado.
-    void fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${webhookSecret}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ ejecucion_id: fila.ejecucion_id }),
-    }).catch((e) => {
+    // Invocar worker con AWAIT y timeout corto.
+    //
+    // Por qué NO usamos `void fetch` (probado y descartado en E2E
+    // del sub-PR 15.2): en Vercel Node Functions, los fetches
+    // disparados sin await se abortan cuando la function retorna —
+    // a diferencia del Edge Runtime que sí tiene EdgeRuntime.waitUntil.
+    // El cron entonces marcaría 'disparados' pero el worker nunca
+    // recibiría el request, y la ejecución quedaría colgada en
+    // 'esperando' indefinidamente.
+    //
+    // Solución: AWAIT con timeout. El cron espera hasta que el
+    // request HTTP llega al worker (típicamente <1s). Si el worker
+    // tarda >10s en responder, el cron aborta el cliente fetch pero
+    // el worker ya recibió el request y sigue procesando en su
+    // propia Vercel Function (no se cancela del lado server).
+    //
+    // Performance: para flujos típicos cada fetch dura ~1-3s. Con 50
+    // pendientes secuenciales el cron tarda <60s (timeout default).
+    // Si crece, paralelizar con Promise.allSettled.
+    const ctrl = new AbortController()
+    const timeoutId = setTimeout(() => ctrl.abort(), 10_000)
+    try {
+      await fetch(workerUrl, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${webhookSecret}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ ejecucion_id: fila.ejecucion_id }),
+        signal: ctrl.signal,
+      })
+    } catch (e) {
+      // AbortError: el worker está tardando >10s pero ya recibió el
+      // request. La ejecución sigue su curso del lado del worker.
+      // Otros errores: red, DNS, etc. — log y seguir.
+      const nombre = e instanceof Error ? e.name : 'unknown'
+      const mensaje = e instanceof Error ? e.message : String(e)
       console.error(
         JSON.stringify({
-          nivel: 'error',
-          mensaje: 'error_fire_worker',
+          nivel: nombre === 'AbortError' ? 'warn' : 'error',
+          mensaje: 'fetch_worker_incompleto',
           ejecucion_id: fila.ejecucion_id,
-          detalle: e instanceof Error ? e.message : String(e),
+          tipo: nombre,
+          detalle: mensaje,
         }),
       )
-    })
+    } finally {
+      clearTimeout(timeoutId)
+    }
 
     disparados += 1
   }
