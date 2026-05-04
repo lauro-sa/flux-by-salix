@@ -19,6 +19,7 @@ import type {
   CambioEstado,
   EntidadConEstado,
 } from '@/tipos/estados'
+import { ENTIDADES_CON_ESTADO } from '@/tipos/estados'
 
 // =============================================================
 // Catálogo de tipos de disparador
@@ -144,9 +145,10 @@ export type DisparadorWorkflow =
 // no las procesa — solo crea la ejecución y deja al worker que
 // resuelva la lista.
 //
-// Para PR 14 modelamos solo la forma genérica { tipo, parametros }.
-// Cada tipo de acción tendrá su discriminated union específica
-// cuando se implemente en su PR.
+// Sub-PR 15.1: las 4 acciones implementadas tienen su shape
+// específico modelado como discriminated union sobre `tipo`. Las
+// demás del catálogo siguen siendo conocidas pero su shape específico
+// se completa cuando se implementan (sub-PR 15.2 y siguientes).
 
 export type TipoAccion =
   | 'enviar_whatsapp_plantilla'
@@ -189,10 +191,87 @@ export const TIPOS_ACCION: readonly TipoAccion[] = [
   'terminar_flujo',
 ] as const
 
-export interface AccionWorkflow {
-  tipo: TipoAccion
+// Flag común opcional: si la acción falla irrecuperablemente, ¿el
+// flujo se detiene (default) o continúa con la siguiente acción?
+// Útil para acciones complementarias que no deben romper la cadena
+// (ej: un correo opcional cuyo fallo no impide la actividad principal).
+interface AccionBase {
+  /** Si está en true y la acción falla, el flujo continúa con la siguiente. Default false. */
+  continuar_si_falla?: boolean
+}
+
+// ─── Acciones del sub-PR 15.1 (shape específico) ──────────────
+
+export interface AccionEnviarWhatsappPlantilla extends AccionBase {
+  tipo: 'enviar_whatsapp_plantilla'
+  /** ID del canal de WhatsApp a usar (de canales_whatsapp). */
+  canal_id: string
+  /** Teléfono destino en formato E.164 sin '+' (ej: '5491134567890'). */
+  telefono: string
+  /** Nombre de la plantilla aprobada en Meta. */
+  plantilla_nombre: string
+  /** Código de idioma (ej: 'es_AR', 'es', 'en'). */
+  idioma: string
+  /**
+   * Componentes de la plantilla con variables resueltas (header/body/buttons).
+   * Estructura compatible con Meta Cloud API. Si la plantilla no tiene
+   * variables, dejar vacío o undefined.
+   */
+  componentes?: Record<string, unknown>[]
+}
+
+export interface AccionCrearActividad extends AccionBase {
+  tipo: 'crear_actividad'
+  tipo_actividad_id: string
+  titulo: string
+  descripcion?: string
+  /** Array de uuids de usuarios asignados. */
+  asignados_ids?: string[]
+  /** Vínculo opcional con un contacto (se agrega al array `vinculos`). */
+  contacto_id?: string
+  fecha_vencimiento?: string
+  prioridad?: 'baja' | 'normal' | 'alta'
+}
+
+export interface AccionCambiarEstadoEntidad extends AccionBase {
+  tipo: 'cambiar_estado_entidad'
+  entidad_tipo: EntidadConEstado
+  entidad_id: string
+  hasta_clave: string
+  motivo?: string
+}
+
+export interface AccionNotificarUsuario extends AccionBase {
+  tipo: 'notificar_usuario'
+  usuario_id: string
+  titulo: string
+  cuerpo?: string
+  /** URL relativa para deep-linking desde la notificación. */
+  url?: string
+  /** Categoría de notificación (matchea `notificaciones.tipo` en BD). */
+  notificacion_tipo?: string
+}
+
+// ─── Acciones del catálogo todavía no implementadas ───────────
+// Forma genérica: { tipo, parametros }. Cada una tendrá su shape
+// específico cuando se implemente (sub-PR 15.2+).
+export interface AccionGenerica extends AccionBase {
+  tipo: Exclude<
+    TipoAccion,
+    | 'enviar_whatsapp_plantilla'
+    | 'crear_actividad'
+    | 'cambiar_estado_entidad'
+    | 'notificar_usuario'
+  >
   parametros: Record<string, unknown>
 }
+
+export type AccionWorkflow =
+  | AccionEnviarWhatsappPlantilla
+  | AccionCrearActividad
+  | AccionCambiarEstadoEntidad
+  | AccionNotificarUsuario
+  | AccionGenerica
 
 // Condiciones (filtros adicionales después del trigger). El motor del
 // PR 16 las evalúa contra el contexto de la ejecución.
@@ -399,6 +478,76 @@ export function esDisparadorEntidadEstadoCambio(
     return false
   }
   return true
+}
+
+// ─── Type guards de acciones (sub-PR 15.1) ────────────────────
+// El executor del worker usa estos guards para narrowing seguro al
+// leer `flujo.acciones[]` (que viene como jsonb crudo de la BD).
+
+function esStringNoVacio(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0
+}
+
+export function esAccionEnviarWhatsappPlantilla(
+  a: unknown,
+): a is AccionEnviarWhatsappPlantilla {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'enviar_whatsapp_plantilla') return false
+  if (!esStringNoVacio(r.canal_id)) return false
+  if (!esStringNoVacio(r.telefono)) return false
+  if (!esStringNoVacio(r.plantilla_nombre)) return false
+  if (!esStringNoVacio(r.idioma)) return false
+  if (r.componentes !== undefined && !Array.isArray(r.componentes)) return false
+  return true
+}
+
+export function esAccionCrearActividad(a: unknown): a is AccionCrearActividad {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'crear_actividad') return false
+  if (!esStringNoVacio(r.tipo_actividad_id)) return false
+  if (!esStringNoVacio(r.titulo)) return false
+  if (r.descripcion !== undefined && typeof r.descripcion !== 'string') return false
+  if (r.asignados_ids !== undefined && !Array.isArray(r.asignados_ids)) return false
+  if (r.contacto_id !== undefined && typeof r.contacto_id !== 'string') return false
+  return true
+}
+
+export function esAccionCambiarEstadoEntidad(
+  a: unknown,
+): a is AccionCambiarEstadoEntidad {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'cambiar_estado_entidad') return false
+  if (typeof r.entidad_tipo !== 'string') return false
+  if (!(ENTIDADES_CON_ESTADO as readonly string[]).includes(r.entidad_tipo)) return false
+  if (!esStringNoVacio(r.entidad_id)) return false
+  if (!esStringNoVacio(r.hasta_clave)) return false
+  return true
+}
+
+export function esAccionNotificarUsuario(
+  a: unknown,
+): a is AccionNotificarUsuario {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'notificar_usuario') return false
+  if (!esStringNoVacio(r.usuario_id)) return false
+  if (!esStringNoVacio(r.titulo)) return false
+  if (r.cuerpo !== undefined && typeof r.cuerpo !== 'string') return false
+  return true
+}
+
+/**
+ * Valida la forma mínima de cualquier acción del catálogo: que sea
+ * objeto, tenga `tipo` string conocido. NO valida el shape específico
+ * de cada tipo — para eso están los guards individuales arriba.
+ */
+export function esAccionConocida(a: unknown): a is AccionWorkflow {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  return esTipoAccion(r.tipo)
 }
 
 /**

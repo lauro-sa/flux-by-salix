@@ -14,6 +14,21 @@
 // function captura y reporta como "ya existía" — sin error.
 //
 // =============================================================
+// FIRE-AND-FORGET AL WORKER (sub-PR 15.1)
+// =============================================================
+// Después de cada INSERT exitoso de ejecución, el dispatcher invoca
+// el endpoint Next `/api/workflows/correr-ejecucion` con el ID
+// recién creado, usando `EdgeRuntime.waitUntil(fetch(...))`. Eso
+// permite que la respuesta del webhook (200 a Supabase) se devuelva
+// inmediato sin esperar a que el flujo se ejecute, y el worker
+// corre en background hasta que Vercel responde.
+//
+// Idempotencia: si el webhook se reintenta y la ejecución ya existe
+// (clave_idempotencia rebota con unique_violation 23505), NO se
+// dispara el worker de nuevo. La 2da invocación al webhook devuelve
+// 200 con `ya_existian: 1` sin tocar al worker.
+//
+// =============================================================
 // AUTH — Bearer con WEBHOOK_SECRET custom
 // =============================================================
 // La function valida `Authorization: Bearer <WEBHOOK_SECRET>`
@@ -268,9 +283,11 @@ Deno.serve(async (req: Request) => {
   const matched = matchearFlujos(evento, (flujos ?? []) as Flujo[])
 
   // 7) Insertar una ejecucion por flujo matcheado, capturando
-  //    unique_violation para idempotencia.
+  //    unique_violation para idempotencia. Recolectamos los IDs
+  //    creados para luego dispararle al worker (paso 8).
   let creadas = 0
   let yaExistian = 0
+  const idsEjecucionesCreadas: string[] = []
   for (const flujo of matched) {
     const clave = armarClaveIdempotencia(flujo.id, evento.id)
 
@@ -292,14 +309,18 @@ Deno.serve(async (req: Request) => {
       },
     }
 
-    const { error: errIns } = await sb.from('ejecuciones_flujo').insert({
-      empresa_id: evento.empresa_id,
-      flujo_id: flujo.id,
-      estado: 'pendiente',
-      disparado_por: `cambios_estado:${evento.id}`,
-      contexto_inicial: contextoInicial,
-      clave_idempotencia: clave,
-    })
+    const { data: ejInsertada, error: errIns } = await sb
+      .from('ejecuciones_flujo')
+      .insert({
+        empresa_id: evento.empresa_id,
+        flujo_id: flujo.id,
+        estado: 'pendiente',
+        disparado_por: `cambios_estado:${evento.id}`,
+        contexto_inicial: contextoInicial,
+        clave_idempotencia: clave,
+      })
+      .select('id')
+      .maybeSingle()
 
     if (errIns) {
       // Postgres unique_violation = SQLSTATE 23505
@@ -317,10 +338,48 @@ Deno.serve(async (req: Request) => {
       }
     } else {
       creadas += 1
+      if (ejInsertada?.id) idsEjecucionesCreadas.push(ejInsertada.id)
     }
   }
 
-  // 8) Log estructurado mínimo (sin datos sensibles).
+  // 8) Fire-and-forget al worker para cada ejecución recién creada.
+  //    Usamos EdgeRuntime.waitUntil para que el fetch viva más allá
+  //    del return de la function. Si waitUntil no está disponible
+  //    (entorno raro), caemos a `void fetch` — el fetch puede que se
+  //    aborte al return, pero como tenemos idempotencia, el reintento
+  //    de Supabase no duplica.
+  const nextAppUrl = Deno.env.get('NEXT_APP_URL') ?? 'https://flux.salixweb.com'
+  const workerUrl = `${nextAppUrl.replace(/\/$/, '')}/api/workflows/correr-ejecucion`
+  for (const ejecucionId of idsEjecucionesCreadas) {
+    const promise = fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'authorization': `Bearer ${expected}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ ejecucion_id: ejecucionId }),
+    }).catch((e) => {
+      // No reintentamos desde el dispatcher si el fetch falla.
+      // El admin puede reinvocar manualmente con el ID.
+      console.error(JSON.stringify({
+        nivel: 'error',
+        mensaje: 'error_disparando_worker',
+        ejecucion_id: ejecucionId,
+        detalle: e instanceof Error ? e.message : String(e),
+      }))
+    })
+
+    const er = (globalThis as unknown as {
+      EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void }
+    }).EdgeRuntime
+    if (er?.waitUntil) {
+      er.waitUntil(promise)
+    } else {
+      void promise
+    }
+  }
+
+  // 9) Log estructurado mínimo (sin datos sensibles).
   console.log(JSON.stringify({
     nivel: 'info',
     cambios_estado_id: evento.id,
