@@ -492,6 +492,15 @@ export interface Flujo {
   editado_por_nombre: string | null
   creado_en: string
   actualizado_en: string
+  /**
+   * Estadísticas agregadas de ejecuciones — solo presentes cuando la
+   * fila viene de la vista `flujos_con_estadisticas` (PR 18.3,
+   * sql/059). El GET /api/flujos las trae siempre; el GET por id
+   * lee directo de la tabla y las omite. Son opcionales para que
+   * los call sites de un endpoint o del otro tipen igual.
+   */
+  ultima_ejecucion_en?: string | null
+  total_ejecuciones_30d?: number
 }
 
 // =============================================================

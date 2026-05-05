@@ -50,11 +50,17 @@ const POR_PAGINA_MAX = 200
 //                       Resuelto con inicioRangoFechaISO + zona horaria
 //                       de empresa, mismo patrón que /api/contactos.
 //                       Filtra por creado_en >= desde.
+//   fecha_ultima_ejecucion — preset de fecha; filtra por
+//                       ultima_ejecucion_en >= desde (PR 18.3).
 //   pagina            — 1-based. Default 1.
 //   por_pagina        — Default 50, máx 200.
 //
-// Diferido a 18.3 (requiere agregación con ejecuciones_flujo):
-//   fecha_ultima_ejecucion — filtro por última corrida real del flujo.
+// Fuente de datos: vista `flujos_con_estadisticas` (sql/059) en lugar
+// de la tabla cruda. La vista agrega `ultima_ejecucion_en` y
+// `total_ejecuciones_30d` mediante LATERAL JOINs sobre ejecuciones_flujo,
+// con `security_invoker=true` para respetar las RLS de las tablas
+// subyacentes según el caller. El filtro `fecha_ultima_ejecucion`
+// requiere este shape para aplicar antes de paginar.
 //
 // Respuesta:
 //   { flujos: Flujo[], total: number, pagina: number, por_pagina: number }
@@ -83,6 +89,7 @@ export async function GET(request: NextRequest) {
   const tipoDisparadorCsv = params.get('tipo_disparador') ?? ''
   const modulo = (params.get('modulo') ?? '').trim()
   const creadoRango = (params.get('creado_rango') ?? '').trim()
+  const fechaUltimaEjecucion = (params.get('fecha_ultima_ejecucion') ?? '').trim()
   const pagina = Math.max(1, Number(params.get('pagina') ?? '1') || 1)
   const porPaginaRaw = Number(params.get('por_pagina') ?? POR_PAGINA_DEFAULT) || POR_PAGINA_DEFAULT
   const porPagina = Math.min(POR_PAGINA_MAX, Math.max(1, porPaginaRaw))
@@ -101,12 +108,12 @@ export async function GET(request: NextRequest) {
 
   const admin = crearClienteAdmin()
   let query = admin
-    .from('flujos')
+    .from('flujos_con_estadisticas')
     .select(
       'id, empresa_id, nombre, descripcion, estado, activo, disparador, ' +
       'condiciones, acciones, borrador_jsonb, ultima_ejecucion_tiempo, ' +
       'creado_por, creado_por_nombre, editado_por, editado_por_nombre, ' +
-      'creado_en, actualizado_en',
+      'creado_en, actualizado_en, ultima_ejecucion_en, total_ejecuciones_30d',
       { count: 'exact' },
     )
     .eq('empresa_id', empresaId)
@@ -139,18 +146,28 @@ export async function GET(request: NextRequest) {
     // genéricos.
     query = query.eq('disparador->configuracion->>entidad_tipo', modulo)
   }
-  if (creadoRango.length > 0) {
+  // Filtros que dependen de zona horaria de empresa: cargamos la zona
+  // una sola vez si alguno está presente, no por cada filtro.
+  if (creadoRango.length > 0 || fechaUltimaEjecucion.length > 0) {
     const { data: emp } = await admin
       .from('empresas')
       .select('zona_horaria')
       .eq('id', empresaId)
       .maybeSingle()
-    const desdeISO = inicioRangoFechaISO(
-      creadoRango,
-      new Date(),
-      (emp?.zona_horaria as string) || undefined,
-    )
-    if (desdeISO) query = query.gte('creado_en', desdeISO)
+    const zona = (emp?.zona_horaria as string) || undefined
+
+    if (creadoRango.length > 0) {
+      const desdeISO = inicioRangoFechaISO(creadoRango, new Date(), zona)
+      if (desdeISO) query = query.gte('creado_en', desdeISO)
+    }
+    if (fechaUltimaEjecucion.length > 0) {
+      // Filtro sobre la columna agregada de la vista. Fila sin
+      // ejecuciones (`ultima_ejecucion_en IS NULL`) cae afuera del
+      // resultado, lo que es el comportamiento correcto: el usuario
+      // pidió "flujos con corrida en X período".
+      const desdeISO = inicioRangoFechaISO(fechaUltimaEjecucion, new Date(), zona)
+      if (desdeISO) query = query.gte('ultima_ejecucion_en', desdeISO)
+    }
   }
   if (visibilidad.soloPropio) {
     query = query.eq('creado_por', user.id)
