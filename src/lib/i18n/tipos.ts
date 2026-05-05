@@ -1137,6 +1137,7 @@ export interface Traducciones {
     aplicaciones: string
     documentacion: string
     marketing: string
+    flujos: string
   }
 
   // Toolbar flotante de selección de texto
@@ -1540,5 +1541,152 @@ export interface Traducciones {
     escribir_mensaje: string
     reaccionar: string
     quitar_etiqueta: string
+  }
+
+  // Flujos — listado central, modal de creación, acciones por fila.
+  // Las claves de `disparador.*` viven acá (no en un helper hardcodeado)
+  // para cumplir la regla i18n desde el inicio (memoria: feedback_documentacion.md).
+  flujos: {
+    titulo: string
+    nuevo: string
+    buscar_placeholder: string
+
+    // Estados
+    estados: {
+      activo: string
+      pausado: string
+      borrador: string
+    }
+
+    // Filtros toolbar (pills tri-state)
+    filtro_todos: string
+    filtro_activos: string
+    filtro_pausados: string
+    filtro_borradores: string
+
+    // Columnas
+    columna_estado: string
+    columna_nombre: string
+    columna_modulo: string
+    columna_disparador: string
+    columna_ultima_ejecucion: string
+    columna_ejecuciones: string
+
+    // Filtros panel avanzado
+    filtro_modulo: string
+    filtro_modulo_desc: string
+    filtro_tipo_disparador: string
+    filtro_tipo_disparador_desc: string
+    filtro_creado: string
+    filtro_creado_desc: string
+    filtro_ultima_ejec: string
+    filtro_ultima_ejec_desc: string
+    filtro_estado_desc: string
+
+    // Grupos de filtros
+    grupo_identidad: string
+    grupo_comportamiento: string
+    grupo_actividad: string
+
+    // Etiquetas legibles de cada tipo de disparador
+    disparador: {
+      'entidad.estado_cambio': string
+      'entidad.creada': string
+      'entidad.campo_cambia': string
+      'actividad.completada': string
+      'tiempo.cron': string
+      'tiempo.relativo_a_campo': string
+      'webhook.entrante': string
+      'inbox.mensaje_recibido': string
+      'inbox.conversacion_sin_respuesta': string
+      sin_disparador: string
+    }
+    disparador_descripcion: {
+      'entidad.estado_cambio': string
+      'entidad.creada': string
+      'entidad.campo_cambia': string
+      'actividad.completada': string
+      'tiempo.cron': string
+      'tiempo.relativo_a_campo': string
+      'webhook.entrante': string
+      'inbox.mensaje_recibido': string
+      'inbox.conversacion_sin_respuesta': string
+    }
+
+    // Modal "+ Nuevo flujo" (§1.11 del plan UX)
+    modal_nuevo: {
+      titulo: string
+      pestana_plantilla: string
+      pestana_cero: string
+      buscar_plantilla: string
+      filtrar_modulo: string
+      todos_modulos: string
+      crear_desde_plantilla: string
+      nombre_label: string
+      nombre_placeholder: string
+      modulo_label: string
+      modulo_placeholder: string
+      crear_y_editar: string
+      sin_plantillas: string
+      sin_plantillas_busqueda: string
+      plantilla_disparador: string
+    }
+
+    // Estado vacío educativo (empresa sin flujos)
+    estado_vacio: {
+      titulo: string
+      descripcion: string
+      titulo_plantillas: string
+      crear_desde_cero: string
+    }
+
+    // Acciones del menú tres puntos
+    accion: {
+      editar: string
+      ver: string
+      duplicar: string
+      activar: string
+      pausar: string
+      eliminar: string
+    }
+
+    // Confirmación dura para eliminar
+    confirmar_eliminar: {
+      titulo: string
+      descripcion: string
+      confirmar: string
+    }
+
+    // Modal mínimo de duplicar
+    modal_duplicar: {
+      titulo: string
+      descripcion: string
+      nombre_label: string
+      sufijo_copia: string
+      confirmar: string
+    }
+
+    // Tooltips e indicadores
+    tooltip_borrador_pendiente: string
+    tooltip_sin_ejecutar: string
+
+    // Toasts de feedback de las acciones
+    toast: {
+      creado: string
+      duplicado: string
+      activado: string
+      pausado: string
+      eliminado: string
+      error_crear: string
+      error_duplicar: string
+      error_activar: string
+      error_pausar: string
+      error_eliminar: string
+      editor_proximamente: string
+    }
+
+    // Página /flujos/[id] (placeholder en sub-PR 19.1, editor real en 19.2)
+    editor_proximamente_titulo: string
+    editor_proximamente_desc: string
   }
 }

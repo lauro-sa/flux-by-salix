@@ -1127,6 +1127,7 @@ export const es: Traducciones = {
     aplicaciones: 'Aplicaciones',
     documentacion: 'Documentación',
     marketing: 'Marketing',
+    flujos: 'Flujos',
   },
 
   toolbar: {
@@ -1533,5 +1534,135 @@ export const es: Traducciones = {
     escribir_mensaje: 'Escribir mensaje...',
     reaccionar: 'Reaccionar',
     quitar_etiqueta: 'Quitar etiqueta',
+  },
+
+  flujos: {
+    titulo: 'Flujos',
+    nuevo: 'Nuevo flujo',
+    buscar_placeholder: 'Buscar flujo por nombre...',
+
+    estados: {
+      activo: 'Activo',
+      pausado: 'Pausado',
+      borrador: 'Borrador',
+    },
+
+    filtro_todos: 'Todos',
+    filtro_activos: 'Activos',
+    filtro_pausados: 'Pausados',
+    filtro_borradores: 'Borradores',
+
+    columna_estado: 'Estado',
+    columna_nombre: 'Nombre',
+    columna_modulo: 'Módulo',
+    columna_disparador: 'Disparador',
+    columna_ultima_ejecucion: 'Última ejecución',
+    columna_ejecuciones: 'Últimos 30 días',
+
+    filtro_modulo: 'Módulo',
+    filtro_modulo_desc: 'Filtrar flujos por la entidad sobre la que actúan.',
+    filtro_tipo_disparador: 'Tipo de disparador',
+    filtro_tipo_disparador_desc: 'Filtrar por cómo arranca el flujo (cambio de estado, cron, etc.).',
+    filtro_creado: 'Fecha de creación',
+    filtro_creado_desc: 'Filtrar por cuándo se creó el flujo.',
+    filtro_ultima_ejec: 'Última ejecución',
+    filtro_ultima_ejec_desc: 'Filtrar por la última vez que el flujo se disparó.',
+    filtro_estado_desc: 'Activos están encendidos; pausados están detenidos pero conservan la configuración; borradores aún no se publicaron.',
+
+    grupo_identidad: 'Identidad',
+    grupo_comportamiento: 'Comportamiento',
+    grupo_actividad: 'Actividad',
+
+    disparador: {
+      'entidad.estado_cambio': 'Cambio de estado',
+      'entidad.creada': 'Entidad creada',
+      'entidad.campo_cambia': 'Cambio de campo',
+      'actividad.completada': 'Actividad completada',
+      'tiempo.cron': 'Cron periódico',
+      'tiempo.relativo_a_campo': 'Relativo a fecha',
+      'webhook.entrante': 'Webhook entrante',
+      'inbox.mensaje_recibido': 'Mensaje recibido',
+      'inbox.conversacion_sin_respuesta': 'Conversación sin respuesta',
+      sin_disparador: 'Sin disparador',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'Cuando una entidad pasa a un estado configurado.',
+      'entidad.creada': 'Cuando se crea una nueva entidad.',
+      'entidad.campo_cambia': 'Cuando un campo específico de la entidad cambia.',
+      'actividad.completada': 'Cuando se completa una actividad.',
+      'tiempo.cron': 'En horarios definidos por una expresión cron.',
+      'tiempo.relativo_a_campo': 'Cierta cantidad de días antes o después de una fecha del registro.',
+      'webhook.entrante': 'Cuando llega un POST a una URL de webhook.',
+      'inbox.mensaje_recibido': 'Cuando llega un mensaje al inbox.',
+      'inbox.conversacion_sin_respuesta': 'Cuando una conversación lleva tiempo sin respuesta.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Crear nuevo flujo',
+      pestana_plantilla: 'Desde una plantilla',
+      pestana_cero: 'Desde cero',
+      buscar_plantilla: 'Buscar plantilla...',
+      filtrar_modulo: 'Filtrar por módulo',
+      todos_modulos: 'Todos los módulos',
+      crear_desde_plantilla: 'Usar esta plantilla',
+      nombre_label: 'Nombre del flujo',
+      nombre_placeholder: 'Ej: Recordatorio de cuota próxima a vencer',
+      modulo_label: 'Módulo (opcional)',
+      modulo_placeholder: 'Elegí un módulo',
+      crear_y_editar: 'Crear y editar',
+      sin_plantillas: 'No hay plantillas disponibles para los módulos instalados.',
+      sin_plantillas_busqueda: 'Ninguna plantilla coincide con tu búsqueda.',
+      plantilla_disparador: 'Se dispara: ',
+    },
+
+    estado_vacio: {
+      titulo: 'Todavía no creaste ningún flujo',
+      descripcion: 'Los flujos automatizan tu trabajo: se disparan ante eventos (un presupuesto aceptado, una cuota próxima a vencer, un mensaje sin responder) y ejecutan acciones encadenadas (mandar WhatsApp, crear actividades, notificar al equipo).',
+      titulo_plantillas: 'Empezá con una plantilla',
+      crear_desde_cero: 'Crear flujo desde cero',
+    },
+
+    accion: {
+      editar: 'Editar',
+      ver: 'Ver',
+      duplicar: 'Duplicar',
+      activar: 'Activar',
+      pausar: 'Pausar',
+      eliminar: 'Eliminar',
+    },
+
+    confirmar_eliminar: {
+      titulo: '¿Eliminar este flujo?',
+      descripcion: 'Esto elimina la definición del flujo y todo su historial de ejecuciones. No se puede deshacer.',
+      confirmar: 'Eliminar flujo',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicar flujo',
+      descripcion: 'Se creará una copia en estado borrador. Podés ajustarle el nombre antes de continuar.',
+      nombre_label: 'Nombre del nuevo flujo',
+      sufijo_copia: '(copia)',
+      confirmar: 'Duplicar',
+    },
+
+    tooltip_borrador_pendiente: 'Tiene cambios sin publicar',
+    tooltip_sin_ejecutar: 'Sin ejecutar',
+
+    toast: {
+      creado: 'Flujo creado',
+      duplicado: 'Flujo duplicado',
+      activado: 'Flujo activado',
+      pausado: 'Flujo pausado',
+      eliminado: 'Flujo eliminado',
+      error_crear: 'No se pudo crear el flujo',
+      error_duplicar: 'No se pudo duplicar el flujo',
+      error_activar: 'No se pudo activar el flujo',
+      error_pausar: 'No se pudo pausar el flujo',
+      error_eliminar: 'No se pudo eliminar el flujo',
+      editor_proximamente: 'El editor estará disponible en la próxima entrega.',
+    },
+
+    editor_proximamente_titulo: 'Editor en construcción',
+    editor_proximamente_desc: 'Próximamente vas a poder configurar disparador, condiciones y acciones desde acá.',
   },
 }

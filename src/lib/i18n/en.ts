@@ -1102,6 +1102,7 @@ export const en: Traducciones = {
     aplicaciones: 'Apps',
     documentacion: 'Docs',
     marketing: 'Marketing',
+    flujos: 'Flows',
   },
 
   toolbar: {
@@ -1495,5 +1496,135 @@ export const en: Traducciones = {
     escribir_mensaje: 'Write a message...',
     reaccionar: 'React',
     quitar_etiqueta: 'Remove label',
+  },
+
+  flujos: {
+    titulo: 'Flows',
+    nuevo: 'New flow',
+    buscar_placeholder: 'Search flow by name...',
+
+    estados: {
+      activo: 'Active',
+      pausado: 'Paused',
+      borrador: 'Draft',
+    },
+
+    filtro_todos: 'All',
+    filtro_activos: 'Active',
+    filtro_pausados: 'Paused',
+    filtro_borradores: 'Drafts',
+
+    columna_estado: 'Status',
+    columna_nombre: 'Name',
+    columna_modulo: 'Module',
+    columna_disparador: 'Trigger',
+    columna_ultima_ejecucion: 'Last run',
+    columna_ejecuciones: 'Last 30 days',
+
+    filtro_modulo: 'Module',
+    filtro_modulo_desc: 'Filter flows by the entity they act on.',
+    filtro_tipo_disparador: 'Trigger type',
+    filtro_tipo_disparador_desc: 'Filter by how the flow starts (state change, cron, etc.).',
+    filtro_creado: 'Created date',
+    filtro_creado_desc: 'Filter by when the flow was created.',
+    filtro_ultima_ejec: 'Last run',
+    filtro_ultima_ejec_desc: 'Filter by the last time the flow was triggered.',
+    filtro_estado_desc: 'Active flows are running; paused are halted but keep their config; drafts are not published yet.',
+
+    grupo_identidad: 'Identity',
+    grupo_comportamiento: 'Behavior',
+    grupo_actividad: 'Activity',
+
+    disparador: {
+      'entidad.estado_cambio': 'State change',
+      'entidad.creada': 'Entity created',
+      'entidad.campo_cambia': 'Field change',
+      'actividad.completada': 'Activity completed',
+      'tiempo.cron': 'Periodic cron',
+      'tiempo.relativo_a_campo': 'Relative to date',
+      'webhook.entrante': 'Incoming webhook',
+      'inbox.mensaje_recibido': 'Message received',
+      'inbox.conversacion_sin_respuesta': 'Unanswered conversation',
+      sin_disparador: 'No trigger',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'When an entity moves to a configured state.',
+      'entidad.creada': 'When a new entity is created.',
+      'entidad.campo_cambia': 'When a specific entity field changes.',
+      'actividad.completada': 'When an activity is completed.',
+      'tiempo.cron': 'On schedules defined by a cron expression.',
+      'tiempo.relativo_a_campo': 'A given number of days before or after a record date.',
+      'webhook.entrante': 'When a POST hits a webhook URL.',
+      'inbox.mensaje_recibido': 'When a message arrives in the inbox.',
+      'inbox.conversacion_sin_respuesta': 'When a conversation has been silent for a while.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Create new flow',
+      pestana_plantilla: 'From a template',
+      pestana_cero: 'From scratch',
+      buscar_plantilla: 'Search templates...',
+      filtrar_modulo: 'Filter by module',
+      todos_modulos: 'All modules',
+      crear_desde_plantilla: 'Use this template',
+      nombre_label: 'Flow name',
+      nombre_placeholder: 'E.g. Reminder for upcoming installment',
+      modulo_label: 'Module (optional)',
+      modulo_placeholder: 'Pick a module',
+      crear_y_editar: 'Create and edit',
+      sin_plantillas: 'No templates available for the installed modules.',
+      sin_plantillas_busqueda: 'No template matches your search.',
+      plantilla_disparador: 'Triggers on: ',
+    },
+
+    estado_vacio: {
+      titulo: 'You have no flows yet',
+      descripcion: 'Flows automate your work: they trigger on events (an accepted quote, an upcoming installment, an unanswered message) and run chained actions (send WhatsApp, create activities, notify the team).',
+      titulo_plantillas: 'Start from a template',
+      crear_desde_cero: 'Create flow from scratch',
+    },
+
+    accion: {
+      editar: 'Edit',
+      ver: 'View',
+      duplicar: 'Duplicate',
+      activar: 'Activate',
+      pausar: 'Pause',
+      eliminar: 'Delete',
+    },
+
+    confirmar_eliminar: {
+      titulo: 'Delete this flow?',
+      descripcion: 'This deletes the flow definition and its full execution history. It cannot be undone.',
+      confirmar: 'Delete flow',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicate flow',
+      descripcion: 'A draft copy will be created. You can rename it before continuing.',
+      nombre_label: 'New flow name',
+      sufijo_copia: '(copy)',
+      confirmar: 'Duplicate',
+    },
+
+    tooltip_borrador_pendiente: 'Has unpublished changes',
+    tooltip_sin_ejecutar: 'Never run',
+
+    toast: {
+      creado: 'Flow created',
+      duplicado: 'Flow duplicated',
+      activado: 'Flow activated',
+      pausado: 'Flow paused',
+      eliminado: 'Flow deleted',
+      error_crear: 'Could not create the flow',
+      error_duplicar: 'Could not duplicate the flow',
+      error_activar: 'Could not activate the flow',
+      error_pausar: 'Could not pause the flow',
+      error_eliminar: 'Could not delete the flow',
+      editor_proximamente: 'The editor will be available in the next release.',
+    },
+
+    editor_proximamente_titulo: 'Editor under construction',
+    editor_proximamente_desc: 'You will soon be able to configure trigger, conditions and actions from here.',
   },
 }

@@ -1102,6 +1102,7 @@ export const pt: Traducciones = {
     aplicaciones: 'Aplicativos',
     documentacion: 'Documentação',
     marketing: 'Marketing',
+    flujos: 'Fluxos',
   },
 
   toolbar: {
@@ -1495,5 +1496,135 @@ export const pt: Traducciones = {
     escribir_mensaje: 'Escrever mensagem...',
     reaccionar: 'Reagir',
     quitar_etiqueta: 'Remover etiqueta',
+  },
+
+  flujos: {
+    titulo: 'Fluxos',
+    nuevo: 'Novo fluxo',
+    buscar_placeholder: 'Buscar fluxo por nome...',
+
+    estados: {
+      activo: 'Ativo',
+      pausado: 'Pausado',
+      borrador: 'Rascunho',
+    },
+
+    filtro_todos: 'Todos',
+    filtro_activos: 'Ativos',
+    filtro_pausados: 'Pausados',
+    filtro_borradores: 'Rascunhos',
+
+    columna_estado: 'Estado',
+    columna_nombre: 'Nome',
+    columna_modulo: 'Módulo',
+    columna_disparador: 'Gatilho',
+    columna_ultima_ejecucion: 'Última execução',
+    columna_ejecuciones: 'Últimos 30 dias',
+
+    filtro_modulo: 'Módulo',
+    filtro_modulo_desc: 'Filtrar fluxos pela entidade sobre a qual atuam.',
+    filtro_tipo_disparador: 'Tipo de gatilho',
+    filtro_tipo_disparador_desc: 'Filtrar pela forma como o fluxo começa (mudança de estado, cron, etc.).',
+    filtro_creado: 'Data de criação',
+    filtro_creado_desc: 'Filtrar pela data em que o fluxo foi criado.',
+    filtro_ultima_ejec: 'Última execução',
+    filtro_ultima_ejec_desc: 'Filtrar pela última vez que o fluxo foi disparado.',
+    filtro_estado_desc: 'Os ativos estão rodando; os pausados estão parados mas mantêm a configuração; os rascunhos ainda não foram publicados.',
+
+    grupo_identidad: 'Identidade',
+    grupo_comportamiento: 'Comportamento',
+    grupo_actividad: 'Atividade',
+
+    disparador: {
+      'entidad.estado_cambio': 'Mudança de estado',
+      'entidad.creada': 'Entidade criada',
+      'entidad.campo_cambia': 'Mudança de campo',
+      'actividad.completada': 'Atividade concluída',
+      'tiempo.cron': 'Cron periódico',
+      'tiempo.relativo_a_campo': 'Relativo à data',
+      'webhook.entrante': 'Webhook recebido',
+      'inbox.mensaje_recibido': 'Mensagem recebida',
+      'inbox.conversacion_sin_respuesta': 'Conversa sem resposta',
+      sin_disparador: 'Sem gatilho',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'Quando uma entidade muda para um estado configurado.',
+      'entidad.creada': 'Quando uma nova entidade é criada.',
+      'entidad.campo_cambia': 'Quando um campo específico da entidade muda.',
+      'actividad.completada': 'Quando uma atividade é concluída.',
+      'tiempo.cron': 'Em horários definidos por uma expressão cron.',
+      'tiempo.relativo_a_campo': 'Certa quantidade de dias antes ou depois de uma data do registro.',
+      'webhook.entrante': 'Quando chega um POST a uma URL de webhook.',
+      'inbox.mensaje_recibido': 'Quando chega uma mensagem ao inbox.',
+      'inbox.conversacion_sin_respuesta': 'Quando uma conversa está sem resposta há um tempo.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Criar novo fluxo',
+      pestana_plantilla: 'A partir de um modelo',
+      pestana_cero: 'Do zero',
+      buscar_plantilla: 'Buscar modelos...',
+      filtrar_modulo: 'Filtrar por módulo',
+      todos_modulos: 'Todos os módulos',
+      crear_desde_plantilla: 'Usar este modelo',
+      nombre_label: 'Nome do fluxo',
+      nombre_placeholder: 'Ex.: Lembrete de parcela próxima a vencer',
+      modulo_label: 'Módulo (opcional)',
+      modulo_placeholder: 'Escolha um módulo',
+      crear_y_editar: 'Criar e editar',
+      sin_plantillas: 'Não há modelos disponíveis para os módulos instalados.',
+      sin_plantillas_busqueda: 'Nenhum modelo corresponde à sua busca.',
+      plantilla_disparador: 'Dispara em: ',
+    },
+
+    estado_vacio: {
+      titulo: 'Você ainda não criou nenhum fluxo',
+      descripcion: 'Os fluxos automatizam seu trabalho: disparam em eventos (um orçamento aceito, uma parcela próxima de vencer, uma mensagem sem resposta) e executam ações encadeadas (enviar WhatsApp, criar atividades, notificar a equipe).',
+      titulo_plantillas: 'Comece com um modelo',
+      crear_desde_cero: 'Criar fluxo do zero',
+    },
+
+    accion: {
+      editar: 'Editar',
+      ver: 'Ver',
+      duplicar: 'Duplicar',
+      activar: 'Ativar',
+      pausar: 'Pausar',
+      eliminar: 'Excluir',
+    },
+
+    confirmar_eliminar: {
+      titulo: 'Excluir este fluxo?',
+      descripcion: 'Isto exclui a definição do fluxo e todo o seu histórico de execuções. Não pode ser desfeito.',
+      confirmar: 'Excluir fluxo',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicar fluxo',
+      descripcion: 'Será criada uma cópia em rascunho. Você pode renomeá-la antes de continuar.',
+      nombre_label: 'Nome do novo fluxo',
+      sufijo_copia: '(cópia)',
+      confirmar: 'Duplicar',
+    },
+
+    tooltip_borrador_pendiente: 'Tem mudanças não publicadas',
+    tooltip_sin_ejecutar: 'Nunca executado',
+
+    toast: {
+      creado: 'Fluxo criado',
+      duplicado: 'Fluxo duplicado',
+      activado: 'Fluxo ativado',
+      pausado: 'Fluxo pausado',
+      eliminado: 'Fluxo excluído',
+      error_crear: 'Não foi possível criar o fluxo',
+      error_duplicar: 'Não foi possível duplicar o fluxo',
+      error_activar: 'Não foi possível ativar o fluxo',
+      error_pausar: 'Não foi possível pausar o fluxo',
+      error_eliminar: 'Não foi possível excluir o fluxo',
+      editor_proximamente: 'O editor estará disponível na próxima entrega.',
+    },
+
+    editor_proximamente_titulo: 'Editor em construção',
+    editor_proximamente_desc: 'Em breve você poderá configurar gatilho, condições e ações por aqui.',
   },
 }
