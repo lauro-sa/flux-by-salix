@@ -27,6 +27,7 @@ const TABLAS_PERMITIDAS = new Set([
   'auditoria_respuestas_rapidas_correo',
   'auditoria_respuestas_rapidas_whatsapp',
   'auditoria_plantillas_whatsapp',
+  'auditoria_flujos',
 ])
 
 // Campos FK permitidos por tabla
@@ -42,6 +43,7 @@ const CAMPOS_PERMITIDOS: Record<string, string[]> = {
   auditoria_respuestas_rapidas_correo: ['plantilla_id'],
   auditoria_respuestas_rapidas_whatsapp: ['plantilla_id'],
   auditoria_plantillas_whatsapp: ['plantilla_id'],
+  auditoria_flujos: ['flujo_id'],
 }
 
 export async function GET(request: NextRequest) {

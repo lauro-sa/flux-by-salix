@@ -426,19 +426,135 @@ export const ESTADOS_ACCION: readonly EstadoAccion[] = [
 // usar los campos. Es la línea de defensa contra datos rotos por
 // versiones viejas o ediciones manuales en BD.
 
+/**
+ * Estado operacional del flujo (PR 18, sql/056).
+ *
+ *   borrador — se edita in-place sobre disparador/condiciones/acciones
+ *              y NO dispara nunca.
+ *   activo   — el motor lo ejecuta cuando matchea evento o tiempo.
+ *              Si el usuario lo edita, los cambios van a borrador_jsonb
+ *              hasta que clickee Publicar (modelo "borrador interno",
+ *              decisión §5.3 de docs/PLAN_UI_FLUJOS.md).
+ *   pausado  — definición conservada pero el motor lo ignora.
+ *              Se sale con activar; se entra con pausar.
+ */
+export type EstadoFlujo = 'borrador' | 'activo' | 'pausado'
+
+export const ESTADOS_FLUJO: readonly EstadoFlujo[] = [
+  'borrador', 'activo', 'pausado',
+] as const
+
+export function esEstadoFlujo(v: unknown): v is EstadoFlujo {
+  return typeof v === 'string' && (ESTADOS_FLUJO as readonly string[]).includes(v)
+}
+
 export interface Flujo {
   id: string
   empresa_id: string
   nombre: string
   descripcion: string | null
+  /**
+   * Estado operacional. Fuente de verdad. La columna `activo` se
+   * deriva (generated column). Para cambiar de estado se usan los
+   * endpoints específicos: /activar, /pausar, /publicar (estos tres
+   * son los únicos que tocan este campo desde la API).
+   */
+  estado: EstadoFlujo
+  /**
+   * DERIVADO de estado === 'activo'. Generated column STORED en BD.
+   * Se mantiene en la interface porque los consumidores que se
+   * armaron antes del PR 18 (dispatcher, cron, correr-ejecucion) lo
+   * leen tal cual.
+   */
   activo: boolean
   disparador: unknown
   condiciones: unknown
   acciones: unknown
   nodos_json: unknown
+  /**
+   * Versión en edición de un flujo activo o pausado.
+   * Shape: { disparador, condiciones, acciones }. NULL = sin
+   * borrador en curso (común para flujos en estado 'borrador',
+   * que editan in-place sobre las columnas publicadas).
+   */
+  borrador_jsonb: unknown | null
+  ultima_ejecucion_tiempo: string | null
   creado_por: string | null
+  creado_por_nombre: string | null
+  editado_por: string | null
+  editado_por_nombre: string | null
   creado_en: string
   actualizado_en: string
+}
+
+// =============================================================
+// Bodies de los endpoints CRUD (PR 18.1)
+// =============================================================
+// Type guards puros (sin Zod) consistentes con el resto del archivo.
+// Validan la forma exacta que aceptan los endpoints; en caso de
+// rechazo el endpoint devuelve 400 con mensaje específico.
+
+/**
+ * Body de POST /api/flujos. nombre obligatorio (1-200 chars), el
+ * resto opcional (todo arranca con default sano: estado 'borrador',
+ * disparador/condiciones/acciones vacíos para editar después).
+ */
+export interface BodyCrearFlujo {
+  nombre: string
+  descripcion?: string | null
+}
+
+export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
+  if (typeof b !== 'object' || b === null) return false
+  const r = b as Record<string, unknown>
+  if (typeof r.nombre !== 'string') return false
+  const trimmed = r.nombre.trim()
+  if (trimmed.length === 0 || trimmed.length > 200) return false
+  if (r.descripcion !== undefined && r.descripcion !== null && typeof r.descripcion !== 'string') return false
+  if (typeof r.descripcion === 'string' && r.descripcion.length > 2000) return false
+  return true
+}
+
+/**
+ * Body de PUT /api/flujos/[id]. Todos opcionales — la UI patchea
+ * campo por campo con autoguardado (memoria feedback_autoguardado.md).
+ *
+ * El endpoint rechaza con 400 si:
+ *   - viene `estado` (debe ir por /activar | /pausar)
+ *   - viene `borrador_jsonb` directo (es interno, lo arma el endpoint)
+ *   - viene `activo` (es derivado)
+ *
+ * El comportamiento es:
+ *   - flujo en 'borrador' → escribe in-place sobre disparador / etc.
+ *   - flujo en 'activo' o 'pausado' → escribe a borrador_jsonb.
+ */
+export interface BodyActualizarFlujo {
+  nombre?: string
+  descripcion?: string | null
+  disparador?: unknown
+  condiciones?: unknown
+  acciones?: unknown
+  nodos_json?: unknown
+}
+
+export function esBodyActualizarFlujo(b: unknown): b is BodyActualizarFlujo {
+  if (typeof b !== 'object' || b === null) return false
+  const r = b as Record<string, unknown>
+  if ('estado' in r) return false
+  if ('borrador_jsonb' in r) return false
+  if ('activo' in r) return false
+  if (r.nombre !== undefined) {
+    if (typeof r.nombre !== 'string') return false
+    const trimmed = r.nombre.trim()
+    if (trimmed.length === 0 || trimmed.length > 200) return false
+  }
+  if (r.descripcion !== undefined && r.descripcion !== null && typeof r.descripcion !== 'string') return false
+  if (typeof r.descripcion === 'string' && r.descripcion.length > 2000) return false
+  // disparador / condiciones / acciones / nodos_json son jsonb opaco
+  // hasta que el endpoint /activar valide su shape con
+  // validarPublicable(). En PUT solo se exige que sean objeto/array
+  // serializables — el JSON parser ya garantiza esto.
+  return true
 }
 
 export interface EjecucionFlujo {

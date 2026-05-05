@@ -13,6 +13,7 @@ export type ModuloOperacional =
   | 'asistencias'
   | 'nomina'
   | 'productos'
+  | 'flujos'
 
 // Modulos personales — features individuales del miembro (cada uno ve solo lo suyo,
 // no existe ver_todos porque no tiene sentido de negocio).
@@ -87,6 +88,11 @@ export type Accion =
   | 'registrar'
   | 'asignar'
   | 'reordenar'
+  // Específica de Flujos: cubre las tres transiciones operacionales
+  // (borrador→activo, activo→pausado, pausado→activo) y el cancelar /
+  // reejecutar de ejecuciones. Se separa de `editar` para permitir el
+  // perfil "diseñador de flujos": arma sin encender.
+  | 'activar'
 
 /** Mapa de permisos: modulo -> lista de acciones permitidas */
 export type PermisosMapa = Partial<Record<Modulo, Accion[]>>
@@ -95,7 +101,7 @@ export type PermisosMapa = Partial<Record<Modulo, Accion[]>>
 export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modulo[] }> = {
   operacional: {
     nombre: 'Operacional',
-    modulos: ['contactos', 'actividades', 'visitas', 'calendario', 'recorrido', 'asistencias', 'nomina', 'productos'],
+    modulos: ['contactos', 'actividades', 'visitas', 'calendario', 'recorrido', 'asistencias', 'nomina', 'productos', 'flujos'],
   },
   personal: {
     nombre: 'Personal',
@@ -137,6 +143,11 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   // sin ver sueldos; un contador puede ver nómina sin tocar fichajes.
   nomina: ['ver_propio', 'ver_todos', 'editar', 'enviar'],
   productos: ['ver', 'crear', 'editar', 'eliminar'],
+  // Flujos: ver_propio = solo flujos que creó, ver_todos = todos los del
+  // tenant. activar = encender / pausar / cancelar / reejecutar (las
+  // transiciones operacionales) — distinto de editar, que toca la
+  // definición sin afectar al motor.
+  flujos: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'activar'],
   // Personales — cada miembro ve solo lo suyo (sin ver_todos).
   notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
   recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
@@ -181,6 +192,7 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   asistencias: 'Asistencias',
   nomina: 'Nómina',
   productos: 'Productos',
+  flujos: 'Flujos',
   notas: 'Notas rápidas',
   recordatorios: 'Recordatorios',
   presupuestos: 'Presupuestos',
@@ -220,6 +232,7 @@ export const DESCRIPCIONES_MODULO: Partial<Record<Modulo, string>> = {
   asistencias: 'Control de asistencia y fichaje.',
   nomina: 'Sueldos, adelantos, pagos y recibos. "Ver propio" permite que el empleado vea su propio recibo; "Ver todos" muestra la nómina completa del equipo; "Enviar" manda los recibos por correo/WhatsApp.',
   productos: 'Catálogo de productos y servicios.',
+  flujos: 'Automatizaciones que se disparan ante eventos o tiempo y ejecutan acciones encadenadas. "Activar" cubre encender, pausar, cancelar y reejecutar — separado de "Editar" para permitir el perfil "diseñador" que arma flujos sin habilitarlos.',
   notas: 'Notas rápidas personales con opción de compartir con otros miembros.',
   recordatorios: 'Recordatorios personales con alertas y recurrencia.',
   presupuestos: 'Creación y envío de cotizaciones.',
@@ -247,6 +260,7 @@ export const DESCRIPCIONES_ACCION: Partial<Record<Accion, string>> = {
   registrar: 'Puede registrar llegada, tomar fotos y completar visitas en campo.',
   reordenar: 'Puede cambiar el orden de las paradas en su recorrido.',
   marcar: 'Puede registrar fichaje de entrada/salida.',
+  activar: 'Puede encender/pausar flujos y cancelar o reejecutar ejecuciones.',
   invitar: 'Puede invitar nuevos miembros.',
   aprobar: 'Puede aprobar solicitudes pendientes.',
   completar_etapa: 'Puede completar etapas individuales.',
@@ -271,4 +285,5 @@ export const ETIQUETAS_ACCION: Record<Accion, string> = {
   registrar: 'Registrar',
   asignar: 'Asignar',
   reordenar: 'Reordenar',
+  activar: 'Activar',
 }
