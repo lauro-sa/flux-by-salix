@@ -200,6 +200,41 @@ export async function PUT(request: NextRequest, { params }: { params: ParamsProm
     }
   }
 
+  // ── icono y color: metadata visual, in-place siempre (no entra al
+  // modelo borrador interno aunque el flujo esté activo, porque no
+  // afecta la ejecución del motor — es solo cómo se ve en el listado
+  // y en el header del editor). Auditoría individual por campo.
+  //
+  // Consecuencia esperada del tratamiento in-place: "Descartar cambios"
+  // (POST /descartar-borrador) NO revierte icono/color, porque nunca
+  // pasaron por el borrador. Es decisión consciente, no un bug —
+  // tratarlos como contenido editable obligaría a versionar metadata
+  // visual y agregaría complejidad sin valor. Si el usuario quiere
+  // revertir el ícono, lo cambia manualmente como cualquier otra
+  // metadata (mismo modelo que nombre y descripción).
+  if ('icono' in body && body.icono !== undefined) {
+    const nuevo = body.icono === null ? null : body.icono.trim()
+    if (nuevo !== original.icono) {
+      updateFields.icono = nuevo
+      auditorias.push({
+        campo_modificado: 'icono',
+        valor_anterior: original.icono,
+        valor_nuevo: nuevo,
+      })
+    }
+  }
+  if ('color' in body && body.color !== undefined) {
+    const nuevo = body.color === null ? null : body.color.trim()
+    if (nuevo !== original.color) {
+      updateFields.color = nuevo
+      auditorias.push({
+        campo_modificado: 'color',
+        valor_anterior: original.color,
+        valor_nuevo: nuevo,
+      })
+    }
+  }
+
   // ── disparador / condiciones / acciones / nodos_json ──────────
   // Detectar cuáles vienen en el body y cuáles realmente cambian.
   const camposJsonbConCambios: CampoJsonb[] = []

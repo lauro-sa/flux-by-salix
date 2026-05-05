@@ -567,6 +567,18 @@ export interface BodyActualizarFlujo {
   condiciones?: unknown
   acciones?: unknown
   nodos_json?: unknown
+  /**
+   * Personalización visual del flujo (sql/060). Acepta string (set),
+   * null (limpiar) o `undefined` (no tocar). El editor visual del
+   * sub-PR 19.2 lo usa para que el `MiniSelectorIcono` del header
+   * persista el cambio sin endpoints adicionales.
+   */
+  icono?: string | null
+  /**
+   * Color semántico del flujo (token corto: 'exito', 'advertencia',
+   * 'primario', etc.). Misma semántica de tri-state que `icono`.
+   */
+  color?: string | null
 }
 
 export function esBodyActualizarFlujo(b: unknown): b is BodyActualizarFlujo {
@@ -582,6 +594,18 @@ export function esBodyActualizarFlujo(b: unknown): b is BodyActualizarFlujo {
   }
   if (r.descripcion !== undefined && r.descripcion !== null && typeof r.descripcion !== 'string') return false
   if (typeof r.descripcion === 'string' && r.descripcion.length > 2000) return false
+  // icono / color: tri-state como descripcion (string | null | undefined).
+  // String vacío se rechaza para forzar `null` explícito al limpiar y
+  // evitar que el handler tenga que decidir entre "" y null. Cota
+  // generosa: nombres de Lucide y tokens semánticos de Flux son cortos.
+  if (r.icono !== undefined && r.icono !== null) {
+    if (typeof r.icono !== 'string') return false
+    if (r.icono.trim().length === 0 || r.icono.length > 64) return false
+  }
+  if (r.color !== undefined && r.color !== null) {
+    if (typeof r.color !== 'string') return false
+    if (r.color.trim().length === 0 || r.color.length > 32) return false
+  }
   // disparador / condiciones / acciones / nodos_json son jsonb opaco
   // hasta que el endpoint /activar valide su shape con
   // validarPublicable(). En PUT solo se exige que sean objeto/array
