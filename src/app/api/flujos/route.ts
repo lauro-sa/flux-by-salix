@@ -1,11 +1,14 @@
 /**
- * API REST de Flujos — listar + crear (PR 18.1).
+ * API REST de Flujos — listar + crear (PR 18.1, ampliado en 18.4).
  *
  *   GET  /api/flujos           — lista paginada con filtros.
  *   POST /api/flujos           — crea un flujo nuevo (siempre nace en
  *                                estado 'borrador', disparador y
  *                                acciones vacíos para que el usuario
- *                                los configure desde la UI).
+ *                                los configure desde la UI). Si el
+ *                                body trae `basado_en_flujo_id`,
+ *                                duplica desde un flujo existente
+ *                                (PR 18.4).
  *
  * Auth y multi-tenant: patrón estándar de Flux — requerirPermisoAPI
  * resuelve sesión + permiso, después se filtra en el clienteAdmin
@@ -112,6 +115,7 @@ export async function GET(request: NextRequest) {
     .select(
       'id, empresa_id, nombre, descripcion, estado, activo, disparador, ' +
       'condiciones, acciones, borrador_jsonb, ultima_ejecucion_tiempo, ' +
+      'icono, color, ' +
       'creado_por, creado_por_nombre, editado_por, editado_por_nombre, ' +
       'creado_en, actualizado_en, ultima_ejecucion_en, total_ejecuciones_30d',
       { count: 'exact' },
@@ -205,6 +209,23 @@ export async function GET(request: NextRequest) {
 //
 // Resolvemos el nombre del creador desde perfiles para denormalizar
 // en `creado_por_nombre`. Patrón ya usado en /api/correo/plantillas.
+//
+// PR 18.4 — Duplicación:
+// Si `body.basado_en_flujo_id` está presente, el endpoint copia
+// `disparador`, `condiciones`, `acciones`, `nodos_json`, `icono` y
+// `color` desde la VERSIÓN PUBLICADA del flujo origen. Reglas
+// invariantes (no negociables, ver brief de coordinador):
+//   - El nuevo arranca SIEMPRE en 'borrador', sin importar el
+//     estado del origen.
+//   - `borrador_jsonb` del nuevo es NULL (no se duplica el borrador
+//     interno del origen — es propiedad del autor que lo dejó a
+//     medio editar).
+//   - El origen debe ser visible para el usuario actual: si el
+//     user solo tiene `ver_propio` y el origen lo creó otro,
+//     respondemos 404 (mismo criterio que cross-tenant: no leakear).
+//   - Auditoría: campo_modificado='duplicar', valor_nuevo=origen.id.
+//   - `descripcion` del body sobrescribe la del origen si viene.
+//     Si no viene, se hereda. Convención de "duplicar como" en SaaS.
 
 export async function POST(request: NextRequest) {
   const guard = await requerirPermisoAPI('flujos', 'crear')
@@ -219,12 +240,74 @@ export async function POST(request: NextRequest) {
   }
   if (!esBodyCrearFlujo(body)) {
     return NextResponse.json(
-      { error: 'Body inválido: nombre obligatorio (1-200 chars), descripcion opcional ≤2000 chars' },
+      { error: 'Body inválido: nombre obligatorio (1-200 chars), descripcion opcional ≤2000 chars, basado_en_flujo_id opcional (1-100 chars)' },
       { status: 400 },
     )
   }
 
   const admin = crearClienteAdmin()
+
+  // -----------------------------------------------------------------
+  // Rama "duplicar": resolver el origen antes del INSERT.
+  // -----------------------------------------------------------------
+  // Devolvemos 404 indistinguible en todos los casos donde el origen
+  // "no es accesible" (no existe / es de otra empresa / el user solo
+  // tiene ver_propio y no es el creador). Evita filtrar info cross-
+  // tenant o cross-usuario sobre la existencia del registro.
+  let camposDuplicar: {
+    descripcionOrigen: string | null
+    disparador: unknown
+    condiciones: unknown
+    acciones: unknown
+    nodos_json: unknown
+    icono: string | null
+    color: string | null
+    origenId: string
+  } | null = null
+
+  if (body.basado_en_flujo_id !== undefined) {
+    const origenId = body.basado_en_flujo_id.trim()
+
+    // Visibilidad del módulo: si el user no tiene ni ver_todos ni
+    // ver_propio, no puede ver flujos en absoluto → 404 sin más.
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'flujos')
+    if (!visibilidad) {
+      return NextResponse.json({ error: 'Flujo origen no encontrado' }, { status: 404 })
+    }
+
+    const { data: origen, error: errorOrigen } = await admin
+      .from('flujos')
+      .select('id, descripcion, disparador, condiciones, acciones, nodos_json, icono, color, creado_por')
+      .eq('id', origenId)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (errorOrigen) {
+      console.error(JSON.stringify({
+        nivel: 'error',
+        mensaje: 'error_resolver_flujo_origen',
+        detalle: errorOrigen.message,
+      }))
+      return NextResponse.json({ error: 'Error al duplicar flujo' }, { status: 500 })
+    }
+    if (!origen) {
+      return NextResponse.json({ error: 'Flujo origen no encontrado' }, { status: 404 })
+    }
+    if (visibilidad.soloPropio && origen.creado_por !== user.id) {
+      return NextResponse.json({ error: 'Flujo origen no encontrado' }, { status: 404 })
+    }
+
+    camposDuplicar = {
+      descripcionOrigen: (origen.descripcion as string | null) ?? null,
+      disparador: origen.disparador,
+      condiciones: origen.condiciones,
+      acciones: origen.acciones,
+      nodos_json: origen.nodos_json,
+      icono: (origen.icono as string | null) ?? null,
+      color: (origen.color as string | null) ?? null,
+      origenId: origen.id as string,
+    }
+  }
 
   // Nombre del creador para denormalizar (sin join en futuros listados).
   const { data: perfil } = await admin
@@ -236,40 +319,62 @@ export async function POST(request: NextRequest) {
     ? `${perfil.nombre ?? ''} ${perfil.apellido ?? ''}`.trim() || null
     : null
 
+  // Construcción del payload: en modo creación normal, los jsonb
+  // toman el default de SQL ({}, [], [], {}); en modo duplicar
+  // pasamos los valores del origen explícitamente.
+  const nombreFinal = body.nombre.trim()
+  const descripcionFinal = body.descripcion !== undefined
+    ? (body.descripcion?.trim() || null)
+    : (camposDuplicar?.descripcionOrigen ?? null)
+
+  const insertPayload: Record<string, unknown> = {
+    empresa_id: empresaId,
+    nombre: nombreFinal,
+    descripcion: descripcionFinal,
+    estado: 'borrador',
+    // borrador_jsonb queda en NULL: regla invariante de duplicación
+    // y default natural de creación.
+    creado_por: user.id,
+    creado_por_nombre: creadoPorNombre,
+  }
+  if (camposDuplicar) {
+    insertPayload.disparador = camposDuplicar.disparador
+    insertPayload.condiciones = camposDuplicar.condiciones
+    insertPayload.acciones = camposDuplicar.acciones
+    insertPayload.nodos_json = camposDuplicar.nodos_json
+    insertPayload.icono = camposDuplicar.icono
+    insertPayload.color = camposDuplicar.color
+  }
+
   const { data: flujo, error } = await admin
     .from('flujos')
-    .insert({
-      empresa_id: empresaId,
-      nombre: body.nombre.trim(),
-      descripcion: body.descripcion?.trim() || null,
-      estado: 'borrador',
-      // disparador / condiciones / acciones / nodos_json / borrador_jsonb
-      // se quedan con el default de SQL ({}, [], [], {}, NULL).
-      creado_por: user.id,
-      creado_por_nombre: creadoPorNombre,
-    })
+    .insert(insertPayload)
     .select()
     .single()
 
   if (error) {
     console.error(JSON.stringify({
       nivel: 'error',
-      mensaje: 'error_crear_flujo',
+      mensaje: camposDuplicar ? 'error_duplicar_flujo' : 'error_crear_flujo',
       detalle: error.message,
     }))
-    return NextResponse.json({ error: 'Error al crear flujo' }, { status: 500 })
+    return NextResponse.json(
+      { error: camposDuplicar ? 'Error al duplicar flujo' : 'Error al crear flujo' },
+      { status: 500 },
+    )
   }
 
-  // Auditoría: creación. Siguiendo el patrón de plantillas_correo,
-  // dejamos un row con campo_modificado='creacion' para que aparezca
-  // en el historial del IndicadorEditado.
+  // Auditoría: para creación normal usamos campo_modificado='creacion'
+  // con valor_nuevo=nombre. Para duplicación usamos 'duplicar' con
+  // valor_nuevo=origen.id, lo que permite rastrear lineage hacia atrás
+  // desde el IndicadorEditado del flujo nuevo.
   await admin.from('auditoria_flujos').insert({
     empresa_id: empresaId,
     flujo_id: flujo.id,
     editado_por: user.id,
-    campo_modificado: 'creacion',
+    campo_modificado: camposDuplicar ? 'duplicar' : 'creacion',
     valor_anterior: null,
-    valor_nuevo: body.nombre.trim(),
+    valor_nuevo: camposDuplicar ? camposDuplicar.origenId : nombreFinal,
   })
 
   // El flag `puede_editar` se calcula con un permiso de cortesía para
