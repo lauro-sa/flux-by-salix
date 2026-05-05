@@ -57,6 +57,8 @@ function flujo(parcial: Partial<Flujo> & { id: string }): Flujo {
     nodos_json: {},
     borrador_jsonb: null,
     ultima_ejecucion_tiempo: null,
+    icono: null,
+    color: null,
     creado_por: null,
     creado_por_nombre: null,
     editado_por: null,

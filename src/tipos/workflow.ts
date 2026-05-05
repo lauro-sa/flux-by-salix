@@ -479,6 +479,13 @@ export interface Flujo {
    */
   borrador_jsonb: unknown | null
   ultima_ejecucion_tiempo: string | null
+  /**
+   * Personalización visual del flujo (sql/060). NULL = sin
+   * personalizar — la UI usa ícono/color default según tipo de
+   * disparador.
+   */
+  icono: string | null
+  color: string | null
   creado_por: string | null
   creado_por_nombre: string | null
   editado_por: string | null
@@ -498,10 +505,18 @@ export interface Flujo {
  * Body de POST /api/flujos. nombre obligatorio (1-200 chars), el
  * resto opcional (todo arranca con default sano: estado 'borrador',
  * disparador/condiciones/acciones vacíos para editar después).
+ *
+ * `basado_en_flujo_id` (PR 18.4): si está presente, el endpoint
+ * arma el flujo nuevo copiando disparador/condiciones/acciones/
+ * nodos_json/icono/color del origen (versión publicada). El nuevo
+ * arranca SIEMPRE en 'borrador' con borrador_jsonb=NULL, sin
+ * importar el estado del origen. `descripcion` del body sobrescribe
+ * la del origen si viene; si no viene, se hereda del origen.
  */
 export interface BodyCrearFlujo {
   nombre: string
   descripcion?: string | null
+  basado_en_flujo_id?: string
 }
 
 export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
@@ -512,6 +527,14 @@ export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
   if (trimmed.length === 0 || trimmed.length > 200) return false
   if (r.descripcion !== undefined && r.descripcion !== null && typeof r.descripcion !== 'string') return false
   if (typeof r.descripcion === 'string' && r.descripcion.length > 2000) return false
+  if (r.basado_en_flujo_id !== undefined) {
+    if (typeof r.basado_en_flujo_id !== 'string') return false
+    const id = r.basado_en_flujo_id.trim()
+    // Sin validar formato UUID acá: la query a BD devuelve 404 si no
+    // existe (mismo criterio que el resto de Flux). Solo evitamos
+    // strings vacíos o absurdamente largos.
+    if (id.length === 0 || id.length > 100) return false
+  }
   return true
 }
 
