@@ -11,14 +11,23 @@ import { obtenerVersionEditable } from '@/lib/workflows/version-editable'
 import { plantillaPorId } from '@/lib/workflows/plantillas-sugeridas'
 import { crearAccionVacia, crearDisparadorVacio } from '@/lib/workflows/acciones-vacias'
 import { asignarIdsAcciones, darIdAAccion, type AccionConId } from '@/lib/workflows/ids-pasos'
+import {
+  actualizarPasoPorId,
+  eliminarPasoPorId,
+} from '@/lib/workflows/mutaciones-pasos'
 import HeaderEditorFlujo from './HeaderEditorFlujo'
 import BannerEditorFlujo from './BannerEditorFlujo'
 import CanvasFlujo from './CanvasFlujo'
 import CatalogoPasos from './CatalogoPasos'
-import PanelEdicionPasoPlaceholder from './PanelEdicionPasoPlaceholder'
+import PanelEdicionPaso from './PanelEdicionPaso'
 import { useEditorFlujo, type FlujoEditable } from './hooks/useEditorFlujo'
 import { useAtajosEditorFlujo } from './hooks/useAtajosEditorFlujo'
-import type { AccionWorkflow, TipoAccion, TipoDisparador } from '@/tipos/workflow'
+import type {
+  AccionWorkflow,
+  DisparadorWorkflow,
+  TipoAccion,
+  TipoDisparador,
+} from '@/tipos/workflow'
 
 /**
  * Componente raíz cliente del editor visual de flujos (sub-PR 19.2).
@@ -212,6 +221,43 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     [escribirAcciones, pasosConId],
   )
 
+  // ─── Mutaciones desde el panel lateral (sub-PR 19.3a) ────────────
+  // El panel necesita poder editar y eliminar pasos por id desde
+  // cualquier profundidad del árbol (raíz o ramas si/no de un branch).
+  // Las funciones puras `actualizarPasoPorId` y `eliminarPasoPorId`
+  // se encargan de la recursión; acá solo conectamos su resultado al
+  // hook de autoguardado vía `escribirAcciones`. Si tras eliminar el
+  // paso seleccionado, limpiamos la selección para cerrar el panel
+  // automáticamente — coherente con la convención de Notion/Linear.
+  const actualizarPaso = useCallback(
+    (id: string, parche: Partial<AccionWorkflow>) => {
+      escribirAcciones(actualizarPasoPorId(pasosConId, id, parche))
+    },
+    [escribirAcciones, pasosConId],
+  )
+
+  const eliminarPaso = useCallback(
+    (id: string) => {
+      escribirAcciones(eliminarPasoPorId(pasosConId, id))
+      // Si justo eliminamos el paso abierto, cerramos el panel.
+      setSeleccion((actual) =>
+        actual?.tipo === 'paso' && actual.id === id ? null : actual,
+      )
+    },
+    [escribirAcciones, pasosConId],
+  )
+
+  const actualizarDisparador = useCallback(
+    (parche: Partial<DisparadorWorkflow>) => {
+      // El disparador se patchea entero: reemplazamos `tipo` y
+      // `configuracion` con los del parche (las secciones del panel ya
+      // arman el shape completo). Si en el futuro agregamos un panel que
+      // edite parcialmente sin re-armar el shape, hay que mergear acá.
+      actualizar({ disparador: parche })
+    },
+    [actualizar],
+  )
+
   // ─── Acciones del header (endpoints aparte) ──────────────────────
   const ejecutarAccionEstado = useCallback(
     async (path: string, claveOk: string, claveErr: string) => {
@@ -352,11 +398,6 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     version.disparador && typeof version.disparador === 'object'
       ? (version.disparador as { tipo?: TipoDisparador; configuracion?: Record<string, unknown> })
       : null
-  const tipoSeleccionado = (() => {
-    if (!seleccion) return null
-    if (seleccion.tipo === 'disparador') return disparadorRaw?.tipo ?? null
-    return tipoDelPaso(pasosConId, seleccion.id)
-  })()
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100dvh-var(--header-alto))]">
@@ -405,13 +446,17 @@ export default function EditorFlujo({ flujoInicial }: Props) {
           onReordenarRama={reordenarRama}
         />
 
-        {/* Panel placeholder a la derecha — slide-in cuando hay selección */}
-        <PanelEdicionPasoPlaceholder
+        {/* Panel real con campos editables — slide-in cuando hay selección */}
+        <PanelEdicionPaso
           abierto={seleccion !== null}
           onCerrar={cerrarPanel}
-          {...(seleccion?.tipo === 'disparador'
-            ? { modo: 'disparador' as const, tipo: tipoSeleccionado as TipoDisparador | null }
-            : { modo: 'paso' as const, tipo: tipoSeleccionado as TipoAccion | null })}
+          seleccion={seleccion}
+          disparador={disparadorRaw}
+          pasosRaiz={pasosConId}
+          soloLectura={soloLectura}
+          onActualizarPaso={actualizarPaso}
+          onEliminarPaso={eliminarPaso}
+          onActualizarDisparador={actualizarDisparador}
         />
       </div>
 
@@ -496,25 +541,3 @@ export default function EditorFlujo({ flujoInicial }: Props) {
   )
 }
 
-/**
- * Devuelve el tipo del paso identificado por `id` dentro del árbol
- * (raíz + ramas si/no de cada branch). Si no se encuentra, null.
- */
-function tipoDelPaso(pasos: AccionConId[], id: string): TipoAccion | null {
-  for (const p of pasos) {
-    if (p.id === id) return p.tipo as TipoAccion
-    if (p.tipo === 'condicion_branch') {
-      const si = p.acciones_si as AccionConId[] | undefined
-      const no = p.acciones_no as AccionConId[] | undefined
-      if (si) {
-        const r = tipoDelPaso(si, id)
-        if (r) return r
-      }
-      if (no) {
-        const r = tipoDelPaso(no, id)
-        if (r) return r
-      }
-    }
-  }
-  return null
-}

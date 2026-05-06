@@ -1741,8 +1741,63 @@ export interface Traducciones {
 
       panel: {
         titulo_default: string
-        placeholder_titulo: string
-        placeholder_desc: string
+        banner_lectura: string
+
+        seccion: {
+          basicos: string
+          tiempo: string
+          disparador: string
+          avanzado: string
+        }
+
+        subheader: {
+          posicion: string
+          rama_si: string
+          rama_no: string
+        }
+
+        footer: {
+          eliminar_paso: string
+        }
+
+        avanzado: {
+          proximamente: string
+        }
+
+        pendiente: {
+          titulo: string
+          descripcion: string
+        }
+
+        esperar: {
+          cantidad_label: string
+          unidad_label: string
+          unidad_min: string
+          unidad_hora: string
+          unidad_dia: string
+          ayuda: string
+          ayuda_fecha_absoluta: string
+        }
+
+        terminar: {
+          leyenda: string
+          motivo_label: string
+          motivo_placeholder: string
+        }
+
+        cron: {
+          expresion_label: string
+          ayuda: string
+          ejemplo_1: string
+          ejemplo_2: string
+          ejemplo_3: string
+        }
+
+        actividad_completada: {
+          tipo_clave_label: string
+          tipo_clave_placeholder: string
+          tipo_clave_ayuda: string
+        }
       }
 
       confirmar_descartar: {

@@ -1678,8 +1678,63 @@ export const en: Traducciones = {
 
       panel: {
         titulo_default: 'Step details',
-        placeholder_titulo: 'Detailed editing coming soon',
-        placeholder_desc: 'In the next release you will configure fields, variables and conditions of each step from this panel.',
+        banner_lectura: 'Read-only mode',
+
+        seccion: {
+          basicos: 'Basics',
+          tiempo: 'Timing',
+          disparador: 'Trigger',
+          avanzado: 'Advanced',
+        },
+
+        subheader: {
+          posicion: 'Step {{n}} of {{total}}',
+          rama_si: 'Yes branch',
+          rama_no: 'No branch',
+        },
+
+        footer: {
+          eliminar_paso: 'Delete step',
+        },
+
+        avanzado: {
+          proximamente: 'Advanced options will arrive in a future release.',
+        },
+
+        pendiente: {
+          titulo: '"{{tipo}}" editing coming soon',
+          descripcion: 'This step type is already wired in the engine; the panel with its editable fields will arrive in the next editor release.',
+        },
+
+        esperar: {
+          cantidad_label: 'Amount',
+          unidad_label: 'Unit',
+          unidad_min: 'Minutes',
+          unidad_hora: 'Hours',
+          unidad_dia: 'Days',
+          ayuda: 'The flow pauses before continuing to the next step. Minimum 1 minute, maximum 30 days.',
+          ayuda_fecha_absoluta: 'This step has an absolute date configured ({{fecha}}). Editing it from the panel will arrive later.',
+        },
+
+        terminar: {
+          leyenda: 'When the flow reaches this step it ends. Any step after it is ignored.',
+          motivo_label: 'Reason (optional)',
+          motivo_placeholder: 'E.g. Customer did not reply',
+        },
+
+        cron: {
+          expresion_label: 'Cron expression',
+          ayuda: 'Five fields: minute · hour · day of month · month · day of week.',
+          ejemplo_1: '9 AM Monday to Friday.',
+          ejemplo_2: 'Every 15 minutes.',
+          ejemplo_3: 'Midnight on the first day of every month.',
+        },
+
+        actividad_completada: {
+          tipo_clave_label: 'Activity type (optional)',
+          tipo_clave_placeholder: 'E.g. call, site_visit',
+          tipo_clave_ayuda: 'If left blank, fires for any activity type. Accepts the technical key (full autocomplete coming in a later release).',
+        },
       },
 
       confirmar_descartar: {

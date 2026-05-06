@@ -1678,8 +1678,63 @@ export const pt: Traducciones = {
 
       panel: {
         titulo_default: 'Detalhe do passo',
-        placeholder_titulo: 'Edição detalhada em breve',
-        placeholder_desc: 'Na próxima entrega você poderá configurar campos, variáveis e condições de cada passo neste painel.',
+        banner_lectura: 'Modo somente leitura',
+
+        seccion: {
+          basicos: 'Básicos',
+          tiempo: 'Tempo',
+          disparador: 'Disparador',
+          avanzado: 'Avançado',
+        },
+
+        subheader: {
+          posicion: 'Passo {{n}} de {{total}}',
+          rama_si: 'Ramo Sim',
+          rama_no: 'Ramo Não',
+        },
+
+        footer: {
+          eliminar_paso: 'Eliminar passo',
+        },
+
+        avanzado: {
+          proximamente: 'As opções avançadas chegam em uma próxima entrega.',
+        },
+
+        pendiente: {
+          titulo: 'Edição de "{{tipo}}" em breve',
+          descripcion: 'Este tipo de passo já está configurado no motor; o painel com seus campos editáveis chega na próxima entrega do editor.',
+        },
+
+        esperar: {
+          cantidad_label: 'Quantidade',
+          unidad_label: 'Unidade',
+          unidad_min: 'Minutos',
+          unidad_hora: 'Horas',
+          unidad_dia: 'Dias',
+          ayuda: 'O fluxo pausa antes de continuar com o próximo passo. Mínimo 1 minuto, máximo 30 dias.',
+          ayuda_fecha_absoluta: 'Este passo tem uma data absoluta configurada ({{fecha}}). Alterá-la pelo painel chega mais adiante.',
+        },
+
+        terminar: {
+          leyenda: 'Quando o fluxo chega neste passo, termina. Qualquer passo depois é ignorado.',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Ex: Cliente não respondeu',
+        },
+
+        cron: {
+          expresion_label: 'Expressão cron',
+          ayuda: 'Cinco campos: minuto · hora · dia do mês · mês · dia da semana.',
+          ejemplo_1: 'Às 9h de segunda a sexta.',
+          ejemplo_2: 'A cada 15 minutos.',
+          ejemplo_3: 'Meia-noite do primeiro dia de cada mês.',
+        },
+
+        actividad_completada: {
+          tipo_clave_label: 'Tipo de atividade (opcional)',
+          tipo_clave_placeholder: 'Ex: ligacao, visita_obra',
+          tipo_clave_ayuda: 'Se deixar vazio, dispara para qualquer tipo de atividade. Aceita a chave técnica do tipo (autocomplete completo chega em uma próxima entrega).',
+        },
       },
 
       confirmar_descartar: {
