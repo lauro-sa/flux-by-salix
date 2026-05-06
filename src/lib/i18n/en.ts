@@ -1686,6 +1686,7 @@ export const en: Traducciones = {
           tiempo: 'Timing',
           disparador: 'Trigger',
           avanzado: 'Advanced',
+          condiciones: 'Conditions',
         },
 
         subheader: {
@@ -1853,6 +1854,78 @@ export const en: Traducciones = {
           tolerancia_label: 'Tolerance (days)',
           tolerancia_ayuda: 'Backwards margin if the cron was down. 0 = strictly the day.',
         },
+
+        branch: {
+          operador_label: 'When met:',
+          operador_y: 'All',
+          operador_o: 'Any',
+          ayuda_y: 'The flow takes the "Yes" branch when ALL conditions below are true.',
+          ayuda_o: 'The flow takes the "Yes" branch when AT LEAST ONE condition below is true.',
+          sin_condiciones: 'No conditions yet. Add the first one so the branch has logic.',
+          agregar_condicion: 'Add condition',
+          fila_anidada_no_editable: 'This condition has nested groups. Editing nested groups will arrive later; the engine evaluates it intact for now.',
+          ayuda_avanzado: 'Additional operators (between, days since, lists) and nested groups are coming in a future release.',
+          fila: {
+            variable_label: 'Variable or field',
+            variable_placeholder: '{{entidad.total}}',
+            valor_label: 'Value',
+            valor_placeholder: '100000 or {{another.variable}}',
+            eliminar: 'Remove condition',
+          },
+          op: {
+            igual: 'is equal to',
+            distinto: 'is different from',
+            mayor: 'is greater than',
+            menor: 'is less than',
+            mayor_o_igual: 'is greater than or equal to',
+            menor_o_igual: 'is less than or equal to',
+            contiene: 'contains',
+            no_contiene: 'does not contain',
+            esta_vacio: 'is empty',
+            no_esta_vacio: 'is not empty',
+          },
+        },
+
+        asignar: {
+          usuario_label: 'Assign to',
+          entidad_id_label: 'Entity ID (optional)',
+          entidad_id_ayuda: 'Defaults to the entity that triggered the flow. Accepts variables like {{entidad.id}}.',
+        },
+
+        etiqueta: {
+          agregar_label: 'Tag to add',
+          agregar_placeholder: 'E.g. priority_high',
+          quitar_label: 'Tag to remove',
+          quitar_placeholder: 'E.g. priority_high',
+          clave_ayuda: 'Technical key of the configurable tag (autocomplete coming later).',
+          entidad_id_label: 'Entity ID (optional)',
+          entidad_id_ayuda: 'Defaults to the entity that triggered the flow.',
+        },
+
+        notificar_grupo: {
+          grupo_label: 'Recipient group',
+          grupo_placeholder: 'E.g. sales, support',
+          grupo_ayuda: 'Technical key of the configurable group. Autocomplete coming later.',
+          titulo_label: 'Title',
+          titulo_placeholder: 'Installment due soon: {{contacto.nombre}}',
+          cuerpo_label: 'Message (optional)',
+          cuerpo_placeholder: 'Notice details...',
+        },
+
+        whatsapp_texto: {
+          mensaje_label: 'Message',
+          mensaje_placeholder: 'Hi {{contacto.nombre}}, just reminding you...',
+          mensaje_ayuda: 'Free text. Only works within the 24h window since the contact’s last message.',
+        },
+
+        correo_texto: {
+          destinatario_label: 'Recipient',
+          asunto_label: 'Subject',
+          asunto_placeholder: 'Reminder: {{entidad.numero}}',
+          cuerpo_label: 'Body',
+          cuerpo_placeholder: 'Hi {{contacto.nombre}},\n\n...',
+          cuerpo_ayuda: 'Plain text. Rich-text editor coming in a future release.',
+        },
       },
 
       confirmar_descartar: {
@@ -1871,6 +1944,21 @@ export const en: Traducciones = {
         error_publicar: 'Could not publish',
         error_descartar: 'Could not discard the draft',
       },
+    },
+
+    selector: {
+      buscar: 'Search...',
+      cargando: 'Loading options…',
+      error_cargar: 'Could not load options.',
+      sin_resultados: 'No matches.',
+      canal_wa: { placeholder: 'Pick a WhatsApp channel' },
+      plantilla_wa: { placeholder: 'Pick an approved template' },
+      tipo_actividad: { placeholder: 'Pick an activity type' },
+      miembro: {
+        placeholder: 'Pick a user',
+        placeholder_multi: 'Pick one or more users',
+      },
+      estado: { placeholder: 'Pick a state' },
     },
 
     picker: {

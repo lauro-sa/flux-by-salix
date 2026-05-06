@@ -1,10 +1,11 @@
 'use client'
 
-import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
+import SelectorCanalWhatsApp from '../selectores/SelectorCanalWhatsApp'
+import SelectorPlantillaWhatsApp from '../selectores/SelectorPlantillaWhatsApp'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
 import type {
@@ -58,15 +59,16 @@ export default function PanelEnviarWhatsApp({
   return (
     <>
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.basicos')}>
-        <Input
-          etiqueta={t('flujos.editor.panel.whatsapp.canal_label')}
-          placeholder={t('flujos.editor.panel.whatsapp.canal_placeholder')}
-          value={paso.canal_id ?? ''}
-          onChange={(e) => onCambiar({ canal_id: e.target.value })}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.whatsapp.canal_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.whatsapp.canal_label')}
+          </span>
+          <SelectorCanalWhatsApp
+            valor={paso.canal_id ?? null}
+            onChange={(id) => onCambiar({ canal_id: id })}
+            disabled={soloLectura}
+          />
+        </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">
@@ -86,15 +88,16 @@ export default function PanelEnviarWhatsApp({
           </span>
         </div>
 
-        <Input
-          etiqueta={t('flujos.editor.panel.whatsapp.plantilla_label')}
-          placeholder={t('flujos.editor.panel.whatsapp.plantilla_placeholder')}
-          value={paso.plantilla_nombre ?? ''}
-          onChange={(e) => onCambiar({ plantilla_nombre: e.target.value })}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.whatsapp.plantilla_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.whatsapp.plantilla_label')}
+          </span>
+          <SelectorPlantillaWhatsApp
+            valor={paso.plantilla_nombre ?? null}
+            onChange={(nombreApi) => onCambiar({ plantilla_nombre: nombreApi })}
+            disabled={soloLectura}
+          />
+        </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">

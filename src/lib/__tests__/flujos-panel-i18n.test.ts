@@ -168,6 +168,63 @@ const CLAVES_OBLIGATORIAS: readonly string[] = [
 
   // Fallback de etiqueta de acción cuando el tipo se desconoce.
   'flujos.accion.sin_tipo',
+
+  // ─── Sub-PR 19.3c ────────────────────────────────────────────
+
+  // Sección Condiciones (label uppercase)
+  'flujos.editor.panel.seccion.condiciones',
+
+  // Branch builder
+  'flujos.editor.panel.branch.operador_label',
+  'flujos.editor.panel.branch.operador_y',
+  'flujos.editor.panel.branch.operador_o',
+  'flujos.editor.panel.branch.ayuda_y',
+  'flujos.editor.panel.branch.ayuda_o',
+  'flujos.editor.panel.branch.sin_condiciones',
+  'flujos.editor.panel.branch.agregar_condicion',
+  'flujos.editor.panel.branch.fila_anidada_no_editable',
+  'flujos.editor.panel.branch.fila.variable_label',
+  'flujos.editor.panel.branch.fila.valor_label',
+  'flujos.editor.panel.branch.fila.eliminar',
+
+  // Operadores del Branch — los 10
+  'flujos.editor.panel.branch.op.igual',
+  'flujos.editor.panel.branch.op.distinto',
+  'flujos.editor.panel.branch.op.mayor',
+  'flujos.editor.panel.branch.op.menor',
+  'flujos.editor.panel.branch.op.mayor_o_igual',
+  'flujos.editor.panel.branch.op.menor_o_igual',
+  'flujos.editor.panel.branch.op.contiene',
+  'flujos.editor.panel.branch.op.no_contiene',
+  'flujos.editor.panel.branch.op.esta_vacio',
+  'flujos.editor.panel.branch.op.no_esta_vacio',
+
+  // Tipos baratos: asignar_usuario, etiquetas, notificar_grupo,
+  // whatsapp_texto, correo_texto.
+  'flujos.editor.panel.asignar.usuario_label',
+  'flujos.editor.panel.asignar.entidad_id_label',
+  'flujos.editor.panel.etiqueta.agregar_label',
+  'flujos.editor.panel.etiqueta.quitar_label',
+  'flujos.editor.panel.etiqueta.clave_ayuda',
+  'flujos.editor.panel.notificar_grupo.grupo_label',
+  'flujos.editor.panel.notificar_grupo.titulo_label',
+  'flujos.editor.panel.notificar_grupo.cuerpo_label',
+  'flujos.editor.panel.whatsapp_texto.mensaje_label',
+  'flujos.editor.panel.correo_texto.destinatario_label',
+  'flujos.editor.panel.correo_texto.asunto_label',
+  'flujos.editor.panel.correo_texto.cuerpo_label',
+
+  // Selectores autocomplete
+  'flujos.selector.buscar',
+  'flujos.selector.cargando',
+  'flujos.selector.error_cargar',
+  'flujos.selector.sin_resultados',
+  'flujos.selector.canal_wa.placeholder',
+  'flujos.selector.plantilla_wa.placeholder',
+  'flujos.selector.tipo_actividad.placeholder',
+  'flujos.selector.miembro.placeholder',
+  'flujos.selector.miembro.placeholder_multi',
+  'flujos.selector.estado.placeholder',
 ] as const
 
 describe('flujos / panel lateral / claves i18n alcanzables', () => {

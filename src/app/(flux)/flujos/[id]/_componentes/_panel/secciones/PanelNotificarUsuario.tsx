@@ -4,6 +4,7 @@ import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
+import SelectorMiembro from '../selectores/SelectorMiembro'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
 import type {
@@ -41,15 +42,16 @@ export default function PanelNotificarUsuario({
   return (
     <>
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.basicos')}>
-        <Input
-          etiqueta={t('flujos.editor.panel.notificar.usuario_label')}
-          placeholder={t('flujos.editor.panel.notificar.usuario_placeholder')}
-          value={paso.usuario_id ?? ''}
-          onChange={(e) => onCambiar({ usuario_id: e.target.value })}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.notificar.usuario_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.notificar.usuario_label')}
+          </span>
+          <SelectorMiembro
+            valor={paso.usuario_id ?? null}
+            onChange={(id) => onCambiar({ usuario_id: id })}
+            disabled={soloLectura}
+          />
+        </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">

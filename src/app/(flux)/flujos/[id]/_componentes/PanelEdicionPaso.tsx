@@ -22,6 +22,12 @@ import PanelEnviarWhatsApp from './_panel/secciones/PanelEnviarWhatsApp'
 import PanelNotificarUsuario from './_panel/secciones/PanelNotificarUsuario'
 import PanelCrearActividad from './_panel/secciones/PanelCrearActividad'
 import PanelCambiarEstado from './_panel/secciones/PanelCambiarEstado'
+import PanelBranch from './_panel/secciones/PanelBranch'
+import PanelAsignarUsuario from './_panel/secciones/PanelAsignarUsuario'
+import PanelEtiqueta from './_panel/secciones/PanelEtiqueta'
+import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
+import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
+import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
 import PanelDisparadorEntidadCampoCambia from './_panel/secciones/PanelDisparadorEntidadCampoCambia'
@@ -31,9 +37,11 @@ import { usePreviewContexto } from './_picker/usePreviewContexto'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
 import type {
   AccionCambiarEstadoEntidad,
+  AccionCondicionBranch,
   AccionCrearActividad,
   AccionEnviarWhatsappPlantilla,
   AccionEsperar,
+  AccionGenerica,
   AccionNotificarUsuario,
   AccionTerminarFlujo,
   AccionWorkflow,
@@ -458,6 +466,79 @@ function renderPaso(args: RenderPasoArgs) {
         fuentes={fuentes}
         contexto={contexto}
         tipoEntidadDisparador={tipoEntidadDisparador}
+      />
+    )
+  }
+
+  if (paso.tipo === 'condicion_branch') {
+    return (
+      <PanelBranch
+        paso={paso as AccionCondicionBranch}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'asignar_usuario') {
+    return (
+      <PanelAsignarUsuario
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'agregar_etiqueta' || paso.tipo === 'quitar_etiqueta') {
+    return (
+      <PanelEtiqueta
+        paso={paso as AccionGenerica}
+        modo={paso.tipo === 'agregar_etiqueta' ? 'agregar' : 'quitar'}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'notificar_grupo') {
+    return (
+      <PanelNotificarGrupo
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'enviar_whatsapp_texto') {
+    return (
+      <PanelEnviarWhatsAppTexto
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'enviar_correo_texto') {
+    return (
+      <PanelEnviarCorreoTexto
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
       />
     )
   }

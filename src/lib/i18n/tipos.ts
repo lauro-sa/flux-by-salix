@@ -1749,6 +1749,7 @@ export interface Traducciones {
           tiempo: string
           disparador: string
           avanzado: string
+          condiciones: string
         }
 
         subheader: {
@@ -1916,6 +1917,81 @@ export interface Traducciones {
           tolerancia_label: string
           tolerancia_ayuda: string
         }
+
+        // Sub-PR 19.3c
+
+        branch: {
+          operador_label: string
+          operador_y: string
+          operador_o: string
+          ayuda_y: string
+          ayuda_o: string
+          sin_condiciones: string
+          agregar_condicion: string
+          fila_anidada_no_editable: string
+          ayuda_avanzado: string
+          fila: {
+            variable_label: string
+            variable_placeholder: string
+            valor_label: string
+            valor_placeholder: string
+            eliminar: string
+          }
+          op: {
+            igual: string
+            distinto: string
+            mayor: string
+            menor: string
+            mayor_o_igual: string
+            menor_o_igual: string
+            contiene: string
+            no_contiene: string
+            esta_vacio: string
+            no_esta_vacio: string
+          }
+        }
+
+        asignar: {
+          usuario_label: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+        }
+
+        etiqueta: {
+          agregar_label: string
+          agregar_placeholder: string
+          quitar_label: string
+          quitar_placeholder: string
+          clave_ayuda: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+        }
+
+        notificar_grupo: {
+          grupo_label: string
+          grupo_placeholder: string
+          grupo_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+        }
+
+        whatsapp_texto: {
+          mensaje_label: string
+          mensaje_placeholder: string
+          mensaje_ayuda: string
+        }
+
+        correo_texto: {
+          destinatario_label: string
+          asunto_label: string
+          asunto_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+          cuerpo_ayuda: string
+        }
+
       }
 
 
@@ -1935,6 +2011,19 @@ export interface Traducciones {
         error_publicar: string
         error_descartar: string
       }
+    }
+
+    // Selectores autocomplete (sub-PR 19.3c)
+    selector: {
+      buscar: string
+      cargando: string
+      error_cargar: string
+      sin_resultados: string
+      canal_wa: { placeholder: string }
+      plantilla_wa: { placeholder: string }
+      tipo_actividad: { placeholder: string }
+      miembro: { placeholder: string; placeholder_multi: string }
+      estado: { placeholder: string }
     }
 
     // Picker de variables (sub-PR 19.3b)

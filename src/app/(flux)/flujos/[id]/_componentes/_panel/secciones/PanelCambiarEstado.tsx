@@ -5,6 +5,7 @@ import { Select } from '@/componentes/ui/Select'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
+import SelectorEstadoEntidad from '../selectores/SelectorEstadoEntidad'
 import { ENTIDADES_CON_ESTADO, type EntidadConEstado } from '@/tipos/estados'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
@@ -99,15 +100,20 @@ export default function PanelCambiarEstado({
           </span>
         </div>
 
-        <Input
-          etiqueta={t('flujos.editor.panel.cambiar_estado.hasta_clave_label')}
-          placeholder={t('flujos.editor.panel.cambiar_estado.hasta_clave_placeholder')}
-          value={paso.hasta_clave ?? ''}
-          onChange={(e) => onCambiar({ hasta_clave: e.target.value })}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.cambiar_estado.hasta_clave_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.cambiar_estado.hasta_clave_label')}
+          </span>
+          <SelectorEstadoEntidad
+            entidadTipo={paso.entidad_tipo ?? null}
+            valor={paso.hasta_clave ?? null}
+            onChange={(clave) => onCambiar({ hasta_clave: clave })}
+            disabled={soloLectura}
+          />
+          <span className="text-xs text-texto-terciario leading-relaxed">
+            {t('flujos.editor.panel.cambiar_estado.hasta_clave_ayuda')}
+          </span>
+        </div>
 
         <Input
           etiqueta={t('flujos.editor.panel.cambiar_estado.motivo_label')}

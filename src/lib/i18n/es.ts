@@ -1725,6 +1725,7 @@ export const es: Traducciones = {
           tiempo: 'Tiempo',
           disparador: 'Disparador',
           avanzado: 'Avanzado',
+          condiciones: 'Condiciones',
         },
 
         subheader: {
@@ -1892,6 +1893,78 @@ export const es: Traducciones = {
           tolerancia_label: 'Tolerancia (días)',
           tolerancia_ayuda: 'Margen hacia atrás si el cron estuvo caído. 0 = solo el día exacto.',
         },
+
+        branch: {
+          operador_label: 'Cuando se cumple:',
+          operador_y: 'Todas',
+          operador_o: 'Alguna',
+          ayuda_y: 'El flujo toma la rama "Sí" cuando TODAS las condiciones de abajo son verdaderas.',
+          ayuda_o: 'El flujo toma la rama "Sí" cuando AL MENOS UNA condición de abajo es verdadera.',
+          sin_condiciones: 'Sin condiciones todavía. Agregá la primera para que el branch tenga lógica.',
+          agregar_condicion: 'Agregar condición',
+          fila_anidada_no_editable: 'Esta condición tiene anidamiento avanzado. La edición de sub-grupos llega más adelante; por ahora el motor la evalúa intacta.',
+          ayuda_avanzado: 'Operadores adicionales (entre rangos, días desde, listas) y sub-grupos anidados llegan en una próxima entrega.',
+          fila: {
+            variable_label: 'Variable o campo',
+            variable_placeholder: '{{entidad.total}}',
+            valor_label: 'Valor',
+            valor_placeholder: '100000 o {{otra.variable}}',
+            eliminar: 'Eliminar condición',
+          },
+          op: {
+            igual: 'es igual a',
+            distinto: 'es distinto de',
+            mayor: 'es mayor que',
+            menor: 'es menor que',
+            mayor_o_igual: 'es mayor o igual a',
+            menor_o_igual: 'es menor o igual a',
+            contiene: 'contiene',
+            no_contiene: 'no contiene',
+            esta_vacio: 'está vacío',
+            no_esta_vacio: 'no está vacío',
+          },
+        },
+
+        asignar: {
+          usuario_label: 'Asignar a',
+          entidad_id_label: 'ID de la entidad (opcional)',
+          entidad_id_ayuda: 'Por defecto, la entidad que disparó el flujo. Acepta variables como {{entidad.id}}.',
+        },
+
+        etiqueta: {
+          agregar_label: 'Etiqueta a agregar',
+          agregar_placeholder: 'Ej: prioridad_alta',
+          quitar_label: 'Etiqueta a quitar',
+          quitar_placeholder: 'Ej: prioridad_alta',
+          clave_ayuda: 'Clave técnica de la etiqueta configurable (autocomplete llega en una próxima entrega).',
+          entidad_id_label: 'ID de la entidad (opcional)',
+          entidad_id_ayuda: 'Por defecto, la entidad que disparó el flujo.',
+        },
+
+        notificar_grupo: {
+          grupo_label: 'Grupo destinatario',
+          grupo_placeholder: 'Ej: ventas, soporte',
+          grupo_ayuda: 'Clave técnica del grupo configurable. Autocomplete llega después.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Cuota próxima a vencer: {{contacto.nombre}}',
+          cuerpo_label: 'Mensaje (opcional)',
+          cuerpo_placeholder: 'Detalles del aviso...',
+        },
+
+        whatsapp_texto: {
+          mensaje_label: 'Mensaje',
+          mensaje_placeholder: 'Hola {{contacto.nombre}}, te recuerdo...',
+          mensaje_ayuda: 'Texto libre. Solo funciona dentro de la ventana de 24 hs desde el último mensaje del contacto.',
+        },
+
+        correo_texto: {
+          destinatario_label: 'Destinatario',
+          asunto_label: 'Asunto',
+          asunto_placeholder: 'Recordatorio: {{entidad.numero}}',
+          cuerpo_label: 'Cuerpo',
+          cuerpo_placeholder: 'Hola {{contacto.nombre}},\n\n...',
+          cuerpo_ayuda: 'Texto plano. El editor con formato rico llega en una próxima entrega.',
+        },
       },
 
       confirmar_descartar: {
@@ -1910,6 +1983,21 @@ export const es: Traducciones = {
         error_publicar: 'No se pudo publicar',
         error_descartar: 'No se pudo descartar el borrador',
       },
+    },
+
+    selector: {
+      buscar: 'Buscar...',
+      cargando: 'Cargando opciones…',
+      error_cargar: 'No se pudieron cargar las opciones.',
+      sin_resultados: 'Sin coincidencias.',
+      canal_wa: { placeholder: 'Elegí un canal de WhatsApp' },
+      plantilla_wa: { placeholder: 'Elegí una plantilla aprobada' },
+      tipo_actividad: { placeholder: 'Elegí un tipo de actividad' },
+      miembro: {
+        placeholder: 'Elegí un usuario',
+        placeholder_multi: 'Elegí uno o más usuarios',
+      },
+      estado: { placeholder: 'Elegí un estado' },
     },
 
     picker: {

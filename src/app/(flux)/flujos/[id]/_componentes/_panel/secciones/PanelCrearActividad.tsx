@@ -5,6 +5,8 @@ import { Select } from '@/componentes/ui/Select'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
+import SelectorTipoActividad from '../selectores/SelectorTipoActividad'
+import SelectorMiembro from '../selectores/SelectorMiembro'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
 import type {
@@ -53,20 +55,19 @@ export default function PanelCrearActividad({
     etiqueta: t(o.etiquetaClave),
   }))
 
-  const asignadosCsv = (paso.asignados_ids ?? []).join(', ')
-
   return (
     <>
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.basicos')}>
-        <Input
-          etiqueta={t('flujos.editor.panel.actividad.tipo_id_label')}
-          placeholder={t('flujos.editor.panel.actividad.tipo_id_placeholder')}
-          value={paso.tipo_actividad_id ?? ''}
-          onChange={(e) => onCambiar({ tipo_actividad_id: e.target.value })}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.actividad.tipo_id_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.actividad.tipo_id_label')}
+          </span>
+          <SelectorTipoActividad
+            valor={paso.tipo_actividad_id ?? null}
+            onChange={(id) => onCambiar({ tipo_actividad_id: id })}
+            disabled={soloLectura}
+          />
+        </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">
@@ -117,21 +118,17 @@ export default function PanelCrearActividad({
       </SeccionPanel>
 
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.avanzado')} defaultAbierto={false}>
-        <Input
-          etiqueta={t('flujos.editor.panel.actividad.asignados_label')}
-          placeholder={t('flujos.editor.panel.actividad.asignados_placeholder')}
-          value={asignadosCsv}
-          onChange={(e) => {
-            const lista = e.target.value
-              .split(',')
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0)
-            onCambiar({ asignados_ids: lista.length > 0 ? lista : undefined })
-          }}
-          disabled={soloLectura}
-          formato={null}
-          ayuda={t('flujos.editor.panel.actividad.asignados_ayuda')}
-        />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-texto-secundario">
+            {t('flujos.editor.panel.actividad.asignados_label')}
+          </span>
+          <SelectorMiembro
+            multi
+            valor={paso.asignados_ids ?? []}
+            onChange={(ids) => onCambiar({ asignados_ids: ids.length > 0 ? ids : undefined })}
+            disabled={soloLectura}
+          />
+        </div>
         <Input
           etiqueta={t('flujos.editor.panel.actividad.contacto_label')}
           placeholder={t('flujos.editor.panel.actividad.contacto_placeholder')}

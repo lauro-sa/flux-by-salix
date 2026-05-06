@@ -1,9 +1,9 @@
 'use client'
 
-import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
+import SelectorEstadoEntidad from '../selectores/SelectorEstadoEntidad'
 import { ENTIDADES_CON_ESTADO, type EntidadConEstado } from '@/tipos/estados'
 import type {
   DisparadorEntidadEstadoCambio,
@@ -67,38 +67,49 @@ export default function PanelDisparadorEntidadEstadoCambio({
         )}
       </div>
 
-      <Input
-        etiqueta={t('flujos.editor.panel.entidad_estado_cambio.hasta_label')}
-        placeholder={t('flujos.editor.panel.entidad_estado_cambio.hasta_placeholder')}
-        value={cfg.hasta_clave}
-        onChange={(e) =>
-          onCambiar({
-            tipo: 'entidad.estado_cambio',
-            configuracion: { ...cfg, hasta_clave: e.target.value },
-          })
-        }
-        disabled={soloLectura}
-        formato={null}
-        ayuda={t('flujos.editor.panel.entidad_estado_cambio.hasta_ayuda')}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-texto-secundario">
+          {t('flujos.editor.panel.entidad_estado_cambio.hasta_label')}
+        </span>
+        <SelectorEstadoEntidad
+          entidadTipo={cfg.entidad_tipo}
+          valor={cfg.hasta_clave || null}
+          onChange={(clave) =>
+            onCambiar({
+              tipo: 'entidad.estado_cambio',
+              configuracion: { ...cfg, hasta_clave: clave },
+            })
+          }
+          disabled={soloLectura}
+        />
+        <span className="text-xs text-texto-terciario leading-relaxed">
+          {t('flujos.editor.panel.entidad_estado_cambio.hasta_ayuda')}
+        </span>
+      </div>
 
-      <Input
-        etiqueta={t('flujos.editor.panel.entidad_estado_cambio.desde_label')}
-        placeholder={t('flujos.editor.panel.entidad_estado_cambio.desde_placeholder')}
-        value={cfg.desde_clave ?? ''}
-        onChange={(e) =>
-          onCambiar({
-            tipo: 'entidad.estado_cambio',
-            configuracion: {
-              ...cfg,
-              desde_clave: e.target.value.length > 0 ? e.target.value : null,
-            },
-          })
-        }
-        disabled={soloLectura}
-        formato={null}
-        ayuda={t('flujos.editor.panel.entidad_estado_cambio.desde_ayuda')}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-texto-secundario">
+          {t('flujos.editor.panel.entidad_estado_cambio.desde_label')}
+        </span>
+        <SelectorEstadoEntidad
+          entidadTipo={cfg.entidad_tipo}
+          valor={cfg.desde_clave ?? null}
+          onChange={(clave) =>
+            onCambiar({
+              tipo: 'entidad.estado_cambio',
+              configuracion: {
+                ...cfg,
+                desde_clave: clave.length > 0 ? clave : null,
+              },
+            })
+          }
+          disabled={soloLectura}
+          placeholder={t('flujos.editor.panel.entidad_estado_cambio.desde_placeholder')}
+        />
+        <span className="text-xs text-texto-terciario leading-relaxed">
+          {t('flujos.editor.panel.entidad_estado_cambio.desde_ayuda')}
+        </span>
+      </div>
     </SeccionPanel>
   )
 }
