@@ -1648,6 +1648,7 @@ export interface Traducciones {
       activar: string
       pausar: string
       eliminar: string
+      sin_tipo: string
     }
 
     // Confirmación dura para eliminar
@@ -1760,10 +1761,6 @@ export interface Traducciones {
           eliminar_paso: string
         }
 
-        avanzado: {
-          proximamente: string
-        }
-
         pendiente: {
           titulo: string
           descripcion: string
@@ -1798,7 +1795,129 @@ export interface Traducciones {
           tipo_clave_placeholder: string
           tipo_clave_ayuda: string
         }
+
+        header: {
+          editar_nombre_tooltip: string
+        }
+
+        avanzado: {
+          proximamente: string
+          continuar_si_falla_label: string
+          continuar_si_falla_ayuda: string
+        }
+
+        whatsapp: {
+          canal_label: string
+          canal_placeholder: string
+          canal_ayuda: string
+          telefono_label: string
+          telefono_placeholder: string
+          telefono_ayuda: string
+          plantilla_label: string
+          plantilla_placeholder: string
+          plantilla_ayuda: string
+          idioma_label: string
+        }
+
+        notificar: {
+          usuario_label: string
+          usuario_placeholder: string
+          usuario_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+          url_label: string
+          url_placeholder: string
+          url_ayuda: string
+          tipo_label: string
+          tipo_placeholder: string
+        }
+
+        actividad: {
+          tipo_id_label: string
+          tipo_id_placeholder: string
+          tipo_id_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          descripcion_label: string
+          descripcion_placeholder: string
+          prioridad_label: string
+          prioridad_baja: string
+          prioridad_normal: string
+          prioridad_alta: string
+          asignados_label: string
+          asignados_placeholder: string
+          asignados_ayuda: string
+          contacto_label: string
+          contacto_placeholder: string
+          contacto_ayuda: string
+          fecha_label: string
+          fecha_ayuda: string
+        }
+
+        cambiar_estado: {
+          entidad_label: string
+          entidad_ayuda_disparador: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+          hasta_clave_label: string
+          hasta_clave_placeholder: string
+          hasta_clave_ayuda: string
+          motivo_label: string
+          motivo_placeholder: string
+          entidad: {
+            presupuesto: string
+            orden: string
+            visita: string
+            conversacion: string
+            asistencia: string
+            cuota: string
+            actividad: string
+            adelanto_nomina: string
+            pago_nomina: string
+          }
+        }
+
+        entidad_estado_cambio: {
+          entidad_label: string
+          hasta_label: string
+          hasta_placeholder: string
+          hasta_ayuda: string
+          desde_label: string
+          desde_placeholder: string
+          desde_ayuda: string
+        }
+
+        entidad_creada: {
+          entidad_label: string
+          entidad_ayuda: string
+        }
+
+        entidad_campo_cambia: {
+          entidad_label: string
+          campo_label: string
+          campo_placeholder: string
+          campo_ayuda: string
+          valor_label: string
+          valor_placeholder: string
+          valor_ayuda: string
+        }
+
+        relativo_a_campo: {
+          entidad_label: string
+          campo_fecha_label: string
+          campo_fecha_placeholder: string
+          campo_fecha_ayuda: string
+          delta_label: string
+          delta_ayuda: string
+          hora_local_label: string
+          hora_local_ayuda: string
+          tolerancia_label: string
+          tolerancia_ayuda: string
+        }
       }
+
 
       confirmar_descartar: {
         titulo: string
@@ -1815,6 +1934,94 @@ export interface Traducciones {
         error_guardar: string
         error_publicar: string
         error_descartar: string
+      }
+    }
+
+    // Picker de variables (sub-PR 19.3b)
+    picker: {
+      titulo: string
+      buscador_placeholder: string
+      limpiar_busqueda: string
+      tab_todas: string
+      sin_resultados: string
+      hint_navegacion: string
+      boton_insertar: string
+      fuente: {
+        entidad: string
+        contacto: string
+        empresa: string
+        sistema: string
+        cambio: string
+        actor: string
+      }
+    }
+
+    // Catálogo de variables disponibles (sub-PR 19.3b)
+    variables: {
+      presupuesto: {
+        numero: string
+        titulo: string
+        total: string
+        estado_clave: string
+        fecha_validez: string
+        creado_en: string
+      }
+      cuota: {
+        numero: string
+        monto: string
+        fecha_vencimiento: string
+        estado_clave: string
+      }
+      orden: {
+        numero: string
+        titulo: string
+        estado_clave: string
+        fecha_programada: string
+      }
+      visita: {
+        titulo: string
+        estado_clave: string
+        fecha_programada: string
+        direccion: string
+      }
+      actividad: {
+        titulo: string
+        descripcion: string
+        estado_clave: string
+        fecha_vencimiento: string
+      }
+      conversacion: {
+        canal: string
+        estado_clave: string
+        ultima_actividad_en: string
+      }
+      generico: {
+        id: string
+        estado_clave: string
+      }
+      contacto: {
+        nombre: string
+        email: string
+        telefono: string
+        empresa: string
+      }
+      empresa: {
+        nombre: string
+        telefono: string
+        correo: string
+        pagina_web: string
+      }
+      sistema: {
+        ahora: string
+      }
+      actor: {
+        nombre: string
+        email: string
+        nombre_completo: string
+      }
+      cambio: {
+        desde: string
+        hasta: string
       }
     }
 

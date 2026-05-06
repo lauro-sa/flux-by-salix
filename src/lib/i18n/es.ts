@@ -1629,6 +1629,7 @@ export const es: Traducciones = {
       activar: 'Activar',
       pausar: 'Pausar',
       eliminar: 'Eliminar',
+      sin_tipo: 'Acción',
     },
 
     confirmar_eliminar: {
@@ -1736,10 +1737,6 @@ export const es: Traducciones = {
           eliminar_paso: 'Eliminar paso',
         },
 
-        avanzado: {
-          proximamente: 'Las opciones avanzadas se suman en una próxima entrega.',
-        },
-
         pendiente: {
           titulo: 'Edición de "{{tipo}}" próximamente',
           descripcion: 'Este tipo de paso ya está configurado a nivel motor; el panel con sus campos editables llega en la próxima entrega del editor.',
@@ -1774,6 +1771,127 @@ export const es: Traducciones = {
           tipo_clave_placeholder: 'Ej: llamada, visita_obra',
           tipo_clave_ayuda: 'Si dejás vacío, dispara para cualquier tipo de actividad. Acepta la clave técnica del tipo (lista completa con autocomplete llega en una próxima entrega).',
         },
+
+        header: {
+          editar_nombre_tooltip: 'Click para renombrar este paso',
+        },
+
+        avanzado: {
+          proximamente: 'Las opciones avanzadas se suman en una próxima entrega.',
+          continuar_si_falla_label: 'Continuar si falla',
+          continuar_si_falla_ayuda: 'Si esta acción falla, el flujo sigue con la siguiente en lugar de detenerse.',
+        },
+
+        whatsapp: {
+          canal_label: 'Canal',
+          canal_placeholder: 'ID del canal',
+          canal_ayuda: 'Identificador técnico del canal de WhatsApp configurado.',
+          telefono_label: 'Teléfono destino',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Acepta variables como {{contacto.telefono}}.',
+          plantilla_label: 'Plantilla aprobada',
+          plantilla_placeholder: 'recordatorio_cuota',
+          plantilla_ayuda: 'Nombre de la plantilla aprobada en Meta.',
+          idioma_label: 'Idioma',
+        },
+
+        notificar: {
+          usuario_label: 'Usuario destinatario',
+          usuario_placeholder: 'UUID del usuario',
+          usuario_ayuda: 'Acepta variables (ej. {{actor.id}}) o un UUID fijo.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Nuevo presupuesto aceptado',
+          cuerpo_label: 'Mensaje (opcional)',
+          cuerpo_placeholder: '{{contacto.nombre}} aceptó el presupuesto {{entidad.numero}}',
+          url_label: 'URL de navegación',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'URL relativa a la que lleva el click en la notificación.',
+          tipo_label: 'Categoría',
+          tipo_placeholder: 'sistema, ventas...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Tipo de actividad',
+          tipo_id_placeholder: 'UUID del tipo configurado',
+          tipo_id_ayuda: 'ID del tipo de actividad a crear (autocomplete llega en una próxima entrega).',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Llamar a {{contacto.nombre}}',
+          descripcion_label: 'Descripción (opcional)',
+          descripcion_placeholder: 'Confirmar visita programada',
+          prioridad_label: 'Prioridad',
+          prioridad_baja: 'Baja',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'Alta',
+          asignados_label: 'Asignados (UUIDs separados por coma)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'Lista de IDs de usuarios. Autocomplete llega después.',
+          contacto_label: 'Contacto vinculado (opcional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Acepta variables o un UUID fijo.',
+          fecha_label: 'Fecha de vencimiento',
+          fecha_ayuda: 'Formato ISO (YYYY-MM-DD). Selector visual llega después.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entidad',
+          entidad_ayuda_disparador: 'El flujo viene activado por un cambio en {{tipo}} — por defecto cambiamos esa entidad.',
+          entidad_id_label: 'ID de la entidad',
+          entidad_id_ayuda: 'Por lo general {{entidad.id}} (la misma entidad que disparó el flujo).',
+          hasta_clave_label: 'Estado destino',
+          hasta_clave_placeholder: 'Ej: aceptado, completado',
+          hasta_clave_ayuda: 'Clave técnica del estado destino (lista configurable en /configuracion).',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Auto-cierre por workflow',
+          entidad: {
+            presupuesto: 'Presupuesto',
+            orden: 'Orden de trabajo',
+            visita: 'Visita',
+            conversacion: 'Conversación',
+            asistencia: 'Asistencia',
+            cuota: 'Cuota',
+            actividad: 'Actividad',
+            adelanto_nomina: 'Adelanto de nómina',
+            pago_nomina: 'Pago de nómina',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Entidad observada',
+          hasta_label: 'Estado destino',
+          hasta_placeholder: 'Ej: aceptado, pagado',
+          hasta_ayuda: 'Clave del estado al que tiene que llegar la entidad para disparar.',
+          desde_label: 'Estado origen (opcional)',
+          desde_placeholder: 'Ej: pendiente',
+          desde_ayuda: 'Si dejás vacío, dispara desde cualquier estado anterior.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Entidad observada',
+          entidad_ayuda: 'El flujo dispara cada vez que se crea una entidad nueva del tipo elegido.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Entidad observada',
+          campo_label: 'Campo a observar',
+          campo_placeholder: 'Ej: total, asignado_a',
+          campo_ayuda: 'Nombre técnico de la columna (autocomplete llega después).',
+          valor_label: 'Valor objetivo (opcional)',
+          valor_placeholder: 'Si dejás vacío, dispara con cualquier cambio',
+          valor_ayuda: 'Si lo completás, dispara solo cuando el campo pasa a este valor exacto.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Entidad observada',
+          campo_fecha_label: 'Campo de fecha',
+          campo_fecha_placeholder: 'Ej: fecha_vencimiento',
+          campo_fecha_ayuda: 'Columna de tipo fecha de la entidad.',
+          delta_label: 'Días relativos',
+          delta_ayuda: 'Negativo = antes (ej. -3 = "tres días antes"). Positivo = después.',
+          hora_local_label: 'Hora local del disparo',
+          hora_local_ayuda: 'Hora del día (HH:MM) en zona horaria de la empresa.',
+          tolerancia_label: 'Tolerancia (días)',
+          tolerancia_ayuda: 'Margen hacia atrás si el cron estuvo caído. 0 = solo el día exacto.',
+        },
       },
 
       confirmar_descartar: {
@@ -1791,6 +1909,92 @@ export const es: Traducciones = {
         error_guardar: 'No se pudo guardar',
         error_publicar: 'No se pudo publicar',
         error_descartar: 'No se pudo descartar el borrador',
+      },
+    },
+
+    picker: {
+      titulo: 'Insertar variable',
+      buscador_placeholder: 'Buscar variable...',
+      limpiar_busqueda: 'Limpiar búsqueda',
+      tab_todas: 'Todas',
+      sin_resultados: 'Ninguna variable coincide con tu búsqueda.',
+      hint_navegacion: '↑↓ navegar · ↵ insertar · esc cerrar',
+      boton_insertar: 'Insertar variable',
+      fuente: {
+        entidad: 'Entidad',
+        contacto: 'Contacto',
+        empresa: 'Empresa',
+        sistema: 'Sistema',
+        cambio: 'Cambio',
+        actor: 'Usuario',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Número',
+        titulo: 'Título',
+        total: 'Total',
+        estado_clave: 'Estado',
+        fecha_validez: 'Fecha de validez',
+        creado_en: 'Fecha de creación',
+      },
+      cuota: {
+        numero: 'Número de cuota',
+        monto: 'Monto',
+        fecha_vencimiento: 'Fecha de vencimiento',
+        estado_clave: 'Estado',
+      },
+      orden: {
+        numero: 'Número',
+        titulo: 'Título',
+        estado_clave: 'Estado',
+        fecha_programada: 'Fecha programada',
+      },
+      visita: {
+        titulo: 'Título',
+        estado_clave: 'Estado',
+        fecha_programada: 'Fecha programada',
+        direccion: 'Dirección',
+      },
+      actividad: {
+        titulo: 'Título',
+        descripcion: 'Descripción',
+        estado_clave: 'Estado',
+        fecha_vencimiento: 'Fecha de vencimiento',
+      },
+      conversacion: {
+        canal: 'Canal',
+        estado_clave: 'Estado',
+        ultima_actividad_en: 'Última actividad',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Estado',
+      },
+      contacto: {
+        nombre: 'Nombre',
+        email: 'Email',
+        telefono: 'Teléfono',
+        empresa: 'Empresa',
+      },
+      empresa: {
+        nombre: 'Nombre',
+        telefono: 'Teléfono',
+        correo: 'Correo',
+        pagina_web: 'Sitio web',
+      },
+      sistema: {
+        ahora: 'Fecha y hora actual',
+      },
+      actor: {
+        nombre: 'Nombre',
+        email: 'Email',
+        nombre_completo: 'Nombre completo',
+      },
+      cambio: {
+        desde: 'Estado / valor anterior',
+        hasta: 'Estado / valor nuevo',
       },
     },
 

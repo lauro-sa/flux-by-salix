@@ -28,6 +28,21 @@ import { ENTIDADES_CON_ESTADO } from '@/tipos/estados'
 // configuración específica varía por tipo y se modela como
 // discriminated union sobre el campo `tipo`.
 
+/**
+ * Metadata UI compartida por todos los disparadores.
+ *
+ * `etiqueta?: string` es el nombre user-friendly que muestra el editor
+ * (header del panel + chip del canvas). Si está ausente, la UI usa
+ * `etiquetaDisparador` como fallback. El motor (PR 14, 17) lo ignora —
+ * es metadata exclusiva de UI, persistida dentro del jsonb del flujo.
+ *
+ * Lo modelamos como type intersection para que cada `DisparadorXxx`
+ * lo herede sin tener que agregarlo a 9 interfaces.
+ */
+export interface MetadataUiDisparador {
+  etiqueta?: string
+}
+
 export type TipoDisparador =
   | 'entidad.estado_cambio'
   | 'entidad.creada'
@@ -165,7 +180,11 @@ export interface DisparadorInboxConversacionSinRespuesta {
   }
 }
 
-export type DisparadorWorkflow =
+// Intersection con `MetadataUiDisparador` propaga `etiqueta?: string` a
+// cada miembro de la union sin tocar las 9 interfaces. El narrowing
+// sobre `tipo` sigue funcionando intacto (TS preserva el discriminante
+// porque la metadata no agrega un campo conflictivo).
+export type DisparadorWorkflow = (
   | DisparadorEntidadEstadoCambio
   | DisparadorEntidadCreada
   | DisparadorEntidadCampoCambia
@@ -175,6 +194,7 @@ export type DisparadorWorkflow =
   | DisparadorWebhookEntrante
   | DisparadorInboxMensajeRecibido
   | DisparadorInboxConversacionSinRespuesta
+) & MetadataUiDisparador
 
 // =============================================================
 // Catálogo de tipos de acción
@@ -236,6 +256,15 @@ export const TIPOS_ACCION: readonly TipoAccion[] = [
 interface AccionBase {
   /** Si está en true y la acción falla, el flujo continúa con la siguiente. Default false. */
   continuar_si_falla?: boolean
+  /**
+   * Nombre user-friendly del paso (ej: "Mandar recordatorio cuota
+   * 3 días"). Mostrado en cards del canvas y header del panel lateral
+   * del editor. Si está ausente o vacío, la UI usa la etiqueta legible
+   * del tipo (`etiquetaAccion`) como fallback. El motor lo ignora —
+   * es metadata exclusiva de UI. Cota generosa: ≤200 chars (validación
+   * fuerte llega cuando el editor agregue restricciones, sub-PR 19.4).
+   */
+  etiqueta?: string
 }
 
 // ─── Acciones del sub-PR 15.1 (shape específico) ──────────────

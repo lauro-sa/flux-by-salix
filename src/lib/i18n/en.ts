@@ -1591,6 +1591,7 @@ export const en: Traducciones = {
       activar: 'Activate',
       pausar: 'Pause',
       eliminar: 'Delete',
+      sin_tipo: 'Action',
     },
 
     confirmar_eliminar: {
@@ -1697,10 +1698,6 @@ export const en: Traducciones = {
           eliminar_paso: 'Delete step',
         },
 
-        avanzado: {
-          proximamente: 'Advanced options will arrive in a future release.',
-        },
-
         pendiente: {
           titulo: '"{{tipo}}" editing coming soon',
           descripcion: 'This step type is already wired in the engine; the panel with its editable fields will arrive in the next editor release.',
@@ -1735,6 +1732,127 @@ export const en: Traducciones = {
           tipo_clave_placeholder: 'E.g. call, site_visit',
           tipo_clave_ayuda: 'If left blank, fires for any activity type. Accepts the technical key (full autocomplete coming in a later release).',
         },
+
+        header: {
+          editar_nombre_tooltip: 'Click to rename this step',
+        },
+
+        avanzado: {
+          proximamente: 'Advanced options will arrive in a future release.',
+          continuar_si_falla_label: 'Continue if it fails',
+          continuar_si_falla_ayuda: 'If this action fails, the flow continues with the next one instead of stopping.',
+        },
+
+        whatsapp: {
+          canal_label: 'Channel',
+          canal_placeholder: 'Channel ID',
+          canal_ayuda: 'Technical identifier of the configured WhatsApp channel.',
+          telefono_label: 'Recipient phone',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Accepts variables like {{contacto.telefono}}.',
+          plantilla_label: 'Approved template',
+          plantilla_placeholder: 'payment_reminder',
+          plantilla_ayuda: 'Name of the template approved on Meta.',
+          idioma_label: 'Language',
+        },
+
+        notificar: {
+          usuario_label: 'Recipient user',
+          usuario_placeholder: 'User UUID',
+          usuario_ayuda: 'Accepts variables (e.g. {{actor.id}}) or a fixed UUID.',
+          titulo_label: 'Title',
+          titulo_placeholder: 'New quote accepted',
+          cuerpo_label: 'Message (optional)',
+          cuerpo_placeholder: '{{contacto.nombre}} accepted quote {{entidad.numero}}',
+          url_label: 'Navigation URL',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'Relative URL the notification click goes to.',
+          tipo_label: 'Category',
+          tipo_placeholder: 'system, sales...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Activity type',
+          tipo_id_placeholder: 'UUID of the configured type',
+          tipo_id_ayuda: 'ID of the activity type to create (autocomplete coming in a later release).',
+          titulo_label: 'Title',
+          titulo_placeholder: 'Call {{contacto.nombre}}',
+          descripcion_label: 'Description (optional)',
+          descripcion_placeholder: 'Confirm scheduled visit',
+          prioridad_label: 'Priority',
+          prioridad_baja: 'Low',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'High',
+          asignados_label: 'Assignees (UUIDs separated by comma)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'List of user IDs. Autocomplete coming later.',
+          contacto_label: 'Linked contact (optional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Accepts variables or a fixed UUID.',
+          fecha_label: 'Due date',
+          fecha_ayuda: 'ISO format (YYYY-MM-DD). Visual picker coming later.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entity',
+          entidad_ayuda_disparador: 'The flow is triggered by a change on {{tipo}} — by default we change that same entity.',
+          entidad_id_label: 'Entity ID',
+          entidad_id_ayuda: 'Usually {{entidad.id}} (the same entity that triggered the flow).',
+          hasta_clave_label: 'Target state',
+          hasta_clave_placeholder: 'E.g. accepted, completed',
+          hasta_clave_ayuda: 'Technical key of the target state (configurable list in /configuration).',
+          motivo_label: 'Reason (optional)',
+          motivo_placeholder: 'Auto-close by workflow',
+          entidad: {
+            presupuesto: 'Quote',
+            orden: 'Work order',
+            visita: 'Visit',
+            conversacion: 'Conversation',
+            asistencia: 'Attendance',
+            cuota: 'Installment',
+            actividad: 'Activity',
+            adelanto_nomina: 'Payroll advance',
+            pago_nomina: 'Payroll payment',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Watched entity',
+          hasta_label: 'Target state',
+          hasta_placeholder: 'E.g. accepted, paid',
+          hasta_ayuda: 'Key of the state the entity must reach to fire.',
+          desde_label: 'Source state (optional)',
+          desde_placeholder: 'E.g. pending',
+          desde_ayuda: 'If empty, fires from any prior state.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Watched entity',
+          entidad_ayuda: 'The flow fires every time a new entity of the chosen type is created.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Watched entity',
+          campo_label: 'Field to watch',
+          campo_placeholder: 'E.g. total, asignado_a',
+          campo_ayuda: 'Technical column name (autocomplete coming later).',
+          valor_label: 'Target value (optional)',
+          valor_placeholder: 'If empty, fires on any change',
+          valor_ayuda: 'If filled, fires only when the field changes to this exact value.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Watched entity',
+          campo_fecha_label: 'Date field',
+          campo_fecha_placeholder: 'E.g. fecha_vencimiento',
+          campo_fecha_ayuda: 'Date column on the entity.',
+          delta_label: 'Relative days',
+          delta_ayuda: 'Negative = before (e.g. -3 = "three days before"). Positive = after.',
+          hora_local_label: 'Local time',
+          hora_local_ayuda: 'Time of day (HH:MM) in company timezone.',
+          tolerancia_label: 'Tolerance (days)',
+          tolerancia_ayuda: 'Backwards margin if the cron was down. 0 = strictly the day.',
+        },
       },
 
       confirmar_descartar: {
@@ -1752,6 +1870,92 @@ export const en: Traducciones = {
         error_guardar: 'Could not save',
         error_publicar: 'Could not publish',
         error_descartar: 'Could not discard the draft',
+      },
+    },
+
+    picker: {
+      titulo: 'Insert variable',
+      buscador_placeholder: 'Search variable...',
+      limpiar_busqueda: 'Clear search',
+      tab_todas: 'All',
+      sin_resultados: 'No variables match your search.',
+      hint_navegacion: '↑↓ navigate · ↵ insert · esc close',
+      boton_insertar: 'Insert variable',
+      fuente: {
+        entidad: 'Entity',
+        contacto: 'Contact',
+        empresa: 'Company',
+        sistema: 'System',
+        cambio: 'Change',
+        actor: 'User',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Number',
+        titulo: 'Title',
+        total: 'Total',
+        estado_clave: 'Status',
+        fecha_validez: 'Valid until',
+        creado_en: 'Created at',
+      },
+      cuota: {
+        numero: 'Installment number',
+        monto: 'Amount',
+        fecha_vencimiento: 'Due date',
+        estado_clave: 'Status',
+      },
+      orden: {
+        numero: 'Number',
+        titulo: 'Title',
+        estado_clave: 'Status',
+        fecha_programada: 'Scheduled date',
+      },
+      visita: {
+        titulo: 'Title',
+        estado_clave: 'Status',
+        fecha_programada: 'Scheduled date',
+        direccion: 'Address',
+      },
+      actividad: {
+        titulo: 'Title',
+        descripcion: 'Description',
+        estado_clave: 'Status',
+        fecha_vencimiento: 'Due date',
+      },
+      conversacion: {
+        canal: 'Channel',
+        estado_clave: 'Status',
+        ultima_actividad_en: 'Last activity',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Status',
+      },
+      contacto: {
+        nombre: 'Name',
+        email: 'Email',
+        telefono: 'Phone',
+        empresa: 'Company',
+      },
+      empresa: {
+        nombre: 'Name',
+        telefono: 'Phone',
+        correo: 'Email',
+        pagina_web: 'Website',
+      },
+      sistema: {
+        ahora: 'Current date and time',
+      },
+      actor: {
+        nombre: 'Name',
+        email: 'Email',
+        nombre_completo: 'Full name',
+      },
+      cambio: {
+        desde: 'Previous state / value',
+        hasta: 'New state / value',
       },
     },
 

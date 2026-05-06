@@ -1591,6 +1591,7 @@ export const pt: Traducciones = {
       activar: 'Ativar',
       pausar: 'Pausar',
       eliminar: 'Excluir',
+      sin_tipo: 'Ação',
     },
 
     confirmar_eliminar: {
@@ -1697,10 +1698,6 @@ export const pt: Traducciones = {
           eliminar_paso: 'Eliminar passo',
         },
 
-        avanzado: {
-          proximamente: 'As opções avançadas chegam em uma próxima entrega.',
-        },
-
         pendiente: {
           titulo: 'Edição de "{{tipo}}" em breve',
           descripcion: 'Este tipo de passo já está configurado no motor; o painel com seus campos editáveis chega na próxima entrega do editor.',
@@ -1735,6 +1732,127 @@ export const pt: Traducciones = {
           tipo_clave_placeholder: 'Ex: ligacao, visita_obra',
           tipo_clave_ayuda: 'Se deixar vazio, dispara para qualquer tipo de atividade. Aceita a chave técnica do tipo (autocomplete completo chega em uma próxima entrega).',
         },
+
+        header: {
+          editar_nombre_tooltip: 'Clique para renomear este passo',
+        },
+
+        avanzado: {
+          proximamente: 'As opções avançadas chegam em uma próxima entrega.',
+          continuar_si_falla_label: 'Continuar se falhar',
+          continuar_si_falla_ayuda: 'Se esta ação falhar, o fluxo continua com a próxima ao invés de parar.',
+        },
+
+        whatsapp: {
+          canal_label: 'Canal',
+          canal_placeholder: 'ID do canal',
+          canal_ayuda: 'Identificador técnico do canal de WhatsApp configurado.',
+          telefono_label: 'Telefone destino',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Aceita variáveis como {{contacto.telefono}}.',
+          plantilla_label: 'Modelo aprovado',
+          plantilla_placeholder: 'lembrete_cobranca',
+          plantilla_ayuda: 'Nome do modelo aprovado na Meta.',
+          idioma_label: 'Idioma',
+        },
+
+        notificar: {
+          usuario_label: 'Usuário destinatário',
+          usuario_placeholder: 'UUID do usuário',
+          usuario_ayuda: 'Aceita variáveis (ex. {{actor.id}}) ou um UUID fixo.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Novo orçamento aceito',
+          cuerpo_label: 'Mensagem (opcional)',
+          cuerpo_placeholder: '{{contacto.nombre}} aceitou o orçamento {{entidad.numero}}',
+          url_label: 'URL de navegação',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'URL relativa para onde leva o clique na notificação.',
+          tipo_label: 'Categoria',
+          tipo_placeholder: 'sistema, vendas...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Tipo de atividade',
+          tipo_id_placeholder: 'UUID do tipo configurado',
+          tipo_id_ayuda: 'ID do tipo de atividade a criar (autocomplete chega em uma próxima entrega).',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Ligar para {{contacto.nombre}}',
+          descripcion_label: 'Descrição (opcional)',
+          descripcion_placeholder: 'Confirmar visita programada',
+          prioridad_label: 'Prioridade',
+          prioridad_baja: 'Baixa',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'Alta',
+          asignados_label: 'Atribuídos (UUIDs separados por vírgula)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'Lista de IDs de usuários. Autocomplete vem depois.',
+          contacto_label: 'Contato vinculado (opcional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Aceita variáveis ou um UUID fixo.',
+          fecha_label: 'Data de vencimento',
+          fecha_ayuda: 'Formato ISO (YYYY-MM-DD). Seletor visual chega depois.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entidade',
+          entidad_ayuda_disparador: 'O fluxo é disparado por uma mudança em {{tipo}} — por padrão alteramos essa mesma entidade.',
+          entidad_id_label: 'ID da entidade',
+          entidad_id_ayuda: 'Geralmente {{entidad.id}} (a mesma entidade que disparou o fluxo).',
+          hasta_clave_label: 'Estado destino',
+          hasta_clave_placeholder: 'Ex: aceito, concluído',
+          hasta_clave_ayuda: 'Chave técnica do estado destino (lista configurável em /configuracao).',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Auto-encerramento por workflow',
+          entidad: {
+            presupuesto: 'Orçamento',
+            orden: 'Ordem de serviço',
+            visita: 'Visita',
+            conversacion: 'Conversa',
+            asistencia: 'Presença',
+            cuota: 'Parcela',
+            actividad: 'Atividade',
+            adelanto_nomina: 'Adiantamento de folha',
+            pago_nomina: 'Pagamento de folha',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Entidade observada',
+          hasta_label: 'Estado destino',
+          hasta_placeholder: 'Ex: aceito, pago',
+          hasta_ayuda: 'Chave do estado ao qual a entidade precisa chegar para disparar.',
+          desde_label: 'Estado origem (opcional)',
+          desde_placeholder: 'Ex: pendente',
+          desde_ayuda: 'Se deixar vazio, dispara a partir de qualquer estado anterior.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Entidade observada',
+          entidad_ayuda: 'O fluxo dispara cada vez que uma entidade nova do tipo escolhido é criada.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Entidade observada',
+          campo_label: 'Campo a observar',
+          campo_placeholder: 'Ex: total, asignado_a',
+          campo_ayuda: 'Nome técnico da coluna (autocomplete chega depois).',
+          valor_label: 'Valor objetivo (opcional)',
+          valor_placeholder: 'Se deixar vazio, dispara com qualquer mudança',
+          valor_ayuda: 'Se preencher, dispara apenas quando o campo muda para este valor exato.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Entidade observada',
+          campo_fecha_label: 'Campo de data',
+          campo_fecha_placeholder: 'Ex: fecha_vencimiento',
+          campo_fecha_ayuda: 'Coluna de data da entidade.',
+          delta_label: 'Dias relativos',
+          delta_ayuda: 'Negativo = antes (ex. -3 = "três dias antes"). Positivo = depois.',
+          hora_local_label: 'Hora local',
+          hora_local_ayuda: 'Hora do dia (HH:MM) no fuso da empresa.',
+          tolerancia_label: 'Tolerância (dias)',
+          tolerancia_ayuda: 'Margem para trás se o cron ficou fora. 0 = somente o dia exato.',
+        },
       },
 
       confirmar_descartar: {
@@ -1752,6 +1870,92 @@ export const pt: Traducciones = {
         error_guardar: 'Não foi possível salvar',
         error_publicar: 'Não foi possível publicar',
         error_descartar: 'Não foi possível descartar o rascunho',
+      },
+    },
+
+    picker: {
+      titulo: 'Inserir variável',
+      buscador_placeholder: 'Buscar variável...',
+      limpiar_busqueda: 'Limpar busca',
+      tab_todas: 'Todas',
+      sin_resultados: 'Nenhuma variável corresponde à sua busca.',
+      hint_navegacion: '↑↓ navegar · ↵ inserir · esc fechar',
+      boton_insertar: 'Inserir variável',
+      fuente: {
+        entidad: 'Entidade',
+        contacto: 'Contato',
+        empresa: 'Empresa',
+        sistema: 'Sistema',
+        cambio: 'Mudança',
+        actor: 'Usuário',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Número',
+        titulo: 'Título',
+        total: 'Total',
+        estado_clave: 'Status',
+        fecha_validez: 'Válido até',
+        creado_en: 'Criado em',
+      },
+      cuota: {
+        numero: 'Número da parcela',
+        monto: 'Valor',
+        fecha_vencimiento: 'Data de vencimento',
+        estado_clave: 'Status',
+      },
+      orden: {
+        numero: 'Número',
+        titulo: 'Título',
+        estado_clave: 'Status',
+        fecha_programada: 'Data programada',
+      },
+      visita: {
+        titulo: 'Título',
+        estado_clave: 'Status',
+        fecha_programada: 'Data programada',
+        direccion: 'Endereço',
+      },
+      actividad: {
+        titulo: 'Título',
+        descripcion: 'Descrição',
+        estado_clave: 'Status',
+        fecha_vencimiento: 'Data de vencimento',
+      },
+      conversacion: {
+        canal: 'Canal',
+        estado_clave: 'Status',
+        ultima_actividad_en: 'Última atividade',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Status',
+      },
+      contacto: {
+        nombre: 'Nome',
+        email: 'Email',
+        telefono: 'Telefone',
+        empresa: 'Empresa',
+      },
+      empresa: {
+        nombre: 'Nome',
+        telefono: 'Telefone',
+        correo: 'Email',
+        pagina_web: 'Site',
+      },
+      sistema: {
+        ahora: 'Data e hora atual',
+      },
+      actor: {
+        nombre: 'Nome',
+        email: 'Email',
+        nombre_completo: 'Nome completo',
+      },
+      cambio: {
+        desde: 'Estado / valor anterior',
+        hasta: 'Estado / valor novo',
       },
     },
 

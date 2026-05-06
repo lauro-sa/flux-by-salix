@@ -48,3 +48,18 @@ export function descripcionDisparador(t: TFn, tipo: TipoDisparador | string | nu
   const traducido = t(clave)
   return traducido === clave ? '' : traducido
 }
+
+/**
+ * Devuelve el nombre a mostrar para el disparador. Si el flujo tiene un
+ * `etiqueta?: string` propio en su disparador, ese gana; si no, fallback
+ * a `etiquetaDisparador`. Helper único para que header del panel y card
+ * del canvas siempre coincidan (caveat del coordinador en sub-PR 19.3b).
+ */
+export function nombreMostrableDisparador(
+  t: TFn,
+  disparador: { etiqueta?: string | null; tipo?: string | null } | null | undefined,
+): string {
+  const etiqueta = disparador?.etiqueta?.trim()
+  if (etiqueta && etiqueta.length > 0) return etiqueta
+  return etiquetaDisparador(t, disparador?.tipo ?? null)
+}

@@ -448,6 +448,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
 
         {/* Panel real con campos editables — slide-in cuando hay selección */}
         <PanelEdicionPaso
+          flujoId={flujo.id}
           abierto={seleccion !== null}
           onCerrar={cerrarPanel}
           seleccion={seleccion}

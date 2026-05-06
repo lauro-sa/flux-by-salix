@@ -91,6 +91,83 @@ const CLAVES_OBLIGATORIAS: readonly string[] = [
   'flujos.editor.panel.actividad_completada.tipo_clave_label',
   'flujos.editor.panel.actividad_completada.tipo_clave_placeholder',
   'flujos.editor.panel.actividad_completada.tipo_clave_ayuda',
+
+  // ─── Sub-PR 19.3b ────────────────────────────────────────────
+
+  'flujos.editor.panel.header.editar_nombre_tooltip',
+
+  // Avanzado · continuar_si_falla
+  'flujos.editor.panel.avanzado.continuar_si_falla_label',
+  'flujos.editor.panel.avanzado.continuar_si_falla_ayuda',
+
+  // Acción: enviar_whatsapp_plantilla
+  'flujos.editor.panel.whatsapp.canal_label',
+  'flujos.editor.panel.whatsapp.telefono_label',
+  'flujos.editor.panel.whatsapp.plantilla_label',
+  'flujos.editor.panel.whatsapp.idioma_label',
+
+  // Acción: notificar_usuario
+  'flujos.editor.panel.notificar.usuario_label',
+  'flujos.editor.panel.notificar.titulo_label',
+  'flujos.editor.panel.notificar.cuerpo_label',
+  'flujos.editor.panel.notificar.url_label',
+
+  // Acción: crear_actividad
+  'flujos.editor.panel.actividad.tipo_id_label',
+  'flujos.editor.panel.actividad.titulo_label',
+  'flujos.editor.panel.actividad.descripcion_label',
+  'flujos.editor.panel.actividad.prioridad_label',
+  'flujos.editor.panel.actividad.prioridad_baja',
+  'flujos.editor.panel.actividad.prioridad_normal',
+  'flujos.editor.panel.actividad.prioridad_alta',
+
+  // Acción: cambiar_estado_entidad
+  'flujos.editor.panel.cambiar_estado.entidad_label',
+  'flujos.editor.panel.cambiar_estado.entidad_id_label',
+  'flujos.editor.panel.cambiar_estado.hasta_clave_label',
+  'flujos.editor.panel.cambiar_estado.entidad.presupuesto',
+  'flujos.editor.panel.cambiar_estado.entidad.cuota',
+  'flujos.editor.panel.cambiar_estado.entidad.actividad',
+
+  // Disparadores
+  'flujos.editor.panel.entidad_estado_cambio.entidad_label',
+  'flujos.editor.panel.entidad_estado_cambio.hasta_label',
+  'flujos.editor.panel.entidad_estado_cambio.desde_label',
+  'flujos.editor.panel.entidad_creada.entidad_label',
+  'flujos.editor.panel.entidad_campo_cambia.entidad_label',
+  'flujos.editor.panel.entidad_campo_cambia.campo_label',
+  'flujos.editor.panel.entidad_campo_cambia.valor_label',
+  'flujos.editor.panel.relativo_a_campo.entidad_label',
+  'flujos.editor.panel.relativo_a_campo.campo_fecha_label',
+  'flujos.editor.panel.relativo_a_campo.delta_label',
+  'flujos.editor.panel.relativo_a_campo.hora_local_label',
+  'flujos.editor.panel.relativo_a_campo.tolerancia_label',
+
+  // Picker
+  'flujos.picker.titulo',
+  'flujos.picker.buscador_placeholder',
+  'flujos.picker.tab_todas',
+  'flujos.picker.sin_resultados',
+  'flujos.picker.boton_insertar',
+  'flujos.picker.fuente.entidad',
+  'flujos.picker.fuente.contacto',
+  'flujos.picker.fuente.empresa',
+  'flujos.picker.fuente.sistema',
+  'flujos.picker.fuente.cambio',
+  'flujos.picker.fuente.actor',
+
+  // Variables (un sample por fuente — el catálogo completo es deuda
+  // documentada en variables-disponibles.ts)
+  'flujos.variables.presupuesto.numero',
+  'flujos.variables.cuota.fecha_vencimiento',
+  'flujos.variables.contacto.nombre',
+  'flujos.variables.empresa.nombre',
+  'flujos.variables.sistema.ahora',
+  'flujos.variables.actor.nombre_completo',
+  'flujos.variables.cambio.desde',
+
+  // Fallback de etiqueta de acción cuando el tipo se desconoce.
+  'flujos.accion.sin_tipo',
 ] as const
 
 describe('flujos / panel lateral / claves i18n alcanzables', () => {

@@ -3,29 +3,47 @@
 import { X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import NombrePasoEditable from './NombrePasoEditable'
 
 /**
- * Header del panel lateral del editor de flujos (sub-PR 19.3a).
+ * Header del panel lateral del editor de flujos (sub-PR 19.3a + 19.3b).
  *
- * Layout fijo de tres slots:
- *   [ícono 36x36] [título legible del tipo] [botón cerrar]
+ * Layout:
+ *   [ícono 36x36] [nombre editable inline / fallback al tipo] [cerrar]
  *
- * Decisión de scope 19.3a: el título es read-only (título legible del
- * tipo del paso). El "nombre editable inline" mencionado en el plan
- * §1.7.1 requiere agregar un campo `etiqueta?: string` a `AccionBase` y
- * `DisparadorWorkflow`, lo cual toca tipos compartidos del motor —
- * deuda explícita para un sub-PR posterior. Mientras tanto el panel
- * sigue siendo identificable por el ícono + tipo, que es lo que el plan
- * exige como mínimo identificatorio.
+ * 19.3b agrega edición inline del campo `etiqueta?: string` que ahora
+ * vive en `AccionBase` y `MetadataUiDisparador`. Si el paso/disparador
+ * no tiene etiqueta propia, el header muestra el título legible del
+ * tipo (ej: "Enviar WhatsApp"). Click → input editable.
  */
 
 interface Props {
   Icono: LucideIcon | null
-  titulo: string
+  /**
+   * Etiqueta actual del paso/disparador. Si está vacía, se muestra
+   * `fallbackTitulo` y al editar se inicializa vacío.
+   */
+  etiqueta?: string | null
+  /**
+   * Texto a mostrar cuando `etiqueta` está vacío. Es el título legible
+   * del tipo (ej: "Enviar WhatsApp"). Caveat: nunca mostrar el `tipo`
+   * raw — siempre la etiqueta legible vía `etiquetaAccion` /
+   * `etiquetaDisparador`.
+   */
+  fallbackTitulo: string
+  soloLectura: boolean
+  onCambiarEtiqueta: (nueva: string) => void
   onCerrar: () => void
 }
 
-export default function HeaderPanel({ Icono, titulo, onCerrar }: Props) {
+export default function HeaderPanel({
+  Icono,
+  etiqueta,
+  fallbackTitulo,
+  soloLectura,
+  onCambiarEtiqueta,
+  onCerrar,
+}: Props) {
   const { t } = useTraduccion()
 
   return (
@@ -38,9 +56,12 @@ export default function HeaderPanel({ Icono, titulo, onCerrar }: Props) {
           <Icono size={18} strokeWidth={1.7} />
         </span>
       )}
-      <h2 className="flex-1 text-sm font-semibold text-texto-primario truncate">
-        {titulo}
-      </h2>
+      <NombrePasoEditable
+        valor={etiqueta}
+        fallback={fallbackTitulo}
+        onCambiar={onCambiarEtiqueta}
+        soloLectura={soloLectura}
+      />
       <button
         type="button"
         onClick={onCerrar}
