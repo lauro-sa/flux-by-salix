@@ -1926,6 +1926,25 @@ export const en: Traducciones = {
           cuerpo_placeholder: 'Hi {{contacto.nombre}},\n\n...',
           cuerpo_ayuda: 'Plain text. Rich-text editor coming in a future release.',
         },
+
+        correo_plantilla: {
+          plantilla_label: 'Email template',
+          plantilla_ayuda: 'Templates are managed in Settings → Email templates. The engine resolves them with contact and entity data at runtime.',
+          destinatario_label: 'Recipient',
+          preview_titulo: 'Preview',
+          preview_asunto_label: 'Subject',
+          preview_cuerpo_label: 'Body',
+          preview_ayuda: 'Variables like {{contacto.nombre}} are replaced automatically when sending.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Advanced configuration — {{tipo}}',
+          cartel_descripcion: 'This action does not have a visual panel yet. Configure parameters by editing the raw JSON.',
+          cartel_aviso_no_guarda: 'If the JSON does not parse, the change is NOT saved — the last valid value is preserved.',
+          formatear: 'Format JSON',
+          error_parse: 'Invalid JSON — check quotes and braces.',
+          error_no_objeto: 'JSON must be an object (not an array nor a primitive).',
+        },
       },
 
       confirmar_descartar: {
@@ -1959,6 +1978,8 @@ export const en: Traducciones = {
         placeholder_multi: 'Pick one or more users',
       },
       estado: { placeholder: 'Pick a state' },
+      etiqueta: { placeholder: 'Pick a tag' },
+      plantilla_correo: { placeholder: 'Pick a template' },
     },
 
     picker: {
@@ -1969,6 +1990,8 @@ export const en: Traducciones = {
       sin_resultados: 'No variables match your search.',
       hint_navegacion: '↑↓ navigate · ↵ insert · esc close',
       boton_insertar: 'Insert variable',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Hide',
       fuente: {
         entidad: 'Entity',
         contacto: 'Contact',

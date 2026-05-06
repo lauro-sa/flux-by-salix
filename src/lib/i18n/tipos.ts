@@ -1992,6 +1992,24 @@ export interface Traducciones {
           cuerpo_ayuda: string
         }
 
+        correo_plantilla: {
+          plantilla_label: string
+          plantilla_ayuda: string
+          destinatario_label: string
+          preview_titulo: string
+          preview_asunto_label: string
+          preview_cuerpo_label: string
+          preview_ayuda: string
+        }
+
+        generico_json: {
+          cartel_titulo: string
+          cartel_descripcion: string
+          cartel_aviso_no_guarda: string
+          formatear: string
+          error_parse: string
+          error_no_objeto: string
+        }
       }
 
 
@@ -2024,6 +2042,8 @@ export interface Traducciones {
       tipo_actividad: { placeholder: string }
       miembro: { placeholder: string; placeholder_multi: string }
       estado: { placeholder: string }
+      etiqueta: { placeholder: string }
+      plantilla_correo: { placeholder: string }
     }
 
     // Picker de variables (sub-PR 19.3b)
@@ -2035,6 +2055,8 @@ export interface Traducciones {
       sin_resultados: string
       hint_navegacion: string
       boton_insertar: string
+      helpers_mostrar: string
+      helpers_ocultar: string
       fuente: {
         entidad: string
         contacto: string

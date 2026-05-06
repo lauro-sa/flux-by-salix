@@ -34,6 +34,12 @@ interface Props {
   soloLectura: boolean
   onCambiarEtiqueta: (nueva: string) => void
   onCerrar: () => void
+  /**
+   * En mobile, el BottomSheet ya provee su botón cerrar (drag-handle +
+   * tap fuera + swipe). Ocultamos el local para evitar duplicado.
+   * Sub-PR 19.3d.
+   */
+  ocultarBotonCerrar?: boolean
 }
 
 export default function HeaderPanel({
@@ -43,6 +49,7 @@ export default function HeaderPanel({
   soloLectura,
   onCambiarEtiqueta,
   onCerrar,
+  ocultarBotonCerrar = false,
 }: Props) {
   const { t } = useTraduccion()
 
@@ -62,14 +69,16 @@ export default function HeaderPanel({
         onCambiar={onCambiarEtiqueta}
         soloLectura={soloLectura}
       />
-      <button
-        type="button"
-        onClick={onCerrar}
-        aria-label={t('comun.cerrar')}
-        className="shrink-0 inline-flex items-center justify-center size-8 rounded-md text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario transition-colors cursor-pointer"
-      >
-        <X size={16} />
-      </button>
+      {!ocultarBotonCerrar && (
+        <button
+          type="button"
+          onClick={onCerrar}
+          aria-label={t('comun.cerrar')}
+          className="shrink-0 inline-flex items-center justify-center size-8 rounded-md text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario transition-colors cursor-pointer"
+        >
+          <X size={16} />
+        </button>
+      )}
     </div>
   )
 }

@@ -9,11 +9,18 @@ import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
 
 /**
- * Panel para `accion: notificar_grupo` (sub-PR 19.3c).
+ * Panel para `accion: notificar_grupo` (sub-PR 19.3c, ajustado en 19.3d).
  *
  * Notifica a un grupo de usuarios por su clave técnica (ej: "ventas",
- * "soporte"). Selector de grupos con autocomplete: deuda diferida
- * (no detectado endpoint listo). Por ahora Input texto con ayuda.
+ * "soporte").
+ *
+ * TODO (sub-PR 19.3d, deuda explícita): el coordinador validó que NO
+ * existe endpoint `/api/grupos` ni equivalente con shape compatible al
+ * hook `useAutocompleteRemoto`. Por la regla "no crear endpoint nuevo
+ * en 19.3d", se difiere el SelectorGrupo. Migrar este Input texto a
+ * `SelectorGrupo` cuando se implemente el endpoint en un sub-PR
+ * posterior (probablemente cuando se aborde el módulo de
+ * configuración de grupos / roles).
  *
  * Shape de parametros:
  *   {

@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { useEsMovil } from '@/hooks/useEsMovil'
+import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import {
   iconoDefaultAccion,
   iconoDefaultDisparador,
@@ -28,6 +30,8 @@ import PanelEtiqueta from './_panel/secciones/PanelEtiqueta'
 import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
 import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
 import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
+import PanelEnviarCorreoPlantilla from './_panel/secciones/PanelEnviarCorreoPlantilla'
+import PanelGenericoParametros from './_panel/secciones/PanelGenericoParametros'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
 import PanelDisparadorEntidadCampoCambia from './_panel/secciones/PanelDisparadorEntidadCampoCambia'
@@ -184,6 +188,100 @@ export default function PanelEdicionPaso({
     }
   }
 
+  const esMovil = useEsMovil()
+
+  // Render compartido entre mobile (BottomSheet) y desktop (slide-in).
+  // En mobile, el header del BottomSheet ya provee el botón cerrar
+  // (drag-handle + tap fuera + swipe-to-dismiss), así que el
+  // HeaderPanel local oculta el suyo. En desktop, HeaderPanel renderiza
+  // todo: ícono + etiqueta editable + botón cerrar.
+  const cuerpoPanel = datos ? (
+    <>
+      <HeaderPanel
+        Icono={datos.Icono}
+        etiqueta={datos.etiqueta}
+        fallbackTitulo={datos.fallbackTitulo}
+        soloLectura={soloLectura}
+        onCambiarEtiqueta={onCambiarEtiqueta}
+        onCerrar={onCerrar}
+        ocultarBotonCerrar={esMovil}
+      />
+
+      {datos.modo === 'paso' ? (
+        <SubHeaderPanel
+          modo="paso"
+          tipoLegible={datos.fallbackTitulo}
+          posicion={datos.posicion}
+        />
+      ) : (
+        <SubHeaderPanel modo="disparador" tipoLegible={datos.fallbackTitulo} />
+      )}
+
+      {soloLectura && (
+        <div
+          role="status"
+          className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-superficie-tarjeta border-b border-borde-sutil text-xs text-texto-secundario"
+        >
+          <Eye size={14} className="shrink-0 text-texto-terciario" />
+          {t('flujos.editor.panel.banner_lectura')}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        {datos.modo === 'disparador'
+          ? renderDisparador({
+              tipo: datos.tipo,
+              disparadorRaw: disparador,
+              soloLectura,
+              onCambiar: onActualizarDisparador,
+              fallbackTitulo: datos.fallbackTitulo,
+            })
+          : renderPaso({
+              paso: datos.paso ?? null,
+              soloLectura,
+              onCambiar: (parche) => {
+                if (seleccion?.tipo === 'paso') onActualizarPaso(seleccion.id, parche)
+              },
+              fallbackTitulo: datos.fallbackTitulo,
+              fuentes,
+              contexto,
+              tipoEntidadDisparador,
+            })}
+      </div>
+
+      {/* En mobile, el FooterPanel solo se muestra si hay acción
+          destructiva ("Eliminar paso"). El botón "Cerrar" lo provee
+          el BottomSheet header. En desktop muestra ambos botones. */}
+      <FooterPanel
+        modo={datos.modo}
+        soloLectura={soloLectura}
+        onCerrar={onCerrar}
+        ocultarBotonCerrar={esMovil}
+        onEliminar={() => {
+          if (seleccion?.tipo === 'paso') {
+            onEliminarPaso(seleccion.id)
+          }
+        }}
+      />
+    </>
+  ) : null
+
+  // Mobile: BottomSheet con altura "alto" (85dvh). Sin padding propio
+  // del sheet — los componentes internos ya manejan su padding.
+  if (esMovil) {
+    return (
+      <BottomSheet
+        abierto={abierto && datos !== null}
+        onCerrar={onCerrar}
+        altura="alto"
+        sinPadding
+      >
+        {cuerpoPanel}
+      </BottomSheet>
+    )
+  }
+
+  // Desktop: slide-in 480px desde la derecha.
   return (
     <AnimatePresence>
       {abierto && datos && (
@@ -196,67 +294,7 @@ export default function PanelEdicionPaso({
           role="dialog"
           aria-label={datos.fallbackTitulo}
         >
-          <HeaderPanel
-            Icono={datos.Icono}
-            etiqueta={datos.etiqueta}
-            fallbackTitulo={datos.fallbackTitulo}
-            soloLectura={soloLectura}
-            onCambiarEtiqueta={onCambiarEtiqueta}
-            onCerrar={onCerrar}
-          />
-
-          {datos.modo === 'paso' ? (
-            <SubHeaderPanel
-              modo="paso"
-              tipoLegible={datos.fallbackTitulo}
-              posicion={datos.posicion}
-            />
-          ) : (
-            <SubHeaderPanel modo="disparador" tipoLegible={datos.fallbackTitulo} />
-          )}
-
-          {soloLectura && (
-            <div
-              role="status"
-              className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-superficie-tarjeta border-b border-borde-sutil text-xs text-texto-secundario"
-            >
-              <Eye size={14} className="shrink-0 text-texto-terciario" />
-              {t('flujos.editor.panel.banner_lectura')}
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto">
-            {datos.modo === 'disparador'
-              ? renderDisparador({
-                  tipo: datos.tipo,
-                  disparadorRaw: disparador,
-                  soloLectura,
-                  onCambiar: onActualizarDisparador,
-                  fallbackTitulo: datos.fallbackTitulo,
-                })
-              : renderPaso({
-                  paso: datos.paso ?? null,
-                  soloLectura,
-                  onCambiar: (parche) => {
-                    if (seleccion?.tipo === 'paso') onActualizarPaso(seleccion.id, parche)
-                  },
-                  fallbackTitulo: datos.fallbackTitulo,
-                  fuentes,
-                  contexto,
-                  tipoEntidadDisparador,
-                })}
-          </div>
-
-          <FooterPanel
-            modo={datos.modo}
-            soloLectura={soloLectura}
-            onCerrar={onCerrar}
-            onEliminar={() => {
-              if (seleccion?.tipo === 'paso') {
-                onEliminarPaso(seleccion.id)
-              }
-            }}
-          />
+          {cuerpoPanel}
         </motion.aside>
       )}
     </AnimatePresence>
@@ -539,6 +577,37 @@ function renderPaso(args: RenderPasoArgs) {
         onCambiar={onCambiar}
         fuentes={fuentes}
         contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'enviar_correo_plantilla') {
+    return (
+      <PanelEnviarCorreoPlantilla
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  // Tipos sin UI dedicada todavía → JSON crudo + cartel honesto.
+  // Cuando alguno de estos tenga shape específico en el motor, se
+  // saca de acá y se le hace su panel propio.
+  if (
+    paso.tipo === 'webhook_saliente' ||
+    paso.tipo === 'esperar_evento' ||
+    paso.tipo === 'crear_orden_trabajo' ||
+    paso.tipo === 'crear_visita'
+  ) {
+    return (
+      <PanelGenericoParametros
+        paso={paso as AccionGenerica}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        tipoLegible={fallbackTitulo}
       />
     )
   }

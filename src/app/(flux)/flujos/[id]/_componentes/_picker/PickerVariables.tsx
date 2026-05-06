@@ -71,6 +71,12 @@ interface PropsPickerVariables {
   /** Llamado al elegir una variable (con o sin helper). */
   onSeleccionar: (expresion: ExpresionVariable) => void
   onCerrar: () => void
+  /**
+   * En mobile no hay hover. Los helpers compatibles aparecen en un
+   * acordeón inline debajo del item al tap, en lugar de la sub-fila
+   * lateral con hover de PC. Sin portales anidados (caveat 19.3d).
+   */
+  esMovil?: boolean
 }
 
 // =============================================================
@@ -85,13 +91,17 @@ export default function PickerVariables({
   textoInicial = '',
   onSeleccionar,
   onCerrar,
+  esMovil = false,
 }: PropsPickerVariables) {
   const { t } = useTraduccion()
   const [busqueda, setBusqueda] = useState(textoInicial)
   const [fuenteActiva, setFuenteActiva] = useState<string | null>(null)
   const refBuscador = useRef<HTMLInputElement>(null)
   const refPopover = useRef<HTMLDivElement>(null)
+  // En PC: hover lateral. En mobile: acordeón inline al tap. Mismo
+  // estado, distinto trigger.
   const [hoverItem, setHoverItem] = useState<VariableDisponible | null>(null)
+  const [acordeonItem, setAcordeonItem] = useState<VariableDisponible | null>(null)
 
   // Reset al abrir.
   useEffect(() => {
@@ -233,34 +243,53 @@ export default function PickerVariables({
               const preview = obtenerPreview(variable.ruta, contexto)
               const helpers = HELPERS_POR_TIPO[variable.tipoValor]
               const enHover = hoverItem === variable
+              const acordeonAbierto = esMovil && acordeonItem === variable
               return (
                 <div
                   key={variable.ruta}
-                  onMouseEnter={() => setHoverItem(variable)}
-                  onMouseLeave={() => setHoverItem(null)}
+                  onMouseEnter={esMovil ? undefined : () => setHoverItem(variable)}
+                  onMouseLeave={esMovil ? undefined : () => setHoverItem(null)}
                   className="group relative"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSeleccionar({ ruta: variable.ruta, helpers: [] })
-                      onCerrar()
-                    }}
-                    className="w-full flex flex-col gap-0.5 px-3 py-2 text-left hover:bg-superficie-hover transition-colors cursor-pointer"
-                  >
-                    <span className="text-sm font-medium text-texto-primario truncate">
-                      {etiqueta}
-                    </span>
-                    <span className="flex items-center gap-2 text-xs">
-                      <code className="font-mono text-texto-terciario truncate">{`{{${variable.ruta}}}`}</code>
-                      {preview && (
-                        <span className="text-texto-marca truncate">→ {preview}</span>
-                      )}
-                    </span>
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSeleccionar({ ruta: variable.ruta, helpers: [] })
+                        onCerrar()
+                      }}
+                      className="flex-1 flex flex-col gap-0.5 px-3 py-2 text-left hover:bg-superficie-hover transition-colors cursor-pointer"
+                    >
+                      <span className="text-sm font-medium text-texto-primario truncate">
+                        {etiqueta}
+                      </span>
+                      <span className="flex items-center gap-2 text-xs">
+                        <code className="font-mono text-texto-terciario truncate">{`{{${variable.ruta}}}`}</code>
+                        {preview && (
+                          <span className="text-texto-marca truncate">→ {preview}</span>
+                        )}
+                      </span>
+                    </button>
 
-                  {/* Helpers en hover (PC) */}
-                  {enHover && helpers.length > 0 && (
+                    {/* Botón "+ helpers" solo en mobile (en PC los muestra el hover). */}
+                    {esMovil && helpers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setAcordeonItem(acordeonAbierto ? null : variable)
+                        }}
+                        className="shrink-0 mr-2 text-xxs px-1.5 py-0.5 rounded text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer"
+                      >
+                        {acordeonAbierto
+                          ? t('flujos.picker.helpers_ocultar')
+                          : t('flujos.picker.helpers_mostrar')}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Helpers en hover (PC) — sub-fila lateral. */}
+                  {!esMovil && enHover && helpers.length > 0 && (
                     <div className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 flex-wrap gap-1 max-w-[150px] justify-end">
                       {helpers.map((h) => (
                         <button
@@ -275,6 +304,29 @@ export default function PickerVariables({
                             onCerrar()
                           }}
                           className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-secundario hover:border-texto-marca hover:text-texto-marca transition-colors cursor-pointer"
+                        >
+                          {h}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Helpers en acordeón (mobile) — inline debajo del item. */}
+                  {acordeonAbierto && helpers.length > 0 && (
+                    <div className="px-3 pb-2 pt-0 flex flex-wrap gap-1 bg-superficie-tarjeta/50">
+                      {helpers.map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSeleccionar({
+                              ruta: variable.ruta,
+                              helpers: [{ nombre: h, args: argsDefaultDelHelper(h) }],
+                            })
+                            onCerrar()
+                          }}
+                          className="text-xxs px-2 py-1 rounded bg-superficie-app border border-borde-sutil text-texto-secundario hover:border-texto-marca hover:text-texto-marca transition-colors cursor-pointer"
                         >
                           {h}
                         </button>

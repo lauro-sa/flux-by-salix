@@ -1,9 +1,9 @@
 'use client'
 
-import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
+import SelectorEtiqueta from '../selectores/SelectorEtiqueta'
 import type { AccionGenerica, AccionWorkflow } from '@/tipos/workflow'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
@@ -49,19 +49,20 @@ export default function PanelEtiqueta({
     onCambiar({ parametros: { ...params, ...parche } } as Partial<AccionWorkflow>)
 
   const claveLabel = `flujos.editor.panel.etiqueta.${modo}_label`
-  const clavePh = `flujos.editor.panel.etiqueta.${modo}_placeholder`
 
   return (
     <SeccionPanel titulo={t('flujos.editor.panel.seccion.basicos')}>
-      <Input
-        etiqueta={t(claveLabel)}
-        placeholder={t(clavePh)}
-        value={claveEtiqueta}
-        onChange={(e) => cambiar({ etiqueta_clave: e.target.value })}
-        disabled={soloLectura}
-        formato={null}
-        ayuda={t('flujos.editor.panel.etiqueta.clave_ayuda')}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-texto-secundario">{t(claveLabel)}</span>
+        <SelectorEtiqueta
+          valor={claveEtiqueta || null}
+          onChange={(clave) => cambiar({ etiqueta_clave: clave })}
+          disabled={soloLectura}
+        />
+        <span className="text-xs text-texto-terciario leading-relaxed">
+          {t('flujos.editor.panel.etiqueta.clave_ayuda')}
+        </span>
+      </div>
 
       <div className="flex flex-col gap-1">
         <span className="text-sm font-medium text-texto-secundario">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Braces } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { useEsMovil } from '@/hooks/useEsMovil'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { leerCampoDot } from '@/lib/workflows/resolver-variables'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
@@ -66,6 +67,7 @@ export default function InputConVariables({
   ariaLabel,
 }: Props) {
   const { t } = useTraduccion()
+  const esMovil = useEsMovil()
   const editableRef = useRef<HTMLDivElement>(null)
   const valorEnDomRef = useRef<string>('')
   const [picker, setPicker] = useState<
@@ -273,6 +275,7 @@ export default function InputConVariables({
           textoInicial={picker.textoInicial}
           onSeleccionar={insertarOEditar}
           onCerrar={cerrarPicker}
+          esMovil={esMovil}
         />
       )}
     </div>

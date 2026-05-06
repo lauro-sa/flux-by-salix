@@ -225,6 +225,33 @@ const CLAVES_OBLIGATORIAS: readonly string[] = [
   'flujos.selector.miembro.placeholder',
   'flujos.selector.miembro.placeholder_multi',
   'flujos.selector.estado.placeholder',
+
+  // ─── Sub-PR 19.3d ────────────────────────────────────────────
+
+  // Picker mobile (helpers acordeón)
+  'flujos.picker.helpers_mostrar',
+  'flujos.picker.helpers_ocultar',
+
+  // Selectores 19.3d
+  'flujos.selector.etiqueta.placeholder',
+  'flujos.selector.plantilla_correo.placeholder',
+
+  // Panel: enviar_correo_plantilla
+  'flujos.editor.panel.correo_plantilla.plantilla_label',
+  'flujos.editor.panel.correo_plantilla.plantilla_ayuda',
+  'flujos.editor.panel.correo_plantilla.destinatario_label',
+  'flujos.editor.panel.correo_plantilla.preview_titulo',
+  'flujos.editor.panel.correo_plantilla.preview_asunto_label',
+  'flujos.editor.panel.correo_plantilla.preview_cuerpo_label',
+  'flujos.editor.panel.correo_plantilla.preview_ayuda',
+
+  // Panel: JSON crudo (genérico)
+  'flujos.editor.panel.generico_json.cartel_titulo',
+  'flujos.editor.panel.generico_json.cartel_descripcion',
+  'flujos.editor.panel.generico_json.cartel_aviso_no_guarda',
+  'flujos.editor.panel.generico_json.formatear',
+  'flujos.editor.panel.generico_json.error_parse',
+  'flujos.editor.panel.generico_json.error_no_objeto',
 ] as const
 
 describe('flujos / panel lateral / claves i18n alcanzables', () => {

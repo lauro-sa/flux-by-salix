@@ -1926,6 +1926,25 @@ export const pt: Traducciones = {
           cuerpo_placeholder: 'Olá {{contacto.nombre}},\n\n...',
           cuerpo_ayuda: 'Texto puro. O editor com formatação rica chega em uma próxima entrega.',
         },
+
+        correo_plantilla: {
+          plantilla_label: 'Modelo de email',
+          plantilla_ayuda: 'Os modelos são editados em Configuração → Modelos de email. O motor os resolve com os dados do contato e da entidade ao executar.',
+          destinatario_label: 'Destinatário',
+          preview_titulo: 'Pré-visualização',
+          preview_asunto_label: 'Assunto',
+          preview_cuerpo_label: 'Corpo',
+          preview_ayuda: 'Variáveis como {{contacto.nombre}} são substituídas automaticamente ao enviar.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Configuração avançada — {{tipo}}',
+          cartel_descripcion: 'Esta ação ainda não tem um painel visual. Configure os parâmetros editando o JSON cru.',
+          cartel_aviso_no_guarda: 'Se o JSON não parsear, a mudança NÃO é salva — o último valor válido é preservado.',
+          formatear: 'Formatar JSON',
+          error_parse: 'JSON inválido — verifique aspas e chaves.',
+          error_no_objeto: 'O JSON deve ser um objeto (não um array nem um valor primitivo).',
+        },
       },
 
       confirmar_descartar: {
@@ -1959,6 +1978,8 @@ export const pt: Traducciones = {
         placeholder_multi: 'Escolha um ou mais usuários',
       },
       estado: { placeholder: 'Escolha um estado' },
+      etiqueta: { placeholder: 'Escolha uma tag' },
+      plantilla_correo: { placeholder: 'Escolha um modelo' },
     },
 
     picker: {
@@ -1969,6 +1990,8 @@ export const pt: Traducciones = {
       sin_resultados: 'Nenhuma variável corresponde à sua busca.',
       hint_navegacion: '↑↓ navegar · ↵ inserir · esc fechar',
       boton_insertar: 'Inserir variável',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Ocultar',
       fuente: {
         entidad: 'Entidade',
         contacto: 'Contato',

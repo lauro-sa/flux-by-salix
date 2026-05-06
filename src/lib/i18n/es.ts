@@ -1965,6 +1965,25 @@ export const es: Traducciones = {
           cuerpo_placeholder: 'Hola {{contacto.nombre}},\n\n...',
           cuerpo_ayuda: 'Texto plano. El editor con formato rico llega en una próxima entrega.',
         },
+
+        correo_plantilla: {
+          plantilla_label: 'Plantilla de correo',
+          plantilla_ayuda: 'Las plantillas se editan desde Configuración → Plantillas de correo. El motor las resuelve con los datos del contacto y la entidad al ejecutar.',
+          destinatario_label: 'Destinatario',
+          preview_titulo: 'Vista previa',
+          preview_asunto_label: 'Asunto',
+          preview_cuerpo_label: 'Cuerpo',
+          preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Configuración avanzada — {{tipo}}',
+          cartel_descripcion: 'Esta acción todavía no tiene un panel visual. Configurá los parámetros editando el JSON crudo.',
+          cartel_aviso_no_guarda: 'Si el JSON no parsea, el cambio NO se guarda y se conserva el último valor válido.',
+          formatear: 'Formatear JSON',
+          error_parse: 'JSON inválido — revisá comillas y llaves.',
+          error_no_objeto: 'El JSON debe ser un objeto (no una lista ni un valor primitivo).',
+        },
       },
 
       confirmar_descartar: {
@@ -1998,6 +2017,8 @@ export const es: Traducciones = {
         placeholder_multi: 'Elegí uno o más usuarios',
       },
       estado: { placeholder: 'Elegí un estado' },
+      etiqueta: { placeholder: 'Elegí una etiqueta' },
+      plantilla_correo: { placeholder: 'Elegí una plantilla' },
     },
 
     picker: {
@@ -2008,6 +2029,8 @@ export const es: Traducciones = {
       sin_resultados: 'Ninguna variable coincide con tu búsqueda.',
       hint_navegacion: '↑↓ navegar · ↵ insertar · esc cerrar',
       boton_insertar: 'Insertar variable',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Ocultar',
       fuente: {
         entidad: 'Entidad',
         contacto: 'Contacto',

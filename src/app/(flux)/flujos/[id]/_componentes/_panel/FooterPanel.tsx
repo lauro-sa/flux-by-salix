@@ -25,11 +25,29 @@ interface Props {
   soloLectura: boolean
   onEliminar: () => void
   onCerrar: () => void
+  /**
+   * En mobile, el BottomSheet provee el cerrar. Si además es modo
+   * disparador / lectura (sin "Eliminar paso"), el footer entero se
+   * vuelve redundante: lo ocultamos. Sub-PR 19.3d.
+   */
+  ocultarBotonCerrar?: boolean
 }
 
-export default function FooterPanel({ modo, soloLectura, onEliminar, onCerrar }: Props) {
+export default function FooterPanel({
+  modo,
+  soloLectura,
+  onEliminar,
+  onCerrar,
+  ocultarBotonCerrar = false,
+}: Props) {
   const { t } = useTraduccion()
   const mostrarEliminar = modo === 'paso' && !soloLectura
+
+  // En mobile, si tampoco hay botón eliminar, el footer entero queda
+  // vacío — lo ocultamos para no robar espacio del cuerpo.
+  if (ocultarBotonCerrar && !mostrarEliminar) {
+    return null
+  }
 
   return (
     <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-t border-borde-sutil">
@@ -46,13 +64,15 @@ export default function FooterPanel({ modo, soloLectura, onEliminar, onCerrar }:
         <span aria-hidden="true" />
       )}
 
-      <button
-        type="button"
-        onClick={onCerrar}
-        className="h-8 px-3 text-sm font-medium rounded-md bg-superficie-tarjeta text-texto-primario border border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover transition-colors cursor-pointer"
-      >
-        {t('comun.cerrar')}
-      </button>
+      {!ocultarBotonCerrar && (
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="h-8 px-3 text-sm font-medium rounded-md bg-superficie-tarjeta text-texto-primario border border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover transition-colors cursor-pointer"
+        >
+          {t('comun.cerrar')}
+        </button>
+      )}
     </div>
   )
 }
