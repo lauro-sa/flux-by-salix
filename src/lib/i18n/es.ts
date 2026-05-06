@@ -1664,5 +1664,220 @@ export const es: Traducciones = {
 
     editor_proximamente_titulo: 'Editor en construcción',
     editor_proximamente_desc: 'Próximamente vas a poder configurar disparador, condiciones y acciones desde acá.',
+
+    // Editor visual (sub-PR 19.2)
+    editor: {
+      volver_listado: 'Volver al listado',
+      nombre_default: 'Sin nombre',
+      nombre_editar_tooltip: 'Click para renombrar',
+      elegir_icono: 'Elegir ícono del flujo',
+      drag_handle: 'Arrastrar para reordenar',
+      agregar_paso_intermedio: 'Agregar paso en la posición {{n}}',
+      agregar_paso_final: 'Agregar paso',
+
+      indicador: {
+        guardando: 'Guardando…',
+        guardado: 'Guardado',
+        guardado_hace_min: 'Guardado hace {{n}} min',
+        guardado_hace_h: 'Guardado hace {{n}} h',
+      },
+
+      banner: {
+        borrador_titulo: 'Estás editando este flujo',
+        borrador_desc: 'Tus cambios no afectan al flujo activo hasta que clickees Publicar cambios.',
+        lectura_titulo: 'Modo solo lectura',
+        lectura_desc: 'Tenés permiso de ver pero no de editar este flujo.',
+        error_titulo: 'No se puede activar todavía',
+        error_desc: 'Hay errores de configuración. Revisá los pasos marcados.',
+      },
+
+      accion: {
+        publicar: 'Publicar cambios',
+        descartar: 'Descartar cambios',
+        reactivar: 'Reactivar',
+        probar: 'Probar',
+        probar_tooltip: 'Vista previa o ejecución de prueba',
+        historial: 'Historial',
+        historial_tooltip: 'Ejecuciones recientes de este flujo',
+      },
+
+      disparador: {
+        etiqueta: 'Disparador',
+        placeholder_titulo: 'Configurá el disparador',
+        placeholder_desc: 'Elegí el evento o el momento que va a iniciar este flujo.',
+      },
+
+      branch: {
+        resumen: '{{si}} acción(es) si SÍ · {{no}} acción(es) si NO',
+        rama_si: 'Si SÍ',
+        rama_no: 'Si NO',
+        rama_count: '{{n}} acción(es)',
+        rama_vacia: 'Sin acciones',
+      },
+
+      panel: {
+        titulo_default: 'Detalle del paso',
+        placeholder_titulo: 'Edición detallada próximamente',
+        placeholder_desc: 'En la siguiente entrega vas a poder configurar campos, variables y condiciones de cada paso desde este panel.',
+      },
+
+      confirmar_descartar: {
+        titulo: '¿Descartar los cambios sin publicar?',
+        descripcion: 'Volvés a la versión actualmente publicada del flujo. Esto no se puede deshacer.',
+        confirmar: 'Descartar cambios',
+      },
+
+      toast: {
+        publicado: 'Cambios publicados',
+        descartado: 'Cambios descartados',
+        guardado_manual: 'Cambios guardados',
+        proximamente_probar: 'La sandbox de prueba llega en una próxima entrega.',
+        proximamente_historial: 'El historial de ejecuciones llega en una próxima entrega.',
+        error_guardar: 'No se pudo guardar',
+        error_publicar: 'No se pudo publicar',
+        error_descartar: 'No se pudo descartar el borrador',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Elegí un disparador',
+      titulo_accion: 'Agregar paso',
+      buscar_placeholder: 'Buscar por nombre o tipo…',
+      sin_resultados: 'Ningún paso coincide con tu búsqueda.',
+      sin_categorias: 'No hay opciones disponibles.',
+
+      categoria: {
+        eventos: 'Eventos',
+        eventos_desc: 'Disparadores que reaccionan a algo que pasa en tu Flux.',
+        tiempo: 'Tiempo',
+        tiempo_desc: 'Disparadores basados en horarios o fechas relativas.',
+        envios: 'Acciones de envío',
+        envios_desc: 'Mandar WhatsApp o correo a contactos o usuarios.',
+        creaciones: 'Acciones de creación',
+        creaciones_desc: 'Generar actividades, órdenes o visitas automáticamente.',
+        cambios: 'Cambios de datos',
+        cambios_desc: 'Actualizar estado, asignar usuario, etiquetar.',
+        notificaciones: 'Notificaciones',
+        notificaciones_desc: 'Avisar internamente a usuarios o grupos.',
+        control: 'Control de flujo',
+        control_desc: 'Esperar tiempo, ramificar según condiciones, llamar webhooks.',
+        terminar: 'Terminar',
+        terminar_desc: 'Cerrar el flujo explícitamente antes de que llegue al final.',
+      },
+    },
+
+    paso: {
+      // Disparadores
+      'entidad.estado_cambio': {
+        titulo: 'Cambio de estado',
+        descripcion: 'Cuando una entidad pasa a un estado configurado.',
+      },
+      'entidad.creada': {
+        titulo: 'Entidad creada',
+        descripcion: 'Cuando se crea una nueva entidad del tipo elegido.',
+      },
+      'entidad.campo_cambia': {
+        titulo: 'Cambio de campo',
+        descripcion: 'Cuando un campo específico cambia de valor.',
+      },
+      'actividad.completada': {
+        titulo: 'Actividad completada',
+        descripcion: 'Cuando se marca una actividad como completada.',
+      },
+      'tiempo.cron': {
+        titulo: 'Horario periódico',
+        descripcion: 'En horarios definidos por una expresión cron.',
+      },
+      'tiempo.relativo_a_campo': {
+        titulo: 'Relativo a una fecha',
+        descripcion: 'Antes o después de una fecha del registro (vencimiento, programada, etc.).',
+      },
+      'webhook.entrante': {
+        titulo: 'Webhook entrante',
+        descripcion: 'Cuando llega un POST a una URL de webhook.',
+      },
+      'inbox.mensaje_recibido': {
+        titulo: 'Mensaje recibido',
+        descripcion: 'Cuando llega un mensaje al inbox.',
+      },
+      'inbox.conversacion_sin_respuesta': {
+        titulo: 'Conversación sin respuesta',
+        descripcion: 'Cuando una conversación lleva tiempo sin respuesta.',
+      },
+
+      // Acciones
+      enviar_whatsapp_plantilla: {
+        titulo: 'Enviar WhatsApp',
+        descripcion: 'Mandar una plantilla aprobada por Meta a un contacto.',
+      },
+      enviar_whatsapp_texto: {
+        titulo: 'Enviar WhatsApp (texto libre)',
+        descripcion: 'Mandar un mensaje de texto dentro de la ventana de 24 hs.',
+      },
+      enviar_correo_plantilla: {
+        titulo: 'Enviar correo (plantilla)',
+        descripcion: 'Mandar un correo basado en una plantilla guardada.',
+      },
+      enviar_correo_texto: {
+        titulo: 'Enviar correo',
+        descripcion: 'Mandar un correo de texto libre.',
+      },
+      crear_actividad: {
+        titulo: 'Crear actividad',
+        descripcion: 'Generar una actividad asignada a un usuario.',
+      },
+      cambiar_estado_entidad: {
+        titulo: 'Cambiar estado',
+        descripcion: 'Mover una entidad a otro estado configurado.',
+      },
+      asignar_usuario: {
+        titulo: 'Asignar usuario',
+        descripcion: 'Cambiar el responsable de la entidad.',
+      },
+      agregar_etiqueta: {
+        titulo: 'Agregar etiqueta',
+        descripcion: 'Sumar una etiqueta a la entidad o contacto.',
+      },
+      quitar_etiqueta: {
+        titulo: 'Quitar etiqueta',
+        descripcion: 'Sacar una etiqueta de la entidad o contacto.',
+      },
+      notificar_usuario: {
+        titulo: 'Notificar a un usuario',
+        descripcion: 'Mandar una notificación interna a una persona.',
+      },
+      notificar_grupo: {
+        titulo: 'Notificar a un grupo',
+        descripcion: 'Mandar una notificación interna a un grupo o rol.',
+      },
+      crear_orden_trabajo: {
+        titulo: 'Crear orden de trabajo',
+        descripcion: 'Generar una orden de trabajo vinculada.',
+      },
+      crear_visita: {
+        titulo: 'Crear visita',
+        descripcion: 'Programar una visita asociada a la entidad.',
+      },
+      webhook_saliente: {
+        titulo: 'Llamar a un webhook',
+        descripcion: 'Hacer un POST a una URL externa con datos del flujo.',
+      },
+      esperar: {
+        titulo: 'Esperar',
+        descripcion: 'Pausar el flujo por un tiempo o hasta una fecha.',
+      },
+      esperar_evento: {
+        titulo: 'Esperar evento',
+        descripcion: 'Pausar el flujo hasta que ocurra un evento.',
+      },
+      condicion_branch: {
+        titulo: 'Si / Sino',
+        descripcion: 'Tomar caminos distintos según se cumpla una condición.',
+      },
+      terminar_flujo: {
+        titulo: 'Terminar flujo',
+        descripcion: 'Cerrar el flujo explícitamente.',
+      },
+    },
   },
 }

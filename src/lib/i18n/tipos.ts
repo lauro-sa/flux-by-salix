@@ -1688,5 +1688,140 @@ export interface Traducciones {
     // Página /flujos/[id] (placeholder en sub-PR 19.1, editor real en 19.2)
     editor_proximamente_titulo: string
     editor_proximamente_desc: string
+
+    // Editor visual (sub-PR 19.2)
+    editor: {
+      volver_listado: string
+      nombre_default: string
+      nombre_editar_tooltip: string
+      elegir_icono: string
+      drag_handle: string
+      agregar_paso_intermedio: string
+      agregar_paso_final: string
+
+      indicador: {
+        guardando: string
+        guardado: string
+        guardado_hace_min: string
+        guardado_hace_h: string
+      }
+
+      banner: {
+        borrador_titulo: string
+        borrador_desc: string
+        lectura_titulo: string
+        lectura_desc: string
+        error_titulo: string
+        error_desc: string
+      }
+
+      accion: {
+        publicar: string
+        descartar: string
+        reactivar: string
+        probar: string
+        probar_tooltip: string
+        historial: string
+        historial_tooltip: string
+      }
+
+      disparador: {
+        etiqueta: string
+        placeholder_titulo: string
+        placeholder_desc: string
+      }
+
+      branch: {
+        resumen: string
+        rama_si: string
+        rama_no: string
+        rama_count: string
+        rama_vacia: string
+      }
+
+      panel: {
+        titulo_default: string
+        placeholder_titulo: string
+        placeholder_desc: string
+      }
+
+      confirmar_descartar: {
+        titulo: string
+        descripcion: string
+        confirmar: string
+      }
+
+      toast: {
+        publicado: string
+        descartado: string
+        guardado_manual: string
+        proximamente_probar: string
+        proximamente_historial: string
+        error_guardar: string
+        error_publicar: string
+        error_descartar: string
+      }
+    }
+
+    // Modal `CatalogoPasos` (sub-PR 19.2)
+    catalogo: {
+      titulo_disparador: string
+      titulo_accion: string
+      buscar_placeholder: string
+      sin_resultados: string
+      sin_categorias: string
+
+      categoria: {
+        eventos: string
+        eventos_desc: string
+        tiempo: string
+        tiempo_desc: string
+        envios: string
+        envios_desc: string
+        creaciones: string
+        creaciones_desc: string
+        cambios: string
+        cambios_desc: string
+        notificaciones: string
+        notificaciones_desc: string
+        control: string
+        control_desc: string
+        terminar: string
+        terminar_desc: string
+      }
+    }
+
+    // Etiquetas y descripciones por tipo de paso (disparadores + acciones)
+    paso: {
+      // Disparadores
+      'entidad.estado_cambio': { titulo: string; descripcion: string }
+      'entidad.creada': { titulo: string; descripcion: string }
+      'entidad.campo_cambia': { titulo: string; descripcion: string }
+      'actividad.completada': { titulo: string; descripcion: string }
+      'tiempo.cron': { titulo: string; descripcion: string }
+      'tiempo.relativo_a_campo': { titulo: string; descripcion: string }
+      'webhook.entrante': { titulo: string; descripcion: string }
+      'inbox.mensaje_recibido': { titulo: string; descripcion: string }
+      'inbox.conversacion_sin_respuesta': { titulo: string; descripcion: string }
+      // Acciones
+      enviar_whatsapp_plantilla: { titulo: string; descripcion: string }
+      enviar_whatsapp_texto: { titulo: string; descripcion: string }
+      enviar_correo_plantilla: { titulo: string; descripcion: string }
+      enviar_correo_texto: { titulo: string; descripcion: string }
+      crear_actividad: { titulo: string; descripcion: string }
+      cambiar_estado_entidad: { titulo: string; descripcion: string }
+      asignar_usuario: { titulo: string; descripcion: string }
+      agregar_etiqueta: { titulo: string; descripcion: string }
+      quitar_etiqueta: { titulo: string; descripcion: string }
+      notificar_usuario: { titulo: string; descripcion: string }
+      notificar_grupo: { titulo: string; descripcion: string }
+      crear_orden_trabajo: { titulo: string; descripcion: string }
+      crear_visita: { titulo: string; descripcion: string }
+      webhook_saliente: { titulo: string; descripcion: string }
+      esperar: { titulo: string; descripcion: string }
+      esperar_evento: { titulo: string; descripcion: string }
+      condicion_branch: { titulo: string; descripcion: string }
+      terminar_flujo: { titulo: string; descripcion: string }
+    }
   }
 }

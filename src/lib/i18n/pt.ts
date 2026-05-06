@@ -1626,5 +1626,136 @@ export const pt: Traducciones = {
 
     editor_proximamente_titulo: 'Editor em construção',
     editor_proximamente_desc: 'Em breve você poderá configurar gatilho, condições e ações por aqui.',
+
+    editor: {
+      volver_listado: 'Voltar à lista',
+      nombre_default: 'Sem nome',
+      nombre_editar_tooltip: 'Clique para renomear',
+      elegir_icono: 'Escolher ícone do fluxo',
+      drag_handle: 'Arraste para reordenar',
+      agregar_paso_intermedio: 'Adicionar passo na posição {{n}}',
+      agregar_paso_final: 'Adicionar passo',
+
+      indicador: {
+        guardando: 'Salvando…',
+        guardado: 'Salvo',
+        guardado_hace_min: 'Salvo há {{n}} min',
+        guardado_hace_h: 'Salvo há {{n}} h',
+      },
+
+      banner: {
+        borrador_titulo: 'Você está editando este fluxo',
+        borrador_desc: 'Suas mudanças não afetam o fluxo ativo até clicar em Publicar mudanças.',
+        lectura_titulo: 'Modo somente leitura',
+        lectura_desc: 'Você tem permissão para ver mas não para editar este fluxo.',
+        error_titulo: 'Não é possível ativar ainda',
+        error_desc: 'Há erros de configuração. Revise os passos destacados.',
+      },
+
+      accion: {
+        publicar: 'Publicar mudanças',
+        descartar: 'Descartar mudanças',
+        reactivar: 'Reativar',
+        probar: 'Testar',
+        probar_tooltip: 'Pré-visualização ou execução de teste',
+        historial: 'Histórico',
+        historial_tooltip: 'Execuções recentes deste fluxo',
+      },
+
+      disparador: {
+        etiqueta: 'Gatilho',
+        placeholder_titulo: 'Configure o gatilho',
+        placeholder_desc: 'Escolha o evento ou momento que vai iniciar este fluxo.',
+      },
+
+      branch: {
+        resumen: '{{si}} ação(ões) se SIM · {{no}} ação(ões) se NÃO',
+        rama_si: 'Se SIM',
+        rama_no: 'Se NÃO',
+        rama_count: '{{n}} ação(ões)',
+        rama_vacia: 'Sem ações',
+      },
+
+      panel: {
+        titulo_default: 'Detalhe do passo',
+        placeholder_titulo: 'Edição detalhada em breve',
+        placeholder_desc: 'Na próxima entrega você poderá configurar campos, variáveis e condições de cada passo neste painel.',
+      },
+
+      confirmar_descartar: {
+        titulo: 'Descartar as mudanças não publicadas?',
+        descripcion: 'Você volta à versão atualmente publicada do fluxo. Isto não pode ser desfeito.',
+        confirmar: 'Descartar mudanças',
+      },
+
+      toast: {
+        publicado: 'Mudanças publicadas',
+        descartado: 'Mudanças descartadas',
+        guardado_manual: 'Mudanças salvas',
+        proximamente_probar: 'O sandbox de teste chega em uma próxima entrega.',
+        proximamente_historial: 'O histórico de execuções chega em uma próxima entrega.',
+        error_guardar: 'Não foi possível salvar',
+        error_publicar: 'Não foi possível publicar',
+        error_descartar: 'Não foi possível descartar o rascunho',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Escolha um gatilho',
+      titulo_accion: 'Adicionar passo',
+      buscar_placeholder: 'Buscar por nome ou tipo…',
+      sin_resultados: 'Nenhum passo corresponde à sua busca.',
+      sin_categorias: 'Sem opções disponíveis.',
+
+      categoria: {
+        eventos: 'Eventos',
+        eventos_desc: 'Gatilhos que reagem a algo que acontece no seu Flux.',
+        tiempo: 'Tempo',
+        tiempo_desc: 'Gatilhos baseados em horários ou datas relativas.',
+        envios: 'Ações de envio',
+        envios_desc: 'Enviar WhatsApp ou e-mail a contatos ou usuários.',
+        creaciones: 'Ações de criação',
+        creaciones_desc: 'Gerar atividades, ordens ou visitas automaticamente.',
+        cambios: 'Mudanças de dados',
+        cambios_desc: 'Atualizar estado, atribuir usuário, etiquetar.',
+        notificaciones: 'Notificações',
+        notificaciones_desc: 'Notificar usuários ou grupos internamente.',
+        control: 'Controle de fluxo',
+        control_desc: 'Esperar tempo, ramificar segundo condições, chamar webhooks.',
+        terminar: 'Encerrar',
+        terminar_desc: 'Fechar o fluxo explicitamente antes de chegar ao fim.',
+      },
+    },
+
+    paso: {
+      'entidad.estado_cambio': { titulo: 'Mudança de estado', descripcion: 'Quando uma entidade passa para um estado configurado.' },
+      'entidad.creada': { titulo: 'Entidade criada', descripcion: 'Quando uma nova entidade do tipo escolhido é criada.' },
+      'entidad.campo_cambia': { titulo: 'Mudança de campo', descripcion: 'Quando um campo específico muda de valor.' },
+      'actividad.completada': { titulo: 'Atividade completada', descripcion: 'Quando uma atividade é marcada como completada.' },
+      'tiempo.cron': { titulo: 'Horário periódico', descripcion: 'Em horários definidos por uma expressão cron.' },
+      'tiempo.relativo_a_campo': { titulo: 'Relativo a uma data', descripcion: 'Antes ou depois de uma data do registro.' },
+      'webhook.entrante': { titulo: 'Webhook recebido', descripcion: 'Quando chega um POST a uma URL de webhook.' },
+      'inbox.mensaje_recibido': { titulo: 'Mensagem recebida', descripcion: 'Quando chega uma mensagem na caixa de entrada.' },
+      'inbox.conversacion_sin_respuesta': { titulo: 'Conversa sem resposta', descripcion: 'Quando uma conversa está esperando há muito tempo.' },
+
+      enviar_whatsapp_plantilla: { titulo: 'Enviar WhatsApp', descripcion: 'Enviar uma plantilla aprovada pela Meta a um contato.' },
+      enviar_whatsapp_texto: { titulo: 'Enviar WhatsApp (texto livre)', descripcion: 'Enviar uma mensagem dentro da janela de 24 hs.' },
+      enviar_correo_plantilla: { titulo: 'Enviar e-mail (plantilla)', descripcion: 'Enviar um e-mail baseado em uma plantilla salva.' },
+      enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Enviar um e-mail de texto livre.' },
+      crear_actividad: { titulo: 'Criar atividade', descripcion: 'Gerar uma atividade atribuída a um usuário.' },
+      cambiar_estado_entidad: { titulo: 'Mudar estado', descripcion: 'Mover uma entidade para outro estado configurado.' },
+      asignar_usuario: { titulo: 'Atribuir usuário', descripcion: 'Mudar quem é responsável pela entidade.' },
+      agregar_etiqueta: { titulo: 'Adicionar etiqueta', descripcion: 'Adicionar uma etiqueta à entidade ou contato.' },
+      quitar_etiqueta: { titulo: 'Remover etiqueta', descripcion: 'Remover uma etiqueta da entidade ou contato.' },
+      notificar_usuario: { titulo: 'Notificar um usuário', descripcion: 'Enviar uma notificação interna a uma pessoa.' },
+      notificar_grupo: { titulo: 'Notificar um grupo', descripcion: 'Enviar uma notificação interna a um grupo ou cargo.' },
+      crear_orden_trabajo: { titulo: 'Criar ordem de trabalho', descripcion: 'Gerar uma ordem de trabalho vinculada.' },
+      crear_visita: { titulo: 'Criar visita', descripcion: 'Programar uma visita associada à entidade.' },
+      webhook_saliente: { titulo: 'Chamar um webhook', descripcion: 'Fazer um POST a uma URL externa com dados do fluxo.' },
+      esperar: { titulo: 'Esperar', descripcion: 'Pausar o fluxo por um tempo ou até uma data.' },
+      esperar_evento: { titulo: 'Esperar evento', descripcion: 'Pausar o fluxo até que ocorra um evento.' },
+      condicion_branch: { titulo: 'Se / Senão', descripcion: 'Tomar caminhos diferentes segundo uma condição.' },
+      terminar_flujo: { titulo: 'Terminar fluxo', descripcion: 'Fechar o fluxo explicitamente.' },
+    },
   },
 }

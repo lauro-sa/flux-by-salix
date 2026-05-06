@@ -23,6 +23,14 @@ import type { EstadoFlujo } from '@/tipos/workflow'
  *   - Sin `crear` → ítem "Duplicar" oculto (duplicar requiere crear).
  */
 
+/**
+ * Acciones que el menú puede ofrecer. Sirve como llave del prop
+ * opcional `excluirAcciones` para suprimir ítems desde el llamador
+ * sin tener que componer un menú alternativo. Patrón additivo —
+ * preserva el comportamiento default del listado (D13 del plan UX 19.2).
+ */
+type AccionMenuFlujo = 'editar' | 'duplicar' | 'activar-pausar' | 'eliminar'
+
 interface Props {
   estado: EstadoFlujo
   permisos: {
@@ -36,6 +44,15 @@ interface Props {
   onActivar: () => void
   onPausar: () => void
   onEliminar: () => void
+  /**
+   * Acciones a ocultar aunque haya permiso. Útil cuando el menú vive
+   * dentro de un contexto que ya provee la acción (ej: el header del
+   * editor visual oculta `editar` porque el usuario ya está editando).
+   *
+   * Default: no excluye nada, comportamiento idéntico a antes del
+   * sub-PR 19.2.
+   */
+  excluirAcciones?: ReadonlyArray<AccionMenuFlujo>
 }
 
 export function MenuFilaFlujo({
@@ -46,6 +63,7 @@ export function MenuFilaFlujo({
   onActivar,
   onPausar,
   onEliminar,
+  excluirAcciones,
 }: Props) {
   const { t } = useTraduccion()
   const [abierto, setAbierto] = useState(false)
@@ -55,6 +73,8 @@ export function MenuFilaFlujo({
     fn()
   }
 
+  const excluido = (a: AccionMenuFlujo) => excluirAcciones?.includes(a) ?? false
+
   return (
     <Popover
       abierto={abierto}
@@ -63,28 +83,30 @@ export function MenuFilaFlujo({
       alineacion="fin"
       contenido={
         <div className="py-1.5 px-1.5">
-          <OpcionMenu
-            icono={permisos.editar ? <Edit3 size={14} /> : <Eye size={14} />}
-            onClick={() => cerrarYEjecutar(onEditar)}
-          >
-            {permisos.editar ? t('flujos.accion.editar') : t('flujos.accion.ver')}
-          </OpcionMenu>
-          {permisos.crear && (
+          {!excluido('editar') && (
+            <OpcionMenu
+              icono={permisos.editar ? <Edit3 size={14} /> : <Eye size={14} />}
+              onClick={() => cerrarYEjecutar(onEditar)}
+            >
+              {permisos.editar ? t('flujos.accion.editar') : t('flujos.accion.ver')}
+            </OpcionMenu>
+          )}
+          {!excluido('duplicar') && permisos.crear && (
             <OpcionMenu icono={<Copy size={14} />} onClick={() => cerrarYEjecutar(onDuplicar)}>
               {t('flujos.accion.duplicar')}
             </OpcionMenu>
           )}
-          {permisos.activar && estado !== 'activo' && (
+          {!excluido('activar-pausar') && permisos.activar && estado !== 'activo' && (
             <OpcionMenu icono={<Play size={14} />} onClick={() => cerrarYEjecutar(onActivar)}>
               {t('flujos.accion.activar')}
             </OpcionMenu>
           )}
-          {permisos.activar && estado === 'activo' && (
+          {!excluido('activar-pausar') && permisos.activar && estado === 'activo' && (
             <OpcionMenu icono={<Pause size={14} />} onClick={() => cerrarYEjecutar(onPausar)}>
               {t('flujos.accion.pausar')}
             </OpcionMenu>
           )}
-          {permisos.eliminar && (
+          {!excluido('eliminar') && permisos.eliminar && (
             <OpcionMenu peligro icono={<Trash2 size={14} />} onClick={() => cerrarYEjecutar(onEliminar)}>
               {t('flujos.accion.eliminar')}
             </OpcionMenu>

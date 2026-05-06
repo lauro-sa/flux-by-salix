@@ -1626,5 +1626,136 @@ export const en: Traducciones = {
 
     editor_proximamente_titulo: 'Editor under construction',
     editor_proximamente_desc: 'You will soon be able to configure trigger, conditions and actions from here.',
+
+    editor: {
+      volver_listado: 'Back to list',
+      nombre_default: 'Untitled',
+      nombre_editar_tooltip: 'Click to rename',
+      elegir_icono: 'Choose flow icon',
+      drag_handle: 'Drag to reorder',
+      agregar_paso_intermedio: 'Insert step at position {{n}}',
+      agregar_paso_final: 'Add step',
+
+      indicador: {
+        guardando: 'Saving…',
+        guardado: 'Saved',
+        guardado_hace_min: 'Saved {{n}} min ago',
+        guardado_hace_h: 'Saved {{n}} h ago',
+      },
+
+      banner: {
+        borrador_titulo: 'You are editing this flow',
+        borrador_desc: 'Your changes do not affect the active flow until you click Publish changes.',
+        lectura_titulo: 'Read-only mode',
+        lectura_desc: 'You have permission to view but not edit this flow.',
+        error_titulo: 'Cannot activate yet',
+        error_desc: 'Configuration errors. Review the highlighted steps.',
+      },
+
+      accion: {
+        publicar: 'Publish changes',
+        descartar: 'Discard changes',
+        reactivar: 'Reactivate',
+        probar: 'Test',
+        probar_tooltip: 'Preview or dry-run',
+        historial: 'History',
+        historial_tooltip: 'Recent runs of this flow',
+      },
+
+      disparador: {
+        etiqueta: 'Trigger',
+        placeholder_titulo: 'Configure the trigger',
+        placeholder_desc: 'Pick the event or moment that will start this flow.',
+      },
+
+      branch: {
+        resumen: '{{si}} action(s) if YES · {{no}} action(s) if NO',
+        rama_si: 'If YES',
+        rama_no: 'If NO',
+        rama_count: '{{n}} action(s)',
+        rama_vacia: 'No actions',
+      },
+
+      panel: {
+        titulo_default: 'Step details',
+        placeholder_titulo: 'Detailed editing coming soon',
+        placeholder_desc: 'In the next release you will configure fields, variables and conditions of each step from this panel.',
+      },
+
+      confirmar_descartar: {
+        titulo: 'Discard unpublished changes?',
+        descripcion: 'You will return to the currently published version of the flow. This cannot be undone.',
+        confirmar: 'Discard changes',
+      },
+
+      toast: {
+        publicado: 'Changes published',
+        descartado: 'Changes discarded',
+        guardado_manual: 'Changes saved',
+        proximamente_probar: 'The test sandbox arrives in a future release.',
+        proximamente_historial: 'Run history arrives in a future release.',
+        error_guardar: 'Could not save',
+        error_publicar: 'Could not publish',
+        error_descartar: 'Could not discard the draft',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Pick a trigger',
+      titulo_accion: 'Add step',
+      buscar_placeholder: 'Search by name or type…',
+      sin_resultados: 'No step matches your search.',
+      sin_categorias: 'No options available.',
+
+      categoria: {
+        eventos: 'Events',
+        eventos_desc: 'Triggers that react to something happening in your Flux.',
+        tiempo: 'Time',
+        tiempo_desc: 'Triggers based on schedules or relative dates.',
+        envios: 'Sending actions',
+        envios_desc: 'Send WhatsApp or email to contacts or users.',
+        creaciones: 'Creation actions',
+        creaciones_desc: 'Generate activities, orders or visits automatically.',
+        cambios: 'Data changes',
+        cambios_desc: 'Update status, assign user, tag.',
+        notificaciones: 'Notifications',
+        notificaciones_desc: 'Notify users or groups internally.',
+        control: 'Flow control',
+        control_desc: 'Wait, branch on conditions, call webhooks.',
+        terminar: 'End',
+        terminar_desc: 'Close the flow explicitly before reaching the end.',
+      },
+    },
+
+    paso: {
+      'entidad.estado_cambio': { titulo: 'State change', descripcion: 'When an entity moves to a configured state.' },
+      'entidad.creada': { titulo: 'Entity created', descripcion: 'When a new entity of the chosen type is created.' },
+      'entidad.campo_cambia': { titulo: 'Field change', descripcion: 'When a specific field changes value.' },
+      'actividad.completada': { titulo: 'Activity completed', descripcion: 'When an activity is marked as completed.' },
+      'tiempo.cron': { titulo: 'Periodic schedule', descripcion: 'On schedules defined by a cron expression.' },
+      'tiempo.relativo_a_campo': { titulo: 'Relative to a date', descripcion: 'Before or after a date on the record.' },
+      'webhook.entrante': { titulo: 'Incoming webhook', descripcion: 'When a POST arrives at a webhook URL.' },
+      'inbox.mensaje_recibido': { titulo: 'Message received', descripcion: 'When a message arrives at the inbox.' },
+      'inbox.conversacion_sin_respuesta': { titulo: 'Unanswered conversation', descripcion: 'When a conversation has been waiting too long.' },
+
+      enviar_whatsapp_plantilla: { titulo: 'Send WhatsApp', descripcion: 'Send a Meta-approved template to a contact.' },
+      enviar_whatsapp_texto: { titulo: 'Send WhatsApp (free text)', descripcion: 'Send a text message within the 24-hour window.' },
+      enviar_correo_plantilla: { titulo: 'Send email (template)', descripcion: 'Send an email based on a saved template.' },
+      enviar_correo_texto: { titulo: 'Send email', descripcion: 'Send a free-form email.' },
+      crear_actividad: { titulo: 'Create activity', descripcion: 'Generate an activity assigned to a user.' },
+      cambiar_estado_entidad: { titulo: 'Change state', descripcion: 'Move an entity to another configured state.' },
+      asignar_usuario: { titulo: 'Assign user', descripcion: 'Change who is responsible for the entity.' },
+      agregar_etiqueta: { titulo: 'Add tag', descripcion: 'Add a tag to the entity or contact.' },
+      quitar_etiqueta: { titulo: 'Remove tag', descripcion: 'Remove a tag from the entity or contact.' },
+      notificar_usuario: { titulo: 'Notify a user', descripcion: 'Send an internal notification to a person.' },
+      notificar_grupo: { titulo: 'Notify a group', descripcion: 'Send an internal notification to a group or role.' },
+      crear_orden_trabajo: { titulo: 'Create work order', descripcion: 'Generate a linked work order.' },
+      crear_visita: { titulo: 'Create visit', descripcion: 'Schedule a visit linked to the entity.' },
+      webhook_saliente: { titulo: 'Call a webhook', descripcion: 'POST to an external URL with flow data.' },
+      esperar: { titulo: 'Wait', descripcion: 'Pause the flow for a duration or until a date.' },
+      esperar_evento: { titulo: 'Wait for event', descripcion: 'Pause the flow until an event occurs.' },
+      condicion_branch: { titulo: 'If / Else', descripcion: 'Take different paths depending on a condition.' },
+      terminar_flujo: { titulo: 'End flow', descripcion: 'Explicitly close the flow.' },
+    },
   },
 }
