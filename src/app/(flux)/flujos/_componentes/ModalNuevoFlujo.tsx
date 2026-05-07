@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Search, Sparkles, FileSpreadsheet } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
 import { useTraduccion } from '@/lib/i18n'
-import { useToast } from '@/componentes/feedback/Toast'
 import { useModulos } from '@/hooks/useModulos'
 import { ETIQUETAS_ENTIDAD, ENTIDADES_CON_ESTADO } from '@/tipos/estados'
 import {
@@ -16,6 +14,7 @@ import {
   type PlantillaSugerida,
 } from '@/lib/workflows/plantillas-sugeridas'
 import { CardPlantilla } from './EstadoVacioFlujos'
+import { useCrearFlujo } from './useCrearFlujo'
 
 /**
  * ModalNuevoFlujo — Modal "+ Nuevo flujo" con dos pestañas (§1.11 plan UX).
@@ -54,16 +53,22 @@ export default function ModalNuevoFlujo({
   onCreado,
 }: Props) {
   const { t } = useTraduccion()
-  const router = useRouter()
-  const { mostrar } = useToast()
   const { tieneModulo } = useModulos()
+  // 19.7: la lógica POST + toast + navigate se delega a `useCrearFlujo`
+  // (compartida con la sección "Flujos" de cada módulo). Mantiene
+  // exactamente el mismo contrato que tenía inline en 19.1.
+  const { creando, crearFlujo, crearDesdePlantilla } = useCrearFlujo({
+    onCreado: () => {
+      onCreado?.()
+      onCerrar()
+    },
+  })
 
   const [pestana, setPestana] = useState<'plantilla' | 'cero'>(pestanaInicial)
   const [busquedaPlantilla, setBusquedaPlantilla] = useState('')
   const [filtroModulo, setFiltroModulo] = useState('')
   const [nombre, setNombre] = useState('')
   const [moduloSeleccionado, setModuloSeleccionado] = useState('')
-  const [creando, setCreando] = useState(false)
 
   // Cuando abre con plantilla pre-seleccionada, ir directo a "Desde cero"
   // con el nombre de la plantilla pre-cargado (más rápido que volver a
@@ -73,7 +78,7 @@ export default function ModalNuevoFlujo({
     setPestana(pestanaInicial)
     if (plantillaInicial) {
       // El usuario ya eligió desde el estado vacío — no le hagamos buscar de nuevo.
-      crearDesdePlantilla(plantillaInicial)
+      void crearDesdePlantilla(plantillaInicial)
     } else {
       setNombre('')
       setModuloSeleccionado('')
@@ -110,54 +115,10 @@ export default function ModalNuevoFlujo({
   // -----------------------------------------------------------------
   // Crear flujo (común a ambas pestañas)
   // -----------------------------------------------------------------
-  // 19.1 manda solo `nombre` y `descripcion`. La plantilla pre-rellena el
-  // editor en 19.2 mediante `?plantilla=<id>` en la URL (que el editor lee
-  // y combina con el contenido del backend). Por ahora pasamos el id en la
-  // navegación para no perderlo.
-
-  async function crearFlujo(payload: {
-    nombre: string
-    descripcion?: string
-    plantillaId?: string | null
-  }): Promise<void> {
-    setCreando(true)
-    try {
-      const res = await fetch('/api/flujos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: payload.nombre,
-          ...(payload.descripcion ? { descripcion: payload.descripcion } : {}),
-        }),
-      })
-      if (!res.ok) {
-        const cuerpo = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(cuerpo.error ?? `HTTP ${res.status}`)
-      }
-      const data = await res.json() as { flujo?: { id: string } }
-      const id = data.flujo?.id
-      if (!id) throw new Error('Respuesta sin id')
-
-      mostrar('exito', t('flujos.toast.creado'))
-      onCreado?.()
-      onCerrar()
-      const sufijo = payload.plantillaId ? `?plantilla=${encodeURIComponent(payload.plantillaId)}` : ''
-      router.push(`/flujos/${id}${sufijo}`)
-    } catch (err) {
-      console.error('Error al crear flujo:', err)
-      mostrar('error', err instanceof Error ? err.message : t('flujos.toast.error_crear'))
-    } finally {
-      setCreando(false)
-    }
-  }
-
-  function crearDesdePlantilla(plantilla: PlantillaSugerida) {
-    void crearFlujo({
-      nombre: plantilla.fallback_es.titulo,
-      descripcion: plantilla.fallback_es.descripcion,
-      plantillaId: plantilla.id,
-    })
-  }
+  // La lógica POST + redirect + toast vive en `useCrearFlujo` (refactor
+  // 19.7). Acá solo se invoca con el payload correspondiente a la
+  // pestaña activa. El editor de 19.2 lee `?plantilla=<id>` en la URL
+  // y combina con el contenido del backend para pre-rellenar.
 
   function crearDesdeCero() {
     if (!nombre.trim()) return
@@ -223,7 +184,7 @@ export default function ModalNuevoFlujo({
                 <CardPlantilla
                   key={p.id}
                   plantilla={p}
-                  onClick={() => crearDesdePlantilla(p)}
+                  onClick={() => void crearDesdePlantilla(p)}
                 />
               ))}
             </div>
