@@ -20,6 +20,9 @@ import BannerEditorFlujo from './BannerEditorFlujo'
 import CanvasFlujo from './CanvasFlujo'
 import CatalogoPasos from './CatalogoPasos'
 import PanelEdicionPaso from './PanelEdicionPaso'
+import ConsolaSandbox, { useEsMobile } from './_consola/ConsolaSandbox'
+import { useConsolaSandbox } from './_consola/hooks/useConsolaSandbox'
+import { usePreviewContexto } from './_picker/usePreviewContexto'
 import { useEditorFlujo, type FlujoEditable } from './hooks/useEditorFlujo'
 import { useAtajosEditorFlujo } from './hooks/useAtajosEditorFlujo'
 import { useValidacionFlujo } from './hooks/useValidacionFlujo'
@@ -590,10 +593,47 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     // dispara el efecto y vuelve a intentar.
   }, [pendienteScrollA, ramasAbiertas, pasosConId])
 
+  // ─── Sandbox / consola de prueba (sub-PR 19.5) ───────────────────
+  // Estado abierto/tab persistido en localStorage. Al abrirla cerramos
+  // el panel de paso para no apilar dos paneles que compiten por la
+  // atención del usuario.
+  const consola = useConsolaSandbox()
+  const enMobile = useEsMobile()
+  const tipoDisparadorActual = (() => {
+    const d = version.disparador
+    if (d && typeof d === 'object' && 'tipo' in d && typeof (d as { tipo?: unknown }).tipo === 'string') {
+      return (d as { tipo: string }).tipo
+    }
+    return null
+  })()
+  // Reusamos exactamente el hook del PickerVariables: mismo endpoint
+  // `/preview-contexto`, mismo cache, mismo abort. La consola y el
+  // picker comparten contexto.
+  const { contexto: contextoPreview } = usePreviewContexto({
+    flujoId: flujo.id,
+    tipoDisparador: tipoDisparadorActual,
+  })
+  const eventoSimuladoConsola = (() => {
+    const ent = contextoPreview.entidad as
+      | { tipo?: string; id?: string; titulo?: string; nombre?: string }
+      | null
+      | undefined
+    if (!ent || typeof ent !== 'object' || !ent.id) return null
+    return {
+      tipo_entidad: ent.tipo ?? null,
+      resumen:
+        (typeof ent.titulo === 'string' && ent.titulo) ||
+        (typeof ent.nombre === 'string' && ent.nombre) ||
+        ent.id,
+    }
+  })()
+
   // ─── Atajos ───────────────────────────────────────────────────────
   useAtajosEditorFlujo({
     panelAbierto: seleccion !== null,
+    consolaAbierta: consola.abierta,
     onCerrarPanel: cerrarPanel,
+    onCerrarConsola: consola.cerrar,
     onVolver: () => router.push('/flujos'),
     onForzarGuardar: () => {
       void flush()
@@ -601,10 +641,15 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     },
   })
 
-  // ─── Probar / Historial: visuales no-op en 19.2 ──────────────────
+  // ─── Probar / Historial ──────────────────────────────────────────
+  // 19.5: "Probar" abre la consola de prueba (panel inferior). Si el
+  // panel de paso está abierto, lo cerramos primero — el usuario no
+  // puede tener panel + consola al mismo tiempo (apila visualmente).
   const onProbar = useCallback(() => {
-    mostrar('info', t('flujos.editor.toast.proximamente_probar'))
-  }, [mostrar, t])
+    setSeleccion(null)
+    consola.abrir()
+  }, [consola])
+  // Historial sigue no-op hasta el sub-PR 19.6.
   const onHistorial = useCallback(() => {
     mostrar('info', t('flujos.editor.toast.proximamente_historial'))
   }, [mostrar, t])
@@ -626,7 +671,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
       : null
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100dvh-var(--header-alto))]">
+    <div className="relative flex flex-col h-full min-h-[calc(100dvh-var(--header-alto))]">
       <HeaderEditorFlujo
         flujo={flujo}
         esBorradorInterno={version.esBorradorInterno}
@@ -713,6 +758,22 @@ export default function EditorFlujo({ flujoInicial }: Props) {
           onActualizarDisparador={actualizarDisparador}
         />
       </div>
+
+      {/* Consola de prueba — sub-PR 19.5. Posicionada absolute dentro del
+          contenedor relativo padre para flotar arriba del canvas sin
+          tapar el header. En mobile renderiza como BottomSheet (D5). */}
+      <ConsolaSandbox
+        abierta={consola.abierta}
+        flujoId={flujo.id}
+        acciones={pasosConId}
+        contexto={contextoPreview}
+        tab={consola.tab}
+        onCambiarTab={consola.cambiarTab}
+        onCerrar={consola.cerrar}
+        flush={flush}
+        eventoSimulado={eventoSimuladoConsola}
+        enMobile={enMobile}
+      />
 
       {/* Modal del catálogo (modos disparador y acción) */}
       {catalogo.abierto && catalogo.modo === 'disparador' && (

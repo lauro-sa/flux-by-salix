@@ -21,9 +21,17 @@ import { useEffect } from 'react'
 interface OpcionesAtajos {
   /** True si el panel lateral del paso está abierto. */
   panelAbierto: boolean
+  /**
+   * True si la consola de prueba está abierta (sub-PR 19.5). Cuando
+   * está abierta y NO hay panel de paso, Esc cierra la consola en vez
+   * de volver al listado.
+   */
+  consolaAbierta?: boolean
   /** Llamada cuando se aprieta Esc con el panel abierto. */
   onCerrarPanel: () => void
-  /** Llamada cuando se aprieta Esc sin panel (volver al listado). */
+  /** Llamada cuando se aprieta Esc con la consola abierta y sin panel (sub-PR 19.5). */
+  onCerrarConsola?: () => void
+  /** Llamada cuando se aprieta Esc sin panel ni consola (volver al listado). */
   onVolver: () => void
   /** Llamada cuando se aprieta Cmd/Ctrl+S (flush autoguardado). */
   onForzarGuardar: () => void
@@ -39,7 +47,9 @@ function esEntradaDeTexto(target: EventTarget | null): boolean {
 
 export function useAtajosEditorFlujo({
   panelAbierto,
+  consolaAbierta = false,
   onCerrarPanel,
+  onCerrarConsola,
   onVolver,
   onForzarGuardar,
 }: OpcionesAtajos) {
@@ -68,6 +78,16 @@ export function useAtajosEditorFlujo({
           onCerrarPanel()
           return
         }
+        // Sub-PR 19.5: si la consola está abierta y no hay panel, Esc
+        // la cierra. Solo si no hay foco en input — coherente con la
+        // regla del Esc para "volver" (abajo). Excepción intencional:
+        // queremos que el botón "Cerrar consola" del header sea la vía
+        // primaria, no robarle Esc al input que el usuario está editando.
+        if (consolaAbierta && onCerrarConsola && !esEntradaDeTexto(e.target)) {
+          e.preventDefault()
+          onCerrarConsola()
+          return
+        }
         if (esEntradaDeTexto(e.target)) return
         e.preventDefault()
         onVolver()
@@ -76,5 +96,5 @@ export function useAtajosEditorFlujo({
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [panelAbierto, onCerrarPanel, onVolver, onForzarGuardar])
+  }, [panelAbierto, consolaAbierta, onCerrarPanel, onCerrarConsola, onVolver, onForzarGuardar])
 }

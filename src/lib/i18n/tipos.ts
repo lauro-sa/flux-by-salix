@@ -2037,6 +2037,63 @@ export interface Traducciones {
         error_publicar: string
         error_descartar: string
       }
+
+      // Consola de prueba (sub-PR 19.5)
+      consola: {
+        titulo: string
+        cerrar: string
+        tab_preview: string
+        tab_dryrun: string
+        evento_label: string
+        evento_sin_evento: string
+        evento_no_disponible: string
+        cargando: string
+        cta_correr: string
+        cta_volver_a_correr: string
+        cta_actualizar_preview: string
+        sin_pasos: string
+
+        banner_invalido_titulo: string
+        banner_invalido_desc: string
+        banner_no_implementadas_titulo: string
+        banner_no_implementadas_desc: string
+
+        preview: {
+          titulo: string
+          descripcion: string
+          paso_titulo: string
+          rama_si_resuelta: string
+          rama_no_resuelta: string
+          esperaria: string
+          esperaria_hasta: string
+          terminar_flujo: string
+          variable_faltante: string
+          ver_detalle: string
+          ocultar_detalle: string
+        }
+
+        dryrun: {
+          titulo: string
+          paso_completado: string
+          paso_simulado: string
+          paso_fallado: string
+          paso_no_implementada: string
+          accion_no_implementada_inline: string
+          duracion_ms: string
+          terminado_temprano: string
+          resumen_titulo: string
+          resumen_completados: string
+          resumen_fallados: string
+          resumen_simulados: string
+          resumen_total: string
+          accion_simulada_whatsapp: string
+          accion_simulada_actividad: string
+          accion_simulada_estado: string
+          accion_simulada_notificar: string
+          accion_simulada_generica: string
+          error_correr: string
+        }
+      }
     }
 
     // Selectores autocomplete (sub-PR 19.3c)

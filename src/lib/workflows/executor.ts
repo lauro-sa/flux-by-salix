@@ -96,6 +96,25 @@ export interface ContextoEjecucion {
    * Usado por `condicion_branch` para evaluar contra estos campos.
    */
   contexto_inicial?: Record<string, unknown>
+  /**
+   * Modo dry-run (sub-PR 19.5): cuando es `true`, los handlers con
+   * side-effect externo (Meta WhatsApp, INSERT en BD, transición de
+   * estado) cortocircuitan y devuelven un resultado `simulado`. El
+   * control de flujo (esperar, condicion_branch, terminar_flujo)
+   * sigue funcionando real — `condicion_branch` evalúa la condición
+   * contra el contexto, `esperar` avanza sin bloquear el flujo,
+   * `terminar_flujo` termina la ejecución.
+   *
+   * Garantía verificada por tests:
+   *   - `enviarPlantillaWhatsApp` NO se invoca.
+   *   - INSERT en `actividades`, `notificaciones`, `acciones_pendientes`
+   *     NO se ejecuta.
+   *   - `aplicarTransicionEstado` NO se invoca.
+   *
+   * Se hereda automáticamente a sub-acciones del `condicion_branch`
+   * porque la recursión pasa el mismo objeto `contexto`.
+   */
+  dry_run?: boolean
 }
 
 // =============================================================
@@ -143,6 +162,22 @@ export async function ejecutarAccion(
     return ejecutarTerminarFlujo(accion)
   }
   // Acciones del catálogo todavía no implementadas (sub-PR 15.3+).
+  // En dry-run, devolvemos un resultado simulado con `no_implementada: true`
+  // para que la consola del editor (sub-PR 19.5) las muestre y dispare el
+  // banner ámbar "estas acciones fallarán al activar". Sin flag, el path
+  // original sigue rechazando como permanente.
+  if (contexto.dry_run) {
+    const tipo = (accion as { tipo: string }).tipo
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: tipo,
+        no_implementada: true,
+        payload: accion as unknown as Record<string, unknown>,
+      },
+    }
+  }
   return {
     ok: false,
     error: {
@@ -162,6 +197,24 @@ async function ejecutarEnviarWhatsappPlantilla(
   contexto: ContextoEjecucion,
   admin: SupabaseClient,
 ): Promise<ResultadoAccion> {
+  // Dry-run (sub-PR 19.5): NO consultar canal, NO llamar a Meta. Devolvemos
+  // el payload resuelto que se HABRÍA enviado para que la consola muestre
+  // "se enviaría WhatsApp `<plantilla>` a +54 9 11..." sin tocar la red.
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'enviar_whatsapp_plantilla',
+        canal_id: accion.canal_id,
+        destinatario: accion.telefono,
+        plantilla: accion.plantilla_nombre,
+        idioma: accion.idioma,
+        componentes: accion.componentes ?? null,
+      },
+    }
+  }
+
   // Cargar credenciales del canal desde canales_whatsapp.
   const { data: canal, error: errCanal } = await admin
     .from('canales_whatsapp')
@@ -323,6 +376,30 @@ async function ejecutarCrearActividad(
     }
   }
 
+  // Dry-run (sub-PR 19.5): NO insertar en `actividades`. Las lecturas de
+  // `tipos_actividad` y `estados_actividad` arriba SÍ se hicieron — son
+  // read-only y nos sirven para enriquecer el log de la consola con la
+  // etiqueta legible del tipo. La validación "tipo existe / estado
+  // pendiente sembrado" se ejecuta igual que el path real, así el dry-run
+  // detecta esos errores semánticos en seco.
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'crear_actividad',
+        tipo_actividad_id: accion.tipo_actividad_id,
+        tipo_etiqueta: tipo.etiqueta ?? tipo.clave,
+        titulo: accion.titulo,
+        descripcion: accion.descripcion ?? null,
+        prioridad: accion.prioridad ?? 'normal',
+        fecha_vencimiento: accion.fecha_vencimiento ?? null,
+        asignados_ids: accion.asignados_ids ?? [],
+        contacto_id: accion.contacto_id ?? null,
+      },
+    }
+  }
+
   const vinculos = accion.contacto_id
     ? [{ tipo: 'contacto', id: accion.contacto_id }]
     : []
@@ -370,6 +447,25 @@ async function ejecutarCambiarEstadoEntidad(
   contexto: ContextoEjecucion,
   admin: SupabaseClient,
 ): Promise<ResultadoAccion> {
+  // Dry-run (sub-PR 19.5): NO aplicar la transición. Devolvemos el
+  // estado destino esperado para que la consola muestre "cambiaría
+  // <entidad> a <estado>". El path real valida transiciones; el dry-run
+  // las omite (acotación consciente: validar requiere leer la matriz de
+  // transiciones permitidas y depende de fixtures de empresa que en
+  // sandbox pueden no estar a la mano).
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'cambiar_estado_entidad',
+        entidad_tipo: accion.entidad_tipo,
+        entidad_id: accion.entidad_id,
+        estado_nuevo: accion.hasta_clave,
+        motivo: accion.motivo ?? null,
+      },
+    }
+  }
   const r = await aplicarTransicionEstado({
     admin,
     empresaId: contexto.empresa_id,
@@ -420,6 +516,22 @@ async function ejecutarNotificarUsuario(
   contexto: ContextoEjecucion,
   admin: SupabaseClient,
 ): Promise<ResultadoAccion> {
+  // Dry-run (sub-PR 19.5): NO insertar en `notificaciones`. Devolvemos el
+  // payload completo para que la consola muestre "notificaría a <usuario>".
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'notificar_usuario',
+        usuario_id: accion.usuario_id,
+        titulo: accion.titulo,
+        cuerpo: accion.cuerpo ?? null,
+        url: accion.url ?? null,
+        notificacion_tipo: accion.notificacion_tipo ?? 'workflow',
+      },
+    }
+  }
   // referencia_tipo y referencia_id se dejan en NULL para evitar
   // colisiones con el índice `notificaciones_dedup_no_leida_idx` que
   // bloquea múltiples notificaciones no leídas para el mismo
@@ -498,6 +610,22 @@ async function ejecutarEsperar(
         mensaje: 'Acción esperar requiere duracion_ms o hasta_fecha',
         transitorio: false,
         raw_class: 'EsperarSinTiempo',
+      },
+    }
+  }
+
+  // Dry-run (sub-PR 19.5): NO insertar en `acciones_pendientes` y, crítico,
+  // NO devolver MARCADOR_ESPERANDO. El orquestador del dry-run avanza al
+  // siguiente paso de inmediato; el log queda con "esperaría 60.000 ms
+  // hasta <fecha>" pero el flujo continúa synchronously hasta el final.
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'esperar',
+        esperaria_ms: accion.duracion_ms ?? null,
+        esperaria_hasta: ejecutarEn.toISOString(),
       },
     }
   }
