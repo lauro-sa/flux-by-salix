@@ -25,7 +25,7 @@ export const en: Traducciones = {
     seleccionar: 'Select',
     exportar: 'Export',
     importar: 'Import',
-    guia_uso: 'User guide',
+    documentacion: 'Documentation',
     filtrar: 'Filter',
     ordenar: 'Sort',
     acciones: 'Actions',
@@ -109,11 +109,11 @@ export const en: Traducciones = {
     importacion: 'Import',
   },
 
-  ayuda: {
-    titulo: 'User manual',
+  documentacion: {
+    titulo: 'Documentation',
     volver: 'Back',
-    sin_guia_titulo: 'Guide not available',
-    sin_guia_descripcion: 'The user guide for this module is not available yet. If you need help, contact support.',
+    sin_doc_titulo: 'Documentation not available',
+    sin_doc_descripcion: 'The documentation for this module is not available yet. If you need help, contact support.',
   },
 
   auth: {

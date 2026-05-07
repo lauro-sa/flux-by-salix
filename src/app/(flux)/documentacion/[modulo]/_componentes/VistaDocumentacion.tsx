@@ -12,14 +12,14 @@ interface Props {
 }
 
 /**
- * Render del manual de usuario de un módulo.
+ * Render de la documentación de un módulo.
  * Toma el contenido Markdown crudo y lo renderiza con styling profesional
  * usando tokens semánticos de Flux (compatible dark/light mode).
  *
  * Si `contenido` es null (MD inexistente), muestra estado vacío con
  * mensaje informativo y link de vuelta al módulo.
  */
-export default function VistaAyuda({ slug, contenido }: Props) {
+export default function VistaDocumentacion({ slug, contenido }: Props) {
   const { t } = useTraduccion()
 
   return (
@@ -32,11 +32,11 @@ export default function VistaAyuda({ slug, contenido }: Props) {
             className="inline-flex items-center gap-2 text-texto-secundario hover:text-texto-primario transition-colors text-sm font-medium"
           >
             <ArrowLeft size={16} />
-            {t('ayuda.volver')}
+            {t('documentacion.volver')}
           </Link>
           <div className="inline-flex items-center gap-2 text-texto-terciario text-sm">
             <BookOpen size={14} />
-            <span>{t('ayuda.titulo')}</span>
+            <span>{t('documentacion.titulo')}</span>
           </div>
         </div>
       </header>
@@ -51,8 +51,8 @@ export default function VistaAyuda({ slug, contenido }: Props) {
           </article>
         ) : (
           <EstadoVacio
-            titulo={t('ayuda.sin_guia_titulo')}
-            descripcion={t('ayuda.sin_guia_descripcion')}
+            titulo={t('documentacion.sin_doc_titulo')}
+            descripcion={t('documentacion.sin_doc_descripcion')}
           />
         )}
       </main>

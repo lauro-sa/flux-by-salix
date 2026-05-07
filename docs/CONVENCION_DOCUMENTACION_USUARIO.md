@@ -1,6 +1,6 @@
-# 📘 Convención para escribir guías de uso (manuales por módulo)
+# 📘 Convención para escribir documentación de usuario (por módulo)
 
-Este documento define cómo escribir las guías de usuario final que se muestran dentro de la app en `/ayuda/<modulo>`. Mantenelo actualizado a medida que el patrón evolucione, así todas las guías quedan consistentes.
+Este documento define cómo escribir la documentación de usuario final que se muestra dentro de la app en `/documentacion/<modulo>`. Mantenelo actualizado a medida que el patrón evolucione, así toda la documentación queda consistente.
 
 ---
 
@@ -28,11 +28,11 @@ Reglas base:
 
 | Elemento | Formato | Ejemplo |
 |---|---|---|
-| Archivo MD | `docs/COMO_USAR_<MODULO>.md` (MAYÚSCULAS) | `docs/COMO_USAR_PRESUPUESTOS.md` |
+| Archivo MD | `docs/DOCUMENTACION_<MODULO>.md` (MAYÚSCULAS) | `docs/COMO_USAR_PRESUPUESTOS.md` |
 | Slug en código | `<modulo>` (minúsculas, singular) | `'flujos'`, `'presupuestos'`, `'contactos'` |
-| URL de la página | `/ayuda/<modulo>` | `/ayuda/presupuestos` |
+| URL de la página | `/documentacion/<modulo>` | `/ayuda/presupuestos` |
 
-El slug del MD y el slug pasado a `accionAyudaModulo('<modulo>', t)` **deben coincidir** (en minúsculas).
+El slug del MD y el slug pasado a `accionDocumentacionModulo('<modulo>', t)` **deben coincidir** (en minúsculas).
 
 ---
 
@@ -220,20 +220,20 @@ Una vez escrita la guía:
 
 ### 1. Crear el MD
 
-Crear `docs/COMO_USAR_<MODULO>.md` siguiendo esta convención.
+Crear `docs/DOCUMENTACION_<MODULO>.md` siguiendo esta convención.
 
 ### 2. Agregar el botón al listado
 
 En el componente del listado (típicamente `_componentes/Contenido<Modulo>.tsx`), donde está el `<PlantillaListado>`:
 
 ```tsx
-import { accionAyudaModulo } from '@/lib/acciones-comunes/ayuda-modulo'
+import { accionDocumentacionModulo } from '@/lib/acciones-comunes/documentacion-modulo'
 
 <PlantillaListado
   titulo={t('<modulo>.titulo')}
   accionPrincipal={...}
   acciones={[
-    accionAyudaModulo('<modulo>', t),
+    accionDocumentacionModulo('<modulo>', t),
     // ... otras acciones que ya tengas
   ]}
 >
@@ -241,7 +241,7 @@ import { accionAyudaModulo } from '@/lib/acciones-comunes/ayuda-modulo'
 </PlantillaListado>
 ```
 
-Listo. El botón "Guía de uso" aparece en el menú de acciones del header. Click → te lleva a `/ayuda/<modulo>` que carga el MD automáticamente.
+Listo. El botón "Guía de uso" aparece en el menú de acciones del header. Click → te lleva a `/documentacion/<modulo>` que carga el MD automáticamente.
 
 ---
 
@@ -255,7 +255,7 @@ Listo. El botón "Guía de uso" aparece en el menú de acciones del header. Clic
 
 ## ✅ Checklist antes de publicar una guía nueva
 
-- [ ] El archivo se llama `docs/COMO_USAR_<MODULO>.md` con MODULO en mayúsculas.
+- [ ] El archivo se llama `docs/DOCUMENTACION_<MODULO>.md` con MODULO en mayúsculas.
 - [ ] Tiene encabezado con emoji + frase descriptiva.
 - [ ] Sigue la estructura recomendada (¿qué es?, pasos, ejemplo, FAQs, tips).
 - [ ] Lenguaje cercano, sin jerga técnica.
@@ -263,8 +263,8 @@ Listo. El botón "Guía de uso" aparece en el menú de acciones del header. Clic
 - [ ] Tablas para enumerar opciones / estados.
 - [ ] Emojis consistentes con la convención.
 - [ ] Footer con fecha de última actualización.
-- [ ] El botón está agregado al listado del módulo via `accionAyudaModulo('<slug>', t)`.
-- [ ] Probado en `/ayuda/<modulo>` que carga bien.
+- [ ] El botón está agregado al listado del módulo via `accionDocumentacionModulo('<slug>', t)`.
+- [ ] Probado en `/documentacion/<modulo>` que carga bien.
 
 ---
 

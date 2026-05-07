@@ -12,7 +12,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useToast } from '@/componentes/feedback/Toast'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
-import { accionAyudaModulo } from '@/lib/acciones-comunes/ayuda-modulo'
+import { accionDocumentacionModulo } from '@/lib/acciones-comunes/documentacion-modulo'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { FiltroTabla, GrupoFiltros } from '@/componentes/tablas/tipos-tabla'
@@ -576,7 +576,7 @@ function ContenidoFlujosInterno({ datosInicialesJson }: Props) {
           onClick: () => abrirModalNuevo('plantilla', null),
         } : undefined}
         acciones={[
-          accionAyudaModulo('flujos', t, router),
+          accionDocumentacionModulo('flujos', t, router),
         ]}
       >
         {/* Pills tri-state SIEMPRE visibles arriba del toolbar de la tabla
