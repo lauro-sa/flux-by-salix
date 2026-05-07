@@ -1,11 +1,23 @@
 'use client'
 
+import { useCallback, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Loader2, RefreshCcw, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Ban,
+  ClipboardCopy,
+  Loader2,
+  RefreshCcw,
+  RotateCcw,
+  X,
+} from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
+import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { BottomSheet } from '@/componentes/ui/BottomSheet'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import EstadoEjecucionPill from './EstadoEjecucionPill'
 import TimelineEjecucion from './TimelineEjecucion'
 import {
@@ -13,7 +25,10 @@ import {
   formatearDuracion,
   tipoDisparadoPor,
 } from './formato-ejecucion'
-import { useDetalleEjecucion } from './hooks/useDetalleEjecucion'
+import {
+  useDetalleEjecucion,
+  type DetalleEjecucion,
+} from './hooks/useDetalleEjecucion'
 
 /**
  * DrawerEjecucion — detalle de una ejecución (sub-PR 19.6).
@@ -36,6 +51,7 @@ import { useDetalleEjecucion } from './hooks/useDetalleEjecucion'
 interface Props {
   abierto: boolean
   ejecucionId: string | null
+  flujoId: string
   enMobile: boolean
   onCerrar: () => void
 }
@@ -43,11 +59,121 @@ interface Props {
 export default function DrawerEjecucion({
   abierto,
   ejecucionId,
+  flujoId,
   enMobile,
   onCerrar,
 }: Props) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
+  const queryClient = useQueryClient()
   const detalle = useDetalleEjecucion(abierto ? ejecucionId : null)
+
+  // ─── Acciones (sub-PR 19.6 commit 4) ────────────────────────────
+  // Estado de modales de confirmación + accionEnCurso para deshabilitar
+  // botones mientras corre el fetch. Cualquier acción exitosa invalida
+  // el cache del listado de ejecuciones del flujo (key del 19.6 commit 2)
+  // para que la fila se actualice.
+  const [confirmandoReejecutar, setConfirmandoReejecutar] = useState(false)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
+  const [accionEnCurso, setAccionEnCurso] = useState<
+    'reejecutar' | 'cancelar' | null
+  >(null)
+
+  const invalidarListado = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: [`ejecuciones-${flujoId}`] })
+  }, [queryClient, flujoId])
+
+  const onConfirmarReejecutar = useCallback(async () => {
+    if (!ejecucionId || accionEnCurso) return
+    setAccionEnCurso('reejecutar')
+    try {
+      const res = await fetch(`/api/ejecuciones/${ejecucionId}/reejecutar`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      })
+      if (!res.ok) {
+        const cuerpo = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(cuerpo.error ?? `HTTP ${res.status}`)
+      }
+      mostrar('exito', t('flujos.historial.acciones.reejecutar_ok'))
+      invalidarListado()
+      // La ejecución NUEVA tiene id distinto al original. Cerramos el
+      // drawer — la fila nueva aparece arriba en el listado y el
+      // usuario decide si abrirla.
+      setConfirmandoReejecutar(false)
+      onCerrar()
+    } catch (err) {
+      mostrar(
+        'error',
+        err instanceof Error
+          ? err.message
+          : t('flujos.historial.acciones.reejecutar_error'),
+      )
+    } finally {
+      setAccionEnCurso(null)
+    }
+  }, [ejecucionId, accionEnCurso, mostrar, t, invalidarListado, onCerrar])
+
+  const onConfirmarCancelar = useCallback(async () => {
+    if (!ejecucionId || accionEnCurso) return
+    setAccionEnCurso('cancelar')
+    try {
+      const res = await fetch(`/api/ejecuciones/${ejecucionId}/cancelar`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      })
+      // Caveat D6 del coordinador: el endpoint devuelve 409 cuando la
+      // ejecución cambió de estado entre la lectura del cliente y la
+      // llamada (race con el worker que la completó). Convertimos ese
+      // caso en toast amigable en vez de error técnico — el detalle
+      // también se recarga para que el usuario vea el estado nuevo.
+      if (res.status === 409) {
+        const cuerpo = (await res.json().catch(() => ({}))) as { codigo?: string }
+        const claveToast =
+          cuerpo.codigo === 'corriendo_no_cancelable'
+            ? 'flujos.historial.acciones.cancelar_corriendo'
+            : 'flujos.historial.acciones.cancelar_ya_termino'
+        mostrar('info', t(claveToast))
+        detalle.recargar()
+        invalidarListado()
+        setConfirmandoCancelar(false)
+        return
+      }
+      if (!res.ok) {
+        const cuerpo = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(cuerpo.error ?? `HTTP ${res.status}`)
+      }
+      mostrar('exito', t('flujos.historial.acciones.cancelar_ok'))
+      detalle.recargar()
+      invalidarListado()
+      setConfirmandoCancelar(false)
+    } catch (err) {
+      mostrar(
+        'error',
+        err instanceof Error
+          ? err.message
+          : t('flujos.historial.acciones.cancelar_error'),
+      )
+    } finally {
+      setAccionEnCurso(null)
+    }
+  }, [ejecucionId, accionEnCurso, mostrar, t, detalle, invalidarListado])
+
+  const onCopiarLog = useCallback(async (ejecucion: DetalleEjecucion) => {
+    const json = JSON.stringify(
+      { ejecucion_id: ejecucion.id, log: ejecucion.log },
+      null,
+      2,
+    )
+    try {
+      await navigator.clipboard.writeText(json)
+      mostrar('exito', t('flujos.historial.acciones.copiar_log_ok'))
+    } catch {
+      mostrar('error', t('flujos.historial.acciones.copiar_log_error'))
+    }
+  }, [mostrar, t])
 
   // Cuerpo común para desktop y mobile: cambia el contenedor de afuera,
   // pero la parte interna (header + body + footer) es la misma.
@@ -55,55 +181,94 @@ export default function DrawerEjecucion({
     <ContenidoDrawer
       abierto={abierto}
       detalle={detalle}
+      accionEnCurso={accionEnCurso}
       onCerrar={onCerrar}
+      onPedirReejecutar={() => setConfirmandoReejecutar(true)}
+      onPedirCancelar={() => setConfirmandoCancelar(true)}
+      onCopiarLog={onCopiarLog}
       t={t}
     />
   )
 
+  // Modales de confirmación reusables para desktop y mobile. Se
+  // renderizan al lado del drawer (Modal usa portal). Por separar el
+  // mount del drawer no se desmontan al cerrar el drawer mientras corre
+  // la acción.
+  const modales = (
+    <>
+      <ModalConfirmacion
+        abierto={confirmandoReejecutar}
+        onCerrar={() => setConfirmandoReejecutar(false)}
+        onConfirmar={() => void onConfirmarReejecutar()}
+        titulo={t('flujos.historial.acciones.confirmar_reejecutar.titulo')}
+        descripcion={t('flujos.historial.acciones.confirmar_reejecutar.descripcion')}
+        tipo="peligro"
+        etiquetaConfirmar={t('flujos.historial.acciones.confirmar_reejecutar.confirmar')}
+        cargando={accionEnCurso === 'reejecutar'}
+      />
+      <ModalConfirmacion
+        abierto={confirmandoCancelar}
+        onCerrar={() => setConfirmandoCancelar(false)}
+        onConfirmar={() => void onConfirmarCancelar()}
+        titulo={t('flujos.historial.acciones.confirmar_cancelar.titulo')}
+        descripcion={t('flujos.historial.acciones.confirmar_cancelar.descripcion')}
+        tipo="advertencia"
+        etiquetaConfirmar={t('flujos.historial.acciones.confirmar_cancelar.confirmar')}
+        cargando={accionEnCurso === 'cancelar'}
+      />
+    </>
+  )
+
   if (enMobile) {
     return (
-      <BottomSheet
-        abierto={abierto}
-        onCerrar={onCerrar}
-        titulo={t('flujos.historial.drawer.titulo')}
-        altura="alto"
-        sinPadding
-      >
-        {contenido}
-      </BottomSheet>
+      <>
+        <BottomSheet
+          abierto={abierto}
+          onCerrar={onCerrar}
+          titulo={t('flujos.historial.drawer.titulo')}
+          altura="alto"
+          sinPadding
+        >
+          {contenido}
+        </BottomSheet>
+        {modales}
+      </>
     )
   }
 
   return (
-    <AnimatePresence>
-      {abierto && (
-        <>
-          {/* Backdrop sutil para no apagar la página entera; el editor
-              detrás sigue legible. Click en backdrop cierra el drawer. */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={onCerrar}
-            className="fixed inset-0 z-30 bg-superficie-app/30 backdrop-blur-[1px]"
-            aria-hidden="true"
-          />
-          <motion.aside
-            key="drawer-ejecucion"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            className="fixed top-0 right-0 z-40 h-dvh w-full max-w-[480px] bg-superficie-app border-l border-borde-sutil shadow-2xl flex flex-col"
-            role="dialog"
-            aria-label={t('flujos.historial.drawer.titulo')}
-          >
-            {contenido}
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
+    <>
+      <AnimatePresence>
+        {abierto && (
+          <>
+            {/* Backdrop sutil para no apagar la página entera; el editor
+                detrás sigue legible. Click en backdrop cierra el drawer. */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={onCerrar}
+              className="fixed inset-0 z-30 bg-superficie-app/30 backdrop-blur-[1px]"
+              aria-hidden="true"
+            />
+            <motion.aside
+              key="drawer-ejecucion"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              className="fixed top-0 right-0 z-40 h-dvh w-full max-w-[480px] bg-superficie-app border-l border-borde-sutil shadow-2xl flex flex-col"
+              role="dialog"
+              aria-label={t('flujos.historial.drawer.titulo')}
+            >
+              {contenido}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+      {modales}
+    </>
   )
 }
 
@@ -112,12 +277,20 @@ export default function DrawerEjecucion({
 function ContenidoDrawer({
   abierto,
   detalle,
+  accionEnCurso,
   onCerrar,
+  onPedirReejecutar,
+  onPedirCancelar,
+  onCopiarLog,
   t,
 }: {
   abierto: boolean
   detalle: ReturnType<typeof useDetalleEjecucion>
+  accionEnCurso: 'reejecutar' | 'cancelar' | null
   onCerrar: () => void
+  onPedirReejecutar: () => void
+  onPedirCancelar: () => void
+  onCopiarLog: (ej: DetalleEjecucion) => void
   t: ReturnType<typeof useTraduccion>['t']
 }) {
   // Si el drawer no está abierto, no renderizamos el cuerpo cargado
@@ -223,9 +396,49 @@ function ContenidoDrawer({
         </div>
       </div>
 
-      {/* Footer reservado para acciones — placeholder en commit 3, las
-          conecta el commit 4 (Reejecutar / Cancelar / Copiar log). */}
-      <div className="border-t border-borde-sutil px-4 py-3 flex items-center justify-end gap-2">
+      {/* Footer con acciones (sub-PR 19.6 commit 4).
+          Layout: izquierda Copiar log (utilitario, sin permisos);
+          derecha Cancelar / Reejecutar / Cerrar. Copiar y Cancelar /
+          Reejecutar se muestran sólo si el endpoint de detalle marcó
+          `permisos.{cancelar, reejecutar}`. El usuario sin permiso
+          igualmente puede ver y copiar el log para soporte. */}
+      <div className="border-t border-borde-sutil px-3 py-3 flex items-center gap-2 flex-wrap">
+        <Boton
+          variante="fantasma"
+          tamano="sm"
+          icono={<ClipboardCopy size={13} />}
+          onClick={() => onCopiarLog(ej)}
+          tooltip={t('flujos.historial.acciones.copiar_log_tooltip')}
+        >
+          <span className="hidden sm:inline">
+            {t('flujos.historial.acciones.copiar_log')}
+          </span>
+        </Boton>
+        <div className="flex-1" />
+        {ej.permisos.cancelar && (
+          <Boton
+            variante="fantasma"
+            tamano="sm"
+            icono={<Ban size={13} />}
+            onClick={onPedirCancelar}
+            disabled={accionEnCurso !== null}
+            className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo/40"
+          >
+            {t('flujos.historial.acciones.cancelar')}
+          </Boton>
+        )}
+        {ej.permisos.reejecutar && (
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            icono={<RotateCcw size={13} />}
+            onClick={onPedirReejecutar}
+            disabled={accionEnCurso !== null}
+            cargando={accionEnCurso === 'reejecutar'}
+          >
+            {t('flujos.historial.acciones.reejecutar')}
+          </Boton>
+        )}
         <Boton variante="secundario" tamano="sm" onClick={onCerrar}>
           {t('flujos.historial.drawer.cerrar')}
         </Boton>

@@ -2288,6 +2288,37 @@ export const en: Traducciones = {
         pendiente_estado: 'Pending',
         ejecutar_en: 'Scheduled for',
       },
+
+      acciones: {
+        reejecutar: 'Re-run',
+        reejecutar_ok: 'Run created — the new row appears at the top of the list.',
+        reejecutar_error: 'Could not re-run',
+        cancelar: 'Cancel run',
+        cancelar_ok: 'Run cancelled',
+        cancelar_error: 'Could not cancel',
+        cancelar_ya_termino:
+          'The run changed state while you were trying to cancel it. Most likely it already completed.',
+        cancelar_corriendo:
+          'Cannot cancel a run that is already executing. Wait for it to finish.',
+        copiar_log: 'Copy log',
+        copiar_log_tooltip: 'Copies the JSON log to the clipboard',
+        copiar_log_ok: 'Log copied to clipboard',
+        copiar_log_error: 'Could not copy the log',
+
+        confirmar_reejecutar: {
+          titulo: 'Re-run this execution?',
+          descripcion:
+            'This will execute the actions again, including sending WhatsApp/email to real recipients.',
+          confirmar: 'Re-run',
+        },
+
+        confirmar_cancelar: {
+          titulo: 'Cancel this execution?',
+          descripcion:
+            'Pending actions will not run. This cannot be undone.',
+          confirmar: 'Cancel run',
+        },
+      },
     },
   },
 }

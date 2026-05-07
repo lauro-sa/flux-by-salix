@@ -2343,6 +2343,30 @@ export interface Traducciones {
         pendiente_estado: string
         ejecutar_en: string
       }
+      acciones: {
+        reejecutar: string
+        reejecutar_ok: string
+        reejecutar_error: string
+        cancelar: string
+        cancelar_ok: string
+        cancelar_error: string
+        cancelar_ya_termino: string
+        cancelar_corriendo: string
+        copiar_log: string
+        copiar_log_tooltip: string
+        copiar_log_ok: string
+        copiar_log_error: string
+        confirmar_reejecutar: {
+          titulo: string
+          descripcion: string
+          confirmar: string
+        }
+        confirmar_cancelar: {
+          titulo: string
+          descripcion: string
+          confirmar: string
+        }
+      }
     }
   }
 }

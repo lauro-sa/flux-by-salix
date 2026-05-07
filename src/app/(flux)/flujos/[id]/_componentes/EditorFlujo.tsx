@@ -856,6 +856,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
       <DrawerEjecucion
         abierto={drawerHistorialAbierto}
         ejecucionId={ejecucionParam}
+        flujoId={flujo.id}
         enMobile={enMobile}
         onCerrar={cerrarDrawerHistorial}
       />

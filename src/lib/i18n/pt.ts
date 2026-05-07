@@ -2288,6 +2288,37 @@ export const pt: Traducciones = {
         pendiente_estado: 'Pendente',
         ejecutar_en: 'Programado para',
       },
+
+      acciones: {
+        reejecutar: 'Reexecutar',
+        reejecutar_ok: 'Execução criada — a nova linha aparece no topo da lista.',
+        reejecutar_error: 'Não foi possível reexecutar',
+        cancelar: 'Cancelar execução',
+        cancelar_ok: 'Execução cancelada',
+        cancelar_error: 'Não foi possível cancelar',
+        cancelar_ya_termino:
+          'A execução mudou de estado enquanto você tentava cancelá-la. Provavelmente já foi concluída.',
+        cancelar_corriendo:
+          'Não é possível cancelar uma execução que já está em andamento. Aguarde até que termine.',
+        copiar_log: 'Copiar log',
+        copiar_log_tooltip: 'Copia o log JSON para a área de transferência',
+        copiar_log_ok: 'Log copiado para a área de transferência',
+        copiar_log_error: 'Não foi possível copiar o log',
+
+        confirmar_reejecutar: {
+          titulo: 'Reexecutar esta execução?',
+          descripcion:
+            'Isto executará as ações novamente, incluindo enviar WhatsApp/email a destinatários reais.',
+          confirmar: 'Reexecutar',
+        },
+
+        confirmar_cancelar: {
+          titulo: 'Cancelar esta execução?',
+          descripcion:
+            'As ações pendentes não serão executadas. Esta ação não pode ser desfeita.',
+          confirmar: 'Cancelar execução',
+        },
+      },
     },
   },
 }

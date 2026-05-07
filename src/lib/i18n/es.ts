@@ -2411,6 +2411,37 @@ export const es: Traducciones = {
         pendiente_estado: 'Pendiente',
         ejecutar_en: 'Programado para',
       },
+
+      acciones: {
+        reejecutar: 'Reejecutar',
+        reejecutar_ok: 'Ejecución creada — la nueva fila aparece arriba en el listado.',
+        reejecutar_error: 'No se pudo reejecutar',
+        cancelar: 'Cancelar ejecución',
+        cancelar_ok: 'Ejecución cancelada',
+        cancelar_error: 'No se pudo cancelar',
+        cancelar_ya_termino:
+          'La ejecución ya cambió de estado mientras intentabas cancelarla. Lo más probable es que ya completó.',
+        cancelar_corriendo:
+          'No se puede cancelar una ejecución que ya está corriendo. Esperá a que termine.',
+        copiar_log: 'Copiar log',
+        copiar_log_tooltip: 'Copia el log JSON al portapapeles',
+        copiar_log_ok: 'Log copiado al portapapeles',
+        copiar_log_error: 'No se pudo copiar el log',
+
+        confirmar_reejecutar: {
+          titulo: '¿Reejecutar esta ejecución?',
+          descripcion:
+            'Esto va a ejecutar las acciones de nuevo, incluyendo enviar WhatsApp/correo a destinatarios reales.',
+          confirmar: 'Reejecutar',
+        },
+
+        confirmar_cancelar: {
+          titulo: '¿Cancelar esta ejecución?',
+          descripcion:
+            'Las acciones pendientes no se van a ejecutar. Esta acción no se puede deshacer.',
+          confirmar: 'Cancelar ejecución',
+        },
+      },
     },
   },
 }
