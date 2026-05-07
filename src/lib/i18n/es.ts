@@ -2442,6 +2442,11 @@ export const es: Traducciones = {
           confirmar: 'Cancelar ejecución',
         },
       },
+
+      chatter: {
+        titulo: 'Flujos disparados',
+        flujo_sin_nombre: 'Flujo sin nombre',
+      },
     },
   },
 }

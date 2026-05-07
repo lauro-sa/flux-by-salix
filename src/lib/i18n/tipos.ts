@@ -2367,6 +2367,10 @@ export interface Traducciones {
           confirmar: string
         }
       }
+      chatter: {
+        titulo: string
+        flujo_sin_nombre: string
+      }
     }
   }
 }

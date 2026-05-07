@@ -2319,6 +2319,11 @@ export const en: Traducciones = {
           confirmar: 'Cancel run',
         },
       },
+
+      chatter: {
+        titulo: 'Triggered flows',
+        flujo_sin_nombre: 'Untitled flow',
+      },
     },
   },
 }
