@@ -1608,6 +1608,17 @@ export const en: Traducciones = {
       confirmar: 'Duplicate',
     },
 
+    seccion_modulo: {
+      lista_titulo: 'Active flows in this module',
+      lista_ver_todos: 'View all',
+      lista_mas_sufijo: 'more',
+      cargando: 'Loading flows…',
+      ultima_ejecucion_prefijo: 'Last run: ',
+      sin_ejecutar: 'Not executed yet',
+      plantillas_titulo: 'Suggested templates',
+      plantillas_descripcion: 'Get started quickly with curated flows. Click a template to create a draft and start editing.',
+    },
+
     tooltip_borrador_pendiente: 'Has unpublished changes',
     tooltip_sin_ejecutar: 'Never run',
 

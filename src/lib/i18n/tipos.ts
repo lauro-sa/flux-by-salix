@@ -1667,6 +1667,20 @@ export interface Traducciones {
       confirmar: string
     }
 
+    // Sección "Flujos" dentro de cada `/<modulo>/configuracion`
+    // (sub-PR 19.7 — §1.10 + §5.5 del plan UX). Estructura: lista
+    // compacta de flujos del módulo + grid de plantillas curadas.
+    seccion_modulo: {
+      lista_titulo: string
+      lista_ver_todos: string
+      lista_mas_sufijo: string
+      cargando: string
+      ultima_ejecucion_prefijo: string
+      sin_ejecutar: string
+      plantillas_titulo: string
+      plantillas_descripcion: string
+    }
+
     // Tooltips e indicadores
     tooltip_borrador_pendiente: string
     tooltip_sin_ejecutar: string

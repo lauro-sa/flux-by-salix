@@ -1608,6 +1608,17 @@ export const pt: Traducciones = {
       confirmar: 'Duplicar',
     },
 
+    seccion_modulo: {
+      lista_titulo: 'Fluxos ativos neste módulo',
+      lista_ver_todos: 'Ver todos',
+      lista_mas_sufijo: 'mais',
+      cargando: 'Carregando fluxos…',
+      ultima_ejecucion_prefijo: 'Última execução: ',
+      sin_ejecutar: 'Ainda não executado',
+      plantillas_titulo: 'Modelos sugeridos',
+      plantillas_descripcion: 'Comece rápido com fluxos prontos. Clique em um modelo para criar um rascunho e começar a editá-lo.',
+    },
+
     tooltip_borrador_pendiente: 'Tem mudanças não publicadas',
     tooltip_sin_ejecutar: 'Nunca executado',
 

@@ -1646,6 +1646,17 @@ export const es: Traducciones = {
       confirmar: 'Duplicar',
     },
 
+    seccion_modulo: {
+      lista_titulo: 'Flujos activos en este módulo',
+      lista_ver_todos: 'Ver todos',
+      lista_mas_sufijo: 'más',
+      cargando: 'Cargando flujos…',
+      ultima_ejecucion_prefijo: 'Última ejecución: ',
+      sin_ejecutar: 'Sin ejecuciones todavía',
+      plantillas_titulo: 'Plantillas sugeridas',
+      plantillas_descripcion: 'Arrancá rápido con flujos curados por nosotros. Click en una plantilla para crear un borrador y empezar a editarlo.',
+    },
+
     tooltip_borrador_pendiente: 'Tiene cambios sin publicar',
     tooltip_sin_ejecutar: 'Sin ejecutar',
 
