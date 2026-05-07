@@ -2204,6 +2204,67 @@ export const en: Traducciones = {
         descripcion:
           'You will see every time this flow has been executed, with full step-by-step detail.',
       },
+
+      busqueda_placeholder: 'Search runs…',
+      entidad_sin_referencia: 'No associated entity',
+      hint_dataset_grande:
+        'This flow has {{n}} recorded runs. Narrow the list with a date filter.',
+
+      columnas: {
+        estado: 'Status',
+        fecha: 'When',
+        disparado_por: 'Source',
+        entidad: 'Entity',
+        duracion: 'Duration',
+      },
+
+      grupos: {
+        estado: 'Status',
+        cuando: 'When',
+        origen: 'Source',
+      },
+
+      filtros: {
+        estado: 'Status',
+        estado_desc: 'Filter by run outcome.',
+        disparado_por: 'Trigger type',
+        disparado_por_desc: 'How the run was initiated.',
+        creado_rango: 'When',
+        creado_rango_desc: 'Restrict runs to a time range.',
+        error_raw_class: 'Error type',
+        error_raw_class_desc:
+          'Filter by the error class recorded by the engine (useful for support).',
+      },
+
+      preset_fecha: {
+        hoy: 'Today',
+        '7d': '7 days',
+        '30d': '30 days',
+        '90d': '90 days',
+      },
+
+      estados: {
+        pendiente: 'Pending',
+        corriendo: 'Running',
+        esperando: 'Waiting',
+        completado: 'Completed',
+        fallado: 'Failed',
+        cancelado: 'Cancelled',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Status change',
+        cron: 'Scheduled (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Unknown',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'This flow has never run',
+        sin_ejecuciones_desc:
+          'When the flow runs for the first time, the detail of each execution will appear here.',
+      },
     },
   },
 }

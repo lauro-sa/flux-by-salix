@@ -2204,6 +2204,67 @@ export const pt: Traducciones = {
         descripcion:
           'Aqui você verá cada vez que este fluxo foi executado, com o detalhe passo a passo.',
       },
+
+      busqueda_placeholder: 'Buscar execução…',
+      entidad_sin_referencia: 'Sem entidade associada',
+      hint_dataset_grande:
+        'Este fluxo tem {{n}} execuções registradas. Filtre por data para reduzir a lista.',
+
+      columnas: {
+        estado: 'Estado',
+        fecha: 'Quando',
+        disparado_por: 'Origem',
+        entidad: 'Entidade',
+        duracion: 'Duração',
+      },
+
+      grupos: {
+        estado: 'Estado',
+        cuando: 'Quando',
+        origen: 'Origem',
+      },
+
+      filtros: {
+        estado: 'Estado',
+        estado_desc: 'Filtre pelo resultado da execução.',
+        disparado_por: 'Tipo de gatilho',
+        disparado_por_desc: 'Como a execução foi iniciada.',
+        creado_rango: 'Quando',
+        creado_rango_desc: 'Restringir execuções a um intervalo de tempo.',
+        error_raw_class: 'Tipo de erro',
+        error_raw_class_desc:
+          'Filtre pela classe de erro registrada pelo motor (útil para suporte).',
+      },
+
+      preset_fecha: {
+        hoy: 'Hoje',
+        '7d': '7 dias',
+        '30d': '30 dias',
+        '90d': '90 dias',
+      },
+
+      estados: {
+        pendiente: 'Pendente',
+        corriendo: 'Em execução',
+        esperando: 'Aguardando',
+        completado: 'Concluído',
+        fallado: 'Falhou',
+        cancelado: 'Cancelado',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Mudança de estado',
+        cron: 'Agendado (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Desconhecido',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'Este fluxo nunca foi executado',
+        sin_ejecuciones_desc:
+          'Quando o fluxo for disparado pela primeira vez, o detalhe de cada execução aparecerá aqui.',
+      },
     },
   },
 }

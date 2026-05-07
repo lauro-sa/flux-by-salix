@@ -2273,6 +2273,56 @@ export interface Traducciones {
         titulo: string
         descripcion: string
       }
+      busqueda_placeholder: string
+      entidad_sin_referencia: string
+      hint_dataset_grande: string
+      columnas: {
+        estado: string
+        fecha: string
+        disparado_por: string
+        entidad: string
+        duracion: string
+      }
+      grupos: {
+        estado: string
+        cuando: string
+        origen: string
+      }
+      filtros: {
+        estado: string
+        estado_desc: string
+        disparado_por: string
+        disparado_por_desc: string
+        creado_rango: string
+        creado_rango_desc: string
+        error_raw_class: string
+        error_raw_class_desc: string
+      }
+      preset_fecha: {
+        hoy: string
+        '7d': string
+        '30d': string
+        '90d': string
+      }
+      estados: {
+        pendiente: string
+        corriendo: string
+        esperando: string
+        completado: string
+        fallado: string
+        cancelado: string
+      }
+      disparado_por: {
+        cambios_estado: string
+        cron: string
+        manual: string
+        webhook: string
+        desconocido: string
+      }
+      empty: {
+        sin_ejecuciones_titulo: string
+        sin_ejecuciones_desc: string
+      }
     }
   }
 }

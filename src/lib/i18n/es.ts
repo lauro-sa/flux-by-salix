@@ -2327,6 +2327,67 @@ export const es: Traducciones = {
         descripcion:
           'Acá vas a ver cada vez que este flujo se haya ejecutado, con el detalle paso por paso.',
       },
+
+      busqueda_placeholder: 'Buscar ejecución…',
+      entidad_sin_referencia: 'Sin entidad asociada',
+      hint_dataset_grande:
+        'Este flujo tiene {{n}} ejecuciones registradas. Filtrá por fecha para acotar la lista.',
+
+      columnas: {
+        estado: 'Estado',
+        fecha: 'Cuándo',
+        disparado_por: 'Origen',
+        entidad: 'Entidad',
+        duracion: 'Duración',
+      },
+
+      grupos: {
+        estado: 'Estado',
+        cuando: 'Cuándo',
+        origen: 'Origen',
+      },
+
+      filtros: {
+        estado: 'Estado',
+        estado_desc: 'Filtrá por el resultado de la ejecución.',
+        disparado_por: 'Tipo de disparador',
+        disparado_por_desc: 'Cómo se inició la ejecución.',
+        creado_rango: 'Cuándo',
+        creado_rango_desc: 'Limitá las ejecuciones a un rango temporal.',
+        error_raw_class: 'Tipo de error',
+        error_raw_class_desc:
+          'Filtrá por la clase de error registrada por el motor (útil para soporte).',
+      },
+
+      preset_fecha: {
+        hoy: 'Hoy',
+        '7d': '7 días',
+        '30d': '30 días',
+        '90d': '90 días',
+      },
+
+      estados: {
+        pendiente: 'Pendiente',
+        corriendo: 'Corriendo',
+        esperando: 'Esperando',
+        completado: 'Completado',
+        fallado: 'Fallado',
+        cancelado: 'Cancelado',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Cambio de estado',
+        cron: 'Programado (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Desconocido',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'Este flujo nunca se ejecutó',
+        sin_ejecuciones_desc:
+          'Cuando el flujo se dispare por primera vez, vas a ver el detalle de cada ejecución acá.',
+      },
     },
   },
 }
