@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Settings2, Bell, Tag, Zap, ListChecks, Clock, Briefcase } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Settings2, Bell, Tag, Workflow, ListChecks, Clock, Briefcase } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useRol } from '@/hooks/useRol'
+import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
 import { SeccionEstados, type EstadoActividad } from './secciones/SeccionEstados'
 import { SeccionPosposicion } from './secciones/SeccionPosposicion'
 import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
@@ -18,9 +19,18 @@ import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
  */
 export default function PaginaConfiguracionActividades() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { esPropietario, tienePermiso, cargando: cargandoPermisos } = useRol()
   const puedeVer = esPropietario || tienePermiso('config_actividades', 'ver')
-  const [seccionActiva, setSeccionActiva] = useState('tipos')
+  // Compat: la entrada 'automatizaciones' se renombró a 'flujos' en 19.7.
+  // Si llega un link viejo `?seccion=automatizaciones`, redirigimos al
+  // id nuevo silenciosamente (sin breaking change de URL para terceros).
+  const seccionInicial = (() => {
+    const param = searchParams.get('seccion')
+    if (param === 'automatizaciones') return 'flujos'
+    return param || 'tipos'
+  })()
+  const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
   const [cargando, setCargando] = useState(true)
   const [estados, setEstados] = useState<EstadoActividad[]>([])
   const [config, setConfig] = useState<Record<string, unknown> | null>(null)
@@ -31,7 +41,7 @@ export default function PaginaConfiguracionActividades() {
     { id: 'posposicion', etiqueta: 'Posposición', icono: <Clock size={16} />, grupo: 'Personalización' },
     { id: 'horario', etiqueta: 'Horario laboral', icono: <Briefcase size={16} />, grupo: 'Personalización' },
     { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <Bell size={16} />, deshabilitada: true },
-    { id: 'automatizaciones', etiqueta: 'Automatizaciones', icono: <Zap size={16} />, deshabilitada: true },
+    { id: 'flujos', etiqueta: 'Flujos', icono: <Workflow size={16} />, grupo: 'Automatización' },
   ]
 
   const cargar = useCallback(async () => {
@@ -120,11 +130,12 @@ export default function PaginaConfiguracionActividades() {
           descripcion="Configura alertas inteligentes por vencimiento, asignación y cambios de estado. Impulsado por Salix IA."
         />
       )}
-      {seccionActiva === 'automatizaciones' && (
-        <EstadoVacio
-          icono={<Zap />}
-          titulo="Próximamente"
-          descripcion="Crea automatizaciones inteligentes: al completar una actividad, Salix IA puede crear seguimientos, escalar prioridades y más."
+      {seccionActiva === 'flujos' && (
+        <SeccionFlujosModulo
+          modulos={['actividad']}
+          modulosPlantillas={['actividad']}
+          hrefVerTodos="/flujos?modulo=actividad"
+          claveCache="seccion-flujos-actividades"
         />
       )}
     </PlantillaConfiguracion>

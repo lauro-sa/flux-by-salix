@@ -11,9 +11,10 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import {
   Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, MessagesSquare,
-  Zap, TrendingUp, Tag, ListChecks,
+  Zap, TrendingUp, Tag, ListChecks, Workflow,
 } from 'lucide-react'
 import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
+import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
 import type { CanalMensajeria, ConfigMensajeria, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { useRol } from '@/hooks/useRol'
@@ -133,6 +134,7 @@ export default function PaginaConfiguracionInbox() {
     { id: 'asignacion', etiqueta: t('inbox.config.asignacion'), icono: <Users size={16} />, grupo: 'Avanzado' },
     { id: 'sla', etiqueta: t('inbox.config.sla'), icono: <Clock size={16} />, grupo: 'Avanzado' },
     { id: 'notificaciones', etiqueta: t('inbox.config.notificaciones'), icono: <Bell size={16} />, grupo: 'Avanzado' },
+    { id: 'flujos', etiqueta: 'Flujos', icono: <Workflow size={16} />, grupo: 'Automatización' },
   ]
 
   const canalesCorreo = canales.filter(c => c.tipo === 'correo')
@@ -364,6 +366,18 @@ export default function PaginaConfiguracionInbox() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Flujos */}
+      {/* Inbox usa filtro por tipo_disparador (no entidad_tipo) porque sus
+          disparadores son inbox.* sin `entidad_tipo` en la configuración. */}
+      {seccionActiva === 'flujos' && (
+        <SeccionFlujosModulo
+          tiposDisparador={['inbox.mensaje_recibido', 'inbox.conversacion_sin_respuesta']}
+          modulosPlantillas={['inbox_whatsapp']}
+          hrefVerTodos="/flujos?tipo_disparador=inbox.mensaje_recibido,inbox.conversacion_sin_respuesta"
+          claveCache="seccion-flujos-inbox"
+        />
       )}
 
       {/* Modal agregar canal */}
