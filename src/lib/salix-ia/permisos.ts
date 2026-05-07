@@ -1,7 +1,14 @@
 /**
- * Filtrado de herramientas de Salix IA por permisos del usuario.
- * Solo permite usar herramientas que el usuario tiene derecho a usar
- * según su rol, permisos custom y la configuración de la empresa.
+ * Filtrado de herramientas de Salix IA por nivel de acceso del miembro y permisos.
+ *
+ * El nivel_salix decide qué categorías de tools se exponen al modelo:
+ *  - 'ninguno'  → array vacío (el endpoint debería cortar antes, pero también filtramos acá)
+ *  - 'personal' → solo tools con categoria='personal'
+ *  - 'completo' → tools de gestión (filtradas por rol/permiso) + tools personales
+ *
+ * Las tools personales no chequean permisos de rol porque siempre operan sobre
+ * los datos del propio empleado (todos los roles, incluso 'invitado', pueden
+ * consultar sus propios recibos y asistencia).
  */
 
 import { verificarPermiso } from '@/lib/permisos-servidor'
@@ -14,15 +21,18 @@ interface DatosMiembroPermiso {
 }
 
 /**
- * Filtra las herramientas disponibles según:
- * 1. Herramientas habilitadas en la config de la empresa
- * 2. Permisos del usuario para el módulo de cada herramienta
+ * Filtra las herramientas disponibles según el nivel_salix del miembro y
+ * la configuración de la empresa.
  */
 export function filtrarHerramientasPermitidas(
   herramientas: DefinicionHerramienta[],
   miembro: MiembroSalixIA,
   config: ConfigSalixIA
 ): DefinicionHerramienta[] {
+  // Nivel 'ninguno': el modelo no recibe ninguna tool. El endpoint debe cortar
+  // antes con 403, pero por defensa en profundidad acá también devolvemos vacío.
+  if (miembro.nivel_salix === 'ninguno') return []
+
   const habilitadas = new Set<NombreHerramienta>(config.herramientas_habilitadas)
 
   const datosMiembro: DatosMiembroPermiso = {
@@ -34,15 +44,20 @@ export function filtrarHerramientasPermitidas(
     // La empresa debe tener habilitada esta herramienta
     if (!habilitadas.has(h.nombre)) return false
 
-    // El usuario debe tener permiso para la acción requerida
-    // Para herramientas de consulta, verificar ver_propio o ver_todos
+    const esPersonal = h.categoria === 'personal'
+
+    // Nivel 'personal': solo tools personales, sin chequeo de rol.
+    if (miembro.nivel_salix === 'personal') return esPersonal
+
+    // Nivel 'completo': tools personales pasan directo (son sobre uno mismo);
+    // las de gestión se filtran por permiso de rol como hasta ahora.
+    if (esPersonal) return true
+
     if (h.soporta_visibilidad) {
       const verTodos = verificarPermiso(datosMiembro, h.modulo, 'ver_todos')
       const verPropio = verificarPermiso(datosMiembro, h.modulo, 'ver_propio')
       return verTodos || verPropio
     }
-
-    // Para herramientas de creación, verificar la acción específica
     return verificarPermiso(datosMiembro, h.modulo, h.accion_requerida)
   })
 }

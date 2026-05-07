@@ -13,6 +13,7 @@ import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
 import type { EstadoPortal } from '@/tipos/portal'
 import type { CuotaPago } from '@/tipos/presupuesto'
+import { EstadosCuota } from '@/tipos/cuota'
 import type { ComprobantePortal } from '@/tipos/portal'
 
 interface Props {
@@ -91,7 +92,7 @@ export default function LineaTiempoPortal({
     const confirmado = comprobantesCuota.some(c => c.estado === 'confirmado')
     const pendienteRevision = comprobantesCuota.some(c => c.estado === 'pendiente')
 
-    if (cuota.estado === 'cobrada' || confirmado) return 'confirmado' as const
+    if (cuota.estado === EstadosCuota.COBRADA || confirmado) return 'confirmado' as const
     if (pendienteRevision) return 'en_revision' as const
     return 'pendiente' as const
   }

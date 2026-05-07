@@ -41,12 +41,12 @@ export function useConfigActividades() {
     setCargando(true)
 
     try {
-      // Los miembros vienen de /api/miembros que ya excluye los kioscos sin
-      // usuario_id (ver src/app/api/miembros/route.ts). Antes se hacía la query
-      // directa a Supabase y el null en los kioscos rompía el .in('id', [...]).
+      // Asignación de actividades requiere `usuario_id` (la actividad se vincula
+      // al usuario que la realiza). Filtramos con `incluir_sin_cuenta=false`
+      // para no traer empleados que no podrían ser asignados.
       const [configRes, miembrosRes] = await Promise.all([
         fetch('/api/actividades/config').then(r => r.json()),
-        fetch('/api/miembros').then(r => r.json()).catch(() => ({ miembros: [] })),
+        fetch('/api/miembros?incluir_sin_cuenta=false').then(r => r.json()).catch(() => ({ miembros: [] })),
       ])
 
       const miembrosData: Miembro[] = (miembrosRes.miembros || [])

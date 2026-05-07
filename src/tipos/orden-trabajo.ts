@@ -5,10 +5,14 @@
 
 // ─── Estados de la orden de trabajo ───
 
+// Renombre histórico (PR 9): la clave 'esperando' pasó a 'en_espera' para
+// alineación con la convención del sistema (frase preposicional, no gerundio).
+// El trigger BEFORE INSERT/UPDATE en BD traduce 'esperando' a 'en_espera' por
+// compatibilidad si llegara a colarse.
 export type EstadoOrdenTrabajo =
   | 'abierta'
   | 'en_progreso'
-  | 'esperando'
+  | 'en_espera'
   | 'completada'
   | 'cancelada'
 
@@ -17,7 +21,7 @@ export type PrioridadOrdenTrabajo = 'baja' | 'media' | 'alta' | 'urgente'
 export const ETIQUETAS_ESTADO_OT: Record<EstadoOrdenTrabajo, string> = {
   abierta: 'Abierta',
   en_progreso: 'En progreso',
-  esperando: 'Esperando',
+  en_espera: 'En espera',
   completada: 'Completada',
   cancelada: 'Cancelada',
 }
@@ -33,7 +37,7 @@ export const ETIQUETAS_PRIORIDAD_OT: Record<PrioridadOrdenTrabajo, string> = {
 export const COLORES_ESTADO_OT: Record<EstadoOrdenTrabajo, { fondo: string; texto: string }> = {
   abierta: { fondo: 'bg-insignia-info-fondo', texto: 'text-insignia-info-texto' },
   en_progreso: { fondo: 'bg-texto-marca/15', texto: 'text-texto-marca' },
-  esperando: { fondo: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia-texto' },
+  en_espera: { fondo: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia-texto' },
   completada: { fondo: 'bg-insignia-exito-fondo', texto: 'text-insignia-exito-texto' },
   cancelada: { fondo: 'bg-insignia-peligro-fondo', texto: 'text-insignia-peligro-texto' },
 }
@@ -48,7 +52,7 @@ export const COLORES_PRIORIDAD_OT: Record<PrioridadOrdenTrabajo, { fondo: string
 
 // Flujo progresivo (happy path)
 export const FLUJO_ESTADO_OT: EstadoOrdenTrabajo[] = [
-  'abierta', 'en_progreso', 'esperando', 'completada',
+  'abierta', 'en_progreso', 'en_espera', 'completada',
 ]
 
 // Estados terminales
@@ -57,8 +61,8 @@ export const ESTADOS_TERMINALES_OT: EstadoOrdenTrabajo[] = ['cancelada']
 // Transiciones válidas desde cada estado
 export const TRANSICIONES_ESTADO_OT: Record<EstadoOrdenTrabajo, EstadoOrdenTrabajo[]> = {
   abierta: ['en_progreso', 'cancelada'],
-  en_progreso: ['esperando', 'completada', 'cancelada'],
-  esperando: ['en_progreso', 'cancelada'],
+  en_progreso: ['en_espera', 'completada', 'cancelada'],
+  en_espera: ['en_progreso', 'cancelada'],
   completada: ['en_progreso'], // reabrir
   cancelada: ['abierta'], // reactivar
 }

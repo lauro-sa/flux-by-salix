@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Settings2, MapPin, FileText, ListChecks,
-  Plus, Trash2, GripVertical, Check, MessageCircle,
+  Plus, Trash2, GripVertical, Check, MessageCircle, Workflow,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -16,6 +16,8 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useCambiosSinGuardar } from '@/hooks/useCambiosPendientes'
+import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
+import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
 
 /**
  * Página de configuración de Visitas.
@@ -131,11 +133,13 @@ export default function PaginaConfiguracionVisitas() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
+    { id: 'estados', etiqueta: 'Estados de visita', icono: <ListChecks size={16} /> },
     { id: 'avisos', etiqueta: 'Avisos por WhatsApp', icono: <MessageCircle size={16} /> },
     { id: 'motivos', etiqueta: 'Motivos', icono: <FileText size={16} /> },
     { id: 'resultados', etiqueta: 'Resultados', icono: <ListChecks size={16} /> },
     { id: 'checklist', etiqueta: 'Checklist', icono: <Check size={16} /> },
     { id: 'checkin', etiqueta: 'Check-in / Check-out', icono: <MapPin size={16} /> },
+    { id: 'flujos', etiqueta: 'Flujos', icono: <Workflow size={16} /> },
   ]
 
   // Guard de acceso: después de todos los hooks.
@@ -153,7 +157,14 @@ export default function PaginaConfiguracionVisitas() {
       seccionActiva={seccionActiva}
       onCambiarSeccion={setSeccionActiva}
     >
-      {cargando ? (
+      {seccionActiva === 'flujos' ? (
+        <SeccionFlujosModulo
+          modulos={['visita']}
+          modulosPlantillas={['visita']}
+          hrefVerTodos="/flujos?modulo=visita"
+          claveCache="seccion-flujos-visitas"
+        />
+      ) : cargando ? (
         <div className="flex items-center justify-center py-12">
           <div className="size-6 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />
         </div>
@@ -189,6 +200,11 @@ export default function PaginaConfiguracionVisitas() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Estados de visita */}
+          {seccionActiva === 'estados' && (
+            <SeccionEstadosEntidad entidadTipo="visita" />
           )}
 
           {/* Avisos por WhatsApp */}

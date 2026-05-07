@@ -200,7 +200,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado, pu
 
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
-  const enCurso = ['activo', 'almuerzo', 'particular'].includes(r.estado)
+  const enCurso = ['activo', 'en_almuerzo', 'en_particular'].includes(r.estado)
   const salidaCalc = r.hora_salida || (enCurso && r.hora_entrada ? new Date().toISOString() : null)
   const min = calcMin(r.hora_entrada, salidaCalc, r.inicio_almuerzo, r.fin_almuerzo)
   const dur = fmtDuracion(min)
@@ -515,8 +515,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado, pu
                   { valor: 'cerrado', etiqueta: 'Cerrado' },
                   { valor: 'auto_cerrado', etiqueta: 'Sin salida' },
                   { valor: 'ausente', etiqueta: 'Ausente' },
-                  { valor: 'almuerzo', etiqueta: 'En almuerzo' },
-                  { valor: 'particular', etiqueta: 'En trámite' },
+                  { valor: 'en_almuerzo', etiqueta: 'En almuerzo' },
+                  { valor: 'en_particular', etiqueta: 'En trámite' },
                 ]}
                 valor={estado}
                 onChange={setEstado}

@@ -6,8 +6,10 @@ import {
   Plus, Receipt, DollarSign,
   Ruler, Clock, Hash, FileText, RotateCcw, Package,
   Image, PanelBottom, Code2, FileType, Landmark,
-  X,
+  X, ListChecks, Workflow,
 } from 'lucide-react'
+import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
+import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { useFormato } from '@/hooks/useFormato'
@@ -274,6 +276,8 @@ export default function PaginaConfigPresupuestos() {
     { id: 'monedas', etiqueta: 'Monedas', icono: <DollarSign size={16} />, grupo: 'Financiero' },
     { id: 'unidades', etiqueta: 'Unidades de medida', icono: <Ruler size={16} />, grupo: 'Financiero' },
     { id: 'condiciones', etiqueta: t('documentos.condiciones_pago'), icono: <Clock size={16} />, grupo: 'Financiero' },
+    { id: 'estados', etiqueta: 'Estados de presupuesto', icono: <ListChecks size={16} />, grupo: 'Personalización' },
+    { id: 'estados_cuotas', etiqueta: 'Estados de cuotas', icono: <ListChecks size={16} />, grupo: 'Personalización' },
     { id: 'numeracion', etiqueta: 'Numeración', icono: <Hash size={16} />, grupo: 'Documento' },
     { id: 'textos', etiqueta: 'Valores por defecto', icono: <FileText size={16} />, grupo: 'Documento' },
     { id: 'membrete', etiqueta: 'Membrete', icono: <Image size={16} />, grupo: 'PDF' },
@@ -281,6 +285,7 @@ export default function PaginaConfigPresupuestos() {
     { id: 'plantilla_pdf', etiqueta: 'Plantilla PDF', icono: <Code2 size={16} />, grupo: 'PDF' },
     { id: 'nombre_pdf', etiqueta: 'Nombre del archivo', icono: <FileType size={16} />, grupo: 'PDF' },
     { id: 'datos_bancarios', etiqueta: 'Datos bancarios', icono: <Landmark size={16} />, grupo: 'Portal' },
+    { id: 'flujos', etiqueta: 'Flujos', icono: <Workflow size={16} />, grupo: 'Automatización' },
     { id: 'modulo', etiqueta: 'Módulo', icono: <Package size={16} />, grupo: 'Sistema' },
   ]
 
@@ -570,6 +575,16 @@ export default function PaginaConfigPresupuestos() {
           restaurable
           onRestaurar={() => guardarUnidades(UNIDADES_DEFAULT)}
         />
+      )}
+
+      {/* ─── ESTADOS DE PRESUPUESTO ─── */}
+      {seccionActiva === 'estados' && (
+        <SeccionEstadosEntidad entidadTipo="presupuesto" />
+      )}
+
+      {/* ─── ESTADOS DE CUOTAS ─── */}
+      {seccionActiva === 'estados_cuotas' && (
+        <SeccionEstadosEntidad entidadTipo="cuota" />
       )}
 
       {/* ─── NUMERACIÓN ─── */}
@@ -1845,6 +1860,16 @@ export default function PaginaConfigPresupuestos() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── FLUJOS ─── */}
+      {seccionActiva === 'flujos' && (
+        <SeccionFlujosModulo
+          modulos={['presupuesto', 'cuota']}
+          modulosPlantillas={['presupuesto', 'cuota']}
+          hrefVerTodos="/flujos?modulo=presupuesto"
+          claveCache="seccion-flujos-presupuestos"
+        />
       )}
 
       {/* ─── MÓDULO ─── */}

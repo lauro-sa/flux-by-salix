@@ -69,7 +69,7 @@ export default function CabeceraOrden({
         return { label: 'Iniciar', estado: 'en_progreso' as EstadoOrdenTrabajo, icono: Play, variante: 'primario' as const }
       case 'en_progreso':
         return { label: t('ordenes.completar'), estado: 'completada' as EstadoOrdenTrabajo, icono: CheckCircle2, variante: 'primario' as const }
-      case 'esperando':
+      case 'en_espera':
         return { label: 'Reanudar', estado: 'en_progreso' as EstadoOrdenTrabajo, icono: Play, variante: 'primario' as const }
       case 'completada':
         return { label: t('ordenes.reabrir'), estado: 'en_progreso' as EstadoOrdenTrabajo, icono: RotateCcw, variante: 'secundario' as const }

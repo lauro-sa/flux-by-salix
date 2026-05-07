@@ -193,7 +193,7 @@ export async function obtenerContextoCompleto(params: {
       .select('numero, estado, titulo, prioridad')
       .eq('empresa_id', empresa_id)
       .eq('contacto_id', conv.contacto_id)
-      .in('estado', ['abierta', 'en_progreso', 'esperando'])
+      .in('estado', ['abierta', 'en_progreso', 'en_espera'])
       .order('creado_en', { ascending: false })
       .limit(5)
 

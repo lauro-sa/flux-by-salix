@@ -1127,6 +1127,7 @@ export const es: Traducciones = {
     aplicaciones: 'Aplicaciones',
     documentacion: 'Documentación',
     marketing: 'Marketing',
+    flujos: 'Flujos',
   },
 
   toolbar: {
@@ -1533,5 +1534,922 @@ export const es: Traducciones = {
     escribir_mensaje: 'Escribir mensaje...',
     reaccionar: 'Reaccionar',
     quitar_etiqueta: 'Quitar etiqueta',
+  },
+
+  flujos: {
+    titulo: 'Flujos',
+    nuevo: 'Nuevo flujo',
+    buscar_placeholder: 'Buscar flujo por nombre...',
+
+    estados: {
+      activo: 'Activo',
+      pausado: 'Pausado',
+      borrador: 'Borrador',
+    },
+
+    filtro_todos: 'Todos',
+    filtro_activos: 'Activos',
+    filtro_pausados: 'Pausados',
+    filtro_borradores: 'Borradores',
+
+    columna_estado: 'Estado',
+    columna_nombre: 'Nombre',
+    columna_modulo: 'Módulo',
+    columna_disparador: 'Disparador',
+    columna_ultima_ejecucion: 'Última ejecución',
+    columna_ejecuciones: 'Últimos 30 días',
+
+    filtro_modulo: 'Módulo',
+    filtro_modulo_desc: 'Filtrar flujos por la entidad sobre la que actúan.',
+    filtro_tipo_disparador: 'Tipo de disparador',
+    filtro_tipo_disparador_desc: 'Filtrar por cómo arranca el flujo (cambio de estado, cron, etc.).',
+    filtro_creado: 'Fecha de creación',
+    filtro_creado_desc: 'Filtrar por cuándo se creó el flujo.',
+    filtro_ultima_ejec: 'Última ejecución',
+    filtro_ultima_ejec_desc: 'Filtrar por la última vez que el flujo se disparó.',
+    filtro_estado_desc: 'Activos están encendidos; pausados están detenidos pero conservan la configuración; borradores aún no se publicaron.',
+
+    grupo_identidad: 'Identidad',
+    grupo_comportamiento: 'Comportamiento',
+    grupo_actividad: 'Actividad',
+
+    disparador: {
+      'entidad.estado_cambio': 'Cambio de estado',
+      'entidad.creada': 'Entidad creada',
+      'entidad.campo_cambia': 'Cambio de campo',
+      'actividad.completada': 'Actividad completada',
+      'tiempo.cron': 'Cron periódico',
+      'tiempo.relativo_a_campo': 'Relativo a fecha',
+      'webhook.entrante': 'Webhook entrante',
+      'inbox.mensaje_recibido': 'Mensaje recibido',
+      'inbox.conversacion_sin_respuesta': 'Conversación sin respuesta',
+      sin_disparador: 'Sin disparador',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'Cuando una entidad pasa a un estado configurado.',
+      'entidad.creada': 'Cuando se crea una nueva entidad.',
+      'entidad.campo_cambia': 'Cuando un campo específico de la entidad cambia.',
+      'actividad.completada': 'Cuando se completa una actividad.',
+      'tiempo.cron': 'En horarios definidos por una expresión cron.',
+      'tiempo.relativo_a_campo': 'Cierta cantidad de días antes o después de una fecha del registro.',
+      'webhook.entrante': 'Cuando llega un POST a una URL de webhook.',
+      'inbox.mensaje_recibido': 'Cuando llega un mensaje al inbox.',
+      'inbox.conversacion_sin_respuesta': 'Cuando una conversación lleva tiempo sin respuesta.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Crear nuevo flujo',
+      pestana_plantilla: 'Desde una plantilla',
+      pestana_cero: 'Desde cero',
+      buscar_plantilla: 'Buscar plantilla...',
+      filtrar_modulo: 'Filtrar por módulo',
+      todos_modulos: 'Todos los módulos',
+      crear_desde_plantilla: 'Usar esta plantilla',
+      nombre_label: 'Nombre del flujo',
+      nombre_placeholder: 'Ej: Recordatorio de cuota próxima a vencer',
+      modulo_label: 'Módulo (opcional)',
+      modulo_placeholder: 'Elegí un módulo',
+      crear_y_editar: 'Crear y editar',
+      sin_plantillas: 'No hay plantillas disponibles para los módulos instalados.',
+      sin_plantillas_busqueda: 'Ninguna plantilla coincide con tu búsqueda.',
+      plantilla_disparador: 'Se dispara: ',
+    },
+
+    estado_vacio: {
+      titulo: 'Todavía no creaste ningún flujo',
+      descripcion: 'Los flujos automatizan tu trabajo: se disparan ante eventos (un presupuesto aceptado, una cuota próxima a vencer, un mensaje sin responder) y ejecutan acciones encadenadas (mandar WhatsApp, crear actividades, notificar al equipo).',
+      titulo_plantillas: 'Empezá con una plantilla',
+      crear_desde_cero: 'Crear flujo desde cero',
+    },
+
+    accion: {
+      editar: 'Editar',
+      ver: 'Ver',
+      duplicar: 'Duplicar',
+      activar: 'Activar',
+      pausar: 'Pausar',
+      eliminar: 'Eliminar',
+      sin_tipo: 'Acción',
+    },
+
+    confirmar_eliminar: {
+      titulo: '¿Eliminar este flujo?',
+      descripcion: 'Esto elimina la definición del flujo y todo su historial de ejecuciones. No se puede deshacer.',
+      confirmar: 'Eliminar flujo',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicar flujo',
+      descripcion: 'Se creará una copia en estado borrador. Podés ajustarle el nombre antes de continuar.',
+      nombre_label: 'Nombre del nuevo flujo',
+      sufijo_copia: '(copia)',
+      confirmar: 'Duplicar',
+    },
+
+    seccion_modulo: {
+      lista_titulo: 'Flujos activos en este módulo',
+      lista_ver_todos: 'Ver todos',
+      lista_mas_sufijo: 'más',
+      cargando: 'Cargando flujos…',
+      ultima_ejecucion_prefijo: 'Última ejecución: ',
+      sin_ejecutar: 'Sin ejecuciones todavía',
+      plantillas_titulo: 'Plantillas sugeridas',
+      plantillas_descripcion: 'Arrancá rápido con flujos curados por nosotros. Click en una plantilla para crear un borrador y empezar a editarlo.',
+    },
+
+    tooltip_borrador_pendiente: 'Tiene cambios sin publicar',
+    tooltip_sin_ejecutar: 'Sin ejecutar',
+
+    toast: {
+      creado: 'Flujo creado',
+      duplicado: 'Flujo duplicado',
+      activado: 'Flujo activado',
+      pausado: 'Flujo pausado',
+      eliminado: 'Flujo eliminado',
+      error_crear: 'No se pudo crear el flujo',
+      error_duplicar: 'No se pudo duplicar el flujo',
+      error_activar: 'No se pudo activar el flujo',
+      error_pausar: 'No se pudo pausar el flujo',
+      error_eliminar: 'No se pudo eliminar el flujo',
+    },
+
+    // Editor visual (sub-PR 19.2)
+    editor: {
+      volver_listado: 'Volver al listado',
+      nombre_default: 'Sin nombre',
+      nombre_editar_tooltip: 'Click para renombrar',
+      elegir_icono: 'Elegir ícono del flujo',
+      drag_handle: 'Arrastrar para reordenar',
+      agregar_paso_intermedio: 'Agregar paso en la posición {{n}}',
+      agregar_paso_final: 'Agregar paso',
+
+      indicador: {
+        guardando: 'Guardando…',
+        guardado: 'Guardado',
+        guardado_hace_min: 'Guardado hace {{n}} min',
+        guardado_hace_h: 'Guardado hace {{n}} h',
+      },
+
+      banner: {
+        borrador_titulo: 'Estás editando este flujo',
+        borrador_desc: 'Tus cambios no afectan al flujo activo hasta que clickees Publicar cambios.',
+        lectura_titulo: 'Modo solo lectura',
+        lectura_desc: 'Tenés permiso de ver pero no de editar este flujo.',
+        error_titulo: 'No se puede activar todavía',
+        error_desc: 'Hay errores de configuración. Revisá los pasos marcados.',
+      },
+
+      validacion: {
+        titulo_activar: 'No se puede activar todavía',
+        titulo_publicar: 'No se pueden publicar los cambios',
+        descripcion: 'Encontramos {{n}} configuración(es) que falta(n) antes de continuar.',
+        cta_ver_errores: 'Ver errores',
+        errores_extra: '+{{n}} más',
+      },
+
+      accion: {
+        publicar: 'Publicar cambios',
+        descartar: 'Descartar cambios',
+        reactivar: 'Reactivar',
+        probar: 'Probar',
+        probar_tooltip: 'Vista previa o ejecución de prueba',
+      },
+
+      tabs: {
+        aria_label: 'Vistas del flujo',
+        editor: 'Editor',
+        historial: 'Historial',
+      },
+
+      disparador: {
+        etiqueta: 'Disparador',
+        placeholder_titulo: 'Configurá el disparador',
+        placeholder_desc: 'Elegí el evento o el momento que va a iniciar este flujo.',
+      },
+
+      branch: {
+        resumen: '{{si}} acción(es) si SÍ · {{no}} acción(es) si NO',
+        rama_si: 'Si SÍ',
+        rama_no: 'Si NO',
+        rama_count: '{{n}} acción(es)',
+        rama_vacia: 'Sin acciones',
+      },
+
+      panel: {
+        titulo_default: 'Detalle del paso',
+        banner_lectura: 'Modo solo lectura',
+
+        seccion: {
+          basicos: 'Básicos',
+          tiempo: 'Tiempo',
+          disparador: 'Disparador',
+          avanzado: 'Avanzado',
+          condiciones: 'Condiciones',
+        },
+
+        subheader: {
+          posicion: 'Paso {{n}} de {{total}}',
+          rama_si: 'Rama Sí',
+          rama_no: 'Rama No',
+        },
+
+        footer: {
+          eliminar_paso: 'Eliminar paso',
+        },
+
+        pendiente: {
+          titulo: 'Edición de "{{tipo}}" próximamente',
+          descripcion: 'Este tipo de paso ya está configurado a nivel motor; el panel con sus campos editables llega en la próxima entrega del editor.',
+        },
+
+        esperar: {
+          cantidad_label: 'Cantidad',
+          unidad_label: 'Unidad',
+          unidad_min: 'Minutos',
+          unidad_hora: 'Horas',
+          unidad_dia: 'Días',
+          ayuda: 'El flujo pausa antes de continuar con el paso siguiente. Mínimo 1 minuto, máximo 30 días.',
+          ayuda_fecha_absoluta: 'Este paso tiene una fecha absoluta configurada ({{fecha}}). Cambiarla desde el panel llega más adelante.',
+        },
+
+        terminar: {
+          leyenda: 'Cuando el flujo llega a este paso, termina. Cualquier paso después se ignora.',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Ej: Cliente no respondió',
+        },
+
+        cron: {
+          expresion_label: 'Expresión cron',
+          ayuda: 'Cinco campos: minuto · hora · día del mes · mes · día de la semana.',
+          ejemplo_1: 'A las 9 AM de lunes a viernes.',
+          ejemplo_2: 'Cada 15 minutos.',
+          ejemplo_3: 'A medianoche del primer día de cada mes.',
+        },
+
+        actividad_completada: {
+          tipo_clave_label: 'Tipo de actividad (opcional)',
+          tipo_clave_placeholder: 'Ej: llamada, visita_obra',
+          tipo_clave_ayuda: 'Si dejás vacío, dispara para cualquier tipo de actividad. Acepta la clave técnica del tipo (lista completa con autocomplete llega en una próxima entrega).',
+        },
+
+        header: {
+          editar_nombre_tooltip: 'Click para renombrar este paso',
+        },
+
+        avanzado: {
+          proximamente: 'Las opciones avanzadas se suman en una próxima entrega.',
+          continuar_si_falla_label: 'Continuar si falla',
+          continuar_si_falla_ayuda: 'Si esta acción falla, el flujo sigue con la siguiente en lugar de detenerse.',
+        },
+
+        whatsapp: {
+          canal_label: 'Canal',
+          canal_placeholder: 'ID del canal',
+          canal_ayuda: 'Identificador técnico del canal de WhatsApp configurado.',
+          telefono_label: 'Teléfono destino',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Acepta variables como {{contacto.telefono}}.',
+          plantilla_label: 'Plantilla aprobada',
+          plantilla_placeholder: 'recordatorio_cuota',
+          plantilla_ayuda: 'Nombre de la plantilla aprobada en Meta.',
+          idioma_label: 'Idioma',
+        },
+
+        notificar: {
+          usuario_label: 'Usuario destinatario',
+          usuario_placeholder: 'UUID del usuario',
+          usuario_ayuda: 'Acepta variables (ej. {{actor.id}}) o un UUID fijo.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Nuevo presupuesto aceptado',
+          cuerpo_label: 'Mensaje (opcional)',
+          cuerpo_placeholder: '{{contacto.nombre}} aceptó el presupuesto {{entidad.numero}}',
+          url_label: 'URL de navegación',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'URL relativa a la que lleva el click en la notificación.',
+          tipo_label: 'Categoría',
+          tipo_placeholder: 'sistema, ventas...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Tipo de actividad',
+          tipo_id_placeholder: 'UUID del tipo configurado',
+          tipo_id_ayuda: 'ID del tipo de actividad a crear (autocomplete llega en una próxima entrega).',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Llamar a {{contacto.nombre}}',
+          descripcion_label: 'Descripción (opcional)',
+          descripcion_placeholder: 'Confirmar visita programada',
+          prioridad_label: 'Prioridad',
+          prioridad_baja: 'Baja',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'Alta',
+          asignados_label: 'Asignados (UUIDs separados por coma)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'Lista de IDs de usuarios. Autocomplete llega después.',
+          contacto_label: 'Contacto vinculado (opcional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Acepta variables o un UUID fijo.',
+          fecha_label: 'Fecha de vencimiento',
+          fecha_ayuda: 'Formato ISO (YYYY-MM-DD). Selector visual llega después.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entidad',
+          entidad_ayuda_disparador: 'El flujo viene activado por un cambio en {{tipo}} — por defecto cambiamos esa entidad.',
+          entidad_id_label: 'ID de la entidad',
+          entidad_id_ayuda: 'Por lo general {{entidad.id}} (la misma entidad que disparó el flujo).',
+          hasta_clave_label: 'Estado destino',
+          hasta_clave_placeholder: 'Ej: aceptado, completado',
+          hasta_clave_ayuda: 'Clave técnica del estado destino (lista configurable en /configuracion).',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Auto-cierre por workflow',
+          entidad: {
+            presupuesto: 'Presupuesto',
+            orden: 'Orden de trabajo',
+            visita: 'Visita',
+            conversacion: 'Conversación',
+            asistencia: 'Asistencia',
+            cuota: 'Cuota',
+            actividad: 'Actividad',
+            adelanto_nomina: 'Adelanto de nómina',
+            pago_nomina: 'Pago de nómina',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Entidad observada',
+          hasta_label: 'Estado destino',
+          hasta_placeholder: 'Ej: aceptado, pagado',
+          hasta_ayuda: 'Clave del estado al que tiene que llegar la entidad para disparar.',
+          desde_label: 'Estado origen (opcional)',
+          desde_placeholder: 'Ej: pendiente',
+          desde_ayuda: 'Si dejás vacío, dispara desde cualquier estado anterior.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Entidad observada',
+          entidad_ayuda: 'El flujo dispara cada vez que se crea una entidad nueva del tipo elegido.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Entidad observada',
+          campo_label: 'Campo a observar',
+          campo_placeholder: 'Ej: total, asignado_a',
+          campo_ayuda: 'Nombre técnico de la columna (autocomplete llega después).',
+          valor_label: 'Valor objetivo (opcional)',
+          valor_placeholder: 'Si dejás vacío, dispara con cualquier cambio',
+          valor_ayuda: 'Si lo completás, dispara solo cuando el campo pasa a este valor exacto.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Entidad observada',
+          campo_fecha_label: 'Campo de fecha',
+          campo_fecha_placeholder: 'Ej: fecha_vencimiento',
+          campo_fecha_ayuda: 'Columna de tipo fecha de la entidad.',
+          delta_label: 'Días relativos',
+          delta_ayuda: 'Negativo = antes (ej. -3 = "tres días antes"). Positivo = después.',
+          hora_local_label: 'Hora local del disparo',
+          hora_local_ayuda: 'Hora del día (HH:MM) en zona horaria de la empresa.',
+          tolerancia_label: 'Tolerancia (días)',
+          tolerancia_ayuda: 'Margen hacia atrás si el cron estuvo caído. 0 = solo el día exacto.',
+        },
+
+        branch: {
+          operador_label: 'Cuando se cumple:',
+          operador_y: 'Todas',
+          operador_o: 'Alguna',
+          ayuda_y: 'El flujo toma la rama "Sí" cuando TODAS las condiciones de abajo son verdaderas.',
+          ayuda_o: 'El flujo toma la rama "Sí" cuando AL MENOS UNA condición de abajo es verdadera.',
+          sin_condiciones: 'Sin condiciones todavía. Agregá la primera para que el branch tenga lógica.',
+          agregar_condicion: 'Agregar condición',
+          fila_anidada_no_editable: 'Esta condición tiene anidamiento avanzado. La edición de sub-grupos llega más adelante; por ahora el motor la evalúa intacta.',
+          ayuda_avanzado: 'Operadores adicionales (entre rangos, días desde, listas) y sub-grupos anidados llegan en una próxima entrega.',
+          fila: {
+            variable_label: 'Variable o campo',
+            variable_placeholder: '{{entidad.total}}',
+            valor_label: 'Valor',
+            valor_placeholder: '100000 o {{otra.variable}}',
+            eliminar: 'Eliminar condición',
+          },
+          op: {
+            igual: 'es igual a',
+            distinto: 'es distinto de',
+            mayor: 'es mayor que',
+            menor: 'es menor que',
+            mayor_o_igual: 'es mayor o igual a',
+            menor_o_igual: 'es menor o igual a',
+            contiene: 'contiene',
+            no_contiene: 'no contiene',
+            esta_vacio: 'está vacío',
+            no_esta_vacio: 'no está vacío',
+          },
+        },
+
+        asignar: {
+          usuario_label: 'Asignar a',
+          entidad_id_label: 'ID de la entidad (opcional)',
+          entidad_id_ayuda: 'Por defecto, la entidad que disparó el flujo. Acepta variables como {{entidad.id}}.',
+        },
+
+        etiqueta: {
+          agregar_label: 'Etiqueta a agregar',
+          agregar_placeholder: 'Ej: prioridad_alta',
+          quitar_label: 'Etiqueta a quitar',
+          quitar_placeholder: 'Ej: prioridad_alta',
+          clave_ayuda: 'Clave técnica de la etiqueta configurable (autocomplete llega en una próxima entrega).',
+          entidad_id_label: 'ID de la entidad (opcional)',
+          entidad_id_ayuda: 'Por defecto, la entidad que disparó el flujo.',
+        },
+
+        notificar_grupo: {
+          grupo_label: 'Grupo destinatario',
+          grupo_placeholder: 'Ej: ventas, soporte',
+          grupo_ayuda: 'Clave técnica del grupo configurable. Autocomplete llega después.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Cuota próxima a vencer: {{contacto.nombre}}',
+          cuerpo_label: 'Mensaje (opcional)',
+          cuerpo_placeholder: 'Detalles del aviso...',
+        },
+
+        whatsapp_texto: {
+          mensaje_label: 'Mensaje',
+          mensaje_placeholder: 'Hola {{contacto.nombre}}, te recuerdo...',
+          mensaje_ayuda: 'Texto libre. Solo funciona dentro de la ventana de 24 hs desde el último mensaje del contacto.',
+        },
+
+        correo_texto: {
+          destinatario_label: 'Destinatario',
+          asunto_label: 'Asunto',
+          asunto_placeholder: 'Recordatorio: {{entidad.numero}}',
+          cuerpo_label: 'Cuerpo',
+          cuerpo_placeholder: 'Hola {{contacto.nombre}},\n\n...',
+          cuerpo_ayuda: 'Texto plano. El editor con formato rico llega en una próxima entrega.',
+        },
+
+        correo_plantilla: {
+          plantilla_label: 'Plantilla de correo',
+          plantilla_ayuda: 'Las plantillas se editan desde Configuración → Plantillas de correo. El motor las resuelve con los datos del contacto y la entidad al ejecutar.',
+          destinatario_label: 'Destinatario',
+          preview_titulo: 'Vista previa',
+          preview_asunto_label: 'Asunto',
+          preview_cuerpo_label: 'Cuerpo',
+          preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Configuración avanzada — {{tipo}}',
+          cartel_descripcion: 'Esta acción todavía no tiene un panel visual. Configurá los parámetros editando el JSON crudo.',
+          cartel_aviso_no_guarda: 'Si el JSON no parsea, el cambio NO se guarda y se conserva el último valor válido.',
+          formatear: 'Formatear JSON',
+          error_parse: 'JSON inválido — revisá comillas y llaves.',
+          error_no_objeto: 'El JSON debe ser un objeto (no una lista ni un valor primitivo).',
+        },
+      },
+
+      confirmar_descartar: {
+        titulo: '¿Descartar los cambios sin publicar?',
+        descripcion: 'Volvés a la versión actualmente publicada del flujo. Esto no se puede deshacer.',
+        confirmar: 'Descartar cambios',
+      },
+
+      toast: {
+        publicado: 'Cambios publicados',
+        descartado: 'Cambios descartados',
+        guardado_manual: 'Cambios guardados',
+        error_guardar: 'No se pudo guardar',
+        error_publicar: 'No se pudo publicar',
+        error_descartar: 'No se pudo descartar el borrador',
+      },
+
+      consola: {
+        titulo: 'Consola de prueba',
+        cerrar: 'Cerrar consola',
+        tab_preview: 'Vista previa',
+        tab_dryrun: 'Dry-run',
+        evento_label: 'Evento de prueba:',
+        evento_sin_evento: 'Sin evento (este disparador no requiere entidad)',
+        evento_no_disponible: 'No hay registros para previsualizar todavía',
+        cargando: 'Corriendo dry-run…',
+        cta_correr: 'Correr dry-run',
+        cta_volver_a_correr: 'Volver a ejecutar',
+        cta_actualizar_preview: 'Actualizar vista previa',
+        sin_pasos: 'Agregá al menos un paso para poder probar el flujo.',
+
+        banner_invalido_titulo: 'No se puede probar todavía',
+        banner_invalido_desc: 'Hay errores de configuración. Resolvé los pasos marcados antes de correr el dry-run.',
+        banner_no_implementadas_titulo: 'Acciones no implementadas',
+        banner_no_implementadas_desc: 'Este flujo contiene {{n}} paso(s) con acciones que el motor todavía no ejecuta. El dry-run las simula, pero al activar el flujo esos pasos fallarán.',
+
+        preview: {
+          titulo: 'Vista previa estática',
+          descripcion: 'Cada paso muestra los valores resueltos sin ejecutar nada.',
+          paso_titulo: 'Paso {{n}}: {{nombre}}',
+          rama_si_resuelta: 'La condición se cumple → rama SÍ',
+          rama_no_resuelta: 'La condición NO se cumple → rama NO',
+          esperaria: 'Esperaría {{texto}}',
+          esperaria_hasta: 'Esperaría hasta {{fecha}}',
+          terminar_flujo: 'El flujo terminaría acá',
+          variable_faltante: 'Variable faltante: {{ruta}}',
+          ver_detalle: 'Ver detalle',
+          ocultar_detalle: 'Ocultar detalle',
+        },
+
+        dryrun: {
+          titulo: 'Ejecución dry-run',
+          paso_completado: 'Completado',
+          paso_simulado: '[dry-run] {{accion}}',
+          paso_fallado: 'Falló',
+          paso_no_implementada: 'No implementada',
+          accion_no_implementada_inline: 'Acción no implementada',
+          duracion_ms: '{{ms}} ms',
+          terminado_temprano: 'El flujo terminó temprano (terminar_flujo).',
+          resumen_titulo: 'Resumen',
+          resumen_completados: '{{n}} completados',
+          resumen_fallados: '{{n}} con error',
+          resumen_simulados: '{{n}} simulados',
+          resumen_total: 'Duración total: {{ms}} ms',
+          accion_simulada_whatsapp: 'Se enviaría WhatsApp "{{plantilla}}" a {{destinatario}}',
+          accion_simulada_actividad: 'Se crearía actividad "{{titulo}}" ({{tipo}})',
+          accion_simulada_estado: 'Se cambiaría estado de {{entidad}} a "{{nuevo}}"',
+          accion_simulada_notificar: 'Se notificaría a {{usuario}}: "{{titulo}}"',
+          accion_simulada_generica: 'Acción {{tipo}} simulada',
+          error_correr: 'No se pudo correr el dry-run',
+        },
+      },
+    },
+
+    selector: {
+      buscar: 'Buscar...',
+      cargando: 'Cargando opciones…',
+      error_cargar: 'No se pudieron cargar las opciones.',
+      sin_resultados: 'Sin coincidencias.',
+      canal_wa: { placeholder: 'Elegí un canal de WhatsApp' },
+      plantilla_wa: { placeholder: 'Elegí una plantilla aprobada' },
+      tipo_actividad: { placeholder: 'Elegí un tipo de actividad' },
+      miembro: {
+        placeholder: 'Elegí un usuario',
+        placeholder_multi: 'Elegí uno o más usuarios',
+      },
+      estado: { placeholder: 'Elegí un estado' },
+      etiqueta: { placeholder: 'Elegí una etiqueta' },
+      plantilla_correo: { placeholder: 'Elegí una plantilla' },
+    },
+
+    picker: {
+      titulo: 'Insertar variable',
+      buscador_placeholder: 'Buscar variable...',
+      limpiar_busqueda: 'Limpiar búsqueda',
+      tab_todas: 'Todas',
+      sin_resultados: 'Ninguna variable coincide con tu búsqueda.',
+      hint_navegacion: '↑↓ navegar · ↵ insertar · esc cerrar',
+      boton_insertar: 'Insertar variable',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Ocultar',
+      fuente: {
+        entidad: 'Entidad',
+        contacto: 'Contacto',
+        empresa: 'Empresa',
+        sistema: 'Sistema',
+        cambio: 'Cambio',
+        actor: 'Usuario',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Número',
+        titulo: 'Título',
+        total: 'Total',
+        estado_clave: 'Estado',
+        fecha_validez: 'Fecha de validez',
+        creado_en: 'Fecha de creación',
+      },
+      cuota: {
+        numero: 'Número de cuota',
+        monto: 'Monto',
+        fecha_vencimiento: 'Fecha de vencimiento',
+        estado_clave: 'Estado',
+      },
+      orden: {
+        numero: 'Número',
+        titulo: 'Título',
+        estado_clave: 'Estado',
+        fecha_programada: 'Fecha programada',
+      },
+      visita: {
+        titulo: 'Título',
+        estado_clave: 'Estado',
+        fecha_programada: 'Fecha programada',
+        direccion: 'Dirección',
+      },
+      actividad: {
+        titulo: 'Título',
+        descripcion: 'Descripción',
+        estado_clave: 'Estado',
+        fecha_vencimiento: 'Fecha de vencimiento',
+      },
+      conversacion: {
+        canal: 'Canal',
+        estado_clave: 'Estado',
+        ultima_actividad_en: 'Última actividad',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Estado',
+      },
+      contacto: {
+        nombre: 'Nombre',
+        email: 'Email',
+        telefono: 'Teléfono',
+        empresa: 'Empresa',
+      },
+      empresa: {
+        nombre: 'Nombre',
+        telefono: 'Teléfono',
+        correo: 'Correo',
+        pagina_web: 'Sitio web',
+      },
+      sistema: {
+        ahora: 'Fecha y hora actual',
+      },
+      actor: {
+        nombre: 'Nombre',
+        email: 'Email',
+        nombre_completo: 'Nombre completo',
+      },
+      cambio: {
+        desde: 'Estado / valor anterior',
+        hasta: 'Estado / valor nuevo',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Elegí un disparador',
+      titulo_accion: 'Agregar paso',
+      buscar_placeholder: 'Buscar por nombre o tipo…',
+      sin_resultados: 'Ningún paso coincide con tu búsqueda.',
+      sin_categorias: 'No hay opciones disponibles.',
+
+      categoria: {
+        eventos: 'Eventos',
+        eventos_desc: 'Disparadores que reaccionan a algo que pasa en tu Flux.',
+        tiempo: 'Tiempo',
+        tiempo_desc: 'Disparadores basados en horarios o fechas relativas.',
+        envios: 'Acciones de envío',
+        envios_desc: 'Mandar WhatsApp o correo a contactos o usuarios.',
+        creaciones: 'Acciones de creación',
+        creaciones_desc: 'Generar actividades, órdenes o visitas automáticamente.',
+        cambios: 'Cambios de datos',
+        cambios_desc: 'Actualizar estado, asignar usuario, etiquetar.',
+        notificaciones: 'Notificaciones',
+        notificaciones_desc: 'Avisar internamente a usuarios o grupos.',
+        control: 'Control de flujo',
+        control_desc: 'Esperar tiempo, ramificar según condiciones, llamar webhooks.',
+        terminar: 'Terminar',
+        terminar_desc: 'Cerrar el flujo explícitamente antes de que llegue al final.',
+      },
+    },
+
+    paso: {
+      // Disparadores
+      'entidad.estado_cambio': {
+        titulo: 'Cambio de estado',
+        descripcion: 'Cuando una entidad pasa a un estado configurado.',
+      },
+      'entidad.creada': {
+        titulo: 'Entidad creada',
+        descripcion: 'Cuando se crea una nueva entidad del tipo elegido.',
+      },
+      'entidad.campo_cambia': {
+        titulo: 'Cambio de campo',
+        descripcion: 'Cuando un campo específico cambia de valor.',
+      },
+      'actividad.completada': {
+        titulo: 'Actividad completada',
+        descripcion: 'Cuando se marca una actividad como completada.',
+      },
+      'tiempo.cron': {
+        titulo: 'Horario periódico',
+        descripcion: 'En horarios definidos por una expresión cron.',
+      },
+      'tiempo.relativo_a_campo': {
+        titulo: 'Relativo a una fecha',
+        descripcion: 'Antes o después de una fecha del registro (vencimiento, programada, etc.).',
+      },
+      'webhook.entrante': {
+        titulo: 'Webhook entrante',
+        descripcion: 'Cuando llega un POST a una URL de webhook.',
+      },
+      'inbox.mensaje_recibido': {
+        titulo: 'Mensaje recibido',
+        descripcion: 'Cuando llega un mensaje al inbox.',
+      },
+      'inbox.conversacion_sin_respuesta': {
+        titulo: 'Conversación sin respuesta',
+        descripcion: 'Cuando una conversación lleva tiempo sin respuesta.',
+      },
+
+      // Acciones
+      enviar_whatsapp_plantilla: {
+        titulo: 'Enviar WhatsApp',
+        descripcion: 'Mandar una plantilla aprobada por Meta a un contacto.',
+      },
+      enviar_whatsapp_texto: {
+        titulo: 'Enviar WhatsApp (texto libre)',
+        descripcion: 'Mandar un mensaje de texto dentro de la ventana de 24 hs.',
+      },
+      enviar_correo_plantilla: {
+        titulo: 'Enviar correo (plantilla)',
+        descripcion: 'Mandar un correo basado en una plantilla guardada.',
+      },
+      enviar_correo_texto: {
+        titulo: 'Enviar correo',
+        descripcion: 'Mandar un correo de texto libre.',
+      },
+      crear_actividad: {
+        titulo: 'Crear actividad',
+        descripcion: 'Generar una actividad asignada a un usuario.',
+      },
+      cambiar_estado_entidad: {
+        titulo: 'Cambiar estado',
+        descripcion: 'Mover una entidad a otro estado configurado.',
+      },
+      asignar_usuario: {
+        titulo: 'Asignar usuario',
+        descripcion: 'Cambiar el responsable de la entidad.',
+      },
+      agregar_etiqueta: {
+        titulo: 'Agregar etiqueta',
+        descripcion: 'Sumar una etiqueta a la entidad o contacto.',
+      },
+      quitar_etiqueta: {
+        titulo: 'Quitar etiqueta',
+        descripcion: 'Sacar una etiqueta de la entidad o contacto.',
+      },
+      notificar_usuario: {
+        titulo: 'Notificar a un usuario',
+        descripcion: 'Mandar una notificación interna a una persona.',
+      },
+      notificar_grupo: {
+        titulo: 'Notificar a un grupo',
+        descripcion: 'Mandar una notificación interna a un grupo o rol.',
+      },
+      crear_orden_trabajo: {
+        titulo: 'Crear orden de trabajo',
+        descripcion: 'Generar una orden de trabajo vinculada.',
+      },
+      crear_visita: {
+        titulo: 'Crear visita',
+        descripcion: 'Programar una visita asociada a la entidad.',
+      },
+      webhook_saliente: {
+        titulo: 'Llamar a un webhook',
+        descripcion: 'Hacer un POST a una URL externa con datos del flujo.',
+      },
+      esperar: {
+        titulo: 'Esperar',
+        descripcion: 'Pausar el flujo por un tiempo o hasta una fecha.',
+      },
+      esperar_evento: {
+        titulo: 'Esperar evento',
+        descripcion: 'Pausar el flujo hasta que ocurra un evento.',
+      },
+      condicion_branch: {
+        titulo: 'Si / Sino',
+        descripcion: 'Tomar caminos distintos según se cumpla una condición.',
+      },
+      terminar_flujo: {
+        titulo: 'Terminar flujo',
+        descripcion: 'Cerrar el flujo explícitamente.',
+      },
+    },
+
+    // Historial de ejecuciones (sub-PR 19.6)
+    historial: {
+      placeholder: {
+        titulo: 'Historial de ejecuciones',
+        descripcion:
+          'Acá vas a ver cada vez que este flujo se haya ejecutado, con el detalle paso por paso.',
+      },
+
+      busqueda_placeholder: 'Búsqueda no disponible — usá los filtros',
+      entidad_sin_referencia: 'Sin entidad asociada',
+      hint_dataset_grande:
+        'Este flujo tiene {{n}} ejecuciones registradas. Filtrá por fecha para acotar la lista.',
+
+      columnas: {
+        estado: 'Estado',
+        fecha: 'Cuándo',
+        disparado_por: 'Origen',
+        entidad: 'Entidad',
+        duracion: 'Duración',
+      },
+
+      grupos: {
+        estado: 'Estado',
+        cuando: 'Cuándo',
+        origen: 'Origen',
+      },
+
+      filtros: {
+        estado: 'Estado',
+        estado_desc: 'Filtrá por el resultado de la ejecución.',
+        disparado_por: 'Tipo de disparador',
+        disparado_por_desc: 'Cómo se inició la ejecución.',
+        creado_rango: 'Cuándo',
+        creado_rango_desc: 'Limitá las ejecuciones a un rango temporal.',
+        error_raw_class: 'Tipo de error',
+        error_raw_class_desc:
+          'Filtrá por la clase de error registrada por el motor (útil para soporte).',
+      },
+
+      preset_fecha: {
+        hoy: 'Hoy',
+        '7d': '7 días',
+        '30d': '30 días',
+        '90d': '90 días',
+      },
+
+      estados: {
+        pendiente: 'Pendiente',
+        corriendo: 'Corriendo',
+        esperando: 'Esperando',
+        completado: 'Completado',
+        fallado: 'Fallado',
+        cancelado: 'Cancelado',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Cambio de estado',
+        cron: 'Programado (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Desconocido',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'Este flujo nunca se ejecutó',
+        sin_ejecuciones_desc:
+          'Cuando el flujo se dispare por primera vez, vas a ver el detalle de cada ejecución acá.',
+      },
+
+      drawer: {
+        titulo: 'Detalle de ejecución',
+        cerrar: 'Cerrar',
+        reintentar: 'Reintentar',
+        creado_en: 'Creada',
+        inicio: 'Inicio',
+        fin: 'Fin',
+        no_encontrada_titulo: 'Ejecución no encontrada',
+        no_encontrada_desc:
+          'Puede haber sido borrada o no tenés permiso para verla.',
+        error_titulo: 'No se pudo cargar la ejecución',
+        error_desc: 'Hubo un problema al traer el detalle. Probá de nuevo.',
+      },
+
+      timeline: {
+        sin_pasos: 'Esta ejecución todavía no registró pasos.',
+        intentos: '{{n}} intentos',
+        continuo_pese_fallo: 'El flujo siguió pese a este fallo.',
+        pendientes: 'Pasos pendientes',
+        pendiente_estado: 'Pendiente',
+        ejecutar_en: 'Programado para',
+      },
+
+      acciones: {
+        reejecutar: 'Reejecutar',
+        reejecutar_ok: 'Ejecución creada — la nueva fila aparece arriba en el listado.',
+        reejecutar_error: 'No se pudo reejecutar',
+        cancelar: 'Cancelar ejecución',
+        cancelar_ok: 'Ejecución cancelada',
+        cancelar_error: 'No se pudo cancelar',
+        cancelar_ya_termino:
+          'La ejecución ya cambió de estado mientras intentabas cancelarla. Lo más probable es que ya completó.',
+        cancelar_corriendo:
+          'No se puede cancelar una ejecución que ya está corriendo. Esperá a que termine.',
+        copiar_log: 'Copiar log',
+        copiar_log_tooltip: 'Copia el log JSON al portapapeles',
+        copiar_log_ok: 'Log copiado al portapapeles',
+        copiar_log_error: 'No se pudo copiar el log',
+
+        confirmar_reejecutar: {
+          titulo: '¿Reejecutar esta ejecución?',
+          descripcion:
+            'Esto va a ejecutar las acciones de nuevo, incluyendo enviar WhatsApp/correo a destinatarios reales.',
+          confirmar: 'Reejecutar',
+        },
+
+        confirmar_cancelar: {
+          titulo: '¿Cancelar esta ejecución?',
+          descripcion:
+            'Las acciones pendientes no se van a ejecutar. Esta acción no se puede deshacer.',
+          confirmar: 'Cancelar ejecución',
+        },
+      },
+
+      chatter: {
+        titulo: 'Flujos disparados',
+        flujo_sin_nombre: 'Flujo sin nombre',
+      },
+    },
   },
 }

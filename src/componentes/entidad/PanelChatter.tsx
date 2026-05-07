@@ -34,9 +34,12 @@ import { Popover } from '@/componentes/ui/Popover'
 import {
   BarraAcciones, EntradaTimeline, EditorNota,
   SeccionAdjuntos, ModalWhatsAppChatter, useConfigActividades,
+  SeccionFlujosDisparados,
 } from './_panel_chatter'
 import type { PropsPanelChatter } from './_panel_chatter/tipos'
 import type { AdjuntoConOrigen } from './_panel_chatter/SeccionAdjuntos'
+import { HistorialEstados } from './HistorialEstados'
+import { esEntidadConEstado } from '@/tipos/estados'
 
 // ─── Definición de filtros ───
 // 'pagos' se agrega condicionalmente según entidadTipo (solo en presupuesto).
@@ -745,6 +748,29 @@ export function PanelChatter({
                   ))
                 )}
               </div>
+
+              {/* ─── Historial de estados (solo entidades migradas al sistema genérico) ─── */}
+              {esEntidadConEstado(entidadTipo) && entidadId && (
+                <div className="px-3 pb-3">
+                  <HistorialEstados
+                    entidadTipo={entidadTipo}
+                    entidadId={entidadId}
+                  />
+                </div>
+              )}
+
+              {/* ─── Flujos disparados (sub-PR 19.6) ─── */}
+              {/* Sección self-contained: oculta sin permiso flujos.ver
+                  o sin ejecuciones. Click en fila → editor del flujo en
+                  tab Historial con drawer abierto en esa ejecución. */}
+              {entidadId && (
+                <div className="px-3 pb-3">
+                  <SeccionFlujosDisparados
+                    entidadTipo={entidadTipo}
+                    entidadId={entidadId}
+                  />
+                </div>
+              )}
 
             </motion.div>
           )}

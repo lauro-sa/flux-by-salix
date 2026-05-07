@@ -106,9 +106,10 @@ function SelectorCanal({
 }) {
   const vacio = valor === 'empresa' ? !valorEmpresa?.trim() : !valorPersonal?.trim()
 
+  // Orden alineado con los inputs de arriba (Personal a la izquierda, Empresa a la derecha)
   const opciones: { v: 'empresa' | 'personal'; etiqueta: string; tieneValor: boolean }[] = [
-    { v: 'empresa', etiqueta: 'Empresa', tieneValor: !!valorEmpresa?.trim() },
     { v: 'personal', etiqueta: 'Personal', tieneValor: !!valorPersonal?.trim() },
+    { v: 'empresa', etiqueta: 'Empresa', tieneValor: !!valorEmpresa?.trim() },
   ]
 
   return (
@@ -229,8 +230,8 @@ export function TabInformacion({
       <section>
         <SeccionEncabezado icono={<User size={15} />} titulo={t('usuarios.datos_personales')} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.nombre')} value={perfil.nombre || ''} onChange={(e) => setPerfil(p => p ? { ...p, nombre: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ nombre: perfil.nombre })} disabled={!puedeEditar} />
-          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.apellido')} value={perfil.apellido || ''} onChange={(e) => setPerfil(p => p ? { ...p, apellido: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ apellido: perfil.apellido })} disabled={!puedeEditar} />
+          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.nombre')} value={perfil.nombre || ''} onChange={(e) => setPerfil(p => p ? { ...p, nombre: e.target.value } : null)} onBlur={(e) => autoGuardarPerfil({ nombre: e.target.value })} disabled={!puedeEditar} />
+          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.apellido')} value={perfil.apellido || ''} onChange={(e) => setPerfil(p => p ? { ...p, apellido: e.target.value } : null)} onBlur={(e) => autoGuardarPerfil({ apellido: e.target.value })} disabled={!puedeEditar} />
           <div>
             <SelectorFecha
               etiqueta={t('usuarios.fecha_nacimiento')}
@@ -286,8 +287,12 @@ export function TabInformacion({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input tipo="email" etiqueta="Correo personal" value={perfil.correo || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo: e.target.value } : null)} onBlur={() => { autoGuardarPerfil({ correo: perfil.correo }); sincronizarLoginSiCorrespondeAlCanal('correo') }} icono={<Mail size={15} />} disabled={!puedeEditar} />
           <Input tipo="email" etiqueta="Correo empresa" value={perfil.correo_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo_empresa: e.target.value } : null)} onBlur={() => { autoGuardarPerfil({ correo_empresa: perfil.correo_empresa }); sincronizarLoginSiCorrespondeAlCanal('correo_empresa') }} icono={<Mail size={15} />} disabled={!puedeEditar} />
-          <Input tipo="tel" etiqueta="Teléfono personal" value={perfil.telefono || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono: perfil.telefono })} icono={<Phone size={15} />} disabled={!puedeEditar} />
-          <Input tipo="tel" etiqueta="Teléfono empresa" value={perfil.telefono_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono_empresa: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono_empresa: perfil.telefono_empresa })} icono={<Phone size={15} />} disabled={!puedeEditar} />
+          {/* onBlur lee `e.target.value`: el Input ya aplicó el formato canónico al perder foco
+              (vía nativeInputValueSetter + input event), pero el setPerfil queda batched y
+              `perfil.telefono` del closure todavía es el valor crudo. Tomar del DOM garantiza
+              que la BD recibe la versión formateada. */}
+          <Input tipo="tel" etiqueta="Teléfono personal" value={perfil.telefono || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono: e.target.value } : null)} onBlur={(e) => autoGuardarPerfil({ telefono: e.target.value })} icono={<Phone size={15} />} disabled={!puedeEditar} />
+          <Input tipo="tel" etiqueta="Teléfono empresa" value={perfil.telefono_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono_empresa: e.target.value } : null)} onBlur={(e) => autoGuardarPerfil({ telefono_empresa: e.target.value })} icono={<Phone size={15} />} disabled={!puedeEditar} />
         </div>
 
         {/* Canales: dónde llegan notificaciones + con cuál correo inicia sesión.
@@ -385,12 +390,55 @@ export function TabInformacion({
           ))}
         </div>
 
-        {/* Acceso a Salix IA — separado por canal (app y WhatsApp son permisos distintos) */}
+        {/* Acceso a Salix IA: nivel define QUÉ puede hacer (ninguno / personal / completo)
+            y los flags de canal definen DÓNDE puede usarlo. Cuando el nivel es 'ninguno',
+            los toggles de canal quedan desactivados visualmente porque no tienen efecto. */}
         <div className="mt-5 pt-4 border-t border-white/[0.07]">
           <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">
             Acceso a Salix IA
           </p>
-          <div className="space-y-2.5">
+
+          {/* Selector de nivel: 3 pills horizontales */}
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-texto-primario">Nivel de acceso</span>
+              <p className="text-xs text-texto-terciario">
+                {(miembro.nivel_salix ?? 'ninguno') === 'ninguno'
+                  ? 'Sin acceso al asistente.'
+                  : miembro.nivel_salix === 'personal'
+                  ? 'Solo consultas sobre sus datos: recibos, asistencia, próximo pago.'
+                  : 'Asistente con acceso a todas las funciones de su rol.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {(['ninguno', 'personal', 'completo'] as const).map(nivel => {
+                const activo = (miembro.nivel_salix ?? 'ninguno') === nivel
+                const etiqueta = nivel === 'ninguno' ? 'Ninguno' : nivel === 'personal' ? 'Personal' : 'Completo'
+                return (
+                  <button
+                    key={nivel}
+                    type="button"
+                    disabled={!puedeEditar}
+                    onClick={() => {
+                      if (activo) return
+                      setMiembro(p => p ? { ...p, nivel_salix: nivel } : null)
+                      guardarMiembroInmediato({ nivel_salix: nivel })
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      activo
+                        ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                        : 'border-borde-sutil text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte'
+                    }`}
+                  >
+                    {etiqueta}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Toggles de canal: deshabilitados cuando el nivel es 'ninguno' */}
+          <div className={`mt-3 pt-3 border-t border-white/[0.05] space-y-2.5 ${(miembro.nivel_salix ?? 'ninguno') === 'ninguno' ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="flex items-center justify-between py-1">
               <div>
                 <span className="text-sm font-medium text-texto-primario">En la app (web y móvil)</span>
@@ -399,8 +447,8 @@ export function TabInformacion({
               <Interruptor
                 activo={!!miembro.salix_ia_web}
                 onChange={(v) => {
-                  setMiembro(p => p ? { ...p, salix_ia_web: v, salix_ia_habilitado: v || p.salix_ia_whatsapp } : null)
-                  guardarMiembroInmediato({ salix_ia_web: v, salix_ia_habilitado: v || !!miembro.salix_ia_whatsapp })
+                  setMiembro(p => p ? { ...p, salix_ia_web: v } : null)
+                  guardarMiembroInmediato({ salix_ia_web: v })
                 }}
                 deshabilitado={!puedeEditar}
               />
@@ -415,8 +463,8 @@ export function TabInformacion({
               <Interruptor
                 activo={!!miembro.salix_ia_whatsapp}
                 onChange={(v) => {
-                  setMiembro(p => p ? { ...p, salix_ia_whatsapp: v, salix_ia_habilitado: v || p.salix_ia_web } : null)
-                  guardarMiembroInmediato({ salix_ia_whatsapp: v, salix_ia_habilitado: v || !!miembro.salix_ia_web })
+                  setMiembro(p => p ? { ...p, salix_ia_whatsapp: v } : null)
+                  guardarMiembroInmediato({ salix_ia_whatsapp: v })
                 }}
                 deshabilitado={!puedeEditar}
               />

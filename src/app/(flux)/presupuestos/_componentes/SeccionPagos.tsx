@@ -23,6 +23,7 @@ import {
   type PresupuestoPago,
 } from '@/tipos/presupuesto-pago'
 import type { CuotaPago, Moneda } from '@/tipos/presupuesto'
+import { EstadosCuota, type EstadoCuota } from '@/tipos/cuota'
 import {
   calcularResumenesCuotas,
   calcularTotalCobradoPresupuesto,
@@ -341,18 +342,15 @@ export default function SeccionPagos({
     const saldo = resumen?.saldo ?? Math.max(0, totalCuota - pagado)
     // Preferimos el estado persistido por trigger (cuota.estado), pero usamos
     // el derivado por la lib como fallback si la cuota es sintética (no en BD).
-    const estadoEfectivo = (cuota.estado || resumen?.estadoDerivado || 'pendiente') as
-      | 'pendiente'
-      | 'parcial'
-      | 'cobrada'
+    const estadoEfectivo = (cuota.estado || resumen?.estadoDerivado || EstadosCuota.PENDIENTE) as EstadoCuota
     const colorEstado =
-      estadoEfectivo === 'cobrada'
+      estadoEfectivo === EstadosCuota.COBRADA
         ? 'text-insignia-exito'
-        : estadoEfectivo === 'parcial'
+        : estadoEfectivo === EstadosCuota.PARCIAL
           ? 'text-insignia-advertencia'
           : 'text-texto-terciario'
     const etiquetaEstado =
-      estadoEfectivo === 'cobrada' ? 'Cobrada' : estadoEfectivo === 'parcial' ? 'Parcial' : 'Pendiente'
+      estadoEfectivo === EstadosCuota.COBRADA ? 'Cobrada' : estadoEfectivo === EstadosCuota.PARCIAL ? 'Parcial' : 'Pendiente'
 
     return (
       <div key={cuota.id} className="space-y-2">
@@ -367,7 +365,7 @@ export default function SeccionPagos({
           <div className="text-xs text-texto-terciario tabular-nums">
             {pagado.toLocaleString('es-AR', { maximumFractionDigits: 2 })} /{' '}
             {totalCuota.toLocaleString('es-AR', { maximumFractionDigits: 2 })} {monedaPresupuesto}
-            {saldo > TOLERANCIA_SALDO && estadoEfectivo !== 'cobrada' && (
+            {saldo > TOLERANCIA_SALDO && estadoEfectivo !== EstadosCuota.COBRADA && (
               <span className="ml-2 text-texto-secundario">
                 · saldo {saldo.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
               </span>
@@ -375,7 +373,7 @@ export default function SeccionPagos({
           </div>
         </div>
         {lista.length > 0 && <div className="space-y-1.5">{lista.map(renderPago)}</div>}
-        {editable && estadoEfectivo !== 'cobrada' && (
+        {editable && estadoEfectivo !== EstadosCuota.COBRADA && (
           <button
             type="button"
             onClick={() => abrirCrear(cuota.id)}

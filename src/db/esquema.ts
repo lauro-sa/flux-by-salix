@@ -82,11 +82,14 @@ export const miembros = pgTable('miembros', {
   // Backup del usuario_id cuando el miembro pasa a "Solo fichaje". Permite
   // reactivar restaurando el vínculo sin perder perfil/auth/datos.
   usuario_id_anterior: uuid('usuario_id_anterior'),
-  // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp)
+  // Salix IA: acceso separado por canal (asistente dentro de la app / copilot por WhatsApp).
+  // Estos dos flags deciden DÓNDE puede usar Salix; el nivel_salix decide QUÉ puede hacer.
   salix_ia_web: boolean('salix_ia_web').notNull().default(false),
   salix_ia_whatsapp: boolean('salix_ia_whatsapp').notNull().default(false),
-  // DEPRECATED: mantenido por compatibilidad con datos históricos. Usar salix_ia_web / salix_ia_whatsapp.
-  salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
+  // Nivel de acceso al asistente: 'ninguno' (sin acceso), 'personal' (solo tools sobre los
+  // datos propios del empleado: recibo, próximo pago, asistencia) o 'completo' (todas las
+  // tools scope-eadas por rol/permisos). Los flags de canal no tienen efecto si es 'ninguno'.
+  nivel_salix: text('nivel_salix').notNull().default('ninguno'),
   // Kiosco
   kiosco_rfid: text('kiosco_rfid'),
   kiosco_pin: text('kiosco_pin'),
@@ -160,11 +163,54 @@ export const permisos_auditoria = pgTable('permisos_auditoria', {
   index('permisos_auditoria_empresa_idx').on(tabla.empresa_id),
 ])
 
+// Estados configurables de pagos de nómina y de adelantos.
+// Migración fuente: sql/052_estados_nomina.sql
+export const estados_pago_nomina = pgTable('estados_pago_nomina', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_pago_nomina_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
+export const estados_adelanto_nomina = pgTable('estados_adelanto_nomina', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_adelanto_nomina_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Pagos de nómina — registros de liquidación por miembro
 export const pagos_nomina = pgTable('pagos_nomina', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Estado del pago. Por defecto 'pagado' — la creación es el evento.
+  // Sincronizado con estado_clave vía trigger.
+  estado: text('estado').notNull().default('pagado'),
+  estado_id: uuid('estado_id').references(() => estados_pago_nomina.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_pago_nomina.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   // Período
   fecha_inicio_periodo: date('fecha_inicio_periodo').notNull(),
   fecha_fin_periodo: date('fecha_fin_periodo').notNull(),
@@ -228,6 +274,8 @@ export const adelantos_nomina = pgTable('adelantos_nomina', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Tipo: distingue dinero entregado al empleado (adelanto) de penalidades/multas (descuento).
+  tipo: text('tipo').notNull().default('adelanto'), // 'adelanto' | 'descuento'
   // Monto y cuotas
   monto_total: numeric('monto_total').notNull(),
   cuotas_totales: integer('cuotas_totales').notNull().default(1),
@@ -237,8 +285,13 @@ export const adelantos_nomina = pgTable('adelantos_nomina', {
   // Fechas
   fecha_solicitud: date('fecha_solicitud').notNull(),
   fecha_inicio_descuento: date('fecha_inicio_descuento').notNull(),
-  // Estado
-  estado: text('estado').notNull().default('activo'), // 'activo' | 'pagado' | 'cancelado'
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores: pendiente | activo | pagado | cancelado.
+  estado: text('estado').notNull().default('activo'),
+  estado_id: uuid('estado_id').references(() => estados_adelanto_nomina.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_adelanto_nomina.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   notas: text('notas'),
   referencia_contable: text('referencia_contable'),
   // Auditoría
@@ -395,6 +448,7 @@ export const contactos = pgTable('contactos', {
 
   // Datos personales (sincronizados desde el perfil del miembro vinculado vía trigger)
   fecha_nacimiento: date('fecha_nacimiento'),
+  genero: text('genero'), // 'masculino' | 'femenino' | 'otro' (mismo formato que perfiles.genero)
 
   // Auditoría
   creado_por: uuid('creado_por').notNull(),
@@ -554,11 +608,37 @@ export const secuencias = pgTable('secuencias', {
 // ═══════════════════════════════════════════════════════════════
 
 // Presupuestos — cotizaciones comerciales vinculadas a contactos
+// Estados de presupuesto — configurables por empresa.
+// Migración fuente: sql/050_estados_presupuestos.sql
+export const estados_presupuesto = pgTable('estados_presupuesto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_presupuesto_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const presupuestos = pgTable('presupuestos', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   numero: text('numero').notNull(), // P-0001 (generado por secuencia)
-  estado: text('estado').notNull().default('borrador'), // borrador, enviado, aceptado, rechazado, vencido, cancelado
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores reales: borrador | enviado | confirmado_cliente | orden_venta |
+  // completado | vencido | rechazado | cancelado.
+  estado: text('estado').notNull().default('borrador'),
+  estado_id: uuid('estado_id').references(() => estados_presupuesto.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_presupuesto.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Contacto vinculado (snapshot al crear)
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
@@ -703,6 +783,29 @@ export const presupuesto_historial = pgTable('presupuesto_historial', {
   index('presupuesto_historial_presupuesto_idx').on(tabla.presupuesto_id),
 ])
 
+// Estados de cuota — configurables por empresa (con set por defecto del sistema).
+// Estados de sistema (empresa_id NULL): pendiente, parcial, cobrada.
+// Migración fuente: sql/045_estados_cuotas.sql
+export const estados_cuota = pgTable('estados_cuota', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // empresa_id NULL = estado del sistema (visible para todas las empresas).
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo semántico: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  // Estados de sistema no se pueden eliminar/editar nombre desde la app.
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_cuota_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Cuotas de pago de presupuesto (para condición tipo 'hitos')
 export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -713,13 +816,21 @@ export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
   porcentaje: numeric('porcentaje').notNull(),
   monto: numeric('monto').notNull().default('0'),
   dias_desde_emision: integer('dias_desde_emision').default(0),
-  // Estado derivado automáticamente desde presupuesto_pagos por trigger:
-  // pendiente | parcial | cobrada
+  // Estado legacy (text). Se mantiene durante la transición y se sincroniza
+  // automáticamente con estado_clave vía trigger. Se elimina en el cleanup
+  // final (PR de drop columnas viejas).
   estado: text('estado').notNull().default('pendiente'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  // Sincronizado automáticamente con `estado` vía trigger en ambas direcciones.
+  estado_id: uuid('estado_id').references(() => estados_cuota.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_cuota.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   fecha_cobro: timestamp('fecha_cobro', { withTimezone: true }),
   cobrado_por_nombre: text('cobrado_por_nombre'),
 }, (tabla) => [
   index('presupuesto_cuotas_presupuesto_idx').on(tabla.presupuesto_id),
+  index('presupuesto_cuotas_estado_idx').on(tabla.empresa_id, tabla.estado_clave),
 ])
 
 // Pagos reales recibidos contra un presupuesto. Múltiples pagos por cuota
@@ -870,11 +981,38 @@ export const config_presupuestos = pgTable('config_presupuestos', {
 // ═══════════════════════════════════════════════════════════════
 
 // Órdenes de trabajo — ficha operativa generada desde presupuestos confirmados
+// Estados de orden — configurables por empresa con set por defecto del sistema.
+// Migración fuente: sql/049_estados_ordenes.sql
+// Nota: la clave 'esperando' fue renombrada a 'en_espera' (PR 9). El trigger
+// BEFORE traduce 'esperando' a 'en_espera' por compatibilidad si llega.
+export const estados_orden = pgTable('estados_orden', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_orden_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   numero: text('numero').notNull(),
-  estado: text('estado').notNull().default('abierta'), // abierta, en_progreso, esperando, completada, cancelada
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores: abierta | en_progreso | en_espera | completada | cancelada.
+  estado: text('estado').notNull().default('abierta'),
+  estado_id: uuid('estado_id').references(() => estados_orden.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_orden.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   prioridad: text('prioridad').notNull().default('media'), // baja, media, alta, urgente
   titulo: text('titulo').notNull(),
   descripcion: text('descripcion'),
@@ -1238,6 +1376,10 @@ export const actividades = pgTable('actividades', {
   tipo_clave: text('tipo_clave').notNull(), // snapshot para queries rápidas
   estado_id: uuid('estado_id').notNull().references(() => estados_actividad.id),
   estado_clave: text('estado_clave').notNull().default('pendiente'),
+  // Tracking de cambios de estado (PR 7 — sistema unificado de estados).
+  // Capturados por trigger BEFORE UPDATE en cada cambio.
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_actividad.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Prioridad
   prioridad: text('prioridad').notNull().default('normal'), // 'baja' | 'normal' | 'alta'
@@ -1648,6 +1790,26 @@ export const canal_agentes = pgTable('canal_agentes', {
   primaryKey({ columns: [tabla.canal_id, tabla.usuario_id] }),
 ])
 
+// Estados de conversación — configurables por empresa (con set por defecto del sistema).
+// Migración fuente: sql/046_estados_conversaciones.sql
+export const estados_conversacion = pgTable('estados_conversacion', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo semántico: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_conversacion_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Conversaciones — hilos de comunicación con contactos externos
 export const conversaciones = pgTable('conversaciones', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1658,7 +1820,17 @@ export const conversaciones = pgTable('conversaciones', {
   hilo_externo_id: text('hilo_externo_id'), // thread ID externo
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
   contacto_nombre: text('contacto_nombre'),
-  estado: text('estado').notNull().default('abierta'), // 'abierta', 'cerrada', 'archivada'
+  // Si está seteado, la conversación es con un empleado (no con un cliente).
+  // Permite separar la bandeja de WhatsApp en pestañas Clientes/Empleados.
+  miembro_id: uuid('miembro_id').references(() => miembros.id, { onDelete: 'set null' }),
+  // Estado legacy text. Se sincroniza con estado_clave vía trigger durante la transición.
+  // Valores: abierta | en_espera | resuelta | spam.
+  estado: text('estado').notNull().default('abierta'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  estado_id: uuid('estado_id').references(() => estados_conversacion.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_conversacion.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   prioridad: text('prioridad').notNull().default('normal'),
   asignado_a: uuid('asignado_a'),
   asignado_a_nombre: text('asignado_a_nombre'),
@@ -1719,7 +1891,9 @@ export const conversaciones = pgTable('conversaciones', {
   index('conversaciones_empresa_idx').on(tabla.empresa_id),
   index('conversaciones_canal_idx').on(tabla.canal_id),
   index('conversaciones_contacto_idx').on(tabla.contacto_id),
+  index('conversaciones_miembro_idx').on(tabla.empresa_id, tabla.tipo_canal, tabla.miembro_id),
   index('conversaciones_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('conversaciones_estado_clave_idx').on(tabla.empresa_id, tabla.estado_clave),
   index('conversaciones_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
   index('conversaciones_ultimo_mensaje_idx').on(tabla.empresa_id, tabla.ultimo_mensaje_en),
   index('conversaciones_etapa_idx').on(tabla.empresa_id, tabla.etapa_id),
@@ -2431,6 +2605,26 @@ export const turnos_laborales = pgTable('turnos_laborales', {
   index('turnos_laborales_orden_idx').on(tabla.empresa_id, tabla.orden),
 ])
 
+// Estados de asistencia — configurables por empresa.
+// Migración fuente: sql/051_estados_asistencias.sql
+// Renombres (PR 11): almuerzo→en_almuerzo, particular→en_particular.
+export const estados_asistencia = pgTable('estados_asistencia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_asistencia_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 // Asistencias — registro diario de fichaje por miembro (un registro por persona por día)
 export const asistencias = pgTable('asistencias', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -2444,8 +2638,14 @@ export const asistencias = pgTable('asistencias', {
   fin_almuerzo: timestamp('fin_almuerzo', { withTimezone: true }),
   salida_particular: timestamp('salida_particular', { withTimezone: true }), // salida breve (trámite)
   vuelta_particular: timestamp('vuelta_particular', { withTimezone: true }),
-  // Estado de la jornada (máquina de estados)
-  estado: text('estado').notNull().default('activo'), // 'activo' | 'almuerzo' | 'particular' | 'cerrado' | 'auto_cerrado' | 'ausente'
+  // Estado legacy text. Sincronizado con estado_clave vía trigger.
+  // Valores (renombrados PR 11): activo | en_almuerzo | en_particular |
+  // cerrado | feriado | auto_cerrado | ausente.
+  estado: text('estado').notNull().default('activo'),
+  estado_id: uuid('estado_id').references(() => estados_asistencia.id),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id').references(() => estados_asistencia.id),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
   // Clasificación
   tipo: text('tipo').notNull().default('normal'), // 'normal' | 'tardanza' | 'ausencia' | 'flexible'
   puntualidad_min: integer('puntualidad_min'), // minutos de desvío vs horario esperado
@@ -2774,6 +2974,26 @@ export const etiquetas_contacto = pgTable('etiquetas_contacto', {
 // ═══════════════════════════════════════════════════════════════
 
 // Visitas — registro de visita a un contacto en una dirección
+// Estados de visita — configurables por empresa con set por defecto del sistema.
+// Migración fuente: sql/048_estados_visitas.sql
+export const estados_visita = pgTable('estados_visita', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  // Grupo: inicial | activo | espera | completado | cancelado | error
+  grupo: text('grupo').notNull().default('activo'),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('estados_visita_empresa_idx').on(tabla.empresa_id, tabla.clave),
+])
+
 export const visitas = pgTable('visitas', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
@@ -2803,8 +3023,14 @@ export const visitas = pgTable('visitas', {
   duracion_estimada_min: integer('duracion_estimada_min').default(30),
   duracion_real_min: integer('duracion_real_min'),
 
-  // Estado
-  estado: text('estado').notNull().default('programada'), // programada, en_camino, en_sitio, completada, cancelada, reprogramada
+  // Estado legacy text. Sincronizado con estado_clave vía trigger durante la transición.
+  // Valores: programada | en_camino | en_sitio | completada | cancelada | reprogramada.
+  estado: text('estado').notNull().default('programada'),
+  // Estado nuevo (FK + clave denormalizada). Source of truth a futuro.
+  estado_id: uuid('estado_id'),
+  estado_clave: text('estado_clave'),
+  estado_anterior_id: uuid('estado_anterior_id'),
+  estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
   // Contenido
   motivo: text('motivo'), // por qué se hace la visita
@@ -3205,4 +3431,106 @@ export const notas_rapidas_compartidas = pgTable('notas_rapidas_compartidas', {
 }, (tabla) => [
   uniqueIndex('notas_compartidas_nota_usuario_idx').on(tabla.nota_id, tabla.usuario_id),
   index('notas_compartidas_usuario_idx').on(tabla.usuario_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// INFRAESTRUCTURA GENÉRICA DE ESTADOS Y TRANSICIONES
+// ═══════════════════════════════════════════════════════════════
+// Soporte transversal para todas las entidades con estado en Flux
+// (presupuestos, órdenes, visitas, conversaciones, asistencias,
+// cuotas, actividades, etc.). Es la base sobre la que se va a
+// construir el motor futuro de workflows / automatizaciones.
+//
+// Migración fuente: sql/044_estados_infraestructura.sql
+// ═══════════════════════════════════════════════════════════════
+
+// Cambios de estado — auditoría unificada de cambios de estado de
+// cualquier entidad. Cada vez que una entidad cambia de estado se
+// inserta un row acá. Es la fuente única de eventos para workflows.
+export const cambios_estado = pgTable('cambios_estado', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Identificación de la entidad que cambió.
+  // entidad_tipo es el discriminador genérico:
+  // 'presupuesto' | 'orden' | 'visita' | 'conversacion' | 'asistencia' | 'cuota' | 'actividad' | etc.
+  entidad_tipo: text('entidad_tipo').notNull(),
+  entidad_id: uuid('entidad_id').notNull(),
+
+  // Cambio: clave del estado antes y después.
+  // estado_anterior es NULL en la creación inicial.
+  estado_anterior: text('estado_anterior'),
+  estado_nuevo: text('estado_nuevo').notNull(),
+
+  // Snapshot del grupo (semántica) en el momento del cambio:
+  // 'inicial' | 'activo' | 'espera' | 'completado' | 'cancelado' | 'error'
+  grupo_anterior: text('grupo_anterior'),
+  grupo_nuevo: text('grupo_nuevo'),
+
+  // Origen del cambio: 'manual' | 'sistema' | 'workflow' | 'api' | 'webhook' | 'cron'
+  origen: text('origen').notNull().default('manual'),
+
+  // Quién hizo el cambio. NULL si fue sistema/workflow/cron.
+  usuario_id: uuid('usuario_id'),
+  usuario_nombre: text('usuario_nombre'), // snapshot
+
+  // Motivo opcional (útil para cancelaciones, rechazos, reprogramaciones).
+  motivo: text('motivo'),
+
+  // Metadatos flexibles (workflow_id, regla_id, condiciones, etc.).
+  metadatos: jsonb('metadatos').notNull().default(sql`'{}'::jsonb`),
+
+  // Snapshot de campos relevantes de la entidad al momento del cambio.
+  contexto: jsonb('contexto').notNull().default(sql`'{}'::jsonb`),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  // Historial de una entidad puntual (lo que muestra el chatter).
+  index('cambios_estado_entidad_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.entidad_id, tabla.creado_en),
+  // Feed por tipo de entidad.
+  index('cambios_estado_tipo_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.creado_en),
+  // Feed por estado destino (clave para workflows).
+  index('cambios_estado_estado_nuevo_idx').on(tabla.empresa_id, tabla.entidad_tipo, tabla.estado_nuevo, tabla.creado_en),
+  // Auditar lo que viene de workflows vs manual.
+  index('cambios_estado_origen_idx').on(tabla.empresa_id, tabla.origen, tabla.creado_en),
+])
+
+// Transiciones de estado — catálogo de transiciones válidas por entidad.
+// Sirve para validación API y para generar el catálogo de triggers que
+// el editor de workflows va a exponer. empresa_id NULL = transición del
+// sistema (válida para todas las empresas).
+export const transiciones_estado = pgTable('transiciones_estado', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').references(() => empresas.id, { onDelete: 'cascade' }),
+
+  entidad_tipo: text('entidad_tipo').notNull(),
+
+  // desde_clave NULL = transición desde cualquier estado.
+  desde_clave: text('desde_clave'),
+  hasta_clave: text('hasta_clave').notNull(),
+
+  // Etiqueta amigable de la transición ("Enviar presupuesto", "Aceptar", etc.).
+  etiqueta: text('etiqueta'),
+  descripcion: text('descripcion'),
+
+  // Si la dispara el sistema sin intervención del usuario.
+  es_automatica: boolean('es_automatica').notNull().default(false),
+  // Si requiere motivo obligatorio (cancelaciones, rechazos).
+  requiere_motivo: boolean('requiere_motivo').notNull().default(false),
+  // Si requiere confirmación explícita del usuario.
+  requiere_confirmacion: boolean('requiere_confirmacion').notNull().default(false),
+
+  // Condiciones declarativas opcionales (futuro, motor de workflows).
+  condiciones: jsonb('condiciones').notNull().default(sql`'[]'::jsonb`),
+
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  // Lookup rápido al validar una transición específica.
+  index('transiciones_estado_lookup_idx').on(tabla.entidad_tipo, tabla.desde_clave, tabla.hasta_clave),
+  // Lookup por empresa para listar transiciones disponibles.
+  index('transiciones_estado_empresa_idx').on(tabla.empresa_id, tabla.entidad_tipo),
 ])

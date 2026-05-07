@@ -167,7 +167,9 @@ function ContenidoOrdenesInterno() {
   /** Miembros para "Asignado" y "Creado por" */
   const { data: miembrosData } = useQuery({
     queryKey: ['miembros-empresa'],
-    queryFn: () => fetch('/api/miembros').then(r => r.json()),
+    // Filtro por responsable: las órdenes guardan `usuario_id`, así que solo
+    // tienen sentido los miembros con cuenta (los demás no pueden ser asignados).
+    queryFn: () => fetch('/api/miembros?incluir_sin_cuenta=false').then(r => r.json()),
     staleTime: 5 * 60_000,
   })
   const opcionesMiembros = useMemo(() => {

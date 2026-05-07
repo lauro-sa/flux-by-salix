@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
     // Filtro "vencida" — fecha_fin_estimada < hoy AND estado activo
     if (vencida === 'true') {
       const ahora = new Date().toISOString()
-      query = query.lt('fecha_fin_estimada', ahora).in('estado', ['abierta', 'en_progreso', 'esperando'])
+      query = query.lt('fecha_fin_estimada', ahora).in('estado', ['abierta', 'en_progreso', 'en_espera'])
     } else if (vencida === 'false') {
       const ahora = new Date().toISOString()
       query = query.or(`fecha_fin_estimada.gte.${ahora},fecha_fin_estimada.is.null,estado.in.(completada,cancelada)`)
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
           query = query.gte('fecha_inicio', hoyISO).lt('fecha_inicio', finSemanaISO)
           break
         case 'vencidas':
-          query = query.lt('fecha_fin_estimada', hoyISO).in('estado', ['abierta', 'en_progreso', 'esperando'])
+          query = query.lt('fecha_fin_estimada', hoyISO).in('estado', ['abierta', 'en_progreso', 'en_espera'])
           break
         case 'futuras':
           query = query.gte('fecha_inicio', mananaISO)
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
       const ESTADO_KEYWORDS: Record<string, string[]> = {
         abierta: ['abierta', 'abrir', 'open'],
         en_progreso: ['progreso', 'en progreso', 'curso'],
-        esperando: ['esperando', 'espera', 'pausa'],
+        en_espera: ['en espera', 'espera', 'pausa', 'esperando'],
         completada: ['completada', 'completa', 'finalizada', 'cerrada'],
         cancelada: ['cancelada', 'cancel'],
       }

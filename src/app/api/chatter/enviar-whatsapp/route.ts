@@ -9,6 +9,7 @@ import {
 import { registrarChatter } from '@/lib/chatter'
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 import { obtenerConfigPausa, calcularPausaPorRespuestaHumana } from '@/lib/whatsapp-pausa'
+import { EstadosConversacion, type EstadoConversacion } from '@/tipos/conversacion'
 
 /**
  * POST /api/chatter/enviar-whatsapp
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     // 3. Buscar conversación existente con este número (cualquier variante).
     // Traemos `estado` para saber si hay que reabrirla (caso plantilla a conversación resuelta).
     let conversacionId: string | null = null
-    let conversacionEstaba: 'abierta' | 'en_espera' | 'resuelta' | 'spam' | null = null
+    let conversacionEstaba: EstadoConversacion | null = null
     const orConv = variantesTel.map(v => `identificador_externo.eq.${v}`).join(',')
     const { data: convExistente, error: errConv } = await admin
       .from('conversaciones')
@@ -215,8 +216,8 @@ export async function POST(request: NextRequest) {
       actualizado_en: ahoraISO,
       ...pausaUpdates,
     }
-    if (conversacionEstaba === 'resuelta') {
-      updateConv.estado = 'abierta'
+    if (conversacionEstaba === EstadosConversacion.RESUELTA) {
+      updateConv.estado = EstadosConversacion.ABIERTA
       updateConv.cerrado_en = null
       updateConv.cerrado_por = null
     }

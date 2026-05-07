@@ -545,6 +545,41 @@ function obtenerIcono(nombre: string): React.ComponentType<{ size?: number; clas
   return iconos[nombre] || null
 }
 
+// Calcula la posición ideal del dropdown según el viewport.
+// Si no hay espacio suficiente abajo del botón, abre hacia arriba.
+// Limita maxHeight al espacio disponible para evitar que se desborde.
+function calcularPosicionDropdown(boton: HTMLButtonElement) {
+  const rect = boton.getBoundingClientRect()
+  const margenViewport = 16   // padding mínimo respecto a los bordes
+  const gap = 4                // separación entre botón y dropdown
+  const altoIdeal = 480        // alto deseado cuando hay espacio
+  const altoMinimo = 280       // alto mínimo para que sea usable
+
+  const espacioAbajo  = window.innerHeight - rect.bottom - margenViewport
+  const espacioArriba = rect.top - margenViewport
+
+  // Decidir dirección: abre arriba si abajo no entra cómodo y arriba sí
+  const abrirHaciaArriba =
+    espacioAbajo < altoMinimo && espacioArriba > espacioAbajo
+
+  const maxHeight = Math.max(
+    altoMinimo,
+    Math.min(altoIdeal, abrirHaciaArriba ? espacioArriba : espacioAbajo),
+  )
+
+  const top = abrirHaciaArriba
+    ? Math.max(margenViewport, rect.top - maxHeight - gap)
+    : rect.bottom + gap
+
+  return {
+    top,
+    left: rect.left,
+    width: rect.width,
+    maxHeight,
+    abrirHaciaArriba,
+  }
+}
+
 // Obtener todos los nombres de íconos disponibles (filtrar solo componentes)
 function obtenerTodosLosIconos(): string[] {
   return Object.keys(iconosLucide).filter(key => {
@@ -562,13 +597,13 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
   const botonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0, maxHeight: 480, abrirHaciaArriba: false })
 
-  // Calcular posición del dropdown relativa al viewport
+  // Calcular posición del dropdown según viewport: si no entra abajo,
+  // abre hacia arriba. Limita maxHeight al espacio disponible.
   useLayoutEffect(() => {
     if (!abierto || !botonRef.current) return
-    const rect = botonRef.current.getBoundingClientRect()
-    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    setPosicion(calcularPosicionDropdown(botonRef.current))
   }, [abierto])
 
   // Cerrar al hacer click afuera
@@ -590,8 +625,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
     if (!abierto) return
     const handler = () => {
       if (botonRef.current) {
-        const rect = botonRef.current.getBoundingClientRect()
-        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+        setPosicion(calcularPosicionDropdown(botonRef.current))
       }
     }
     window.addEventListener('scroll', handler, true)
@@ -695,11 +729,12 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="fixed border border-borde-sutil rounded-popover shadow-lg overflow-hidden bg-superficie-elevada"
+            className="fixed border border-borde-sutil rounded-popover shadow-lg overflow-hidden bg-superficie-elevada flex flex-col"
             style={{
               top: posicion.top,
               left: posicion.left,
               width: Math.max(posicion.width, 340),
+              maxHeight: posicion.maxHeight,
               zIndex: 'var(--z-popover)' as unknown as number,
             }}
           >
@@ -718,8 +753,9 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
               </div>
             </div>
 
-            {/* Contenido */}
-            <div className="p-2 overflow-y-auto max-h-72">
+            {/* Contenido — flex-1 para que respete el maxHeight del contenedor
+                (que ya considera el espacio disponible en viewport) */}
+            <div className="p-2 overflow-y-auto flex-1 min-h-0">
               {iconosFiltrados !== null ? (
                 // Modo búsqueda: lista plana de resultados
                 iconosFiltrados.length === 0 ? (

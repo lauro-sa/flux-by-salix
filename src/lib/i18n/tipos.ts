@@ -1137,6 +1137,7 @@ export interface Traducciones {
     aplicaciones: string
     documentacion: string
     marketing: string
+    flujos: string
   }
 
   // Toolbar flotante de selección de texto
@@ -1540,5 +1541,841 @@ export interface Traducciones {
     escribir_mensaje: string
     reaccionar: string
     quitar_etiqueta: string
+  }
+
+  // Flujos — listado central, modal de creación, acciones por fila.
+  // Las claves de `disparador.*` viven acá (no en un helper hardcodeado)
+  // para cumplir la regla i18n desde el inicio (memoria: feedback_documentacion.md).
+  flujos: {
+    titulo: string
+    nuevo: string
+    buscar_placeholder: string
+
+    // Estados
+    estados: {
+      activo: string
+      pausado: string
+      borrador: string
+    }
+
+    // Filtros toolbar (pills tri-state)
+    filtro_todos: string
+    filtro_activos: string
+    filtro_pausados: string
+    filtro_borradores: string
+
+    // Columnas
+    columna_estado: string
+    columna_nombre: string
+    columna_modulo: string
+    columna_disparador: string
+    columna_ultima_ejecucion: string
+    columna_ejecuciones: string
+
+    // Filtros panel avanzado
+    filtro_modulo: string
+    filtro_modulo_desc: string
+    filtro_tipo_disparador: string
+    filtro_tipo_disparador_desc: string
+    filtro_creado: string
+    filtro_creado_desc: string
+    filtro_ultima_ejec: string
+    filtro_ultima_ejec_desc: string
+    filtro_estado_desc: string
+
+    // Grupos de filtros
+    grupo_identidad: string
+    grupo_comportamiento: string
+    grupo_actividad: string
+
+    // Etiquetas legibles de cada tipo de disparador
+    disparador: {
+      'entidad.estado_cambio': string
+      'entidad.creada': string
+      'entidad.campo_cambia': string
+      'actividad.completada': string
+      'tiempo.cron': string
+      'tiempo.relativo_a_campo': string
+      'webhook.entrante': string
+      'inbox.mensaje_recibido': string
+      'inbox.conversacion_sin_respuesta': string
+      sin_disparador: string
+    }
+    disparador_descripcion: {
+      'entidad.estado_cambio': string
+      'entidad.creada': string
+      'entidad.campo_cambia': string
+      'actividad.completada': string
+      'tiempo.cron': string
+      'tiempo.relativo_a_campo': string
+      'webhook.entrante': string
+      'inbox.mensaje_recibido': string
+      'inbox.conversacion_sin_respuesta': string
+    }
+
+    // Modal "+ Nuevo flujo" (§1.11 del plan UX)
+    modal_nuevo: {
+      titulo: string
+      pestana_plantilla: string
+      pestana_cero: string
+      buscar_plantilla: string
+      filtrar_modulo: string
+      todos_modulos: string
+      crear_desde_plantilla: string
+      nombre_label: string
+      nombre_placeholder: string
+      modulo_label: string
+      modulo_placeholder: string
+      crear_y_editar: string
+      sin_plantillas: string
+      sin_plantillas_busqueda: string
+      plantilla_disparador: string
+    }
+
+    // Estado vacío educativo (empresa sin flujos)
+    estado_vacio: {
+      titulo: string
+      descripcion: string
+      titulo_plantillas: string
+      crear_desde_cero: string
+    }
+
+    // Acciones del menú tres puntos
+    accion: {
+      editar: string
+      ver: string
+      duplicar: string
+      activar: string
+      pausar: string
+      eliminar: string
+      sin_tipo: string
+    }
+
+    // Confirmación dura para eliminar
+    confirmar_eliminar: {
+      titulo: string
+      descripcion: string
+      confirmar: string
+    }
+
+    // Modal mínimo de duplicar
+    modal_duplicar: {
+      titulo: string
+      descripcion: string
+      nombre_label: string
+      sufijo_copia: string
+      confirmar: string
+    }
+
+    // Sección "Flujos" dentro de cada `/<modulo>/configuracion`
+    // (sub-PR 19.7 — §1.10 + §5.5 del plan UX). Estructura: lista
+    // compacta de flujos del módulo + grid de plantillas curadas.
+    seccion_modulo: {
+      lista_titulo: string
+      lista_ver_todos: string
+      lista_mas_sufijo: string
+      cargando: string
+      ultima_ejecucion_prefijo: string
+      sin_ejecutar: string
+      plantillas_titulo: string
+      plantillas_descripcion: string
+    }
+
+    // Tooltips e indicadores
+    tooltip_borrador_pendiente: string
+    tooltip_sin_ejecutar: string
+
+    // Toasts de feedback de las acciones
+    toast: {
+      creado: string
+      duplicado: string
+      activado: string
+      pausado: string
+      eliminado: string
+      error_crear: string
+      error_duplicar: string
+      error_activar: string
+      error_pausar: string
+      error_eliminar: string
+    }
+
+    // Editor visual (sub-PR 19.2)
+    editor: {
+      volver_listado: string
+      nombre_default: string
+      nombre_editar_tooltip: string
+      elegir_icono: string
+      drag_handle: string
+      agregar_paso_intermedio: string
+      agregar_paso_final: string
+
+      indicador: {
+        guardando: string
+        guardado: string
+        guardado_hace_min: string
+        guardado_hace_h: string
+      }
+
+      banner: {
+        borrador_titulo: string
+        borrador_desc: string
+        lectura_titulo: string
+        lectura_desc: string
+        error_titulo: string
+        error_desc: string
+      }
+
+      validacion: {
+        titulo_activar: string
+        titulo_publicar: string
+        descripcion: string
+        cta_ver_errores: string
+        errores_extra: string
+      }
+
+      accion: {
+        publicar: string
+        descartar: string
+        reactivar: string
+        probar: string
+        probar_tooltip: string
+      }
+
+      tabs: {
+        aria_label: string
+        editor: string
+        historial: string
+      }
+
+      disparador: {
+        etiqueta: string
+        placeholder_titulo: string
+        placeholder_desc: string
+      }
+
+      branch: {
+        resumen: string
+        rama_si: string
+        rama_no: string
+        rama_count: string
+        rama_vacia: string
+      }
+
+      panel: {
+        titulo_default: string
+        banner_lectura: string
+
+        seccion: {
+          basicos: string
+          tiempo: string
+          disparador: string
+          avanzado: string
+          condiciones: string
+        }
+
+        subheader: {
+          posicion: string
+          rama_si: string
+          rama_no: string
+        }
+
+        footer: {
+          eliminar_paso: string
+        }
+
+        pendiente: {
+          titulo: string
+          descripcion: string
+        }
+
+        esperar: {
+          cantidad_label: string
+          unidad_label: string
+          unidad_min: string
+          unidad_hora: string
+          unidad_dia: string
+          ayuda: string
+          ayuda_fecha_absoluta: string
+        }
+
+        terminar: {
+          leyenda: string
+          motivo_label: string
+          motivo_placeholder: string
+        }
+
+        cron: {
+          expresion_label: string
+          ayuda: string
+          ejemplo_1: string
+          ejemplo_2: string
+          ejemplo_3: string
+        }
+
+        actividad_completada: {
+          tipo_clave_label: string
+          tipo_clave_placeholder: string
+          tipo_clave_ayuda: string
+        }
+
+        header: {
+          editar_nombre_tooltip: string
+        }
+
+        avanzado: {
+          proximamente: string
+          continuar_si_falla_label: string
+          continuar_si_falla_ayuda: string
+        }
+
+        whatsapp: {
+          canal_label: string
+          canal_placeholder: string
+          canal_ayuda: string
+          telefono_label: string
+          telefono_placeholder: string
+          telefono_ayuda: string
+          plantilla_label: string
+          plantilla_placeholder: string
+          plantilla_ayuda: string
+          idioma_label: string
+        }
+
+        notificar: {
+          usuario_label: string
+          usuario_placeholder: string
+          usuario_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+          url_label: string
+          url_placeholder: string
+          url_ayuda: string
+          tipo_label: string
+          tipo_placeholder: string
+        }
+
+        actividad: {
+          tipo_id_label: string
+          tipo_id_placeholder: string
+          tipo_id_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          descripcion_label: string
+          descripcion_placeholder: string
+          prioridad_label: string
+          prioridad_baja: string
+          prioridad_normal: string
+          prioridad_alta: string
+          asignados_label: string
+          asignados_placeholder: string
+          asignados_ayuda: string
+          contacto_label: string
+          contacto_placeholder: string
+          contacto_ayuda: string
+          fecha_label: string
+          fecha_ayuda: string
+        }
+
+        cambiar_estado: {
+          entidad_label: string
+          entidad_ayuda_disparador: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+          hasta_clave_label: string
+          hasta_clave_placeholder: string
+          hasta_clave_ayuda: string
+          motivo_label: string
+          motivo_placeholder: string
+          entidad: {
+            presupuesto: string
+            orden: string
+            visita: string
+            conversacion: string
+            asistencia: string
+            cuota: string
+            actividad: string
+            adelanto_nomina: string
+            pago_nomina: string
+          }
+        }
+
+        entidad_estado_cambio: {
+          entidad_label: string
+          hasta_label: string
+          hasta_placeholder: string
+          hasta_ayuda: string
+          desde_label: string
+          desde_placeholder: string
+          desde_ayuda: string
+        }
+
+        entidad_creada: {
+          entidad_label: string
+          entidad_ayuda: string
+        }
+
+        entidad_campo_cambia: {
+          entidad_label: string
+          campo_label: string
+          campo_placeholder: string
+          campo_ayuda: string
+          valor_label: string
+          valor_placeholder: string
+          valor_ayuda: string
+        }
+
+        relativo_a_campo: {
+          entidad_label: string
+          campo_fecha_label: string
+          campo_fecha_placeholder: string
+          campo_fecha_ayuda: string
+          delta_label: string
+          delta_ayuda: string
+          hora_local_label: string
+          hora_local_ayuda: string
+          tolerancia_label: string
+          tolerancia_ayuda: string
+        }
+
+        // Sub-PR 19.3c
+
+        branch: {
+          operador_label: string
+          operador_y: string
+          operador_o: string
+          ayuda_y: string
+          ayuda_o: string
+          sin_condiciones: string
+          agregar_condicion: string
+          fila_anidada_no_editable: string
+          ayuda_avanzado: string
+          fila: {
+            variable_label: string
+            variable_placeholder: string
+            valor_label: string
+            valor_placeholder: string
+            eliminar: string
+          }
+          op: {
+            igual: string
+            distinto: string
+            mayor: string
+            menor: string
+            mayor_o_igual: string
+            menor_o_igual: string
+            contiene: string
+            no_contiene: string
+            esta_vacio: string
+            no_esta_vacio: string
+          }
+        }
+
+        asignar: {
+          usuario_label: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+        }
+
+        etiqueta: {
+          agregar_label: string
+          agregar_placeholder: string
+          quitar_label: string
+          quitar_placeholder: string
+          clave_ayuda: string
+          entidad_id_label: string
+          entidad_id_ayuda: string
+        }
+
+        notificar_grupo: {
+          grupo_label: string
+          grupo_placeholder: string
+          grupo_ayuda: string
+          titulo_label: string
+          titulo_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+        }
+
+        whatsapp_texto: {
+          mensaje_label: string
+          mensaje_placeholder: string
+          mensaje_ayuda: string
+        }
+
+        correo_texto: {
+          destinatario_label: string
+          asunto_label: string
+          asunto_placeholder: string
+          cuerpo_label: string
+          cuerpo_placeholder: string
+          cuerpo_ayuda: string
+        }
+
+        correo_plantilla: {
+          plantilla_label: string
+          plantilla_ayuda: string
+          destinatario_label: string
+          preview_titulo: string
+          preview_asunto_label: string
+          preview_cuerpo_label: string
+          preview_ayuda: string
+        }
+
+        generico_json: {
+          cartel_titulo: string
+          cartel_descripcion: string
+          cartel_aviso_no_guarda: string
+          formatear: string
+          error_parse: string
+          error_no_objeto: string
+        }
+      }
+
+
+      confirmar_descartar: {
+        titulo: string
+        descripcion: string
+        confirmar: string
+      }
+
+      toast: {
+        publicado: string
+        descartado: string
+        guardado_manual: string
+        error_guardar: string
+        error_publicar: string
+        error_descartar: string
+      }
+
+      // Consola de prueba (sub-PR 19.5)
+      consola: {
+        titulo: string
+        cerrar: string
+        tab_preview: string
+        tab_dryrun: string
+        evento_label: string
+        evento_sin_evento: string
+        evento_no_disponible: string
+        cargando: string
+        cta_correr: string
+        cta_volver_a_correr: string
+        cta_actualizar_preview: string
+        sin_pasos: string
+
+        banner_invalido_titulo: string
+        banner_invalido_desc: string
+        banner_no_implementadas_titulo: string
+        banner_no_implementadas_desc: string
+
+        preview: {
+          titulo: string
+          descripcion: string
+          paso_titulo: string
+          rama_si_resuelta: string
+          rama_no_resuelta: string
+          esperaria: string
+          esperaria_hasta: string
+          terminar_flujo: string
+          variable_faltante: string
+          ver_detalle: string
+          ocultar_detalle: string
+        }
+
+        dryrun: {
+          titulo: string
+          paso_completado: string
+          paso_simulado: string
+          paso_fallado: string
+          paso_no_implementada: string
+          accion_no_implementada_inline: string
+          duracion_ms: string
+          terminado_temprano: string
+          resumen_titulo: string
+          resumen_completados: string
+          resumen_fallados: string
+          resumen_simulados: string
+          resumen_total: string
+          accion_simulada_whatsapp: string
+          accion_simulada_actividad: string
+          accion_simulada_estado: string
+          accion_simulada_notificar: string
+          accion_simulada_generica: string
+          error_correr: string
+        }
+      }
+    }
+
+    // Selectores autocomplete (sub-PR 19.3c)
+    selector: {
+      buscar: string
+      cargando: string
+      error_cargar: string
+      sin_resultados: string
+      canal_wa: { placeholder: string }
+      plantilla_wa: { placeholder: string }
+      tipo_actividad: { placeholder: string }
+      miembro: { placeholder: string; placeholder_multi: string }
+      estado: { placeholder: string }
+      etiqueta: { placeholder: string }
+      plantilla_correo: { placeholder: string }
+    }
+
+    // Picker de variables (sub-PR 19.3b)
+    picker: {
+      titulo: string
+      buscador_placeholder: string
+      limpiar_busqueda: string
+      tab_todas: string
+      sin_resultados: string
+      hint_navegacion: string
+      boton_insertar: string
+      helpers_mostrar: string
+      helpers_ocultar: string
+      fuente: {
+        entidad: string
+        contacto: string
+        empresa: string
+        sistema: string
+        cambio: string
+        actor: string
+      }
+    }
+
+    // Catálogo de variables disponibles (sub-PR 19.3b)
+    variables: {
+      presupuesto: {
+        numero: string
+        titulo: string
+        total: string
+        estado_clave: string
+        fecha_validez: string
+        creado_en: string
+      }
+      cuota: {
+        numero: string
+        monto: string
+        fecha_vencimiento: string
+        estado_clave: string
+      }
+      orden: {
+        numero: string
+        titulo: string
+        estado_clave: string
+        fecha_programada: string
+      }
+      visita: {
+        titulo: string
+        estado_clave: string
+        fecha_programada: string
+        direccion: string
+      }
+      actividad: {
+        titulo: string
+        descripcion: string
+        estado_clave: string
+        fecha_vencimiento: string
+      }
+      conversacion: {
+        canal: string
+        estado_clave: string
+        ultima_actividad_en: string
+      }
+      generico: {
+        id: string
+        estado_clave: string
+      }
+      contacto: {
+        nombre: string
+        email: string
+        telefono: string
+        empresa: string
+      }
+      empresa: {
+        nombre: string
+        telefono: string
+        correo: string
+        pagina_web: string
+      }
+      sistema: {
+        ahora: string
+      }
+      actor: {
+        nombre: string
+        email: string
+        nombre_completo: string
+      }
+      cambio: {
+        desde: string
+        hasta: string
+      }
+    }
+
+    // Modal `CatalogoPasos` (sub-PR 19.2)
+    catalogo: {
+      titulo_disparador: string
+      titulo_accion: string
+      buscar_placeholder: string
+      sin_resultados: string
+      sin_categorias: string
+
+      categoria: {
+        eventos: string
+        eventos_desc: string
+        tiempo: string
+        tiempo_desc: string
+        envios: string
+        envios_desc: string
+        creaciones: string
+        creaciones_desc: string
+        cambios: string
+        cambios_desc: string
+        notificaciones: string
+        notificaciones_desc: string
+        control: string
+        control_desc: string
+        terminar: string
+        terminar_desc: string
+      }
+    }
+
+    // Etiquetas y descripciones por tipo de paso (disparadores + acciones)
+    paso: {
+      // Disparadores
+      'entidad.estado_cambio': { titulo: string; descripcion: string }
+      'entidad.creada': { titulo: string; descripcion: string }
+      'entidad.campo_cambia': { titulo: string; descripcion: string }
+      'actividad.completada': { titulo: string; descripcion: string }
+      'tiempo.cron': { titulo: string; descripcion: string }
+      'tiempo.relativo_a_campo': { titulo: string; descripcion: string }
+      'webhook.entrante': { titulo: string; descripcion: string }
+      'inbox.mensaje_recibido': { titulo: string; descripcion: string }
+      'inbox.conversacion_sin_respuesta': { titulo: string; descripcion: string }
+      // Acciones
+      enviar_whatsapp_plantilla: { titulo: string; descripcion: string }
+      enviar_whatsapp_texto: { titulo: string; descripcion: string }
+      enviar_correo_plantilla: { titulo: string; descripcion: string }
+      enviar_correo_texto: { titulo: string; descripcion: string }
+      crear_actividad: { titulo: string; descripcion: string }
+      cambiar_estado_entidad: { titulo: string; descripcion: string }
+      asignar_usuario: { titulo: string; descripcion: string }
+      agregar_etiqueta: { titulo: string; descripcion: string }
+      quitar_etiqueta: { titulo: string; descripcion: string }
+      notificar_usuario: { titulo: string; descripcion: string }
+      notificar_grupo: { titulo: string; descripcion: string }
+      crear_orden_trabajo: { titulo: string; descripcion: string }
+      crear_visita: { titulo: string; descripcion: string }
+      webhook_saliente: { titulo: string; descripcion: string }
+      esperar: { titulo: string; descripcion: string }
+      esperar_evento: { titulo: string; descripcion: string }
+      condicion_branch: { titulo: string; descripcion: string }
+      terminar_flujo: { titulo: string; descripcion: string }
+    }
+
+    historial: {
+      placeholder: {
+        titulo: string
+        descripcion: string
+      }
+      busqueda_placeholder: string
+      entidad_sin_referencia: string
+      hint_dataset_grande: string
+      columnas: {
+        estado: string
+        fecha: string
+        disparado_por: string
+        entidad: string
+        duracion: string
+      }
+      grupos: {
+        estado: string
+        cuando: string
+        origen: string
+      }
+      filtros: {
+        estado: string
+        estado_desc: string
+        disparado_por: string
+        disparado_por_desc: string
+        creado_rango: string
+        creado_rango_desc: string
+        error_raw_class: string
+        error_raw_class_desc: string
+      }
+      preset_fecha: {
+        hoy: string
+        '7d': string
+        '30d': string
+        '90d': string
+      }
+      estados: {
+        pendiente: string
+        corriendo: string
+        esperando: string
+        completado: string
+        fallado: string
+        cancelado: string
+      }
+      disparado_por: {
+        cambios_estado: string
+        cron: string
+        manual: string
+        webhook: string
+        desconocido: string
+      }
+      empty: {
+        sin_ejecuciones_titulo: string
+        sin_ejecuciones_desc: string
+      }
+      drawer: {
+        titulo: string
+        cerrar: string
+        reintentar: string
+        creado_en: string
+        inicio: string
+        fin: string
+        no_encontrada_titulo: string
+        no_encontrada_desc: string
+        error_titulo: string
+        error_desc: string
+      }
+      timeline: {
+        sin_pasos: string
+        intentos: string
+        continuo_pese_fallo: string
+        pendientes: string
+        pendiente_estado: string
+        ejecutar_en: string
+      }
+      acciones: {
+        reejecutar: string
+        reejecutar_ok: string
+        reejecutar_error: string
+        cancelar: string
+        cancelar_ok: string
+        cancelar_error: string
+        cancelar_ya_termino: string
+        cancelar_corriendo: string
+        copiar_log: string
+        copiar_log_tooltip: string
+        copiar_log_ok: string
+        copiar_log_error: string
+        confirmar_reejecutar: {
+          titulo: string
+          descripcion: string
+          confirmar: string
+        }
+        confirmar_cancelar: {
+          titulo: string
+          descripcion: string
+          confirmar: string
+        }
+      }
+      chatter: {
+        titulo: string
+        flujo_sin_nombre: string
+      }
+    }
   }
 }

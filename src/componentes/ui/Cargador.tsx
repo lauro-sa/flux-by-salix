@@ -217,7 +217,7 @@ function CargadorInline() {
 import {
   Users, Zap, MapPin, Route, FileText, Package, MessagesSquare,
   Calendar, Clock, Wrench, Shield, LayoutDashboard, FileBarChart,
-  Megaphone, Building2, CircleUserRound, Trash2, Blocks,
+  Megaphone, Building2, CircleUserRound, Trash2, Blocks, Workflow,
 } from 'lucide-react'
 
 const ICONOS_SECCION: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>> = {
@@ -230,6 +230,7 @@ const ICONOS_SECCION: Record<string, React.ComponentType<{ size?: number; stroke
   inbox: MessagesSquare,
   calendario: Calendar,
   asistencias: Clock,
+  flujos: Workflow,
   ordenes: Wrench,
   auditoria: Shield,
   dashboard: LayoutDashboard,

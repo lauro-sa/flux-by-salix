@@ -607,8 +607,8 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
               onChange: (v) => setFiltroEstados(Array.isArray(v) ? v : []),
               opciones: [
                 { valor: 'activo', etiqueta: 'Activo (en curso)' },
-                { valor: 'almuerzo', etiqueta: 'En almuerzo' },
-                { valor: 'particular', etiqueta: 'Salida particular' },
+                { valor: 'en_almuerzo', etiqueta: 'En almuerzo' },
+                { valor: 'en_particular', etiqueta: 'Salida particular' },
                 { valor: 'cerrado', etiqueta: 'Cerrado' },
                 { valor: 'auto_cerrado', etiqueta: 'Auto-cerrado' },
                 { valor: 'ausente', etiqueta: 'Ausente' },

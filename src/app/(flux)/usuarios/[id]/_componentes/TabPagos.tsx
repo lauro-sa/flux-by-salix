@@ -71,10 +71,11 @@ interface PropsTabPagos {
   adelantos: Record<string, unknown>[]
   cargandoAdelantos: boolean
   crearAdelanto: (datos: {
+    tipo: 'adelanto' | 'descuento'
     monto_total: number
     cuotas_totales: number
     notas: string
-    fecha_inicio_descuento: string
+    fecha_adelanto: string
   }) => Promise<void>
   cancelarAdelanto: (adelantoId: string) => Promise<void>
   /* Formatter */
@@ -99,13 +100,14 @@ export function TabPagos({
   adelantos, cargandoAdelantos, crearAdelanto, cancelarAdelanto,
   fmt, t,
 }: PropsTabPagos) {
-  /* ── Estado local: modal adelanto ── */
+  /* ── Estado local: modal adelanto/descuento ── */
   const [modalAdelanto, setModalAdelanto] = useState(false)
   const [guardandoAdelanto, setGuardandoAdelanto] = useState(false)
+  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento'>('adelanto')
   const [adelantoMonto, setAdelantoMonto] = useState('')
   const [adelantoCuotas, setAdelantoCuotas] = useState('1')
   const [adelantoNotas, setAdelantoNotas] = useState('')
-  const [adelantoFechaInicio, setAdelantoFechaInicio] = useState('')
+  const [adelantoFecha, setAdelantoFecha] = useState('')
 
   const adelantosActivos = adelantos.filter(a => (a.estado as string) === 'activo')
 
@@ -113,15 +115,18 @@ export function TabPagos({
     const monto = parseFloat(adelantoMonto)
     if (!monto || monto <= 0) return
     setGuardandoAdelanto(true)
+    // Los descuentos puntuales son siempre 1 cuota.
+    const cuotasTotales = adelantoTipo === 'descuento' ? 1 : (parseInt(adelantoCuotas) || 1)
     await crearAdelanto({
+      tipo: adelantoTipo,
       monto_total: monto,
-      cuotas_totales: parseInt(adelantoCuotas) || 1,
+      cuotas_totales: cuotasTotales,
       notas: adelantoNotas,
-      fecha_inicio_descuento: adelantoFechaInicio || new Date().toISOString().split('T')[0],
+      fecha_adelanto: adelantoFecha || new Date().toISOString().split('T')[0],
     })
     setGuardandoAdelanto(false)
     setModalAdelanto(false)
-    setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFechaInicio('')
+    setAdelantoTipo('adelanto'); setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
   }
 
   /* ── Estado local: acordeón compensación ── */
@@ -402,11 +407,11 @@ export function TabPagos({
         )}
       </Tarjeta>
 
-      {/* ── MODAL REGISTRAR ADELANTO ── */}
+      {/* ── MODAL REGISTRAR ADELANTO/DESCUENTO ── */}
       <Modal
         abierto={modalAdelanto}
         onCerrar={() => setModalAdelanto(false)}
-        titulo="Registrar Adelanto"
+        titulo={adelantoTipo === 'adelanto' ? 'Registrar adelanto' : 'Registrar descuento'}
         tamano="md"
         acciones={
           <div className="flex items-center gap-3">
@@ -424,61 +429,108 @@ export function TabPagos({
         }
       >
         <div className="space-y-4">
+          {/* Toggle tipo: adelanto (dinero entregado) vs descuento (multa/daño/falta) */}
+          <div className="grid grid-cols-2 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
+            <button
+              type="button"
+              onClick={() => setAdelantoTipo('adelanto')}
+              className={`text-sm py-2 rounded transition-colors ${
+                adelantoTipo === 'adelanto'
+                  ? 'bg-texto-marca/15 text-texto-marca font-medium'
+                  : 'text-texto-terciario hover:text-texto-secundario'
+              }`}
+            >
+              Adelanto
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdelantoTipo('descuento')}
+              className={`text-sm py-2 rounded transition-colors ${
+                adelantoTipo === 'descuento'
+                  ? 'bg-insignia-peligro/15 text-insignia-peligro font-medium'
+                  : 'text-texto-terciario hover:text-texto-secundario'
+              }`}
+            >
+              Descuento
+            </button>
+          </div>
+
+          <p className="text-xs text-texto-terciario">
+            {adelantoTipo === 'adelanto'
+              ? 'Dinero entregado al empleado. Se descuenta del sueldo en una o más cuotas.'
+              : 'Penalidad, multa, daño o faltante. Se descuenta una sola vez del período correspondiente.'}
+          </p>
+
           <InputMoneda
-            etiqueta="Monto del adelanto"
+            etiqueta={adelantoTipo === 'adelanto' ? 'Monto del adelanto' : 'Monto del descuento'}
             value={adelantoMonto}
             onChange={setAdelantoMonto}
             moneda="ARS"
             placeholder="50.000"
           />
 
-          <div>
-            <label className="text-sm font-medium text-texto-secundario mb-1 block">Cuotas de descuento</label>
-            <select
-              value={adelantoCuotas}
-              onChange={e => setAdelantoCuotas(e.target.value)}
-              className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                <option key={n} value={n}>
-                  {n} cuota{n !== 1 ? 's' : ''}
-                  {parseFloat(adelantoMonto) > 0 && ` — ${fmt.moneda(parseFloat(adelantoMonto) / n)} c/u`}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-texto-terciario mt-1">
-              Se descontará {compensacionFrecuencia === 'semanal' ? 'cada semana' : compensacionFrecuencia === 'quincenal' ? 'cada quincena' : 'cada mes'}
-            </p>
-          </div>
+          {/* Las cuotas solo aplican a adelantos. Descuentos siempre son 1 cuota. */}
+          {adelantoTipo === 'adelanto' && (
+            <div>
+              <label className="text-sm font-medium text-texto-secundario mb-1 block">Cuotas de descuento</label>
+              <select
+                value={adelantoCuotas}
+                onChange={e => setAdelantoCuotas(e.target.value)}
+                className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-3 py-2 text-texto-primario"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>
+                    {n} cuota{n !== 1 ? 's' : ''}
+                    {parseFloat(adelantoMonto) > 0 && ` — ${fmt.moneda(parseFloat(adelantoMonto) / n)} c/u`}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-texto-terciario mt-1">
+                Se descontará {compensacionFrecuencia === 'semanal' ? 'cada semana' : compensacionFrecuencia === 'quincenal' ? 'cada quincena' : 'cada mes'}
+              </p>
+            </div>
+          )}
 
           <SelectorFecha
-            etiqueta="Inicio del descuento"
-            valor={adelantoFechaInicio || null}
-            onChange={(v) => setAdelantoFechaInicio(v || '')}
-            placeholder="Fecha desde la cual se empieza a descontar"
+            etiqueta={adelantoTipo === 'adelanto' ? 'Fecha del adelanto' : 'Fecha del descuento'}
+            valor={adelantoFecha || null}
+            onChange={(v) => setAdelantoFecha(v || '')}
+            placeholder={adelantoTipo === 'adelanto' ? 'Cuándo se entregó el adelanto' : 'Cuándo ocurrió el descuento'}
           />
 
           <Input
             tipo="text"
-            etiqueta="Notas (opcional)"
+            etiqueta={adelantoTipo === 'adelanto' ? 'Notas (opcional)' : 'Motivo del descuento'}
             value={adelantoNotas}
             onChange={e => setAdelantoNotas(e.target.value)}
-            placeholder="Motivo del adelanto..."
+            placeholder={adelantoTipo === 'adelanto' ? 'Motivo del adelanto...' : 'Por ejemplo: rotura de equipo, faltante de caja...'}
           />
 
-          {parseFloat(adelantoMonto) > 0 && parseInt(adelantoCuotas) > 0 && (
+          {parseFloat(adelantoMonto) > 0 && (
             <div className="bg-superficie-hover/50 rounded-card border border-borde-sutil p-3">
               <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-2">Resumen</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-texto-secundario">Adelanto total</span>
+                <span className="text-sm text-texto-secundario">
+                  {adelantoTipo === 'adelanto' ? 'Adelanto total' : 'Descuento total'}
+                </span>
                 <span className="text-sm font-bold text-texto-primario">{fmt.moneda(parseFloat(adelantoMonto))}</span>
               </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-sm text-texto-secundario">Cuota ({compensacionFrecuencia})</span>
-                <span className="text-sm font-bold text-insignia-advertencia">
-                  -{fmt.moneda(parseFloat(adelantoMonto) / parseInt(adelantoCuotas))}
-                </span>
-              </div>
+              {adelantoTipo === 'adelanto' && parseInt(adelantoCuotas) > 0 && (
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm text-texto-secundario">Cuota ({compensacionFrecuencia})</span>
+                  <span className="text-sm font-bold text-insignia-advertencia">
+                    -{fmt.moneda(parseFloat(adelantoMonto) / parseInt(adelantoCuotas))}
+                  </span>
+                </div>
+              )}
+              {adelantoTipo === 'descuento' && (
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm text-texto-secundario">Se descuenta</span>
+                  <span className="text-sm font-bold text-insignia-peligro">
+                    -{fmt.moneda(parseFloat(adelantoMonto))}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

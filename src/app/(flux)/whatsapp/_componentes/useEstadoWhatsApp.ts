@@ -41,6 +41,16 @@ export function useEstadoWhatsApp() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoConversacion | 'todas'>('todas')
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
   const [soloNoLeidos, setSoloNoLeidos] = useState(false)
+  // Pestaña Clientes/Empleados: separa la bandeja entre conversaciones con
+  // contactos externos (clientes) y empleados internos (con miembro_id).
+  // Persiste en localStorage para que la elección sobreviva entre sesiones.
+  const [audiencia, setAudiencia] = useState<'clientes' | 'empleados'>(() => {
+    if (typeof window === 'undefined') return 'clientes'
+    return (localStorage.getItem('flux_wa_audiencia') as 'clientes' | 'empleados') || 'clientes'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('flux_wa_audiencia', audiencia)
+  }, [audiencia])
   const [cargandoConversaciones, setCargandoConversaciones] = useState(false)
 
   // Mensajes
@@ -137,12 +147,13 @@ export function useEstadoWhatsApp() {
   const construirParamsConversaciones = useCallback(() => {
     const params = new URLSearchParams()
     params.set('tipo_canal', 'whatsapp')
+    params.set('audiencia', audiencia)
     if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
     if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
     if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
     if (soloNoLeidos) params.set('no_leidos', 'true')
     return params
-  }, [filtroEstado, filtroEtiqueta, soloNoLeidos])
+  }, [audiencia, filtroEstado, filtroEtiqueta, soloNoLeidos])
 
   // ─── Cargar conversaciones ───
   const cargarConversaciones = useCallback(async () => {
@@ -871,6 +882,8 @@ export function useEstadoWhatsApp() {
     setFiltroEtiqueta,
     soloNoLeidos,
     setSoloNoLeidos,
+    audiencia,
+    setAudiencia,
     cargandoConversaciones,
     totalNoLeidos,
     seleccionarConversacion,

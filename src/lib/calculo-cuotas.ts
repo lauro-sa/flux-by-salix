@@ -13,11 +13,14 @@
 
 import type { CuotaPago } from '@/tipos/presupuesto'
 import type { PresupuestoPago } from '@/tipos/presupuesto-pago'
+import { EstadosCuota, type EstadoCuota } from '@/tipos/cuota'
 
 /** Tolerancia de comparación de saldos en moneda del presupuesto (1 centavo). */
 export const TOLERANCIA_SALDO = 0.01
 
-export type EstadoCuotaDerivado = 'pendiente' | 'parcial' | 'cobrada'
+// Alias retrocompatible — usado por consumidores existentes.
+// El tipo canónico es EstadoCuota en @/tipos/cuota.
+export type EstadoCuotaDerivado = EstadoCuota
 
 export interface ResumenCuota {
   cuota: CuotaPago
@@ -53,9 +56,9 @@ export function derivarEstadoCuota(
   totalPagado: number,
   tolerancia: number = TOLERANCIA_SALDO,
 ): EstadoCuotaDerivado {
-  if (totalPagado <= tolerancia) return 'pendiente'
-  if (totalPagado >= totalCuota - tolerancia) return 'cobrada'
-  return 'parcial'
+  if (totalPagado <= tolerancia) return EstadosCuota.PENDIENTE
+  if (totalPagado >= totalCuota - tolerancia) return EstadosCuota.COBRADA
+  return EstadosCuota.PARCIAL
 }
 
 /**

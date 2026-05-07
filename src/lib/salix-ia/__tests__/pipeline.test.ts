@@ -44,7 +44,7 @@ vi.mock('@/lib/salix-ia/contexto', () => ({
   construirContexto: () => ({
     empresa_id: 'emp-1',
     usuario_id: 'usr-1',
-    miembro: { id: 'm-1', usuario_id: 'usr-1', rol: 'administrador', permisos_custom: null, salix_ia_habilitado: true, salix_ia_web: true, salix_ia_whatsapp: true, puesto: null, sector: null },
+    miembro: { id: 'm-1', usuario_id: 'usr-1', rol: 'administrador', permisos_custom: null, nivel_salix: 'completo', salix_ia_web: true, salix_ia_whatsapp: true, puesto: null, sector: null },
     nombre_usuario: 'Test User',
     nombre_empresa: 'Test Empresa',
     admin: {},

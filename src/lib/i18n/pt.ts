@@ -1102,6 +1102,7 @@ export const pt: Traducciones = {
     aplicaciones: 'Aplicativos',
     documentacion: 'Documentação',
     marketing: 'Marketing',
+    flujos: 'Fluxos',
   },
 
   toolbar: {
@@ -1495,5 +1496,837 @@ export const pt: Traducciones = {
     escribir_mensaje: 'Escrever mensagem...',
     reaccionar: 'Reagir',
     quitar_etiqueta: 'Remover etiqueta',
+  },
+
+  flujos: {
+    titulo: 'Fluxos',
+    nuevo: 'Novo fluxo',
+    buscar_placeholder: 'Buscar fluxo por nome...',
+
+    estados: {
+      activo: 'Ativo',
+      pausado: 'Pausado',
+      borrador: 'Rascunho',
+    },
+
+    filtro_todos: 'Todos',
+    filtro_activos: 'Ativos',
+    filtro_pausados: 'Pausados',
+    filtro_borradores: 'Rascunhos',
+
+    columna_estado: 'Estado',
+    columna_nombre: 'Nome',
+    columna_modulo: 'Módulo',
+    columna_disparador: 'Gatilho',
+    columna_ultima_ejecucion: 'Última execução',
+    columna_ejecuciones: 'Últimos 30 dias',
+
+    filtro_modulo: 'Módulo',
+    filtro_modulo_desc: 'Filtrar fluxos pela entidade sobre a qual atuam.',
+    filtro_tipo_disparador: 'Tipo de gatilho',
+    filtro_tipo_disparador_desc: 'Filtrar pela forma como o fluxo começa (mudança de estado, cron, etc.).',
+    filtro_creado: 'Data de criação',
+    filtro_creado_desc: 'Filtrar pela data em que o fluxo foi criado.',
+    filtro_ultima_ejec: 'Última execução',
+    filtro_ultima_ejec_desc: 'Filtrar pela última vez que o fluxo foi disparado.',
+    filtro_estado_desc: 'Os ativos estão rodando; os pausados estão parados mas mantêm a configuração; os rascunhos ainda não foram publicados.',
+
+    grupo_identidad: 'Identidade',
+    grupo_comportamiento: 'Comportamento',
+    grupo_actividad: 'Atividade',
+
+    disparador: {
+      'entidad.estado_cambio': 'Mudança de estado',
+      'entidad.creada': 'Entidade criada',
+      'entidad.campo_cambia': 'Mudança de campo',
+      'actividad.completada': 'Atividade concluída',
+      'tiempo.cron': 'Cron periódico',
+      'tiempo.relativo_a_campo': 'Relativo à data',
+      'webhook.entrante': 'Webhook recebido',
+      'inbox.mensaje_recibido': 'Mensagem recebida',
+      'inbox.conversacion_sin_respuesta': 'Conversa sem resposta',
+      sin_disparador: 'Sem gatilho',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'Quando uma entidade muda para um estado configurado.',
+      'entidad.creada': 'Quando uma nova entidade é criada.',
+      'entidad.campo_cambia': 'Quando um campo específico da entidade muda.',
+      'actividad.completada': 'Quando uma atividade é concluída.',
+      'tiempo.cron': 'Em horários definidos por uma expressão cron.',
+      'tiempo.relativo_a_campo': 'Certa quantidade de dias antes ou depois de uma data do registro.',
+      'webhook.entrante': 'Quando chega um POST a uma URL de webhook.',
+      'inbox.mensaje_recibido': 'Quando chega uma mensagem ao inbox.',
+      'inbox.conversacion_sin_respuesta': 'Quando uma conversa está sem resposta há um tempo.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Criar novo fluxo',
+      pestana_plantilla: 'A partir de um modelo',
+      pestana_cero: 'Do zero',
+      buscar_plantilla: 'Buscar modelos...',
+      filtrar_modulo: 'Filtrar por módulo',
+      todos_modulos: 'Todos os módulos',
+      crear_desde_plantilla: 'Usar este modelo',
+      nombre_label: 'Nome do fluxo',
+      nombre_placeholder: 'Ex.: Lembrete de parcela próxima a vencer',
+      modulo_label: 'Módulo (opcional)',
+      modulo_placeholder: 'Escolha um módulo',
+      crear_y_editar: 'Criar e editar',
+      sin_plantillas: 'Não há modelos disponíveis para os módulos instalados.',
+      sin_plantillas_busqueda: 'Nenhum modelo corresponde à sua busca.',
+      plantilla_disparador: 'Dispara em: ',
+    },
+
+    estado_vacio: {
+      titulo: 'Você ainda não criou nenhum fluxo',
+      descripcion: 'Os fluxos automatizam seu trabalho: disparam em eventos (um orçamento aceito, uma parcela próxima de vencer, uma mensagem sem resposta) e executam ações encadeadas (enviar WhatsApp, criar atividades, notificar a equipe).',
+      titulo_plantillas: 'Comece com um modelo',
+      crear_desde_cero: 'Criar fluxo do zero',
+    },
+
+    accion: {
+      editar: 'Editar',
+      ver: 'Ver',
+      duplicar: 'Duplicar',
+      activar: 'Ativar',
+      pausar: 'Pausar',
+      eliminar: 'Excluir',
+      sin_tipo: 'Ação',
+    },
+
+    confirmar_eliminar: {
+      titulo: 'Excluir este fluxo?',
+      descripcion: 'Isto exclui a definição do fluxo e todo o seu histórico de execuções. Não pode ser desfeito.',
+      confirmar: 'Excluir fluxo',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicar fluxo',
+      descripcion: 'Será criada uma cópia em rascunho. Você pode renomeá-la antes de continuar.',
+      nombre_label: 'Nome do novo fluxo',
+      sufijo_copia: '(cópia)',
+      confirmar: 'Duplicar',
+    },
+
+    seccion_modulo: {
+      lista_titulo: 'Fluxos ativos neste módulo',
+      lista_ver_todos: 'Ver todos',
+      lista_mas_sufijo: 'mais',
+      cargando: 'Carregando fluxos…',
+      ultima_ejecucion_prefijo: 'Última execução: ',
+      sin_ejecutar: 'Ainda não executado',
+      plantillas_titulo: 'Modelos sugeridos',
+      plantillas_descripcion: 'Comece rápido com fluxos prontos. Clique em um modelo para criar um rascunho e começar a editá-lo.',
+    },
+
+    tooltip_borrador_pendiente: 'Tem mudanças não publicadas',
+    tooltip_sin_ejecutar: 'Nunca executado',
+
+    toast: {
+      creado: 'Fluxo criado',
+      duplicado: 'Fluxo duplicado',
+      activado: 'Fluxo ativado',
+      pausado: 'Fluxo pausado',
+      eliminado: 'Fluxo excluído',
+      error_crear: 'Não foi possível criar o fluxo',
+      error_duplicar: 'Não foi possível duplicar o fluxo',
+      error_activar: 'Não foi possível ativar o fluxo',
+      error_pausar: 'Não foi possível pausar o fluxo',
+      error_eliminar: 'Não foi possível excluir o fluxo',
+    },
+
+    editor: {
+      volver_listado: 'Voltar à lista',
+      nombre_default: 'Sem nome',
+      nombre_editar_tooltip: 'Clique para renomear',
+      elegir_icono: 'Escolher ícone do fluxo',
+      drag_handle: 'Arraste para reordenar',
+      agregar_paso_intermedio: 'Adicionar passo na posição {{n}}',
+      agregar_paso_final: 'Adicionar passo',
+
+      indicador: {
+        guardando: 'Salvando…',
+        guardado: 'Salvo',
+        guardado_hace_min: 'Salvo há {{n}} min',
+        guardado_hace_h: 'Salvo há {{n}} h',
+      },
+
+      banner: {
+        borrador_titulo: 'Você está editando este fluxo',
+        borrador_desc: 'Suas mudanças não afetam o fluxo ativo até clicar em Publicar mudanças.',
+        lectura_titulo: 'Modo somente leitura',
+        lectura_desc: 'Você tem permissão para ver mas não para editar este fluxo.',
+        error_titulo: 'Não é possível ativar ainda',
+        error_desc: 'Há erros de configuração. Revise os passos destacados.',
+      },
+
+      validacion: {
+        titulo_activar: 'Não é possível ativar ainda',
+        titulo_publicar: 'Não é possível publicar as mudanças',
+        descripcion: 'Encontramos {{n}} configuração(ões) que precisa(m) ser concluída(s) antes de continuar.',
+        cta_ver_errores: 'Ver erros',
+        errores_extra: '+{{n}} mais',
+      },
+
+      accion: {
+        publicar: 'Publicar mudanças',
+        descartar: 'Descartar mudanças',
+        reactivar: 'Reativar',
+        probar: 'Testar',
+        probar_tooltip: 'Pré-visualização ou execução de teste',
+      },
+
+      tabs: {
+        aria_label: 'Vistas do fluxo',
+        editor: 'Editor',
+        historial: 'Histórico',
+      },
+
+      disparador: {
+        etiqueta: 'Gatilho',
+        placeholder_titulo: 'Configure o gatilho',
+        placeholder_desc: 'Escolha o evento ou momento que vai iniciar este fluxo.',
+      },
+
+      branch: {
+        resumen: '{{si}} ação(ões) se SIM · {{no}} ação(ões) se NÃO',
+        rama_si: 'Se SIM',
+        rama_no: 'Se NÃO',
+        rama_count: '{{n}} ação(ões)',
+        rama_vacia: 'Sem ações',
+      },
+
+      panel: {
+        titulo_default: 'Detalhe do passo',
+        banner_lectura: 'Modo somente leitura',
+
+        seccion: {
+          basicos: 'Básicos',
+          tiempo: 'Tempo',
+          disparador: 'Disparador',
+          avanzado: 'Avançado',
+          condiciones: 'Condições',
+        },
+
+        subheader: {
+          posicion: 'Passo {{n}} de {{total}}',
+          rama_si: 'Ramo Sim',
+          rama_no: 'Ramo Não',
+        },
+
+        footer: {
+          eliminar_paso: 'Eliminar passo',
+        },
+
+        pendiente: {
+          titulo: 'Edição de "{{tipo}}" em breve',
+          descripcion: 'Este tipo de passo já está configurado no motor; o painel com seus campos editáveis chega na próxima entrega do editor.',
+        },
+
+        esperar: {
+          cantidad_label: 'Quantidade',
+          unidad_label: 'Unidade',
+          unidad_min: 'Minutos',
+          unidad_hora: 'Horas',
+          unidad_dia: 'Dias',
+          ayuda: 'O fluxo pausa antes de continuar com o próximo passo. Mínimo 1 minuto, máximo 30 dias.',
+          ayuda_fecha_absoluta: 'Este passo tem uma data absoluta configurada ({{fecha}}). Alterá-la pelo painel chega mais adiante.',
+        },
+
+        terminar: {
+          leyenda: 'Quando o fluxo chega neste passo, termina. Qualquer passo depois é ignorado.',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Ex: Cliente não respondeu',
+        },
+
+        cron: {
+          expresion_label: 'Expressão cron',
+          ayuda: 'Cinco campos: minuto · hora · dia do mês · mês · dia da semana.',
+          ejemplo_1: 'Às 9h de segunda a sexta.',
+          ejemplo_2: 'A cada 15 minutos.',
+          ejemplo_3: 'Meia-noite do primeiro dia de cada mês.',
+        },
+
+        actividad_completada: {
+          tipo_clave_label: 'Tipo de atividade (opcional)',
+          tipo_clave_placeholder: 'Ex: ligacao, visita_obra',
+          tipo_clave_ayuda: 'Se deixar vazio, dispara para qualquer tipo de atividade. Aceita a chave técnica do tipo (autocomplete completo chega em uma próxima entrega).',
+        },
+
+        header: {
+          editar_nombre_tooltip: 'Clique para renomear este passo',
+        },
+
+        avanzado: {
+          proximamente: 'As opções avançadas chegam em uma próxima entrega.',
+          continuar_si_falla_label: 'Continuar se falhar',
+          continuar_si_falla_ayuda: 'Se esta ação falhar, o fluxo continua com a próxima ao invés de parar.',
+        },
+
+        whatsapp: {
+          canal_label: 'Canal',
+          canal_placeholder: 'ID do canal',
+          canal_ayuda: 'Identificador técnico do canal de WhatsApp configurado.',
+          telefono_label: 'Telefone destino',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Aceita variáveis como {{contacto.telefono}}.',
+          plantilla_label: 'Modelo aprovado',
+          plantilla_placeholder: 'lembrete_cobranca',
+          plantilla_ayuda: 'Nome do modelo aprovado na Meta.',
+          idioma_label: 'Idioma',
+        },
+
+        notificar: {
+          usuario_label: 'Usuário destinatário',
+          usuario_placeholder: 'UUID do usuário',
+          usuario_ayuda: 'Aceita variáveis (ex. {{actor.id}}) ou um UUID fixo.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Novo orçamento aceito',
+          cuerpo_label: 'Mensagem (opcional)',
+          cuerpo_placeholder: '{{contacto.nombre}} aceitou o orçamento {{entidad.numero}}',
+          url_label: 'URL de navegação',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'URL relativa para onde leva o clique na notificação.',
+          tipo_label: 'Categoria',
+          tipo_placeholder: 'sistema, vendas...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Tipo de atividade',
+          tipo_id_placeholder: 'UUID do tipo configurado',
+          tipo_id_ayuda: 'ID do tipo de atividade a criar (autocomplete chega em uma próxima entrega).',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Ligar para {{contacto.nombre}}',
+          descripcion_label: 'Descrição (opcional)',
+          descripcion_placeholder: 'Confirmar visita programada',
+          prioridad_label: 'Prioridade',
+          prioridad_baja: 'Baixa',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'Alta',
+          asignados_label: 'Atribuídos (UUIDs separados por vírgula)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'Lista de IDs de usuários. Autocomplete vem depois.',
+          contacto_label: 'Contato vinculado (opcional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Aceita variáveis ou um UUID fixo.',
+          fecha_label: 'Data de vencimento',
+          fecha_ayuda: 'Formato ISO (YYYY-MM-DD). Seletor visual chega depois.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entidade',
+          entidad_ayuda_disparador: 'O fluxo é disparado por uma mudança em {{tipo}} — por padrão alteramos essa mesma entidade.',
+          entidad_id_label: 'ID da entidade',
+          entidad_id_ayuda: 'Geralmente {{entidad.id}} (a mesma entidade que disparou o fluxo).',
+          hasta_clave_label: 'Estado destino',
+          hasta_clave_placeholder: 'Ex: aceito, concluído',
+          hasta_clave_ayuda: 'Chave técnica do estado destino (lista configurável em /configuracao).',
+          motivo_label: 'Motivo (opcional)',
+          motivo_placeholder: 'Auto-encerramento por workflow',
+          entidad: {
+            presupuesto: 'Orçamento',
+            orden: 'Ordem de serviço',
+            visita: 'Visita',
+            conversacion: 'Conversa',
+            asistencia: 'Presença',
+            cuota: 'Parcela',
+            actividad: 'Atividade',
+            adelanto_nomina: 'Adiantamento de folha',
+            pago_nomina: 'Pagamento de folha',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Entidade observada',
+          hasta_label: 'Estado destino',
+          hasta_placeholder: 'Ex: aceito, pago',
+          hasta_ayuda: 'Chave do estado ao qual a entidade precisa chegar para disparar.',
+          desde_label: 'Estado origem (opcional)',
+          desde_placeholder: 'Ex: pendente',
+          desde_ayuda: 'Se deixar vazio, dispara a partir de qualquer estado anterior.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Entidade observada',
+          entidad_ayuda: 'O fluxo dispara cada vez que uma entidade nova do tipo escolhido é criada.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Entidade observada',
+          campo_label: 'Campo a observar',
+          campo_placeholder: 'Ex: total, asignado_a',
+          campo_ayuda: 'Nome técnico da coluna (autocomplete chega depois).',
+          valor_label: 'Valor objetivo (opcional)',
+          valor_placeholder: 'Se deixar vazio, dispara com qualquer mudança',
+          valor_ayuda: 'Se preencher, dispara apenas quando o campo muda para este valor exato.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Entidade observada',
+          campo_fecha_label: 'Campo de data',
+          campo_fecha_placeholder: 'Ex: fecha_vencimiento',
+          campo_fecha_ayuda: 'Coluna de data da entidade.',
+          delta_label: 'Dias relativos',
+          delta_ayuda: 'Negativo = antes (ex. -3 = "três dias antes"). Positivo = depois.',
+          hora_local_label: 'Hora local',
+          hora_local_ayuda: 'Hora do dia (HH:MM) no fuso da empresa.',
+          tolerancia_label: 'Tolerância (dias)',
+          tolerancia_ayuda: 'Margem para trás se o cron ficou fora. 0 = somente o dia exato.',
+        },
+
+        branch: {
+          operador_label: 'Quando atendido:',
+          operador_y: 'Todas',
+          operador_o: 'Alguma',
+          ayuda_y: 'O fluxo segue pelo ramo "Sim" quando TODAS as condições abaixo são verdadeiras.',
+          ayuda_o: 'O fluxo segue pelo ramo "Sim" quando AO MENOS UMA condição abaixo é verdadeira.',
+          sin_condiciones: 'Sem condições ainda. Adicione a primeira para que o branch tenha lógica.',
+          agregar_condicion: 'Adicionar condição',
+          fila_anidada_no_editable: 'Esta condição tem grupos aninhados. A edição de subgrupos chega mais tarde; por enquanto o motor a avalia intacta.',
+          ayuda_avanzado: 'Operadores adicionais (entre, dias desde, listas) e subgrupos aninhados chegam em uma próxima entrega.',
+          fila: {
+            variable_label: 'Variável ou campo',
+            variable_placeholder: '{{entidad.total}}',
+            valor_label: 'Valor',
+            valor_placeholder: '100000 ou {{outra.variavel}}',
+            eliminar: 'Remover condição',
+          },
+          op: {
+            igual: 'é igual a',
+            distinto: 'é diferente de',
+            mayor: 'é maior que',
+            menor: 'é menor que',
+            mayor_o_igual: 'é maior ou igual a',
+            menor_o_igual: 'é menor ou igual a',
+            contiene: 'contém',
+            no_contiene: 'não contém',
+            esta_vacio: 'está vazio',
+            no_esta_vacio: 'não está vazio',
+          },
+        },
+
+        asignar: {
+          usuario_label: 'Atribuir a',
+          entidad_id_label: 'ID da entidade (opcional)',
+          entidad_id_ayuda: 'Por padrão, a entidade que disparou o fluxo. Aceita variáveis como {{entidad.id}}.',
+        },
+
+        etiqueta: {
+          agregar_label: 'Tag para adicionar',
+          agregar_placeholder: 'Ex: prioridade_alta',
+          quitar_label: 'Tag para remover',
+          quitar_placeholder: 'Ex: prioridade_alta',
+          clave_ayuda: 'Chave técnica da tag configurável (autocomplete chega depois).',
+          entidad_id_label: 'ID da entidade (opcional)',
+          entidad_id_ayuda: 'Por padrão, a entidade que disparou o fluxo.',
+        },
+
+        notificar_grupo: {
+          grupo_label: 'Grupo destinatário',
+          grupo_placeholder: 'Ex: vendas, suporte',
+          grupo_ayuda: 'Chave técnica do grupo configurável. Autocomplete chega depois.',
+          titulo_label: 'Título',
+          titulo_placeholder: 'Parcela próxima do vencimento: {{contacto.nombre}}',
+          cuerpo_label: 'Mensagem (opcional)',
+          cuerpo_placeholder: 'Detalhes do aviso...',
+        },
+
+        whatsapp_texto: {
+          mensaje_label: 'Mensagem',
+          mensaje_placeholder: 'Olá {{contacto.nombre}}, lembrando que...',
+          mensaje_ayuda: 'Texto livre. Só funciona dentro da janela de 24h desde a última mensagem do contato.',
+        },
+
+        correo_texto: {
+          destinatario_label: 'Destinatário',
+          asunto_label: 'Assunto',
+          asunto_placeholder: 'Lembrete: {{entidad.numero}}',
+          cuerpo_label: 'Corpo',
+          cuerpo_placeholder: 'Olá {{contacto.nombre}},\n\n...',
+          cuerpo_ayuda: 'Texto puro. O editor com formatação rica chega em uma próxima entrega.',
+        },
+
+        correo_plantilla: {
+          plantilla_label: 'Modelo de email',
+          plantilla_ayuda: 'Os modelos são editados em Configuração → Modelos de email. O motor os resolve com os dados do contato e da entidade ao executar.',
+          destinatario_label: 'Destinatário',
+          preview_titulo: 'Pré-visualização',
+          preview_asunto_label: 'Assunto',
+          preview_cuerpo_label: 'Corpo',
+          preview_ayuda: 'Variáveis como {{contacto.nombre}} são substituídas automaticamente ao enviar.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Configuração avançada — {{tipo}}',
+          cartel_descripcion: 'Esta ação ainda não tem um painel visual. Configure os parâmetros editando o JSON cru.',
+          cartel_aviso_no_guarda: 'Se o JSON não parsear, a mudança NÃO é salva — o último valor válido é preservado.',
+          formatear: 'Formatar JSON',
+          error_parse: 'JSON inválido — verifique aspas e chaves.',
+          error_no_objeto: 'O JSON deve ser um objeto (não um array nem um valor primitivo).',
+        },
+      },
+
+      confirmar_descartar: {
+        titulo: 'Descartar as mudanças não publicadas?',
+        descripcion: 'Você volta à versão atualmente publicada do fluxo. Isto não pode ser desfeito.',
+        confirmar: 'Descartar mudanças',
+      },
+
+      toast: {
+        publicado: 'Mudanças publicadas',
+        descartado: 'Mudanças descartadas',
+        guardado_manual: 'Mudanças salvas',
+        error_guardar: 'Não foi possível salvar',
+        error_publicar: 'Não foi possível publicar',
+        error_descartar: 'Não foi possível descartar o rascunho',
+      },
+
+      consola: {
+        titulo: 'Console de teste',
+        cerrar: 'Fechar console',
+        tab_preview: 'Pré-visualização',
+        tab_dryrun: 'Dry-run',
+        evento_label: 'Evento de teste:',
+        evento_sin_evento: 'Sem evento (este disparador não requer uma entidade)',
+        evento_no_disponible: 'Nenhum registro disponível para pré-visualizar',
+        cargando: 'Executando dry-run…',
+        cta_correr: 'Rodar dry-run',
+        cta_volver_a_correr: 'Executar de novo',
+        cta_actualizar_preview: 'Atualizar pré-visualização',
+        sin_pasos: 'Adicione ao menos um passo antes de testar o fluxo.',
+
+        banner_invalido_titulo: 'Não é possível testar ainda',
+        banner_invalido_desc: 'Existem erros de configuração. Corrija os passos marcados antes de rodar o dry-run.',
+        banner_no_implementadas_titulo: 'Ações não implementadas',
+        banner_no_implementadas_desc: 'Este fluxo contém {{n}} passo(s) com ações que o motor ainda não executa. O dry-run simula essas ações, mas ao ativar o fluxo esses passos vão falhar.',
+
+        preview: {
+          titulo: 'Pré-visualização estática',
+          descripcion: 'Cada passo mostra os valores resolvidos sem executar nada.',
+          paso_titulo: 'Passo {{n}}: {{nombre}}',
+          rama_si_resuelta: 'A condição se cumpre → ramo SIM',
+          rama_no_resuelta: 'A condição NÃO se cumpre → ramo NÃO',
+          esperaria: 'Esperaria {{texto}}',
+          esperaria_hasta: 'Esperaria até {{fecha}}',
+          terminar_flujo: 'O fluxo terminaria aqui',
+          variable_faltante: 'Variável ausente: {{ruta}}',
+          ver_detalle: 'Ver detalhe',
+          ocultar_detalle: 'Ocultar detalhe',
+        },
+
+        dryrun: {
+          titulo: 'Execução dry-run',
+          paso_completado: 'Completado',
+          paso_simulado: '[dry-run] {{accion}}',
+          paso_fallado: 'Falhou',
+          paso_no_implementada: 'Não implementada',
+          accion_no_implementada_inline: 'Ação não implementada',
+          duracion_ms: '{{ms}} ms',
+          terminado_temprano: 'O fluxo terminou cedo (terminar_fluxo).',
+          resumen_titulo: 'Resumo',
+          resumen_completados: '{{n}} completados',
+          resumen_fallados: '{{n}} com erro',
+          resumen_simulados: '{{n}} simulados',
+          resumen_total: 'Duração total: {{ms}} ms',
+          accion_simulada_whatsapp: 'Enviaria WhatsApp "{{plantilla}}" para {{destinatario}}',
+          accion_simulada_actividad: 'Criaria atividade "{{titulo}}" ({{tipo}})',
+          accion_simulada_estado: 'Mudaria estado de {{entidad}} para "{{nuevo}}"',
+          accion_simulada_notificar: 'Notificaria {{usuario}}: "{{titulo}}"',
+          accion_simulada_generica: 'Ação {{tipo}} simulada',
+          error_correr: 'Não foi possível executar o dry-run',
+        },
+      },
+    },
+
+    selector: {
+      buscar: 'Buscar...',
+      cargando: 'Carregando opções…',
+      error_cargar: 'Não foi possível carregar as opções.',
+      sin_resultados: 'Sem resultados.',
+      canal_wa: { placeholder: 'Escolha um canal de WhatsApp' },
+      plantilla_wa: { placeholder: 'Escolha um modelo aprovado' },
+      tipo_actividad: { placeholder: 'Escolha um tipo de atividade' },
+      miembro: {
+        placeholder: 'Escolha um usuário',
+        placeholder_multi: 'Escolha um ou mais usuários',
+      },
+      estado: { placeholder: 'Escolha um estado' },
+      etiqueta: { placeholder: 'Escolha uma tag' },
+      plantilla_correo: { placeholder: 'Escolha um modelo' },
+    },
+
+    picker: {
+      titulo: 'Inserir variável',
+      buscador_placeholder: 'Buscar variável...',
+      limpiar_busqueda: 'Limpar busca',
+      tab_todas: 'Todas',
+      sin_resultados: 'Nenhuma variável corresponde à sua busca.',
+      hint_navegacion: '↑↓ navegar · ↵ inserir · esc fechar',
+      boton_insertar: 'Inserir variável',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Ocultar',
+      fuente: {
+        entidad: 'Entidade',
+        contacto: 'Contato',
+        empresa: 'Empresa',
+        sistema: 'Sistema',
+        cambio: 'Mudança',
+        actor: 'Usuário',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Número',
+        titulo: 'Título',
+        total: 'Total',
+        estado_clave: 'Status',
+        fecha_validez: 'Válido até',
+        creado_en: 'Criado em',
+      },
+      cuota: {
+        numero: 'Número da parcela',
+        monto: 'Valor',
+        fecha_vencimiento: 'Data de vencimento',
+        estado_clave: 'Status',
+      },
+      orden: {
+        numero: 'Número',
+        titulo: 'Título',
+        estado_clave: 'Status',
+        fecha_programada: 'Data programada',
+      },
+      visita: {
+        titulo: 'Título',
+        estado_clave: 'Status',
+        fecha_programada: 'Data programada',
+        direccion: 'Endereço',
+      },
+      actividad: {
+        titulo: 'Título',
+        descripcion: 'Descrição',
+        estado_clave: 'Status',
+        fecha_vencimiento: 'Data de vencimento',
+      },
+      conversacion: {
+        canal: 'Canal',
+        estado_clave: 'Status',
+        ultima_actividad_en: 'Última atividade',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Status',
+      },
+      contacto: {
+        nombre: 'Nome',
+        email: 'Email',
+        telefono: 'Telefone',
+        empresa: 'Empresa',
+      },
+      empresa: {
+        nombre: 'Nome',
+        telefono: 'Telefone',
+        correo: 'Email',
+        pagina_web: 'Site',
+      },
+      sistema: {
+        ahora: 'Data e hora atual',
+      },
+      actor: {
+        nombre: 'Nome',
+        email: 'Email',
+        nombre_completo: 'Nome completo',
+      },
+      cambio: {
+        desde: 'Estado / valor anterior',
+        hasta: 'Estado / valor novo',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Escolha um gatilho',
+      titulo_accion: 'Adicionar passo',
+      buscar_placeholder: 'Buscar por nome ou tipo…',
+      sin_resultados: 'Nenhum passo corresponde à sua busca.',
+      sin_categorias: 'Sem opções disponíveis.',
+
+      categoria: {
+        eventos: 'Eventos',
+        eventos_desc: 'Gatilhos que reagem a algo que acontece no seu Flux.',
+        tiempo: 'Tempo',
+        tiempo_desc: 'Gatilhos baseados em horários ou datas relativas.',
+        envios: 'Ações de envio',
+        envios_desc: 'Enviar WhatsApp ou e-mail a contatos ou usuários.',
+        creaciones: 'Ações de criação',
+        creaciones_desc: 'Gerar atividades, ordens ou visitas automaticamente.',
+        cambios: 'Mudanças de dados',
+        cambios_desc: 'Atualizar estado, atribuir usuário, etiquetar.',
+        notificaciones: 'Notificações',
+        notificaciones_desc: 'Notificar usuários ou grupos internamente.',
+        control: 'Controle de fluxo',
+        control_desc: 'Esperar tempo, ramificar segundo condições, chamar webhooks.',
+        terminar: 'Encerrar',
+        terminar_desc: 'Fechar o fluxo explicitamente antes de chegar ao fim.',
+      },
+    },
+
+    paso: {
+      'entidad.estado_cambio': { titulo: 'Mudança de estado', descripcion: 'Quando uma entidade passa para um estado configurado.' },
+      'entidad.creada': { titulo: 'Entidade criada', descripcion: 'Quando uma nova entidade do tipo escolhido é criada.' },
+      'entidad.campo_cambia': { titulo: 'Mudança de campo', descripcion: 'Quando um campo específico muda de valor.' },
+      'actividad.completada': { titulo: 'Atividade completada', descripcion: 'Quando uma atividade é marcada como completada.' },
+      'tiempo.cron': { titulo: 'Horário periódico', descripcion: 'Em horários definidos por uma expressão cron.' },
+      'tiempo.relativo_a_campo': { titulo: 'Relativo a uma data', descripcion: 'Antes ou depois de uma data do registro.' },
+      'webhook.entrante': { titulo: 'Webhook recebido', descripcion: 'Quando chega um POST a uma URL de webhook.' },
+      'inbox.mensaje_recibido': { titulo: 'Mensagem recebida', descripcion: 'Quando chega uma mensagem na caixa de entrada.' },
+      'inbox.conversacion_sin_respuesta': { titulo: 'Conversa sem resposta', descripcion: 'Quando uma conversa está esperando há muito tempo.' },
+
+      enviar_whatsapp_plantilla: { titulo: 'Enviar WhatsApp', descripcion: 'Enviar uma plantilla aprovada pela Meta a um contato.' },
+      enviar_whatsapp_texto: { titulo: 'Enviar WhatsApp (texto livre)', descripcion: 'Enviar uma mensagem dentro da janela de 24 hs.' },
+      enviar_correo_plantilla: { titulo: 'Enviar e-mail (plantilla)', descripcion: 'Enviar um e-mail baseado em uma plantilla salva.' },
+      enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Enviar um e-mail de texto livre.' },
+      crear_actividad: { titulo: 'Criar atividade', descripcion: 'Gerar uma atividade atribuída a um usuário.' },
+      cambiar_estado_entidad: { titulo: 'Mudar estado', descripcion: 'Mover uma entidade para outro estado configurado.' },
+      asignar_usuario: { titulo: 'Atribuir usuário', descripcion: 'Mudar quem é responsável pela entidade.' },
+      agregar_etiqueta: { titulo: 'Adicionar etiqueta', descripcion: 'Adicionar uma etiqueta à entidade ou contato.' },
+      quitar_etiqueta: { titulo: 'Remover etiqueta', descripcion: 'Remover uma etiqueta da entidade ou contato.' },
+      notificar_usuario: { titulo: 'Notificar um usuário', descripcion: 'Enviar uma notificação interna a uma pessoa.' },
+      notificar_grupo: { titulo: 'Notificar um grupo', descripcion: 'Enviar uma notificação interna a um grupo ou cargo.' },
+      crear_orden_trabajo: { titulo: 'Criar ordem de trabalho', descripcion: 'Gerar uma ordem de trabalho vinculada.' },
+      crear_visita: { titulo: 'Criar visita', descripcion: 'Programar uma visita associada à entidade.' },
+      webhook_saliente: { titulo: 'Chamar um webhook', descripcion: 'Fazer um POST a uma URL externa com dados do fluxo.' },
+      esperar: { titulo: 'Esperar', descripcion: 'Pausar o fluxo por um tempo ou até uma data.' },
+      esperar_evento: { titulo: 'Esperar evento', descripcion: 'Pausar o fluxo até que ocorra um evento.' },
+      condicion_branch: { titulo: 'Se / Senão', descripcion: 'Tomar caminhos diferentes segundo uma condição.' },
+      terminar_flujo: { titulo: 'Terminar fluxo', descripcion: 'Fechar o fluxo explicitamente.' },
+    },
+
+    historial: {
+      placeholder: {
+        titulo: 'Histórico de execuções',
+        descripcion:
+          'Aqui você verá cada vez que este fluxo foi executado, com o detalhe passo a passo.',
+      },
+
+      busqueda_placeholder: 'Busca não disponível — use os filtros',
+      entidad_sin_referencia: 'Sem entidade associada',
+      hint_dataset_grande:
+        'Este fluxo tem {{n}} execuções registradas. Filtre por data para reduzir a lista.',
+
+      columnas: {
+        estado: 'Estado',
+        fecha: 'Quando',
+        disparado_por: 'Origem',
+        entidad: 'Entidade',
+        duracion: 'Duração',
+      },
+
+      grupos: {
+        estado: 'Estado',
+        cuando: 'Quando',
+        origen: 'Origem',
+      },
+
+      filtros: {
+        estado: 'Estado',
+        estado_desc: 'Filtre pelo resultado da execução.',
+        disparado_por: 'Tipo de gatilho',
+        disparado_por_desc: 'Como a execução foi iniciada.',
+        creado_rango: 'Quando',
+        creado_rango_desc: 'Restringir execuções a um intervalo de tempo.',
+        error_raw_class: 'Tipo de erro',
+        error_raw_class_desc:
+          'Filtre pela classe de erro registrada pelo motor (útil para suporte).',
+      },
+
+      preset_fecha: {
+        hoy: 'Hoje',
+        '7d': '7 dias',
+        '30d': '30 dias',
+        '90d': '90 dias',
+      },
+
+      estados: {
+        pendiente: 'Pendente',
+        corriendo: 'Em execução',
+        esperando: 'Aguardando',
+        completado: 'Concluído',
+        fallado: 'Falhou',
+        cancelado: 'Cancelado',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Mudança de estado',
+        cron: 'Agendado (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Desconhecido',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'Este fluxo nunca foi executado',
+        sin_ejecuciones_desc:
+          'Quando o fluxo for disparado pela primeira vez, o detalhe de cada execução aparecerá aqui.',
+      },
+
+      drawer: {
+        titulo: 'Detalhe da execução',
+        cerrar: 'Fechar',
+        reintentar: 'Tentar de novo',
+        creado_en: 'Criada',
+        inicio: 'Início',
+        fin: 'Fim',
+        no_encontrada_titulo: 'Execução não encontrada',
+        no_encontrada_desc:
+          'Pode ter sido apagada ou você não tem permissão para vê-la.',
+        error_titulo: 'Não foi possível carregar a execução',
+        error_desc: 'Houve um problema ao buscar o detalhe. Tente de novo.',
+      },
+
+      timeline: {
+        sin_pasos: 'Esta execução ainda não registrou passos.',
+        intentos: '{{n}} tentativas',
+        continuo_pese_fallo: 'O fluxo seguiu apesar desta falha.',
+        pendientes: 'Passos pendentes',
+        pendiente_estado: 'Pendente',
+        ejecutar_en: 'Programado para',
+      },
+
+      acciones: {
+        reejecutar: 'Reexecutar',
+        reejecutar_ok: 'Execução criada — a nova linha aparece no topo da lista.',
+        reejecutar_error: 'Não foi possível reexecutar',
+        cancelar: 'Cancelar execução',
+        cancelar_ok: 'Execução cancelada',
+        cancelar_error: 'Não foi possível cancelar',
+        cancelar_ya_termino:
+          'A execução mudou de estado enquanto você tentava cancelá-la. Provavelmente já foi concluída.',
+        cancelar_corriendo:
+          'Não é possível cancelar uma execução que já está em andamento. Aguarde até que termine.',
+        copiar_log: 'Copiar log',
+        copiar_log_tooltip: 'Copia o log JSON para a área de transferência',
+        copiar_log_ok: 'Log copiado para a área de transferência',
+        copiar_log_error: 'Não foi possível copiar o log',
+
+        confirmar_reejecutar: {
+          titulo: 'Reexecutar esta execução?',
+          descripcion:
+            'Isto executará as ações novamente, incluindo enviar WhatsApp/email a destinatários reais.',
+          confirmar: 'Reexecutar',
+        },
+
+        confirmar_cancelar: {
+          titulo: 'Cancelar esta execução?',
+          descripcion:
+            'As ações pendentes não serão executadas. Esta ação não pode ser desfeita.',
+          confirmar: 'Cancelar execução',
+        },
+      },
+
+      chatter: {
+        titulo: 'Fluxos disparados',
+        flujo_sin_nombre: 'Fluxo sem nome',
+      },
+    },
   },
 }

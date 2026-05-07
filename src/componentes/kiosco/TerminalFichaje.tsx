@@ -32,7 +32,7 @@ type EstadoTerminal =
   | 'ERROR'
   | 'SOLICITUD'
 
-type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
+type Accion = 'entrada' | 'salida' | 'en_almuerzo' | 'volver_almuerzo' | 'en_particular' | 'volver_particular'
 
 interface ConfigTerminal {
   terminalId: string
@@ -52,7 +52,7 @@ interface DatosEmpleado {
   sector?: string | null
   fotoUrl?: string | null
   fechaNacimiento?: string | null
-  estadoTurno: 'activo' | 'almuerzo' | 'particular' | null
+  estadoTurno: 'activo' | 'en_almuerzo' | 'en_particular' | null
   yaAlmorzo: boolean
   tieneSolicitudes: boolean
   turnoSinCerrar: boolean

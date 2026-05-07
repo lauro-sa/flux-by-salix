@@ -40,6 +40,7 @@ import {
   EJEMPLOS_POR_CAMPO,
   type EntidadPlantillaWA,
 } from '@/lib/whatsapp/variables'
+import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -83,6 +84,7 @@ const MODULOS_DISPONIBLES: { valor: string; etiqueta: string; entidad?: EntidadP
   { valor: 'actividades', etiqueta: 'Actividades', entidad: 'actividad' },
   { valor: 'visitas', etiqueta: 'Visitas', entidad: 'visita' },
   { valor: 'recorrido', etiqueta: 'Recorrido', entidad: 'visita' },
+  { valor: 'asistencias', etiqueta: 'Nómina / Asistencias', entidad: 'nomina' },
 ]
 
 const TIPOS_BOTON: { valor: TipoBotonWA; etiqueta: string }[] = [
@@ -151,6 +153,7 @@ export function PaginaEditorPlantillaMeta({
   const [presupuestoPreview, setPresupuestoPreview] = useState<Record<string, unknown> | null>(null)
   const [ordenPreview, setOrdenPreview] = useState<Record<string, unknown> | null>(null)
   const [actividadPreview, setActividadPreview] = useState<Record<string, unknown> | null>(null)
+  const [nominaPreview, setNominaPreview] = useState<Record<string, unknown> | null>(null)
 
   // Siempre editable: incluso si la plantilla ya está aprobada en Meta,
   // el usuario puede hacer cambios locales. Los cambios quedan "desincronizados"
@@ -284,6 +287,7 @@ export function PaginaEditorPlantillaMeta({
     setPresupuestoPreview(null)
     setOrdenPreview(null)
     setActividadPreview(null)
+    setNominaPreview(null)
   }, [])
 
   const cargarContactoRelacionado = useCallback(async (contactoId: string | null | undefined) => {
@@ -295,6 +299,78 @@ export function PaginaEditorPlantillaMeta({
     } catch { /* silenciar */ }
   }, [])
 
+  // Carga datos de nómina del período actual + adelantos del miembro y arma
+  // un objeto listo para resolver las variables `nomina.*` de la plantilla.
+  const cargarNominaPreview = useCallback(async (miembroId: string) => {
+    try {
+      const resMiembros = await fetch('/api/miembros')
+      const dataMiembros = await resMiembros.json()
+      const miembros = (dataMiembros?.miembros || []) as Array<Record<string, unknown>>
+      const miembro = miembros.find(m => m.id === miembroId)
+      if (!miembro) return
+
+      // Período actual (asumimos quincenal: /api/miembros no expone frecuencia).
+      const periodo = periodoActual(null, locale)
+
+      const resNomina = await fetch(`/api/asistencias/nomina?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+      const dataNomina = await resNomina.json()
+      const resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
+        .find(r => r.miembro_id === miembroId)
+      if (!resultado) {
+        const perfil = (miembro.perfil as Record<string, unknown> | null) || null
+        const nombre = `${String(perfil?.nombre || '')} ${String(perfil?.apellido || '')}`.trim()
+        setNominaPreview({ nombre, periodo: periodo.etiqueta })
+        return
+      }
+
+      const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
+      const dataAdel = await resAdel.json()
+      const adelantos = (dataAdel?.adelantos || []) as Array<Record<string, unknown>>
+
+      type CuotaPeriodo = {
+        tipo: string; notas: string;
+        numeroCuota: number; cuotasTotales: number;
+        monto: number; fechaSolicitud: string;
+      }
+      const items: CuotaPeriodo[] = []
+      for (const a of adelantos) {
+        if (a.estado === 'cancelado') continue
+        const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
+        const cuota = cuotas.find(c => {
+          const f = c.fecha_programada as string
+          return f >= periodo.desde && f <= periodo.hasta
+        })
+        if (!cuota) continue
+        items.push({
+          tipo: ((a.tipo as string) || 'adelanto'),
+          notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
+          numeroCuota: cuota.numero_cuota as number,
+          cuotasTotales: a.cuotas_totales as number,
+          monto: parseFloat(cuota.monto_cuota as string),
+          fechaSolicitud: a.fecha_solicitud as string,
+        })
+      }
+      // Orden cronológico ascendente: más viejo arriba, más nuevo abajo.
+      items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
+
+      const fmtMonto = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+      const lineas: string[] = []
+      const saldoAnterior = Number(resultado.saldo_anterior || 0)
+      if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmtMonto(saldoAnterior)}`)
+      for (const it of items) {
+        const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
+        const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
+        lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmtMonto(it.monto)}`)
+      }
+
+      setNominaPreview({
+        ...resultado,
+        periodo: periodo.etiqueta,
+        detalle_descuentos: lineas.join('\n'),
+      })
+    } catch { /* silenciar */ }
+  }, [locale])
+
   const seleccionarEntidadPreview = useCallback(async (sel: EntidadSeleccionada) => {
     setEntidadSeleccionada(sel)
     // Reset de las demás entidades para no mezclar datos entre selecciones
@@ -303,15 +379,24 @@ export function PaginaEditorPlantillaMeta({
     setPresupuestoPreview(null)
     setOrdenPreview(null)
     setActividadPreview(null)
+    setNominaPreview(null)
 
     try {
+      // Nómina: el id es miembro_id. La carga combina nómina + adelantos.
+      if (sel.tipo === 'nomina') {
+        await cargarNominaPreview(sel.id)
+        return
+      }
+
       const endpoint = {
         contacto: `/api/contactos/${sel.id}`,
         visita: `/api/visitas/${sel.id}`,
         presupuesto: `/api/presupuestos/${sel.id}`,
         orden: `/api/ordenes/${sel.id}`,
         actividad: `/api/actividades/${sel.id}`,
+        nomina: '',
       }[sel.tipo]
+      if (!endpoint) return
       const res = await fetch(endpoint)
       const data = await res.json()
       if (!data || data.error) return
@@ -344,7 +429,7 @@ export function PaginaEditorPlantillaMeta({
           break
       }
     } catch { /* silenciar */ }
-  }, [cargarContactoRelacionado])
+  }, [cargarContactoRelacionado, cargarNominaPreview])
 
   // Tipos de entidad para el buscador de preview y para filtrar opciones de
   // mapeo. Si la plantilla no declara módulos, se habilitan todos.
@@ -366,12 +451,13 @@ export function PaginaEditorPlantillaMeta({
       presupuesto: presupuestoPreview,
       orden: ordenPreview,
       actividad: actividadPreview,
+      nomina: nominaPreview,
       empresa: { nombre: empresa?.nombre || null },
     }, locale)
     // Fallback: para cualquier variable del catálogo sin dato real cargado,
     // usar el ejemplo genérico — así la vista previa nunca queda con `{{N}}`.
     return { ...EJEMPLOS_POR_CAMPO, ...datos }
-  }, [contactoPreview, visitaPreview, presupuestoPreview, ordenPreview, actividadPreview, empresa, locale])
+  }, [contactoPreview, visitaPreview, presupuestoPreview, ordenPreview, actividadPreview, nominaPreview, empresa, locale])
 
   // ─── Acciones ───
   const guardar = useCallback(async () => {
@@ -534,7 +620,7 @@ export function PaginaEditorPlantillaMeta({
 
   // ─── Panel izq: selectores preview + preview WhatsApp ───
   const panelConfig = (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-[380px] mx-auto">
       {/* Selector de canal */}
       {canales.length > 1 && (
         <div className="space-y-2">
@@ -591,6 +677,7 @@ export function PaginaEditorPlantillaMeta({
       onVolver={() => router.push(rutaVolver)}
       acciones={acciones}
       panelConfig={panelConfig}
+      anchoPanel="lg:w-[440px]"
     >
       {/* ═══ AVISO DE DESINCRONIZACIÓN CON META ═══ */}
       {plantilla && existeEnMeta && (estaDesincronizada || sincronizacionDesconocida) && (
@@ -712,13 +799,28 @@ export function PaginaEditorPlantillaMeta({
               disabled={!esEditable}
             />
             {componentes.encabezado.texto?.includes('{{1}}') && (
-              <Input
-                etiqueta="Ejemplo para {{1}}"
-                value={componentes.encabezado.ejemplo || ''}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => actualizarEncabezado({ ejemplo: e.target.value })}
-                placeholder="Ej: Juan García"
-                disabled={!esEditable}
-              />
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block mb-1">
+                    Variable {'{{1}}'} del encabezado
+                  </label>
+                  <Select
+                    valor={componentes.encabezado.mapeo_variable || ''}
+                    opciones={opcionesMapeo}
+                    onChange={(v) => actualizarEncabezado({ mapeo_variable: v || undefined })}
+                  />
+                  <p className="text-[11px] text-texto-terciario mt-1">
+                    Asignala para que el preview muestre datos reales del empleado/contacto seleccionado.
+                  </p>
+                </div>
+                <Input
+                  etiqueta="Ejemplo para {{1}} (Meta lo requiere para validación)"
+                  value={componentes.encabezado.ejemplo || ''}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => actualizarEncabezado({ ejemplo: e.target.value })}
+                  placeholder="Ej: Juan García"
+                  disabled={!esEditable}
+                />
+              </div>
             )}
           </div>
         )}
@@ -944,14 +1046,18 @@ function PreviewWhatsApp({
   const encabezadoHtml = useMemo(() => {
     if (componentes.encabezado?.tipo !== 'TEXT' || !componentes.encabezado.texto) return ''
     const texto = componentes.encabezado.texto
-    // El encabezado sólo admite {{1}}; usamos el ejemplo del usuario si lo hay,
-    // si no, caemos al nombre de contacto cuando hay datos reales.
-    const reemplazo = componentes.encabezado.ejemplo || datosPreview.contacto_nombre || '{{1}}'
+    // Resolución del encabezado (admite una sola variable {{1}}):
+    //   1. Si hay `mapeo_variable` asignada → valor real del catálogo (preview con datos).
+    //   2. Si no, ejemplo cargado por el usuario.
+    //   3. Fallback genérico: nombre de contacto si está cargado.
+    const claveMapeo = componentes.encabezado.mapeo_variable
+    const valorMapeo = claveMapeo ? datosPreview[claveMapeo] : undefined
+    const reemplazo = valorMapeo || componentes.encabezado.ejemplo || datosPreview.contacto_nombre || '{{1}}'
     return formatearTextoWA(texto.replace(/\{\{1\}\}/g, reemplazo))
   }, [componentes.encabezado, datosPreview])
 
   return (
-    <div className="w-full max-w-[280px]">
+    <div className="w-full max-w-[374px] mx-auto">
       <div className="flex items-center gap-2 px-3 py-2 rounded-t-xl" style={{ background: 'var(--whatsapp-header)' }}>
         <IconoWhatsApp size={16} style={{ color: '#fff' }} />
         <span className="text-xs font-medium text-white">Vista previa</span>
@@ -960,7 +1066,7 @@ function PreviewWhatsApp({
         className="p-3 min-h-[200px]"
         style={{ background: 'var(--whatsapp-chat-bg)' }}
       >
-        <div className="rounded-card p-2.5 max-w-[250px] shadow-sm" style={{ background: 'var(--whatsapp-burbuja)' }}>
+        <div className="rounded-card p-2.5 max-w-[350px] shadow-sm" style={{ background: 'var(--whatsapp-burbuja)' }}>
           {componentes.encabezado?.tipo === 'TEXT' && componentes.encabezado.texto && (
             <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" style={{ color: 'var(--whatsapp-texto)' }} />
           )}
@@ -988,7 +1094,7 @@ function PreviewWhatsApp({
           </div>
         </div>
         {componentes.botones && componentes.botones.length > 0 && (
-          <div className="mt-1 space-y-1 max-w-[250px]">
+          <div className="mt-1 space-y-1 max-w-[350px]">
             {componentes.botones.map((b, idx) => (
               <div key={idx} className="rounded-card py-2 text-center text-sm font-medium shadow-sm" style={{ background: 'var(--whatsapp-burbuja)', color: 'var(--whatsapp-enlace)' }}>
                 {b.tipo === 'URL' && '🔗 '}

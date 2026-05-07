@@ -3,9 +3,9 @@
  * Se usa en: webhook de WhatsApp para decidir si activar Salix IA (copilot) o el flujo normal de clientes.
  *
  * Teléfono usado para matchear:
- * - Respeta `miembros.canal_notif_telefono` ('empresa' | 'personal'): solo matchea con el teléfono del canal elegido.
- * - Si el canal elegido está vacío, no hay match (no cae al otro canal).
- * - Si el miembro no tiene canal configurado (datos viejos), default 'empresa'.
+ * - Empleado con cuenta Flux: respeta `miembros.canal_notif_telefono` ('empresa' | 'personal').
+ *   Solo matchea con el teléfono del canal elegido, sin fallback al otro.
+ * - Empleado sin cuenta Flux: usa el teléfono del contacto de equipo (único campo).
  *
  * Normalización: compara solo dígitos, ignorando +, espacios, guiones.
  * También maneja el caso de teléfonos sin código de país (ej: "1160990312" se intenta matchear
@@ -13,7 +13,7 @@
  */
 
 import type { ResultadoDeteccionEmpleado, SupabaseAdmin } from '@/tipos/salix-ia'
-import { resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
+import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import { telefonosCoinciden as telefonosCoincidenCentral, generarVariantesTelefono, normalizarTelefono } from '@/lib/validaciones'
 
@@ -50,7 +50,7 @@ export async function detectarEmpleado(
   // Obtener miembros activos (query separada de perfiles porque el join falla en este proyecto)
   const { data: miembros } = await admin
     .from('miembros')
-    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, salix_ia_web, salix_ia_whatsapp, canal_notif_telefono, puesto_id')
+    .select('id, usuario_id, rol, permisos_custom, nivel_salix, salix_ia_web, salix_ia_whatsapp, canal_notif_telefono, puesto_id')
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
 
@@ -64,14 +64,9 @@ export async function detectarEmpleado(
     ? await admin.from('perfiles').select('id, nombre, apellido, telefono, telefono_empresa').in('id', usuarioIds)
     : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null; telefono: string | null; telefono_empresa: string | null }> }
 
-  const perfilesMap = new Map<string, { nombre: string; apellido: string; telefono: string | null; telefono_empresa: string | null }>()
+  const perfilesMap = new Map<string, { nombre: string | null; apellido: string | null; telefono: string | null; telefono_empresa: string | null }>()
   for (const p of (perfiles || [])) {
-    perfilesMap.set(p.id, {
-      nombre: p.nombre || '',
-      apellido: p.apellido || '',
-      telefono: p.telefono,
-      telefono_empresa: p.telefono_empresa,
-    })
+    perfilesMap.set(p.id, p)
   }
 
   // Fallback contacto equipo: nombre + teléfono para empleados sin cuenta Flux
@@ -83,43 +78,36 @@ export async function detectarEmpleado(
         .in('miembro_id', miembrosIdsArr)
         .eq('en_papelera', false)
     : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null; telefono: string | null }> }
-  const contactoEqMap = new Map<string, { nombre: string; apellido: string; telefono: string | null }>()
+  const contactoEqMap = new Map<string, { nombre: string | null; apellido: string | null; telefono: string | null }>()
   for (const c of (contactosEq || [])) {
     if (!c.miembro_id) continue
     contactoEqMap.set(c.miembro_id, {
-      nombre: c.nombre || '',
-      apellido: c.apellido || '',
+      nombre: c.nombre,
+      apellido: c.apellido,
       telefono: c.telefono,
     })
   }
 
   console.info(`[DETECTAR] ${miembros.length} miembros, ${perfilesMap.size} perfiles, ${contactoEqMap.size} contactos equipo`)
 
-  // Buscar coincidencia con prioridad: telefono_empresa > telefono
+  // Buscar coincidencia respetando canal y fallback unificado
   for (const m of miembros) {
     const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : undefined
     const contactoEq = contactoEqMap.get(m.id)
-    const datos = perfil || (contactoEq ? { nombre: contactoEq.nombre, apellido: contactoEq.apellido, telefono: contactoEq.telefono, telefono_empresa: null } : null)
 
-    if (!datos) {
+    if (!perfil && !contactoEq) {
       console.info(`[DETECTAR] Miembro ${m.id} sin perfil ni contacto, saltando`)
       continue
     }
 
-    // Respetar canal_notif_telefono: solo matchea con el teléfono del canal
-    // elegido. Los contactos "de equipo" (miembros sin cuenta Flux) no tienen
-    // canal, matchean con su teléfono único.
-    const canalTel = (m.canal_notif_telefono as 'empresa' | 'personal' | null) || 'empresa'
-    const telObjetivo = perfil
-      ? resolverTelefonoNotif({
-          telefono: perfil.telefono,
-          telefono_empresa: perfil.telefono_empresa,
-          canal_notif_telefono: canalTel,
-        })
-      : datos.telefono
+    const datosContacto = resolverDatosContactoMiembro({
+      miembro: { canal_notif_telefono: m.canal_notif_telefono as 'empresa' | 'personal' | null },
+      perfil: perfil || null,
+      contactoEquipo: contactoEq || null,
+    })
 
-    const telNorm = normalizarTelefono(telObjetivo)
-    console.info(`[DETECTAR] ${datos.nombre}: canal=${canalTel}, tel="${telNorm}", comparando con "${telefonoNormalizado}"`)
+    const telNorm = normalizarTelefono(datosContacto.telefono)
+    console.info(`[DETECTAR] ${datosContacto.nombre_completo}: fuente=${datosContacto.fuente}, tel="${telNorm}", comparando con "${telefonoNormalizado}"`)
 
     const coincide = telNorm ? telefonosCoinciden(telNorm, telefonoNormalizado) : false
 
@@ -133,17 +121,17 @@ export async function detectarEmpleado(
           usuario_id: m.usuario_id,
           rol: m.rol,
           permisos_custom: m.permisos_custom,
-          salix_ia_habilitado: m.salix_ia_habilitado,
+          nivel_salix: (m.nivel_salix ?? 'ninguno') as import('@/tipos/miembro').NivelSalix,
           salix_ia_web: m.salix_ia_web,
           salix_ia_whatsapp: m.salix_ia_whatsapp,
           puesto: et?.puesto ?? null,
           sector: et?.sector ?? null,
         },
         perfil: {
-          nombre: datos.nombre,
-          apellido: datos.apellido,
-          telefono: datos.telefono,
-          telefono_empresa: datos.telefono_empresa,
+          nombre: datosContacto.nombre,
+          apellido: datosContacto.apellido,
+          telefono: perfil?.telefono ?? contactoEq?.telefono ?? null,
+          telefono_empresa: perfil?.telefono_empresa ?? null,
         },
       }
     }

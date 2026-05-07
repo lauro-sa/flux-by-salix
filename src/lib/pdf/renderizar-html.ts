@@ -7,6 +7,7 @@
 
 import { PLANTILLA_PDF_DEFECTO } from './plantilla-defecto'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
+import { EstadosCuota } from '@/tipos/cuota'
 
 // Convierte el valor de notas/condiciones a HTML para el PDF.
 // Soporta: JSON array de HTML strings, HTML suelto, y texto plano legacy.
@@ -411,7 +412,7 @@ export function renderizarHtml(
       monto_formateado: formatearNumero(cuota.monto, 2, locale),
       moneda_simbolo: simbolo,
       estado: cuota.estado,
-      estado_label: cuota.estado === 'cobrada' ? 'Cobrada' : 'Pendiente',
+      estado_label: cuota.estado === EstadosCuota.COBRADA ? 'Cobrada' : 'Pendiente',
     }))
 
   let html = procesarLoops(plantilla, {

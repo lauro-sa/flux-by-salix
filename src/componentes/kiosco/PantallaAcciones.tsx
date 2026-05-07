@@ -22,8 +22,8 @@ import {
 
 import Image from 'next/image'
 
-type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
-type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
+type EstadoTurno = 'activo' | 'en_almuerzo' | 'en_particular' | null
+type Accion = 'entrada' | 'salida' | 'en_almuerzo' | 'volver_almuerzo' | 'en_particular' | 'volver_particular'
 
 interface PropsPantallaAcciones {
   nombre: string
@@ -53,7 +53,7 @@ const POP_EN = 3
 // Definiciones de botones con colores como el viejo
 const BOTONES = {
   almuerzo: {
-    accion: 'almuerzo' as Accion,
+    accion: 'en_almuerzo' as Accion,
     icono: <UtensilsCrossed size={26} />,
     label: 'Salir a almorzar',
     detalle: 'Registrar pausa de almuerzo',
@@ -62,7 +62,7 @@ const BOTONES = {
     color: 'var(--kiosco-accion-salida)',
   },
   particular: {
-    accion: 'particular' as Accion,
+    accion: 'en_particular' as Accion,
     icono: <Footprints size={26} />,
     label: 'Salgo un momento',
     detalle: 'Trámite o gestión personal',
@@ -97,8 +97,8 @@ const BADGE_ESTADO: Record<string, { texto: string; bg: string; color: string }>
 }
 
 function obtenerBotonesSecundarios(estado: EstadoTurno, yaAlmorzo: boolean) {
-  if (estado === 'almuerzo') return [BOTONES.volver_almuerzo]
-  if (estado === 'particular') return [BOTONES.volver_particular]
+  if (estado === 'en_almuerzo') return [BOTONES.volver_almuerzo]
+  if (estado === 'en_particular') return [BOTONES.volver_particular]
   if (yaAlmorzo) return [BOTONES.particular]
   return [BOTONES.almuerzo, BOTONES.particular]
 }

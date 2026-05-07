@@ -1102,6 +1102,7 @@ export const en: Traducciones = {
     aplicaciones: 'Apps',
     documentacion: 'Docs',
     marketing: 'Marketing',
+    flujos: 'Flows',
   },
 
   toolbar: {
@@ -1495,5 +1496,837 @@ export const en: Traducciones = {
     escribir_mensaje: 'Write a message...',
     reaccionar: 'React',
     quitar_etiqueta: 'Remove label',
+  },
+
+  flujos: {
+    titulo: 'Flows',
+    nuevo: 'New flow',
+    buscar_placeholder: 'Search flow by name...',
+
+    estados: {
+      activo: 'Active',
+      pausado: 'Paused',
+      borrador: 'Draft',
+    },
+
+    filtro_todos: 'All',
+    filtro_activos: 'Active',
+    filtro_pausados: 'Paused',
+    filtro_borradores: 'Drafts',
+
+    columna_estado: 'Status',
+    columna_nombre: 'Name',
+    columna_modulo: 'Module',
+    columna_disparador: 'Trigger',
+    columna_ultima_ejecucion: 'Last run',
+    columna_ejecuciones: 'Last 30 days',
+
+    filtro_modulo: 'Module',
+    filtro_modulo_desc: 'Filter flows by the entity they act on.',
+    filtro_tipo_disparador: 'Trigger type',
+    filtro_tipo_disparador_desc: 'Filter by how the flow starts (state change, cron, etc.).',
+    filtro_creado: 'Created date',
+    filtro_creado_desc: 'Filter by when the flow was created.',
+    filtro_ultima_ejec: 'Last run',
+    filtro_ultima_ejec_desc: 'Filter by the last time the flow was triggered.',
+    filtro_estado_desc: 'Active flows are running; paused are halted but keep their config; drafts are not published yet.',
+
+    grupo_identidad: 'Identity',
+    grupo_comportamiento: 'Behavior',
+    grupo_actividad: 'Activity',
+
+    disparador: {
+      'entidad.estado_cambio': 'State change',
+      'entidad.creada': 'Entity created',
+      'entidad.campo_cambia': 'Field change',
+      'actividad.completada': 'Activity completed',
+      'tiempo.cron': 'Periodic cron',
+      'tiempo.relativo_a_campo': 'Relative to date',
+      'webhook.entrante': 'Incoming webhook',
+      'inbox.mensaje_recibido': 'Message received',
+      'inbox.conversacion_sin_respuesta': 'Unanswered conversation',
+      sin_disparador: 'No trigger',
+    },
+    disparador_descripcion: {
+      'entidad.estado_cambio': 'When an entity moves to a configured state.',
+      'entidad.creada': 'When a new entity is created.',
+      'entidad.campo_cambia': 'When a specific entity field changes.',
+      'actividad.completada': 'When an activity is completed.',
+      'tiempo.cron': 'On schedules defined by a cron expression.',
+      'tiempo.relativo_a_campo': 'A given number of days before or after a record date.',
+      'webhook.entrante': 'When a POST hits a webhook URL.',
+      'inbox.mensaje_recibido': 'When a message arrives in the inbox.',
+      'inbox.conversacion_sin_respuesta': 'When a conversation has been silent for a while.',
+    },
+
+    modal_nuevo: {
+      titulo: 'Create new flow',
+      pestana_plantilla: 'From a template',
+      pestana_cero: 'From scratch',
+      buscar_plantilla: 'Search templates...',
+      filtrar_modulo: 'Filter by module',
+      todos_modulos: 'All modules',
+      crear_desde_plantilla: 'Use this template',
+      nombre_label: 'Flow name',
+      nombre_placeholder: 'E.g. Reminder for upcoming installment',
+      modulo_label: 'Module (optional)',
+      modulo_placeholder: 'Pick a module',
+      crear_y_editar: 'Create and edit',
+      sin_plantillas: 'No templates available for the installed modules.',
+      sin_plantillas_busqueda: 'No template matches your search.',
+      plantilla_disparador: 'Triggers on: ',
+    },
+
+    estado_vacio: {
+      titulo: 'You have no flows yet',
+      descripcion: 'Flows automate your work: they trigger on events (an accepted quote, an upcoming installment, an unanswered message) and run chained actions (send WhatsApp, create activities, notify the team).',
+      titulo_plantillas: 'Start from a template',
+      crear_desde_cero: 'Create flow from scratch',
+    },
+
+    accion: {
+      editar: 'Edit',
+      ver: 'View',
+      duplicar: 'Duplicate',
+      activar: 'Activate',
+      pausar: 'Pause',
+      eliminar: 'Delete',
+      sin_tipo: 'Action',
+    },
+
+    confirmar_eliminar: {
+      titulo: 'Delete this flow?',
+      descripcion: 'This deletes the flow definition and its full execution history. It cannot be undone.',
+      confirmar: 'Delete flow',
+    },
+
+    modal_duplicar: {
+      titulo: 'Duplicate flow',
+      descripcion: 'A draft copy will be created. You can rename it before continuing.',
+      nombre_label: 'New flow name',
+      sufijo_copia: '(copy)',
+      confirmar: 'Duplicate',
+    },
+
+    seccion_modulo: {
+      lista_titulo: 'Active flows in this module',
+      lista_ver_todos: 'View all',
+      lista_mas_sufijo: 'more',
+      cargando: 'Loading flows…',
+      ultima_ejecucion_prefijo: 'Last run: ',
+      sin_ejecutar: 'Not executed yet',
+      plantillas_titulo: 'Suggested templates',
+      plantillas_descripcion: 'Get started quickly with curated flows. Click a template to create a draft and start editing.',
+    },
+
+    tooltip_borrador_pendiente: 'Has unpublished changes',
+    tooltip_sin_ejecutar: 'Never run',
+
+    toast: {
+      creado: 'Flow created',
+      duplicado: 'Flow duplicated',
+      activado: 'Flow activated',
+      pausado: 'Flow paused',
+      eliminado: 'Flow deleted',
+      error_crear: 'Could not create the flow',
+      error_duplicar: 'Could not duplicate the flow',
+      error_activar: 'Could not activate the flow',
+      error_pausar: 'Could not pause the flow',
+      error_eliminar: 'Could not delete the flow',
+    },
+
+    editor: {
+      volver_listado: 'Back to list',
+      nombre_default: 'Untitled',
+      nombre_editar_tooltip: 'Click to rename',
+      elegir_icono: 'Choose flow icon',
+      drag_handle: 'Drag to reorder',
+      agregar_paso_intermedio: 'Insert step at position {{n}}',
+      agregar_paso_final: 'Add step',
+
+      indicador: {
+        guardando: 'Saving…',
+        guardado: 'Saved',
+        guardado_hace_min: 'Saved {{n}} min ago',
+        guardado_hace_h: 'Saved {{n}} h ago',
+      },
+
+      banner: {
+        borrador_titulo: 'You are editing this flow',
+        borrador_desc: 'Your changes do not affect the active flow until you click Publish changes.',
+        lectura_titulo: 'Read-only mode',
+        lectura_desc: 'You have permission to view but not edit this flow.',
+        error_titulo: 'Cannot activate yet',
+        error_desc: 'Configuration errors. Review the highlighted steps.',
+      },
+
+      validacion: {
+        titulo_activar: 'Cannot activate yet',
+        titulo_publicar: 'Cannot publish changes',
+        descripcion: 'Found {{n}} setting(s) that need to be completed before continuing.',
+        cta_ver_errores: 'View errors',
+        errores_extra: '+{{n}} more',
+      },
+
+      accion: {
+        publicar: 'Publish changes',
+        descartar: 'Discard changes',
+        reactivar: 'Reactivate',
+        probar: 'Test',
+        probar_tooltip: 'Preview or dry-run',
+      },
+
+      tabs: {
+        aria_label: 'Flow views',
+        editor: 'Editor',
+        historial: 'History',
+      },
+
+      disparador: {
+        etiqueta: 'Trigger',
+        placeholder_titulo: 'Configure the trigger',
+        placeholder_desc: 'Pick the event or moment that will start this flow.',
+      },
+
+      branch: {
+        resumen: '{{si}} action(s) if YES · {{no}} action(s) if NO',
+        rama_si: 'If YES',
+        rama_no: 'If NO',
+        rama_count: '{{n}} action(s)',
+        rama_vacia: 'No actions',
+      },
+
+      panel: {
+        titulo_default: 'Step details',
+        banner_lectura: 'Read-only mode',
+
+        seccion: {
+          basicos: 'Basics',
+          tiempo: 'Timing',
+          disparador: 'Trigger',
+          avanzado: 'Advanced',
+          condiciones: 'Conditions',
+        },
+
+        subheader: {
+          posicion: 'Step {{n}} of {{total}}',
+          rama_si: 'Yes branch',
+          rama_no: 'No branch',
+        },
+
+        footer: {
+          eliminar_paso: 'Delete step',
+        },
+
+        pendiente: {
+          titulo: '"{{tipo}}" editing coming soon',
+          descripcion: 'This step type is already wired in the engine; the panel with its editable fields will arrive in the next editor release.',
+        },
+
+        esperar: {
+          cantidad_label: 'Amount',
+          unidad_label: 'Unit',
+          unidad_min: 'Minutes',
+          unidad_hora: 'Hours',
+          unidad_dia: 'Days',
+          ayuda: 'The flow pauses before continuing to the next step. Minimum 1 minute, maximum 30 days.',
+          ayuda_fecha_absoluta: 'This step has an absolute date configured ({{fecha}}). Editing it from the panel will arrive later.',
+        },
+
+        terminar: {
+          leyenda: 'When the flow reaches this step it ends. Any step after it is ignored.',
+          motivo_label: 'Reason (optional)',
+          motivo_placeholder: 'E.g. Customer did not reply',
+        },
+
+        cron: {
+          expresion_label: 'Cron expression',
+          ayuda: 'Five fields: minute · hour · day of month · month · day of week.',
+          ejemplo_1: '9 AM Monday to Friday.',
+          ejemplo_2: 'Every 15 minutes.',
+          ejemplo_3: 'Midnight on the first day of every month.',
+        },
+
+        actividad_completada: {
+          tipo_clave_label: 'Activity type (optional)',
+          tipo_clave_placeholder: 'E.g. call, site_visit',
+          tipo_clave_ayuda: 'If left blank, fires for any activity type. Accepts the technical key (full autocomplete coming in a later release).',
+        },
+
+        header: {
+          editar_nombre_tooltip: 'Click to rename this step',
+        },
+
+        avanzado: {
+          proximamente: 'Advanced options will arrive in a future release.',
+          continuar_si_falla_label: 'Continue if it fails',
+          continuar_si_falla_ayuda: 'If this action fails, the flow continues with the next one instead of stopping.',
+        },
+
+        whatsapp: {
+          canal_label: 'Channel',
+          canal_placeholder: 'Channel ID',
+          canal_ayuda: 'Technical identifier of the configured WhatsApp channel.',
+          telefono_label: 'Recipient phone',
+          telefono_placeholder: '{{contacto.telefono}}',
+          telefono_ayuda: 'Accepts variables like {{contacto.telefono}}.',
+          plantilla_label: 'Approved template',
+          plantilla_placeholder: 'payment_reminder',
+          plantilla_ayuda: 'Name of the template approved on Meta.',
+          idioma_label: 'Language',
+        },
+
+        notificar: {
+          usuario_label: 'Recipient user',
+          usuario_placeholder: 'User UUID',
+          usuario_ayuda: 'Accepts variables (e.g. {{actor.id}}) or a fixed UUID.',
+          titulo_label: 'Title',
+          titulo_placeholder: 'New quote accepted',
+          cuerpo_label: 'Message (optional)',
+          cuerpo_placeholder: '{{contacto.nombre}} accepted quote {{entidad.numero}}',
+          url_label: 'Navigation URL',
+          url_placeholder: '/presupuestos/{{entidad.id}}',
+          url_ayuda: 'Relative URL the notification click goes to.',
+          tipo_label: 'Category',
+          tipo_placeholder: 'system, sales...',
+        },
+
+        actividad: {
+          tipo_id_label: 'Activity type',
+          tipo_id_placeholder: 'UUID of the configured type',
+          tipo_id_ayuda: 'ID of the activity type to create (autocomplete coming in a later release).',
+          titulo_label: 'Title',
+          titulo_placeholder: 'Call {{contacto.nombre}}',
+          descripcion_label: 'Description (optional)',
+          descripcion_placeholder: 'Confirm scheduled visit',
+          prioridad_label: 'Priority',
+          prioridad_baja: 'Low',
+          prioridad_normal: 'Normal',
+          prioridad_alta: 'High',
+          asignados_label: 'Assignees (UUIDs separated by comma)',
+          asignados_placeholder: 'uuid-1, uuid-2',
+          asignados_ayuda: 'List of user IDs. Autocomplete coming later.',
+          contacto_label: 'Linked contact (optional)',
+          contacto_placeholder: '{{contacto.id}}',
+          contacto_ayuda: 'Accepts variables or a fixed UUID.',
+          fecha_label: 'Due date',
+          fecha_ayuda: 'ISO format (YYYY-MM-DD). Visual picker coming later.',
+        },
+
+        cambiar_estado: {
+          entidad_label: 'Entity',
+          entidad_ayuda_disparador: 'The flow is triggered by a change on {{tipo}} — by default we change that same entity.',
+          entidad_id_label: 'Entity ID',
+          entidad_id_ayuda: 'Usually {{entidad.id}} (the same entity that triggered the flow).',
+          hasta_clave_label: 'Target state',
+          hasta_clave_placeholder: 'E.g. accepted, completed',
+          hasta_clave_ayuda: 'Technical key of the target state (configurable list in /configuration).',
+          motivo_label: 'Reason (optional)',
+          motivo_placeholder: 'Auto-close by workflow',
+          entidad: {
+            presupuesto: 'Quote',
+            orden: 'Work order',
+            visita: 'Visit',
+            conversacion: 'Conversation',
+            asistencia: 'Attendance',
+            cuota: 'Installment',
+            actividad: 'Activity',
+            adelanto_nomina: 'Payroll advance',
+            pago_nomina: 'Payroll payment',
+          },
+        },
+
+        entidad_estado_cambio: {
+          entidad_label: 'Watched entity',
+          hasta_label: 'Target state',
+          hasta_placeholder: 'E.g. accepted, paid',
+          hasta_ayuda: 'Key of the state the entity must reach to fire.',
+          desde_label: 'Source state (optional)',
+          desde_placeholder: 'E.g. pending',
+          desde_ayuda: 'If empty, fires from any prior state.',
+        },
+
+        entidad_creada: {
+          entidad_label: 'Watched entity',
+          entidad_ayuda: 'The flow fires every time a new entity of the chosen type is created.',
+        },
+
+        entidad_campo_cambia: {
+          entidad_label: 'Watched entity',
+          campo_label: 'Field to watch',
+          campo_placeholder: 'E.g. total, asignado_a',
+          campo_ayuda: 'Technical column name (autocomplete coming later).',
+          valor_label: 'Target value (optional)',
+          valor_placeholder: 'If empty, fires on any change',
+          valor_ayuda: 'If filled, fires only when the field changes to this exact value.',
+        },
+
+        relativo_a_campo: {
+          entidad_label: 'Watched entity',
+          campo_fecha_label: 'Date field',
+          campo_fecha_placeholder: 'E.g. fecha_vencimiento',
+          campo_fecha_ayuda: 'Date column on the entity.',
+          delta_label: 'Relative days',
+          delta_ayuda: 'Negative = before (e.g. -3 = "three days before"). Positive = after.',
+          hora_local_label: 'Local time',
+          hora_local_ayuda: 'Time of day (HH:MM) in company timezone.',
+          tolerancia_label: 'Tolerance (days)',
+          tolerancia_ayuda: 'Backwards margin if the cron was down. 0 = strictly the day.',
+        },
+
+        branch: {
+          operador_label: 'When met:',
+          operador_y: 'All',
+          operador_o: 'Any',
+          ayuda_y: 'The flow takes the "Yes" branch when ALL conditions below are true.',
+          ayuda_o: 'The flow takes the "Yes" branch when AT LEAST ONE condition below is true.',
+          sin_condiciones: 'No conditions yet. Add the first one so the branch has logic.',
+          agregar_condicion: 'Add condition',
+          fila_anidada_no_editable: 'This condition has nested groups. Editing nested groups will arrive later; the engine evaluates it intact for now.',
+          ayuda_avanzado: 'Additional operators (between, days since, lists) and nested groups are coming in a future release.',
+          fila: {
+            variable_label: 'Variable or field',
+            variable_placeholder: '{{entidad.total}}',
+            valor_label: 'Value',
+            valor_placeholder: '100000 or {{another.variable}}',
+            eliminar: 'Remove condition',
+          },
+          op: {
+            igual: 'is equal to',
+            distinto: 'is different from',
+            mayor: 'is greater than',
+            menor: 'is less than',
+            mayor_o_igual: 'is greater than or equal to',
+            menor_o_igual: 'is less than or equal to',
+            contiene: 'contains',
+            no_contiene: 'does not contain',
+            esta_vacio: 'is empty',
+            no_esta_vacio: 'is not empty',
+          },
+        },
+
+        asignar: {
+          usuario_label: 'Assign to',
+          entidad_id_label: 'Entity ID (optional)',
+          entidad_id_ayuda: 'Defaults to the entity that triggered the flow. Accepts variables like {{entidad.id}}.',
+        },
+
+        etiqueta: {
+          agregar_label: 'Tag to add',
+          agregar_placeholder: 'E.g. priority_high',
+          quitar_label: 'Tag to remove',
+          quitar_placeholder: 'E.g. priority_high',
+          clave_ayuda: 'Technical key of the configurable tag (autocomplete coming later).',
+          entidad_id_label: 'Entity ID (optional)',
+          entidad_id_ayuda: 'Defaults to the entity that triggered the flow.',
+        },
+
+        notificar_grupo: {
+          grupo_label: 'Recipient group',
+          grupo_placeholder: 'E.g. sales, support',
+          grupo_ayuda: 'Technical key of the configurable group. Autocomplete coming later.',
+          titulo_label: 'Title',
+          titulo_placeholder: 'Installment due soon: {{contacto.nombre}}',
+          cuerpo_label: 'Message (optional)',
+          cuerpo_placeholder: 'Notice details...',
+        },
+
+        whatsapp_texto: {
+          mensaje_label: 'Message',
+          mensaje_placeholder: 'Hi {{contacto.nombre}}, just reminding you...',
+          mensaje_ayuda: 'Free text. Only works within the 24h window since the contact’s last message.',
+        },
+
+        correo_texto: {
+          destinatario_label: 'Recipient',
+          asunto_label: 'Subject',
+          asunto_placeholder: 'Reminder: {{entidad.numero}}',
+          cuerpo_label: 'Body',
+          cuerpo_placeholder: 'Hi {{contacto.nombre}},\n\n...',
+          cuerpo_ayuda: 'Plain text. Rich-text editor coming in a future release.',
+        },
+
+        correo_plantilla: {
+          plantilla_label: 'Email template',
+          plantilla_ayuda: 'Templates are managed in Settings → Email templates. The engine resolves them with contact and entity data at runtime.',
+          destinatario_label: 'Recipient',
+          preview_titulo: 'Preview',
+          preview_asunto_label: 'Subject',
+          preview_cuerpo_label: 'Body',
+          preview_ayuda: 'Variables like {{contacto.nombre}} are replaced automatically when sending.',
+        },
+
+        generico_json: {
+          cartel_titulo: 'Advanced configuration — {{tipo}}',
+          cartel_descripcion: 'This action does not have a visual panel yet. Configure parameters by editing the raw JSON.',
+          cartel_aviso_no_guarda: 'If the JSON does not parse, the change is NOT saved — the last valid value is preserved.',
+          formatear: 'Format JSON',
+          error_parse: 'Invalid JSON — check quotes and braces.',
+          error_no_objeto: 'JSON must be an object (not an array nor a primitive).',
+        },
+      },
+
+      confirmar_descartar: {
+        titulo: 'Discard unpublished changes?',
+        descripcion: 'You will return to the currently published version of the flow. This cannot be undone.',
+        confirmar: 'Discard changes',
+      },
+
+      toast: {
+        publicado: 'Changes published',
+        descartado: 'Changes discarded',
+        guardado_manual: 'Changes saved',
+        error_guardar: 'Could not save',
+        error_publicar: 'Could not publish',
+        error_descartar: 'Could not discard the draft',
+      },
+
+      consola: {
+        titulo: 'Test console',
+        cerrar: 'Close console',
+        tab_preview: 'Preview',
+        tab_dryrun: 'Dry-run',
+        evento_label: 'Test event:',
+        evento_sin_evento: 'No event (this trigger does not require an entity)',
+        evento_no_disponible: 'No records to preview yet',
+        cargando: 'Running dry-run…',
+        cta_correr: 'Run dry-run',
+        cta_volver_a_correr: 'Run again',
+        cta_actualizar_preview: 'Refresh preview',
+        sin_pasos: 'Add at least one step before testing the flow.',
+
+        banner_invalido_titulo: 'Cannot test yet',
+        banner_invalido_desc: 'There are configuration errors. Fix the marked steps before running the dry-run.',
+        banner_no_implementadas_titulo: 'Unimplemented actions',
+        banner_no_implementadas_desc: 'This flow contains {{n}} step(s) with actions the engine does not run yet. The dry-run simulates them, but when activated those steps will fail.',
+
+        preview: {
+          titulo: 'Static preview',
+          descripcion: 'Each step shows resolved values without running anything.',
+          paso_titulo: 'Step {{n}}: {{nombre}}',
+          rama_si_resuelta: 'Condition is met → YES branch',
+          rama_no_resuelta: 'Condition is NOT met → NO branch',
+          esperaria: 'Would wait {{texto}}',
+          esperaria_hasta: 'Would wait until {{fecha}}',
+          terminar_flujo: 'The flow would end here',
+          variable_faltante: 'Missing variable: {{ruta}}',
+          ver_detalle: 'View details',
+          ocultar_detalle: 'Hide details',
+        },
+
+        dryrun: {
+          titulo: 'Dry-run execution',
+          paso_completado: 'Completed',
+          paso_simulado: '[dry-run] {{accion}}',
+          paso_fallado: 'Failed',
+          paso_no_implementada: 'Not implemented',
+          accion_no_implementada_inline: 'Action not implemented',
+          duracion_ms: '{{ms}} ms',
+          terminado_temprano: 'The flow ended early (terminate_flow).',
+          resumen_titulo: 'Summary',
+          resumen_completados: '{{n}} completed',
+          resumen_fallados: '{{n}} with errors',
+          resumen_simulados: '{{n}} simulated',
+          resumen_total: 'Total duration: {{ms}} ms',
+          accion_simulada_whatsapp: 'Would send WhatsApp "{{plantilla}}" to {{destinatario}}',
+          accion_simulada_actividad: 'Would create activity "{{titulo}}" ({{tipo}})',
+          accion_simulada_estado: 'Would change state of {{entidad}} to "{{nuevo}}"',
+          accion_simulada_notificar: 'Would notify {{usuario}}: "{{titulo}}"',
+          accion_simulada_generica: 'Simulated {{tipo}} action',
+          error_correr: 'Could not run the dry-run',
+        },
+      },
+    },
+
+    selector: {
+      buscar: 'Search...',
+      cargando: 'Loading options…',
+      error_cargar: 'Could not load options.',
+      sin_resultados: 'No matches.',
+      canal_wa: { placeholder: 'Pick a WhatsApp channel' },
+      plantilla_wa: { placeholder: 'Pick an approved template' },
+      tipo_actividad: { placeholder: 'Pick an activity type' },
+      miembro: {
+        placeholder: 'Pick a user',
+        placeholder_multi: 'Pick one or more users',
+      },
+      estado: { placeholder: 'Pick a state' },
+      etiqueta: { placeholder: 'Pick a tag' },
+      plantilla_correo: { placeholder: 'Pick a template' },
+    },
+
+    picker: {
+      titulo: 'Insert variable',
+      buscador_placeholder: 'Search variable...',
+      limpiar_busqueda: 'Clear search',
+      tab_todas: 'All',
+      sin_resultados: 'No variables match your search.',
+      hint_navegacion: '↑↓ navigate · ↵ insert · esc close',
+      boton_insertar: 'Insert variable',
+      helpers_mostrar: 'Helpers',
+      helpers_ocultar: 'Hide',
+      fuente: {
+        entidad: 'Entity',
+        contacto: 'Contact',
+        empresa: 'Company',
+        sistema: 'System',
+        cambio: 'Change',
+        actor: 'User',
+      },
+    },
+
+    variables: {
+      presupuesto: {
+        numero: 'Number',
+        titulo: 'Title',
+        total: 'Total',
+        estado_clave: 'Status',
+        fecha_validez: 'Valid until',
+        creado_en: 'Created at',
+      },
+      cuota: {
+        numero: 'Installment number',
+        monto: 'Amount',
+        fecha_vencimiento: 'Due date',
+        estado_clave: 'Status',
+      },
+      orden: {
+        numero: 'Number',
+        titulo: 'Title',
+        estado_clave: 'Status',
+        fecha_programada: 'Scheduled date',
+      },
+      visita: {
+        titulo: 'Title',
+        estado_clave: 'Status',
+        fecha_programada: 'Scheduled date',
+        direccion: 'Address',
+      },
+      actividad: {
+        titulo: 'Title',
+        descripcion: 'Description',
+        estado_clave: 'Status',
+        fecha_vencimiento: 'Due date',
+      },
+      conversacion: {
+        canal: 'Channel',
+        estado_clave: 'Status',
+        ultima_actividad_en: 'Last activity',
+      },
+      generico: {
+        id: 'ID',
+        estado_clave: 'Status',
+      },
+      contacto: {
+        nombre: 'Name',
+        email: 'Email',
+        telefono: 'Phone',
+        empresa: 'Company',
+      },
+      empresa: {
+        nombre: 'Name',
+        telefono: 'Phone',
+        correo: 'Email',
+        pagina_web: 'Website',
+      },
+      sistema: {
+        ahora: 'Current date and time',
+      },
+      actor: {
+        nombre: 'Name',
+        email: 'Email',
+        nombre_completo: 'Full name',
+      },
+      cambio: {
+        desde: 'Previous state / value',
+        hasta: 'New state / value',
+      },
+    },
+
+    catalogo: {
+      titulo_disparador: 'Pick a trigger',
+      titulo_accion: 'Add step',
+      buscar_placeholder: 'Search by name or type…',
+      sin_resultados: 'No step matches your search.',
+      sin_categorias: 'No options available.',
+
+      categoria: {
+        eventos: 'Events',
+        eventos_desc: 'Triggers that react to something happening in your Flux.',
+        tiempo: 'Time',
+        tiempo_desc: 'Triggers based on schedules or relative dates.',
+        envios: 'Sending actions',
+        envios_desc: 'Send WhatsApp or email to contacts or users.',
+        creaciones: 'Creation actions',
+        creaciones_desc: 'Generate activities, orders or visits automatically.',
+        cambios: 'Data changes',
+        cambios_desc: 'Update status, assign user, tag.',
+        notificaciones: 'Notifications',
+        notificaciones_desc: 'Notify users or groups internally.',
+        control: 'Flow control',
+        control_desc: 'Wait, branch on conditions, call webhooks.',
+        terminar: 'End',
+        terminar_desc: 'Close the flow explicitly before reaching the end.',
+      },
+    },
+
+    paso: {
+      'entidad.estado_cambio': { titulo: 'State change', descripcion: 'When an entity moves to a configured state.' },
+      'entidad.creada': { titulo: 'Entity created', descripcion: 'When a new entity of the chosen type is created.' },
+      'entidad.campo_cambia': { titulo: 'Field change', descripcion: 'When a specific field changes value.' },
+      'actividad.completada': { titulo: 'Activity completed', descripcion: 'When an activity is marked as completed.' },
+      'tiempo.cron': { titulo: 'Periodic schedule', descripcion: 'On schedules defined by a cron expression.' },
+      'tiempo.relativo_a_campo': { titulo: 'Relative to a date', descripcion: 'Before or after a date on the record.' },
+      'webhook.entrante': { titulo: 'Incoming webhook', descripcion: 'When a POST arrives at a webhook URL.' },
+      'inbox.mensaje_recibido': { titulo: 'Message received', descripcion: 'When a message arrives at the inbox.' },
+      'inbox.conversacion_sin_respuesta': { titulo: 'Unanswered conversation', descripcion: 'When a conversation has been waiting too long.' },
+
+      enviar_whatsapp_plantilla: { titulo: 'Send WhatsApp', descripcion: 'Send a Meta-approved template to a contact.' },
+      enviar_whatsapp_texto: { titulo: 'Send WhatsApp (free text)', descripcion: 'Send a text message within the 24-hour window.' },
+      enviar_correo_plantilla: { titulo: 'Send email (template)', descripcion: 'Send an email based on a saved template.' },
+      enviar_correo_texto: { titulo: 'Send email', descripcion: 'Send a free-form email.' },
+      crear_actividad: { titulo: 'Create activity', descripcion: 'Generate an activity assigned to a user.' },
+      cambiar_estado_entidad: { titulo: 'Change state', descripcion: 'Move an entity to another configured state.' },
+      asignar_usuario: { titulo: 'Assign user', descripcion: 'Change who is responsible for the entity.' },
+      agregar_etiqueta: { titulo: 'Add tag', descripcion: 'Add a tag to the entity or contact.' },
+      quitar_etiqueta: { titulo: 'Remove tag', descripcion: 'Remove a tag from the entity or contact.' },
+      notificar_usuario: { titulo: 'Notify a user', descripcion: 'Send an internal notification to a person.' },
+      notificar_grupo: { titulo: 'Notify a group', descripcion: 'Send an internal notification to a group or role.' },
+      crear_orden_trabajo: { titulo: 'Create work order', descripcion: 'Generate a linked work order.' },
+      crear_visita: { titulo: 'Create visit', descripcion: 'Schedule a visit linked to the entity.' },
+      webhook_saliente: { titulo: 'Call a webhook', descripcion: 'POST to an external URL with flow data.' },
+      esperar: { titulo: 'Wait', descripcion: 'Pause the flow for a duration or until a date.' },
+      esperar_evento: { titulo: 'Wait for event', descripcion: 'Pause the flow until an event occurs.' },
+      condicion_branch: { titulo: 'If / Else', descripcion: 'Take different paths depending on a condition.' },
+      terminar_flujo: { titulo: 'End flow', descripcion: 'Explicitly close the flow.' },
+    },
+
+    historial: {
+      placeholder: {
+        titulo: 'Run history',
+        descripcion:
+          'You will see every time this flow has been executed, with full step-by-step detail.',
+      },
+
+      busqueda_placeholder: 'Search not available — use the filters',
+      entidad_sin_referencia: 'No associated entity',
+      hint_dataset_grande:
+        'This flow has {{n}} recorded runs. Narrow the list with a date filter.',
+
+      columnas: {
+        estado: 'Status',
+        fecha: 'When',
+        disparado_por: 'Source',
+        entidad: 'Entity',
+        duracion: 'Duration',
+      },
+
+      grupos: {
+        estado: 'Status',
+        cuando: 'When',
+        origen: 'Source',
+      },
+
+      filtros: {
+        estado: 'Status',
+        estado_desc: 'Filter by run outcome.',
+        disparado_por: 'Trigger type',
+        disparado_por_desc: 'How the run was initiated.',
+        creado_rango: 'When',
+        creado_rango_desc: 'Restrict runs to a time range.',
+        error_raw_class: 'Error type',
+        error_raw_class_desc:
+          'Filter by the error class recorded by the engine (useful for support).',
+      },
+
+      preset_fecha: {
+        hoy: 'Today',
+        '7d': '7 days',
+        '30d': '30 days',
+        '90d': '90 days',
+      },
+
+      estados: {
+        pendiente: 'Pending',
+        corriendo: 'Running',
+        esperando: 'Waiting',
+        completado: 'Completed',
+        fallado: 'Failed',
+        cancelado: 'Cancelled',
+      },
+
+      disparado_por: {
+        cambios_estado: 'Status change',
+        cron: 'Scheduled (cron)',
+        manual: 'Manual',
+        webhook: 'Webhook',
+        desconocido: 'Unknown',
+      },
+
+      empty: {
+        sin_ejecuciones_titulo: 'This flow has never run',
+        sin_ejecuciones_desc:
+          'When the flow runs for the first time, the detail of each execution will appear here.',
+      },
+
+      drawer: {
+        titulo: 'Run detail',
+        cerrar: 'Close',
+        reintentar: 'Retry',
+        creado_en: 'Created',
+        inicio: 'Started',
+        fin: 'Ended',
+        no_encontrada_titulo: 'Run not found',
+        no_encontrada_desc:
+          'It may have been deleted or you may not have permission to view it.',
+        error_titulo: 'Could not load the run',
+        error_desc: 'Something went wrong while fetching the detail. Try again.',
+      },
+
+      timeline: {
+        sin_pasos: 'This run has not recorded any steps yet.',
+        intentos: '{{n}} attempts',
+        continuo_pese_fallo: 'The flow continued despite this failure.',
+        pendientes: 'Pending steps',
+        pendiente_estado: 'Pending',
+        ejecutar_en: 'Scheduled for',
+      },
+
+      acciones: {
+        reejecutar: 'Re-run',
+        reejecutar_ok: 'Run created — the new row appears at the top of the list.',
+        reejecutar_error: 'Could not re-run',
+        cancelar: 'Cancel run',
+        cancelar_ok: 'Run cancelled',
+        cancelar_error: 'Could not cancel',
+        cancelar_ya_termino:
+          'The run changed state while you were trying to cancel it. Most likely it already completed.',
+        cancelar_corriendo:
+          'Cannot cancel a run that is already executing. Wait for it to finish.',
+        copiar_log: 'Copy log',
+        copiar_log_tooltip: 'Copies the JSON log to the clipboard',
+        copiar_log_ok: 'Log copied to clipboard',
+        copiar_log_error: 'Could not copy the log',
+
+        confirmar_reejecutar: {
+          titulo: 'Re-run this execution?',
+          descripcion:
+            'This will execute the actions again, including sending WhatsApp/email to real recipients.',
+          confirmar: 'Re-run',
+        },
+
+        confirmar_cancelar: {
+          titulo: 'Cancel this execution?',
+          descripcion:
+            'Pending actions will not run. This cannot be undone.',
+          confirmar: 'Cancel run',
+        },
+      },
+
+      chatter: {
+        titulo: 'Triggered flows',
+        flujo_sin_nombre: 'Untitled flow',
+      },
+    },
   },
 }

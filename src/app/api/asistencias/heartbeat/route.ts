@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         .select('id, fecha, hora_salida')
         .eq('empresa_id', empresaId)
         .eq('miembro_id', miembro.id)
-        .in('estado', ['activo', 'almuerzo', 'particular'])
+        .in('estado', ['activo', 'en_almuerzo', 'en_particular'])
         .neq('fecha', fechaHoy)
         .limit(1)
         .maybeSingle()
@@ -198,13 +198,13 @@ export async function POST(request: NextRequest) {
 
       // Si está en almuerzo o trámite y recibimos un heartbeat activo (no beforeunload),
       // el usuario volvió a usar la compu → retorno automático
-      if (turnoHoy && tipo !== 'beforeunload' && (turnoHoy.estado === 'almuerzo' || turnoHoy.estado === 'particular')) {
+      if (turnoHoy && tipo !== 'beforeunload' && (turnoHoy.estado === 'en_almuerzo' || turnoHoy.estado === 'en_particular')) {
         const camposRetorno: Record<string, unknown> = {
           estado: 'activo',
           hora_salida: ahora,
           actualizado_en: ahora,
         }
-        if (turnoHoy.estado === 'almuerzo') {
+        if (turnoHoy.estado === 'en_almuerzo') {
           camposRetorno.fin_almuerzo = ahora
         } else {
           camposRetorno.vuelta_particular = ahora

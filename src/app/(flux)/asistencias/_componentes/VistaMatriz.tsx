@@ -281,7 +281,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
       }
     }
     return mapa
-  }, [fechas])
+  }, [todasLasFechas])
   const diasLaborales = useMemo(() => todasLasFechas.filter(f => {
     const d = new Date(f + 'T12:00:00').getDay()
     return d !== 0 && d !== 6 && !feriados.has(f)
@@ -546,9 +546,9 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
       ) : (
         <div className="flex-1 overflow-auto">
           <table className={`border-collapse text-sm ${ajustarPantalla ? 'w-full table-fixed' : 'w-full'}`}>
-            <thead className="sticky top-0 z-10 bg-superficie-app">
+            <thead className="sticky top-0 z-30 bg-superficie-app">
               <tr>
-                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'w-[140px] max-w-[140px] px-2 py-3' : 'min-w-[200px] px-4 py-3'}`}>
+                <th className={`sticky left-0 z-40 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'w-[140px] max-w-[140px] px-2 py-3' : 'min-w-[200px] px-4 py-3'}`}>
                   <div className="flex items-center gap-2">
                     {modoSeleccion && (
                       <Checkbox
@@ -608,7 +608,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
                   )
                 })}
                 {/* Resumen */}
-                <th className={`sticky right-0 z-20 bg-superficie-app px-3 py-2 text-center border-b border-l border-borde-sutil ${ajustarPantalla ? 'w-[60px]' : 'min-w-[70px]'}`}>
+                <th className={`sticky right-0 z-40 bg-superficie-app px-3 py-2 text-center border-b border-l border-borde-sutil ${ajustarPantalla ? 'w-[60px]' : 'min-w-[70px]'}`}>
                   <div className="text-xxs uppercase tracking-wider text-texto-terciario">Resumen</div>
                 </th>
               </tr>

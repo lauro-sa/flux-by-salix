@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { formatearFechaISO } from '@/lib/formato-fecha'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/inbox/metricas — Métricas del inbox para dashboard.
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     const conversacionesArr = convs || []
     const nuevas = conversacionesArr.length
-    const resueltas = conversacionesArr.filter(c => c.estado === 'resuelta').length
+    const resueltas = conversacionesArr.filter(c => c.estado === EstadosConversacion.RESUELTA).length
 
     // ─── SLA y tiempos ───
     const conSla = conversacionesArr.filter(c => c.sla_primera_respuesta_en)
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
       }
       const ag = porAgente[c.asignado_a]
       ag.asignadas++
-      if (c.estado === 'resuelta') ag.resueltas++
+      if (c.estado === EstadosConversacion.RESUELTA) ag.resueltas++
       if (c.sla_primera_respuesta_en) {
         ag.sla_total++
         if (c.sla_primera_respuesta_cumplido) ag.sla_cumplido++

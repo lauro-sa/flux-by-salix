@@ -21,6 +21,7 @@ export type EntidadPlantillaWA =
   | 'presupuesto'
   | 'orden'
   | 'actividad'
+  | 'nomina'
 
 export interface EntidadesPlantilla {
   contacto?: Record<string, unknown> | null
@@ -28,6 +29,13 @@ export interface EntidadesPlantilla {
   presupuesto?: Record<string, unknown> | null
   orden?: Record<string, unknown> | null
   actividad?: Record<string, unknown> | null
+  /**
+   * Datos de nómina del período: combina el resultado de `/api/asistencias/nomina`
+   * con el detalle de adelantos/descuentos para resolver variables de recibos.
+   * Estructura esperada:
+   *   { ...resultado_nomina, periodo, detalle_descuentos: string }
+   */
+  nomina?: Record<string, unknown> | null
   empresa?: { nombre?: string | null; correo?: string | null; telefono?: string | null } | null
 }
 
@@ -36,7 +44,7 @@ export interface EntidadesPlantilla {
 export interface DefinicionVariable {
   valor: string
   etiqueta: string
-  grupo: 'Contacto' | 'Visita' | 'Documento' | 'Orden' | 'Actividad' | 'Empresa'
+  grupo: 'Contacto' | 'Visita' | 'Documento' | 'Orden' | 'Actividad' | 'Empresa' | 'Nómina'
   entidad: EntidadPlantillaWA | 'empresa'
   ejemplo: string
   modulos?: string[]
@@ -83,6 +91,19 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'actividad_vencimiento', etiqueta: 'Actividad — Vencimiento', grupo: 'Actividad', entidad: 'actividad', ejemplo: '22/04/2026', modulos: ['actividades'] },
   { valor: 'actividad_estado', etiqueta: 'Actividad — Estado', grupo: 'Actividad', entidad: 'actividad', ejemplo: 'Pendiente', modulos: ['actividades'] },
 
+  // Nómina (recibos de haberes — módulo asistencias)
+  { valor: 'nombre_empleado', etiqueta: 'Nómina — Nombre del empleado', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'José Luis Romero', modulos: ['asistencias'] },
+  { valor: 'periodo', etiqueta: 'Nómina — Período (etiqueta)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'Quincena 16-30 Abril 2026', modulos: ['asistencias'] },
+  { valor: 'dias_trabajados', etiqueta: 'Nómina — Días trabajados', grupo: 'Nómina', entidad: 'nomina', ejemplo: '9', modulos: ['asistencias'] },
+  { valor: 'dias_laborales', etiqueta: 'Nómina — Días laborales del período', grupo: 'Nómina', entidad: 'nomina', ejemplo: '11', modulos: ['asistencias'] },
+  { valor: 'dias_a_horario', etiqueta: 'Nómina — Días llegados a horario', grupo: 'Nómina', entidad: 'nomina', ejemplo: '6', modulos: ['asistencias'] },
+  { valor: 'dias_tardanza', etiqueta: 'Nómina — Días con tardanza', grupo: 'Nómina', entidad: 'nomina', ejemplo: '3', modulos: ['asistencias'] },
+  { valor: 'monto_bruto', etiqueta: 'Nómina — Monto bruto', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$340.000', modulos: ['asistencias'] },
+  { valor: 'monto_descuentos', etiqueta: 'Nómina — Total de descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$156.229', modulos: ['asistencias'] },
+  { valor: 'monto_neto', etiqueta: 'Nómina — Neto a transferir', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$183.771', modulos: ['asistencias'] },
+  { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229\n• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
+  { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
+
   // Empresa (siempre disponible)
   { valor: 'empresa_nombre', etiqueta: 'Empresa — Nombre', grupo: 'Empresa', entidad: 'empresa', ejemplo: 'Mi Empresa S.A.' },
   { valor: 'empresa_correo', etiqueta: 'Empresa — Correo', grupo: 'Empresa', entidad: 'empresa', ejemplo: 'info@miempresa.com' },
@@ -122,6 +143,14 @@ function formatoMoneda(valor: unknown, moneda?: string, locale = 'es-AR'): strin
   if (isNaN(num)) return String(valor)
   const simbolo = moneda === 'USD' ? 'US$' : moneda === 'EUR' ? '€' : '$'
   return `${simbolo} ${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/** Formato de moneda compacto sin decimales — para recibos de nómina (ARS). */
+function formatoMontoEntero(valor: unknown, locale = 'es-AR'): string {
+  if (valor == null || valor === '') return ''
+  const num = Number(valor)
+  if (isNaN(num)) return String(valor)
+  return `$${num.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function formatoFechaCorta(valor: unknown, locale = 'es-AR'): string {
@@ -166,7 +195,7 @@ export function construirDatosPlantilla(
   entidades: EntidadesPlantilla,
   locale = 'es-AR',
 ): Record<string, string> {
-  const { contacto, visita, presupuesto, orden, actividad, empresa } = entidades
+  const { contacto, visita, presupuesto, orden, actividad, nomina, empresa } = entidades
   const datos: Record<string, string> = {}
 
   // Helper: sólo asigna la clave si el valor no es vacío — así los ejemplos del
@@ -236,6 +265,38 @@ export function construirDatosPlantilla(
     set('actividad_estado', (actividad.estado_clave || actividad.estado) as string)
   }
 
+  // Nómina (recibo de haberes).
+  // A diferencia de las otras entidades, asignamos las variables de forma
+  // directa (no vía `set`) para que valores vacíos/cero sobrescriban los
+  // ejemplos del catálogo. Si no, el preview de un empleado sin datos
+  // mostraría el ejemplo hardcodeado y confundiría al usuario.
+  if (nomina) {
+    const nombre = String(nomina.nombre || '').trim()
+    if (nombre) datos['nombre_empleado'] = nombre
+
+    if (nomina.periodo) datos['periodo'] = String(nomina.periodo)
+
+    const diasTrabajados = Number(nomina.dias_trabajados || 0)
+    const diasLaborales = Number(nomina.dias_laborales || 0)
+    const diasTardanza = Number(nomina.dias_tardanza || 0)
+    datos['dias_trabajados'] = String(diasTrabajados)
+    datos['dias_laborales'] = String(diasLaborales)
+    datos['dias_a_horario'] = String(Math.max(0, diasTrabajados - diasTardanza))
+    datos['dias_tardanza'] = String(diasTardanza)
+
+    datos['monto_bruto'] = formatoMontoEntero(nomina.monto_pagar || 0)
+    datos['monto_neto'] = formatoMontoEntero(nomina.monto_neto ?? nomina.monto_pagar ?? 0)
+    const totalDescuentos = Number(nomina.descuento_adelanto || 0) + Math.max(0, Number(nomina.saldo_anterior || 0))
+    datos['monto_descuentos'] = formatoMontoEntero(totalDescuentos)
+
+    // Detalle: si no hay descuentos en el período, mensaje explícito en cursiva
+    // (formato WA: _texto_) para no caer al ejemplo del catálogo.
+    const detalle = String(nomina.detalle_descuentos || '').trim()
+    datos['detalle_descuentos'] = detalle || '_Sin adelantos ni descuentos en el período._'
+
+    if (nomina.monto_detalle) datos['compensacion_detalle'] = String(nomina.monto_detalle)
+  }
+
   // Empresa
   if (empresa) {
     set('empresa_nombre', empresa.nombre)
@@ -288,6 +349,28 @@ export function resolverParametrosCuerpo(
   return Array.from({ length: total }, (_, idx) => {
     const clave = mapeo[idx]
     const valor = (clave && datos[clave]) || ejemplos[idx] || ''
-    return { type: 'text' as const, text: valor }
+    return { type: 'text' as const, text: sanearParametroPlantilla(valor) }
   })
+}
+
+/**
+ * Limpia un valor para que sea válido como parámetro `{{N}}` en una plantilla
+ * de Meta. Meta rechaza con error 132018 cualquier parámetro que contenga
+ * saltos de línea, tabs o más de 4 espacios consecutivos.
+ *
+ * Reemplazos:
+ *   - \r\n / \n / \r → " · " (separador visible para listas multilínea)
+ *   - \t              → espacio
+ *   - 5+ espacios     → 1 espacio
+ *
+ * El texto que se guarda en `mensajes.texto` (copia visual en la bandeja)
+ * resuelve la plantilla con la versión original multilínea — esta función
+ * aplica solo al payload que va a la API de Meta.
+ */
+export function sanearParametroPlantilla(valor: string): string {
+  if (!valor) return valor
+  return valor
+    .replace(/\r\n|\n|\r/g, ' · ')
+    .replace(/\t/g, ' ')
+    .replace(/ {5,}/g, ' ')
 }

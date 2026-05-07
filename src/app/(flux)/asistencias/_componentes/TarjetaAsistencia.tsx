@@ -113,7 +113,7 @@ const ICONO_METODO: Record<string, React.ReactNode> = {
 // ─── Segmentos de la barra de tiempo ─────────────────────────
 
 interface Segmento {
-  tipo: 'trabajo' | 'almuerzo' | 'tramite'
+  tipo: 'trabajo' | 'en_almuerzo' | 'tramite'
   minutos: number
   color: string
 }
@@ -122,17 +122,17 @@ function calcularSegmentos(r: RegistroAsistencia): Segmento[] {
   if (!r.hora_entrada) return []
   const entrada = new Date(r.hora_entrada).getTime()
   const salida = r.hora_salida ? new Date(r.hora_salida).getTime() : Date.now()
-  const pausas: { inicio: number; fin: number; tipo: 'almuerzo' | 'tramite' }[] = []
+  const pausas: { inicio: number; fin: number; tipo: 'en_almuerzo' | 'tramite' }[] = []
 
   if (r.inicio_almuerzo && r.fin_almuerzo) {
-    pausas.push({ inicio: new Date(r.inicio_almuerzo).getTime(), fin: new Date(r.fin_almuerzo).getTime(), tipo: 'almuerzo' })
+    pausas.push({ inicio: new Date(r.inicio_almuerzo).getTime(), fin: new Date(r.fin_almuerzo).getTime(), tipo: 'en_almuerzo' })
   }
   if (r.salida_particular && r.vuelta_particular) {
     pausas.push({ inicio: new Date(r.salida_particular).getTime(), fin: new Date(r.vuelta_particular).getTime(), tipo: 'tramite' })
   }
   pausas.sort((a, b) => a.inicio - b.inicio)
 
-  const segmentos: { inicio: number; fin: number; tipo: 'trabajo' | 'almuerzo' | 'tramite' }[] = []
+  const segmentos: { inicio: number; fin: number; tipo: 'trabajo' | 'en_almuerzo' | 'tramite' }[] = []
   let cursor = entrada
   for (const pausa of pausas) {
     if (pausa.inicio > cursor) segmentos.push({ inicio: cursor, fin: pausa.inicio, tipo: 'trabajo' })
@@ -141,7 +141,7 @@ function calcularSegmentos(r: RegistroAsistencia): Segmento[] {
   }
   if (cursor < salida) segmentos.push({ inicio: cursor, fin: salida, tipo: 'trabajo' })
 
-  const colores = { trabajo: 'bg-asistencia-presente/30', almuerzo: 'bg-asistencia-almuerzo/40', tramite: 'bg-asistencia-particular/40' }
+  const colores = { trabajo: 'bg-asistencia-presente/30', en_almuerzo: 'bg-asistencia-almuerzo/40', tramite: 'bg-asistencia-particular/40' }
   return segmentos.map(s => ({
     tipo: s.tipo,
     minutos: Math.max(1, Math.round((s.fin - s.inicio) / 60000)),
@@ -155,7 +155,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
   const { formatoHora, locale } = useFormato()
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
-  const enCurso = ['activo', 'almuerzo', 'particular'].includes(r.estado)
+  const enCurso = ['activo', 'en_almuerzo', 'en_particular'].includes(r.estado)
 
   // Tick cada 30s para actualizar duración en vivo
   const [, setTick] = useState(0)

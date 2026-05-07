@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { resolverCanales } from '@/lib/canales'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * GET /api/inbox/conversaciones — Listar conversaciones con filtros.
@@ -50,6 +51,9 @@ export async function GET(request: NextRequest) {
     // en "Enviados".
     const soloRecibidos = params.get('solo_recibidos') === 'true'
     const soloNoLeidos = params.get('no_leidos') === 'true'
+    // Pestañas Clientes/Empleados (solo aplica con tipo_canal=whatsapp).
+    // 'clientes' → conversaciones sin miembro vinculado. 'empleados' → con miembro.
+    const audiencia = params.get('audiencia')
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '500'), 500)
     const desde = (pagina - 1) * por_pagina
@@ -81,6 +85,13 @@ export async function GET(request: NextRequest) {
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
     if (estado) query = query.eq('estado', estado)
     if (canal_id) query = query.eq('canal_id', canal_id)
+
+    // Pestaña Clientes/Empleados — separa la bandeja según haya miembro vinculado.
+    if (audiencia === 'empleados') {
+      query = query.not('miembro_id', 'is', null)
+    } else if (audiencia === 'clientes') {
+      query = query.is('miembro_id', null)
+    }
     const contacto_id = params.get('contacto_id')
     if (contacto_id) query = query.eq('contacto_id', contacto_id)
 
@@ -301,7 +312,7 @@ export async function POST(request: NextRequest) {
         asunto: asunto || null,
         identificador_externo: identificador_externo || null,
         canal_interno_id: canal_interno_id || null,
-        estado: 'abierta',
+        estado: EstadosConversacion.ABIERTA,
         asignado_a: user.id,
         asignado_a_nombre: `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim(),
       })

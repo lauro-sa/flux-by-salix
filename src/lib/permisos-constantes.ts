@@ -21,6 +21,8 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     asistencias: ['ver_todos', 'marcar', 'editar', 'eliminar'],
     nomina: ['ver_todos', 'editar', 'enviar'],
     productos: ['ver', 'crear', 'editar', 'eliminar'],
+    // Flujos: el admin tiene los 5 permisos por default.
+    flujos: ['ver_todos', 'crear', 'editar', 'eliminar', 'activar'],
     // Personales — features individuales disponibles para todo miembro.
     notas: ['ver_propio', 'crear', 'editar', 'eliminar'],
     recordatorios: ['ver_propio', 'crear', 'editar', 'eliminar', 'completar'],
@@ -67,6 +69,9 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     inbox_correo: ['ver_todos', 'enviar', 'eliminar'],
     inbox_interno: ['ver_todos', 'enviar', 'eliminar'],
     productos: ['ver', 'crear', 'editar'],
+    // Flujos: gestor mira pero no toca por default. Admins habilitan
+    // crear/editar/activar via permisos_custom según el caso.
+    flujos: ['ver_todos'],
     ordenes_trabajo: ['ver_todos', 'crear', 'editar', 'completar', 'completar_etapa'],
     asistencias: ['ver_todos', 'marcar'],
     // Gestor ve nómina del equipo pero no la edita ni envía por default —

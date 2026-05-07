@@ -265,8 +265,8 @@ export default function PaginaMatrizAsistencias() {
                                estado === 'ausente' ? '✕' :
                                estado === 'auto_cerrado' ? '!' :
                                estado === 'activo' ? '●' :
-                               estado === 'almuerzo' ? '◐' :
-                               estado === 'particular' ? '→' : ''}
+                               estado === 'en_almuerzo' ? '◐' :
+                               estado === 'en_particular' ? '→' : ''}
                             </span>
                           </div>
                         ) : esFinde ? (

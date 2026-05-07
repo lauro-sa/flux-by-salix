@@ -76,7 +76,8 @@ export async function POST(
       .eq('id', miembroId)
       .single()
 
-    if (miembroData) {
+    // Empleados sin cuenta Flux (usuario_id null) no tienen sesión que cerrar.
+    if (miembroData?.usuario_id) {
       await admin.auth.admin.signOut(miembroData.usuario_id, 'global')
     }
 

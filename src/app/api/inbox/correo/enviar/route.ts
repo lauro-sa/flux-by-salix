@@ -10,6 +10,7 @@ import {
 import type { ConfigIMAP } from '@/tipos/inbox'
 import { generarNombreRemitente } from '@/lib/nombre-remitente'
 import { registrarCorreoEnChatter, obtenerNombreEntidad, type EntidadRelacionadaChatter } from '@/lib/chatter'
+import { EstadosConversacion } from '@/tipos/conversacion'
 
 /**
  * POST /api/inbox/correo/enviar — Enviar correo electrónico.
@@ -359,7 +360,7 @@ export async function POST(request: NextRequest) {
           contacto_nombre: contactoExistente
             ? `${contactoExistente.nombre} ${contactoExistente.apellido || ''}`.trim()
             : correo_para[0],
-          estado: 'abierta',
+          estado: EstadosConversacion.ABIERTA,
           prioridad: 'normal',
           asunto: correo_asunto || null,
           mensajes_sin_leer: 0,

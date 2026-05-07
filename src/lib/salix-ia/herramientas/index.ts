@@ -28,6 +28,12 @@ import { ejecutarModificarEvento } from './ejecutores/modificar-evento'
 import { ejecutarAnotarNota } from './ejecutores/anotar-nota'
 import { ejecutarConsultarNotas } from './ejecutores/consultar-notas'
 import { ejecutarModificarNota } from './ejecutores/modificar-nota'
+// Tools personales — scope hardcodeado al propio empleado
+import { ejecutarMiReciboPeriodo } from './ejecutores/mi-recibo-periodo'
+import { ejecutarMiProximoPago } from './ejecutores/mi-proximo-pago'
+import { ejecutarMiPeriodoActual } from './ejecutores/mi-periodo-actual'
+import { ejecutarMisTardanzasEInasistencias } from './ejecutores/mis-tardanzas-e-inasistencias'
+import { ejecutarMiHistorialPagos } from './ejecutores/mi-historial-pagos'
 
 /** Mapa de nombre → función ejecutora */
 export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta> = {
@@ -54,6 +60,12 @@ export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta>
   anotar_nota: ejecutarAnotarNota,
   consultar_notas: ejecutarConsultarNotas,
   modificar_nota: ejecutarModificarNota,
+  // Tools personales
+  mi_recibo_periodo: (ctx, params) => ejecutarMiReciboPeriodo(ctx, params),
+  mi_proximo_pago: (ctx) => ejecutarMiProximoPago(ctx),
+  mi_periodo_actual: (ctx) => ejecutarMiPeriodoActual(ctx),
+  mis_tardanzas_e_inasistencias: (ctx, params) => ejecutarMisTardanzasEInasistencias(ctx, params),
+  mi_historial_pagos: (ctx, params) => ejecutarMiHistorialPagos(ctx, params),
 }
 
 /**

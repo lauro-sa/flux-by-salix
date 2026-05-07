@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { resolverCorreoNotif, resolverTelefonoNotif } from '@/lib/miembros/canal-notif'
+import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import Holidays from 'date-holidays'
 
@@ -135,15 +135,16 @@ export async function GET(request: NextRequest) {
 
     const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
 
-    // Fallback para empleados sin cuenta Flux: nombre desde contacto equipo
+    // Fallback para empleados sin cuenta Flux: nombre + contacto desde el contacto de equipo.
+    // Empleados sin perfil (sin login en Flux) no tienen perfiles.telefono; vive en contactos.telefono.
     const miembrosIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
     const { data: contactosEquipo } = miembrosIds.length > 0
       ? await admin
           .from('contactos')
-          .select('miembro_id, nombre, apellido')
+          .select('miembro_id, nombre, apellido, correo, telefono, tipo_identificacion, numero_identificacion')
           .in('miembro_id', miembrosIds)
           .eq('en_papelera', false)
-      : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> }
+      : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null; correo: string | null; telefono: string | null; tipo_identificacion: string | null; numero_identificacion: string | null }> }
     const contactoMapNomina = new Map(
       (contactosEquipo || []).filter(c => c.miembro_id).map(c => [c.miembro_id as string, c])
     )
@@ -265,24 +266,41 @@ export async function GET(request: NextRequest) {
       const m = miembro as Record<string, unknown>
       const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
       const contactoEquipo = contactoMapNomina.get(m.id as string)
-      const nombre = perfil && (perfil.nombre || perfil.apellido)
-        ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
-        : contactoEquipo && (contactoEquipo.nombre || contactoEquipo.apellido)
-          ? `${contactoEquipo.nombre || ''} ${contactoEquipo.apellido || ''}`.trim()
-          : 'Sin nombre'
-      // Resolver correo/teléfono según canal elegido del miembro (sin fallback).
-      // Si el canal elegido está vacío, el campo va vacío — la UI avisa y los
-      // endpoints de envío devuelven error explícito al intentar enviar.
-      const correo = resolverCorreoNotif({
-        correo: perfil?.correo as string | null,
-        correo_empresa: perfil?.correo_empresa as string | null,
-        canal_notif_correo: m.canal_notif_correo as 'empresa' | 'personal' | null,
-      }) || ''
-      const telefono = resolverTelefonoNotif({
-        telefono: perfil?.telefono as string | null,
-        telefono_empresa: perfil?.telefono_empresa as string | null,
-        canal_notif_telefono: m.canal_notif_telefono as 'empresa' | 'personal' | null,
-      }) || ''
+      // Datos de contacto unificados para empleados con/sin cuenta Flux.
+      // Con perfil: respeta canal elegido (empresa | personal). Sin perfil:
+      // usa el correo/teléfono únicos del contacto de equipo. La UI avisa y
+      // los endpoints de envío devuelven error explícito si quedan vacíos.
+      const datosContacto = resolverDatosContactoMiembro({
+        miembro: {
+          canal_notif_correo: m.canal_notif_correo as 'empresa' | 'personal' | null,
+          canal_notif_telefono: m.canal_notif_telefono as 'empresa' | 'personal' | null,
+        },
+        perfil: perfil
+          ? {
+              nombre: perfil.nombre as string | null,
+              apellido: perfil.apellido as string | null,
+              correo: perfil.correo as string | null,
+              correo_empresa: perfil.correo_empresa as string | null,
+              telefono: perfil.telefono as string | null,
+              telefono_empresa: perfil.telefono_empresa as string | null,
+              documento_tipo: perfil.documento_tipo as string | null,
+              documento_numero: perfil.documento_numero as string | null,
+            }
+          : null,
+        contactoEquipo: contactoEquipo
+          ? {
+              nombre: contactoEquipo.nombre,
+              apellido: contactoEquipo.apellido,
+              correo: contactoEquipo.correo,
+              telefono: contactoEquipo.telefono,
+              tipo_identificacion: contactoEquipo.tipo_identificacion,
+              numero_identificacion: contactoEquipo.numero_identificacion,
+            }
+          : null,
+      })
+      const nombre = datosContacto.nombre_completo || 'Sin nombre'
+      const correo = datosContacto.correo || ''
+      const telefono = datosContacto.telefono || ''
       const canalCorreo = (m.canal_notif_correo as string) || 'empresa'
       const canalTelefono = (m.canal_notif_telefono as string) || 'empresa'
 
@@ -510,10 +528,10 @@ export async function GET(request: NextRequest) {
       // numero_empleado es integer en DB — lo pasamos como string para la UI
       const numeroEmpleado = m.numero_empleado != null ? String(m.numero_empleado) : null
       const fotoUrl = (m.foto_kiosco_url as string | null) || null
-      // Documento viene del perfil (si tiene cuenta Flux)
-      const docTipo = perfil?.documento_tipo as string | null | undefined
-      const docNumero = perfil?.documento_numero as string | null | undefined
-      const documento = docNumero ? { tipo: docTipo || 'DOC', numero: docNumero } : null
+      // Documento solo se guarda en perfiles. Empleados sin cuenta Flux no tienen.
+      const documento = datosContacto.documento_numero
+        ? { tipo: datosContacto.documento_tipo || 'DOC', numero: datosContacto.documento_numero }
+        : null
 
       return {
         miembro_id: m.id,

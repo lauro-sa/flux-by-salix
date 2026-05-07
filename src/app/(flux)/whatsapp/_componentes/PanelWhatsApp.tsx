@@ -642,7 +642,10 @@ export function PanelWhatsApp({
               await fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ snooze_hasta: hasta, snooze_nota: nota, estado: 'snooze' }),
+                // El snooze NO es un estado en sí: la conversación sigue 'abierta'
+                // y el filtro de pospuestos lee de snooze_hasta. El backend
+                // rechaza estados fuera del catálogo, por eso no se manda 'estado'.
+                body: JSON.stringify({ snooze_hasta: hasta, snooze_nota: nota }),
               })
             }}
             onDespertar={async () => {

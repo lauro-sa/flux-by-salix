@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { User, MapPin, FileText, Wrench, ListTodo, X, ChevronDown } from 'lucide-react'
+import { User, MapPin, FileText, Wrench, ListTodo, Briefcase, X, ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { EntidadPlantillaWA } from '@/lib/whatsapp/variables'
 
@@ -90,6 +90,24 @@ const CONFIG: Record<EntidadPlantillaWA, TipoConfig> = {
       subtitulo: a.fecha_vencimiento ? new Date(String(a.fecha_vencimiento)).toLocaleDateString('es-AR') : undefined,
     }),
   },
+  nomina: {
+    valor: 'nomina',
+    etiqueta: 'Empleado',
+    icono: Briefcase,
+    // /api/miembros devuelve la lista completa (sin paginar) — filtramos client-side.
+    endpointList: '/api/miembros',
+    endpointDetalle: id => `/api/miembros?id=${id}`,
+    collectionKey: 'miembros',
+    resumen: m => {
+      const perfil = (m.perfil as Record<string, unknown> | null) || null
+      const nombre = String(perfil?.nombre || m.nombre || '').trim()
+      const apellido = String(perfil?.apellido || m.apellido || '').trim()
+      const titulo = `${nombre} ${apellido}`.trim() || 'Empleado'
+      const correo = String(perfil?.correo || '') || undefined
+      const puesto = (m.puesto as Record<string, unknown> | null)?.nombre as string | undefined
+      return { titulo, subtitulo: puesto || correo }
+    },
+  },
 }
 
 // ─── Tipo del seleccionado (lo que se muestra como "chip" arriba) ───
@@ -116,7 +134,7 @@ export function BuscadorEntidadPreview({
   onLimpiar,
 }: Props) {
   const tipos = useMemo<EntidadPlantillaWA[]>(() => {
-    const todos: EntidadPlantillaWA[] = ['contacto', 'visita', 'presupuesto', 'orden', 'actividad']
+    const todos: EntidadPlantillaWA[] = ['contacto', 'visita', 'presupuesto', 'orden', 'actividad', 'nomina']
     if (!tiposPermitidos || tiposPermitidos.length === 0) return todos
     return todos.filter(t => tiposPermitidos.includes(t))
   }, [tiposPermitidos])
@@ -147,8 +165,17 @@ export function BuscadorEntidadPreview({
       const url = `${cfg.endpointList}?${params.toString()}`
       const res = await fetch(url)
       const data = await res.json()
-      const lista = (data?.[cfg.collectionKey] as Array<Record<string, unknown>>) || []
-      setResultados(lista)
+      let lista = (data?.[cfg.collectionKey] as Array<Record<string, unknown>>) || []
+      // Filtrado client-side para entidades sin búsqueda server-side (ej. miembros).
+      // Coincide contra el título/subtítulo que se muestra en la lista.
+      if (q && !cfg.paramBusqueda) {
+        const qNorm = q.toLowerCase()
+        lista = lista.filter(it => {
+          const r = cfg.resumen(it)
+          return `${r.titulo || ''} ${r.subtitulo || ''}`.toLowerCase().includes(qNorm)
+        })
+      }
+      setResultados(lista.slice(0, 20))
     } catch {
       setResultados([])
     } finally {
@@ -225,34 +252,22 @@ export function BuscadorEntidadPreview({
         </div>
       )}
 
-      {/* Input de búsqueda */}
+      {/* Input de búsqueda — siempre habilitado. Si la API soporta búsqueda
+          server-side se manda como param; si no, filtramos client-side. */}
       <div className="relative">
-        {config.paramBusqueda ? (
-          <div className="flex items-center gap-1.5" style={{ borderBottom: '1.5px solid var(--borde-fuerte)' }}>
-            <input
-              ref={inputRef}
-              type="text"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              onFocus={() => setMostrar(true)}
-              onBlur={() => setTimeout(() => setMostrar(false), 200)}
-              placeholder={`Buscar ${config.etiqueta.toLowerCase()}…`}
-              className="flex-1 text-sm bg-transparent outline-none py-1.5 text-texto-primario"
-            />
-            <ChevronDown size={14} className="text-texto-terciario" />
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setMostrar(!mostrar)}
+        <div className="flex items-center gap-1.5" style={{ borderBottom: '1.5px solid var(--borde-fuerte)' }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            onFocus={() => setMostrar(true)}
             onBlur={() => setTimeout(() => setMostrar(false), 200)}
-            className="w-full flex items-center gap-1.5 py-1.5 text-left rounded"
-            style={{ borderBottom: '1.5px solid var(--borde-fuerte)' }}
-          >
-            <span className="flex-1 text-sm text-texto-terciario">{`Elegir ${config.etiqueta.toLowerCase()}…`}</span>
-            <ChevronDown size={14} className="text-texto-terciario" />
-          </button>
-        )}
+            placeholder={`Buscar ${config.etiqueta.toLowerCase()}…`}
+            className="flex-1 text-sm bg-transparent outline-none py-1.5 text-texto-primario"
+          />
+          <ChevronDown size={14} className="text-texto-terciario" />
+        </div>
 
         {mostrar && (
           <div
