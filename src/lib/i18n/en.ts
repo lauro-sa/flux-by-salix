@@ -1622,11 +1622,7 @@ export const en: Traducciones = {
       error_activar: 'Could not activate the flow',
       error_pausar: 'Could not pause the flow',
       error_eliminar: 'Could not delete the flow',
-      editor_proximamente: 'The editor will be available in the next release.',
     },
-
-    editor_proximamente_titulo: 'Editor under construction',
-    editor_proximamente_desc: 'You will soon be able to configure trigger, conditions and actions from here.',
 
     editor: {
       volver_listado: 'Back to list',
@@ -1667,8 +1663,6 @@ export const en: Traducciones = {
         reactivar: 'Reactivate',
         probar: 'Test',
         probar_tooltip: 'Preview or dry-run',
-        historial: 'History',
-        historial_tooltip: 'Recent runs of this flow',
       },
 
       tabs: {
@@ -1971,8 +1965,6 @@ export const en: Traducciones = {
         publicado: 'Changes published',
         descartado: 'Changes discarded',
         guardado_manual: 'Changes saved',
-        proximamente_probar: 'The test sandbox arrives in a future release.',
-        proximamente_historial: 'Run history arrives in a future release.',
         error_guardar: 'Could not save',
         error_publicar: 'Could not publish',
         error_descartar: 'Could not discard the draft',

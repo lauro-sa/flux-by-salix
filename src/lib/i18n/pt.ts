@@ -1622,11 +1622,7 @@ export const pt: Traducciones = {
       error_activar: 'Não foi possível ativar o fluxo',
       error_pausar: 'Não foi possível pausar o fluxo',
       error_eliminar: 'Não foi possível excluir o fluxo',
-      editor_proximamente: 'O editor estará disponível na próxima entrega.',
     },
-
-    editor_proximamente_titulo: 'Editor em construção',
-    editor_proximamente_desc: 'Em breve você poderá configurar gatilho, condições e ações por aqui.',
 
     editor: {
       volver_listado: 'Voltar à lista',
@@ -1667,8 +1663,6 @@ export const pt: Traducciones = {
         reactivar: 'Reativar',
         probar: 'Testar',
         probar_tooltip: 'Pré-visualização ou execução de teste',
-        historial: 'Histórico',
-        historial_tooltip: 'Execuções recentes deste fluxo',
       },
 
       tabs: {
@@ -1971,8 +1965,6 @@ export const pt: Traducciones = {
         publicado: 'Mudanças publicadas',
         descartado: 'Mudanças descartadas',
         guardado_manual: 'Mudanças salvas',
-        proximamente_probar: 'O sandbox de teste chega em uma próxima entrega.',
-        proximamente_historial: 'O histórico de execuções chega em uma próxima entrega.',
         error_guardar: 'Não foi possível salvar',
         error_publicar: 'Não foi possível publicar',
         error_descartar: 'Não foi possível descartar o rascunho',

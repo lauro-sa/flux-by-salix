@@ -1683,12 +1683,7 @@ export interface Traducciones {
       error_activar: string
       error_pausar: string
       error_eliminar: string
-      editor_proximamente: string
     }
-
-    // Página /flujos/[id] (placeholder en sub-PR 19.1, editor real en 19.2)
-    editor_proximamente_titulo: string
-    editor_proximamente_desc: string
 
     // Editor visual (sub-PR 19.2)
     editor: {
@@ -1730,8 +1725,6 @@ export interface Traducciones {
         reactivar: string
         probar: string
         probar_tooltip: string
-        historial: string
-        historial_tooltip: string
       }
 
       tabs: {
@@ -2037,8 +2030,6 @@ export interface Traducciones {
         publicado: string
         descartado: string
         guardado_manual: string
-        proximamente_probar: string
-        proximamente_historial: string
         error_guardar: string
         error_publicar: string
         error_descartar: string

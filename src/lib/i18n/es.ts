@@ -1660,11 +1660,7 @@ export const es: Traducciones = {
       error_activar: 'No se pudo activar el flujo',
       error_pausar: 'No se pudo pausar el flujo',
       error_eliminar: 'No se pudo eliminar el flujo',
-      editor_proximamente: 'El editor estará disponible en la próxima entrega.',
     },
-
-    editor_proximamente_titulo: 'Editor en construcción',
-    editor_proximamente_desc: 'Próximamente vas a poder configurar disparador, condiciones y acciones desde acá.',
 
     // Editor visual (sub-PR 19.2)
     editor: {
@@ -1706,8 +1702,6 @@ export const es: Traducciones = {
         reactivar: 'Reactivar',
         probar: 'Probar',
         probar_tooltip: 'Vista previa o ejecución de prueba',
-        historial: 'Historial',
-        historial_tooltip: 'Ejecuciones recientes de este flujo',
       },
 
       tabs: {
@@ -2010,8 +2004,6 @@ export const es: Traducciones = {
         publicado: 'Cambios publicados',
         descartado: 'Cambios descartados',
         guardado_manual: 'Cambios guardados',
-        proximamente_probar: 'La sandbox de prueba llega en una próxima entrega.',
-        proximamente_historial: 'El historial de ejecuciones llega en una próxima entrega.',
         error_guardar: 'No se pudo guardar',
         error_publicar: 'No se pudo publicar',
         error_descartar: 'No se pudo descartar el borrador',
