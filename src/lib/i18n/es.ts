@@ -25,6 +25,7 @@ export const es: Traducciones = {
     seleccionar: 'Seleccionar',
     exportar: 'Exportar',
     importar: 'Importar',
+    documentacion: 'Documentación',
     filtrar: 'Filtrar',
     ordenar: 'Ordenar',
     acciones: 'Acciones',
@@ -106,6 +107,13 @@ export const es: Traducciones = {
     fechas: 'Fechas',
     manual: 'Manual',
     importacion: 'Importación',
+  },
+
+  documentacion: {
+    titulo: 'Documentación',
+    volver: 'Volver',
+    sin_doc_titulo: 'Documentación no disponible',
+    sin_doc_descripcion: 'La documentación para este módulo todavía no está disponible. Si necesitás ayuda, contactá al soporte.',
   },
 
   auth: {
