@@ -2323,6 +2323,26 @@ export interface Traducciones {
         sin_ejecuciones_titulo: string
         sin_ejecuciones_desc: string
       }
+      drawer: {
+        titulo: string
+        cerrar: string
+        reintentar: string
+        creado_en: string
+        inicio: string
+        fin: string
+        no_encontrada_titulo: string
+        no_encontrada_desc: string
+        error_titulo: string
+        error_desc: string
+      }
+      timeline: {
+        sin_pasos: string
+        intentos: string
+        continuo_pese_fallo: string
+        pendientes: string
+        pendiente_estado: string
+        ejecutar_en: string
+      }
     }
   }
 }

@@ -27,10 +27,18 @@ interface OpcionesAtajos {
    * de volver al listado.
    */
   consolaAbierta?: boolean
+  /**
+   * True si el drawer del historial está abierto (sub-PR 19.6). Esc
+   * lo cierra antes que la consola y antes de volver al listado.
+   * Precedencia: panel > drawer > consola > volver.
+   */
+  drawerHistorialAbierto?: boolean
   /** Llamada cuando se aprieta Esc con el panel abierto. */
   onCerrarPanel: () => void
   /** Llamada cuando se aprieta Esc con la consola abierta y sin panel (sub-PR 19.5). */
   onCerrarConsola?: () => void
+  /** Llamada cuando se aprieta Esc con el drawer del historial abierto (sub-PR 19.6). */
+  onCerrarDrawerHistorial?: () => void
   /** Llamada cuando se aprieta Esc sin panel ni consola (volver al listado). */
   onVolver: () => void
   /** Llamada cuando se aprieta Cmd/Ctrl+S (flush autoguardado). */
@@ -48,8 +56,10 @@ function esEntradaDeTexto(target: EventTarget | null): boolean {
 export function useAtajosEditorFlujo({
   panelAbierto,
   consolaAbierta = false,
+  drawerHistorialAbierto = false,
   onCerrarPanel,
   onCerrarConsola,
+  onCerrarDrawerHistorial,
   onVolver,
   onForzarGuardar,
 }: OpcionesAtajos) {
@@ -78,6 +88,13 @@ export function useAtajosEditorFlujo({
           onCerrarPanel()
           return
         }
+        // Sub-PR 19.6: drawer del historial. Misma regla de input que la
+        // consola — no robarle Esc al usuario que está tipeando.
+        if (drawerHistorialAbierto && onCerrarDrawerHistorial && !esEntradaDeTexto(e.target)) {
+          e.preventDefault()
+          onCerrarDrawerHistorial()
+          return
+        }
         // Sub-PR 19.5: si la consola está abierta y no hay panel, Esc
         // la cierra. Solo si no hay foco en input — coherente con la
         // regla del Esc para "volver" (abajo). Excepción intencional:
@@ -96,5 +113,14 @@ export function useAtajosEditorFlujo({
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [panelAbierto, consolaAbierta, onCerrarPanel, onCerrarConsola, onVolver, onForzarGuardar])
+  }, [
+    panelAbierto,
+    consolaAbierta,
+    drawerHistorialAbierto,
+    onCerrarPanel,
+    onCerrarConsola,
+    onCerrarDrawerHistorial,
+    onVolver,
+    onForzarGuardar,
+  ])
 }

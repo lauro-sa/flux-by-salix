@@ -21,6 +21,7 @@ import CanvasFlujo from './CanvasFlujo'
 import CatalogoPasos from './CatalogoPasos'
 import PanelEdicionPaso from './PanelEdicionPaso'
 import PestañaHistorial from './_historial/PestañaHistorial'
+import DrawerEjecucion from './_historial/DrawerEjecucion'
 import ConsolaSandbox, { useEsMobile } from './_consola/ConsolaSandbox'
 import { useConsolaSandbox } from './_consola/hooks/useConsolaSandbox'
 import { usePreviewContexto } from './_picker/usePreviewContexto'
@@ -629,19 +630,6 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     }
   })()
 
-  // ─── Atajos ───────────────────────────────────────────────────────
-  useAtajosEditorFlujo({
-    panelAbierto: seleccion !== null,
-    consolaAbierta: consola.abierta,
-    onCerrarPanel: cerrarPanel,
-    onCerrarConsola: consola.cerrar,
-    onVolver: () => router.push('/flujos'),
-    onForzarGuardar: () => {
-      void flush()
-      mostrar('exito', t('flujos.editor.toast.guardado_manual'))
-    },
-  })
-
   // ─── Probar / Tabs Editor↔Historial ──────────────────────────────
   // 19.5: "Probar" abre la consola de prueba (panel inferior). Si el
   // panel de paso está abierto, lo cerramos primero — el usuario no
@@ -657,6 +645,35 @@ export default function EditorFlujo({ flujoInicial }: Props) {
   const vistaParam = searchParams.get('vista')
   const vista: 'editor' | 'historial' =
     vistaParam === 'historial' ? 'historial' : 'editor'
+
+  // 19.6: ejecución del drawer derivada del query param. El drawer
+  // se monta con el id leído de URL. Cambiar el param (router.replace)
+  // dispara montaje/desmontaje del drawer y refetch del detalle.
+  const ejecucionParam = searchParams.get('ejecucion')
+  const drawerHistorialAbierto =
+    vista === 'historial' && !!ejecucionParam
+  const cerrarDrawerHistorial = useCallback(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('ejecucion')
+    router.replace(url.pathname + url.search, { scroll: false })
+  }, [router])
+
+  // Caveat D2: si un link externo trae `?ejecucion=<id>` pero el
+  // editor está en tab Editor (o llegó con vista=editor + panel paso
+  // abierto), orquestamos la transición correcta: cerrar panel paso
+  // → cambiar vista a historial → dejar el param para que el drawer
+  // se abra. El efecto corre cada vez que cambia el query.
+  useEffect(() => {
+    if (!ejecucionParam) return
+    if (vista !== 'historial') {
+      // Promovemos a historial sin perder el param ejecucion.
+      const url = new URL(window.location.href)
+      url.searchParams.set('vista', 'historial')
+      router.replace(url.pathname + url.search, { scroll: false })
+    }
+    // En cualquier caso cerramos el panel de paso si quedó abierto.
+    setSeleccion((actual) => (actual !== null ? null : actual))
+  }, [ejecucionParam, vista, router])
 
   // Cambiar de tab vía URL (router.replace + scroll:false). El estado
   // del editor (acciones, selección, panel) NO se descarta — el
@@ -682,6 +699,21 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     },
     [router, seleccion, vista],
   )
+
+  // ─── Atajos ───────────────────────────────────────────────────────
+  useAtajosEditorFlujo({
+    panelAbierto: seleccion !== null,
+    consolaAbierta: consola.abierta,
+    drawerHistorialAbierto,
+    onCerrarPanel: cerrarPanel,
+    onCerrarConsola: consola.cerrar,
+    onCerrarDrawerHistorial: cerrarDrawerHistorial,
+    onVolver: () => router.push('/flujos'),
+    onForzarGuardar: () => {
+      void flush()
+      mostrar('exito', t('flujos.editor.toast.guardado_manual'))
+    },
+  })
 
   // ─── Banner contextual ───────────────────────────────────────────
   // Prioridad (consistente con el comentario de cabecera de
@@ -816,6 +848,16 @@ export default function EditorFlujo({ flujoInicial }: Props) {
         flush={flush}
         eventoSimulado={eventoSimuladoConsola}
         enMobile={enMobile}
+      />
+
+      {/* Drawer de detalle de ejecución (sub-PR 19.6). Se monta cuando
+          hay `?ejecucion=<id>` en URL y la vista es Historial. En mobile
+          renderiza como BottomSheet alto reusando el componente UI. */}
+      <DrawerEjecucion
+        abierto={drawerHistorialAbierto}
+        ejecucionId={ejecucionParam}
+        enMobile={enMobile}
+        onCerrar={cerrarDrawerHistorial}
       />
 
       {/* Modal del catálogo (modos disparador y acción) */}

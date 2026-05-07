@@ -2265,6 +2265,29 @@ export const en: Traducciones = {
         sin_ejecuciones_desc:
           'When the flow runs for the first time, the detail of each execution will appear here.',
       },
+
+      drawer: {
+        titulo: 'Run detail',
+        cerrar: 'Close',
+        reintentar: 'Retry',
+        creado_en: 'Created',
+        inicio: 'Started',
+        fin: 'Ended',
+        no_encontrada_titulo: 'Run not found',
+        no_encontrada_desc:
+          'It may have been deleted or you may not have permission to view it.',
+        error_titulo: 'Could not load the run',
+        error_desc: 'Something went wrong while fetching the detail. Try again.',
+      },
+
+      timeline: {
+        sin_pasos: 'This run has not recorded any steps yet.',
+        intentos: '{{n}} attempts',
+        continuo_pese_fallo: 'The flow continued despite this failure.',
+        pendientes: 'Pending steps',
+        pendiente_estado: 'Pending',
+        ejecutar_en: 'Scheduled for',
+      },
     },
   },
 }

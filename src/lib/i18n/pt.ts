@@ -2265,6 +2265,29 @@ export const pt: Traducciones = {
         sin_ejecuciones_desc:
           'Quando o fluxo for disparado pela primeira vez, o detalhe de cada execução aparecerá aqui.',
       },
+
+      drawer: {
+        titulo: 'Detalhe da execução',
+        cerrar: 'Fechar',
+        reintentar: 'Tentar de novo',
+        creado_en: 'Criada',
+        inicio: 'Início',
+        fin: 'Fim',
+        no_encontrada_titulo: 'Execução não encontrada',
+        no_encontrada_desc:
+          'Pode ter sido apagada ou você não tem permissão para vê-la.',
+        error_titulo: 'Não foi possível carregar a execução',
+        error_desc: 'Houve um problema ao buscar o detalhe. Tente de novo.',
+      },
+
+      timeline: {
+        sin_pasos: 'Esta execução ainda não registrou passos.',
+        intentos: '{{n}} tentativas',
+        continuo_pese_fallo: 'O fluxo seguiu apesar desta falha.',
+        pendientes: 'Passos pendentes',
+        pendiente_estado: 'Pendente',
+        ejecutar_en: 'Programado para',
+      },
     },
   },
 }

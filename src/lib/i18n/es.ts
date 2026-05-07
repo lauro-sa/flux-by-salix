@@ -2388,6 +2388,29 @@ export const es: Traducciones = {
         sin_ejecuciones_desc:
           'Cuando el flujo se dispare por primera vez, vas a ver el detalle de cada ejecución acá.',
       },
+
+      drawer: {
+        titulo: 'Detalle de ejecución',
+        cerrar: 'Cerrar',
+        reintentar: 'Reintentar',
+        creado_en: 'Creada',
+        inicio: 'Inicio',
+        fin: 'Fin',
+        no_encontrada_titulo: 'Ejecución no encontrada',
+        no_encontrada_desc:
+          'Puede haber sido borrada o no tenés permiso para verla.',
+        error_titulo: 'No se pudo cargar la ejecución',
+        error_desc: 'Hubo un problema al traer el detalle. Probá de nuevo.',
+      },
+
+      timeline: {
+        sin_pasos: 'Esta ejecución todavía no registró pasos.',
+        intentos: '{{n}} intentos',
+        continuo_pese_fallo: 'El flujo siguió pese a este fallo.',
+        pendientes: 'Pasos pendientes',
+        pendiente_estado: 'Pendiente',
+        ejecutar_en: 'Programado para',
+      },
     },
   },
 }
