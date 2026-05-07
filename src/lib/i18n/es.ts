@@ -2320,7 +2320,7 @@ export const es: Traducciones = {
           'Acá vas a ver cada vez que este flujo se haya ejecutado, con el detalle paso por paso.',
       },
 
-      busqueda_placeholder: 'Buscar ejecución…',
+      busqueda_placeholder: 'Búsqueda no disponible — usá los filtros',
       entidad_sin_referencia: 'Sin entidad asociada',
       hint_dataset_grande:
         'Este flujo tiene {{n}} ejecuciones registradas. Filtrá por fecha para acotar la lista.',

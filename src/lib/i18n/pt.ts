@@ -2197,7 +2197,7 @@ export const pt: Traducciones = {
           'Aqui você verá cada vez que este fluxo foi executado, com o detalhe passo a passo.',
       },
 
-      busqueda_placeholder: 'Buscar execução…',
+      busqueda_placeholder: 'Busca não disponível — use os filtros',
       entidad_sin_referencia: 'Sem entidade associada',
       hint_dataset_grande:
         'Este fluxo tem {{n}} execuções registradas. Filtre por data para reduzir a lista.',

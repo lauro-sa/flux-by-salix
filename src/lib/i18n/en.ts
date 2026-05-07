@@ -2197,7 +2197,7 @@ export const en: Traducciones = {
           'You will see every time this flow has been executed, with full step-by-step detail.',
       },
 
-      busqueda_placeholder: 'Search runs…',
+      busqueda_placeholder: 'Search not available — use the filters',
       entidad_sin_referencia: 'No associated entity',
       hint_dataset_grande:
         'This flow has {{n}} recorded runs. Narrow the list with a date filter.',
