@@ -32,6 +32,7 @@ import {
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { esBodyCrearFlujo, esEstadoFlujo, type EstadoFlujo } from '@/tipos/workflow'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
+import { parsearCSV, expresionORJsonPath } from '@/lib/workflows/filtros-listado'
 
 const POR_PAGINA_DEFAULT = 50
 const POR_PAGINA_MAX = 200
@@ -44,11 +45,17 @@ const POR_PAGINA_MAX = 200
 //   estado            — CSV de EstadoFlujo (borrador,activo,pausado).
 //   tipo_disparador   — CSV de tipos de disparador
 //                       (entidad.estado_cambio,tiempo.cron,…).
-//   modulo            — eq sobre disparador.configuracion.entidad_tipo.
+//   modulo            — CSV de entidad_tipo. Filtra por
+//                       disparador.configuracion.entidad_tipo. Un
+//                       solo valor → .eq; multi → OR sobre el JSON
+//                       path (PostgREST no soporta .in con `->`).
 //                       Solo aplica a disparadores que tienen entidad
 //                       (entidad.*, tiempo.relativo_a_campo). Para
 //                       tiempo.cron / webhook / inbox simplemente no
 //                       matchea, lo que es el comportamiento correcto.
+//                       19.7 extiende a CSV para que la sección por
+//                       módulo en presupuestos cubra `presupuesto`+
+//                       `cuota` en una sola query.
 //   creado_rango      — preset de fecha ('hoy', '7d', 'este_mes', …).
 //                       Resuelto con inicioRangoFechaISO + zona horaria
 //                       de empresa, mismo patrón que /api/contactos.
@@ -90,7 +97,7 @@ export async function GET(request: NextRequest) {
   const q = (params.get('q') ?? '').trim()
   const estadoCsv = params.get('estado') ?? ''
   const tipoDisparadorCsv = params.get('tipo_disparador') ?? ''
-  const modulo = (params.get('modulo') ?? '').trim()
+  const moduloCsv = params.get('modulo') ?? ''
   const creadoRango = (params.get('creado_rango') ?? '').trim()
   const fechaUltimaEjecucion = (params.get('fecha_ultima_ejecucion') ?? '').trim()
   const pagina = Math.max(1, Number(params.get('pagina') ?? '1') || 1)
@@ -104,10 +111,8 @@ export async function GET(request: NextRequest) {
     .filter((s) => s.length > 0)
     .filter((s): s is EstadoFlujo => esEstadoFlujo(s))
 
-  const tiposDisparador = tipoDisparadorCsv
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
+  const tiposDisparador = parsearCSV(tipoDisparadorCsv)
+  const modulos = parsearCSV(moduloCsv)
 
   const admin = crearClienteAdmin()
   let query = admin
@@ -141,14 +146,19 @@ export async function GET(request: NextRequest) {
     const expr = tiposDisparador.map((t) => `disparador->>tipo.eq.${t}`).join(',')
     query = query.or(expr)
   }
-  if (modulo.length > 0) {
+  if (modulos.length === 1) {
     // disparador.configuracion.entidad_tipo es el módulo del flujo
     // para todos los disparadores que operan sobre una entidad. Para
     // tiempo.cron y webhook.entrante este path es null, así que el
     // filtro los descarta — comportamiento correcto: si el usuario
     // pidió "flujos del módulo presupuestos", no quiere ver crons
     // genéricos.
-    query = query.eq('disparador->configuracion->>entidad_tipo', modulo)
+    query = query.eq('disparador->configuracion->>entidad_tipo', modulos[0])
+  } else if (modulos.length > 1) {
+    // PostgREST no soporta .in sobre operador `->>`. Mismo patrón
+    // que arriba con tipo_disparador.
+    const expr = expresionORJsonPath(modulos, 'disparador->configuracion->>entidad_tipo')
+    query = query.or(expr)
   }
   // Filtros que dependen de zona horaria de empresa: cargamos la zona
   // una sola vez si alguno está presente, no por cada filtro.
