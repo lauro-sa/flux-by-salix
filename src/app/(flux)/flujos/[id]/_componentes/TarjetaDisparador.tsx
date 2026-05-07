@@ -40,6 +40,11 @@ interface Props {
   /** Si el flujo tiene `icono` custom, lo usamos en el círculo en
    *  lugar del default por tipo de disparador. */
   iconoCustom: string | null
+  /** Sub-PR 19.4: marker rojo si el disparador tiene errores de
+   *  validación tras intento fallido de Publicar/Activar. */
+  tieneError?: boolean
+  /** Mensaje del error, usado como tooltip nativo. */
+  mensajeError?: string
 }
 
 export default function TarjetaDisparador({
@@ -49,6 +54,8 @@ export default function TarjetaDisparador({
   onSeleccionar,
   onElegirDisparador,
   iconoCustom,
+  tieneError = false,
+  mensajeError,
 }: Props) {
   const { t } = useTraduccion()
 
@@ -72,9 +79,12 @@ export default function TarjetaDisparador({
 
   return (
     <div
+      // `id` HTML para el scroll-to-disparador del banner rojo (19.4).
+      id="flujo-disparador"
+      title={tieneError ? mensajeError : undefined}
       className={`relative rounded-card border bg-superficie-tarjeta border-t-2 transition-colors ${
         seleccionado ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]' : 'border-borde-sutil'
-      }`}
+      } ${tieneError ? 'border-l-2 border-l-insignia-peligro-texto' : ''}`}
       style={{ borderTopColor: 'var(--texto-marca)' }}
     >
       {/* Etiqueta uppercase del plan UX */}
@@ -83,6 +93,15 @@ export default function TarjetaDisparador({
           {t('flujos.editor.disparador.etiqueta')}
         </span>
       </div>
+
+      {/* Marker rojo (19.4): mismo patrón que TarjetaPaso. Visible solo
+          tras intento fallido de Publicar/Activar. */}
+      {tieneError && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 size-2 rounded-full bg-insignia-peligro-texto ring-2 ring-superficie-app"
+        />
+      )}
 
       <button
         type="button"

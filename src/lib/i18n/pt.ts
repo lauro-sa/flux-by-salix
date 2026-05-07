@@ -1653,6 +1653,14 @@ export const pt: Traducciones = {
         error_desc: 'Há erros de configuração. Revise os passos destacados.',
       },
 
+      validacion: {
+        titulo_activar: 'Não é possível ativar ainda',
+        titulo_publicar: 'Não é possível publicar as mudanças',
+        descripcion: 'Encontramos {{n}} configuração(ões) que precisa(m) ser concluída(s) antes de continuar.',
+        cta_ver_errores: 'Ver erros',
+        errores_extra: '+{{n}} mais',
+      },
+
       accion: {
         publicar: 'Publicar mudanças',
         descartar: 'Descartar mudanças',

@@ -22,8 +22,11 @@ import CatalogoPasos from './CatalogoPasos'
 import PanelEdicionPaso from './PanelEdicionPaso'
 import { useEditorFlujo, type FlujoEditable } from './hooks/useEditorFlujo'
 import { useAtajosEditorFlujo } from './hooks/useAtajosEditorFlujo'
+import { useValidacionFlujo } from './hooks/useValidacionFlujo'
+import type { ErrorValidacion } from '@/lib/workflows/validacion-flujo'
 import type {
   AccionWorkflow,
+  BodyActualizarFlujo,
   DisparadorWorkflow,
   TipoAccion,
   TipoDisparador,
@@ -90,6 +93,33 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     }
   }, [version.acciones])
 
+  // Estado del intento fallido más reciente (sub-PR 19.4). `null` =
+  // ningún error a mostrar (ya sea porque nunca intentaste, o porque
+  // editaste algo y el reset agresivo lo borró). Cuando NO es null, el
+  // banner rojo aparece y los markers por-paso/disparador se pintan.
+  // Declarado acá arriba para que `actualizarFlujo` (debajo) referencie
+  // el setter de un binding ya inicializado — orden lógico claro.
+  const [intentoFallidoPublicar, setIntentoFallidoPublicar] = useState<
+    | { tipo: 'activar' | 'publicar'; errores: ErrorValidacion[] }
+    | null
+  >(null)
+  const mostrarErroresValidacion = intentoFallidoPublicar !== null
+
+  // Wrapper común sobre `actualizar` que aplica el reset agresivo del
+  // intento fallido (decisión D4): si el parche toca el modelo lógico
+  // que valida-flujo chequea (disparador, acciones, condiciones), los
+  // errores anteriores pueden estar obsoletos — los borramos. Edits
+  // de metadata (nombre, icono, color, etiqueta) NO resetean.
+  const actualizarFlujo = useCallback(
+    (parche: Partial<BodyActualizarFlujo>) => {
+      if ('disparador' in parche || 'acciones' in parche || 'condiciones' in parche) {
+        setIntentoFallidoPublicar(null)
+      }
+      actualizar(parche)
+    },
+    [actualizar],
+  )
+
   // Helper para escribir las acciones nuevas: actualiza el state local
   // de pasosConId Y dispara el autoguardado del hook (con IDs incluidos —
   // se persisten para que dnd-kit funcione consistente entre sesiones).
@@ -97,9 +127,9 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     (nuevos: AccionConId[]) => {
       setPasosConId(nuevos)
       ultimoArrayServerRef.current = nuevos
-      actualizar({ acciones: nuevos as unknown as AccionWorkflow[] })
+      actualizarFlujo({ acciones: nuevos as unknown as AccionWorkflow[] })
     },
-    [actualizar],
+    [actualizarFlujo],
   )
 
   // ─── Selección de paso (panel placeholder) ───────────────────────
@@ -109,6 +139,56 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     | null
   >(null)
   const cerrarPanel = useCallback(() => setSeleccion(null), [])
+
+  // ─── Branches: state controlado de qué rama está expandida (19.4) ─
+  // Antes vivía como `useState` local en `TarjetaCondicionBranch`. Lo
+  // levantamos al editor para que "Ver errores" pueda expandir la rama
+  // ancestral antes de scrollear al paso interno (sino el DOM no monta
+  // el hijo y el scroll falla silencioso). Default abierto en ambas
+  // ramas — el usuario puede colapsar y se recuerda durante la sesión.
+  const [ramasAbiertas, setRamasAbiertas] = useState<
+    Record<string, { si: boolean; no: boolean }>
+  >({})
+  const obtenerRamasAbiertas = useCallback(
+    (branchId: string): { si: boolean; no: boolean } =>
+      ramasAbiertas[branchId] ?? { si: true, no: true },
+    [ramasAbiertas],
+  )
+  const toggleRama = useCallback((branchId: string, rama: 'si' | 'no') => {
+    setRamasAbiertas((prev) => {
+      const actual = prev[branchId] ?? { si: true, no: true }
+      return { ...prev, [branchId]: { ...actual, [rama]: !actual[rama] } }
+    })
+  }, [])
+  const garantizarRamasAbiertas = useCallback(
+    (ids: Array<{ branchId: string; rama: 'si' | 'no' }>) => {
+      if (ids.length === 0) return
+      setRamasAbiertas((prev) => {
+        let cambio = false
+        const next = { ...prev }
+        for (const { branchId, rama } of ids) {
+          const actual = next[branchId] ?? { si: true, no: true }
+          if (!actual[rama]) {
+            next[branchId] = { ...actual, [rama]: true }
+            cambio = true
+          }
+        }
+        return cambio ? next : prev
+      })
+    },
+    [],
+  )
+
+  // ─── Validación tiempo real (sub-PR 19.4) ────────────────────────
+  // Hook puro: valida `disparador` + `pasosConId` con shape-checks del
+  // motor (`validacion-flujo.ts`). Resultado es siempre actual con la
+  // edición en curso — pero NO lo usamos para mostrar errores hasta
+  // que el usuario intentó publicar/activar (decisión D2 + D3 del
+  // scope: nada visible si nunca apretaste el botón).
+  const validacion = useValidacionFlujo({
+    disparador: version.disparador,
+    pasosConId,
+  })
 
   // ─── Catálogo: dispara modal en modo disparador o accion ─────────
   const [catalogo, setCatalogo] = useState<
@@ -144,7 +224,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     // Aplicamos el disparador y las acciones de la plantilla. Los IDs
     // los pone `asignarIdsAcciones` al hidratar del array que escribimos.
     const accionesPlantilla = asignarIdsAcciones(plantilla.acciones)
-    actualizar({
+    actualizarFlujo({
       disparador: plantilla.disparador,
       acciones: accionesPlantilla as unknown as AccionWorkflow[],
       // El ícono de la plantilla solo se aplica si el flujo no tenía
@@ -157,7 +237,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     const url = new URL(window.location.href)
     url.searchParams.delete('plantilla')
     router.replace(url.pathname + url.search, { scroll: false })
-  }, [searchParams, actualizar, flujoInicial, router])
+  }, [searchParams, actualizarFlujo, flujoInicial, router])
 
   // ─── Inserciones / mutaciones del canvas ─────────────────────────
   type AccionInsert =
@@ -194,10 +274,10 @@ export default function EditorFlujo({ flujoInicial }: Props) {
 
   const elegirDisparador = useCallback(
     (tipo: TipoDisparador) => {
-      actualizar({ disparador: crearDisparadorVacio(tipo) })
+      actualizarFlujo({ disparador: crearDisparadorVacio(tipo) })
       setSeleccion({ tipo: 'disparador' })
     },
-    [actualizar],
+    [actualizarFlujo],
   )
 
   const reordenarRaiz = useCallback(
@@ -253,19 +333,45 @@ export default function EditorFlujo({ flujoInicial }: Props) {
       // `configuracion` con los del parche (las secciones del panel ya
       // arman el shape completo). Si en el futuro agregamos un panel que
       // edite parcialmente sin re-armar el shape, hay que mergear acá.
-      actualizar({ disparador: parche })
+      actualizarFlujo({ disparador: parche })
     },
-    [actualizar],
+    [actualizarFlujo],
   )
 
   // ─── Acciones del header (endpoints aparte) ──────────────────────
+  // `accion` distingue activar/publicar para etiquetar errores en el
+  // banner rojo (decisión D7: ambos validan client-side antes de
+  // llamar al endpoint, idéntico al backend).
   const ejecutarAccionEstado = useCallback(
-    async (path: string, claveOk: string, claveErr: string) => {
+    async (
+      path: string,
+      claveOk: string,
+      claveErr: string,
+      accion?: 'activar' | 'publicar',
+    ) => {
       try {
         await flush() // primero persistimos cualquier edición pendiente
         const res = await fetch(`/api/flujos/${flujo.id}${path}`, { method: 'POST' })
         if (!res.ok) {
-          const cuerpo = (await res.json().catch(() => ({}))) as { error?: string }
+          // Si el backend devuelve 422 con `errores: string[]`, lo
+          // mostramos en el banner rojo en vez de un toast suelto
+          // (decisión D6). Convertimos cada string a `ErrorValidacion`
+          // sin pasoId — el backend no sabe los IDs cliente-side, así
+          // que esos errores caen al disparador (consistente con la
+          // regla de "rama vacía" para arrays vacíos).
+          const cuerpo = (await res.json().catch(() => ({}))) as {
+            error?: string
+            errores?: string[]
+          }
+          if (res.status === 422 && Array.isArray(cuerpo.errores) && accion) {
+            const erroresServer: ErrorValidacion[] = cuerpo.errores.map((m) => ({
+              ruta: { tipo: 'disparador' },
+              mensaje: m,
+            }))
+            setIntentoFallidoPublicar({ tipo: accion, errores: erroresServer })
+            mostrar('error', cuerpo.error ?? t(claveErr))
+            return
+          }
           throw new Error(cuerpo.error ?? `HTTP ${res.status}`)
         }
         // Refrescamos la fila completa con un GET para mantener
@@ -275,6 +381,8 @@ export default function EditorFlujo({ flujoInicial }: Props) {
           const data = (await resGet.json()) as { flujo: FlujoEditable }
           setearFlujoCompleto(data.flujo)
         }
+        // Si hubo intento fallido previo y ahora salió bien, lo limpiamos.
+        setIntentoFallidoPublicar(null)
         mostrar('exito', t(claveOk))
       } catch (err) {
         mostrar('error', err instanceof Error ? err.message : t(claveErr))
@@ -283,21 +391,46 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     [flujo.id, flush, mostrar, setearFlujoCompleto, t],
   )
 
+  /**
+   * Wrapper común para Activar/Publicar: valida primero client-side.
+   * Si falla, setea `intentoFallidoPublicar` y NO llama al endpoint
+   * (evita un round-trip seguro para perderlo). Si pasa, delega al
+   * `ejecutarAccionEstado` que también captura errores 422 del backend
+   * (defensa en profundidad — race condition con otra sesión, o
+   * backend más estricto).
+   */
+  const intentar = useCallback(
+    (
+      accion: 'activar' | 'publicar',
+      path: string,
+      claveOk: string,
+      claveErr: string,
+    ) => {
+      if (!validacion.resultado.ok) {
+        setIntentoFallidoPublicar({ tipo: accion, errores: validacion.resultado.errores })
+        return
+      }
+      void ejecutarAccionEstado(path, claveOk, claveErr, accion)
+    },
+    [ejecutarAccionEstado, validacion.resultado],
+  )
+
   const onActivar = useCallback(
-    () => ejecutarAccionEstado('/activar', 'flujos.toast.activado', 'flujos.toast.error_activar'),
-    [ejecutarAccionEstado],
+    () => intentar('activar', '/activar', 'flujos.toast.activado', 'flujos.toast.error_activar'),
+    [intentar],
   )
   const onPausar = useCallback(
     () => ejecutarAccionEstado('/pausar', 'flujos.toast.pausado', 'flujos.toast.error_pausar'),
     [ejecutarAccionEstado],
   )
   const onPublicar = useCallback(
-    () => ejecutarAccionEstado(
+    () => intentar(
+      'publicar',
       '/publicar',
       'flujos.editor.toast.publicado',
       'flujos.editor.toast.error_publicar',
     ),
-    [ejecutarAccionEstado],
+    [intentar],
   )
 
   // Confirmaciones para acciones destructivas / no-undo.
@@ -367,6 +500,96 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     }
   }, [flujo.id, mostrar, nombreDuplicado, router, t])
 
+  // ─── "Ver errores" del banner rojo: scroll + select robusto ──────
+  // El usuario aprieta "Ver errores" → seleccionamos el primer paso
+  // con error y queremos scrollear hasta él. Pero si el paso está
+  // dentro de una rama de branch que está colapsada, el DOM no monta
+  // al hijo y `scrollIntoView` falla silencioso. Para resolverlo:
+  //   1) Garantizamos que las ramas ancestrales estén abiertas
+  //      (state `ramasAbiertas` controlado por nosotros).
+  //   2) Marcamos `pendienteScrollA` con la ruta del error.
+  //   3) Un `useEffect` reactivo a `pendienteScrollA` + `ramasAbiertas`
+  //      busca el DOM por id; si lo encuentra, scrollea + clear. Si no
+  //      lo encuentra, espera a que el próximo render lo monte.
+  //      Robusto contra animaciones de altura futuras (no asume rAF).
+  const [pendienteScrollA, setPendienteScrollA] = useState<
+    | { tipo: 'disparador' }
+    | { tipo: 'paso'; pasoId: string }
+    | null
+  >(null)
+
+  // Para scrollear al paso interno de un branch necesitamos saber qué
+  // rama lo contiene (para abrir esa rama puntual). Hacemos una
+  // búsqueda recursiva ad-hoc — barata, es a lo sumo un puñado de
+  // niveles. Devuelve la lista de `{branchId, rama}` ancestrales.
+  const buscarAncestros = useCallback(
+    (pasoId: string): Array<{ branchId: string; rama: 'si' | 'no' }> => {
+      const ancestros: Array<{ branchId: string; rama: 'si' | 'no' }> = []
+      const recorrer = (
+        lista: AccionConId[],
+        camino: Array<{ branchId: string; rama: 'si' | 'no' }>,
+      ): boolean => {
+        for (const p of lista) {
+          if (p.id === pasoId) {
+            ancestros.push(...camino)
+            return true
+          }
+          if (p.tipo === 'condicion_branch') {
+            const si = (p.acciones_si as AccionConId[] | undefined) ?? []
+            if (recorrer(si, [...camino, { branchId: p.id, rama: 'si' }])) return true
+            const no = (p.acciones_no as AccionConId[] | undefined) ?? []
+            if (recorrer(no, [...camino, { branchId: p.id, rama: 'no' }])) return true
+          }
+        }
+        return false
+      }
+      recorrer(pasosConId, [])
+      return ancestros
+    },
+    [pasosConId],
+  )
+
+  const verErrores = useCallback(() => {
+    const primero = validacion.primerError ?? intentoFallidoPublicar?.errores[0] ?? null
+    if (!primero) return
+    if (primero.ruta.tipo === 'disparador') {
+      setSeleccion({ tipo: 'disparador' })
+      setPendienteScrollA({ tipo: 'disparador' })
+      return
+    }
+    const pasoId = primero.ruta.pasoId
+    // Garantizamos que las ramas ancestrales estén abiertas ANTES de
+    // intentar scrollear — el efecto de abajo se va a re-disparar
+    // cuando el DOM monte el hijo.
+    garantizarRamasAbiertas(buscarAncestros(pasoId))
+    setSeleccion({ tipo: 'paso', id: pasoId })
+    setPendienteScrollA({ tipo: 'paso', pasoId })
+  }, [
+    validacion.primerError,
+    intentoFallidoPublicar,
+    buscarAncestros,
+    garantizarRamasAbiertas,
+  ])
+
+  // Efecto que ejecuta el scroll cuando el DOM ya tiene montado el
+  // target. Reactivo a `pendienteScrollA` y a cualquier cambio de
+  // `ramasAbiertas` (el último puede haber montado el hijo necesario).
+  useEffect(() => {
+    if (!pendienteScrollA) return
+    const idDom =
+      pendienteScrollA.tipo === 'disparador'
+        ? 'flujo-disparador'
+        : `flujo-paso-${pendienteScrollA.pasoId}`
+    const el = typeof document !== 'undefined' ? document.getElementById(idDom) : null
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setPendienteScrollA(null)
+    }
+    // Si no encontramos el elemento, no limpiamos `pendienteScrollA`:
+    // el próximo render (tras montar el hijo o expandir la rama) re-
+    // dispara el efecto y vuelve a intentar.
+  }, [pendienteScrollA, ramasAbiertas, pasosConId])
+
   // ─── Atajos ───────────────────────────────────────────────────────
   useAtajosEditorFlujo({
     panelAbierto: seleccion !== null,
@@ -387,11 +610,14 @@ export default function EditorFlujo({ flujoInicial }: Props) {
   }, [mostrar, t])
 
   // ─── Banner contextual ───────────────────────────────────────────
+  // Prioridad (consistente con el comentario de cabecera de
+  // `BannerEditorFlujo`): error > lectura > borrador.
   const banner = useMemo<'borrador' | 'lectura' | 'error' | null>(() => {
+    if (intentoFallidoPublicar) return 'error'
     if (soloLectura) return 'lectura'
     if (version.esBorradorInterno) return 'borrador'
     return null
-  }, [soloLectura, version.esBorradorInterno])
+  }, [intentoFallidoPublicar, soloLectura, version.esBorradorInterno])
 
   // ─── Datos derivados para CanvasFlujo ────────────────────────────
   const disparadorRaw =
@@ -419,7 +645,27 @@ export default function EditorFlujo({ flujoInicial }: Props) {
         onHistorial={onHistorial}
       />
 
-      {banner && <BannerEditorFlujo tipo={banner} />}
+      {banner === 'error' && intentoFallidoPublicar ? (
+        <BannerEditorFlujo
+          tipo="error"
+          titulo={t(
+            intentoFallidoPublicar.tipo === 'activar'
+              ? 'flujos.editor.validacion.titulo_activar'
+              : 'flujos.editor.validacion.titulo_publicar',
+          )}
+          descripcion={t('flujos.editor.validacion.descripcion').replace(
+            '{{n}}',
+            String(intentoFallidoPublicar.errores.length),
+          )}
+          errores={intentoFallidoPublicar.errores.map((e) => e.mensaje)}
+          accion={{
+            etiqueta: t('flujos.editor.validacion.cta_ver_errores'),
+            onClick: verErrores,
+          }}
+        />
+      ) : (
+        banner && <BannerEditorFlujo tipo={banner} />
+      )}
 
       <div className="flex-1 flex min-h-0">
         <CanvasFlujo
@@ -444,6 +690,13 @@ export default function EditorFlujo({ flujoInicial }: Props) {
             })
           }
           onReordenarRama={reordenarRama}
+          // ─── Validación (sub-PR 19.4) ──────────────────────────────
+          mostrarErrores={mostrarErroresValidacion}
+          errorDisparador={validacion.errorDisparador}
+          erroresPorPaso={validacion.erroresPorPaso}
+          // ─── Branches controladas (sub-PR 19.4) ────────────────────
+          obtenerRamasAbiertas={obtenerRamasAbiertas}
+          onToggleRama={toggleRama}
         />
 
         {/* Panel real con campos editables — slide-in cuando hay selección */}

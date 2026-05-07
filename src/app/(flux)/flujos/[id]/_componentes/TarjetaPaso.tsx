@@ -32,9 +32,24 @@ interface Props {
   seleccionada: boolean
   soloLectura: boolean
   onSeleccionar: () => void
+  /**
+   * Sub-PR 19.4: si true, pinta marker visual de error (borde lateral
+   * rojo + punto en esquina sup-derecha). El padre decide cuándo
+   * activarlo (solo después de un intento fallido de Publicar/Activar).
+   */
+  tieneError?: boolean
+  /** Mensaje del primer error del paso, usado como tooltip nativo. */
+  mensajeError?: string
 }
 
-export default function TarjetaPaso({ paso, seleccionada, soloLectura, onSeleccionar }: Props) {
+export default function TarjetaPaso({
+  paso,
+  seleccionada,
+  soloLectura,
+  onSeleccionar,
+  tieneError = false,
+  mensajeError,
+}: Props) {
   const { t } = useTraduccion()
   const Icono = iconoDefaultAccion(paso.tipo as TipoAccion)
   const titulo = (() => {
@@ -61,12 +76,25 @@ export default function TarjetaPaso({ paso, seleccionada, soloLectura, onSelecci
     <div
       ref={setNodeRef}
       style={style}
+      // `id` HTML (no choca con el ref de dnd-kit, que usa el HTMLElement)
+      // — lo necesita el scroll-to-paso de "Ver errores" del banner rojo.
+      id={`flujo-paso-${paso.id}`}
+      title={tieneError ? mensajeError : undefined}
       className={`relative group flex items-stretch gap-2 rounded-card border bg-superficie-tarjeta transition-colors ${
         seleccionada
           ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]'
           : 'border-borde-sutil hover:border-borde-fuerte'
-      }`}
+      } ${tieneError ? 'border-l-2 border-l-insignia-peligro-texto' : ''}`}
     >
+      {/* Marker rojo en esquina sup-derecha (D9 del scope). Visible solo
+          tras intento fallido de Publicar/Activar. Se posiciona absoluto
+          para no afectar el layout interno de la tarjeta. */}
+      {tieneError && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 size-2 rounded-full bg-insignia-peligro-texto ring-2 ring-superficie-app"
+        />
+      )}
       {/* Cuerpo clickeable */}
       <button
         type="button"

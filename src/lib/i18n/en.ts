@@ -1653,6 +1653,14 @@ export const en: Traducciones = {
         error_desc: 'Configuration errors. Review the highlighted steps.',
       },
 
+      validacion: {
+        titulo_activar: 'Cannot activate yet',
+        titulo_publicar: 'Cannot publish changes',
+        descripcion: 'Found {{n}} setting(s) that need to be completed before continuing.',
+        cta_ver_errores: 'View errors',
+        errores_extra: '+{{n}} more',
+      },
+
       accion: {
         publicar: 'Publish changes',
         descartar: 'Discard changes',

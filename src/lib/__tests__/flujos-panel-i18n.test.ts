@@ -252,6 +252,13 @@ const CLAVES_OBLIGATORIAS: readonly string[] = [
   'flujos.editor.panel.generico_json.formatear',
   'flujos.editor.panel.generico_json.error_parse',
   'flujos.editor.panel.generico_json.error_no_objeto',
+
+  // ─── Sub-PR 19.4: validación tiempo real + banner edición activo ─
+  'flujos.editor.validacion.titulo_activar',
+  'flujos.editor.validacion.titulo_publicar',
+  'flujos.editor.validacion.descripcion',
+  'flujos.editor.validacion.cta_ver_errores',
+  'flujos.editor.validacion.errores_extra',
 ] as const
 
 describe('flujos / panel lateral / claves i18n alcanzables', () => {
@@ -284,5 +291,18 @@ describe('flujos / panel lateral / claves i18n alcanzables', () => {
   it('el título de "pendiente" usa el placeholder {{tipo}}', () => {
     const valor = leerClave(es, 'flujos.editor.panel.pendiente.titulo')
     expect(valor).toContain('{{tipo}}')
+  })
+
+  it('la descripción del banner de validación tiene el placeholder {{n}}', () => {
+    // El editor reemplaza {{n}} con la cantidad de errores del intento
+    // fallido (sub-PR 19.4). Sin el placeholder el banner pierde el
+    // count y queda un texto roto.
+    const valor = leerClave(es, 'flujos.editor.validacion.descripcion')
+    expect(valor).toContain('{{n}}')
+  })
+
+  it('errores_extra del banner de validación tiene el placeholder {{n}}', () => {
+    const valor = leerClave(es, 'flujos.editor.validacion.errores_extra')
+    expect(valor).toContain('{{n}}')
   })
 })

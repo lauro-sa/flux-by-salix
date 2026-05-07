@@ -1716,6 +1716,14 @@ export interface Traducciones {
         error_desc: string
       }
 
+      validacion: {
+        titulo_activar: string
+        titulo_publicar: string
+        descripcion: string
+        cta_ver_errores: string
+        errores_extra: string
+      }
+
       accion: {
         publicar: string
         descartar: string

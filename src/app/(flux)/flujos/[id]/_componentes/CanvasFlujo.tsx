@@ -14,7 +14,8 @@ import TarjetaPaso from './TarjetaPaso'
 import TarjetaCondicionBranch from './TarjetaCondicionBranch'
 import { BotonAgregarPasoIntermedio, BotonAgregarPasoFinal } from './BotonAgregarPaso'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
-import type { AccionWorkflow, TipoDisparador } from '@/tipos/workflow'
+import type { ErrorValidacion } from '@/lib/workflows/validacion-flujo'
+import type { TipoDisparador } from '@/tipos/workflow'
 
 /**
  * Canvas vertical centrado del editor visual de flujos (sub-PR 19.2).
@@ -56,6 +57,20 @@ interface Props {
   onReordenarRama: (branchId: string, rama: 'si' | 'no', pasos: AccionConId[]) => void
   /** Ícono custom del flujo (de la columna `flujos.icono`). */
   iconoCustom: string | null
+  // ─── Validación tiempo real (sub-PR 19.4) ────────────────────────
+  /** Si false, los markers rojos por-paso no se pintan (estado inicial,
+   *  decisión D3 del scope: errores ocultos hasta intento fallido). */
+  mostrarErrores: boolean
+  /** Primer error del disparador, si existe. Null = sin error. */
+  errorDisparador: ErrorValidacion | null
+  /** Errores agrupados por `pasoId`. Cada paso busca su propia entrada. */
+  erroresPorPaso: Map<string, ErrorValidacion[]>
+  // ─── Branches con state controlado (sub-PR 19.4) ─────────────────
+  /** Devuelve el estado de expansión de un branch puntual. Default
+   *  abierto en ambas ramas si nunca se tocó. */
+  obtenerRamasAbiertas: (branchId: string) => { si: boolean; no: boolean }
+  /** Toggle de una rama puntual de un branch. */
+  onToggleRama: (branchId: string, rama: 'si' | 'no') => void
 }
 
 export default function CanvasFlujo({
@@ -72,6 +87,11 @@ export default function CanvasFlujo({
   onAgregarEnRama,
   onReordenarRama,
   iconoCustom,
+  mostrarErrores,
+  errorDisparador,
+  erroresPorPaso,
+  obtenerRamasAbiertas,
+  onToggleRama,
 }: Props) {
   const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -99,6 +119,8 @@ export default function CanvasFlujo({
             onSeleccionar={onSeleccionarDisparador}
             onElegirDisparador={onElegirDisparador}
             iconoCustom={iconoCustom}
+            tieneError={mostrarErrores && errorDisparador !== null}
+            mensajeError={errorDisparador?.mensaje}
           />
 
           {/* Pasos raíz con dnd */}
@@ -127,6 +149,11 @@ export default function CanvasFlujo({
                         onAgregarEnRama={(rama, pos) => onAgregarEnRama(p.id, rama, pos)}
                         onReordenarRamaSi={(pasos) => onReordenarRama(p.id, 'si', pasos)}
                         onReordenarRamaNo={(pasos) => onReordenarRama(p.id, 'no', pasos)}
+                        mostrarErrores={mostrarErrores}
+                        erroresPorPaso={erroresPorPaso}
+                        ramasAbiertas={obtenerRamasAbiertas(p.id)}
+                        onToggleRamaSi={() => onToggleRama(p.id, 'si')}
+                        onToggleRamaNo={() => onToggleRama(p.id, 'no')}
                       />
                     ) : (
                       <TarjetaPaso
@@ -134,6 +161,8 @@ export default function CanvasFlujo({
                         seleccionada={pasoSeleccionadoId === p.id}
                         soloLectura={soloLectura}
                         onSeleccionar={() => onSeleccionarPaso(p.id)}
+                        tieneError={mostrarErrores && erroresPorPaso.has(p.id)}
+                        mensajeError={erroresPorPaso.get(p.id)?.[0]?.mensaje}
                       />
                     )}
                   </div>

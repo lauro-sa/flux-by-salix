@@ -40,6 +40,30 @@ export interface ResultadoValidacion {
 }
 
 /**
+ * Error de validación enriquecido para el editor visual (sub-PR 19.4).
+ *
+ * A diferencia de `ResultadoValidacion.errores` (lista plana de strings
+ * usada por los endpoints), este shape correlaciona cada error con el
+ * paso o el disparador concreto que lo origina. La UI lo usa para:
+ *
+ *   - Pintar marker rojo en la tarjeta correspondiente del canvas.
+ *   - Hacer scroll-to-paso desde el banner de "Ver errores".
+ *
+ * `pasoId` es el UUID estable cliente-side asignado por `darIdAAccion`
+ * (ver `lib/workflows/ids-pasos.ts`). Para errores en pasos dentro de
+ * un branch (acciones_si / acciones_no), `pasoId` apunta al paso interno
+ * — no al branch padre — para que el scroll vaya directo al problema.
+ */
+export type ErrorValidacion =
+  | { ruta: { tipo: 'disparador' }; mensaje: string }
+  | { ruta: { tipo: 'paso'; pasoId: string }; mensaje: string }
+
+export interface ResultadoValidacionConPasos {
+  ok: boolean
+  errores: ErrorValidacion[]
+}
+
+/**
  * Tipos de disparador que el motor (PRs 13-17) ejecuta hoy. Los demás
  * están declarados en el catálogo TS pero todavía no tienen
  * dispatcher/handler. Si un usuario configura uno de esos, la
@@ -193,4 +217,119 @@ function validarAccion(a: unknown, ruta: string): string[] {
         : [`${ruta}: terminar flujo solo acepta un motivo opcional.`]
   }
   return [`${ruta}: la acción "${tipo}" no se puede validar todavía.`]
+}
+
+// =====================================================================
+// Validación con pasos identificados (sub-PR 19.4)
+// =====================================================================
+
+/**
+ * Mismos shape checks que `validarPublicable`, pero correlacionando
+ * cada error con el `pasoId` del paso (o con el disparador) que lo
+ * origina. Pensado para el editor visual: el banner rojo y los markers
+ * por-paso necesitan saber a qué tarjeta pertenece cada error.
+ *
+ * `pasosConId` debe venir hidratado con UUIDs estables (ver
+ * `lib/workflows/ids-pasos.ts`). Acá leemos el `id` de cada paso para
+ * armar la `ruta` del error. Para `condicion_branch` recursamos en
+ * `acciones_si` y `acciones_no`, asumiendo que también traen `id`
+ * (lo garantiza `asignarIdsAcciones` desde el editor).
+ *
+ * Caso especial — array vacío:
+ *   La regla "el flujo debe tener al menos una acción" no se puede
+ *   atribuir a un paso (no hay paso). En ese caso devolvemos el error
+ *   con `ruta = disparador` para que el "Ver errores" abra el panel
+ *   del disparador, que es el lugar más coherente desde donde el
+ *   usuario puede empezar a agregar acciones (el botón "+ Agregar
+ *   paso" del canvas ya está visible al lado).
+ *
+ * Caso especial — branch con rama vacía:
+ *   Atribuimos el error al branch en sí (no a un paso interno, porque
+ *   no existe). Mismo criterio que arriba.
+ */
+export function validarFlujoConPasos(
+  disparador: unknown,
+  pasosConId: unknown,
+): ResultadoValidacionConPasos {
+  const errores: ErrorValidacion[] = []
+
+  for (const m of validarDisparador(disparador)) {
+    errores.push({ ruta: { tipo: 'disparador' }, mensaje: m })
+  }
+
+  errores.push(...validarListaConPasos(pasosConId, null))
+
+  return { ok: errores.length === 0, errores }
+}
+
+/**
+ * Recursivo. `branchPadreId` es el id del branch al que pertenece esta
+ * lista (rama si/no), o `null` si es la lista raíz. Sirve para atribuir
+ * el error de "rama vacía" al branch padre cuando corresponda.
+ */
+function validarListaConPasos(
+  lista: unknown,
+  branchPadreId: string | null,
+): ErrorValidacion[] {
+  if (!Array.isArray(lista)) {
+    return [
+      branchPadreId
+        ? { ruta: { tipo: 'paso', pasoId: branchPadreId }, mensaje: 'Una rama del branch no es una lista válida de acciones.' }
+        : { ruta: { tipo: 'disparador' }, mensaje: 'El flujo no tiene una lista de acciones válida.' },
+    ]
+  }
+  if (lista.length === 0) {
+    return [
+      branchPadreId
+        ? { ruta: { tipo: 'paso', pasoId: branchPadreId }, mensaje: 'Una rama del branch está vacía. Agregá al menos una acción.' }
+        : { ruta: { tipo: 'disparador' }, mensaje: 'El flujo debe tener al menos una acción.' },
+    ]
+  }
+
+  const errores: ErrorValidacion[] = []
+  for (const accion of lista) {
+    errores.push(...validarAccionConPaso(accion))
+  }
+  return errores
+}
+
+function validarAccionConPaso(a: unknown): ErrorValidacion[] {
+  // El paso debe traer `id` cliente-side. Si no lo trae (caso defensivo
+  // — no debería pasar porque el editor hidrata con `asignarIdsAcciones`),
+  // atribuimos el error al disparador para que el "Ver errores" abra al
+  // menos un panel coherente.
+  const pasoId =
+    a && typeof a === 'object' && 'id' in a && typeof (a as { id: unknown }).id === 'string'
+      ? (a as { id: string }).id
+      : null
+
+  const enPaso = (mensaje: string): ErrorValidacion =>
+    pasoId
+      ? { ruta: { tipo: 'paso', pasoId }, mensaje }
+      : { ruta: { tipo: 'disparador' }, mensaje }
+
+  // Para branches NO usamos `validarAccion` directo: ese helper recursa
+  // en `acciones_si`/`acciones_no` con la ruta textual y duplicaría la
+  // recursión que hace `validarListaConPasos`. Hacemos shape-check del
+  // branch acá y delegamos las ramas a la recursión correcta.
+  const tipo = (a as { tipo?: unknown } | null)?.tipo
+  if (tipo === 'condicion_branch') {
+    if (!esAccionCondicionBranch(a)) {
+      return [enPaso('La condición no tiene una expresión válida.')]
+    }
+    const branch = a as {
+      acciones_si?: unknown
+      acciones_no?: unknown
+    }
+    const subErrores: ErrorValidacion[] = []
+    subErrores.push(...validarListaConPasos(branch.acciones_si, pasoId))
+    subErrores.push(...validarListaConPasos(branch.acciones_no, pasoId))
+    return subErrores
+  }
+
+  // Resto de tipos: reusar `validarAccion` (no recursa para no-branches)
+  // y limpiar el prefijo textual "paso: " — la ruta ya la lleva el
+  // `ErrorValidacion` discriminado.
+  const mensajesShape = validarAccion(a, 'paso')
+  return mensajesShape.map((m) => enPaso(m.replace(/^paso[^:]*:\s*/, '')))
 }

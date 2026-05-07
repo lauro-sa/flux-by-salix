@@ -11,12 +11,12 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useState } from 'react'
 import { ChevronDown, ChevronRight, GitBranch, GripVertical } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import TarjetaPaso from './TarjetaPaso'
 import { BotonAgregarPasoIntermedio, BotonAgregarPasoFinal } from './BotonAgregarPaso'
 import type { AccionWorkflow } from '@/tipos/workflow'
+import type { ErrorValidacion } from '@/lib/workflows/validacion-flujo'
 
 /**
  * Tarjeta de un paso `condicion_branch` (§1.6.4 del plan):
@@ -58,6 +58,19 @@ interface Props {
   /** Insertar un paso nuevo en una rama. `posicion` es el índice donde
    *  debe quedar el nuevo (0 = primero). */
   onAgregarEnRama: (rama: 'si' | 'no', posicion: number) => void
+  // ─── Validación tiempo real (sub-PR 19.4) ────────────────────────
+  /** Si false, ningún marker rojo (estado inicial sin intento fallido). */
+  mostrarErrores: boolean
+  /** Errores de TODO el árbol indexados por pasoId (incluye este branch
+   *  y sus hijos recursivos). */
+  erroresPorPaso: Map<string, ErrorValidacion[]>
+  // ─── State controlado de expansión (sub-PR 19.4) ─────────────────
+  /** Estado actual de cada rama (controlado por `EditorFlujo`). */
+  ramasAbiertas: { si: boolean; no: boolean }
+  /** Toggle de la rama `si`. */
+  onToggleRamaSi: () => void
+  /** Toggle de la rama `no`. */
+  onToggleRamaNo: () => void
 }
 
 export default function TarjetaCondicionBranch({
@@ -72,10 +85,15 @@ export default function TarjetaCondicionBranch({
   onReordenarRamaSi,
   onReordenarRamaNo,
   onAgregarEnRama,
+  mostrarErrores,
+  erroresPorPaso,
+  ramasAbiertas,
+  onToggleRamaSi,
+  onToggleRamaNo,
 }: Props) {
   const { t } = useTraduccion()
-  const [siAbierta, setSiAbierta] = useState(true)
-  const [noAbierta, setNoAbierta] = useState(true)
+  const siAbierta = ramasAbiertas.si
+  const noAbierta = ramasAbiertas.no
 
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: paso.id,
@@ -87,16 +105,32 @@ export default function TarjetaCondicionBranch({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // Errores propios del branch (rama vacía o shape inválido).
+  const erroresPropios = erroresPorPaso.get(paso.id) ?? []
+  const tieneError = mostrarErrores && erroresPropios.length > 0
+  const mensajeError = erroresPropios[0]?.mensaje
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex flex-col rounded-card border bg-superficie-tarjeta transition-colors ${
+      // `id` HTML para scroll-to-paso del banner rojo (19.4).
+      id={`flujo-paso-${paso.id}`}
+      title={tieneError ? mensajeError : undefined}
+      className={`group relative flex flex-col rounded-card border bg-superficie-tarjeta transition-colors ${
         seleccionada
           ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]'
           : 'border-borde-sutil hover:border-borde-fuerte'
-      }`}
+      } ${tieneError ? 'border-l-2 border-l-insignia-peligro-texto' : ''}`}
     >
+      {/* Marker rojo del branch — solo si la validación falló para él
+          mismo (no para hijos, esos pintan su propio marker). */}
+      {tieneError && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 size-2 rounded-full bg-insignia-peligro-texto ring-2 ring-superficie-app"
+        />
+      )}
       {/* Header de la tarjeta */}
       <div className="flex items-stretch gap-2">
         <button
@@ -136,7 +170,7 @@ export default function TarjetaCondicionBranch({
       {/* Rama Si */}
       <RamaCollapsable
         abierta={siAbierta}
-        onToggle={() => setSiAbierta((x) => !x)}
+        onToggle={onToggleRamaSi}
         etiqueta={t('flujos.editor.branch.rama_si')}
         pasos={pasosSiConId}
         seleccionId={pasoSeleccionadoId}
@@ -144,12 +178,14 @@ export default function TarjetaCondicionBranch({
         onSeleccionar={onSeleccionarHijo}
         onReordenar={onReordenarRamaSi}
         onAgregar={(pos) => onAgregarEnRama('si', pos)}
+        mostrarErrores={mostrarErrores}
+        erroresPorPaso={erroresPorPaso}
       />
 
       {/* Rama No */}
       <RamaCollapsable
         abierta={noAbierta}
-        onToggle={() => setNoAbierta((x) => !x)}
+        onToggle={onToggleRamaNo}
         etiqueta={t('flujos.editor.branch.rama_no')}
         pasos={pasosNoConId}
         seleccionId={pasoSeleccionadoId}
@@ -157,6 +193,8 @@ export default function TarjetaCondicionBranch({
         onSeleccionar={onSeleccionarHijo}
         onReordenar={onReordenarRamaNo}
         onAgregar={(pos) => onAgregarEnRama('no', pos)}
+        mostrarErrores={mostrarErrores}
+        erroresPorPaso={erroresPorPaso}
         sinBordeInferior
       />
     </div>
@@ -174,6 +212,9 @@ interface PropsRama {
   onReordenar: (pasos: PasoConId[]) => void
   onAgregar: (pos: number) => void
   sinBordeInferior?: boolean
+  /** Sub-PR 19.4: propagar al `TarjetaPaso` interno. */
+  mostrarErrores: boolean
+  erroresPorPaso: Map<string, ErrorValidacion[]>
 }
 
 function RamaCollapsable({
@@ -187,6 +228,8 @@ function RamaCollapsable({
   onReordenar,
   onAgregar,
   sinBordeInferior,
+  mostrarErrores,
+  erroresPorPaso,
 }: PropsRama) {
   const { t } = useTraduccion()
   const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
@@ -243,6 +286,8 @@ function RamaCollapsable({
                       seleccionada={seleccionId === p.id}
                       soloLectura={soloLectura}
                       onSeleccionar={() => onSeleccionar(p.id)}
+                      tieneError={mostrarErrores && erroresPorPaso.has(p.id)}
+                      mensajeError={erroresPorPaso.get(p.id)?.[0]?.mensaje}
                     />
                   </div>
                 ))}

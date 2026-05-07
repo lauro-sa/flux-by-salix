@@ -1692,6 +1692,14 @@ export const es: Traducciones = {
         error_desc: 'Hay errores de configuración. Revisá los pasos marcados.',
       },
 
+      validacion: {
+        titulo_activar: 'No se puede activar todavía',
+        titulo_publicar: 'No se pueden publicar los cambios',
+        descripcion: 'Encontramos {{n}} configuración(es) que falta(n) antes de continuar.',
+        cta_ver_errores: 'Ver errores',
+        errores_extra: '+{{n}} más',
+      },
+
       accion: {
         publicar: 'Publicar cambios',
         descartar: 'Descartar cambios',
