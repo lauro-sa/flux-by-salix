@@ -1,7 +1,8 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, FlaskConical, History } from 'lucide-react'
+import { ChevronLeft, FlaskConical, History, Workflow } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
@@ -29,10 +30,12 @@ import type { FlujoEditable } from './hooks/useEditorFlujo'
  *   • pausado c/ borrador → [Publicar cambios] [Descartar cambios]
  *                           (Reactivar va al menú tres puntos)
  *
- * "Probar" y "Historial" son botones VISUALES no-op en 19.2 (la
- * sandbox real es 19.5 y el historial es 19.6). Mantenemos los
- * botones para que el editor se sienta completo desde 19.2 — al
- * clickearlos se muestra un toast "próximamente".
+ * "Probar" abre la consola sandbox como overlay (sub-PR 19.5).
+ *
+ * Los tabs "Editor" / "Historial" (sub-PR 19.6) cambian la vista
+ * principal vía URL `?vista=...`. Cambiar tab NO descarta cambios
+ * (el autoguardado del hook sigue corriendo). El estado activo se
+ * representa con `aria-pressed` + estilo destacado.
  */
 
 const COLOR_ESTADO: Record<EstadoFlujo, ColorInsignia> = {
@@ -58,9 +61,11 @@ interface Props {
   onDescartarBorrador: () => void
   onDuplicar: () => void
   onEliminar: () => void
-  // Botones visuales no-op
+  // Sandbox (sub-PR 19.5) — overlay sobre cualquier vista
   onProbar: () => void
-  onHistorial: () => void
+  // Tabs Editor / Historial (sub-PR 19.6)
+  vista: 'editor' | 'historial'
+  onCambiarVista: (vista: 'editor' | 'historial') => void
 }
 
 export default function HeaderEditorFlujo({
@@ -78,7 +83,8 @@ export default function HeaderEditorFlujo({
   onDuplicar,
   onEliminar,
   onProbar,
-  onHistorial,
+  vista,
+  onCambiarVista,
 }: Props) {
   const { t } = useTraduccion()
   const router = useRouter()
@@ -187,7 +193,32 @@ export default function HeaderEditorFlujo({
       {/* Indicador de guardado */}
       <IndicadorGuardado guardando={guardando} ultimoGuardado={ultimoGuardado} />
 
-      {/* Probar / Historial — visuales no-op en 19.2 */}
+      {/* Tabs Editor / Historial (sub-PR 19.6).
+          Toggle visual: el tab activo se destaca con `aria-pressed` +
+          fondo sutil. Cambiar tab no descarta cambios — el editor
+          mantiene su state aunque la vista esté oculta. */}
+      <div
+        role="tablist"
+        aria-label={t('flujos.editor.tabs.aria_label')}
+        className="flex items-center gap-0.5 rounded-md border border-borde-sutil bg-superficie-tarjeta p-0.5 shrink-0"
+      >
+        <TabBoton
+          activo={vista === 'editor'}
+          icono={<Workflow size={14} />}
+          etiqueta={t('flujos.editor.tabs.editor')}
+          onClick={() => onCambiarVista('editor')}
+        />
+        <TabBoton
+          activo={vista === 'historial'}
+          icono={<History size={14} />}
+          etiqueta={t('flujos.editor.tabs.historial')}
+          onClick={() => onCambiarVista('historial')}
+        />
+      </div>
+
+      {/* Probar — abre la consola sandbox como overlay (sub-PR 19.5).
+          Independiente de las tabs: se puede abrir tanto desde Editor
+          como desde Historial. */}
       <Boton
         variante="fantasma"
         tamano="sm"
@@ -196,15 +227,6 @@ export default function HeaderEditorFlujo({
         tooltip={t('flujos.editor.accion.probar_tooltip')}
       >
         <span className="hidden lg:inline">{t('flujos.editor.accion.probar')}</span>
-      </Boton>
-      <Boton
-        variante="fantasma"
-        tamano="sm"
-        icono={<History size={14} />}
-        onClick={onHistorial}
-        tooltip={t('flujos.editor.accion.historial_tooltip')}
-      >
-        <span className="hidden lg:inline">{t('flujos.editor.accion.historial')}</span>
       </Boton>
 
       {/* Acciones contextuales por estado */}
@@ -233,5 +255,38 @@ export default function HeaderEditorFlujo({
         onEliminar={onEliminar}
       />
     </header>
+  )
+}
+
+// Tab compacto del switcher Editor/Historial. Toggle puro: el tab
+// activo se ve destacado con fondo sutil + texto primario; el inactivo
+// muestra solo ícono+texto secundario y reacciona a hover. La etiqueta
+// se oculta en pantallas chicas para mantener el header compacto.
+function TabBoton({
+  activo,
+  icono,
+  etiqueta,
+  onClick,
+}: {
+  activo: boolean
+  icono: ReactNode
+  etiqueta: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-pressed={activo}
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+        activo
+          ? 'bg-superficie-hover text-texto-primario'
+          : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/60'
+      }`}
+    >
+      {icono}
+      <span className="hidden md:inline">{etiqueta}</span>
+    </button>
   )
 }

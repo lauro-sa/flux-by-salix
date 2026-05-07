@@ -20,6 +20,7 @@ import BannerEditorFlujo from './BannerEditorFlujo'
 import CanvasFlujo from './CanvasFlujo'
 import CatalogoPasos from './CatalogoPasos'
 import PanelEdicionPaso from './PanelEdicionPaso'
+import PestañaHistorial from './_historial/PestañaHistorial'
 import ConsolaSandbox, { useEsMobile } from './_consola/ConsolaSandbox'
 import { useConsolaSandbox } from './_consola/hooks/useConsolaSandbox'
 import { usePreviewContexto } from './_picker/usePreviewContexto'
@@ -641,7 +642,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     },
   })
 
-  // ─── Probar / Historial ──────────────────────────────────────────
+  // ─── Probar / Tabs Editor↔Historial ──────────────────────────────
   // 19.5: "Probar" abre la consola de prueba (panel inferior). Si el
   // panel de paso está abierto, lo cerramos primero — el usuario no
   // puede tener panel + consola al mismo tiempo (apila visualmente).
@@ -649,10 +650,38 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     setSeleccion(null)
     consola.abrir()
   }, [consola])
-  // Historial sigue no-op hasta el sub-PR 19.6.
-  const onHistorial = useCallback(() => {
-    mostrar('info', t('flujos.editor.toast.proximamente_historial'))
-  }, [mostrar, t])
+
+  // 19.6: vista activa derivada del query param. Default 'editor'.
+  // Cualquier valor inválido cae a 'editor' silencioso (defensivo
+  // contra links viejos / typeados a mano).
+  const vistaParam = searchParams.get('vista')
+  const vista: 'editor' | 'historial' =
+    vistaParam === 'historial' ? 'historial' : 'editor'
+
+  // Cambiar de tab vía URL (router.replace + scroll:false). El estado
+  // del editor (acciones, selección, panel) NO se descarta — el
+  // componente sigue montado, solo cambia qué se renderiza visible.
+  // Caveat coordinador: cambiar tab nunca pierde cambios pendientes
+  // porque el autoguardado del hook sigue corriendo en background.
+  const onCambiarVista = useCallback(
+    (nueva: 'editor' | 'historial') => {
+      if (nueva === vista) return
+      // Al pasar a historial cerramos el panel de paso para evitar que
+      // un slide-in invisible quede colgado. La consola sandbox queda
+      // donde estaba (puede convivir con cualquier tab).
+      if (nueva === 'historial' && seleccion !== null) {
+        setSeleccion(null)
+      }
+      const url = new URL(window.location.href)
+      if (nueva === 'editor') {
+        url.searchParams.delete('vista')
+      } else {
+        url.searchParams.set('vista', nueva)
+      }
+      router.replace(url.pathname + url.search, { scroll: false })
+    },
+    [router, seleccion, vista],
+  )
 
   // ─── Banner contextual ───────────────────────────────────────────
   // Prioridad (consistente con el comentario de cabecera de
@@ -687,31 +716,44 @@ export default function EditorFlujo({ flujoInicial }: Props) {
         onDuplicar={abrirDuplicar}
         onEliminar={() => setConfirmandoEliminar(true)}
         onProbar={onProbar}
-        onHistorial={onHistorial}
+        vista={vista}
+        onCambiarVista={onCambiarVista}
       />
 
-      {banner === 'error' && intentoFallidoPublicar ? (
-        <BannerEditorFlujo
-          tipo="error"
-          titulo={t(
-            intentoFallidoPublicar.tipo === 'activar'
-              ? 'flujos.editor.validacion.titulo_activar'
-              : 'flujos.editor.validacion.titulo_publicar',
-          )}
-          descripcion={t('flujos.editor.validacion.descripcion').replace(
-            '{{n}}',
-            String(intentoFallidoPublicar.errores.length),
-          )}
-          errores={intentoFallidoPublicar.errores.map((e) => e.mensaje)}
-          accion={{
-            etiqueta: t('flujos.editor.validacion.cta_ver_errores'),
-            onClick: verErrores,
-          }}
-        />
-      ) : (
-        banner && <BannerEditorFlujo tipo={banner} />
+      {/* Banner contextual sólo en la tab Editor — en Historial no
+          tiene sentido (no estás editando, sólo viendo ejecuciones). */}
+      {vista === 'editor' && (
+        banner === 'error' && intentoFallidoPublicar ? (
+          <BannerEditorFlujo
+            tipo="error"
+            titulo={t(
+              intentoFallidoPublicar.tipo === 'activar'
+                ? 'flujos.editor.validacion.titulo_activar'
+                : 'flujos.editor.validacion.titulo_publicar',
+            )}
+            descripcion={t('flujos.editor.validacion.descripcion').replace(
+              '{{n}}',
+              String(intentoFallidoPublicar.errores.length),
+            )}
+            errores={intentoFallidoPublicar.errores.map((e) => e.mensaje)}
+            accion={{
+              etiqueta: t('flujos.editor.validacion.cta_ver_errores'),
+              onClick: verErrores,
+            }}
+          />
+        ) : (
+          banner && <BannerEditorFlujo tipo={banner} />
+        )
       )}
 
+      {/* Tab Historial (sub-PR 19.6). Render condicional: el canvas
+          y el panel de paso quedan desmontados visualmente, pero el
+          state del editor (acciones, autoguardado) sigue vivo. */}
+      {vista === 'historial' && (
+        <PestañaHistorial flujoId={flujo.id} />
+      )}
+
+      {vista === 'editor' && (
       <div className="flex-1 flex min-h-0">
         <CanvasFlujo
           disparador={disparadorRaw}
@@ -758,6 +800,7 @@ export default function EditorFlujo({ flujoInicial }: Props) {
           onActualizarDisparador={actualizarDisparador}
         />
       </div>
+      )}
 
       {/* Consola de prueba — sub-PR 19.5. Posicionada absolute dentro del
           contenedor relativo padre para flotar arriba del canvas sin

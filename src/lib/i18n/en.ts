@@ -1671,6 +1671,12 @@ export const en: Traducciones = {
         historial_tooltip: 'Recent runs of this flow',
       },
 
+      tabs: {
+        aria_label: 'Flow views',
+        editor: 'Editor',
+        historial: 'History',
+      },
+
       disparador: {
         etiqueta: 'Trigger',
         placeholder_titulo: 'Configure the trigger',
@@ -2190,6 +2196,14 @@ export const en: Traducciones = {
       esperar_evento: { titulo: 'Wait for event', descripcion: 'Pause the flow until an event occurs.' },
       condicion_branch: { titulo: 'If / Else', descripcion: 'Take different paths depending on a condition.' },
       terminar_flujo: { titulo: 'End flow', descripcion: 'Explicitly close the flow.' },
+    },
+
+    historial: {
+      placeholder: {
+        titulo: 'Run history',
+        descripcion:
+          'You will see every time this flow has been executed, with full step-by-step detail.',
+      },
     },
   },
 }

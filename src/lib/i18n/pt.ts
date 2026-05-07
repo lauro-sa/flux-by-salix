@@ -1671,6 +1671,12 @@ export const pt: Traducciones = {
         historial_tooltip: 'Execuções recentes deste fluxo',
       },
 
+      tabs: {
+        aria_label: 'Vistas do fluxo',
+        editor: 'Editor',
+        historial: 'Histórico',
+      },
+
       disparador: {
         etiqueta: 'Gatilho',
         placeholder_titulo: 'Configure o gatilho',
@@ -2190,6 +2196,14 @@ export const pt: Traducciones = {
       esperar_evento: { titulo: 'Esperar evento', descripcion: 'Pausar o fluxo até que ocorra um evento.' },
       condicion_branch: { titulo: 'Se / Senão', descripcion: 'Tomar caminhos diferentes segundo uma condição.' },
       terminar_flujo: { titulo: 'Terminar fluxo', descripcion: 'Fechar o fluxo explicitamente.' },
+    },
+
+    historial: {
+      placeholder: {
+        titulo: 'Histórico de execuções',
+        descripcion:
+          'Aqui você verá cada vez que este fluxo foi executado, com o detalhe passo a passo.',
+      },
     },
   },
 }

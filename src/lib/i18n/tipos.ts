@@ -1734,6 +1734,12 @@ export interface Traducciones {
         historial_tooltip: string
       }
 
+      tabs: {
+        aria_label: string
+        editor: string
+        historial: string
+      }
+
       disparador: {
         etiqueta: string
         placeholder_titulo: string
@@ -2260,6 +2266,13 @@ export interface Traducciones {
       esperar_evento: { titulo: string; descripcion: string }
       condicion_branch: { titulo: string; descripcion: string }
       terminar_flujo: { titulo: string; descripcion: string }
+    }
+
+    historial: {
+      placeholder: {
+        titulo: string
+        descripcion: string
+      }
     }
   }
 }

@@ -1710,6 +1710,12 @@ export const es: Traducciones = {
         historial_tooltip: 'Ejecuciones recientes de este flujo',
       },
 
+      tabs: {
+        aria_label: 'Vistas del flujo',
+        editor: 'Editor',
+        historial: 'Historial',
+      },
+
       disparador: {
         etiqueta: 'Disparador',
         placeholder_titulo: 'Configurá el disparador',
@@ -2311,6 +2317,15 @@ export const es: Traducciones = {
       terminar_flujo: {
         titulo: 'Terminar flujo',
         descripcion: 'Cerrar el flujo explícitamente.',
+      },
+    },
+
+    // Historial de ejecuciones (sub-PR 19.6)
+    historial: {
+      placeholder: {
+        titulo: 'Historial de ejecuciones',
+        descripcion:
+          'Acá vas a ver cada vez que este flujo se haya ejecutado, con el detalle paso por paso.',
       },
     },
   },
