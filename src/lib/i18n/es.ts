@@ -25,6 +25,7 @@ export const es: Traducciones = {
     seleccionar: 'Seleccionar',
     exportar: 'Exportar',
     importar: 'Importar',
+    guia_uso: 'Guía de uso',
     filtrar: 'Filtrar',
     ordenar: 'Ordenar',
     acciones: 'Acciones',
@@ -106,6 +107,13 @@ export const es: Traducciones = {
     fechas: 'Fechas',
     manual: 'Manual',
     importacion: 'Importación',
+  },
+
+  ayuda: {
+    titulo: 'Manual de uso',
+    volver: 'Volver',
+    sin_guia_titulo: 'Guía no disponible',
+    sin_guia_descripcion: 'La guía de uso para este módulo todavía no está disponible. Si necesitás ayuda, contactá al soporte.',
   },
 
   auth: {

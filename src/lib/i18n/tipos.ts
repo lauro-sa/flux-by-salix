@@ -34,6 +34,7 @@ export interface Traducciones {
     seleccionar: string
     exportar: string
     importar: string
+    guia_uso: string
     filtrar: string
     ordenar: string
     acciones: string
@@ -115,6 +116,14 @@ export interface Traducciones {
     fechas: string
     manual: string
     importacion: string
+  }
+
+  // Página de ayuda / manual de usuario por módulo (/ayuda/<slug>)
+  ayuda: {
+    titulo: string
+    volver: string
+    sin_guia_titulo: string
+    sin_guia_descripcion: string
   }
 
   // Autenticación
