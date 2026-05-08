@@ -315,10 +315,11 @@ export interface AccionCrearActividad extends AccionBase {
  *   - Filtros adicionales: `contacto_id` (vínculos), `asignado_id`
  *     (asignados_ids), `estado_clave` (default 'pendiente').
  *   - `relacionada_a` busca por `actividades_relaciones (entidad_tipo,
- *     entidad_id)`. Esa tabla la crea sub-PR 20.2 — hasta entonces este
- *     campo se acepta en el shape pero el executor falla con
- *     `PendienteSubPR20_2` si el flujo lo usa sin acompañar de
- *     `tipo_actividad_id`.
+ *     entidad_id)` (sql/066, sub-PR 20.2). El ejecutor pre-resuelve los
+ *     `actividad_id` vinculados a esa entidad y combina con los demás
+ *     filtros del criterio. Multi-tenant: la query se filtra
+ *     explícitamente por empresa_id (defensa adicional al RLS, porque
+ *     el motor corre con service_role).
  *
  * Resolución del set:
  *   - `si_multiple = 'mas_antigua'` (default sugerido): cierra la primera
@@ -350,7 +351,11 @@ export interface AccionCompletarActividad extends AccionBase {
     asignado_id?: string
     /** Default 'pendiente'. */
     estado_clave?: string
-    /** Se habilita end-to-end al mergear sub-PR 20.2. */
+    /**
+     * Lookup vía `actividades_relaciones` (sql/066). El ejecutor
+     * pre-resuelve el set de actividades vinculadas a esa entidad y
+     * lo combina con los demás filtros del criterio.
+     */
     relacionada_a?: {
       entidad_tipo: string
       entidad_id: string

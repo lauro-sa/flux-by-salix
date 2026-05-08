@@ -62,6 +62,7 @@ import {
 } from '@/lib/whatsapp/canal-credenciales'
 import { aplicarTransicionEstado } from '@/lib/estados/aplicar-transicion'
 import { registrarChatter } from '@/lib/chatter'
+import { esEntidadRelacionable } from '@/tipos/actividades-relaciones'
 import { evaluarCondicion } from './evaluar-condicion'
 
 // =============================================================
@@ -438,10 +439,74 @@ async function ejecutarCrearActividad(
 
   if (error) return errSupabase(error, 'insertar actividad')
 
+  // Auto-enriquecimiento (sub-PR 20.2): si el flujo tiene entidad
+  // disparadora (no es cron sin entidad), registramos la relación N:M
+  // en `actividades_relaciones`. Esto reemplaza el legacy
+  // `actividad_origen_id` (FK directa) y permite que `completar_actividad`
+  // con `criterio.relacionada_a` resuelva el match en flujos cross-entidad
+  // (ej: visita completada → crea actividad → al enviar presupuesto, esa
+  // actividad se cierra porque está vinculada a la visita madre).
+  //
+  // Idempotencia por UNIQUE (empresa_id, actividad_id, entidad_tipo,
+  // entidad_id) + ON CONFLICT DO NOTHING. Si el INSERT falla por otro
+  // motivo, se loguea como warn pero NO rompe la cadena: el flujo ya
+  // creó la actividad, perder la relación es degradación aceptable
+  // versus abortar con la actividad huérfana.
+  const entidadDisparadora = leerEntidadDisparadora(contexto.contexto_inicial)
+  if (entidadDisparadora) {
+    const { error: errRel } = await admin
+      .from('actividades_relaciones')
+      .upsert(
+        {
+          empresa_id: contexto.empresa_id,
+          actividad_id: data.id,
+          entidad_tipo: entidadDisparadora.tipo,
+          entidad_id: entidadDisparadora.id,
+          creado_por: null,
+        },
+        { onConflict: 'empresa_id,actividad_id,entidad_tipo,entidad_id', ignoreDuplicates: true },
+      )
+    if (errRel) {
+      console.warn(
+        JSON.stringify({
+          nivel: 'warn',
+          mensaje: 'auto_enriquecimiento_relacion_fallo',
+          flujo_id: contexto.flujo_id,
+          ejecucion_id: contexto.ejecucion_id,
+          empresa_id: contexto.empresa_id,
+          actividad_id: data.id,
+          entidad_tipo: entidadDisparadora.tipo,
+          entidad_id: entidadDisparadora.id,
+          error_message: errRel.message,
+          error_code: errRel.code ?? null,
+        }),
+      )
+    }
+  }
+
   return {
     ok: true,
     resultado: { actividad_id: data.id, titulo: data.titulo },
   }
+}
+
+/**
+ * Devuelve la entidad disparadora del flujo si el contexto la trae con
+ * tipo válido (`EntidadRelacionable`) e id string. Para flujos cron sin
+ * entidad o con tipos no-relacionables (ej: nuevos tipos sin agregar a
+ * `EntidadRelacionable` aún), devuelve null y el auto-enriquecimiento
+ * se saltea silenciosamente.
+ */
+function leerEntidadDisparadora(
+  contextoInicial: Record<string, unknown> | undefined,
+): { tipo: string; id: string } | null {
+  if (!contextoInicial) return null
+  const ent = contextoInicial.entidad
+  if (typeof ent !== 'object' || ent === null) return null
+  const r = ent as Record<string, unknown>
+  if (typeof r.tipo !== 'string' || typeof r.id !== 'string') return null
+  if (!esEntidadRelacionable(r.tipo)) return null
+  return { tipo: r.tipo, id: r.id }
 }
 
 // =============================================================
@@ -482,20 +547,45 @@ async function ejecutarCompletarActividad(
     }
   }
 
-  // El lookup por entidad relacionada (`actividades_relaciones`) lo
-  // habilita sub-PR 20.2. Mientras esa tabla no exista, sólo se puede
-  // resolver vía `tipo_actividad_id` + filtros opcionales. Si el flujo
-  // sólo trae `relacionada_a` sin `tipo_actividad_id`, fallar fuerte y
-  // claro para que el usuario sepa qué falta.
-  if (!c.tipo_actividad_id && c.relacionada_a) {
-    return {
-      ok: false,
-      error: {
-        mensaje:
-          'completar_actividad por entidad relacionada requiere sub-PR 20.2 (tabla actividades_relaciones). Mientras tanto, agregá tipo_actividad_id como filtro.',
-        transitorio: false,
-        raw_class: 'PendienteSubPR20_2',
-      },
+  // Resolución de `relacionada_a` (sub-PR 20.2): cargamos los
+  // `actividad_id` vinculados a la entidad indicada, con filtro
+  // explícito por `empresa_id` aunque RLS lo cubre — el motor corre
+  // con service_role que bypaseamos RLS, así que el filtro tenant es
+  // defensivo y no opcional. Si el resultado es vacío, ya sabemos que
+  // no hay matches: short-circuit antes de la query a `actividades`.
+  let idsRelacionados: string[] | null = null
+  if (c.relacionada_a) {
+    const { data: rels, error: errRel } = await admin
+      .from('actividades_relaciones')
+      .select('actividad_id')
+      .eq('empresa_id', contexto.empresa_id)
+      .eq('entidad_tipo', c.relacionada_a.entidad_tipo)
+      .eq('entidad_id', c.relacionada_a.entidad_id)
+
+    if (errRel) return errSupabase(errRel, 'buscar relaciones de actividad')
+
+    idsRelacionados = ((rels ?? []) as Array<{ actividad_id: string }>).map(
+      (r) => r.actividad_id,
+    )
+
+    if (idsRelacionados.length === 0) {
+      // Sin relaciones registradas → nada para cerrar, respetamos
+      // si_no_encuentra (default 'continuar' devuelve cantidad=0).
+      if (siNoEncuentra === 'fallar') {
+        return {
+          ok: false,
+          error: {
+            mensaje:
+              `completar_actividad: ninguna actividad vinculada a ${c.relacionada_a.entidad_tipo}/${c.relacionada_a.entidad_id}.`,
+            transitorio: false,
+            raw_class: 'NoEncontrada',
+          },
+        }
+      }
+      return {
+        ok: true,
+        resultado: { cantidad: 0, actividades_completadas: [] },
+      }
     }
   }
 
@@ -510,6 +600,10 @@ async function ejecutarCompletarActividad(
   if (c.tipo_actividad_id) q = q.eq('tipo_id', c.tipo_actividad_id)
   if (c.asignado_id) q = q.contains('asignados_ids', [c.asignado_id])
   if (c.contacto_id) q = q.contains('vinculo_ids', [c.contacto_id])
+  // Restricción cross-entidad: solo actividades vinculadas a la entidad
+  // del criterio.relacionada_a. Combina con tipo_actividad_id si ambos
+  // vienen — más restrictivos = mejor especificidad.
+  if (idsRelacionados !== null) q = q.in('id', idsRelacionados)
 
   if (siMultiple === 'todas') {
     q = q.order('creado_en', { ascending: true })

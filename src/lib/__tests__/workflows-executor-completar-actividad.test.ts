@@ -52,6 +52,7 @@ interface BuilderEspia {
   select: ReturnType<typeof vi.fn>
   insert: ReturnType<typeof vi.fn>
   update: ReturnType<typeof vi.fn>
+  upsert: ReturnType<typeof vi.fn>
   eq: ReturnType<typeof vi.fn>
   in: ReturnType<typeof vi.fn>
   contains: ReturnType<typeof vi.fn>
@@ -71,6 +72,7 @@ function crearBuilder(cfg: BuilderConfig): BuilderEspia {
     select: vi.fn(() => builder),
     insert: vi.fn(() => builder),
     update: vi.fn(() => builder),
+    upsert: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     in: vi.fn(() => builder),
     contains: vi.fn(() => builder),
@@ -136,24 +138,10 @@ describe('completar_actividad — defensa runtime del criterio', () => {
     }
   })
 
-  it('falla con PendienteSubPR20_2 si solo viene relacionada_a sin tipo_actividad_id', async () => {
-    const { admin } = crearAdmin({})
-    const r = await ejecutarAccion(
-      {
-        tipo: 'completar_actividad',
-        criterio: {
-          si_multiple: 'mas_antigua',
-          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
-        },
-      },
-      ctxBase,
-      admin as never,
-    )
-    expect(r.ok).toBe(false)
-    if (!r.ok) {
-      expect(r.error.raw_class).toBe('PendienteSubPR20_2')
-    }
-  })
+  // sub-PR 20.2 reemplazó el stub `PendienteSubPR20_2` por lookup real
+  // contra `actividades_relaciones`. El comportamiento esperado ahora es
+  // "resuelve el set vía la tabla" — los tests del bloque
+  // "resolver_real" cubren ese contrato.
 })
 
 // =============================================================
@@ -554,5 +542,385 @@ describe('completar_actividad — resolución de {{vars}} anidadas', () => {
     const resuelta = resolverEnObjeto(accion, contexto) as typeof accion
     expect(resuelta.criterio.contacto_id).toBe('contacto-real')
     expect(resuelta.criterio.asignado_id).toBe('actor-real')
+  })
+})
+
+// =============================================================
+// Resolver real de relacionada_a — sub-PR 20.2
+// =============================================================
+// Reemplazo del stub `PendienteSubPR20_2` del 20.1: ahora el ejecutor
+// hace lookup contra `actividades_relaciones` con filtro multi-tenant
+// explícito (no solo RLS — el motor corre con service_role).
+
+describe('completar_actividad — resolver real de relacionada_a (20.2)', () => {
+  it('match cross-entidad: cierra la actividad vinculada a la entidad madre', async () => {
+    // Caso del prompt original: "presupuesto enviado → cierra Presupuestar
+    // de esa visita". El criterio busca actividades de tipo
+    // tipo-presupuestar vinculadas a la visita visita-1.
+    const { admin, builders } = crearAdmin({
+      actividades_relaciones: { data: [{ actividad_id: 'act-a' }] },
+      actividades: { data: [filaActA] },
+      estados_actividad: { data: { id: 'estado-completada', clave: 'completada' } },
+      flujos: { data: { nombre: 'Cerrar Presupuestar al enviar' } },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          tipo_actividad_id: 'tipo-presupuestar',
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxBase,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.actividades_completadas).toEqual(['act-a'])
+    // C3: la query a actividades_relaciones filtró por empresa_id de la
+    // ejecución (defensa explícita aunque RLS exista).
+    expect(builders.actividades_relaciones.eq.mock.calls).toContainEqual([
+      'empresa_id',
+      'emp-1',
+    ])
+    expect(builders.actividades_relaciones.eq.mock.calls).toContainEqual([
+      'entidad_tipo',
+      'visita',
+    ])
+    expect(builders.actividades_relaciones.eq.mock.calls).toContainEqual([
+      'entidad_id',
+      'visita-1',
+    ])
+    // Y la query a actividades aplicó .in('id', [...]) con los ids
+    // resueltos por el lookup.
+    expect(builders.actividades.in.mock.calls).toContainEqual(['id', ['act-a']])
+  })
+
+  it('relacionada_a SOLO (sin tipo_actividad_id) ahora funciona — ya no es PendienteSubPR20_2', async () => {
+    const { admin, builders } = crearAdmin({
+      actividades_relaciones: { data: [{ actividad_id: 'act-a' }] },
+      actividades: { data: [filaActA] },
+      estados_actividad: { data: { id: 'estado-completada', clave: 'completada' } },
+      flujos: { data: { nombre: 'F' } },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxBase,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    // No se aplicó filtro por tipo_id porque el criterio no lo trajo.
+    const llamadasEqAct = builders.actividades.eq.mock.calls
+    expect(llamadasEqAct).not.toContainEqual([
+      'tipo_id',
+      expect.any(String) as unknown,
+    ])
+  })
+
+  it('sin relación registrada + si_no_encuentra=continuar → cantidad=0 (idempotencia)', async () => {
+    const { admin } = crearAdmin({
+      actividades_relaciones: { data: [] },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-x' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxBase,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.cantidad).toBe(0)
+    // Short-circuit: NO se invocó chatter ni se llegó a query actividades.
+    expect(registrarChatterMock).not.toHaveBeenCalled()
+  })
+
+  it("sin relación + si_no_encuentra='fallar' → NoEncontrada con mensaje legible", async () => {
+    const { admin } = crearAdmin({
+      actividades_relaciones: { data: [] },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-x' },
+          si_multiple: 'mas_antigua',
+          si_no_encuentra: 'fallar',
+        },
+      },
+      ctxBase,
+      admin as never,
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error.raw_class).toBe('NoEncontrada')
+      // Mensaje incluye la entidad para que el operador entienda por qué.
+      expect(r.error.mensaje).toMatch(/visita\/visita-x/)
+    }
+  })
+
+  it('combina tipo_actividad_id + relacionada_a (ambos filtros aplican)', async () => {
+    const { admin, builders } = crearAdmin({
+      actividades_relaciones: { data: [{ actividad_id: 'act-a' }] },
+      actividades: { data: [filaActA] },
+      estados_actividad: { data: { id: 'estado-completada', clave: 'completada' } },
+      flujos: { data: { nombre: 'F' } },
+    })
+    await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          tipo_actividad_id: 'tipo-presupuestar',
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxBase,
+      admin as never,
+    )
+    // Ambos filtros visibles en la query a actividades.
+    expect(builders.actividades.eq.mock.calls).toContainEqual([
+      'tipo_id',
+      'tipo-presupuestar',
+    ])
+    expect(builders.actividades.in.mock.calls).toContainEqual(['id', ['act-a']])
+  })
+
+  it('multi-tenant aislado: empresa B no resuelve relaciones de empresa A', async () => {
+    // El handler usa ctx.empresa_id en el .eq() — el builder mock NO
+    // distingue empresas; verificamos que el filtro está presente.
+    const ctxEmpresaB = { ...ctxBase, empresa_id: 'emp-B' }
+    const { admin, builders } = crearAdmin({
+      actividades_relaciones: { data: [] },
+    })
+    await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxEmpresaB,
+      admin as never,
+    )
+    expect(builders.actividades_relaciones.eq.mock.calls).toContainEqual([
+      'empresa_id',
+      'emp-B',
+    ])
+  })
+
+  it('dry-run con relacionada_a: hace lookup pero NO muta BD', async () => {
+    const ctxDry: ContextoEjecucion = { ...ctxBase, dry_run: true }
+    const { admin, builders } = crearAdmin({
+      actividades_relaciones: { data: [{ actividad_id: 'act-a' }] },
+      actividades: { data: [filaActA] },
+      tipos_actividad: {
+        data: [{ id: 'tipo-presupuestar', etiqueta: 'Presupuestar', clave: 'presupuestar' }],
+      },
+      usuarios: { data: [{ id: 'user-1', nombre_completo: 'Lauro' }] },
+    })
+    const r = await ejecutarAccion(
+      {
+        tipo: 'completar_actividad',
+        criterio: {
+          relacionada_a: { entidad_tipo: 'visita', entidad_id: 'visita-1' },
+          si_multiple: 'mas_antigua',
+        },
+      },
+      ctxDry,
+      admin as never,
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.simulado).toBe(true)
+    // Lookup hecho (read), pero NO update / NO chatter.
+    expect(builders.actividades.update).not.toHaveBeenCalled()
+    expect(registrarChatterMock).not.toHaveBeenCalled()
+  })
+})
+
+// =============================================================
+// Auto-enriquecimiento desde crear_actividad — sub-PR 20.2
+// =============================================================
+// Cuando el flujo crea una actividad con `crear_actividad` y el
+// contexto trae entidad disparadora, el ejecutor debe upsertear una
+// fila en `actividades_relaciones` (idempotente por UNIQUE).
+
+describe('crear_actividad — auto-enriquecimiento de relación (20.2)', () => {
+  const accionCrear = {
+    tipo: 'crear_actividad' as const,
+    tipo_actividad_id: 'tipo-presupuestar',
+    titulo: 'Presupuestar',
+  }
+
+  it('inserta fila en actividades_relaciones con la entidad disparadora', async () => {
+    const ctxConEntidad: ContextoEjecucion = {
+      ...ctxBase,
+      contexto_inicial: {
+        entidad: { tipo: 'visita', id: 'visita-1', motivo: 'Presupuesto' },
+      },
+    }
+    const { admin, builders } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-nueva', titulo: 'Presupuestar' } },
+      actividades_relaciones: { data: null },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxConEntidad, admin as never)
+    expect(r.ok).toBe(true)
+    // Upsert con onConflict + ignoreDuplicates (C2).
+    expect(builders.actividades_relaciones.upsert).toHaveBeenCalledTimes(1)
+    const [fila, opciones] = builders.actividades_relaciones.upsert.mock.calls[0]
+    expect(fila).toMatchObject({
+      empresa_id: 'emp-1',
+      actividad_id: 'act-nueva',
+      entidad_tipo: 'visita',
+      entidad_id: 'visita-1',
+      creado_por: null,
+    })
+    expect(opciones).toMatchObject({
+      onConflict: 'empresa_id,actividad_id,entidad_tipo,entidad_id',
+      ignoreDuplicates: true,
+    })
+  })
+
+  it('idempotencia: el upsert con ignoreDuplicates absorbe re-ejecuciones', async () => {
+    // Simulamos que la fila ya existe — el UNIQUE de SQL la rechaza pero
+    // ignoreDuplicates hace que supabase-js NO devuelva error. El handler
+    // continúa OK.
+    const ctxConEntidad: ContextoEjecucion = {
+      ...ctxBase,
+      contexto_inicial: {
+        entidad: { tipo: 'visita', id: 'visita-1' },
+      },
+    }
+    const { admin } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-nueva', titulo: 'Presupuestar' } },
+      actividades_relaciones: { data: null, error: null },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxConEntidad, admin as never)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.actividad_id).toBe('act-nueva')
+  })
+
+  it('fallo del upsert NO rompe la cadena: actividad creada igual', async () => {
+    // Si la BD rechaza el upsert por algún motivo (RLS, etc.), preservamos
+    // la actividad creada y solo logueamos warn. Mejor degradar (perder
+    // la relación) que abortar con la actividad huérfana en BD.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const ctxConEntidad: ContextoEjecucion = {
+      ...ctxBase,
+      contexto_inicial: {
+        entidad: { tipo: 'visita', id: 'visita-1' },
+      },
+    }
+    const { admin } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-nueva', titulo: 'Presupuestar' } },
+      actividades_relaciones: {
+        data: null,
+        error: { message: 'rls violation', code: '42501' },
+      },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxConEntidad, admin as never)
+    expect(r.ok).toBe(true) // actividad creada igual
+    expect(consoleWarnSpy).toHaveBeenCalled()
+    const log = consoleWarnSpy.mock.calls[0][0] as string
+    const parsed = JSON.parse(log) as Record<string, unknown>
+    // Shape del warn estructurado (V1 del coordinador): contexto completo
+    // para debug en producción. Si alguno se borra por error, este test
+    // pinta el síntoma.
+    expect(parsed.mensaje).toBe('auto_enriquecimiento_relacion_fallo')
+    expect(parsed.flujo_id).toBe('flujo-1')
+    expect(parsed.ejecucion_id).toBe('ej-1')
+    expect(parsed.empresa_id).toBe('emp-1')
+    expect(parsed.actividad_id).toBe('act-nueva')
+    expect(parsed.entidad_tipo).toBe('visita')
+    expect(parsed.entidad_id).toBe('visita-1')
+    expect(parsed.error_message).toBe('rls violation')
+    expect(parsed.error_code).toBe('42501')
+    consoleWarnSpy.mockRestore()
+  })
+
+  it('cron sin entidad disparadora: NO inserta relación (skip silencioso)', async () => {
+    const ctxSinEntidad: ContextoEjecucion = {
+      ...ctxBase,
+      contexto_inicial: { entidad: null },
+    }
+    const { admin, builders } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-cron', titulo: 'Presupuestar' } },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxSinEntidad, admin as never)
+    expect(r.ok).toBe(true)
+    expect(builders.actividades_relaciones).toBeUndefined()
+  })
+
+  it('tipo de entidad fuera del set EntidadRelacionable: NO inserta', async () => {
+    // Un tipo desconocido en la entidad disparadora (ej: nuevo módulo
+    // cuya entidad no se sumó a EntidadRelacionable) cae al skip
+    // silencioso del helper `leerEntidadDisparadora`.
+    const ctxTipoRaro: ContextoEjecucion = {
+      ...ctxBase,
+      contexto_inicial: {
+        entidad: { tipo: 'modulo_nuevo_no_listado', id: 'x-1' },
+      },
+    }
+    const { admin, builders } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-x', titulo: 'Presupuestar' } },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxTipoRaro, admin as never)
+    expect(r.ok).toBe(true)
+    expect(builders.actividades_relaciones).toBeUndefined()
+  })
+
+  it('multi-tenant: empresa_id de la fila coincide con la ejecución', async () => {
+    const ctxEmpresaB: ContextoEjecucion = {
+      ...ctxBase,
+      empresa_id: 'emp-B',
+      contexto_inicial: {
+        entidad: { tipo: 'presupuesto', id: 'pres-1' },
+      },
+    }
+    const { admin, builders } = crearAdmin({
+      tipos_actividad: { data: { clave: 'seguir', etiqueta: 'Seguir' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+      actividades: { data: { id: 'act-B', titulo: 'Seguir' } },
+      actividades_relaciones: { data: null },
+    })
+    await ejecutarAccion(accionCrear, ctxEmpresaB, admin as never)
+    const [fila] = builders.actividades_relaciones.upsert.mock.calls[0]
+    expect(fila.empresa_id).toBe('emp-B')
+  })
+
+  it('dry-run NO inserta en actividades_relaciones', async () => {
+    const ctxDry: ContextoEjecucion = {
+      ...ctxBase,
+      dry_run: true,
+      contexto_inicial: { entidad: { tipo: 'visita', id: 'visita-1' } },
+    }
+    const { admin, builders } = crearAdmin({
+      tipos_actividad: { data: { clave: 'presupuestar', etiqueta: 'Presupuestar' } },
+      estados_actividad: { data: { id: 'estado-pend', clave: 'pendiente' } },
+    })
+    const r = await ejecutarAccion(accionCrear, ctxDry, admin as never)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.resultado.simulado).toBe(true)
+    expect(builders.actividades_relaciones).toBeUndefined()
   })
 })
