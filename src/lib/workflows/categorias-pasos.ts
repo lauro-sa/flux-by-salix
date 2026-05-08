@@ -77,6 +77,11 @@ export const MAPA_ACCION: Record<TipoAccion, CategoriaAccion> = {
   enviar_correo_texto: 'envios',
   // Creaciones: nuevas entidades en otros módulos.
   crear_actividad: 'creaciones',
+  // completar_actividad va en `creaciones` por proximidad semántica con
+  // `crear_actividad` — son las dos operaciones del módulo Actividades
+  // disponibles desde un flujo. UX: el usuario que busca cómo "cerrar
+  // actividades automáticamente" las encuentra juntas.
+  completar_actividad: 'creaciones',
   crear_orden_trabajo: 'creaciones',
   crear_visita: 'creaciones',
   // Cambios sobre la entidad disparadora o relacionada.

@@ -2277,6 +2277,10 @@ export const es: Traducciones = {
         titulo: 'Crear actividad',
         descripcion: 'Generar una actividad asignada a un usuario.',
       },
+      completar_actividad: {
+        titulo: 'Completar actividad',
+        descripcion: 'Cerrar una actividad pendiente que coincida con un criterio.',
+      },
       cambiar_estado_entidad: {
         titulo: 'Cambiar estado',
         descripcion: 'Mover una entidad a otro estado configurado.',

@@ -2194,6 +2194,7 @@ export const pt: Traducciones = {
       enviar_correo_plantilla: { titulo: 'Enviar e-mail (plantilla)', descripcion: 'Enviar um e-mail baseado em uma plantilla salva.' },
       enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Enviar um e-mail de texto livre.' },
       crear_actividad: { titulo: 'Criar atividade', descripcion: 'Gerar uma atividade atribuída a um usuário.' },
+      completar_actividad: { titulo: 'Concluir atividade', descripcion: 'Fechar uma atividade pendente que corresponda a um critério.' },
       cambiar_estado_entidad: { titulo: 'Mudar estado', descripcion: 'Mover uma entidade para outro estado configurado.' },
       asignar_usuario: { titulo: 'Atribuir usuário', descripcion: 'Mudar quem é responsável pela entidade.' },
       agregar_etiqueta: { titulo: 'Adicionar etiqueta', descripcion: 'Adicionar uma etiqueta à entidade ou contato.' },

@@ -214,6 +214,7 @@ export type TipoAccion =
   | 'enviar_correo_plantilla'
   | 'enviar_correo_texto'
   | 'crear_actividad'
+  | 'completar_actividad'
   | 'cambiar_estado_entidad'
   | 'asignar_usuario'
   | 'agregar_etiqueta'
@@ -234,6 +235,7 @@ export const TIPOS_ACCION: readonly TipoAccion[] = [
   'enviar_correo_plantilla',
   'enviar_correo_texto',
   'crear_actividad',
+  'completar_actividad',
   'cambiar_estado_entidad',
   'asignar_usuario',
   'agregar_etiqueta',
@@ -300,6 +302,67 @@ export interface AccionCrearActividad extends AccionBase {
   prioridad?: 'baja' | 'normal' | 'alta'
 }
 
+/**
+ * Cierra una o más actividades pendientes que matcheen el criterio
+ * (sub-PR 20.1). Reemplazo del helper legacy `auto-completar-actividad.ts`
+ * y del campo `tipos_actividad.evento_auto_completar`, que sub-PR 20.3
+ * elimina sembrando flujos del sistema equivalentes.
+ *
+ * Cómo se resuelve el match:
+ *   - Filtro positivo obligatorio: `tipo_actividad_id` o `relacionada_a`
+ *     (la validación pre-publicar lo exige; sin filtro se podrían cerrar
+ *     todas las actividades pendientes de la empresa).
+ *   - Filtros adicionales: `contacto_id` (vínculos), `asignado_id`
+ *     (asignados_ids), `estado_clave` (default 'pendiente').
+ *   - `relacionada_a` busca por `actividades_relaciones (entidad_tipo,
+ *     entidad_id)`. Esa tabla la crea sub-PR 20.2 — hasta entonces este
+ *     campo se acepta en el shape pero el executor falla con
+ *     `PendienteSubPR20_2` si el flujo lo usa sin acompañar de
+ *     `tipo_actividad_id`.
+ *
+ * Resolución del set:
+ *   - `si_multiple = 'mas_antigua'` (default sugerido): cierra la primera
+ *     ordenada por `creado_en` ASC. FIFO.
+ *   - `si_multiple = 'mas_reciente'`: cierra la primera por `creado_en`
+ *     DESC.
+ *   - `si_multiple = 'todas'`: cierra todas las que matcheen.
+ *   - `si_multiple = 'fallar'`: si hay >1 match, falla con error
+ *     semántico (no cierra ninguna).
+ *
+ * Si el set es vacío:
+ *   - `si_no_encuentra = 'continuar'` (default): devuelve cantidad=0 sin
+ *     fallar, el flujo sigue.
+ *   - `si_no_encuentra = 'fallar'`: error semántico, corta la cadena.
+ *
+ * `motivo` se incluye en el chatter de cada actividad cerrada (formato
+ * "Completada por flujo «X». Motivo: «Y»").
+ *
+ * Variables `{{...}}` dentro de los strings del criterio se resuelven
+ * automáticamente por `resolverEnObjeto` antes de invocar al executor
+ * (es la misma capa que ya resuelve `{{contacto.email}}` en
+ * `enviar_correo_plantilla`).
+ */
+export interface AccionCompletarActividad extends AccionBase {
+  tipo: 'completar_actividad'
+  criterio: {
+    tipo_actividad_id?: string
+    contacto_id?: string
+    asignado_id?: string
+    /** Default 'pendiente'. */
+    estado_clave?: string
+    /** Se habilita end-to-end al mergear sub-PR 20.2. */
+    relacionada_a?: {
+      entidad_tipo: string
+      entidad_id: string
+    }
+    si_multiple: 'mas_antigua' | 'mas_reciente' | 'todas' | 'fallar'
+    /** Default 'continuar'. */
+    si_no_encuentra?: 'fallar' | 'continuar'
+  }
+  /** Texto opcional que se incluye en el chatter de la actividad cerrada. */
+  motivo?: string
+}
+
 export interface AccionCambiarEstadoEntidad extends AccionBase {
   tipo: 'cambiar_estado_entidad'
   entidad_tipo: EntidadConEstado
@@ -359,6 +422,7 @@ export interface AccionGenerica extends AccionBase {
     TipoAccion,
     | 'enviar_whatsapp_plantilla'
     | 'crear_actividad'
+    | 'completar_actividad'
     | 'cambiar_estado_entidad'
     | 'notificar_usuario'
     | 'esperar'
@@ -371,6 +435,7 @@ export interface AccionGenerica extends AccionBase {
 export type AccionWorkflow =
   | AccionEnviarWhatsappPlantilla
   | AccionCrearActividad
+  | AccionCompletarActividad
   | AccionCambiarEstadoEntidad
   | AccionNotificarUsuario
   | AccionEsperar
@@ -854,6 +919,50 @@ export function esAccionCrearActividad(a: unknown): a is AccionCrearActividad {
   if (r.descripcion !== undefined && typeof r.descripcion !== 'string') return false
   if (r.asignados_ids !== undefined && !Array.isArray(r.asignados_ids)) return false
   if (r.contacto_id !== undefined && typeof r.contacto_id !== 'string') return false
+  return true
+}
+
+const SI_MULTIPLE_VALIDOS = new Set<string>(['mas_antigua', 'mas_reciente', 'todas', 'fallar'])
+const SI_NO_ENCUENTRA_VALIDOS = new Set<string>(['fallar', 'continuar'])
+
+export function esAccionCompletarActividad(
+  a: unknown,
+): a is AccionCompletarActividad {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'completar_actividad') return false
+  if (typeof r.criterio !== 'object' || r.criterio === null) return false
+  const c = r.criterio as Record<string, unknown>
+
+  // si_multiple obligatorio + valor del enum cerrado.
+  if (typeof c.si_multiple !== 'string' || !SI_MULTIPLE_VALIDOS.has(c.si_multiple)) {
+    return false
+  }
+  // si_no_encuentra opcional pero, si viene, valor del enum cerrado.
+  if (
+    c.si_no_encuentra !== undefined &&
+    (typeof c.si_no_encuentra !== 'string' || !SI_NO_ENCUENTRA_VALIDOS.has(c.si_no_encuentra))
+  ) {
+    return false
+  }
+
+  // Filtros: si vienen, deben ser strings no vacíos. Pueden venir como
+  // `{{var}}` literal sin resolver — el resolver corre antes del executor,
+  // pero el type guard acepta el placeholder textual igual (es un string).
+  for (const k of ['tipo_actividad_id', 'contacto_id', 'asignado_id', 'estado_clave'] as const) {
+    if (c[k] !== undefined) {
+      if (typeof c[k] !== 'string' || (c[k] as string).length === 0) return false
+    }
+  }
+
+  if (c.relacionada_a !== undefined) {
+    if (typeof c.relacionada_a !== 'object' || c.relacionada_a === null) return false
+    const ra = c.relacionada_a as Record<string, unknown>
+    if (typeof ra.entidad_tipo !== 'string' || ra.entidad_tipo.length === 0) return false
+    if (typeof ra.entidad_id !== 'string' || ra.entidad_id.length === 0) return false
+  }
+
+  if (r.motivo !== undefined && typeof r.motivo !== 'string') return false
   return true
 }
 

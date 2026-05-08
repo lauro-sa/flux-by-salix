@@ -2267,6 +2267,7 @@ export interface Traducciones {
       enviar_correo_plantilla: { titulo: string; descripcion: string }
       enviar_correo_texto: { titulo: string; descripcion: string }
       crear_actividad: { titulo: string; descripcion: string }
+      completar_actividad: { titulo: string; descripcion: string }
       cambiar_estado_entidad: { titulo: string; descripcion: string }
       asignar_usuario: { titulo: string; descripcion: string }
       agregar_etiqueta: { titulo: string; descripcion: string }

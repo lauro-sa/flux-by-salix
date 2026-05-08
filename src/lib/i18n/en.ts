@@ -2194,6 +2194,7 @@ export const en: Traducciones = {
       enviar_correo_plantilla: { titulo: 'Send email (template)', descripcion: 'Send an email based on a saved template.' },
       enviar_correo_texto: { titulo: 'Send email', descripcion: 'Send a free-form email.' },
       crear_actividad: { titulo: 'Create activity', descripcion: 'Generate an activity assigned to a user.' },
+      completar_actividad: { titulo: 'Complete activity', descripcion: 'Close a pending activity that matches a criterion.' },
       cambiar_estado_entidad: { titulo: 'Change state', descripcion: 'Move an entity to another configured state.' },
       asignar_usuario: { titulo: 'Assign user', descripcion: 'Change who is responsible for the entity.' },
       agregar_etiqueta: { titulo: 'Add tag', descripcion: 'Add a tag to the entity or contact.' },
