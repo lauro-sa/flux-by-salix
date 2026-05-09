@@ -7,7 +7,6 @@ import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, sincronizarRegistrosVinculados, eliminarRegistrosVinculados } from '@/lib/visitas-sync'
 import { COLOR_NOTIFICACION, COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
-import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /** Calcula distancia en metros entre dos coordenadas (fórmula de Haversine) */
 function calcularDistanciaMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -319,10 +318,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // ── Acción: completar ──
     if (body.accion === 'completar') {
-      // Obtener la visita para calcular duración + saber si tiene actividad origen
+      // Obtener la visita para calcular duración (los campos de relación con
+      // la actividad origen ya no se leen acá: el cierre automático lo hace
+      // el flujo `autocompletar_al_finalizar_visita` via `actividades_relaciones`
+      // cuando el cambio de estado se registre en `cambios_estado`).
       const { data: visitaActual } = await admin
         .from('visitas')
-        .select('fecha_llegada, contacto_id, contacto_nombre, actividad_origen_id')
+        .select('fecha_llegada, contacto_id, contacto_nombre')
         .eq('id', id)
         .single()
 
@@ -399,20 +401,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }, tiposComp)
       }
 
-      // Listener de auto-completar al finalizar la visita. Solo dispara si el tipo
-      // de la actividad origen tiene `evento_auto_completar = 'al_finalizar'`.
-      if (visitaActual?.actividad_origen_id) {
-        await autoCompletarActividad({
-          admin,
-          empresaId,
-          actividadId: visitaActual.actividad_origen_id,
-          eventoEsperado: 'al_finalizar',
-          usuarioId: user.id,
-          usuarioNombre: nombreEditor,
-          mensajeChatter: `Completada automáticamente al finalizar visita a ${data.contacto_nombre || 'contacto'}`,
-          metadataChatter: { visita_id: id },
-        })
-      }
+      // El cierre automático de la actividad origen (cuando la visita pasa
+      // a 'completada') lo hace el flujo del sistema
+      // `autocompletar_al_finalizar_visita` (sub-PR 20.3, activado en 20.5).
+      // El flujo dispara via `cambios_estado` y cierra las actividades
+      // vinculadas via `relacionada_a` → `actividades_relaciones`.
 
       registrarReciente({
         empresaId, usuarioId: user.id, tipoEntidad: 'visita', entidadId: id,

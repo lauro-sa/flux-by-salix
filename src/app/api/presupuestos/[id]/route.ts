@@ -4,7 +4,6 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarCambioEstado } from '@/lib/chatter'
 import { obtenerYVerificarPermiso, requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
-import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/presupuestos/[id] — Obtener detalle completo de un presupuesto.
@@ -292,18 +291,19 @@ export async function PATCH(
       }
     }
 
-    // Obtener estado anterior + actividad origen (para chatter y listener de auto-completar)
+    // Obtener estado anterior (para chatter). El cierre automático de la
+    // actividad origen al pasar a 'enviado' lo hace el flujo del sistema
+    // `autocompletar_al_enviar_presupuesto` (sub-PR 20.3, activado en 20.5)
+    // via `cambios_estado` → `actividades_relaciones`.
     let estadoAnterior: string | null = null
-    let actividadOrigenId: string | null = null
     if (body.estado) {
       const { data: actual } = await admin
         .from('presupuestos')
-        .select('estado, actividad_origen_id')
+        .select('estado')
         .eq('id', id)
         .eq('empresa_id', empresaId)
         .single()
       estadoAnterior = actual?.estado || null
-      actividadOrigenId = actual?.actividad_origen_id || null
     }
 
     // Auto-llenar fecha_aceptacion al pasar a confirmado_cliente u orden_venta
@@ -348,20 +348,6 @@ export async function PATCH(
         })
       }
 
-      // Listener de auto-completar al cambiar a 'enviado'. Solo dispara si el tipo
-      // de la actividad origen tiene `evento_auto_completar = 'al_enviar'`.
-      if (actividadOrigenId && body.estado === 'enviado' && estadoAnterior !== 'enviado') {
-        await autoCompletarActividad({
-          admin,
-          empresaId,
-          actividadId: actividadOrigenId,
-          eventoEsperado: 'al_enviar',
-          usuarioId: user.id,
-          usuarioNombre: nombreUsuario,
-          mensajeChatter: `Completada automáticamente al enviar presupuesto ${actualizado.numero}`,
-          metadataChatter: { presupuesto_id: id, presupuesto_numero: actualizado.numero },
-        })
-      }
     }
 
     // Registrar en historial de recientes (fire-and-forget)
