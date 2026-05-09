@@ -9,6 +9,92 @@ en la memoria del proyecto.
 
 ---
 
+## 2026-05-08 — Sub-PR 20.4 cerrado: panel UI dedicado + plantillas curadas
+
+**Branch:** `feat/flujos-pr-20` (sigue acumulando hasta 20.5).
+
+### Qué se hizo
+
+1. **`PanelCompletarActividad.tsx`** — panel UI dedicado para la acción
+   `completar_actividad`. Reemplaza el JSON crudo del 19.3d como camino
+   primario. 4 secciones siguiendo el patrón existente del editor:
+   - CRITERIO (abierto): tipo de actividad (SelectorTipoActividad),
+     vinculada a entidad (`SelectorPopoverBase` con 11 opciones —
+     "Sin vínculo" + 10 `EntidadRelacionable`; pills hubieran sido
+     caóticas), contacto, asignado (SelectorMiembro), estado actual
+     (3 pills canónicos).
+   - COMPORTAMIENTO (abierto): si_multiple (4 pills), si_no_encuentra
+     (2 pills).
+   - PLANTILLAS: 4 cards. Arranca abierta cuando los filtros positivos
+     del usuario (`tipo_actividad_id` + `relacionada_a`) están vacíos;
+     colapsada apenas hay alguno. Defaults de comportamiento NO cuentan
+     como "criterio vacío".
+   - AVANZADO (cerrado): motivo, continuar_si_falla.
+
+2. **Catálogo de plantillas curadas** en
+   `src/lib/workflows/plantillas-completar-actividad.ts`:
+   - `cerrar_al_enviar_presupuesto` (espejo del flujo del sistema del 20.3).
+   - `cerrar_al_completar_visita` (idem).
+   - `cerrar_mas_antigua_del_contacto` (granular, requiere tipo del user).
+   - `cerrar_todas_mias_del_tipo` (usa `{{actor.usuario_id}}`).
+
+3. **Validación inline** que replica la regla del validador del 20.1.
+   Mensaje ubicado debajo de "Vinculada a", junto al primer campo
+   afectado (no al final del bloque). El banner global del editor
+   (19.4) sigue siendo fuente de verdad para errores de publicación.
+
+4. **i18n completo** en es/en/pt (38 claves nuevas + 3 secciones).
+   Descripciones legibles para admin, sin nombres de tabla SQL en UI
+   (jerga `actividades_relaciones` removida del texto visible).
+
+5. **Branch agregado a `PanelEdicionPaso.tsx`** para enrutar al panel
+   dedicado cuando el tipo de paso es `completar_actividad`. Antes
+   caía al fallback `PanelTipoPendiente` (deuda dejada por 20.1).
+
+### Qué NO se hizo
+
+- Cero modificación a `executor.ts`, `validacion-flujo.ts` o tipos del
+  20.1/20.2 (R1 mantenida).
+- Modal de plantillas extra: descartado por H3 — sumar uno crearía
+  precedente no existente en el editor (todas las acciones se editan
+  in-panel después del CatalogoPasos). Las plantillas viven como
+  sección colapsable dentro del panel propio.
+- Sugerencia contextual de plantilla basada en disparador: deferida
+  a sub-PR posterior (mejora UX, no prioridad ahora).
+
+### Deudas detectadas en validación visual (NO del 20.4)
+
+Bugs/UX issues identificados al validar el panel en browser que
+**NO son del scope del 20.4** y se anotan acá para tracking. Ninguna
+es bloqueante para 20.4 ni 20.5.
+
+1. **Bug visual en `SelectorTipoActividad` (sub-PR 19.3c).** Los items
+   del popover renderizan pero el texto es invisible — token de color
+   afectado por diagnosticar (probablemente `text-color = bg-color` en
+   estado hover/no-hover). Reproducible en `PanelCrearActividad` (ya
+   en main). Fix: sub-PR aparte.
+
+2. **UX en `SelectorMiembro` (sub-PR 19.3c).** El componente filtra
+   miembros con `usuario_id IS NULL` (kiosco-only) silenciosamente. La
+   intención es correcta — sin cuenta no podés ser dueño de una
+   actividad — pero el comportamiento es opaco para el admin que ve
+   un listado más corto que el de `/usuarios`. Fix: sumar tooltip
+   "Solo se muestran usuarios con cuenta" en el placeholder/label del
+   selector. Sub-PR aparte.
+
+3. **Bug pre-existente en vista `flujos_con_estadisticas`** (entre
+   PR 18.4 y PR 19.1). La vista se creó en `sql/059` con
+   `SELECT f.*` cuando `flujos` no tenía `icono`/`color`; la
+   migración `sql/060` agregó esas columnas a la tabla pero NO
+   recreó la vista. Postgres congela la expansión de `*` al momento
+   del `CREATE VIEW`, así que `flujos_con_estadisticas` no las
+   tiene — y `GET /api/flujos` falla con
+   `column flujos_con_estadisticas.icono does not exist`. Fix:
+   `CREATE OR REPLACE VIEW` con columnas explícitas (mejor que
+   reusar `f.*`). Hotfix dedicado.
+
+---
+
 ## 2026-05-08 — Sub-PR 20.3 cerrado: backfill + seed pausado
 
 **Branch:** `feat/flujos-pr-20` (sigue acumulando hasta 20.5).
