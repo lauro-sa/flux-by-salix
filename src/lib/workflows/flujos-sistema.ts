@@ -32,12 +32,16 @@ export interface FlujoSistema {
    */
   descripcion: string
   /**
-   * Estado inicial al sembrar. Siempre 'pausado' para flujos del sistema:
-   * el admin los activa explícitamente desde el editor cuando esté listo
-   * (criterio del coordinador en sub-PR 20.3 — evita doble-disparo con
-   * el helper legacy todavía vivo).
+   * Estado inicial al sembrar:
+   * - 'pausado': flujos sembrados en sub-PR 20.3 (al_enviar/al_finalizar).
+   *   El admin los activa explícitamente desde el editor (criterio del
+   *   coordinador en 20.3 — evitaba doble-disparo con helper legacy vivo).
+   *   Sub-PR 20.5 los activa en migración 068 (helper ya eliminado).
+   * - 'activo': flujos al_crear sembrados en sub-PR 20.5. Reemplazan
+   *   funcionalmente al `evento_auto_completar='al_crear'` del helper
+   *   legacy. Activos directo para mantener paridad funcional.
    */
-  estado_inicial: 'pausado'
+  estado_inicial: 'pausado' | 'activo'
   disparador: DisparadorWorkflow
   acciones: AccionWorkflow[]
 }
@@ -85,6 +89,72 @@ export const FLUJOS_SISTEMA: readonly FlujoSistema[] = [
         hasta_clave: 'completada',
       },
       etiqueta: 'Visita completada',
+    },
+    acciones: [
+      {
+        tipo: 'completar_actividad',
+        etiqueta: 'Cerrar actividades vinculadas',
+        criterio: {
+          relacionada_a: {
+            entidad_tipo: 'visita',
+            entidad_id: '{{entidad.id}}',
+          },
+          si_multiple: 'todas',
+          si_no_encuentra: 'continuar',
+        },
+      },
+    ],
+  },
+  // Sub-PR 20.5: flujos al_crear que reemplazan al
+  // `evento_auto_completar='al_crear'` del helper legacy. Activos
+  // directo (no pausados como los de 20.3) — la paridad funcional con
+  // el helper que se elimina exige que disparen sin intervención del
+  // admin. Usan solo_creacion=true para distinguir creación de
+  // re-transición a estado inicial (ver dispatcher.ts y H10 del 20.5).
+  {
+    clave: 'autocompletar_al_crear_presupuesto',
+    nombre: 'Cerrar actividades al crear presupuesto',
+    descripcion:
+      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas al presupuesto cuando se lo crea. Reemplaza el comportamiento legacy «evento_auto_completar=al_crear». Editalo desde el editor de Flujos si necesitás ajustar el comportamiento.',
+    estado_inicial: 'activo',
+    disparador: {
+      tipo: 'entidad.estado_cambio',
+      configuracion: {
+        entidad_tipo: 'presupuesto',
+        hasta_clave: 'borrador',
+        solo_creacion: true,
+      },
+      etiqueta: 'Presupuesto creado',
+    },
+    acciones: [
+      {
+        tipo: 'completar_actividad',
+        etiqueta: 'Cerrar actividades vinculadas',
+        criterio: {
+          relacionada_a: {
+            entidad_tipo: 'presupuesto',
+            entidad_id: '{{entidad.id}}',
+          },
+          si_multiple: 'todas',
+          si_no_encuentra: 'continuar',
+        },
+      },
+    ],
+  },
+  {
+    clave: 'autocompletar_al_crear_visita',
+    nombre: 'Cerrar actividades al crear visita',
+    descripcion:
+      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas a la visita cuando se la crea. Reemplaza el comportamiento legacy «evento_auto_completar=al_crear». Editalo desde el editor de Flujos si necesitás ajustar el comportamiento.',
+    estado_inicial: 'activo',
+    disparador: {
+      tipo: 'entidad.estado_cambio',
+      configuracion: {
+        entidad_tipo: 'visita',
+        hasta_clave: 'programada',
+        solo_creacion: true,
+      },
+      etiqueta: 'Visita creada',
     },
     acciones: [
       {

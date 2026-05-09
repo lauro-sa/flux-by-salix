@@ -41,10 +41,14 @@ import {
 } from '@/tipos/workflow'
 
 describe('FLUJOS_SISTEMA — catálogo declarativo', () => {
-  it('tiene al menos los dos flujos del seed inicial (sub-PR 20.3)', () => {
+  it('tiene los flujos del seed inicial 20.3 + los al_crear del 20.5', () => {
     const claves = FLUJOS_SISTEMA.map((f) => f.clave)
+    // Sub-PR 20.3
     expect(claves).toContain('autocompletar_al_enviar_presupuesto')
     expect(claves).toContain('autocompletar_al_finalizar_visita')
+    // Sub-PR 20.5 (paridad con evento_auto_completar='al_crear' del helper legacy)
+    expect(claves).toContain('autocompletar_al_crear_presupuesto')
+    expect(claves).toContain('autocompletar_al_crear_visita')
   })
 
   it('todas las claves son únicas (defensa idempotencia con UNIQUE en BD)', () => {
@@ -52,9 +56,19 @@ describe('FLUJOS_SISTEMA — catálogo declarativo', () => {
     expect(new Set(claves).size).toBe(claves.length)
   })
 
-  it('todos arrancan pausados por convención del 20.3', () => {
+  it('estado_inicial corresponde al sub-PR de origen del flujo', () => {
+    // Sub-PR 20.3: pausados (admin los activa explícitamente — la activación
+    // automática la hace la migración 068 cuando ya no hay helper vivo).
+    // Sub-PR 20.5: los al_crear van activos directo para mantener paridad
+    // funcional con `evento_auto_completar='al_crear'` que se elimina.
+    const esperados: Record<string, 'pausado' | 'activo'> = {
+      autocompletar_al_enviar_presupuesto: 'pausado',
+      autocompletar_al_finalizar_visita: 'pausado',
+      autocompletar_al_crear_presupuesto: 'activo',
+      autocompletar_al_crear_visita: 'activo',
+    }
     for (const f of FLUJOS_SISTEMA) {
-      expect(f.estado_inicial).toBe('pausado')
+      expect(f.estado_inicial, `Flujo ${f.clave}`).toBe(esperados[f.clave])
     }
   })
 
@@ -120,6 +134,46 @@ describe('FLUJOS_SISTEMA — reglas de seed votadas en 20.3', () => {
     if (f.disparador.tipo === 'entidad.estado_cambio') {
       expect(f.disparador.configuracion.entidad_tipo).toBe('visita')
       expect(f.disparador.configuracion.hasta_clave).toBe('completada')
+    }
+    const accion = f.acciones[0]
+    if (esAccionCompletarActividad(accion)) {
+      expect(accion.criterio.si_multiple).toBe('todas')
+      expect(accion.criterio.si_no_encuentra).toBe('continuar')
+      expect(accion.criterio.relacionada_a?.entidad_tipo).toBe('visita')
+      expect(accion.criterio.relacionada_a?.entidad_id).toBe('{{entidad.id}}')
+    } else {
+      throw new Error('La acción debería ser completar_actividad')
+    }
+  })
+})
+
+describe('FLUJOS_SISTEMA — reglas de seed votadas en 20.5 (al_crear)', () => {
+  it('autocompletar_al_crear_presupuesto: dispara en creación de presupuesto (solo_creacion=true) y cierra todas las relacionadas', () => {
+    const f = flujoSistemaPorClave('autocompletar_al_crear_presupuesto')!
+    expect(f.disparador.tipo).toBe('entidad.estado_cambio')
+    if (f.disparador.tipo === 'entidad.estado_cambio') {
+      expect(f.disparador.configuracion.entidad_tipo).toBe('presupuesto')
+      expect(f.disparador.configuracion.hasta_clave).toBe('borrador')
+      expect(f.disparador.configuracion.solo_creacion).toBe(true)
+    }
+    const accion = f.acciones[0]
+    if (esAccionCompletarActividad(accion)) {
+      expect(accion.criterio.si_multiple).toBe('todas')
+      expect(accion.criterio.si_no_encuentra).toBe('continuar')
+      expect(accion.criterio.relacionada_a?.entidad_tipo).toBe('presupuesto')
+      expect(accion.criterio.relacionada_a?.entidad_id).toBe('{{entidad.id}}')
+    } else {
+      throw new Error('La acción debería ser completar_actividad')
+    }
+  })
+
+  it('autocompletar_al_crear_visita: dispara en creación de visita (solo_creacion=true) y cierra todas las relacionadas', () => {
+    const f = flujoSistemaPorClave('autocompletar_al_crear_visita')!
+    expect(f.disparador.tipo).toBe('entidad.estado_cambio')
+    if (f.disparador.tipo === 'entidad.estado_cambio') {
+      expect(f.disparador.configuracion.entidad_tipo).toBe('visita')
+      expect(f.disparador.configuracion.hasta_clave).toBe('programada')
+      expect(f.disparador.configuracion.solo_creacion).toBe(true)
     }
     const accion = f.acciones[0]
     if (esAccionCompletarActividad(accion)) {

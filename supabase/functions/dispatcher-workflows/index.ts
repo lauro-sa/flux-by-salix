@@ -125,6 +125,12 @@ interface DisparadorEntidadEstadoCambio {
     entidad_tipo: string
     hasta_clave: string
     desde_clave?: string | null
+    /**
+     * Sub-PR 20.5: si true, solo dispara cuando el evento es una
+     * creación (estado_anterior IS NULL). Mirror de la definición
+     * en src/tipos/workflow.ts.
+     */
+    solo_creacion?: boolean
   }
 }
 
@@ -168,6 +174,10 @@ function esDisparadorEntidadEstadoCambio(d: unknown): d is DisparadorEntidadEsta
     c.desde_clave !== null &&
     typeof c.desde_clave !== 'string'
   ) return false
+  if (
+    c.solo_creacion !== undefined &&
+    typeof c.solo_creacion !== 'boolean'
+  ) return false
   return true
 }
 
@@ -179,8 +189,9 @@ function armarClaveIdempotencia(flujoId: string, cambiosEstadoId: string): strin
 
 // Mirror de matchearFlujos en src/lib/workflows/dispatcher.ts.
 // Reglas: activo + misma empresa + tipo entidad.estado_cambio +
-// entidad_tipo y hasta_clave coinciden + (desde_clave coincide si
-// está seteado).
+// entidad_tipo y hasta_clave coinciden + (solo_creacion exige
+// estado_anterior IS NULL si está en true) + (desde_clave coincide
+// si está seteado).
 function matchearFlujos(evento: CambioEstado, flujosActivos: Flujo[]): Flujo[] {
   return flujosActivos.filter((flujo) => {
     if (!flujo.activo) return false
@@ -189,6 +200,9 @@ function matchearFlujos(evento: CambioEstado, flujosActivos: Flujo[]): Flujo[] {
     const cfg = flujo.disparador.configuracion
     if (cfg.entidad_tipo !== evento.entidad_tipo) return false
     if (cfg.hasta_clave !== evento.estado_nuevo) return false
+    if (cfg.solo_creacion === true && evento.estado_anterior !== null) {
+      return false
+    }
     if (cfg.desde_clave !== undefined && cfg.desde_clave !== null) {
       if (cfg.desde_clave !== evento.estado_anterior) return false
     }

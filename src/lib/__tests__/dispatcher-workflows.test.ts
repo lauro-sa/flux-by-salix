@@ -176,3 +176,138 @@ describe('matchearFlujos', () => {
     expect(matches.map((f) => f.id)).toEqual(['f-ok'])
   })
 })
+
+/**
+ * Sub-PR 20.5 — Tests para el flag `solo_creacion`.
+ *
+ * Cubre la convención H10.C votada en 20.5: `solo_creacion=true` exige
+ * `evento.estado_anterior IS NULL` (i.e. el evento es una creación).
+ * Backcompat con flujos que no setean el campo: comportamiento PR 14
+ * intacto.
+ */
+describe('matchearFlujos — solo_creacion (sub-PR 20.5)', () => {
+  it('solo_creacion=true matchea cuando estado_anterior es null (creación)', () => {
+    const flujos: Flujo[] = [
+      flujo({
+        id: 'f-solo-creacion',
+        disparador: {
+          tipo: 'entidad.estado_cambio',
+          configuracion: {
+            entidad_tipo: 'presupuesto',
+            hasta_clave: 'borrador',
+            solo_creacion: true,
+          },
+        },
+      }),
+    ]
+
+    const matches = matchearFlujos(
+      evento({ estado_anterior: null, estado_nuevo: 'borrador' }),
+      flujos,
+    )
+
+    expect(matches.map((f) => f.id)).toEqual(['f-solo-creacion'])
+  })
+
+  it('solo_creacion=true descarta cuando estado_anterior NO es null (re-transición)', () => {
+    const flujos: Flujo[] = [
+      flujo({
+        id: 'f-solo-creacion',
+        disparador: {
+          tipo: 'entidad.estado_cambio',
+          configuracion: {
+            entidad_tipo: 'presupuesto',
+            hasta_clave: 'borrador',
+            solo_creacion: true,
+          },
+        },
+      }),
+    ]
+
+    const matches = matchearFlujos(
+      evento({ estado_anterior: 'enviado', estado_nuevo: 'borrador' }),
+      flujos,
+    )
+
+    expect(matches).toEqual([])
+  })
+
+  it('solo_creacion=false (o ausente) preserva backcompat: matchea creación Y re-transición', () => {
+    const flujos: Flujo[] = [
+      // Sin solo_creacion (comportamiento PR 14).
+      flujo({
+        id: 'f-legacy',
+        disparador: {
+          tipo: 'entidad.estado_cambio',
+          configuracion: {
+            entidad_tipo: 'presupuesto',
+            hasta_clave: 'borrador',
+          },
+        },
+      }),
+      // solo_creacion: false explícito.
+      flujo({
+        id: 'f-explicit-false',
+        disparador: {
+          tipo: 'entidad.estado_cambio',
+          configuracion: {
+            entidad_tipo: 'presupuesto',
+            hasta_clave: 'borrador',
+            solo_creacion: false,
+          },
+        },
+      }),
+    ]
+
+    // Caso 1: creación
+    const m1 = matchearFlujos(
+      evento({ estado_anterior: null, estado_nuevo: 'borrador' }),
+      flujos,
+    )
+    expect(m1.map((f) => f.id).sort()).toEqual(['f-explicit-false', 'f-legacy'])
+
+    // Caso 2: re-transición (debe seguir matcheando — backcompat)
+    const m2 = matchearFlujos(
+      evento({ estado_anterior: 'enviado', estado_nuevo: 'borrador' }),
+      flujos,
+    )
+    expect(m2.map((f) => f.id).sort()).toEqual(['f-explicit-false', 'f-legacy'])
+  })
+
+  it('solo_creacion=true combinable con desde_clave (ambas reglas se aplican y desde_clave gana cuando no es creación)', () => {
+    // Caso atípico pero válido: solo_creacion=true + desde_clave='x'.
+    // Como solo_creacion exige estado_anterior=null, y desde_clave='x'
+    // exige estado_anterior='x', son mutuamente exclusivas. Resultado:
+    // el flujo nunca matchea. Sirve como red defensiva — no debería
+    // ocurrir en flujos sembrados, pero si un usuario configura ambas
+    // por error, no rompe el motor.
+    const flujos: Flujo[] = [
+      flujo({
+        id: 'f-conflicto',
+        disparador: {
+          tipo: 'entidad.estado_cambio',
+          configuracion: {
+            entidad_tipo: 'presupuesto',
+            hasta_clave: 'borrador',
+            solo_creacion: true,
+            desde_clave: 'enviado',
+          },
+        },
+      }),
+    ]
+
+    // Creación (estado_anterior=null) — desde_clave='enviado' no matchea.
+    const m1 = matchearFlujos(
+      evento({ estado_anterior: null, estado_nuevo: 'borrador' }),
+      flujos,
+    )
+    expect(m1).toEqual([])
+
+    // Transición desde 'enviado' — solo_creacion=true descarta.
+    const m2 = matchearFlujos(
+      evento({ estado_anterior: 'enviado', estado_nuevo: 'borrador' }),
+      flujos,
+    )
+    expect(m2).toEqual([])
+  })
+})

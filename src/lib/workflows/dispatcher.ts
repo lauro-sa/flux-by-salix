@@ -23,14 +23,16 @@ import {
 /**
  * Devuelve los flujos que deben dispararse por un cambio_estado dado.
  *
- * Reglas de match (PR 14 — solo `entidad.estado_cambio`):
+ * Reglas de match (PR 14 + sub-PR 20.5 — solo `entidad.estado_cambio`):
  *   1. El flujo está activo.
  *   2. El flujo pertenece a la misma empresa que el evento.
  *   3. El disparador es de tipo `entidad.estado_cambio` y su forma
  *      pasa el type guard.
  *   4. `configuracion.entidad_tipo === evento.entidad_tipo`.
  *   5. `configuracion.hasta_clave === evento.estado_nuevo`.
- *   6. Si `configuracion.desde_clave` está seteado (no null/undefined),
+ *   6. Si `configuracion.solo_creacion === true`, el evento tiene que
+ *      ser una creación (estado_anterior IS NULL). Sub-PR 20.5.
+ *   7. Si `configuracion.desde_clave` está seteado (no null/undefined),
  *      tiene que coincidir con `evento.estado_anterior`. Si no está
  *      seteado, dispara desde cualquier estado anterior.
  *
@@ -50,6 +52,14 @@ export function matchearFlujos(
     const cfg = flujo.disparador.configuracion
     if (cfg.entidad_tipo !== evento.entidad_tipo) return false
     if (cfg.hasta_clave !== evento.estado_nuevo) return false
+
+    // Sub-PR 20.5: solo_creacion=true exige que el evento sea una
+    // creación (estado_anterior IS NULL). Permite distinguir
+    // "matchea cualquier transición" vs "matchea solo creaciones"
+    // sin romper backcompat con flujos que usan desde_clave=null.
+    if (cfg.solo_creacion === true && evento.estado_anterior !== null) {
+      return false
+    }
 
     // desde_clave es opcional. Si está seteado, tiene que matchear.
     if (cfg.desde_clave !== undefined && cfg.desde_clave !== null) {

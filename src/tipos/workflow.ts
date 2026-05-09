@@ -80,6 +80,17 @@ export interface DisparadorEntidadEstadoCambio {
      * cualquier estado anterior.
      */
     desde_clave?: string | null
+    /**
+     * Sub-PR 20.5: si true, el flujo dispara solo cuando el evento es
+     * una creación (estado_anterior IS NULL en cambios_estado). Si
+     * false/undefined, dispara en cualquier transición que llegue a
+     * hasta_clave (comportamiento legacy del PR 14).
+     *
+     * Permite distinguir "matchea solo creaciones" vs "matchea cualquier
+     * transición a hasta_clave" sin romper backcompat con flujos que
+     * usan desde_clave=null con la semántica "cualquier estado anterior".
+     */
+    solo_creacion?: boolean
   }
 }
 
@@ -848,6 +859,12 @@ export function esDisparadorEntidadEstadoCambio(
     c.desde_clave !== undefined &&
     c.desde_clave !== null &&
     typeof c.desde_clave !== 'string'
+  ) {
+    return false
+  }
+  if (
+    c.solo_creacion !== undefined &&
+    typeof c.solo_creacion !== 'boolean'
   ) {
     return false
   }
