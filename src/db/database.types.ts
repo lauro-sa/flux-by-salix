@@ -6302,7 +6302,6 @@ export type Database = {
       }
       presupuestos: {
         Row: {
-          actividad_origen_id: string | null
           activo: boolean
           actualizado_en: string
           atencion_cargo: string | null
@@ -6362,7 +6361,6 @@ export type Database = {
           total_impuestos: number
         }
         Insert: {
-          actividad_origen_id?: string | null
           activo?: boolean
           actualizado_en?: string
           atencion_cargo?: string | null
@@ -6422,7 +6420,6 @@ export type Database = {
           total_impuestos?: number
         }
         Update: {
-          actividad_origen_id?: string | null
           activo?: boolean
           actualizado_en?: string
           atencion_cargo?: string | null
@@ -6482,13 +6479,6 @@ export type Database = {
           total_impuestos?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "presupuestos_actividad_origen_id_fkey"
-            columns: ["actividad_origen_id"]
-            isOneToOne: false
-            referencedRelation: "actividades"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "presupuestos_atencion_contacto_id_fkey"
             columns: ["atencion_contacto_id"]
@@ -7732,7 +7722,6 @@ export type Database = {
           es_predefinido: boolean
           es_sistema: boolean
           etiqueta: string
-          evento_auto_completar: string | null
           icono: string
           id: string
           modulos_disponibles: string[]
@@ -7761,7 +7750,6 @@ export type Database = {
           es_predefinido?: boolean
           es_sistema?: boolean
           etiqueta: string
-          evento_auto_completar?: string | null
           icono?: string
           id?: string
           modulos_disponibles?: string[]
@@ -7790,7 +7778,6 @@ export type Database = {
           es_predefinido?: boolean
           es_sistema?: boolean
           etiqueta?: string
-          evento_auto_completar?: string | null
           icono?: string
           id?: string
           modulos_disponibles?: string[]
@@ -8047,7 +8034,6 @@ export type Database = {
       visitas: {
         Row: {
           actividad_id: string | null
-          actividad_origen_id: string | null
           actualizado_en: string
           asignado_a: string | null
           asignado_nombre: string | null
@@ -8094,7 +8080,6 @@ export type Database = {
         }
         Insert: {
           actividad_id?: string | null
-          actividad_origen_id?: string | null
           actualizado_en?: string
           asignado_a?: string | null
           asignado_nombre?: string | null
@@ -8141,7 +8126,6 @@ export type Database = {
         }
         Update: {
           actividad_id?: string | null
-          actividad_origen_id?: string | null
           actualizado_en?: string
           asignado_a?: string | null
           asignado_nombre?: string | null
@@ -8187,13 +8171,6 @@ export type Database = {
           vinculos?: Json
         }
         Relationships: [
-          {
-            foreignKeyName: "visitas_actividad_origen_id_fkey"
-            columns: ["actividad_origen_id"]
-            isOneToOne: false
-            referencedRelation: "actividades"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "visitas_contacto_id_fkey"
             columns: ["contacto_id"]
