@@ -9,10 +9,10 @@
  * - Main: identidad (nombre, abreviación, color), módulos, siguiente actividad, valores por defecto
  */
 
-import { useEffect, useState, useLayoutEffect, useRef, useMemo } from 'react'
+import { useEffect, useState, useLayoutEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
-import { Save, Trash2, Check, Pipette } from 'lucide-react'
+import { Save, Trash2, Check, Pipette, Info } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -60,25 +60,6 @@ const ACCIONES_DESTINO = [
   { valor: 'visita', etiqueta: 'Programar visita' },
   { valor: 'correo', etiqueta: 'Enviar correo' },
 ] as const
-
-/** Eventos de auto-completado disponibles según la acción destino. */
-const EVENTOS_POR_ACCION: Record<string, { valor: string; etiqueta: string }[]> = {
-  presupuesto: [
-    { valor: '', etiqueta: 'Manual — el usuario la completa' },
-    { valor: 'al_crear', etiqueta: 'Al crear el presupuesto' },
-    { valor: 'al_enviar', etiqueta: 'Al enviar el presupuesto' },
-  ],
-  visita: [
-    { valor: '', etiqueta: 'Manual — el usuario la completa' },
-    { valor: 'al_crear', etiqueta: 'Al programar la visita' },
-    { valor: 'al_finalizar', etiqueta: 'Al finalizar la visita' },
-  ],
-  correo: [
-    { valor: '', etiqueta: 'Manual — el usuario la completa' },
-    { valor: 'al_crear', etiqueta: 'Al abrir el correo' },
-    { valor: 'al_enviar', etiqueta: 'Al enviar el correo' },
-  ],
-}
 
 /** Genera abreviación automática: iniciales de palabras significativas, o primeras 4 letras si es una sola palabra */
 function generarAbreviacion(etiqueta: string): string {
@@ -130,7 +111,6 @@ export function PaginaEditorTipoActividad({
     campo_calendario: tipo?.campo_calendario ?? false,
   })
   const [accionDestino, setAccionDestino] = useState<string>(tipo?.accion_destino || '')
-  const [eventoAutoCompletar, setEventoAutoCompletar] = useState<string>(tipo?.evento_auto_completar || '')
   const [resumenPredeterminado, setResumenPredeterminado] = useState(tipo?.resumen_predeterminado || '')
   const [notaPredeterminada, setNotaPredeterminada] = useState(tipo?.nota_predeterminada || '')
   const [usuarioPredeterminado, setUsuarioPredeterminado] = useState(tipo?.usuario_predeterminado || '')
@@ -178,25 +158,6 @@ export function PaginaEditorTipoActividad({
     setModulos(prev => prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod])
   }
 
-  // Eventos de auto-completado disponibles según la acción seleccionada.
-  // Si no hay acción, no se muestra el selector de eventos.
-  const eventosDisponibles = useMemo(() => {
-    if (!accionDestino) return null
-    return EVENTOS_POR_ACCION[accionDestino] ?? null
-  }, [accionDestino])
-
-  // Cuando cambia la acción destino, resetear el evento si ya no aplica.
-  useEffect(() => {
-    if (!accionDestino) {
-      if (eventoAutoCompletar) setEventoAutoCompletar('')
-      return
-    }
-    const validos = (EVENTOS_POR_ACCION[accionDestino] ?? []).map(e => e.valor)
-    if (eventoAutoCompletar && !validos.includes(eventoAutoCompletar)) {
-      setEventoAutoCompletar('')
-    }
-  }, [accionDestino, eventoAutoCompletar])
-
   // ─── Guardar ───
   const handleGuardar = async () => {
     if (!etiqueta.trim()) {
@@ -213,8 +174,6 @@ export function PaginaEditorTipoActividad({
         modulos_disponibles: modulos,
         dias_vencimiento: diasVencimiento,
         accion_destino: accionDestino || null,
-        // Si no hay acción destino, no tiene sentido tener evento de auto-completar.
-        evento_auto_completar: accionDestino && eventoAutoCompletar ? eventoAutoCompletar : null,
         resumen_predeterminado: resumenPredeterminado.trim() || null,
         nota_predeterminada: notaPredeterminada.trim() || null,
         usuario_predeterminado: usuarioPredeterminado || null,
@@ -376,18 +335,25 @@ export function PaginaEditorTipoActividad({
           </p>
         </div>
 
-        {/* Cuándo auto-completar la actividad — solo aparece si hay acción */}
-        {eventosDisponibles && (
-          <div className="space-y-1.5 pt-1">
-            <p className="text-xs text-texto-secundario">Auto-completar la actividad</p>
-            <Select
-              valor={eventoAutoCompletar}
-              onChange={setEventoAutoCompletar}
-              opciones={eventosDisponibles.map(e => ({ valor: e.valor, etiqueta: e.etiqueta }))}
-            />
-            <p className="text-[11px] text-texto-terciario leading-snug">
-              Cuándo cerrar la actividad sin que el usuario tenga que marcarla a mano.
-            </p>
+        {/* Cartel informativo: el cierre automático ahora lo manejan los flujos
+            del sistema (sub-PR 20.5). El admin puede ajustar o crear flujos
+            personalizados desde la página de Flujos. */}
+        {accionDestino && (
+          <div className="pt-1">
+            <div className="rounded-lg border border-borde-sutil bg-superficie-elevada/40 px-3 py-2 text-[11px] text-texto-terciario leading-snug flex items-start gap-2">
+              <Info size={12} className="mt-0.5 shrink-0 text-texto-secundario" />
+              <span>
+                El cierre automático de la actividad ahora se configura desde{' '}
+                <a
+                  href="/flujos"
+                  className="text-texto-marca hover:underline"
+                >
+                  Flujos →
+                </a>
+                . Los flujos del sistema cierran las actividades vinculadas al
+                ejecutar la acción.
+              </span>
+            </div>
           </div>
         )}
       </div>

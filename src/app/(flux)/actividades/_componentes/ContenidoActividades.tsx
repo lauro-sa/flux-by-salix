@@ -604,10 +604,10 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     const accion = tipo.accion_destino ? ACCIONES_TIPO_ACTIVIDAD[tipo.accion_destino] : null
     if (accion) {
       const contacto = (act.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
-      // Pasar siempre el origen si el tipo tiene algún evento de auto-completar
-      // configurado: el backend decide cuándo cerrar la actividad ('al_crear',
-      // 'al_enviar' o 'al_finalizar').
-      const actOrigenId = tipo.evento_auto_completar ? act.id : undefined
+      // Pasar siempre la actividad como origen: el backend la vincula en
+      // `actividades_relaciones` y el flujo del sistema correspondiente
+      // (sub-PR 20.5) decide cuándo cerrarla.
+      const actOrigenId = act.id
       router.push(accion.ruta(contacto?.id, actOrigenId))
       return
     }

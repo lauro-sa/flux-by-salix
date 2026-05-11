@@ -4,7 +4,7 @@
  * useConfigActividades — Hook que carga la configuración necesaria para que el
  * PanelChatter pueda crear/editar actividades sin renunciar a ningún campo
  * que sí está disponible en el módulo /actividades:
- *   • tipos        (con todos los flags campo_X, accion_destino, evento_auto_completar)
+ *   • tipos        (con todos los flags campo_X y accion_destino)
  *   • estados
  *   • miembros     (perfiles, FILTRANDO los kiosco que no tienen usuario_id)
  *   • presetsPosposicion (para los botones "Posponer" del modal en edición)

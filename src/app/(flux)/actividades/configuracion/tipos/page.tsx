@@ -28,13 +28,6 @@ import { ACCIONES_TIPO_ACTIVIDAD } from '../../_componentes/_acciones_tipo'
 
 const I = 13
 
-/** Etiqueta legible para el evento de auto-completar — usada en la columna "Acción". */
-const ETIQUETA_EVENTO_AUTO: Record<string, string> = {
-  al_crear: 'al crear',
-  al_enviar: 'al enviar',
-  al_finalizar: 'al finalizar',
-}
-
 export default function PaginaListadoTiposActividad() {
   const router = useRouter()
   const { mostrar } = useToast()
@@ -210,18 +203,12 @@ export default function PaginaListadoTiposActividad() {
           return <span className="text-[11px] text-texto-terciario">—</span>
         }
         const IconoAccion = accion.icono
-        const eventoTxt = t.evento_auto_completar ? ETIQUETA_EVENTO_AUTO[t.evento_auto_completar] : null
         return (
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md bg-texto-marca/10 border border-texto-marca/20 text-texto-marca whitespace-nowrap">
               <IconoAccion size={11} />
               {accion.etiqueta}
             </span>
-            {eventoTxt && (
-              <span className="text-[11px] text-texto-terciario whitespace-nowrap">
-                cierra {eventoTxt}
-              </span>
-            )}
           </div>
         )
       },
