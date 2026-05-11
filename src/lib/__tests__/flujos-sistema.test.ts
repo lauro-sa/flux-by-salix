@@ -56,19 +56,13 @@ describe('FLUJOS_SISTEMA — catálogo declarativo', () => {
     expect(new Set(claves).size).toBe(claves.length)
   })
 
-  it('estado_inicial corresponde al sub-PR de origen del flujo', () => {
-    // Sub-PR 20.3: pausados (admin los activa explícitamente — la activación
-    // automática la hace la migración 068 cuando ya no hay helper vivo).
-    // Sub-PR 20.5: los al_crear van activos directo para mantener paridad
-    // funcional con `evento_auto_completar='al_crear'` que se elimina.
-    const esperados: Record<string, 'pausado' | 'activo'> = {
-      autocompletar_al_enviar_presupuesto: 'pausado',
-      autocompletar_al_finalizar_visita: 'pausado',
-      autocompletar_al_crear_presupuesto: 'activo',
-      autocompletar_al_crear_visita: 'activo',
-    }
+  it('todos los flujos del catálogo arrancan activos para empresas nuevas', () => {
+    // Commit 6 del 20.5 unificó el catálogo: empresas nuevas reciben
+    // todos los flujos del sistema en estado='activo'. El estado
+    // 'pausado' que las empresas migradas tuvieron temporalmente
+    // entre el seed del 20.3 y la activación del 068 ya no aplica.
     for (const f of FLUJOS_SISTEMA) {
-      expect(f.estado_inicial, `Flujo ${f.clave}`).toBe(esperados[f.clave])
+      expect(f.estado_inicial, `Flujo ${f.clave}`).toBe('activo')
     }
   })
 

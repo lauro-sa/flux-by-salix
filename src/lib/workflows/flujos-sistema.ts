@@ -32,16 +32,17 @@ export interface FlujoSistema {
    */
   descripcion: string
   /**
-   * Estado inicial al sembrar:
-   * - 'pausado': flujos sembrados en sub-PR 20.3 (al_enviar/al_finalizar).
-   *   El admin los activa explícitamente desde el editor (criterio del
-   *   coordinador en 20.3 — evitaba doble-disparo con helper legacy vivo).
-   *   Sub-PR 20.5 los activa en migración 068 (helper ya eliminado).
-   * - 'activo': flujos al_crear sembrados en sub-PR 20.5. Reemplazan
-   *   funcionalmente al `evento_auto_completar='al_crear'` del helper
-   *   legacy. Activos directo para mantener paridad funcional.
+   * Estado inicial al sembrar para empresas nuevas (commit 6 del 20.5):
+   * todos los flujos del sistema arrancan en 'activo'. El catálogo es
+   * homogéneo: las empresas que se onboardan reciben el comportamiento
+   * "moderno" directamente.
+   *
+   * Histórico: las empresas migradas en 20.3 tuvieron temporalmente
+   * estado='pausado' para los flujos al_enviar/al_finalizar (evitaba
+   * doble-disparo con helper legacy vivo). La migración 068 del 20.5
+   * los activó en BD; el catálogo se alineó en commit 6.
    */
-  estado_inicial: 'pausado' | 'activo'
+  estado_inicial: 'activo'
   disparador: DisparadorWorkflow
   acciones: AccionWorkflow[]
 }
@@ -51,8 +52,8 @@ export const FLUJOS_SISTEMA: readonly FlujoSistema[] = [
     clave: 'autocompletar_al_enviar_presupuesto',
     nombre: 'Cerrar actividades al enviar presupuesto',
     descripcion:
-      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas al presupuesto cuando pasa a estado «Enviado». Pausado por defecto — activalo desde el editor cuando estés listo.',
-    estado_inicial: 'pausado',
+      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas al presupuesto cuando pasa a estado «Enviado». Editalo desde el editor de Flujos si necesitás ajustar el comportamiento.',
+    estado_inicial: 'activo',
     disparador: {
       tipo: 'entidad.estado_cambio',
       configuracion: {
@@ -80,8 +81,8 @@ export const FLUJOS_SISTEMA: readonly FlujoSistema[] = [
     clave: 'autocompletar_al_finalizar_visita',
     nombre: 'Cerrar actividades al finalizar visita',
     descripcion:
-      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas a la visita cuando pasa a estado «Completada». Pausado por defecto — activalo desde el editor cuando estés listo.',
-    estado_inicial: 'pausado',
+      'Flujo configurado por el sistema. Cierra automáticamente las actividades vinculadas a la visita cuando pasa a estado «Completada». Editalo desde el editor de Flujos si necesitás ajustar el comportamiento.',
+    estado_inicial: 'activo',
     disparador: {
       tipo: 'entidad.estado_cambio',
       configuracion: {
