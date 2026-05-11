@@ -32,6 +32,7 @@ import type {
   AccionWorkflow,
   AccionEnviarWhatsappPlantilla,
   AccionCrearActividad,
+  AccionCompletarActividad,
   AccionCambiarEstadoEntidad,
   AccionNotificarUsuario,
   AccionEsperar,
@@ -41,6 +42,7 @@ import type {
 import {
   esAccionEnviarWhatsappPlantilla,
   esAccionCrearActividad,
+  esAccionCompletarActividad,
   esAccionCambiarEstadoEntidad,
   esAccionNotificarUsuario,
   esAccionEsperar,
@@ -59,6 +61,8 @@ import {
   leerNumeroTelefono,
 } from '@/lib/whatsapp/canal-credenciales'
 import { aplicarTransicionEstado } from '@/lib/estados/aplicar-transicion'
+import { registrarChatter } from '@/lib/chatter'
+import { esEntidadRelacionable } from '@/tipos/actividades-relaciones'
 import { evaluarCondicion } from './evaluar-condicion'
 
 // =============================================================
@@ -145,6 +149,9 @@ export async function ejecutarAccion(
   }
   if (esAccionCrearActividad(accion)) {
     return ejecutarCrearActividad(accion, contexto, admin)
+  }
+  if (esAccionCompletarActividad(accion)) {
+    return ejecutarCompletarActividad(accion, contexto, admin)
   }
   if (esAccionCambiarEstadoEntidad(accion)) {
     return ejecutarCambiarEstadoEntidad(accion, contexto, admin)
@@ -432,9 +439,374 @@ async function ejecutarCrearActividad(
 
   if (error) return errSupabase(error, 'insertar actividad')
 
+  // Auto-enriquecimiento (sub-PR 20.2): si el flujo tiene entidad
+  // disparadora (no es cron sin entidad), registramos la relación N:M
+  // en `actividades_relaciones`. Esto reemplaza el legacy
+  // `actividad_origen_id` (FK directa) y permite que `completar_actividad`
+  // con `criterio.relacionada_a` resuelva el match en flujos cross-entidad
+  // (ej: visita completada → crea actividad → al enviar presupuesto, esa
+  // actividad se cierra porque está vinculada a la visita madre).
+  //
+  // Idempotencia por UNIQUE (empresa_id, actividad_id, entidad_tipo,
+  // entidad_id) + ON CONFLICT DO NOTHING. Si el INSERT falla por otro
+  // motivo, se loguea como warn pero NO rompe la cadena: el flujo ya
+  // creó la actividad, perder la relación es degradación aceptable
+  // versus abortar con la actividad huérfana.
+  const entidadDisparadora = leerEntidadDisparadora(contexto.contexto_inicial)
+  if (entidadDisparadora) {
+    const { error: errRel } = await admin
+      .from('actividades_relaciones')
+      .upsert(
+        {
+          empresa_id: contexto.empresa_id,
+          actividad_id: data.id,
+          entidad_tipo: entidadDisparadora.tipo,
+          entidad_id: entidadDisparadora.id,
+          creado_por: null,
+        },
+        { onConflict: 'empresa_id,actividad_id,entidad_tipo,entidad_id', ignoreDuplicates: true },
+      )
+    if (errRel) {
+      console.warn(
+        JSON.stringify({
+          nivel: 'warn',
+          mensaje: 'auto_enriquecimiento_relacion_fallo',
+          flujo_id: contexto.flujo_id,
+          ejecucion_id: contexto.ejecucion_id,
+          empresa_id: contexto.empresa_id,
+          actividad_id: data.id,
+          entidad_tipo: entidadDisparadora.tipo,
+          entidad_id: entidadDisparadora.id,
+          error_message: errRel.message,
+          error_code: errRel.code ?? null,
+        }),
+      )
+    }
+  }
+
   return {
     ok: true,
     resultado: { actividad_id: data.id, titulo: data.titulo },
+  }
+}
+
+/**
+ * Devuelve la entidad disparadora del flujo si el contexto la trae con
+ * tipo válido (`EntidadRelacionable`) e id string. Para flujos cron sin
+ * entidad o con tipos no-relacionables (ej: nuevos tipos sin agregar a
+ * `EntidadRelacionable` aún), devuelve null y el auto-enriquecimiento
+ * se saltea silenciosamente.
+ */
+function leerEntidadDisparadora(
+  contextoInicial: Record<string, unknown> | undefined,
+): { tipo: string; id: string } | null {
+  if (!contextoInicial) return null
+  const ent = contextoInicial.entidad
+  if (typeof ent !== 'object' || ent === null) return null
+  const r = ent as Record<string, unknown>
+  if (typeof r.tipo !== 'string' || typeof r.id !== 'string') return null
+  if (!esEntidadRelacionable(r.tipo)) return null
+  return { tipo: r.tipo, id: r.id }
+}
+
+// =============================================================
+// 2.bis) completar_actividad (sub-PR 20.1)
+// =============================================================
+// Reemplazo del helper legacy `auto-completar-actividad.ts` y del campo
+// `tipos_actividad.evento_auto_completar` (sub-PR 20.3 elimina ambos
+// sembrando flujos del sistema equivalentes).
+//
+// El criterio define qué actividad(es) cerrar; el resolver de variables
+// del orquestador (PR 16) ya resolvió `{{...}}` antes de llegar acá.
+// Este handler es agnóstico de variables — solo lee strings literales
+// y arma la query.
+
+async function ejecutarCompletarActividad(
+  accion: AccionCompletarActividad,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  const c = accion.criterio
+  const estadoClave = c.estado_clave ?? 'pendiente'
+  const siMultiple = c.si_multiple
+  const siNoEncuentra = c.si_no_encuentra ?? 'continuar'
+
+  // Defensa runtime — el validador pre-publicar exige tipo_actividad_id
+  // o relacionada_a, pero un flujo cargado desde BD legacy o editado
+  // manualmente puede saltearlo. Sin filtro positivo se podrían cerrar
+  // todas las actividades de la empresa.
+  if (!c.tipo_actividad_id && !c.relacionada_a) {
+    return {
+      ok: false,
+      error: {
+        mensaje:
+          'completar_actividad requiere al menos tipo_actividad_id o relacionada_a en el criterio.',
+        transitorio: false,
+        raw_class: 'CriterioInsuficiente',
+      },
+    }
+  }
+
+  // Resolución de `relacionada_a` (sub-PR 20.2): cargamos los
+  // `actividad_id` vinculados a la entidad indicada, con filtro
+  // explícito por `empresa_id` aunque RLS lo cubre — el motor corre
+  // con service_role que bypaseamos RLS, así que el filtro tenant es
+  // defensivo y no opcional. Si el resultado es vacío, ya sabemos que
+  // no hay matches: short-circuit antes de la query a `actividades`.
+  let idsRelacionados: string[] | null = null
+  if (c.relacionada_a) {
+    const { data: rels, error: errRel } = await admin
+      .from('actividades_relaciones')
+      .select('actividad_id')
+      .eq('empresa_id', contexto.empresa_id)
+      .eq('entidad_tipo', c.relacionada_a.entidad_tipo)
+      .eq('entidad_id', c.relacionada_a.entidad_id)
+
+    if (errRel) return errSupabase(errRel, 'buscar relaciones de actividad')
+
+    idsRelacionados = ((rels ?? []) as Array<{ actividad_id: string }>).map(
+      (r) => r.actividad_id,
+    )
+
+    if (idsRelacionados.length === 0) {
+      // Sin relaciones registradas → nada para cerrar, respetamos
+      // si_no_encuentra (default 'continuar' devuelve cantidad=0).
+      if (siNoEncuentra === 'fallar') {
+        return {
+          ok: false,
+          error: {
+            mensaje:
+              `completar_actividad: ninguna actividad vinculada a ${c.relacionada_a.entidad_tipo}/${c.relacionada_a.entidad_id}.`,
+            transitorio: false,
+            raw_class: 'NoEncontrada',
+          },
+        }
+      }
+      return {
+        ok: true,
+        resultado: { cantidad: 0, actividades_completadas: [] },
+      }
+    }
+  }
+
+  // Construir query de búsqueda. limit = 2 cuando si_multiple ≠ 'todas'
+  // para detectar el caso "hay más de uno" sin traer toda la tabla.
+  let q = admin
+    .from('actividades')
+    .select('id, titulo, tipo_id, asignados_ids, vinculo_ids, creado_en')
+    .eq('empresa_id', contexto.empresa_id)
+    .eq('estado_clave', estadoClave)
+
+  if (c.tipo_actividad_id) q = q.eq('tipo_id', c.tipo_actividad_id)
+  if (c.asignado_id) q = q.contains('asignados_ids', [c.asignado_id])
+  if (c.contacto_id) q = q.contains('vinculo_ids', [c.contacto_id])
+  // Restricción cross-entidad: solo actividades vinculadas a la entidad
+  // del criterio.relacionada_a. Combina con tipo_actividad_id si ambos
+  // vienen — más restrictivos = mejor especificidad.
+  if (idsRelacionados !== null) q = q.in('id', idsRelacionados)
+
+  if (siMultiple === 'todas') {
+    q = q.order('creado_en', { ascending: true })
+  } else {
+    const ascending = siMultiple !== 'mas_reciente'
+    q = q.order('creado_en', { ascending }).limit(2)
+  }
+
+  const { data, error } = await q
+  if (error) return errSupabase(error, 'buscar actividades por criterio')
+
+  const matches = (data ?? []) as Array<{
+    id: string
+    titulo: string
+    tipo_id: string
+    asignados_ids: string[] | null
+    vinculo_ids: string[] | null
+    creado_en: string
+  }>
+
+  if (matches.length === 0) {
+    if (siNoEncuentra === 'fallar') {
+      return {
+        ok: false,
+        error: {
+          mensaje: 'completar_actividad: ninguna actividad coincide con el criterio.',
+          transitorio: false,
+          raw_class: 'NoEncontrada',
+        },
+      }
+    }
+    // Idempotencia: re-ejecuciones legítimas sobre flujo ya completado
+    // caen acá y devuelven cantidad=0 sin ruido en logs.
+    return {
+      ok: true,
+      resultado: {
+        cantidad: 0,
+        actividades_completadas: [],
+      },
+    }
+  }
+
+  if (siMultiple === 'fallar' && matches.length > 1) {
+    return {
+      ok: false,
+      error: {
+        mensaje:
+          'completar_actividad: el criterio coincide con más de una actividad y si_multiple=fallar.',
+        transitorio: false,
+        raw_class: 'MultiplesMatches',
+      },
+    }
+  }
+
+  const aCerrar = siMultiple === 'todas' ? matches : matches.slice(0, 1)
+
+  // Dry-run: NO mutar BD. Devolvemos el set que se HABRÍA cerrado con
+  // metadata legible (D6 caveat: no solo IDs — incluir título, tipo
+  // legible, asignados nombrados y creado_en para que la consola
+  // Sandbox muestre algo útil).
+  if (contexto.dry_run) {
+    const tipoIds = Array.from(new Set(aCerrar.map((a) => a.tipo_id)))
+    const { data: tipos } = await admin
+      .from('tipos_actividad')
+      .select('id, etiqueta, clave')
+      .in('id', tipoIds)
+      .eq('empresa_id', contexto.empresa_id)
+    const tipoMap = new Map(
+      ((tipos ?? []) as Array<{ id: string; etiqueta: string | null; clave: string }>).map(
+        (t) => [t.id, t.etiqueta ?? t.clave],
+      ),
+    )
+
+    const asignadoIds = Array.from(
+      new Set(aCerrar.flatMap((a) => a.asignados_ids ?? [])),
+    )
+    let asignadoMap = new Map<string, string>()
+    if (asignadoIds.length > 0) {
+      const { data: usuarios } = await admin
+        .from('usuarios')
+        .select('id, nombre_completo')
+        .in('id', asignadoIds)
+        .eq('empresa_id', contexto.empresa_id)
+      asignadoMap = new Map(
+        ((usuarios ?? []) as Array<{ id: string; nombre_completo: string | null }>).map(
+          (u) => [u.id, u.nombre_completo ?? u.id],
+        ),
+      )
+    }
+
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: 'completar_actividad',
+        criterio_resuelto: {
+          tipo_actividad_id: c.tipo_actividad_id ?? null,
+          contacto_id: c.contacto_id ?? null,
+          asignado_id: c.asignado_id ?? null,
+          estado_clave: estadoClave,
+          relacionada_a: c.relacionada_a ?? null,
+          si_multiple: siMultiple,
+          si_no_encuentra: siNoEncuentra,
+        },
+        cantidad: aCerrar.length,
+        actividades_que_cerraria: aCerrar.map((a) => ({
+          id: a.id,
+          titulo: a.titulo,
+          tipo_actividad_etiqueta: tipoMap.get(a.tipo_id) ?? null,
+          asignado_nombres: (a.asignados_ids ?? []).map(
+            (id) => asignadoMap.get(id) ?? id,
+          ),
+          creado_en: a.creado_en,
+        })),
+      },
+    }
+  }
+
+  // Path real: cargar estado 'completada' (cualquier estado en el grupo
+  // 'completado'), nombre del flujo (para chatter) y aplicar update +
+  // chatter. Mismo patrón que el helper legacy `autoCompletarActividad`.
+  const { data: estadoCompletada, error: errEstado } = await admin
+    .from('estados_actividad')
+    .select('id, clave')
+    .eq('empresa_id', contexto.empresa_id)
+    .eq('grupo', 'completado')
+    .limit(1)
+    .maybeSingle()
+
+  if (errEstado) return errSupabase(errEstado, 'cargar estado completada')
+  if (!estadoCompletada) {
+    return {
+      ok: false,
+      error: {
+        mensaje: 'Estado del grupo "completado" no sembrado para actividades en la empresa.',
+        transitorio: false,
+        raw_class: 'EstadoNoEncontrado',
+      },
+    }
+  }
+
+  const { data: flujo } = await admin
+    .from('flujos')
+    .select('nombre')
+    .eq('id', contexto.flujo_id)
+    .eq('empresa_id', contexto.empresa_id)
+    .maybeSingle()
+  const nombreFlujo = ((flujo as { nombre?: string } | null)?.nombre ?? '—')
+
+  const ahora = new Date().toISOString()
+  const idsCerrar = aCerrar.map((a) => a.id)
+
+  // Update bulk en una sola query — el trigger BEFORE UPDATE de
+  // actividades captura el estado anterior y dispara cambios_estado por
+  // cada fila modificada.
+  const { error: errUpdate } = await admin
+    .from('actividades')
+    .update({
+      estado_id: estadoCompletada.id,
+      estado_clave: estadoCompletada.clave,
+      fecha_completada: ahora,
+      editado_por: null,
+      editado_por_nombre: 'Automatización',
+      actualizado_en: ahora,
+    })
+    .eq('empresa_id', contexto.empresa_id)
+    .in('id', idsCerrar)
+
+  if (errUpdate) return errSupabase(errUpdate, 'completar actividades')
+
+  // Chatter por actividad cerrada (D5 caveat: incluir motivo si llega).
+  const mensajeChatter = accion.motivo
+    ? `Completada por flujo «${nombreFlujo}». Motivo: «${accion.motivo}»`
+    : `Completada por flujo «${nombreFlujo}»`
+
+  await Promise.all(
+    idsCerrar.map((id) =>
+      registrarChatter({
+        empresaId: contexto.empresa_id,
+        entidadTipo: 'actividad',
+        entidadId: id,
+        contenido: mensajeChatter,
+        autorId: null,
+        autorNombre: 'Automatización',
+        metadata: {
+          accion: 'actividad_completada',
+          detalles: {
+            origen: 'flujo',
+            flujo_id: contexto.flujo_id,
+            ejecucion_id: contexto.ejecucion_id,
+            motivo: accion.motivo ?? null,
+          },
+        },
+      }),
+    ),
+  )
+
+  return {
+    ok: true,
+    resultado: {
+      cantidad: aCerrar.length,
+      actividades_completadas: idsCerrar,
+    },
   }
 }
 

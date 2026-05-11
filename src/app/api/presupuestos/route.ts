@@ -6,7 +6,6 @@ import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
-import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -508,9 +507,6 @@ export async function POST(request: NextRequest) {
       condiciones_html: body.condiciones_html || config?.condiciones_predeterminadas || null,
       nota_plan_pago: condDefault?.notaPlanPago || null,
       columnas_lineas: body.columnas_lineas || config?.columnas_lineas_default || ['producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal'],
-      // Persistir el vínculo a la actividad origen (si vino) para que el listener
-      // del PATCH pueda completar la actividad cuando el presupuesto cambie de estado.
-      actividad_origen_id: body.actividad_origen_id || null,
       creado_por: user.id,
       creado_por_nombre: nombreUsuario,
     }
@@ -568,20 +564,42 @@ export async function POST(request: NextRequest) {
       metadata: { accion: 'creado' },
     })
 
-    // Auto-completar la actividad origen SOLO si su tipo tiene
-    // `evento_auto_completar = 'al_crear'`. Si está configurado 'al_enviar',
-    // se completará cuando el PATCH cambie el estado del presupuesto a 'enviado'.
+    // Vincular la actividad ORIGEN (la que originó el presupuesto) al nuevo
+    // presupuesto en `actividades_relaciones`. El flujo del sistema
+    // `autocompletar_al_crear_presupuesto` (sub-PR 20.5, solo_creacion=true)
+    // disparará al insertar la fila en `cambios_estado` (trigger SQL del
+    // commit 4) y cerrará la actividad origen via `relacionada_a`. El flujo
+    // `autocompletar_al_enviar_presupuesto` reusa la misma relación cuando
+    // el presupuesto pasa a 'enviado'.
+    //
+    // Idempotencia: UNIQUE (empresa_id, actividad_id, entidad_tipo,
+    // entidad_id) + ignoreDuplicates. Si la fila ya existía (caso raro
+    // de retry o de creación con backfill previo), no hace nada.
     if (body.actividad_origen_id) {
-      await autoCompletarActividad({
-        admin,
-        empresaId,
-        actividadId: body.actividad_origen_id,
-        eventoEsperado: 'al_crear',
-        usuarioId: user.id,
-        usuarioNombre: nombreUsuario,
-        mensajeChatter: `Completada automáticamente al crear presupuesto ${presupuesto.numero}`,
-        metadataChatter: { presupuesto_id: presupuesto.id, presupuesto_numero: presupuesto.numero },
-      })
+      const { error: errRel } = await admin
+        .from('actividades_relaciones')
+        .upsert(
+          {
+            empresa_id: empresaId,
+            actividad_id: body.actividad_origen_id,
+            entidad_tipo: 'presupuesto',
+            entidad_id: presupuesto.id,
+            creado_por: user.id,
+          },
+          { onConflict: 'empresa_id,actividad_id,entidad_tipo,entidad_id', ignoreDuplicates: true },
+        )
+      if (errRel) {
+        // No abortamos: el presupuesto ya está creado y el vínculo es
+        // secundario. Logueamos para visibilidad.
+        console.warn(JSON.stringify({
+          nivel: 'warn',
+          mensaje: 'presupuesto_relacion_actividad_origen_fallo',
+          presupuesto_id: presupuesto.id,
+          actividad_origen_id: body.actividad_origen_id,
+          error_message: errRel.message,
+          error_code: errRel.code ?? null,
+        }))
+      }
     }
 
     // Crear líneas iniciales si se proporcionaron

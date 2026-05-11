@@ -24,6 +24,7 @@ import {
   esAccionConocida,
   esAccionEnviarWhatsappPlantilla,
   esAccionCrearActividad,
+  esAccionCompletarActividad,
   esAccionCambiarEstadoEntidad,
   esAccionNotificarUsuario,
   esAccionEsperar,
@@ -84,6 +85,7 @@ const DISPARADORES_SOPORTADOS = new Set<string>([
 const ACCIONES_SOPORTADAS = new Set<string>([
   'enviar_whatsapp_plantilla',
   'crear_actividad',
+  'completar_actividad',
   'cambiar_estado_entidad',
   'notificar_usuario',
   'esperar',
@@ -173,7 +175,7 @@ function validarAccion(a: unknown, ruta: string): string[] {
   if (!ACCIONES_SOPORTADAS.has(tipo)) {
     return [
       `${ruta}: la acción "${tipo}" todavía no la ejecuta el motor. ` +
-      'Disponibles: WhatsApp con plantilla, crear actividad, cambiar estado, notificar usuario, esperar, condición y terminar flujo.',
+      'Disponibles: WhatsApp con plantilla, crear actividad, completar actividad, cambiar estado, notificar usuario, esperar, condición y terminar flujo.',
     ]
   }
   // Validar shape específico de cada tipo soportado.
@@ -186,6 +188,24 @@ function validarAccion(a: unknown, ruta: string): string[] {
       return esAccionCrearActividad(a)
         ? []
         : [`${ruta}: crear actividad requiere tipo de actividad y título.`]
+    case 'completar_actividad': {
+      if (!esAccionCompletarActividad(a)) {
+        return [
+          `${ruta}: completar actividad requiere criterio con si_multiple ('mas_antigua', 'mas_reciente', 'todas' o 'fallar').`,
+        ]
+      }
+      // D1 caveat (PR 20.1): exigir al menos un filtro positivo. Sin
+      // tipo_actividad_id ni relacionada_a, filtros como contacto_id o
+      // asignado_id pueden cerrar actividades no relacionadas a este
+      // flujo (ej: cualquier actividad pendiente del asignado).
+      const c = a.criterio
+      if (!c.tipo_actividad_id && !c.relacionada_a) {
+        return [
+          `${ruta}: completar actividad debe especificar al menos tipo de actividad o relación con entidad. Filtrar solo por asignado o contacto puede cerrar actividades no relacionadas a este flujo.`,
+        ]
+      }
+      return []
+    }
     case 'cambiar_estado_entidad':
       return esAccionCambiarEstadoEntidad(a)
         ? []

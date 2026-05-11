@@ -108,7 +108,6 @@ export async function PUT(request: NextRequest) {
             campo_checklist: datos.campo_checklist ?? false,
             campo_calendario: datos.campo_calendario ?? false,
             accion_destino: datos.accion_destino || null,
-            evento_auto_completar: datos.evento_auto_completar || null,
             resumen_predeterminado: datos.resumen_predeterminado || null,
             nota_predeterminada: datos.nota_predeterminada || null,
             usuario_predeterminado: datos.usuario_predeterminado || null,
@@ -147,7 +146,6 @@ export async function PUT(request: NextRequest) {
           if (datos.activo !== undefined) campos.activo = datos.activo
           if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles
           if (datos.accion_destino !== undefined) campos.accion_destino = datos.accion_destino || null
-          if (datos.evento_auto_completar !== undefined) campos.evento_auto_completar = datos.evento_auto_completar || null
         } else {
           // Tipos normales: se puede editar todo
           if (datos.etiqueta !== undefined) campos.etiqueta = datos.etiqueta.trim()
@@ -163,7 +161,6 @@ export async function PUT(request: NextRequest) {
           if (datos.campo_checklist !== undefined) campos.campo_checklist = datos.campo_checklist
           if (datos.campo_calendario !== undefined) campos.campo_calendario = datos.campo_calendario
           if (datos.accion_destino !== undefined) campos.accion_destino = datos.accion_destino || null
-          if (datos.evento_auto_completar !== undefined) campos.evento_auto_completar = datos.evento_auto_completar || null
           if (datos.resumen_predeterminado !== undefined) campos.resumen_predeterminado = datos.resumen_predeterminado
           if (datos.nota_predeterminada !== undefined) campos.nota_predeterminada = datos.nota_predeterminada
           if (datos.usuario_predeterminado !== undefined) campos.usuario_predeterminado = datos.usuario_predeterminado

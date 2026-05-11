@@ -1780,6 +1780,9 @@ export interface Traducciones {
           disparador: string
           avanzado: string
           condiciones: string
+          criterio: string
+          comportamiento: string
+          plantillas: string
         }
 
         subheader: {
@@ -1907,6 +1910,45 @@ export interface Traducciones {
             actividad: string
             adelanto_nomina: string
             pago_nomina: string
+          }
+        }
+
+        completar_actividad: {
+          tipo_id_label: string
+          tipo_id_ayuda: string
+          relacionada_label: string
+          relacionada_ayuda: string
+          relacionada_ninguna: string
+          entidad_contacto: string
+          relacionada_entidad_id_label: string
+          relacionada_entidad_id_placeholder: string
+          contacto_label: string
+          contacto_placeholder: string
+          asignado_label: string
+          estado_label: string
+          estado_pendiente: string
+          estado_completada: string
+          estado_cancelada: string
+          si_multiple_label: string
+          si_multiple_mas_antigua: string
+          si_multiple_mas_reciente: string
+          si_multiple_todas: string
+          si_multiple_fallar: string
+          si_no_encuentra_label: string
+          si_no_encuentra_continuar: string
+          si_no_encuentra_fallar: string
+          motivo_label: string
+          motivo_placeholder: string
+          motivo_ayuda: string
+          plantillas_titulo: string
+          plantillas_ayuda: string
+          plantillas_aplicada: string
+          error_filtro_positivo: string
+          plantilla: {
+            cerrar_al_enviar_presupuesto: { titulo: string; descripcion: string }
+            cerrar_al_completar_visita: { titulo: string; descripcion: string }
+            cerrar_mas_antigua_del_contacto: { titulo: string; descripcion: string }
+            cerrar_todas_mias_del_tipo: { titulo: string; descripcion: string }
           }
         }
 
@@ -2267,6 +2309,7 @@ export interface Traducciones {
       enviar_correo_plantilla: { titulo: string; descripcion: string }
       enviar_correo_texto: { titulo: string; descripcion: string }
       crear_actividad: { titulo: string; descripcion: string }
+      completar_actividad: { titulo: string; descripcion: string }
       cambiar_estado_entidad: { titulo: string; descripcion: string }
       asignar_usuario: { titulo: string; descripcion: string }
       agregar_etiqueta: { titulo: string; descripcion: string }

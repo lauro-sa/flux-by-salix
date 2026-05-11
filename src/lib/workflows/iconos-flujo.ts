@@ -133,6 +133,7 @@ const ICONO_POR_ACCION: Record<TipoAccion, string> = {
   enviar_correo_plantilla: 'MailCheck',
   enviar_correo_texto: 'Mail',
   crear_actividad: 'PenLine',
+  completar_actividad: 'CheckCircle2',
   cambiar_estado_entidad: 'Repeat',
   asignar_usuario: 'UserPlus',
   agregar_etiqueta: 'Tag',

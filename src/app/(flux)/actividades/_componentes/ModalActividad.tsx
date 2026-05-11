@@ -103,31 +103,6 @@ interface Miembro {
 
 import { ACCIONES_TIPO_ACTIVIDAD } from './_acciones_tipo'
 
-/** Mensaje que se muestra debajo del selector de tipo cuando la actividad
- *  tiene auto-completar configurado. Permite al usuario entender de antemano
- *  qué va a pasar con la actividad sin tener que adivinar. */
-function avisoAutoCompletar(tipo: TipoActividad | null | undefined): string | null {
-  if (!tipo?.evento_auto_completar) return null
-  const accion = tipo.accion_destino
-  const evento = tipo.evento_auto_completar
-  const mensajes: Record<string, Partial<Record<typeof evento, string>>> = {
-    presupuesto: {
-      al_crear: 'Esta actividad se cierra sola al crear el presupuesto.',
-      al_enviar: 'Esta actividad se cierra sola al enviar el presupuesto.',
-    },
-    visita: {
-      al_crear: 'Esta actividad se cierra sola al programar la visita.',
-      al_finalizar: 'Esta actividad se cierra sola al finalizar la visita.',
-    },
-    correo: {
-      al_crear: 'Esta actividad se cierra sola al abrir el correo.',
-      al_enviar: 'Esta actividad se cierra sola al enviar el correo.',
-    },
-  }
-  if (!accion) return null
-  return mensajes[accion]?.[evento] ?? null
-}
-
 interface PresetPosposicion {
   id: string
   etiqueta: string
@@ -562,9 +537,10 @@ function ModalActividad({
             if (!accion || !tipoAct) return null
             const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
             const IconoAccion = accion.icono
-            // Pasar la actividad origen siempre que el tipo tenga algún evento de auto-completar:
-            // el backend decide si completarla 'al_crear', 'al_enviar' o 'al_finalizar'.
-            const actOrigenId = tipoAct.evento_auto_completar ? actividad.id : undefined
+            // Pasamos la actividad origen siempre que haya acción configurada. El
+            // backend la vincula en `actividades_relaciones` y el flujo del sistema
+            // correspondiente decide cuándo cerrarla (sub-PR 20.5).
+            const actOrigenId = actividad.id
             return (
               <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
                 onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id, actOrigenId)) }}
@@ -643,19 +619,6 @@ function ModalActividad({
                 )}
               </AnimatePresence>
             </div>
-
-            {/* Aviso de auto-completar — explica al usuario qué va a pasar
-                con esta actividad cuando se ejecute la acción del tipo. */}
-            {(() => {
-              const aviso = avisoAutoCompletar(tipoSeleccionado)
-              if (!aviso) return null
-              return (
-                <p className="mt-2 text-[11px] text-texto-terciario leading-snug flex items-start gap-1.5">
-                  <CheckCircle size={11} className="mt-0.5 shrink-0 text-insignia-exito-texto" />
-                  <span>{aviso}</span>
-                </p>
-              )
-            })()}
           </div>
 
           {/* Título */}

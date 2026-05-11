@@ -10,7 +10,6 @@ import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
-import { autoCompletarActividad } from '@/lib/auto-completar-actividad'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -290,9 +289,6 @@ export async function POST(request: NextRequest) {
         recibe_telefono: body.recibe_telefono || null,
         recibe_contacto_id: body.recibe_contacto_id || null,
         actividad_id: body.actividad_id || null,
-        // Persistir el vínculo a la actividad ORIGEN (la que originó la visita)
-        // para que el PATCH pueda completarla cuando se finalice la visita.
-        actividad_origen_id: body.actividad_origen_id || null,
         vinculos,
         creado_por: user.id,
         creado_por_nombre: nombreCreador,
@@ -373,20 +369,43 @@ export async function POST(request: NextRequest) {
       }, tipos)
     }
 
-    // Auto-completar la actividad origen SOLO si su tipo tiene
-    // `evento_auto_completar = 'al_crear'`. Si está configurado 'al_finalizar',
-    // se completará cuando el PATCH cambie el estado de la visita a 'completada'.
+    // Vincular la actividad ORIGEN (la que originó la visita) a la nueva
+    // visita en `actividades_relaciones`. El flujo del sistema
+    // `autocompletar_al_crear_visita` (sub-PR 20.5, solo_creacion=true)
+    // disparará al insertar la fila en `cambios_estado` (trigger SQL del
+    // commit 4) y cerrará la actividad origen via `relacionada_a`. El flujo
+    // `autocompletar_al_finalizar_visita` reusa la misma relación cuando
+    // la visita pasa a 'completada'.
+    //
+    // Idempotencia: UNIQUE (empresa_id, actividad_id, entidad_tipo,
+    // entidad_id) + ignoreDuplicates. Si la fila ya existía (caso raro
+    // de retry o de creación con backfill previo), no hace nada.
     if (body.actividad_origen_id) {
-      await autoCompletarActividad({
-        admin,
-        empresaId,
-        actividadId: body.actividad_origen_id,
-        eventoEsperado: 'al_crear',
-        usuarioId: user.id,
-        usuarioNombre: nombreCreador,
-        mensajeChatter: `Completada automáticamente al programar visita a ${contactoNombre}`,
-        metadataChatter: { visita_id: data.id },
-      })
+      const { error: errRel } = await admin
+        .from('actividades_relaciones')
+        .upsert(
+          {
+            empresa_id: empresaId,
+            actividad_id: body.actividad_origen_id,
+            entidad_tipo: 'visita',
+            entidad_id: data.id,
+            creado_por: user.id,
+          },
+          { onConflict: 'empresa_id,actividad_id,entidad_tipo,entidad_id', ignoreDuplicates: true },
+        )
+      if (errRel) {
+        // No abortamos: la visita ya está creada y el vínculo es secundario.
+        // Logueamos para visibilidad y dejamos que el admin vea la visita
+        // sin el cierre automático de la actividad origen (degradación).
+        console.warn(JSON.stringify({
+          nivel: 'warn',
+          mensaje: 'visita_relacion_actividad_origen_fallo',
+          visita_id: data.id,
+          actividad_origen_id: body.actividad_origen_id,
+          error_message: errRel.message,
+          error_code: errRel.code ?? null,
+        }))
+      }
     }
 
     // Registrar en recientes

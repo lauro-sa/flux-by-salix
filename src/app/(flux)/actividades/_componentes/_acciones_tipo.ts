@@ -15,7 +15,8 @@ export interface AccionTipoActividad {
   etiqueta: string
   icono: typeof FileText
   /** Construye la ruta destino. `aId` se pasa como `actividad_origen_id` para que el backend
-   *  pueda completarla automáticamente según `evento_auto_completar` del tipo. */
+   *  vincule la actividad origen al nuevo presupuesto/visita en `actividades_relaciones`.
+   *  El cierre automático lo hace el flujo del sistema correspondiente (sub-PR 20.5). */
   ruta: (contactoId?: string, actividadOrigenId?: string) => string
 }
 

@@ -23,6 +23,7 @@ import PanelDisparadorActividadCompletada from './_panel/secciones/PanelDisparad
 import PanelEnviarWhatsApp from './_panel/secciones/PanelEnviarWhatsApp'
 import PanelNotificarUsuario from './_panel/secciones/PanelNotificarUsuario'
 import PanelCrearActividad from './_panel/secciones/PanelCrearActividad'
+import PanelCompletarActividad from './_panel/secciones/PanelCompletarActividad'
 import PanelCambiarEstado from './_panel/secciones/PanelCambiarEstado'
 import PanelBranch from './_panel/secciones/PanelBranch'
 import PanelAsignarUsuario from './_panel/secciones/PanelAsignarUsuario'
@@ -41,6 +42,7 @@ import { usePreviewContexto } from './_picker/usePreviewContexto'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
 import type {
   AccionCambiarEstadoEntidad,
+  AccionCompletarActividad,
   AccionCondicionBranch,
   AccionCrearActividad,
   AccionEnviarWhatsappPlantilla,
@@ -487,6 +489,18 @@ function renderPaso(args: RenderPasoArgs) {
     return (
       <PanelCrearActividad
         paso={paso as AccionCrearActividad}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'completar_actividad') {
+    return (
+      <PanelCompletarActividad
+        paso={paso as AccionCompletarActividad}
         soloLectura={soloLectura}
         onCambiar={onCambiar}
         fuentes={fuentes}

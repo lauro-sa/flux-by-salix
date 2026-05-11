@@ -128,6 +128,13 @@ export function crearAccionVacia(tipo: TipoAccion): AccionWorkflow {
         tipo_actividad_id: '',
         titulo: '',
       }
+    case 'completar_actividad':
+      return {
+        tipo: 'completar_actividad',
+        criterio: {
+          si_multiple: 'mas_antigua',
+        },
+      }
     case 'cambiar_estado_entidad':
       return {
         tipo: 'cambiar_estado_entidad',
