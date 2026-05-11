@@ -2150,6 +2150,7 @@ export const es: Traducciones = {
       miembro: {
         placeholder: 'Elegí un usuario',
         placeholder_multi: 'Elegí uno o más usuarios',
+        nota_solo_con_cuenta: 'Solo se muestran usuarios con cuenta. Los kiosco-only no aparecen acá.',
       },
       estado: { placeholder: 'Elegí un estado' },
       etiqueta: { placeholder: 'Elegí una etiqueta' },

@@ -2111,6 +2111,7 @@ export const en: Traducciones = {
       miembro: {
         placeholder: 'Pick a user',
         placeholder_multi: 'Pick one or more users',
+        nota_solo_con_cuenta: 'Only users with an account are shown. Kiosk-only members do not appear here.',
       },
       estado: { placeholder: 'Pick a state' },
       etiqueta: { placeholder: 'Pick a tag' },
