@@ -2167,7 +2167,7 @@ export interface Traducciones {
       canal_wa: { placeholder: string }
       plantilla_wa: { placeholder: string }
       tipo_actividad: { placeholder: string }
-      miembro: { placeholder: string; placeholder_multi: string }
+      miembro: { placeholder: string; placeholder_multi: string; nota_solo_con_cuenta: string }
       estado: { placeholder: string }
       etiqueta: { placeholder: string }
       plantilla_correo: { placeholder: string }

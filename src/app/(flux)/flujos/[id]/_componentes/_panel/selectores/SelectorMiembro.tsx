@@ -61,63 +61,72 @@ export default function SelectorMiembro(props: Props) {
     [opciones],
   )
 
+  const notaSinCuenta = (
+    <p className="text-[11px] text-texto-terciario mt-1">
+      {t('flujos.selector.miembro.nota_solo_con_cuenta')}
+    </p>
+  )
+
   if (props.multi === true) {
     const ids = props.valor
     const seleccionados = lista.filter((o) => ids.includes(o.id))
 
     return (
-      <SelectorPopoverBase
-        placeholder={t('flujos.selector.miembro.placeholder_multi')}
-        seleccionada={null}
-        opciones={lista}
-        cargando={cargando}
-        error={error}
-        mantenerAbierto
-        contenidoTrigger={
-          seleccionados.length > 0 ? (
-            <span className="flex flex-wrap gap-1">
-              {seleccionados.map((o) => (
-                <span
-                  key={o.id}
-                  className="inline-flex items-center gap-1 rounded bg-texto-marca/15 text-texto-marca px-1.5 py-0.5 text-xs"
-                >
-                  {o.etiqueta}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      props.onChange(ids.filter((id) => id !== o.id))
-                    }}
-                    className="size-3 inline-flex items-center justify-center rounded-full hover:bg-texto-marca/30"
+      <div>
+        <SelectorPopoverBase
+          placeholder={t('flujos.selector.miembro.placeholder_multi')}
+          seleccionada={null}
+          opciones={lista}
+          cargando={cargando}
+          error={error}
+          mantenerAbierto
+          contenidoTrigger={
+            seleccionados.length > 0 ? (
+              <span className="flex flex-wrap gap-1">
+                {seleccionados.map((o) => (
+                  <span
+                    key={o.id}
+                    className="inline-flex items-center gap-1 rounded bg-texto-marca/15 text-texto-marca px-1.5 py-0.5 text-xs"
                   >
-                    <X size={9} />
-                  </button>
-                </span>
-              ))}
-            </span>
-          ) : (
-            <span className="text-texto-placeholder text-sm">
-              {t('flujos.selector.miembro.placeholder_multi')}
-            </span>
-          )
-        }
-        onSeleccionar={(o) => {
-          const yaEsta = ids.includes(o.id)
-          props.onChange(yaEsta ? ids.filter((x) => x !== o.id) : [...ids, o.id])
-        }}
-        disabled={props.disabled}
-        renderOpcion={(o) => (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              readOnly
-              checked={ids.includes(o.id)}
-              className="cursor-pointer pointer-events-none"
-            />
-            <span>{o.etiqueta}</span>
-          </div>
-        )}
-      />
+                    {o.etiqueta}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        props.onChange(ids.filter((id) => id !== o.id))
+                      }}
+                      className="size-3 inline-flex items-center justify-center rounded-full hover:bg-texto-marca/30"
+                    >
+                      <X size={9} />
+                    </button>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span className="text-texto-placeholder text-sm">
+                {t('flujos.selector.miembro.placeholder_multi')}
+              </span>
+            )
+          }
+          onSeleccionar={(o) => {
+            const yaEsta = ids.includes(o.id)
+            props.onChange(yaEsta ? ids.filter((x) => x !== o.id) : [...ids, o.id])
+          }}
+          disabled={props.disabled}
+          renderOpcion={(o) => (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                readOnly
+                checked={ids.includes(o.id)}
+                className="cursor-pointer pointer-events-none"
+              />
+              <span>{o.etiqueta}</span>
+            </div>
+          )}
+        />
+        {notaSinCuenta}
+      </div>
     )
   }
 
@@ -125,14 +134,17 @@ export default function SelectorMiembro(props: Props) {
   const seleccionada = lista.find((o) => o.id === props.valor) ?? null
 
   return (
-    <SelectorPopoverBase
-      placeholder={t('flujos.selector.miembro.placeholder')}
-      seleccionada={seleccionada}
-      opciones={lista}
-      cargando={cargando}
-      error={error}
-      onSeleccionar={(o) => props.onChange(o.id)}
-      disabled={props.disabled}
-    />
+    <div>
+      <SelectorPopoverBase
+        placeholder={t('flujos.selector.miembro.placeholder')}
+        seleccionada={seleccionada}
+        opciones={lista}
+        cargando={cargando}
+        error={error}
+        onSeleccionar={(o) => props.onChange(o.id)}
+        disabled={props.disabled}
+      />
+      {notaSinCuenta}
+    </div>
   )
 }
