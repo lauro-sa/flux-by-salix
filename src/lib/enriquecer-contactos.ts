@@ -31,8 +31,8 @@ export type EnriquecimientoContacto = {
 /**
  * Devuelve un mapa por contacto_id con etapa, actividades y visitas
  * activas. "Activo" = actividad sin completar/cancelar y visita en estado
- * 'programada'. Las actividades se vinculan vía la columna `vinculo_ids`
- * (uuid[]) — no hay `contacto_id` directo en `actividades`.
+ * 'programada'. Las actividades se vinculan a contactos via la tabla N:M
+ * `actividades_relaciones` (sub-PR 20.6: reemplaza el legacy `vinculo_ids`).
  */
 export async function enriquecerContactos(
   admin: SupabaseClient,
@@ -42,6 +42,25 @@ export async function enriquecerContactos(
   const resultado: Record<string, EnriquecimientoContacto> = {}
   if (contactoIds.length === 0) return resultado
 
+  // Pre-query: relaciones contacto→actividad para los contactos de la
+  // página. De acá sacamos los actividad_ids a fetchear y la matriz
+  // contacto→actividades para agrupar después.
+  const { data: relsContacto } = await admin
+    .from('actividades_relaciones')
+    .select('actividad_id, entidad_id')
+    .eq('empresa_id', empresaId)
+    .eq('entidad_tipo', 'contacto')
+    .in('entidad_id', contactoIds)
+
+  const contactosPorActividad = new Map<string, string[]>()
+  const actividadIds = new Set<string>()
+  for (const r of (relsContacto || []) as Array<{ actividad_id: string; entidad_id: string }>) {
+    actividadIds.add(r.actividad_id)
+    const lista = contactosPorActividad.get(r.actividad_id) ?? []
+    lista.push(r.entidad_id)
+    contactosPorActividad.set(r.actividad_id, lista)
+  }
+
   const [resEtapas, resActividades, resVisitas] = await Promise.all([
     admin
       .from('conversaciones')
@@ -50,13 +69,15 @@ export async function enriquecerContactos(
       .not('etapa_id', 'is', null)
       .order('ultimo_mensaje_en', { ascending: false })
       .limit(contactoIds.length * 2),
-    admin
-      .from('actividades')
-      .select('vinculo_ids, tipo_id, tipo:tipos_actividad!tipo_id(id, etiqueta, color, icono)')
-      .eq('empresa_id', empresaId)
-      .filter('vinculo_ids', 'ov', `{${contactoIds.join(',')}}`)
-      .eq('en_papelera', false)
-      .not('estado_clave', 'in', '(completada,cancelada)'),
+    actividadIds.size > 0
+      ? admin
+          .from('actividades')
+          .select('id, tipo_id, tipo:tipos_actividad!tipo_id(id, etiqueta, color, icono)')
+          .eq('empresa_id', empresaId)
+          .in('id', [...actividadIds])
+          .eq('en_papelera', false)
+          .not('estado_clave', 'in', '(completada,cancelada)')
+      : Promise.resolve({ data: [] as Array<{ id: string; tipo_id: string; tipo: unknown }> }),
     admin
       .from('visitas')
       .select('contacto_id')
@@ -81,18 +102,16 @@ export async function enriquecerContactos(
     }
   }
 
-  // Una actividad puede estar vinculada a varios contactos; para cada
-  // contacto de la página intersectamos `vinculo_ids` y agrupamos por tipo.
-  const setIds = new Set(contactoIds)
+  // Para cada actividad activa, distribuir su tipo a los contactos de
+  // la página que la tienen vinculada (matriz precomputada arriba).
   const actividadesPorContacto: Record<string, Map<string, TipoActividadResumen>> = {}
   for (const a of resActividades.data || []) {
-    const vinculoIds = (a.vinculo_ids as string[] | null) || []
     const tipo = a.tipo as unknown as { id: string; etiqueta: string; color: string; icono: string | null } | null
     if (!tipo) continue
-    for (const vid of vinculoIds) {
-      if (!setIds.has(vid)) continue
-      if (!actividadesPorContacto[vid]) actividadesPorContacto[vid] = new Map()
-      const mapaTipos = actividadesPorContacto[vid]
+    const contactosDeAct = contactosPorActividad.get(a.id) ?? []
+    for (const cid of contactosDeAct) {
+      if (!actividadesPorContacto[cid]) actividadesPorContacto[cid] = new Map()
+      const mapaTipos = actividadesPorContacto[cid]
       const existente = mapaTipos.get(tipo.id)
       if (existente) {
         existente.cantidad += 1

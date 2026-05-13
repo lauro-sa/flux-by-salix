@@ -517,7 +517,7 @@ export async function DELETE(
 
 /**
  * Propaga el cambio de nombre de un contacto a todas las tablas que lo desnormalizan:
- * 1. Vínculos JSONB de actividades
+ * 1. Cache `entidad_nombre` en actividades_relaciones
  * 2. Conversaciones (contacto_nombre)
  * 3. Presupuestos (contacto_nombre, contacto_apellido)
  * Se ejecuta fire-and-forget para no bloquear la respuesta del PATCH.
@@ -532,35 +532,15 @@ async function propagarCambioNombreContacto(
   const nombre = partes[0] || ''
   const apellido = partes.slice(1).join(' ') || ''
 
-  // 1. Actualizar vínculos JSONB en actividades — obtener y actualizar en batch con Promise.all
-  const { data: actividades } = await admin
-    .from('actividades')
-    .select('id, vinculos')
-    .eq('empresa_id', empresaId)
-    .contains('vinculo_ids', [contactoId])
-
-  const updatesActividades: PromiseLike<unknown>[] = []
-  if (actividades && actividades.length > 0) {
-    for (const act of actividades) {
-      const vinculos = (act.vinculos || []) as { tipo: string; id: string; nombre: string }[]
-      let cambio = false
-      for (const v of vinculos) {
-        if (v.id === contactoId && v.nombre !== nombreNuevo) {
-          v.nombre = nombreNuevo
-          cambio = true
-        }
-      }
-      if (cambio) {
-        updatesActividades.push(
-          admin.from('actividades').update({ vinculos }).eq('id', act.id)
-        )
-      }
-    }
-  }
-
   // Ejecutar todos los updates en paralelo
   await Promise.all([
-    ...updatesActividades,
+    // 1. Cache de nombre en actividades_relaciones (reemplaza el sync de
+    //    vinculos jsonb legacy: un solo UPDATE batch sobre la tabla N:M).
+    admin.from('actividades_relaciones')
+      .update({ entidad_nombre: nombreNuevo })
+      .eq('empresa_id', empresaId)
+      .eq('entidad_tipo', 'contacto')
+      .eq('entidad_id', contactoId),
     // 2. Conversaciones
     admin.from('conversaciones')
       .update({ contacto_nombre: nombreNuevo })

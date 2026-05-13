@@ -273,26 +273,32 @@ export async function GET(request: NextRequest) {
     }
 
     // Filtro por actividades pendientes (con_pendientes / sin_pendientes).
-    // Las actividades usan vinculo_ids (text array) con GIN index.
-    if (actividades === 'con_pendientes') {
+    // Resolvemos contacto_ids con actividad pendiente vía JOIN
+    // actividades → actividades_relaciones (entidad_tipo='contacto').
+    if (actividades === 'con_pendientes' || actividades === 'sin_pendientes') {
       const { data: actPend } = await admin
         .from('actividades')
-        .select('vinculo_ids')
+        .select('id')
         .eq('empresa_id', empresaId)
         .eq('estado_clave', 'pendiente')
         .eq('en_papelera', false)
-      const idsContacto = [...new Set((actPend || []).flatMap(a => (a.vinculo_ids || []) as string[]))]
-      if (idsContacto.length > 0) query = query.in('id', idsContacto)
-      else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
-    } else if (actividades === 'sin_pendientes') {
-      const { data: actPend } = await admin
-        .from('actividades')
-        .select('vinculo_ids')
-        .eq('empresa_id', empresaId)
-        .eq('estado_clave', 'pendiente')
-        .eq('en_papelera', false)
-      const idsContacto = [...new Set((actPend || []).flatMap(a => (a.vinculo_ids || []) as string[]))]
-      if (idsContacto.length > 0) query = query.not('id', 'in', `(${idsContacto.join(',')})`)
+      const actIds = (actPend || []).map(a => a.id)
+      let idsContacto: string[] = []
+      if (actIds.length > 0) {
+        const { data: rels } = await admin
+          .from('actividades_relaciones')
+          .select('entidad_id')
+          .eq('empresa_id', empresaId)
+          .eq('entidad_tipo', 'contacto')
+          .in('actividad_id', actIds)
+        idsContacto = [...new Set((rels || []).map(r => r.entidad_id as string))]
+      }
+      if (actividades === 'con_pendientes') {
+        if (idsContacto.length > 0) query = query.in('id', idsContacto)
+        else return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      } else {
+        if (idsContacto.length > 0) query = query.not('id', 'in', `(${idsContacto.join(',')})`)
+      }
     }
 
     // Filtro por provincia / ciudad (match en cualquier dirección del contacto, acotado a la empresa).
