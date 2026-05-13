@@ -3,6 +3,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
+import { resolverNombreMiembro } from '@/lib/miembros/nombres'
 
 /**
  * POST /api/kiosco/identificar — Buscar empleado por código RFID/NFC/PIN.
@@ -64,12 +65,23 @@ export async function POST(request: NextRequest) {
     hace30dias.setDate(hace30dias.getDate() - 30)
 
     // 2) En paralelo: todo lo que depende solo de miembro.id + fechaHoy.
-    const [perfilRes, turnoAnteriorRes, turnoHoyRes, configAsistRes, solicitudesRes] = await Promise.all([
-      admin
-        .from('perfiles')
-        .select('nombre, apellido, avatar_url')
-        .eq('id', miembro.usuario_id)
-        .single(),
+    //    El nombre se resuelve con el helper compartido (perfil → contacto →
+    //    "Sin nombre") para que los miembros en modo "Solo fichaje" sin
+    //    usuario_id no caigan a un genérico tipo "Empleado".
+    //    El query a perfiles queda solo para el avatar_url (fallback opcional
+    //    cuando el miembro no tiene foto_kiosco_url propia).
+    const [perfilRes, nombreResuelto, turnoAnteriorRes, turnoHoyRes, configAsistRes, solicitudesRes] = await Promise.all([
+      miembro.usuario_id
+        ? admin
+            .from('perfiles')
+            .select('avatar_url')
+            .eq('id', miembro.usuario_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null as { avatar_url: string | null } | null }),
+      resolverNombreMiembro(admin, {
+        miembroId: miembro.id,
+        usuarioId: miembro.usuario_id ?? null,
+      }),
       admin
         .from('asistencias')
         .select('id, fecha, hora_salida')
@@ -107,9 +119,7 @@ export async function POST(request: NextRequest) {
     const descontarAlmuerzo = (configAsistRes.data?.descontar_almuerzo as boolean | null) ?? true
     const cantidadSolicitudes = solicitudesRes.count
 
-    const nombre = perfil
-      ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
-      : 'Empleado'
+    const nombre = nombreResuelto
     const fotoPerfilUrl = miembro.foto_kiosco_url || perfil?.avatar_url || null
 
     // 3) Fire-and-forget: cierre de turno anterior + último_ping del terminal.

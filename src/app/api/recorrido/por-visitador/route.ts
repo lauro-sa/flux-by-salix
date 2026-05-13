@@ -2,12 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
+import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 
 /**
  * GET /api/recorrido/por-visitador — Obtener o crear el recorrido de un visitador para una fecha.
  * Acepta ?usuario_id=UUID&fecha=YYYY-MM-DD
  * Usado por coordinadores desde PanelPlanificacion > ModalRecorrido.
- * Requiere permiso recorrido.ver_todos (coordinador).
+ * Permiso: visitas.asignar (función de coordinación, no de recorrido propio).
+ * Así un coordinador que NO es visitador (sin recorrido.ver_propio) puede igual
+ * organizar el recorrido del equipo desde la pestaña de Planificación.
  *
  * Sincronización bidireccional SOLO sobre paradas tipo 'visita':
  *   - Las paradas genéricas (tipo='parada') agregadas manualmente por el visitador o el
@@ -15,7 +18,7 @@ import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
  */
 export async function GET(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'ver_todos')
+    const guard = await requerirPermisoAPI('visitas', 'asignar')
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 
@@ -27,6 +30,17 @@ export async function GET(request: NextRequest) {
     if (!usuarioId || !fechaParam || !/^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
       return NextResponse.json({ error: 'Parámetros requeridos: usuario_id y fecha (YYYY-MM-DD)' }, { status: 400 })
     }
+
+    // Rango del día YYYY-MM-DD en la zona horaria de la empresa. Usar UTC duro
+    // (T00:00:00Z..T23:59:59Z) pierde visitas tarde-noche en zonas con offset
+    // negativo (ej: Argentina UTC-3 → 21:00 local cae al día siguiente UTC).
+    const { data: empresaTz } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .maybeSingle()
+    const zonaEmpresa = (empresaTz?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const rangoDia = obtenerInicioFinDiaEnZona(zonaEmpresa, new Date(`${fechaParam}T12:00:00Z`))
 
     // Buscar recorrido existente para ese visitador y fecha
     const { data: recorrido } = await admin
@@ -66,16 +80,13 @@ export async function GET(request: NextRequest) {
       }
 
       // 2. Buscar visitas activas del día sin parada correspondiente
-      const inicioDelDia = `${fechaParam}T00:00:00.000Z`
-      const finDelDia = `${fechaParam}T23:59:59.999Z`
-
       const { data: visitasDelDia } = await admin
         .from('visitas')
         .select('id')
         .eq('empresa_id', empresaId)
         .eq('asignado_a', usuarioId)
-        .gte('fecha_programada', inicioDelDia)
-        .lte('fecha_programada', finDelDia)
+        .gte('fecha_programada', rangoDia.inicio)
+        .lte('fecha_programada', rangoDia.fin)
         .eq('en_papelera', false)
         .neq('estado', 'cancelada')
 
@@ -123,16 +134,13 @@ export async function GET(request: NextRequest) {
     }
 
     // No existe — buscar visitas del día para ese visitador y crear el recorrido
-    const inicioDelDia = `${fechaParam}T00:00:00.000Z`
-    const finDelDia = `${fechaParam}T23:59:59.999Z`
-
     const { data: visitasDelDia } = await admin
       .from('visitas')
       .select('*')
       .eq('empresa_id', empresaId)
       .eq('asignado_a', usuarioId)
-      .gte('fecha_programada', inicioDelDia)
-      .lte('fecha_programada', finDelDia)
+      .gte('fecha_programada', rangoDia.inicio)
+      .lte('fecha_programada', rangoDia.fin)
       .eq('en_papelera', false)
       .neq('estado', 'cancelada')
       .order('fecha_programada', { ascending: true })

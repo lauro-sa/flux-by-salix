@@ -5,6 +5,7 @@ import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { COLOR_ETIQUETA_DEFECTO, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { registrarReciente } from '@/lib/recientes'
+import { recalcularFechaVencimientoDesdeBloques } from '@/lib/actividades-sync'
 
 /**
  * GET /api/calendario — Listar eventos del calendario en un rango de fechas.
@@ -282,6 +283,12 @@ export async function POST(request: NextRequest) {
       subtitulo: data.todo_el_dia ? 'Todo el día' : undefined,
       accion: 'creado',
     })
+
+    // Sincronizar fecha_vencimiento de la actividad si el bloque está vinculado
+    // a una actividad de tipo ejecutable (campo_calendario=true).
+    if (data.actividad_id) {
+      await recalcularFechaVencimientoDesdeBloques(data.actividad_id, empresaId)
+    }
 
     return NextResponse.json(data, { status: 201 })
   } catch {

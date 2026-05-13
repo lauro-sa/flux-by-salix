@@ -294,12 +294,12 @@ export default function PaginaListadoTiposActividad() {
             },
           ]}
           onLimpiarFiltros={() => { setFiltroActivo(''); setFiltroOrigen('') }}
+          // Tipos de sistema: sin href (no se pueden editar) → cae al onClickFila con toast.
+          // Tipos de usuario: navegación nativa (middle-click, Cmd+click, etc. soportados).
+          hrefFila={(t) => t.es_sistema ? undefined : `/actividades/configuracion/tipos/${t.id}`}
+          ariaLabelFila={(t) => `Abrir tipo de actividad ${t.etiqueta || t.id}`}
           onClickFila={(t) => {
-            if (t.es_sistema) {
-              mostrar('info', 'Los tipos de sistema no se pueden editar')
-              return
-            }
-            router.push(`/actividades/configuracion/tipos/${t.id}`)
+            if (t.es_sistema) mostrar('info', 'Los tipos de sistema no se pueden editar')
           }}
           idModulo="tipos_actividad"
           filasReordenables

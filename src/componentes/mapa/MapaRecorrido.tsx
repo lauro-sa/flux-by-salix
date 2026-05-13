@@ -266,6 +266,13 @@ function CapturadorMapa({ onMapa }: { onMapa: (mapa: google.maps.Map | null) => 
 
 /**
  * Dibuja la ruta REAL por calles usando DirectionsService + DirectionsRenderer.
+ *
+ * IMPORTANTE: filtra las paradas con estado completada/cancelada antes de
+ * calcular la ruta. Si el visitador cancela o termina una visita, la ruta
+ * dibujada se redibuja sin esa parada y arranca desde la ubicación actual
+ * del visitador (origen GPS) hacia la siguiente parada pendiente. Los
+ * marcadores de las completadas/canceladas siguen viéndose en el mapa con
+ * su color de estado — solo cambia la línea de la ruta.
  */
 function RutaReal({
   puntos,
@@ -274,7 +281,7 @@ function RutaReal({
   preferencia,
   onInfoRuta,
 }: {
-  puntos: { lat: number; lng: number }[]
+  puntos: PuntoMapa[]
   origen?: { lat: number; lng: number }
   destino?: { lat: number; lng: number }
   preferencia: PreferenciaRuta
@@ -284,8 +291,12 @@ function RutaReal({
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null)
   const serviceRef = useRef<google.maps.DirectionsService | null>(null)
 
+  // Solo dibujar tramo hacia paradas pendientes. Las completadas/canceladas
+  // quedan como marcadores históricos pero no influyen en la línea.
+  const puntosActivos = puntos.filter(p => p.estado !== 'completada' && p.estado !== 'cancelada')
+
   useEffect(() => {
-    if (!mapa || puntos.length === 0) return
+    if (!mapa) return
 
     if (!serviceRef.current) {
       serviceRef.current = new google.maps.DirectionsService()
@@ -305,19 +316,30 @@ function RutaReal({
 
     rendererRef.current.setMap(mapa)
 
+    // Si no quedan paradas activas, limpiar cualquier ruta previa y avisar 0/0.
+    if (puntosActivos.length === 0) {
+      // setDirections con un resultado falso no se puede, pero setMap(null) +
+      // re-setMap recrea el renderer sin polyline. Más simple: setMap(null)
+      // y dejar que la próxima render lo vuelva a montar si hace falta.
+      rendererRef.current.setMap(null)
+      rendererRef.current = null
+      onInfoRuta?.({ distancia_km: 0, duracion_min: 0 })
+      return
+    }
+
     // Si el origen GPS está muy lejos de las paradas (>500km), ignorarlo
     const origenCercano = (() => {
-      if (!origen || puntos.length === 0) return null
-      const dLat = Math.abs(origen.lat - puntos[0].lat)
-      const dLng = Math.abs(origen.lng - puntos[0].lng)
+      if (!origen) return null
+      const dLat = Math.abs(origen.lat - puntosActivos[0].lat)
+      const dLng = Math.abs(origen.lng - puntosActivos[0].lng)
       return (dLat + dLng) < 5 ? origen : null
     })()
 
-    const puntoOrigen = origenCercano || puntos[0]
-    const puntoDestino = destino || puntos[puntos.length - 1]
+    const puntoOrigen = origenCercano || puntosActivos[0]
+    const puntoDestino = destino || puntosActivos[puntosActivos.length - 1]
     const paradasWaypoints = destino
-      ? puntos
-      : (origenCercano ? puntos.slice(0, -1) : puntos.slice(1, -1))
+      ? puntosActivos
+      : (origenCercano ? puntosActivos.slice(0, -1) : puntosActivos.slice(1, -1))
     const waypoints = paradasWaypoints.map((p) => ({
       location: new google.maps.LatLng(p.lat, p.lng),
       stopover: true,
@@ -351,7 +373,10 @@ function RutaReal({
     return () => {
       rendererRef.current?.setMap(null)
     }
-  }, [mapa, puntos, origen, destino, preferencia, onInfoRuta])
+    // Re-ejecutar cuando cambian los estados de las paradas (cancelar/completar)
+    // — usamos un fingerprint estable para no disparar por nuevas referencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapa, JSON.stringify(puntos.map(p => ({ id: p.id, lat: p.lat, lng: p.lng, estado: p.estado }))), origen?.lat, origen?.lng, destino?.lat, destino?.lng, preferencia])
 
   return null
 }

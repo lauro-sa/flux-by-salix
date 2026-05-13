@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useState, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, CheckCheck, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -28,8 +29,10 @@ export interface ItemNotificacion {
   leida?: boolean
   /** Insignia o etiqueta extra a la derecha */
   insignia?: ReactNode
-  /** Callback al hacer click en el item */
+  /** Callback al hacer click — side-effects (marcar leída, cerrar popover, etc.). Si hay `href` la navegación la hace el <Link>. */
   onClick?: () => void
+  /** URL destino — habilita middle-click / Cmd+click / menú contextual nativo. Si está presente, la fila se renderiza como <a>. */
+  href?: string
   /** Datos extra que el consumidor puede usar */
   datos?: Record<string, unknown>
   /** Sub-items (para grupos expandibles al mantener hover 1.5s) */
@@ -72,18 +75,33 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
 }) {
   const tieneSubItems = item.subItems && item.subItems.length > 1
 
+  // Si hay href → render como <Link> real (habilita middle-click / Cmd+click / menú nativo).
+  // Si no → div clickeable tradicional con role=button para accesibilidad.
+  const ContenedorFila: React.ElementType = item.href ? Link : 'div'
+  const propsContenedor = item.href
+    ? { href: item.href, onClick: item.onClick }
+    : {
+        onClick: item.onClick,
+        role: item.onClick ? 'button' as const : undefined,
+        tabIndex: item.onClick ? 0 : undefined,
+        onKeyDown: item.onClick ? (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.onClick?.() }
+        } : undefined,
+      }
+
   return (
-    <div>
-      {/* Fila principal */}
-      <div
-        onClick={item.onClick}
-        role={item.onClick ? 'button' : undefined}
-        tabIndex={item.onClick ? 0 : undefined}
+    <div className="group relative">
+      {/* Fila principal — <Link> cuando hay href (middle-click, etc.), <div> para casos sin URL.
+          El botón "Descartar" se renderiza FUERA del Link como sibling absoluto para no anidar
+          interactivos dentro de un <a> (HTML inválido). */}
+      <ContenedorFila
+        {...propsContenedor}
         aria-label={`${!item.leida ? 'No leída: ' : ''}${item.titulo}${item.descripcion ? ` — ${item.descripcion}` : ''}`}
-        onKeyDown={item.onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.onClick?.() } } : undefined}
         className={[
-          'group flex items-start gap-3 px-4 py-3 border-b border-borde-sutil/50 transition-colors relative',
-          item.onClick ? 'cursor-pointer hover:bg-superficie-hover' : '',
+          'flex items-start gap-3 px-4 py-3 border-b border-borde-sutil/50 transition-colors relative no-underline',
+          'text-texto-primario',
+          onDescartar ? 'pr-12' : '',
+          (item.onClick || item.href) ? 'cursor-pointer hover:bg-superficie-hover' : '',
           !item.leida ? 'bg-superficie-seleccionada/30' : '',
         ].join(' ')}
       >
@@ -109,17 +127,17 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
             </div>
           )}
         </div>
-        {onDescartar && (
-          <Tooltip contenido="Descartar">
-            <button
-              onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
-              className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-boton bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
-            >
-              <Trash2 size={13} />
-            </button>
-          </Tooltip>
-        )}
-      </div>
+      </ContenedorFila>
+      {onDescartar && (
+        <Tooltip contenido="Descartar">
+          <button
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDescartar(item.id) }}
+            className="absolute top-3 right-4 z-10 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-boton bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all"
+          >
+            <Trash2 size={13} />
+          </button>
+        </Tooltip>
+      )}
 
       {/* Sub-items expandidos con CSS transition */}
       {tieneSubItems && (
@@ -127,28 +145,33 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
           className="overflow-hidden transition-all duration-300 ease-out"
           style={{ maxHeight: expandido ? `${item.subItems!.length * 52}px` : '0px', opacity: expandido ? 1 : 0 }}
         >
-          {item.subItems!.map((sub) => (
-            <div
-              key={sub.id}
-              onClick={sub.onClick}
-              className="flex items-start gap-3 pl-11 pr-4 py-2 border-b border-borde-sutil/30 cursor-pointer hover:bg-superficie-hover/50 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-texto-secundario truncate">{sub.titulo}</p>
-                {(sub.descripcion || sub.insignia) && (
-                  <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                    {sub.insignia}
-                    {sub.descripcion && (
-                      <p className="text-xxs text-texto-terciario truncate min-w-0">{sub.descripcion}</p>
-                    )}
-                  </div>
+          {item.subItems!.map((sub) => {
+            // Mismo patrón que el item padre: Link cuando hay href, div para callbacks puros.
+            const ContSub: React.ElementType = sub.href ? Link : 'div'
+            const propsSub = sub.href ? { href: sub.href, onClick: sub.onClick } : { onClick: sub.onClick }
+            return (
+              <ContSub
+                key={sub.id}
+                {...propsSub}
+                className="flex items-start gap-3 pl-11 pr-4 py-2 border-b border-borde-sutil/30 cursor-pointer hover:bg-superficie-hover/50 transition-colors no-underline text-texto-primario"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-texto-secundario truncate">{sub.titulo}</p>
+                  {(sub.descripcion || sub.insignia) && (
+                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                      {sub.insignia}
+                      {sub.descripcion && (
+                        <p className="text-xxs text-texto-terciario truncate min-w-0">{sub.descripcion}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {sub.tiempo && (
+                  <span className="text-xxs text-texto-terciario shrink-0">{sub.tiempo}</span>
                 )}
-              </div>
-              {sub.tiempo && (
-                <span className="text-xxs text-texto-terciario shrink-0">{sub.tiempo}</span>
-              )}
-            </div>
-          ))}
+              </ContSub>
+            )
+          })}
         </div>
       )}
     </div>

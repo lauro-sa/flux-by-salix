@@ -331,7 +331,8 @@ export default function PaginaListadoRespuestasCorreo() {
             },
           ]}
           onLimpiarFiltros={() => { setFiltroAutor(''); setFiltroModulos([]) }}
-          onClickFila={(p) => router.push(`/inbox/configuracion/respuestas-rapidas/${p.id}`)}
+          hrefFila={(p) => `/inbox/configuracion/respuestas-rapidas/${p.id}`}
+          ariaLabelFila={(p) => `Abrir respuesta rápida ${p.nombre || p.id}`}
           accionesLote={[
             {
               id: 'eliminar',

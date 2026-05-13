@@ -12,20 +12,27 @@ import { ESTADOS_ASISTENCIA, obtenerDiasMes } from './constantes'
    ItemMenu — Ítem de menú dropdown
    ═══════════════════════════════════════════════════ */
 
-export function ItemMenu({ icono, children, onClick, variante = 'normal' }: {
+export function ItemMenu({ icono, children, onClick, variante = 'normal', deshabilitado = false, motivoDeshabilitado }: {
   icono: React.ReactNode
   children: React.ReactNode
   onClick: () => void
   variante?: 'normal' | 'advertencia' | 'peligro'
+  /** Bloquea el click y baja la opacidad. */
+  deshabilitado?: boolean
+  /** Texto que se muestra como tooltip nativo cuando está deshabilitado (ej: "Requiere cuenta Flux activa"). */
+  motivoDeshabilitado?: string
 }) {
   return (
-    <OpcionMenu
-      icono={icono}
-      peligro={variante === 'peligro'}
-      onClick={onClick}
-    >
-      {children}
-    </OpcionMenu>
+    <span title={deshabilitado ? motivoDeshabilitado : undefined} className="block">
+      <OpcionMenu
+        icono={icono}
+        peligro={variante === 'peligro'}
+        onClick={onClick}
+        disabled={deshabilitado}
+      >
+        {children}
+      </OpcionMenu>
+    </span>
   )
 }
 

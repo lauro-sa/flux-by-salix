@@ -86,6 +86,49 @@ export function obtenerInicioFinDiaEnZona(
   }
 }
 
+/**
+ * Devuelve un texto relativo en español respecto a hoy (a nivel día).
+ * Ejemplos: "Hoy", "Mañana", "Ayer", "En 5 días", "Hace 2 semanas",
+ * "En 1 mes", "Hace 45 días", "En 2 meses", "Hace 1 año".
+ *
+ * Reglas:
+ * - 0 días → "Hoy" — 1 día → "Mañana"/"Ayer"
+ * - múltiplos exactos de 7 (hasta 49) → semanas
+ * - 30 días exactos → "1 mes"
+ * - ≥ 60 días → meses (redondeado a 30) — ≥ 365 → años
+ * - el resto → días
+ */
+export function tiempoRelativoDias(fecha: Date | string): string {
+  const target = typeof fecha === 'string' ? new Date(fecha) : new Date(fecha.getTime())
+  target.setHours(0, 0, 0, 0)
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const diffDias = Math.round((target.getTime() - hoy.getTime()) / 86400000)
+
+  if (diffDias === 0) return 'Hoy'
+  if (diffDias === 1) return 'Mañana'
+  if (diffDias === -1) return 'Ayer'
+
+  const futuro = diffDias > 0
+  const abs = Math.abs(diffDias)
+  const prefijo = futuro ? 'En' : 'Hace'
+
+  if (abs >= 365) {
+    const anios = Math.round(abs / 365)
+    return `${prefijo} ${anios} ${anios === 1 ? 'año' : 'años'}`
+  }
+  if (abs >= 60) {
+    const meses = Math.round(abs / 30)
+    return `${prefijo} ${meses} ${meses === 1 ? 'mes' : 'meses'}`
+  }
+  if (abs === 30) return `${prefijo} 1 mes`
+  if (abs >= 7 && abs % 7 === 0) {
+    const semanas = abs / 7
+    return `${prefijo} ${semanas} ${semanas === 1 ? 'semana' : 'semanas'}`
+  }
+  return `${prefijo} ${abs} días`
+}
+
 /** Offset (en minutos) entre la zona indicada y UTC, para un instante dado. */
 function obtenerOffsetMinutos(zonaHoraria: string, fecha: Date): number {
   const partes = new Intl.DateTimeFormat('en-GB', {

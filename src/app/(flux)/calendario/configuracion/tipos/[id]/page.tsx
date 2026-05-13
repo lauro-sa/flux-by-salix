@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorTipoEvento } from '@/componentes/entidad/_editor_tipo_evento/PaginaEditorTipoEvento'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { TipoEventoCalendario } from '../../_tipos'
 
 export default function PaginaEditarTipoEvento() {
@@ -14,6 +15,7 @@ export default function PaginaEditarTipoEvento() {
 
   const [tipo, setTipo] = useState<TipoEventoCalendario | null>(null)
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(tipo?.etiqueta || null)
 
   useEffect(() => {
     let cancelado = false

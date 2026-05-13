@@ -1195,10 +1195,14 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
           { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
           { etiqueta: t('comun.nombre_za'), clave: 'nombre', direccion: 'desc' },
         ]}
-        onClickFila={(fila) => {
-          // Guardar IDs de la lista actual para navegación anterior/siguiente
+        // hrefFila habilita middle-click / Cmd+click / menú contextual nativo.
+        hrefFila={(fila) => `/contactos/${fila.id}`}
+        ariaLabelFila={(fila) => `Abrir contacto ${fila.nombre || fila.id}`}
+        // Side-effect en click izquierdo normal: guardar IDs para navegación anterior/siguiente
+        // en la página de detalle. En middle-click/nueva pestaña no se ejecuta (deseado: la nueva
+        // pestaña abre sin "lista actual", lo cual evita confusión entre contextos).
+        onClickFila={() => {
           try { sessionStorage.setItem('contactos_lista_ids', JSON.stringify(contactos.map(c => c.id))) } catch {}
-          router.push(`/contactos/${fila.id}`)
         }}
         renderTarjeta={renderizarTarjeta}
         gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorCondicionPago } from '@/componentes/entidad/_editor_condicion_pago/PaginaEditorCondicionPago'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { CondicionPago } from '@/tipos/presupuesto'
 
 export default function PaginaEditarCondicionPago() {
@@ -15,6 +16,7 @@ export default function PaginaEditarCondicionPago() {
   const [condicion, setCondicion] = useState<CondicionPago | null>(null)
   const [condicionesActuales, setCondicionesActuales] = useState<CondicionPago[]>([])
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(condicion?.label || null)
 
   useEffect(() => {
     let cancelado = false

@@ -32,6 +32,17 @@ export async function GET() {
       const diaLocal = new Date(fechaHoy + 'T12:00:00')
       const diaHoy = diasSemana[diaLocal.getDay()]
 
+      // Si la empresa tiene fichaje automático habilitado no enviamos
+      // recordatorios: el sistema va a fichar solo en cuanto detecte
+      // actividad, así que el recordatorio sería ruido (el usuario lo
+      // marcó como tal en el reporte de notificaciones acumuladas).
+      const { data: configAsist } = await admin
+        .from('config_asistencias')
+        .select('fichaje_auto_habilitado')
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (configAsist?.fichaje_auto_habilitado) continue
+
       // Obtener turnos
       const { data: turnos } = await admin
         .from('turnos_laborales')

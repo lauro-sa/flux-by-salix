@@ -85,7 +85,9 @@ interface PropiedadesSelectorContacto {
   /** Cuando se selecciona un hijo vinculado: padre como cliente, hijo como dirigido a */
   onSeleccionarConDirigidoA?: (padre: ContactoResultado, hijoId: string) => void
   /** Cuando el usuario cambia la dirección seleccionada */
-  onCambiarDireccion?: (direccionId: string) => void
+  onCambiarDireccion?: (direccionId: string, texto: string) => void
+  /** ID de la dirección elegida (override del principal por defecto) */
+  direccionIdSeleccionada?: string | null
   soloLectura?: boolean
   error?: boolean
   /** Foco automático al montar (ej. al crear presupuesto nuevo) */
@@ -99,6 +101,7 @@ export default function SelectorContactoPresupuesto({
   onChange,
   onSeleccionarConDirigidoA,
   onCambiarDireccion,
+  direccionIdSeleccionada,
   soloLectura = false,
   error = false,
   autoFocus = false,
@@ -203,9 +206,12 @@ export default function SelectorContactoPresupuesto({
   const telefonoMostrar = contacto?.whatsapp || contacto?.telefono || null
   const esTelefonoWhatsapp = !!contacto?.whatsapp
 
-  // Direcciones disponibles
+  // Direcciones disponibles. Si hay una seleccionada explícitamente (ej. snapshot
+  // del presupuesto guardado), tiene prioridad sobre la principal.
   const direcciones = contacto?.direcciones?.filter(d => d.texto) || []
-  const direccionActual = direcciones.find(d => d.es_principal) || direcciones[0] || null
+  const direccionActual = (direccionIdSeleccionada
+    ? direcciones.find(d => d.id === direccionIdSeleccionada)
+    : null) || direcciones.find(d => d.es_principal) || direcciones[0] || null
 
   // Etiquetas de tipo de dirección
   const etiquetaTipoDireccion = (tipo?: string) => {
@@ -262,7 +268,7 @@ export default function SelectorContactoPresupuesto({
                       value={direccionActual?.id || ''}
                       onChange={(e) => {
                         const dir = direcciones.find(d => d.id === e.target.value)
-                        if (dir && onCambiarDireccion) onCambiarDireccion(dir.id || '')
+                        if (dir && onCambiarDireccion) onCambiarDireccion(dir.id || '', dir.texto || '')
                       }}
                     >
                       {direcciones.map((d, i) => (

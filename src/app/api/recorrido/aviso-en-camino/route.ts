@@ -6,9 +6,8 @@ import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsa
 import { normalizarTelefono, generarVariantesTelefono } from '@/lib/validaciones'
 import { calcularETA, redondearETA, formatearETATexto } from '@/lib/eta'
 import { resolverTextoPlantilla, resolverParametrosCuerpo } from '@/lib/whatsapp/variables'
+import { resolverPlantillaAviso, nombreApiDefault } from '@/lib/recorrido-plantilla-aviso'
 import type { CuerpoPlantillaWA } from '@/tipos/whatsapp'
-
-const NOMBRE_PLANTILLA = 'flux_aviso_en_camino'
 
 /**
  * POST /api/recorrido/aviso-en-camino
@@ -114,14 +113,12 @@ export async function POST(request: NextRequest) {
 
     const etaComunicado = etaReal != null ? redondearETA(etaReal) : null
 
-    // 4. Obtener plantilla de la empresa
-    const { data: plantilla } = await admin
-      .from('plantillas_whatsapp')
-      .select('id, idioma, estado_meta, componentes, canal_id')
-      .eq('empresa_id', empresaId)
-      .eq('nombre_api', NOMBRE_PLANTILLA)
-      .eq('activo', true)
-      .maybeSingle()
+    // 4. Obtener plantilla — primero la elegida por la empresa en config_visitas,
+    //    si no, la del seed por nombre_api. Devuelve también el nombre_api con el
+    //    que invocar a Meta (puede ser custom).
+    const resuelta = await resolverPlantillaAviso(admin, empresaId, 'en_camino')
+    const plantilla = resuelta?.plantilla ?? null
+    const nombreApiUsar = resuelta?.nombreApi ?? nombreApiDefault('en_camino')
 
     const estadoPlantilla: string = plantilla?.estado_meta || 'FALTANTE'
     const plantillaLista = estadoPlantilla === 'APPROVED'
@@ -169,7 +166,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El contacto no tiene teléfono de WhatsApp' }, { status: 400 })
     }
     if (!plantilla) {
-      return NextResponse.json({ error: `Plantilla ${NOMBRE_PLANTILLA} no existe en esta empresa` }, { status: 400 })
+      return NextResponse.json({ error: `Plantilla ${nombreApiUsar} no existe en esta empresa` }, { status: 400 })
     }
     if (!plantillaLista) {
       return NextResponse.json({
@@ -217,7 +214,7 @@ export async function POST(request: NextRequest) {
       const resultado = await enviarPlantillaWhatsApp(
         config,
         telConPlus,
-        NOMBRE_PLANTILLA,
+        nombreApiUsar,
         plantilla.idioma || 'es',
         plantillaComponentes,
       )
@@ -327,7 +324,7 @@ export async function POST(request: NextRequest) {
         accion: 'whatsapp_enviado',
         whatsapp_numero: telefonoCanonico,
         whatsapp_destinatario: nombreDestinatario || undefined,
-        whatsapp_plantilla: NOMBRE_PLANTILLA,
+        whatsapp_plantilla: nombreApiUsar,
         wa_message_id: waMessageId,
         detalles: {
           contexto: 'aviso_en_camino',

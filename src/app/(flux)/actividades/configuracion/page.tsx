@@ -9,14 +9,43 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useRol } from '@/hooks/useRol'
 import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import { SeccionEstados, type EstadoActividad } from './secciones/SeccionEstados'
 import { SeccionPosposicion } from './secciones/SeccionPosposicion'
 import { SeccionHorarioLaboral } from './secciones/SeccionHorarioLaboral'
+import { MODULOS_DISPONIBLES, type TipoActividad } from './_tipos'
 
 /**
  * Página de configuración de Actividades.
  * Secciones: Tipos, Estados, Posposición, Horario laboral, Notificaciones, Automatizaciones.
  */
+
+const ETIQUETA_MODULO = new Map(MODULOS_DISPONIBLES.map(m => [m.clave, m.etiqueta]))
+
+// Definida fuera del componente para que la referencia sea estable
+// y el useEffect del PreviewSeccionExterna no se dispare en cada render.
+function extraerTiposActividad(data: unknown): ItemPreview[] {
+  const tipos = ((data as { tipos?: TipoActividad[] })?.tipos) || []
+  return tipos
+    .filter(t => t.activo)
+    .sort((a, b) => a.orden - b.orden)
+    .map(t => ({
+      id: t.id,
+      icono: t.icono,
+      color: t.color,
+      etiqueta: t.etiqueta,
+      subEtiqueta: t.abreviacion || t.clave,
+      badges: (t.modulos_disponibles || []).slice(0, 3).map(m => ({
+        texto: ETIQUETA_MODULO.get(m) || m,
+      })),
+      origen: t.es_sistema
+        ? { texto: 'Sistema', tono: 'sistema' }
+        : t.es_predefinido
+          ? { texto: 'Predefinido', tono: 'predefinido' }
+          : { texto: 'Personalizado', tono: 'personalizado' },
+    }))
+}
+
 export default function PaginaConfiguracionActividades() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -93,14 +122,23 @@ export default function PaginaConfiguracionActividades() {
       onVolver={() => router.push('/actividades')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        if (id === 'tipos') {
-          router.push('/actividades/configuracion/tipos')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
+      {seccionActiva === 'tipos' && (
+        <PreviewSeccionExterna
+          titulo="Tipos de actividad"
+          descripcion="Personalizá qué tipos puede crear tu equipo, con su ícono, color y reglas de comportamiento."
+          endpoint="/api/actividades/config"
+          extraerItems={extraerTiposActividad}
+          hrefDestino="/actividades/configuracion/tipos"
+          textoBoton="Gestionar tipos"
+          etiquetaItem={{ singular: 'tipo', plural: 'tipos' }}
+          textoVacio={{
+            titulo: 'No hay tipos configurados',
+            descripcion: 'Creá el primer tipo desde la página de gestión.',
+          }}
+        />
+      )}
       {seccionActiva === 'estados' && (
         <SeccionEstados
           estados={estados}

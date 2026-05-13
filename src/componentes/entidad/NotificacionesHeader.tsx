@@ -216,6 +216,14 @@ function extraerTituloActividad(n: Notificacion): string | undefined {
   return partes.slice(1).join(' · ')
 }
 
+/** URL destino de una notificación — usada como `href` real para soportar middle-click / Cmd+click. */
+function urlDeNotificacion(n: Notificacion): string | undefined {
+  if (n.referencia_tipo === 'actividad' && n.referencia_id) {
+    return `/actividades?actividad_id=${n.referencia_id}`
+  }
+  return n.url || undefined
+}
+
 function notificacionAItem(
   grupo: { ultima: Notificacion; ids: string[]; noLeidas: Notificacion[] },
   onClickItem: (n: Notificacion, ids: string[]) => void,
@@ -235,6 +243,7 @@ function notificacionAItem(
     insignia: renderizarPildoraTipo(n),
     tiempo: tiempoRelativo(n.creada_en, locale),
     leida: false,
+    href: urlDeNotificacion(n),
     onClick: () => onClickItem(n, ids),
     datos: { ids },
     subItems: cantidad > 1
@@ -245,6 +254,7 @@ function notificacionAItem(
           insignia: renderizarPildoraTipo(sub),
           tiempo: tiempoRelativo(sub.creada_en, locale),
           leida: sub.leida,
+          href: urlDeNotificacion(sub),
           onClick: () => onClickItem(sub, [sub.id]),
         }))
       : undefined,
@@ -508,16 +518,21 @@ function NotificacionesHeader() {
 
   const pendientes = usePendientes()
 
+  // Side-effects al hacer click izquierdo: marcar leídas + cerrar popover.
+  // La navegación la hace el <Link> dentro de PanelNotificaciones (habilita middle-click,
+  // Cmd+click → nueva pestaña, click derecho → menú contextual nativo).
+  // Si la notificación no tiene href (ej. tipo desconocido sin url), navegamos manualmente
+  // como fallback para no romper el comportamiento previo.
   const handleClickItem = useCallback((n: Notificacion, idsGrupo?: string[]) => {
     const ids = idsGrupo && idsGrupo.length > 0 ? idsGrupo : [n.id]
     marcarLeidas(ids)
     setPopoverAbierto(null)
-    if (n.referencia_tipo === 'actividad' && n.referencia_id) {
-      router.push(`/actividades?actividad_id=${n.referencia_id}`)
-    } else if (n.url) {
-      router.push(n.url)
+    if (!urlDeNotificacion(n)) {
+      // Sin URL → caso edge: dejamos el flujo previo por si alguna notificación legacy
+      // depende de side-effects de router.push aunque no haya destino.
+      return
     }
-  }, [marcarLeidas, router])
+  }, [marcarLeidas])
 
   /* Conteos de no leídas por sub-filtro del inbox */
   const itemsInbox = porCategoria('inbox')

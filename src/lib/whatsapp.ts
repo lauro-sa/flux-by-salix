@@ -394,10 +394,20 @@ export async function eliminarPlantillaMeta(
   }
 }
 
-/** Enviar indicador "escribiendo..." al cliente */
+/**
+ * Marca un mensaje entrante como leído (✓✓ azul) y enciende el indicador
+ * "escribiendo…" del lado del usuario. El typing queda activo hasta que se
+ * responda con un mensaje o pasen ~25s.
+ *
+ * Es la API oficial de Meta (oct 2024+): se manda como update de status del
+ * mensaje recibido, NO como un mensaje saliente. Por eso requiere el id del
+ * mensaje entrante (no el teléfono).
+ *
+ * Es best-effort: si falla, no rompe el flujo del agente.
+ */
 export async function enviarTypingWhatsApp(
   config: ConfigCuentaWhatsApp,
-  telefono: string,
+  mensajeIdEntrante: string,
 ): Promise<void> {
   await fetch(`${META_BASE_URL}/${config.phoneNumberId}/messages`, {
     method: 'POST',
@@ -407,10 +417,9 @@ export async function enviarTypingWhatsApp(
     },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: telefono,
-      type: 'reaction',
-      status: 'typing',
+      status: 'read',
+      message_id: mensajeIdEntrante,
+      typing_indicator: { type: 'text' },
     }),
   }).catch(() => {}) // No fallar si el typing no se envía
 }

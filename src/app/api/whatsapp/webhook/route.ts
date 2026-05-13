@@ -399,38 +399,54 @@ async function procesarMensajeEntrante(
     }
   }
 
-  // ─── Deduplicar: verificar si este mensaje de WhatsApp ya fue procesado ───
-  if (msg.id) {
-    const { data: yaExiste } = await admin
-      .from('mensajes')
-      .select('id')
-      .eq('wa_message_id', msg.id)
-      .limit(1)
-      .maybeSingle()
+  // ─── Insertar mensaje con dedup atómica ───
+  // Meta puede reentregar el mismo webhook (mismo wa_message_id) por reintento
+  // o duplicación de red. Antes hacíamos SELECT + INSERT, pero ese check no es
+  // atómico: dos webhooks concurrentes pasaban ambos el SELECT y terminábamos
+  // con dos filas + dos notificaciones + dos pushes. Ahora confiamos en el
+  // índice UNIQUE parcial sobre wa_message_id (migración 061) y usamos upsert
+  // con ignoreDuplicates: si la fila ya existe, el insert no devuelve nada y
+  // cortamos el flujo antes de notificar/pushear.
+  const { data: mensajeInsertado } = msg.id
+    ? await admin
+        .from('mensajes')
+        .upsert({
+          empresa_id: canal.empresa_id,
+          conversacion_id: conversacion.id,
+          es_entrante: true,
+          remitente_tipo: 'contacto',
+          remitente_nombre: nombreRemitente,
+          tipo_contenido: tipoContenido,
+          texto,
+          wa_message_id: msg.id,
+          wa_tipo_mensaje: msg.type,
+          estado: 'enviado',
+          metadata: msg,
+        }, { onConflict: 'wa_message_id', ignoreDuplicates: true })
+        .select('id')
+        .maybeSingle()
+    : await admin
+        .from('mensajes')
+        .insert({
+          empresa_id: canal.empresa_id,
+          conversacion_id: conversacion.id,
+          es_entrante: true,
+          remitente_tipo: 'contacto',
+          remitente_nombre: nombreRemitente,
+          tipo_contenido: tipoContenido,
+          texto,
+          wa_message_id: msg.id,
+          wa_tipo_mensaje: msg.type,
+          estado: 'enviado',
+          metadata: msg,
+        })
+        .select('id')
+        .single()
 
-    if (yaExiste) {
-      console.info(`[WEBHOOK] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
-      return
-    }
+  if (msg.id && !mensajeInsertado) {
+    console.info(`[WEBHOOK] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
+    return
   }
-
-  const { data: mensajeInsertado } = await admin
-    .from('mensajes')
-    .insert({
-      empresa_id: canal.empresa_id,
-      conversacion_id: conversacion.id,
-      es_entrante: true,
-      remitente_tipo: 'contacto',
-      remitente_nombre: nombreRemitente,
-      tipo_contenido: tipoContenido,
-      texto,
-      wa_message_id: msg.id,
-      wa_tipo_mensaje: msg.type,
-      estado: 'enviado',
-      metadata: msg,
-    })
-    .select('id')
-    .single()
 
   // Actualizar conversación con preview descriptivo + incrementar no leídos
   const preview = textoPreviewMensaje(msg)

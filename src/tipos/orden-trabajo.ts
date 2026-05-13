@@ -89,11 +89,19 @@ export interface OrdenTrabajo {
   contacto_telefono: string | null
   contacto_correo: string | null
   contacto_direccion: string | null
+  contacto_direccion_lat: number | null
+  contacto_direccion_lng: number | null
   contacto_whatsapp: string | null
 
   // Presupuesto origen
   presupuesto_id: string | null
   presupuesto_numero: string | null
+
+  // Visita de origen (relevamiento del visitador). Heredada del presupuesto al
+  // generar la OT, o asignada manualmente para casos legacy. Es el ancla de la
+  // galería de relevamiento (clonada al generar) y del botón "Re-sincronizar
+  // desde visita". Ver migración 062.
+  visita_id: string | null
 
   // Dirigido a (atención) — para avisos de llegada
   atencion_contacto_id: string | null

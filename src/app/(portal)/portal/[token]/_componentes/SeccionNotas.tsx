@@ -42,10 +42,10 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
       {/* ── Notas ── */}
       {notas.length > 0 && (
         <div>
-          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-3">
             {t('portal.notas')}
           </h3>
-          <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil px-5 py-4 space-y-2">
+          <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil px-5 py-5 space-y-2">
             {notas.map((html, i) => (
               <HtmlSeguro
                 key={i}
@@ -60,10 +60,10 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
       {/* ── Términos y Condiciones ── */}
       {condiciones.length > 0 && (
         <div>
-          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-3">
             Términos y condiciones
           </h3>
-          <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil px-5 py-4 space-y-2">
+          <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil px-5 py-5 space-y-2">
             {condiciones.map((html, i) => (
               <HtmlSeguro
                 key={i}

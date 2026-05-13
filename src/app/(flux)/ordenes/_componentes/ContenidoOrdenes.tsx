@@ -23,6 +23,7 @@ import {
   ETIQUETAS_ESTADO_OT, COLORES_ESTADO_OT, ETIQUETAS_PRIORIDAD_OT, COLORES_PRIORIDAD_OT,
   type EstadoOrdenTrabajo, type PrioridadOrdenTrabajo,
 } from '@/tipos/orden-trabajo'
+import { urlMapaDestino } from '@/componentes/mapa'
 
 /**
  * ContenidoOrdenes — Listado interactivo de órdenes de trabajo.
@@ -41,6 +42,8 @@ interface FilaOrden {
   contacto_telefono: string | null
   contacto_whatsapp: string | null
   contacto_direccion: string | null
+  contacto_direccion_lat: number | null
+  contacto_direccion_lng: number | null
   atencion_contacto_id: string | null
   atencion_nombre: string | null
   atencion_telefono: string | null
@@ -358,9 +361,13 @@ function ContenidoOrdenesInterno() {
       || fila.contacto_telefono
       || ''
     const numeroAviso = telParaAvisar.replace(/[^\d]/g, '')
-    const urlMapa = fila.contacto_direccion
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fila.contacto_direccion)}&travelmode=driving`
-      : null
+    // Preferir lat/lng cuando estén disponibles — el texto solo se usa como
+    // fallback (geocoder de Google sesgado a Argentina vía region=ar).
+    const urlMapa = urlMapaDestino({
+      lat: fila.contacto_direccion_lat,
+      lng: fila.contacto_direccion_lng,
+      texto: fila.contacto_direccion,
+    })
 
     const fechaFin = fila.fecha_fin_estimada
     const vencida = !!fechaFin && new Date(fechaFin) < new Date() && fila.estado !== 'completada'
@@ -615,7 +622,8 @@ function ContenidoOrdenesInterno() {
             peligro: true,
           },
         ]}
-        onClickFila={(fila) => router.push(`/ordenes/${fila.id}`)}
+        hrefFila={(fila) => `/ordenes/${fila.id}`}
+        ariaLabelFila={(fila) => `Abrir orden ${fila.numero || fila.id}`}
         estadoVacio={
           <EstadoVacio
             icono={<Hammer size={52} strokeWidth={1} />}

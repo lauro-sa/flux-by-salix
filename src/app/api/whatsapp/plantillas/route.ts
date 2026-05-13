@@ -450,7 +450,14 @@ export async function POST(request: NextRequest) {
 
       if (!plantilla) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
 
-      // Si no es borrador/error, eliminar de Meta primero
+      // Resultado del borrado en Meta:
+      //   'no_aplica'  → la plantilla nunca estuvo sincronizada (BORRADOR/ERROR
+      //                  o sin canal_id), no hay nada que borrar del lado de Meta.
+      //   'eliminada'  → DELETE a Meta confirmado.
+      //   'fallo'      → Meta rechazó el DELETE; igual seguimos con el local.
+      let resultadoMeta: 'no_aplica' | 'eliminada' | 'fallo' = 'no_aplica'
+      let errorMeta: string | null = null
+
       if (!['BORRADOR', 'ERROR'].includes(plantilla.estado_meta) && canal_id) {
         try {
           const { data: canal } = await admin
@@ -463,20 +470,24 @@ export async function POST(request: NextRequest) {
           if (canal) {
             const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
             await eliminarPlantillaMeta(config, plantilla.nombre_api)
+            resultadoMeta = 'eliminada'
           }
         } catch (err) {
+          resultadoMeta = 'fallo'
+          errorMeta = err instanceof Error ? err.message : 'Error desconocido al eliminar en Meta'
           console.warn('Error eliminando de Meta (continuando eliminación local):', err)
         }
       }
 
-      // Eliminar local
+      // Eliminar local (siempre, incluso si Meta falló, para no dejar registros
+      // huérfanos en Flux).
       await admin
         .from('plantillas_whatsapp')
         .delete()
         .eq('id', id)
         .eq('empresa_id', empresaId)
 
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, resultado_meta: resultadoMeta, error_meta: errorMeta })
     }
 
     // ─── SINCRONIZAR (traer estados desde Meta y actualizar locales + crear faltantes) ───

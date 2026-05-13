@@ -326,7 +326,8 @@ export default function PaginaListadoRespuestasWhatsApp() {
             },
           ]}
           onLimpiarFiltros={() => { setFiltroAutor(''); setFiltroModulos([]) }}
-          onClickFila={(p) => router.push(`/whatsapp/configuracion/respuestas-rapidas/${p.id}`)}
+          hrefFila={(p) => `/whatsapp/configuracion/respuestas-rapidas/${p.id}`}
+          ariaLabelFila={(p) => `Abrir respuesta rápida ${p.nombre || p.id}`}
           accionesLote={[
             {
               id: 'eliminar',

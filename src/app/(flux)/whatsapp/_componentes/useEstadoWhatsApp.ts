@@ -426,6 +426,10 @@ export function useEstadoWhatsApp() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mensajes_sin_leer: 0 }),
           }).catch(() => {})
+          // Mensaje recibido con la conversación ya abierta: marcar también
+          // las notificaciones de inbox para que el badge del sidebar y el
+          // popover del header no queden con el contador colgado.
+          marcarNotificacionesLeidasDeConversacion(convId)
         }
       })
       .on('postgres_changes', {
@@ -446,7 +450,7 @@ export function useEstadoWhatsApp() {
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [conversacionSeleccionada?.id, supabase, reactivacion])
+  }, [conversacionSeleccionada?.id, supabase, reactivacion, marcarNotificacionesLeidasDeConversacion])
 
   // ─── Cargar mensajes anteriores ───
   const conversacionIdRef = useRef<string | null>(null)

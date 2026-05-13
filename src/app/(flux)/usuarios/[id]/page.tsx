@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail, BarChart3 } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
@@ -61,6 +62,9 @@ export default function PaginaPerfilUsuario() {
   const [cargando, setCargando] = useState(true)
   const [miembro, setMiembro] = useState<Miembro | null>(null)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
+
+  // Título de la pestaña: nombre completo del miembro (perfil real o sintético).
+  useTituloPestana(perfil ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ').trim() || null : null)
 
   /* ── Estado acciones de usuario ──
      Cada acción administrativa tiene su modal de confirmación propio.

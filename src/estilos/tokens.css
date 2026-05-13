@@ -294,6 +294,13 @@
   --marca-google: #4285f4;
   --marca-meta: #0084ff;
 
+  /* Acentos de UI — íconos de botones flotantes y elementos de identidad
+     visual que necesitan distinguirse pero respetar dark/light. En light
+     usamos un tono saturado (legible sobre superficie clara); en dark un
+     pastel cálido (legible sobre fondo oscuro). */
+  --acento-notas: #d97706;          /* amber 600 — sobre fondo claro */
+  --acento-recordatorios: #ea580c;  /* orange 600 — sobre fondo claro */
+
   /* Layout */
   --sidebar-ancho: 240px;
   --sidebar-ancho-colapsado: 56px;
@@ -394,6 +401,10 @@
     --prioridad-media-fondo: rgba(253, 186, 116, 0.15);
     --prioridad-baja: #93c5fd;
     --prioridad-baja-fondo: rgba(147, 197, 253, 0.15);
+
+    /* Acentos UI dark — pasteles cálidos legibles sobre superficie oscura */
+    --acento-notas: #fcd34d;          /* amber 300 */
+    --acento-recordatorios: #fdba74;  /* orange 300 */
   }
 }
 
@@ -488,6 +499,10 @@
   --prioridad-media-fondo: rgba(253, 186, 116, 0.15);
   --prioridad-baja: #93c5fd;
   --prioridad-baja-fondo: rgba(147, 197, 253, 0.15);
+
+  /* Acentos UI dark — pasteles cálidos legibles sobre superficie oscura */
+  --acento-notas: #fcd34d;          /* amber 300 */
+  --acento-recordatorios: #fdba74;  /* orange 300 */
 }
 
 /* ---------- ESCALA DE TEXTO ---------- */

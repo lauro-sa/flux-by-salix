@@ -4,6 +4,7 @@ export { ChipEmail } from './ChipEmail'
 export { InputEmailChips } from './InputEmailChips'
 export { InputAsuntoVariables } from './InputAsuntoVariables'
 export { PopoverProgramar } from './PopoverProgramar'
+export { BannerSincronizacion } from './BannerSincronizacion'
 export { useEnvioDocumento } from './useEnvioDocumento'
 export { iconoArchivo, formatoTamano, diaSiguienteCorto, formatoFechaProgramada } from './ayudantes'
 

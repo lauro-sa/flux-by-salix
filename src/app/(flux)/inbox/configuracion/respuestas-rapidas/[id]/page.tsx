@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorRespuestaRapida } from '@/componentes/entidad/_editor_respuesta_rapida/PaginaEditorRespuestaRapida'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
 
 export default function PaginaEditarRespuestaCorreo() {
@@ -14,6 +15,7 @@ export default function PaginaEditarRespuestaCorreo() {
 
   const [plantilla, setPlantilla] = useState<PlantillaRespuesta | null>(null)
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(plantilla?.nombre || null)
 
   useEffect(() => {
     let cancelado = false

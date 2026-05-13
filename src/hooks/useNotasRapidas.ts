@@ -28,6 +28,9 @@ export interface NotaRapida {
   _puede_editar?: boolean
   _leido_en?: string | null
   _compartida_id?: string
+  /** Te compartieron la nota y nunca la abriste (leido_en === null). */
+  _es_nueva?: boolean
+  /** Hay actividad sin leer: o nunca la abriste, o hubo edits posteriores. */
   _tiene_cambios?: boolean
   _compartidos_con?: Array<{ usuario_id: string; puede_editar: boolean }>
 }
@@ -181,7 +184,9 @@ export function useNotasRapidas() {
       setEstado((prev) => ({
         ...prev,
         compartidas: prev.compartidas.map((n) =>
-          n.id === nota_id ? { ...n, _tiene_cambios: false, _leido_en: new Date().toISOString() } : n
+          n.id === nota_id
+            ? { ...n, _tiene_cambios: false, _es_nueva: false, _leido_en: new Date().toISOString() }
+            : n
         ),
         tiene_cambios_sin_leer: prev.compartidas.filter((n) => n.id !== nota_id).some((n) => n._tiene_cambios),
       }))

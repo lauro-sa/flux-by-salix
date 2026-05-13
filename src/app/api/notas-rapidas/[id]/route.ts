@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
+import { sanitizarHtmlNota } from '@/lib/notas/html'
 
 /**
  * PATCH /api/notas-rapidas/[id] — Actualizar una nota (título, contenido, color, fijada, archivada).
@@ -74,7 +75,16 @@ export async function PATCH(
     }
 
     for (const campo of campos_validos) {
-      if (campo in body) actualizacion[campo] = body[campo]
+      if (campo in body) {
+        // El contenido es HTML de Tiptap: sanitizar para bloquear scripts
+        // / iframes / eventos inline que pudieran inyectarse desde un
+        // cliente comprometido. El resto de campos se pasan tal cual.
+        if (campo === 'contenido' && typeof body[campo] === 'string') {
+          actualizacion[campo] = sanitizarHtmlNota(body[campo])
+        } else {
+          actualizacion[campo] = body[campo]
+        }
+      }
     }
 
     const { data, error } = await admin
@@ -156,7 +166,7 @@ export async function DELETE(
     // Solo el creador puede eliminar
     const { data: nota } = await admin
       .from('notas_rapidas')
-      .select('id, creador_id, en_papelera')
+      .select('id, titulo, creador_id, en_papelera')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -166,7 +176,51 @@ export async function DELETE(
       return NextResponse.json({ error: 'Solo el creador puede eliminar' }, { status: 403 })
     }
 
-    // Si ya está en papelera, eliminar definitivamente (hard delete)
+    // Avisar a los compartidos ANTES del delete — para que tengan la
+    // notificación con el título de la nota mientras todavía existe.
+    // Solo en el soft-delete (la primera eliminación, no en el hard
+    // desde papelera porque ahí ya no es visible para nadie).
+    if (!nota.en_papelera) {
+      const { data: compartidos } = await admin
+        .from('notas_rapidas_compartidas')
+        .select('usuario_id')
+        .eq('nota_id', id)
+
+      const usuariosANotificar = (compartidos ?? [])
+        .map((c) => c.usuario_id)
+        .filter((uid): uid is string => Boolean(uid))
+
+      if (usuariosANotificar.length > 0) {
+        const { data: perfil } = await admin
+          .from('perfiles')
+          .select('nombre, apellido')
+          .eq('id', user.id)
+          .single()
+
+        const nombreCreador = perfil
+          ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() || 'Alguien'
+          : 'Alguien'
+        const tituloNota = nota.titulo || 'Sin título'
+
+        for (const uid of usuariosANotificar) {
+          crearNotificacion({
+            empresaId,
+            usuarioId: uid,
+            tipo: 'nota_eliminada',
+            titulo: `${nombreCreador} eliminó una nota compartida`,
+            cuerpo: `"${tituloNota}"`,
+            icono: '🗑️',
+            color: '#dc2626',
+            referenciaTipo: 'nota_rapida',
+            referenciaId: id,
+          }).catch(() => {})
+        }
+      }
+    }
+
+    // Si ya está en papelera, eliminar definitivamente (hard delete).
+    // El cascade de notas_rapidas_compartidas se ocupa de limpiar
+    // los registros de compartidos.
     if (nota.en_papelera) {
       await admin.from('notas_rapidas').delete().eq('id', id)
       return NextResponse.json({ ok: true })

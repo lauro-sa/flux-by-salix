@@ -8,8 +8,8 @@
  * Se usa en: VistaPortal (post-aceptación)
  */
 
-import { useState } from 'react'
-import { Check, Copy, Upload, FileText, Loader2, CircleDollarSign } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, Copy, Upload, FileText, Loader2, CircleDollarSign, Clock } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
@@ -57,6 +57,25 @@ export default function SeccionCuotas({
 
   const tieneCuotas = cuotas.length > 1
   const cuotasPendientes = cuotas.filter(c => c.estado !== EstadosCuota.COBRADA)
+
+  // Mapa cuota_id → último comprobante pendiente. Si una cuota tiene un
+  // comprobante en estado 'pendiente' (subido por el cliente, todavía no
+  // confirmado por el vendedor), la mostramos como "En revisión" (cobro
+  // provisorio). Cuando el vendedor registra el pago oficial, la cuota
+  // pasa a estado 'cobrada' por trigger SQL y este overlay desaparece.
+  const comprobantePendientePorCuota = useMemo(() => {
+    const mapa = new Map<string, ComprobantePortal>()
+    for (const c of comprobantes) {
+      if (!c.cuota_id || c.estado !== 'pendiente') continue
+      const previo = mapa.get(c.cuota_id)
+      if (!previo || new Date(c.creado_en) > new Date(previo.creado_en)) {
+        mapa.set(c.cuota_id, c)
+      }
+    }
+    return mapa
+  }, [comprobantes])
+
+  const hayProvisorios = comprobantePendientePorCuota.size > 0
 
   // Etiqueta automática: primera = Adelanto, última = Pago final, medio = Cuota N
   const etiquetaCuota = (cuota: CuotaPago, indice: number) => {
@@ -112,6 +131,19 @@ export default function SeccionCuotas({
         <p className="text-base text-texto-terciario mt-0.5">{t('portal.instrucciones_pago')}</p>
       </div>
 
+      {/* Aviso de pagos en revisión (cobros provisorios) */}
+      {hayProvisorios && (
+        <div className="px-5 py-3 border-b border-insignia-advertencia/20 bg-insignia-advertencia/5 flex items-start gap-2.5">
+          <Clock size={16} className="text-insignia-advertencia shrink-0 mt-0.5" />
+          <div className="text-xs text-texto-secundario leading-relaxed">
+            <p className="font-medium text-insignia-advertencia">Comprobante en revisión</p>
+            <p className="mt-0.5">
+              Recibimos tu comprobante. El pago queda registrado provisoriamente como recibido y se confirmará cuando verifiquemos la transferencia.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Cuotas seleccionables (solo si hay hitos) ── */}
       {tieneCuotas && (
         <div className="px-5 py-4 border-b border-borde-sutil space-y-3">
@@ -121,23 +153,27 @@ export default function SeccionCuotas({
           <div className="space-y-2">
             {cuotas.map((cuota, i) => {
               const esCobrada = cuota.estado === EstadosCuota.COBRADA
+              const provisorio = !esCobrada && comprobantePendientePorCuota.has(cuota.id)
               const esSeleccionada = cuotaSeleccionada === cuota.id
+              const bloqueada = esCobrada || provisorio
               const etiqueta = etiquetaCuota(cuota, i)
 
               return (
                 <Boton
                   key={cuota.id}
                   variante="fantasma"
-                  onClick={() => !esCobrada && setCuotaSeleccionada(cuota.id)}
-                  disabled={esCobrada}
+                  onClick={() => !bloqueada && setCuotaSeleccionada(cuota.id)}
+                  disabled={bloqueada}
                   className={`w-full text-left px-4 py-3 border-2 ${
                     esCobrada
                       ? 'border-insignia-exito/30 bg-insignia-exito/5 cursor-default'
-                      : esSeleccionada
-                        ? 'border-current bg-opacity-5'
-                        : 'border-borde-sutil hover:border-borde-fuerte'
+                      : provisorio
+                        ? 'border-insignia-advertencia/40 bg-insignia-advertencia/5 cursor-default'
+                        : esSeleccionada
+                          ? 'border-current bg-opacity-5'
+                          : 'border-borde-sutil hover:border-borde-fuerte'
                   }`}
-                  style={esSeleccionada && !esCobrada ? { borderColor: colorMarca, backgroundColor: `${colorMarca}08` } : undefined}
+                  style={esSeleccionada && !bloqueada ? { borderColor: colorMarca, backgroundColor: `${colorMarca}08` } : undefined}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -145,19 +181,28 @@ export default function SeccionCuotas({
                       <div className={`size-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                         esCobrada
                           ? 'border-insignia-exito bg-insignia-exito'
-                          : esSeleccionada
-                            ? 'border-current'
-                            : 'border-borde-fuerte'
+                          : provisorio
+                            ? 'border-insignia-advertencia bg-insignia-advertencia/20'
+                            : esSeleccionada
+                              ? 'border-current'
+                              : 'border-borde-fuerte'
                       }`}
-                        style={esSeleccionada && !esCobrada ? { borderColor: colorMarca } : undefined}
+                        style={esSeleccionada && !bloqueada ? { borderColor: colorMarca } : undefined}
                       >
                         {esCobrada && <Check size={10} className="text-white" />}
-                        {esSeleccionada && !esCobrada && (
+                        {provisorio && <Clock size={10} className="text-insignia-advertencia" />}
+                        {esSeleccionada && !bloqueada && (
                           <div className="size-2 rounded-full" style={{ backgroundColor: colorMarca }} />
                         )}
                       </div>
                       <div>
-                        <span className={`text-sm font-medium ${esCobrada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+                        <span className={`text-sm font-medium ${
+                          esCobrada
+                            ? 'line-through text-texto-terciario'
+                            : provisorio
+                              ? 'text-texto-secundario'
+                              : 'text-texto-primario'
+                        }`}>
                           {etiqueta}
                         </span>
                         <span className="text-xs text-texto-terciario ml-2">
@@ -166,12 +211,23 @@ export default function SeccionCuotas({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-mono font-medium ${esCobrada ? 'text-insignia-exito' : 'text-texto-primario'}`}>
+                      <span className={`text-sm font-mono font-medium ${
+                        esCobrada
+                          ? 'text-insignia-exito'
+                          : provisorio
+                            ? 'text-insignia-advertencia'
+                            : 'text-texto-primario'
+                      }`}>
                         {monedaSimbolo} {formatearNumero(cuota.monto)}
                       </span>
                       {esCobrada && (
                         <span className="text-xs text-insignia-exito font-medium px-1.5 py-0.5 rounded-full bg-insignia-exito/10">
                           {t('portal.cobrada')}
+                        </span>
+                      )}
+                      {provisorio && (
+                        <span className="text-xs text-insignia-advertencia font-medium px-1.5 py-0.5 rounded-full bg-insignia-advertencia/10">
+                          En revisión
                         </span>
                       )}
                     </div>

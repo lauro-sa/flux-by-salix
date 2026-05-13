@@ -7,6 +7,7 @@ import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, sincronizarRegistrosVinculados, eliminarRegistrosVinculados } from '@/lib/visitas-sync'
 import { COLOR_NOTIFICACION, COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
+import { geocodificarDireccion } from '@/lib/geocoding'
 
 /** Calcula distancia en metros entre dos coordenadas (fórmula de Haversine) */
 function calcularDistanciaMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -644,6 +645,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       campos.direccion_texto = body.direccion_texto || null
       campos.direccion_lat = body.direccion_lat || null
       campos.direccion_lng = body.direccion_lng || null
+
+      // Geocoding de respaldo: si trae texto sin coords (visita editada a mano),
+      // intentar resolver lat/lng. Necesario para que el ETA del aviso "en
+      // camino" funcione y para navegación precisa desde el botón Navegar.
+      if (campos.direccion_texto && (campos.direccion_lat == null || campos.direccion_lng == null)) {
+        const coords = await geocodificarDireccion(campos.direccion_texto as string)
+        if (coords) {
+          campos.direccion_lat = coords.lat
+          campos.direccion_lng = coords.lng
+        }
+      }
     }
     if (body.asignado_a !== undefined) {
       campos.asignado_a = body.asignado_a

@@ -10,6 +10,7 @@ import {
 import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -68,6 +69,43 @@ const OPCIONES_ZONA_HORARIA = [
   { valor: 'America/New_York', etiqueta: 'EE.UU. (Este)' },
   { valor: 'America/Los_Angeles', etiqueta: 'EE.UU. (Pacífico)' },
 ]
+
+interface TurnoLaboral {
+  id: string
+  nombre: string
+  es_default?: boolean
+  flexible?: boolean
+  tolerancia_min?: number
+  dias?: Record<string, { activo?: boolean }>
+  orden: number
+}
+
+const NOMBRES_DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+
+// Definida fuera del componente para que la referencia sea estable
+// y el useEffect del PreviewSeccionExterna no se dispare en cada render.
+function extraerTurnos(data: unknown): ItemPreview[] {
+  const turnos = ((data as { turnos?: TurnoLaboral[] })?.turnos) || []
+  return turnos
+    .sort((a, b) => a.orden - b.orden)
+    .map(t => {
+      const diasActivos = NOMBRES_DIAS.filter(d => t.dias?.[d]?.activo).length
+      const badges: { texto: string; tono?: 'normal' }[] = []
+      if (diasActivos > 0) badges.push({ texto: `${diasActivos} día${diasActivos === 1 ? '' : 's'}/sem` })
+      if (t.flexible) badges.push({ texto: 'Flexible' })
+      else if (typeof t.tolerancia_min === 'number') badges.push({ texto: `Tol. ${t.tolerancia_min}min` })
+      return {
+        id: t.id,
+        icono: 'Clock',
+        color: '#6366f1',
+        etiqueta: t.nombre,
+        badges,
+        origen: t.es_default
+          ? { texto: 'Predeterminado', tono: 'predefinido' as const }
+          : undefined,
+      }
+    })
+}
 
 // ─── Página principal ────────────────────────────────────────
 
@@ -131,15 +169,23 @@ export default function PaginaConfiguracionAsistencias() {
       onVolver={() => router.push('/asistencias')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        if (id === 'turnos') {
-          router.push('/asistencias/configuracion/turnos')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
-      {cargando ? (
+      {seccionActiva === 'turnos' ? (
+        <PreviewSeccionExterna
+          titulo="Turnos laborales"
+          descripcion="Definí los turnos disponibles, sus horarios por día y las reglas de tolerancia."
+          endpoint="/api/asistencias/turnos"
+          extraerItems={extraerTurnos}
+          hrefDestino="/asistencias/configuracion/turnos"
+          textoBoton="Gestionar turnos"
+          etiquetaItem={{ singular: 'turno', plural: 'turnos' }}
+          textoVacio={{
+            titulo: 'No hay turnos creados',
+            descripcion: 'Creá el primer turno desde la página de gestión.',
+          }}
+        />
+      ) : cargando ? (
         <div className="flex items-center justify-center py-20">
           <Cargador tamano="md" />
         </div>

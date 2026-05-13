@@ -57,6 +57,36 @@ export function abrirRutaCompleta(
 }
 
 /**
+ * Construye un URL de Google Maps para "ir hacia" un destino, preferiendo
+ * lat/lng exactos sobre el texto. El texto solo se usa cuando no hay coords —
+ * y para reducir ambigüedad de geocoding (ej. "Sarmiento 4406, San Martín"
+ * matchea decenas de "San Martín" en Argentina), agregamos `region=ar` para
+ * sesgar el geocoder de Google a Argentina.
+ *
+ * Devuelve null si no hay nada útil (ni coords ni texto).
+ */
+export function urlMapaDestino(opts: {
+  lat?: number | null
+  lng?: number | null
+  texto?: string | null
+  modo?: 'dir' | 'search'
+}): string | null {
+  const modo = opts.modo || 'dir'
+  if (typeof opts.lat === 'number' && typeof opts.lng === 'number') {
+    const param = modo === 'dir' ? 'destination' : 'query'
+    const travel = modo === 'dir' ? '&travelmode=driving' : ''
+    return `https://www.google.com/maps/${modo}/?api=1&${param}=${opts.lat},${opts.lng}${travel}`
+  }
+  if (opts.texto) {
+    const param = modo === 'dir' ? 'destination' : 'query'
+    const travel = modo === 'dir' ? '&travelmode=driving' : ''
+    // region=ar: sesga el geocoder hacia Argentina cuando el texto es ambiguo.
+    return `https://www.google.com/maps/${modo}/?api=1&${param}=${encodeURIComponent(opts.texto)}${travel}&region=ar`
+  }
+  return null
+}
+
+/**
  * Calcula el centro geográfico de un array de puntos.
  * Default: Buenos Aires si no hay puntos.
  */

@@ -1,63 +1,146 @@
 /* ════════════════════════════════════════════════════════════════════
-   Salix Glass — Sistema visual del panel de Salix IA.
-   Inspirado en Vision OS / Apple Card / Raycast Pro.
+   Salix Glass — Sistema visual del panel de Salix IA, Notas y
+   Recordatorios. Inspirado en Vision OS / Apple Card / Raycast Pro.
    Scoped al contenedor `.salix-glass`. NO contamina el resto de la app.
+
+   Importante: este sistema respeta el modo claro/oscuro de la app.
+   Las variables internas `--salix-*` y los overrides de tokens Flux
+   (`--texto-primario`, `--superficie-tarjeta`, etc.) cambian según el
+   tema activo. Light por defecto, dark por preferencia del sistema o
+   por toggle manual (`[data-tema="oscuro"]`).
    ════════════════════════════════════════════════════════════════════ */
 
 .salix-glass {
-  /* Override de tokens del proyecto: el panel de Salix IA es SIEMPRE oscuro
-     (como Raycast / ChatGPT) independientemente del tema activo. Así los
-     componentes hijos que usan `text-texto-primario`, `bg-superficie-tarjeta`,
-     etc. se ven legibles sobre el fondo glass. */
-  --texto-primario: rgba(255, 255, 255, 0.92);
-  --texto-secundario: rgba(255, 255, 255, 0.65);
-  --texto-terciario: rgba(255, 255, 255, 0.45);
-  --texto-marca: #B58CFF;
+  /* ─── Variables internas light (default) ─────────────────────────── */
+  /* Cristal: superficies translúcidas oscuras sobre fondo claro */
+  --salix-glass-panel: rgba(245, 245, 247, 0.82);
+  --salix-glass-card: rgba(15, 15, 25, 0.04);
+  --salix-glass-card-hover: rgba(15, 15, 25, 0.07);
+  --salix-glass-border: rgba(15, 15, 25, 0.08);
+  --salix-glass-border-hover: rgba(15, 15, 25, 0.14);
+
+  /* Texto sobre cristal claro: tonos oscuros */
+  --salix-text-primario: rgba(20, 20, 26, 0.92);
+  --salix-text-secundario: rgba(20, 20, 26, 0.65);
+  --salix-text-terciario: rgba(20, 20, 26, 0.45);
+  --salix-text-muted: rgba(20, 20, 26, 0.5);
+  --salix-text-dim: rgba(20, 20, 26, 0.38);
+
+  /* Sombras: más sutiles en claro */
+  --salix-shadow-panel: 0 24px 72px rgba(0, 0, 0, 0.12),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --salix-shadow-hero: 0 8px 30px rgba(60, 50, 160, 0.12),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --salix-shadow-emboss: inset 0 1px 0 rgba(255, 255, 255, 0.45),
+                         inset 0 -2px 4px rgba(0, 0, 0, 0.10);
+
+  /* Background base del panel */
+  --salix-bg: #f5f5f7;
+
+  /* Override de tokens del proyecto: los componentes hijos que usan
+     `text-texto-primario`, `bg-superficie-tarjeta`, etc. se ven
+     legibles sobre el fondo glass del modo activo. */
+  --texto-primario: var(--salix-text-primario);
+  --texto-secundario: var(--salix-text-secundario);
+  --texto-terciario: var(--salix-text-terciario);
+  --texto-marca: #5b5bd6;
   --superficie-app: transparent;
-  --superficie-tarjeta: rgba(255, 255, 255, 0.04);
-  --superficie-elevada: rgba(255, 255, 255, 0.06);
-  --superficie-sidebar: rgba(255, 255, 255, 0.04);
-  --borde-sutil: rgba(255, 255, 255, 0.08);
-  --borde-fuerte: rgba(255, 255, 255, 0.12);
+  --superficie-tarjeta: var(--salix-glass-card);
+  --superficie-elevada: var(--salix-glass-card-hover);
+  --superficie-sidebar: var(--salix-glass-card);
+  --superficie-hover: var(--salix-glass-card-hover);
+  --superficie-activa: var(--salix-glass-card-hover);
+  --borde-sutil: var(--salix-glass-border);
+  --borde-fuerte: var(--salix-glass-border-hover);
   /* Foco: en lugar del azul nativo del proyecto, usamos violet con halo. */
   --borde-foco: rgba(127, 119, 221, 0.55);
   --sombra-foco: 0 0 0 3px rgba(127, 119, 221, 0.14);
 
-  /* Brand */
+  /* Acento del segmented control / tabs activos. En light usamos un
+     índigo más saturado para que el pill se lea sobre fondo claro; en
+     dark mantenemos el violet pastel translúcido del Raycast original. */
+  --salix-acento-bg: linear-gradient(135deg, rgba(91, 91, 214, 0.92), rgba(74, 74, 196, 0.85));
+  --salix-acento-borde: rgba(91, 91, 214, 0.85);
+  --salix-acento-texto: #ffffff;
+  --salix-acento-shadow: 0 4px 14px rgba(60, 50, 160, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+
+  /* Brand (no cambian con el tema) */
   --salix-violet: #7F77DD;
   --salix-blue: #378ADD;
   --salix-gold-light: #F4D596;
   --salix-gold: #D9A04A;
   --salix-gold-dark: #B07A2A;
+}
 
-  /* Glass surfaces */
+/* ─── Variables internas dark (auto por preferencia del sistema) ────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .salix-glass {
+    --salix-glass-panel: rgba(20, 20, 26, 0.78);
+    --salix-glass-card: rgba(255, 255, 255, 0.03);
+    --salix-glass-card-hover: rgba(255, 255, 255, 0.06);
+    --salix-glass-border: rgba(255, 255, 255, 0.08);
+    --salix-glass-border-hover: rgba(255, 255, 255, 0.12);
+
+    --salix-text-primario: rgba(255, 255, 255, 0.92);
+    --salix-text-secundario: rgba(255, 255, 255, 0.65);
+    --salix-text-terciario: rgba(255, 255, 255, 0.45);
+    --salix-text-muted: rgba(255, 255, 255, 0.5);
+    --salix-text-dim: rgba(255, 255, 255, 0.38);
+
+    --salix-shadow-panel: 0 30px 90px rgba(0, 0, 0, 0.6),
+                          inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --salix-shadow-hero: 0 8px 30px rgba(60, 50, 160, 0.18),
+                         inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --salix-shadow-emboss: inset 0 1px 0 rgba(255, 255, 255, 0.28),
+                           inset 0 -2px 4px rgba(0, 0, 0, 0.18);
+
+    --salix-bg: #131319;
+    --texto-marca: #B58CFF;
+
+    /* Acento dark: violet pastel translúcido (Raycast original) */
+    --salix-acento-bg: linear-gradient(135deg, rgba(127, 119, 221, 0.32), rgba(99, 91, 199, 0.20));
+    --salix-acento-borde: rgba(127, 119, 221, 0.45);
+    --salix-acento-shadow: 0 4px 14px rgba(60, 50, 160, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ─── Variables internas dark (toggle manual) ────────────────────────── */
+[data-tema="oscuro"] .salix-glass {
   --salix-glass-panel: rgba(20, 20, 26, 0.78);
   --salix-glass-card: rgba(255, 255, 255, 0.03);
   --salix-glass-card-hover: rgba(255, 255, 255, 0.06);
   --salix-glass-border: rgba(255, 255, 255, 0.08);
   --salix-glass-border-hover: rgba(255, 255, 255, 0.12);
 
-  /* Background base — tono casi neutro alineado con --superficie-elevada
-     del proyecto (no negro puro ni Vision OS). Le agregamos solo un toque
-     muy leve de violet/azul como "halo" sin que sea el protagonista. */
-  --salix-bg: #131319;
+  --salix-text-primario: rgba(255, 255, 255, 0.92);
+  --salix-text-secundario: rgba(255, 255, 255, 0.65);
+  --salix-text-terciario: rgba(255, 255, 255, 0.45);
+  --salix-text-muted: rgba(255, 255, 255, 0.5);
+  --salix-text-dim: rgba(255, 255, 255, 0.38);
 
-  /* Sombras */
   --salix-shadow-panel: 0 30px 90px rgba(0, 0, 0, 0.6),
                         inset 0 1px 0 rgba(255, 255, 255, 0.07);
   --salix-shadow-hero: 0 8px 30px rgba(60, 50, 160, 0.18),
                        inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --salix-shadow-emboss: inset 0 1px 0 rgba(255, 255, 255, 0.28),
                          inset 0 -2px 4px rgba(0, 0, 0, 0.18);
+
+  --salix-bg: #131319;
+  --texto-marca: #B58CFF;
+
+  /* Acento dark: violet pastel translúcido (Raycast original) */
+  --salix-acento-bg: linear-gradient(135deg, rgba(127, 119, 221, 0.32), rgba(99, 91, 199, 0.20));
+  --salix-acento-borde: rgba(127, 119, 221, 0.45);
+  --salix-acento-shadow: 0 4px 14px rgba(60, 50, 160, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 /* ─── Panel principal ──────────────────────────────────────────────────
-   Fondo casi negro + 2 blobs radiales (violet top-right, azul bottom-left)
+   Fondo base + 2 blobs radiales (violet top-right, azul bottom-left)
    directamente como background-image. Sin `filter: blur` extra (los radial
    gradients tienen fade natural y son ~10× más baratos que filter blur).
    El glass se compone de:
-   - background: rgba opaco con backdrop-filter
-   - inset shadow blanco arriba: simula el borde iluminado del cristal
+   - background: rgba opaco (claro u oscuro) con backdrop-filter
+   - inset shadow arriba: simula el borde iluminado del cristal
 
    IMPORTANTE: NO seteamos `position` acá — la posición la define la
    className de Tailwind del consumer (`fixed`, etc). El `::before` con
@@ -71,6 +154,7 @@
     radial-gradient(420px circle at 105% -15%, rgba(127, 119, 221, 0.18), transparent 60%),
     radial-gradient(460px circle at -15% 115%, rgba(55, 138, 221, 0.14), transparent 60%);
   isolation: isolate;
+  box-shadow: var(--salix-shadow-panel);
 }
 
 /* Capa "cristal" por encima del fondo de blobs */
@@ -101,7 +185,7 @@
 /* Fallback para navegadores sin backdrop-filter (Firefox sin flag, Android viejo) */
 @supports not ((backdrop-filter: blur(40px)) or (-webkit-backdrop-filter: blur(40px))) {
   .salix-panel {
-    background: #1a1a26;
+    background: var(--salix-bg);
     background-image: none;
   }
   .salix-panel::before {
@@ -196,7 +280,7 @@
 }
 
 /* ─── Cards secundarias (glass sutil) ──────────────────────────────────
-   Doble capa: bg muy translúcido + borde blanco semi. Hover sube 2px
+   Doble capa: bg muy translúcido + borde semi. Hover sube 2px
    (skeumórfico — sensación de objeto físico levantado).
    ─────────────────────────────────────────────────────────────────────── */
 .salix-card {
@@ -239,7 +323,7 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 .salix-subbtn:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--salix-glass-card);
 }
 
 /* ─── Input con glow brand ────────────────────────────────────────────
@@ -247,7 +331,7 @@
    el outline azul nativo del browser.
    ───────────────────────────────────────────────────────────────────── */
 .salix-input-wrapper {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--salix-glass-card);
   border: 1px solid var(--salix-glass-border);
   border-radius: 14px;
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -271,24 +355,24 @@
   border-radius: 100px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--salix-text-secundario);
+  background: var(--salix-glass-card);
+  border: 1px solid var(--salix-glass-border);
   transition: all 0.18s ease;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .salix-pill:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.95);
+  background: var(--salix-glass-card-hover);
+  border-color: var(--salix-glass-border-hover);
+  color: var(--salix-text-primario);
 }
 
 .salix-pill[data-activo='true'] {
   background: rgba(127, 119, 221, 0.18);
   border-color: rgba(127, 119, 221, 0.5);
-  color: rgba(255, 255, 255, 0.98);
+  color: var(--salix-text-primario);
   box-shadow: 0 0 0 1px rgba(127, 119, 221, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -341,7 +425,7 @@
   border-radius: 12px;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--salix-text-secundario);
   background: transparent;
   border: 1px solid transparent;
   transition: all 0.15s ease;
@@ -349,8 +433,8 @@
 }
 
 .salix-btn-fantasma:hover {
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--salix-text-primario);
+  background: var(--salix-glass-card);
 }
 
 /* ─── Switch (toggle) glass ───────────────────────────────────────────── */
@@ -359,8 +443,8 @@
   width: 38px;
   height: 22px;
   border-radius: 100px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--salix-glass-card-hover);
+  border: 1px solid var(--salix-glass-border);
   transition: all 0.2s ease;
   cursor: pointer;
   flex-shrink: 0;
@@ -374,7 +458,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--salix-text-primario);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), background 0.18s ease;
 }
@@ -395,14 +479,13 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
+  background: var(--salix-glass-card);
+  border: 1px solid var(--salix-glass-border);
+  color: var(--salix-text-primario);
   font-size: 13px;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 36px;
@@ -410,8 +493,23 @@
   cursor: pointer;
 }
 
+/* Flecha del select adaptada a cada modo (light = oscuro, dark = claro) */
+.salix-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(20,20,26,0.55)' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .salix-select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  }
+}
+
+[data-tema="oscuro"] .salix-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
 .salix-select:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--salix-glass-border-hover);
 }
 
 .salix-select:focus {
@@ -422,8 +520,8 @@
 }
 
 .salix-select option {
-  background: #1a1a26;
-  color: rgba(255, 255, 255, 0.9);
+  background: var(--salix-bg);
+  color: var(--salix-text-primario);
 }
 
 /* ─── Centrar contenido del SelectorHora ─────────────────────────────────
@@ -444,7 +542,7 @@
 .salix-drag-handle {
   width: 38px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--salix-glass-border-hover);
   border-radius: 100px;
   margin: 8px auto 0;
 }
@@ -455,19 +553,19 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--salix-text-dim);
 }
 
 /* ─── Texto del panel ─────────────────────────────────────────────────── */
 .salix-glass {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--salix-text-primario);
   letter-spacing: -0.01em;
 }
 
 .salix-glass .salix-text-muted {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--salix-text-muted);
 }
 
 .salix-glass .salix-text-dim {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--salix-text-dim);
 }

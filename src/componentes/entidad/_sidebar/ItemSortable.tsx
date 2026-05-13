@@ -3,16 +3,21 @@
 /**
  * ItemSortable — Item de navegacion individual del Sidebar.
  * Soporta drag-and-drop, badges, menu contextual (long press + 3 puntos) y tooltips en modo colapsado.
+ *
+ * El elemento principal es un <Link> de Next: habilita click central → nueva pestaña,
+ * Cmd/Ctrl+click → nueva pestaña, y el menú contextual nativo del browser.
  */
 
 import { createPortal } from 'react-dom'
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { MoreHorizontal, MinusCircle, BellOff, Trash2 } from 'lucide-react'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
+import { useNavegarProtegido } from '@/hooks/useCambiosPendientes'
 import type { ItemNav } from './tipos'
 import { GripIcon } from './iconos'
 
@@ -24,7 +29,8 @@ interface PropiedadesItemSortable {
   animandoSalida: boolean
   menuAbierto: boolean
   menuPos: { top: number; left: number }
-  onNavegar: () => void
+  /** Side-effect opcional al hacer click izquierdo (ej: cerrar drawer mobile). La navegación la hace el <Link>. */
+  onNavegar?: () => void
   onAbrirMenu: (itemId: string, triggerEl: HTMLElement) => void
   onCerrarMenu: () => void
   onOcultar: (id: string) => void
@@ -46,6 +52,8 @@ function ItemSortable({
   onDeshabilitar,
 }: PropiedadesItemSortable) {
   const { t } = useTraduccion()
+  const router = useRouter()
+  const intentarNavegar = useNavegarProtegido()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     disabled: !esSortable,
@@ -54,7 +62,17 @@ function ItemSortable({
   // Long press para abrir menu contextual (600ms — estandar movil)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressActivado = useRef(false)
-  const itemRef = useRef<HTMLDivElement>(null)
+  const itemRef = useRef<HTMLAnchorElement>(null)
+
+  // Tooltip en modo colapsado: posicionado via portal+fixed para no ser clipeado
+  // por el overflow-hidden del aside.
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null)
+  const mostrarTooltip = useCallback(() => {
+    if (!colapsado || !itemRef.current) return
+    const rect = itemRef.current.getBoundingClientRect()
+    setTooltipPos({ top: rect.top + rect.height / 2, left: rect.right + 8 })
+  }, [colapsado])
+  const ocultarTooltip = useCallback(() => setTooltipPos(null), [])
 
   const iniciarLongPress = useCallback(() => {
     if (item.fijo || colapsado) return
@@ -76,13 +94,26 @@ function ItemSortable({
     }
   }, [])
 
-  const manejarClick = useCallback(() => {
+  // Click izquierdo simple sobre el <Link>:
+  //  - Si hubo long-press → cancelamos navegación (preventDefault).
+  //  - Si hay modifiers o no es botón principal → comportamiento nativo del browser
+  //    (Cmd/Ctrl+click → nueva pestaña, Shift+click → nueva ventana). NO interceptamos.
+  //  - Click normal → preventDefault y usamos `intentarNavegar` para respetar cambios
+  //    pendientes (modal "Guardar antes de salir") + side-effects del padre (vibrar,
+  //    cerrar drawer mobile).
+  const manejarClick = useCallback((e: React.MouseEvent) => {
     if (longPressActivado.current) {
       longPressActivado.current = false
+      e.preventDefault()
       return
     }
-    onNavegar()
-  }, [onNavegar])
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    intentarNavegar(() => {
+      onNavegar?.()
+      router.push(item.ruta)
+    })
+  }, [intentarNavegar, router, item.ruta, onNavegar])
 
   const estiloSortable: React.CSSProperties = {
     transform: CSS.Transform.toString(transform) || undefined,
@@ -93,21 +124,30 @@ function ItemSortable({
 
   return (
     <div ref={setNodeRef} style={estiloSortable} className={`relative group ${isDragging ? 'shadow-lg rounded-boton bg-superficie-elevada' : ''} ${animandoSalida ? 'sidebar-item-puff' : ''}`}>
-      {/* Item principal — div clickeable, long press abre menu */}
-      <div
+      {/* Item principal — <Link> real para habilitar middle-click / Cmd+click / menú contextual nativo.
+          draggable={false} evita que el browser inicie un drag-link nativo y choque con dnd-kit. */}
+      <Link
         ref={itemRef}
+        href={item.ruta}
+        draggable={false}
         onClick={manejarClick}
         onTouchStart={iniciarLongPress}
         onTouchEnd={cancelarLongPress}
         onTouchMove={cancelarLongPress}
+        onMouseEnter={mostrarTooltip}
+        onMouseLeave={ocultarTooltip}
         onContextMenu={(e) => {
+          // En desktop expandido el click derecho abre el menú custom (Ocultar/Deshabilitar).
+          // En colapsado o ítems fijos dejamos el menú nativo (con "Abrir en pestaña nueva").
           if (!item.fijo && !colapsado) {
             e.preventDefault()
             if (itemRef.current) onAbrirMenu(item.id, itemRef.current)
           }
         }}
+        aria-current={activo ? 'page' : undefined}
+        aria-label={item.etiqueta}
         className={[
-          'flex items-center rounded-boton text-sm cursor-pointer transition-all duration-100 relative select-none',
+          'flex items-center rounded-boton text-sm cursor-pointer transition-all duration-100 relative select-none no-underline',
           colapsado ? 'justify-center py-2.5 mx-auto w-10' : 'px-2 py-2 pr-7',
           activo
             ? 'text-texto-primario font-semibold bg-superficie-activa'
@@ -137,10 +177,19 @@ function ItemSortable({
         {colapsado && !(item.badge != null && item.badge > 0) && item.indicador && (
           <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-texto-marca" />
         )}
-        {colapsado && (
-          <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-boton bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>
-        )}
-      </div>
+      </Link>
+
+      {/* Tooltip de modo colapsado — fuera del aside via portal para no ser clipeado */}
+      {colapsado && tooltipPos && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed px-2.5 py-1.5 rounded-boton bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap pointer-events-none"
+          style={{ top: tooltipPos.top, left: tooltipPos.left, transform: 'translateY(-50%)', zIndex: 'var(--z-popover)' as unknown as number }}
+          role="tooltip"
+        >
+          {item.etiqueta}
+        </div>,
+        document.body
+      )}
 
       {/* Badge numerico (expandido) — en el mismo lugar que los 3 puntos. Se oculta en hover para que aparezca el menu */}
       {!colapsado && item.badge != null && item.badge > 0 && (
@@ -154,15 +203,20 @@ function ItemSortable({
         </span>
       )}
 
-      {/* Boton 3 puntos */}
+      {/* Boton 3 puntos — visible en hover o cuando el menú está abierto.
+          Sin :active para que no quede pegado en mobile post-tap. */}
       {!item.fijo && !colapsado && (
         <div
           onClick={(e) => {
             e.stopPropagation()
             onAbrirMenu(item.id, e.currentTarget)
           }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-boton cursor-pointer opacity-0 group-hover:opacity-100 group-active:opacity-100 hover:bg-superficie-activa active:bg-superficie-activa flex items-center justify-center transition-opacity z-30"
+          className={[
+            'absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-boton cursor-pointer hover:bg-superficie-activa flex items-center justify-center transition-opacity z-30',
+            menuAbierto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          ].join(' ')}
           style={{ color: 'var(--texto-terciario)' }}
+          aria-label="Opciones del item"
         >
           <MoreHorizontal size={13} />
         </div>

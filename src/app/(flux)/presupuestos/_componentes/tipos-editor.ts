@@ -43,6 +43,46 @@ export interface Vinculacion {
   }
 }
 
+/**
+ * Une las vinculaciones DIRECTAS (donde el contacto actual es el origen) con las
+ * INVERSAS (donde el contacto actual es el destino), normalizando ambas al mismo
+ * shape `Vinculacion`. El endpoint /api/contactos/[id] devuelve los dos arrays
+ * por separado — sin esta función, el editor del presupuesto solo veía las
+ * directas y dejaba sin opciones de "Dirigido a" a contactos como edificios
+ * cuyas relaciones se crearon desde el otro lado (ej: "Bruno es propietario
+ * de [edificio]").
+ */
+export function unirVinculaciones(
+  directas: unknown[] | null | undefined,
+  inversas: unknown[] | null | undefined,
+): Vinculacion[] {
+  const out: Vinculacion[] = []
+  for (const v of (directas || []) as Vinculacion[]) {
+    if (v?.vinculado) out.push(v)
+  }
+  for (const _v of (inversas || [])) {
+    const v = _v as Record<string, unknown>
+    const contacto = v.contacto as Record<string, unknown> | null
+    if (!contacto) continue
+    out.push({
+      id: v.id as string,
+      vinculado_id: v.contacto_id as string,
+      puesto: (v.puesto as string) || null,
+      recibe_documentos: (v.recibe_documentos as boolean) || false,
+      vinculado: {
+        id: contacto.id as string,
+        nombre: (contacto.nombre as string) || '',
+        apellido: (contacto.apellido as string) || null,
+        correo: (contacto.correo as string) || null,
+        telefono: (contacto.telefono as string) || null,
+        whatsapp: (contacto.whatsapp as string) || null,
+        tipo_contacto: contacto.tipo_contacto as { clave: string; etiqueta: string } | null,
+      },
+    })
+  }
+  return out
+}
+
 // Datos fiscales de la empresa emisora
 export interface DatosEmpresa {
   nombre: string

@@ -31,6 +31,8 @@ export async function GET() {
       motivos_predefinidos: [],
       resultados_predefinidos: [],
       enviar_avisos_whatsapp: false,
+      plantilla_aviso_en_camino_id: null,
+      plantilla_aviso_llegada_id: null,
     }
 
     return NextResponse.json(configFinal)
@@ -67,6 +69,51 @@ export async function PATCH(request: NextRequest) {
     if (body.motivos_predefinidos !== undefined) campos.motivos_predefinidos = body.motivos_predefinidos
     if (body.resultados_predefinidos !== undefined) campos.resultados_predefinidos = body.resultados_predefinidos
     if (body.enviar_avisos_whatsapp !== undefined) campos.enviar_avisos_whatsapp = body.enviar_avisos_whatsapp
+
+    // Plantillas WhatsApp seleccionadas para los avisos del recorrido.
+    // Validación: si vienen seteadas, deben (1) existir, (2) pertenecer a la empresa,
+    // (3) estar APPROVED, (4) tener la cantidad de variables esperada — sino el envío
+    // a Meta truena con un error críptico. Mejor frenar acá con un mensaje claro.
+    const VARIABLES_ESPERADAS = {
+      en_camino: 3, // contacto_nombre, visita_direccion, visita_eta
+      llegada: 2,   // contacto_nombre, visita_direccion
+    }
+
+    async function validarPlantilla(
+      plantillaId: string | null,
+      variablesEsperadas: number,
+      campo: string,
+    ): Promise<{ ok: true } | { ok: false; error: string }> {
+      if (!plantillaId) return { ok: true } // null = volver al default
+      const adminCli = crearClienteAdmin()
+      const { data: plantilla } = await adminCli
+        .from('plantillas_whatsapp')
+        .select('id, estado_meta, componentes')
+        .eq('id', plantillaId)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!plantilla) return { ok: false, error: `${campo}: plantilla no encontrada` }
+      if (plantilla.estado_meta !== 'APPROVED') {
+        return { ok: false, error: `${campo}: la plantilla no está aprobada por Meta` }
+      }
+      const cuerpo = (plantilla.componentes as { cuerpo?: { mapeo_variables?: string[] } } | null)?.cuerpo
+      const cantidad = cuerpo?.mapeo_variables?.length ?? 0
+      if (cantidad !== variablesEsperadas) {
+        return { ok: false, error: `${campo}: la plantilla debe tener exactamente ${variablesEsperadas} variables (tiene ${cantidad})` }
+      }
+      return { ok: true }
+    }
+
+    if (body.plantilla_aviso_en_camino_id !== undefined) {
+      const v = await validarPlantilla(body.plantilla_aviso_en_camino_id, VARIABLES_ESPERADAS.en_camino, 'plantilla_aviso_en_camino')
+      if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 })
+      campos.plantilla_aviso_en_camino_id = body.plantilla_aviso_en_camino_id
+    }
+    if (body.plantilla_aviso_llegada_id !== undefined) {
+      const v = await validarPlantilla(body.plantilla_aviso_llegada_id, VARIABLES_ESPERADAS.llegada, 'plantilla_aviso_llegada')
+      if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 })
+      campos.plantilla_aviso_llegada_id = body.plantilla_aviso_llegada_id
+    }
 
     // Upsert: crear si no existe
     const { data, error } = await admin

@@ -210,7 +210,8 @@ export default function PaginaListadoTurnos() {
           busqueda={busqueda}
           onBusqueda={setBusqueda}
           placeholder="Buscar por nombre..."
-          onClickFila={(t) => router.push(`/asistencias/configuracion/turnos/${t.id}`)}
+          hrefFila={(t) => `/asistencias/configuracion/turnos/${t.id}`}
+          ariaLabelFila={(t) => `Abrir turno ${t.nombre || t.id}`}
           idModulo="turnos_laborales"
           filasReordenables
           onReordenarFilas={handleReordenar}

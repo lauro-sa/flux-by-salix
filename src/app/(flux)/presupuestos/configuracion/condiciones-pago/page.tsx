@@ -265,7 +265,8 @@ export default function PaginaListadoCondicionesPago() {
             },
           ]}
           onLimpiarFiltros={() => { setFiltroTipo('') }}
-          onClickFila={(c) => router.push(`/presupuestos/configuracion/condiciones-pago/${c.id}`)}
+          hrefFila={(c) => `/presupuestos/configuracion/condiciones-pago/${c.id}`}
+          ariaLabelFila={(c) => `Abrir condición ${c.label || c.id}`}
           accionesLote={[
             {
               id: 'eliminar',

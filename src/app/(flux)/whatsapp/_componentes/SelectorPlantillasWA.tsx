@@ -10,6 +10,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp, CuerpoPlantillaWA } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
 import { construirDatosPlantilla, resolverTextoPlantilla, type EntidadesPlantilla } from '@/lib/whatsapp/variables'
+import { plantillaDisponibleEnModulo } from '@/lib/whatsapp/modulos-plantilla'
 
 /**
  * SelectorPlantillasWA — Panel para seleccionar y enviar plantillas de WhatsApp aprobadas.
@@ -114,14 +115,8 @@ export function SelectorPlantillasWA({
       .then(res => res.json())
       .then(data => {
         const aprobadas = (data.plantillas || []).filter(
-          (p: PlantillaWhatsApp) => {
-            if (p.estado_meta !== 'APPROVED' || !p.activo) return false
-            // Si la plantilla no tiene módulos asignados → disponible en todos
-            if (!p.modulos || p.modulos.length === 0) return true
-            // Si hay contexto, filtrar por módulo
-            if (contexto) return p.modulos.includes(contexto)
-            return true
-          }
+          (p: PlantillaWhatsApp) =>
+            p.estado_meta === 'APPROVED' && p.activo && plantillaDisponibleEnModulo(p, contexto)
         )
         setPlantillas(aprobadas)
       })

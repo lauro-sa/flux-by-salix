@@ -12,6 +12,7 @@ import {
   asegurarConversacionEmpleado,
   registrarMensajeEmpleado,
 } from '@/lib/conversaciones/empleados'
+import { enviarTypingWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 import type { MensajeSalixIA, MiembroSalixIA, SupabaseAdmin } from '@/tipos/salix-ia'
 
 // Mensaje que reciben los empleados con Salix bloqueado (nivel='ninguno' o
@@ -52,6 +53,15 @@ export async function procesarMensajeCopiloto(
   empleado: DatosEmpleado,
   textoMensaje?: string
 ): Promise<boolean> {
+  // Encender typing indicator + marcar como leído INMEDIATAMENTE para que el
+  // empleado vea ✓✓ azul + "escribiendo..." mientras el pipeline procesa.
+  // Es best-effort y no bloqueante: el .catch() evita romper el flujo si Meta
+  // rechaza (mensaje viejo, credenciales inválidas, etc.).
+  const configConexion = canal.config_conexion as unknown as ConfigCuentaWhatsApp
+  if (msg.id && configConexion?.tokenAcceso && configConexion?.phoneNumberId) {
+    enviarTypingWhatsApp(configConexion, msg.id).catch(() => {})
+  }
+
   // Extraer texto del mensaje — transcribir audio si es necesario
   let texto = textoMensaje || msg.text?.body || ''
 
