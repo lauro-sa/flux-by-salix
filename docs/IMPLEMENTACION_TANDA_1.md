@@ -18,40 +18,52 @@ Las 4 son independientes — podés hacerlas en orden o en paralelo. El orden su
 
 ---
 
-## 2. Cómo operás (modo autónomo)
+## 2. Cómo operás (modo FULL autónomo)
 
-### 2.1 Decisiones que tomás vos sin preguntar
-- Nombres de variables, funciones, archivos (siguiendo CLAUDE.md).
-- Estructura interna del código (helpers, separación en módulos, etc.).
-- Shape exacto de queries SQL.
-- Implementación de tests.
-- Mensajes de commit (seguí el estilo del repo: `feat(<scope>): …`).
-- Mensaje del PR.
-- Rebases sobre main si hay conflictos triviales.
+Sal está cansado del ida y vuelta. **No le pidas validación visual, no le pidas votos, no le pidas luz verde para nada.** Tenés MCP de Supabase, gh CLI, typecheck, suite de tests completa, y este documento. Eso alcanza para operar solo.
 
-### 2.2 Decisiones que consultás a Sal (con tu sugerencia + por qué)
-- **Idempotencia / re-ejecución**: cuando un stub se puede ejecutar 2 veces sobre la misma OT (skip vs duplicar vs error).
-- **Comportamiento de UI ambiguo**: orden de items, qué mostrar cuando está vacío, qué permitir editar a quién.
-- **Variables de plantillas WA**: qué variables expone Flux al cliente final.
-- **Cualquier creación de tabla nueva** (migración DDL): pegale el SQL propuesto antes de aplicar.
-- **Cualquier merge a main**: pedile validación visual en Vercel preview primero.
+### 2.1 Tu protocolo por feature
+1. Investigar con MCP de Supabase (`list_tables`, `execute_sql` para SELECT).
+2. Implementar el stub + tests unitarios.
+3. **Verificar local**: `npx tsc --noEmit` debe pasar limpio. `npx vitest run` debe pasar la suite completa (no solo tus tests — la suite entera).
+4. **Auto-review del código**: leé tu propio diff antes de commit. Buscá:
+   - Tokens semánticos en lugar de colores hardcodeados.
+   - Manejo de empresa_id en todas las queries.
+   - Edge cases (vacío, duplicado, tipos desconocidos).
+   - Sin imports muertos, sin `console.log`, sin TODOs colgados.
+5. Commit + push.
+6. `gh pr create --base main --head feat/<nombre>`.
+7. Esperá que CI termine (`gh pr checks <num> --watch` si querés).
+8. **Si CI pasa verde**: `gh pr merge <num> --squash --delete-branch`. Sin pedir validación.
+9. Reportá a Sal en una línea: "Feature N mergeada. PR #X. Arranco N+1." Y arrancá la siguiente.
 
-Formato de consulta: `Sugerencia + por qué + 2-3 opciones`. Nunca opciones planas. Ver `feedback_opciones_con_voto.md` en memoria si está disponible.
+### 2.2 Decisiones que tomás vos sin preguntar (todo lo técnico)
+- Nombres de variables, funciones, archivos, branches, commits.
+- Estructura del código.
+- Queries SQL.
+- Tests.
+- Idempotencia: por defecto **skip si ya existe** (no duplicar). Lo dejás documentado en chatter/log.
+- Edge cases de UI: orden ASC por fecha, vacío con `EstadoVacio`, autor edita lo suyo, gestor edita todo.
+- Rebases triviales sobre main.
+- Mergear cuando typecheck + tests + suite completa pasan en CI.
+- Migraciones DDL **no destructivas** (CREATE TABLE, ADD COLUMN NULL, ADD INDEX): las aplicás directo con `apply_migration` siguiendo convenciones del repo (RLS, auditoría, índices `(empresa_id, …)`).
 
-### 2.3 Protocolo de checkpoint
-Después de cada feature mergeada:
-1. Push final al main.
-2. Reportá a Sal: feature N completa, PR mergeado, link al commit en main.
-3. Esperá a que diga "seguí con N+1" o "frená".
-4. NO arranques la siguiente sin confirmación.
+### 2.3 Decisiones que SÍ requieren consulta a Sal (muy pocas)
+Solo escribile en estos casos:
+- **Migración destructiva** (DROP TABLE, DROP COLUMN, ALTER COLUMN destructivo, DELETE masivo).
+- **Blocker técnico real** que no podés resolver después de 2-3 intentos: contexto + qué intentaste + hipótesis + qué necesitás.
+- **Ambigüedad de producto crítica**: ej. "variables disponibles para plantilla WA al cliente" — si no podés inferirlo del código existente, preguntá con sugerencia + por qué + 2-3 opciones.
 
-### 2.4 Si encontrás un blocker
-- Investigá con MCP de Supabase primero (`list_tables`, `execute_sql` para SELECT).
-- Si después de investigar seguís sin saber, escribile a Sal con: contexto, qué intentaste, hipótesis, qué necesitás para desbloquear.
-- NO improvises decisiones de negocio críticas.
+Para todo lo demás: decidí vos. Si te equivocás, Sal te lo dice en otro chat y lo arreglás.
 
-### 2.5 Validación visual
-Vos no tenés browser. Después del merge, Sal va a abrir Vercel preview. **Siempre** pedile validación visual antes de mergear. Si dice "todo OK", mergeás. Si reporta un bug, lo arreglás antes de mergear.
+### 2.4 Validación
+Vos no tenés browser. **Reemplazás validación visual con**:
+- Typecheck estricto verde.
+- Suite de tests completa verde (no solo los tuyos).
+- Lectura crítica del diff (auto-review).
+- CI de GitHub Actions verde.
+
+Si los 4 están OK, **mergeás directo**. Sal va a probar después en producción cuando tenga ganas; si encuentra algo, hace otro chat.
 
 ---
 
@@ -275,28 +287,27 @@ Ambos esperan resolver una plantilla Meta de WhatsApp y enviarla al cliente con 
 
 Total: ~16 horas. **No entra en una sesión de chat sola.** Hacé checkpoint después de cada feature.
 
-### 9.2 Protocolo por feature
+### 9.2 Protocolo por feature (full autónomo)
 1. **`git checkout main && git pull && git checkout -b feat/<nombre>`**.
-2. **Investigación previa** vía MCP (verificar tablas, shapes, edge cases).
-3. **Pegale a Sal**: hallazgos + propuesta de implementación + preguntas de negocio (si las hay). Esperar voto solo en preguntas de negocio.
-4. **Implementar**: editar el stub, agregar tests.
-5. **Verificar local**: `npx tsc --noEmit` + `npx vitest run`.
+2. **Investigación previa** vía MCP (verificar tablas, shapes, edge cases). NO le pegues hallazgos a Sal — son insumo tuyo.
+3. **Implementar**: editar el stub, agregar tests.
+4. **Verificar local**: `npx tsc --noEmit` + `npx vitest run` (suite completa).
+5. **Auto-review del diff**: leé lo que estás por commitear. Limpiá lo que sobra.
 6. **Commit + push** con upstream.
 7. **Crear PR**: `gh pr create --base main --head feat/<nombre>`.
-8. **Pedir validación visual** a Sal en Vercel preview.
-9. **Si aprueba**: `gh pr merge <num> --squash --delete-branch`.
-10. **Checkpoint**: reportar feature completa + esperar OK para siguiente.
+8. **Esperar CI verde**: `gh pr checks <num> --watch`.
+9. **Mergear directo**: `gh pr merge <num> --squash --delete-branch`. Sin pedir validación.
+10. **Reportar 1 línea a Sal y arrancar la siguiente**. No esperes confirmación entre features.
 
 ---
 
 ## 10. Cómo arrancás
 
-1. Confirmá que leíste este documento.
+1. Leé este documento entero.
 2. Verificá estado del repo: `git log --oneline -5` + `git status --short`.
-3. Si el working tree no está limpio → reportarle a Sal antes de tocar nada.
-4. Preguntale a Sal por dónde arrancar (Feature 1 por defecto si no especifica).
-5. Arrancá investigación previa de esa feature (§5.4/§6.4/§7.5/§8.4).
-6. NO codees hasta tener los hallazgos pegados y los votos de negocio.
+3. Si el working tree no está limpio → reportarle a Sal en 1 línea antes de tocar nada.
+4. Arrancá por la feature pendiente más baja (1 → 2 → 3 → 4). No preguntes por cuál — el orden ya está definido en §9.1.
+5. Investigá con MCP, implementá, testeá, mergeá, reportá 1 línea, seguí con la próxima.
 
 ---
 
@@ -312,7 +323,7 @@ Cuando las 4 estén mergeadas a main:
 ## 12. Contacto y dudas
 
 - **Hablás directo con Sal.** No hay coordinador intermedio.
-- Sal prefiere respuestas concretas: "Hice X, Y, Z. Pendiente W. ¿Sigo?". No respuestas largas.
-- Si te trabás en algo, pegale: contexto + qué intentaste + hipótesis + qué necesitás.
-- Si una decisión técnica te parece reversible y de bajo riesgo, **tomala vos**. Sal valora autonomía.
-- Si es irreversible o de alto blast radius (drop tables, migraciones destructivas, push a main sin PR), **siempre consultar**.
+- **Sal está cansado de chequear cada paso.** Reportá solo cuando terminás una feature, en 1 línea. No le pidas validación visual, no le pidas votos.
+- Si te trabás en algo después de 2-3 intentos, recién ahí pegale: contexto + qué intentaste + hipótesis + qué necesitás.
+- Si una decisión técnica te parece reversible y de bajo riesgo, **tomala vos**. Default a "skip si ya existe" para idempotencia.
+- Si es irreversible (DROP/DELETE masivo) o de alto blast radius, **siempre consultar**. Para todo lo demás, avanzá.
