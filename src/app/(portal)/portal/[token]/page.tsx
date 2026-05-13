@@ -116,6 +116,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal>
               url: '/presupuestos',
               referenciaTipo: 'presupuesto',
               referenciaId: portalToken.presupuesto_id,
+              esTiempoReal: true,
             })
           } catch { /* no bloquear renderizado */ }
         }

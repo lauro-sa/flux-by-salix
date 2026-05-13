@@ -514,6 +514,8 @@ async function procesarMensajeEntrante(
       url: `/whatsapp?conv=${conversacion.id}`,
       referenciaTipo: 'conversacion',
       referenciaId: conversacion.id,
+      // Cliente entrante: el push pasa siempre, sin gate de horario.
+      esTiempoReal: true,
     }
 
     if (convActual?.asignado_a) {
