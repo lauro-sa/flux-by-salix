@@ -60,17 +60,17 @@ Estos archivos fueron traídos desde `wip/recovery-multiples-chats` para destrab
 | Archivo | Tamaño | Estado |
 |---|---|---|
 | `src/lib/actividades-sync.ts` | 615 B | Stub |
-| `src/lib/recorrido-plantilla-aviso.ts` | 1.3 KB | Stub |
-| `src/lib/sembrar-relevamiento-ot.ts` | 619 B | Stub |
-| `src/lib/sembrar-tareas-ot.ts` | 693 B | Stub |
+| `src/lib/recorrido-plantilla-aviso.ts` | 1.3 KB | **Implementado (Tanda 1, PR #16)** |
+| `src/lib/sembrar-relevamiento-ot.ts` | 619 B | **Implementado (Tanda 1, PR #14)** |
+| `src/lib/sembrar-tareas-ot.ts` | 693 B | **Implementado (Tanda 1, PR #13)** |
 | `src/lib/whatsapp/modulos-plantilla.ts` | 3.4 KB | Stub (PR #9 lo reemplazó con versión real, verificá) |
 | `src/lib/presupuestos/enriquecer-listado.ts` | 542 B | Stub pass-through |
 | `src/lib/presupuestos/sincronizar-recursos-envio.ts` | 1.2 KB | Stub |
 | `src/componentes/entidad/_enviar_documento/BannerSincronizacion.tsx` | — | Stub (renderiza null) |
 | `src/componentes/entidad/IndicadorGuardadoHeader.tsx` | — | Stub |
 | `src/componentes/entidad/PreviewSeccionExterna.tsx` | — | Stub |
-| `src/app/(flux)/ordenes/_componentes/SeccionBitacoraOT.tsx` | — | Stub |
-| `src/app/(flux)/ordenes/_componentes/SeccionRelevamientoOT.tsx` | — | Stub |
+| `src/app/(flux)/ordenes/_componentes/SeccionBitacoraOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
+| `src/app/(flux)/ordenes/_componentes/SeccionRelevamientoOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
 | `src/app/(flux)/presupuestos/_componentes/SelectorVisitaPresupuesto.tsx` | — | Stub |
 | `src/hooks/useTituloPestana.ts` | — | Stub (no-op) |
 | `src/hooks/useIndicadorGuardado.tsx` | — | Stub (pass-through provider) |
