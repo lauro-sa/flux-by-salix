@@ -1,44 +1,93 @@
 # Implementación Tanda 1 — Features de Negocio Pendientes
 
+> **Modo de operación: AUTÓNOMO.** No hay "chat coordinador". Vos hablás directo con Sebastián (Sal). Este documento es tu única fuente de verdad. No esperes a que otro chat te apruebe nada — las decisiones técnicas las tomás vos, las decisiones de negocio las consultás directo con Sal.
+
+---
+
 ## 1. Tu misión
 
-Sos un chat dedicado a implementar 4 features que actualmente son stubs vacíos en main. El usuario (Sebastián de Flux by Salix) decidió priorizar estas porque afectan la operación diaria de su empresa.
+Sos un chat dedicado a implementar 4 features que actualmente son stubs vacíos en `main`. Sal (fundador de Flux by Salix) priorizó estas porque afectan la operación diaria de su empresa.
 
-Las 4 features son:
+Las 4 features:
 1. **Sembrar tareas en OT** desde un presupuesto.
 2. **Sembrar relevamiento en OT** desde una visita.
 3. **Secciones de Bitácora y Relevamiento** dentro de la vista de OT.
 4. **Plantillas de WhatsApp** para avisos de recorrido (en camino / llegada).
 
-Las 4 son independientes — podés hacerlas en orden o en paralelo.
+Las 4 son independientes — podés hacerlas en orden o en paralelo. El orden sugerido está en §8.
 
-## 2. Restricciones duras
+---
 
-- **Estado actual del repo**: HEAD de main = `5a7fd95` (post-cleanup del incidente del 2026-05-13). Working tree limpio salvo archivos untracked del usuario.
+## 2. Cómo operás (modo autónomo)
+
+### 2.1 Decisiones que tomás vos sin preguntar
+- Nombres de variables, funciones, archivos (siguiendo CLAUDE.md).
+- Estructura interna del código (helpers, separación en módulos, etc.).
+- Shape exacto de queries SQL.
+- Implementación de tests.
+- Mensajes de commit (seguí el estilo del repo: `feat(<scope>): …`).
+- Mensaje del PR.
+- Rebases sobre main si hay conflictos triviales.
+
+### 2.2 Decisiones que consultás a Sal (con tu sugerencia + por qué)
+- **Idempotencia / re-ejecución**: cuando un stub se puede ejecutar 2 veces sobre la misma OT (skip vs duplicar vs error).
+- **Comportamiento de UI ambiguo**: orden de items, qué mostrar cuando está vacío, qué permitir editar a quién.
+- **Variables de plantillas WA**: qué variables expone Flux al cliente final.
+- **Cualquier creación de tabla nueva** (migración DDL): pegale el SQL propuesto antes de aplicar.
+- **Cualquier merge a main**: pedile validación visual en Vercel preview primero.
+
+Formato de consulta: `Sugerencia + por qué + 2-3 opciones`. Nunca opciones planas. Ver `feedback_opciones_con_voto.md` en memoria si está disponible.
+
+### 2.3 Protocolo de checkpoint
+Después de cada feature mergeada:
+1. Push final al main.
+2. Reportá a Sal: feature N completa, PR mergeado, link al commit en main.
+3. Esperá a que diga "seguí con N+1" o "frená".
+4. NO arranques la siguiente sin confirmación.
+
+### 2.4 Si encontrás un blocker
+- Investigá con MCP de Supabase primero (`list_tables`, `execute_sql` para SELECT).
+- Si después de investigar seguís sin saber, escribile a Sal con: contexto, qué intentaste, hipótesis, qué necesitás para desbloquear.
+- NO improvises decisiones de negocio críticas.
+
+### 2.5 Validación visual
+Vos no tenés browser. Después del merge, Sal va a abrir Vercel preview. **Siempre** pedile validación visual antes de mergear. Si dice "todo OK", mergeás. Si reporta un bug, lo arreglás antes de mergear.
+
+---
+
+## 3. Restricciones duras
+
+- **Estado actual del repo**: HEAD de main = `007ccdd` (commit que agregó este documento). Working tree debe estar limpio al arrancar cada feature.
 - **Una branch por feature**: `feat/sembrar-tareas-ot`, `feat/sembrar-relevamiento-ot`, `feat/seccion-bitacora-relevamiento-ot`, `feat/plantilla-aviso-recorrido`.
 - **Un PR por feature**: cada uno mergeado independiente. NO juntar features en un PR.
-- **TypeScript estricto**: typecheck limpio antes de cada commit.
-- **Tests obligatorios**: cada feature con su suite de tests unitarios (`src/lib/__tests__/<feature>.test.ts`).
+- **TypeScript estricto**: `npx tsc --noEmit` limpio antes de cada commit.
+- **Tests obligatorios**: cada feature con su suite de tests unitarios.
 - **Mantener firma actual del stub**: el caller ya está usando una firma específica (`{ agregadas: number }`, etc.). NO cambies el contrato del export — solo implementás la lógica interna.
-- **Validación visual**: vos no tenés browser. Después del merge, el usuario va a probar en Vercel preview. Pedile siempre que valide visualmente.
-- **gh CLI**: `/Users/sal/bin/gh`, autenticado como `lauro-sa`.
+- **gh CLI**: `/Users/sal/bin/gh`, autenticado como `lauro-sa`. Usalo para crear/mergear PRs sin pedirle a Sal que clickee.
 - **Supabase MCP**: project_id `nfbjdlmnsmcmtvimjeuo` (flux-dev). Usar `apply_migration` para DDL, `execute_sql` solo para SELECT/inspección.
+- **Vercel auto-deploy**: cada merge a main triggerea deploy a producción. Por eso siempre pedir validación visual antes.
 
-## 3. Convenciones del proyecto
+---
 
-Leé `CLAUDE.md` en raíz del repo para convenciones generales. Lo más crítico:
-- TypeScript estricto, todo en español (variables, funciones, componentes, comentarios).
-- Imports con alias `@/*` apuntando a `src/`.
-- Tokens semánticos CSS, nunca colores hardcodeados.
-- Auditoría obligatoria en tablas nuevas (ver `feedback_auditoria_tablas.md` en memoria del proyecto si está disponible).
-- RLS multi-tenant: política `USING (empresa_id = (auth.jwt() ->> 'empresa_id')::uuid)`.
+## 4. Convenciones del proyecto (recordatorio crítico)
 
-## 4. Feature 1 — `sembrar-tareas-ot.ts`
+Leé `CLAUDE.md` en raíz del repo. Lo más crítico para este trabajo:
 
-### 4.1 Estado actual
+- **TypeScript estricto**, todo en español: variables, funciones, componentes, comentarios, mensajes de commit, branches.
+- **Imports con alias `@/*`** apuntando a `src/`.
+- **Tokens semánticos CSS**, nunca colores hardcodeados (`bg-superficie-tarjeta`, `text-texto-primario`, etc.).
+- **Auditoría obligatoria en tablas nuevas**: campos `creado_en`, `actualizado_en`, `creado_por`, `actualizado_por`, `version` + tabla `auditoria_*` + IndicadorEditado en UI. Ver `feedback_auditoria_tablas.md` en memoria.
+- **RLS multi-tenant**: política `USING (empresa_id = (auth.jwt() ->> 'empresa_id')::uuid)` + índice `(empresa_id, …)`.
+- **Soluciones definitivas, no parches**: si una tabla tiene problema de shape, hacé migración. No agregues helpers visuales para tapar inconsistencias. Ver `feedback_soluciones_definitivas.md`.
+
+---
+
+## 5. Feature 1 — `sembrar-tareas-ot.ts`
+
+### 5.1 Estado actual
 Stub en `src/lib/sembrar-tareas-ot.ts` que devuelve `{ agregadas: 0 }`.
 
-### 4.2 Caller
+### 5.2 Caller
 `src/app/api/ordenes/generar/route.ts:183-189`:
 ```ts
 const sembradoTareas = await sembrarTareasOT({
@@ -50,16 +99,11 @@ const sembradoTareas = await sembrarTareasOT({
 })
 ```
 
-El resultado se usa en chatter:
-```ts
-metadata: {
-  detalles: { tareas_sembradas: sembradoTareas.agregadas },
-}
-```
+Resultado usado en chatter: `metadata: { detalles: { tareas_sembradas: sembradoTareas.agregadas } }`.
 
-### 4.3 Qué tiene que hacer
+### 5.3 Qué tiene que hacer
 1. Leer las líneas del presupuesto (`SELECT * FROM presupuesto_lineas WHERE presupuesto_id = ?`).
-2. Para cada línea, crear un registro en `ordenes_trabajo_tareas` (verificá el nombre exacto de la tabla con `mcp__supabase__list_tables`).
+2. Para cada línea, crear un registro en la tabla de tareas de OT (verificá nombre exacto con `mcp__supabase__list_tables`).
 3. Las líneas pueden ser de tipo:
    - **producto**: tarea con estado `pendiente`, hereda nombre/cantidad/etc.
    - **seccion**: tarea tipo `seccion` con estado `no_aplica` (header visual).
@@ -67,30 +111,29 @@ metadata: {
 4. Mantener el orden de las líneas del presupuesto.
 5. Devolver `{ agregadas: N }` donde N es la cantidad insertada.
 
-### 4.4 Investigación previa obligatoria
-Antes de codear, verificá vía MCP:
+### 5.4 Investigación previa obligatoria (antes de codear)
 - Shape de `presupuesto_lineas` (columnas, tipos).
 - Shape de la tabla de tareas de OT (nombre exacto, columnas).
 - Si hay constraint UNIQUE que impida re-ejecución (idempotencia).
 
-### 4.5 Edge cases a manejar
+### 5.5 Edge cases
 - Presupuesto sin líneas → devolver `{ agregadas: 0 }` sin error.
-- Si la OT ya tiene tareas (re-ejecución) → decidir: skip o insertar duplicadas. Pregunta al usuario antes de elegir.
+- Si la OT ya tiene tareas (re-ejecución) → **consultar a Sal**: skip o insertar duplicadas.
 - Línea de tipo desconocido → log warn + skip, no romper.
 
-### 4.6 Tests requeridos
+### 5.6 Tests requeridos (en `src/lib/__tests__/sembrar-tareas-ot.test.ts`)
 - Presupuesto con 3 productos + 1 sección + 1 nota → 5 tareas creadas con tipos correctos.
 - Presupuesto vacío → `{ agregadas: 0 }`.
 - Orden de tareas preservado.
 
 ---
 
-## 5. Feature 2 — `sembrar-relevamiento-ot.ts`
+## 6. Feature 2 — `sembrar-relevamiento-ot.ts`
 
-### 5.1 Estado actual
+### 6.1 Estado actual
 Stub en `src/lib/sembrar-relevamiento-ot.ts` que devuelve `{ agregados: 0 }`.
 
-### 5.2 Caller
+### 6.2 Caller
 `src/app/api/ordenes/generar/route.ts:248-256`:
 ```ts
 if (presupuesto.visita_id) {
@@ -109,36 +152,36 @@ if (presupuesto.visita_id) {
 }
 ```
 
-### 5.3 Qué tiene que hacer
+### 6.3 Qué tiene que hacer
 1. Leer items del relevamiento de la visita (probablemente `visitas_relevamiento` o similar, verificar con MCP).
 2. Para cada item, crear copia en `ordenes_trabajo_relevamiento` (verificá nombre real).
 3. Items típicos: fotos, notas técnicas, mediciones, observaciones.
 4. Devolver `{ agregados: N }`.
 
-### 5.4 Investigación previa obligatoria
+### 6.4 Investigación previa obligatoria
 - Verificar nombre exacto de las tablas de relevamiento (visita + OT).
 - Si las fotos están en Storage, ver si se copian referencias o se duplican archivos (típicamente solo referencias).
 - Shape de los items.
 
-### 5.5 Edge cases
+### 6.5 Edge cases
 - Visita sin relevamiento → `{ agregados: 0 }`.
-- OT ya tiene items → mismo dilema que sembrar-tareas (preguntar antes).
+- OT ya tiene items → **consultar a Sal**: skip o duplicar.
 
-### 5.6 Tests requeridos
+### 6.6 Tests requeridos
 - Visita con 3 fotos + 2 notas → 5 items en OT.
 - Visita sin items → `{ agregados: 0 }`.
 
 ---
 
-## 6. Feature 3 — `SeccionRelevamientoOT.tsx` + `SeccionBitacoraOT.tsx`
+## 7. Feature 3 — `SeccionRelevamientoOT.tsx` + `SeccionBitacoraOT.tsx`
 
-### 6.1 Estado actual
+### 7.1 Estado actual
 Ambos componentes son stubs que renderizan `null`. Viven en `src/app/(flux)/ordenes/_componentes/`.
 
-### 6.2 Caller
+### 7.2 Caller
 `src/app/(flux)/ordenes/_componentes/VistaOrdenTrabajo.tsx:712-742`. Ya está integrado con tabs (`tabActiva === 'relevamiento' | 'bitacora'`).
 
-### 6.3 Props que ya recibe
+### 7.3 Props que ya recibe
 
 **`SeccionRelevamientoOT`**:
 ```tsx
@@ -162,19 +205,19 @@ Ambos componentes son stubs que renderizan `null`. Viven en `src/app/(flux)/orde
 />
 ```
 
-### 6.4 Qué tiene que hacer cada uno
+### 7.4 Qué tiene que hacer cada uno
 
 **Relevamiento**: muestra galería + notas técnicas que vinieron del relevamiento de la visita (sembradas por Feature 2). Permite agregar items nuevos si `puedeGestionar=true`. Si `visitaId` es null, mostrar selector para vincular una visita (que dispara `onVisitaCambio`).
 
 **Bitácora**: feed cronológico de avances. Asignados (`esAsignado=true`) pueden agregar fotos + notas durante la ejecución. Cada autor edita lo suyo; los gestores (`puedeGestionar=true`) editan todo. Orden DESC (más nuevo primero).
 
-### 6.5 Tablas BD esperadas
+### 7.5 Tablas BD esperadas
 - `ordenes_trabajo_relevamiento` (alimentada por Feature 2 + manual).
 - `ordenes_trabajo_bitacora` (solo manual, durante ejecución).
 
-Verificá con MCP si existen y su shape. Si no existen, hay que crear migración.
+Verificá con MCP si existen y su shape. **Si no existen → consultar a Sal el SQL de migración antes de aplicar.**
 
-### 6.6 Tests requeridos
+### 7.6 Tests requeridos
 - Renderiza vacío correctamente.
 - Lista items existentes ordenados.
 - Botón "agregar" solo aparece con permisos correctos.
@@ -182,9 +225,9 @@ Verificá con MCP si existen y su shape. Si no existen, hay que crear migración
 
 ---
 
-## 7. Feature 4 — `recorrido-plantilla-aviso.ts`
+## 8. Feature 4 — `recorrido-plantilla-aviso.ts`
 
-### 7.1 Estado actual
+### 8.1 Estado actual
 Stub en `src/lib/recorrido-plantilla-aviso.ts`:
 ```ts
 export async function resolverPlantillaAviso(
@@ -196,66 +239,80 @@ export async function resolverPlantillaAviso(
 }
 ```
 
-### 7.2 Callers
+### 8.2 Callers
 - `src/app/api/recorrido/aviso-en-camino/route.ts`
 - `src/app/api/recorrido/aviso-llegada/route.ts`
 
-Ambos esperan resolver una plantilla Meta de WhatsApp y enviarla al cliente con variables (nombre, ETA, etc.).
+Ambos esperan resolver una plantilla Meta de WhatsApp y enviarla al cliente con variables.
 
-### 7.3 Qué tiene que hacer
-1. Leer config de la empresa: cuál plantilla Meta usar para `llegada` vs `en_camino`. Probablemente en `config_recorrido` o `config_recorrido_avisos` (verificar con MCP).
+### 8.3 Qué tiene que hacer
+1. Leer config de la empresa: cuál plantilla Meta usar para `llegada` vs `en_camino` (probablemente en `config_recorrido` o `config_recorrido_avisos`).
 2. Resolver la plantilla:
-   - Buscar en `plantillas_wa` (o similar) por nombre/id según config.
+   - Buscar en `plantillas_wa` (o similar) por nombre/id.
    - Verificar que esté `estado_meta='aprobada'`.
    - Devolver shape `PlantillaAvisoResuelta` con `plantilla` + `nombreApi`.
-3. Si no hay plantilla configurada o no está aprobada → devolver `null` (los callers ya manejan ese caso).
+3. Si no hay plantilla configurada o no está aprobada → devolver `null`.
 
-### 7.4 Investigación previa
-- Verificar nombres de tablas: `config_recorrido`, `plantillas_wa`.
-- Ver shape exacto de `PlantillaAvisoBase` esperado por los callers.
-- Variables disponibles para reemplazar en la plantilla (nombre contacto, ETA, link de tracking, etc.).
+### 8.4 Investigación previa
+- Verificar nombres exactos: `config_recorrido`, `plantillas_wa`.
+- Shape exacto de `PlantillaAvisoBase` esperado por los callers.
+- **Consultar a Sal**: qué variables expone Flux al cliente (nombre contacto, ETA, link de tracking, etc.).
 
-### 7.5 Tests requeridos
+### 8.5 Tests requeridos
 - Plantilla configurada y aprobada → devuelve resolución correcta.
 - Plantilla configurada pero NO aprobada → devuelve `null`.
 - Sin plantilla configurada → devuelve `null`.
-- Tipo desconocido → error.
 
 ---
 
-## 8. Plan de ejecución sugerido
+## 9. Plan de ejecución sugerido
 
-### Orden recomendado (por dependencia)
+### 9.1 Orden recomendado (por dependencia)
 1. **Feature 1** (sembrar-tareas-ot) — independiente, valor alto, ~3 horas.
 2. **Feature 2** (sembrar-relevamiento-ot) — independiente, valor alto, ~3 horas.
-3. **Feature 3** (Secciones OT) — depende parcialmente de Feature 2 (los items que muestra vienen de ahí), ~6 horas.
+3. **Feature 3** (Secciones OT) — depende parcialmente de Feature 2, ~6 horas.
 4. **Feature 4** (Plantilla aviso recorrido) — independiente, valor alto, ~4 horas.
 
-Total: ~16 horas.
+Total: ~16 horas. **No entra en una sesión de chat sola.** Hacé checkpoint después de cada feature.
 
-### Protocolo por feature
-1. **Crear branch** desde main: `git checkout -b feat/<nombre>`.
-2. **Investigación previa**: vía MCP, verificar tablas, shapes, edge cases. Pegar al usuario lo encontrado + propuesta de implementación. Esperar voto.
-3. **Implementar**: editar el stub, agregar tests.
-4. **Verificar local**: `npx tsc --noEmit` + `npx vitest run` (suite completa).
-5. **Preview pre-commit**: pegar al usuario `git status`, diff stat, mensaje propuesto. Esperar luz verde.
+### 9.2 Protocolo por feature
+1. **`git checkout main && git pull && git checkout -b feat/<nombre>`**.
+2. **Investigación previa** vía MCP (verificar tablas, shapes, edge cases).
+3. **Pegale a Sal**: hallazgos + propuesta de implementación + preguntas de negocio (si las hay). Esperar voto solo en preguntas de negocio.
+4. **Implementar**: editar el stub, agregar tests.
+5. **Verificar local**: `npx tsc --noEmit` + `npx vitest run`.
 6. **Commit + push** con upstream.
 7. **Crear PR**: `gh pr create --base main --head feat/<nombre>`.
-8. **Esperar Vercel preview**: pedir al usuario que valide visualmente.
+8. **Pedir validación visual** a Sal en Vercel preview.
 9. **Si aprueba**: `gh pr merge <num> --squash --delete-branch`.
-10. **Pasar a la siguiente feature**.
+10. **Checkpoint**: reportar feature completa + esperar OK para siguiente.
 
-## 9. Cómo arrancar
+---
 
-1. Confirmar que leíste este documento.
-2. Confirmar estado del repo: `git log --oneline -5` + `git status --short`.
-3. Preguntar al usuario por dónde arrancar (Feature 1 por defecto si no especifica).
-4. Iniciar investigación previa de esa feature según §4.4/§5.4/§6.5/§7.4.
-5. NO codees hasta tener los hallazgos pegados al usuario y el voto correspondiente.
+## 10. Cómo arrancás
 
-## 10. Después de las 4 features
+1. Confirmá que leíste este documento.
+2. Verificá estado del repo: `git log --oneline -5` + `git status --short`.
+3. Si el working tree no está limpio → reportarle a Sal antes de tocar nada.
+4. Preguntale a Sal por dónde arrancar (Feature 1 por defecto si no especifica).
+5. Arrancá investigación previa de esa feature (§5.4/§6.4/§7.5/§8.4).
+6. NO codees hasta tener los hallazgos pegados y los votos de negocio.
+
+---
+
+## 11. Después de las 4 features
 
 Cuando las 4 estén mergeadas a main:
 - Actualizá `docs/AUDITORIA_POST_INCIDENTE.md` marcando estas 4 como "implementadas".
-- Pegale al usuario un resumen final.
-- Si el usuario quiere seguir con Tanda 2 (UX core: indicador guardado, banner sync, PDF sync, selector visita) o Tanda 3 (polish), avisarle y armar otro plan.
+- Pegale a Sal un resumen final con links a los 4 PRs mergeados.
+- Si Sal quiere seguir con Tanda 2 (UX core) o Tanda 3 (Polish), avisale que vas a armar otro plan en `docs/IMPLEMENTACION_TANDA_2.md` siguiendo este mismo formato.
+
+---
+
+## 12. Contacto y dudas
+
+- **Hablás directo con Sal.** No hay coordinador intermedio.
+- Sal prefiere respuestas concretas: "Hice X, Y, Z. Pendiente W. ¿Sigo?". No respuestas largas.
+- Si te trabás en algo, pegale: contexto + qué intentaste + hipótesis + qué necesitás.
+- Si una decisión técnica te parece reversible y de bajo riesgo, **tomala vos**. Sal valora autonomía.
+- Si es irreversible o de alto blast radius (drop tables, migraciones destructivas, push a main sin PR), **siempre consultar**.
