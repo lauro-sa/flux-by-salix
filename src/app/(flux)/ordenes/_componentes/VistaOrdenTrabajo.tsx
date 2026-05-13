@@ -715,7 +715,7 @@ export default function VistaOrdenTrabajo({ ordenId, onTituloCargado }: Props) {
               contactoId={orden.contacto_id}
               puedeGestionar={puedeGestionar}
               usuarioActualId={usuarioActualId}
-              onVisitaCambio={(nuevaVisitaId) => {
+              onVisitaCambio={(nuevaVisitaId: string | null) => {
                 setOrden(prev => prev ? { ...prev, visita_id: nuevaVisitaId } : null)
               }}
             />
