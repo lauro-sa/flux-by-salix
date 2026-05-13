@@ -1016,7 +1016,8 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         idModulo="visitas"
         renderTarjeta={renderTarjeta}
         gridTarjetas="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-        onClickFila={(fila) => router.push(`/visitas/${fila.id}`)}
+        hrefFila={(fila) => `/visitas/${fila.id}`}
+        ariaLabelFila={(fila) => `Abrir visita ${fila.id}`}
         mostrarResumen
         estadoVacio={
           <EstadoVacio

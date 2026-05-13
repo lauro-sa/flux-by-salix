@@ -96,13 +96,12 @@ function TabsRecordatorios({
 
   return (
     <div className="px-3 py-2 shrink-0">
-      {/* Segmented control — pill contenedora con activo deslizable */}
+      {/* Segmented control — pill contenedora con activo deslizable.
+          El fondo, bordes y colores del activo cambian según light/dark
+          vía las variables `--salix-glass-*` y `--salix-acento-*`. */}
       <div
-        className="flex items-center gap-0.5 p-1 rounded-full border"
-        style={{
-          background: 'rgba(255,255,255,0.025)',
-          borderColor: 'rgba(255,255,255,0.06)',
-        }}
+        className="flex items-center gap-0.5 p-1 rounded-full border border-borde-sutil"
+        style={{ background: 'var(--salix-glass-card)' }}
       >
         {tabs.map(({ clave, etiqueta, icono, contador }) => {
           const esActivo = activo === clave
@@ -111,8 +110,11 @@ function TabsRecordatorios({
               key={clave}
               onClick={() => onCambiar(clave)}
               className={`relative flex-1 min-h-[34px] flex items-center justify-center gap-1.5 px-2.5 rounded-full text-[13px] font-medium transition-colors ${
-                esActivo ? 'text-white' : 'text-white/55 hover:text-white/85'
+                esActivo
+                  ? ''
+                  : 'text-texto-terciario hover:text-texto-secundario'
               }`}
+              style={esActivo ? { color: 'var(--salix-acento-texto)' } : undefined}
             >
               {/* Indicador activo deslizable (layoutId comparte transición entre tabs) */}
               {esActivo && (
@@ -120,11 +122,9 @@ function TabsRecordatorios({
                   layoutId="tab-recordatorios-activo"
                   className="absolute inset-0 rounded-full pointer-events-none"
                   style={{
-                    background:
-                      'linear-gradient(135deg, rgba(127,119,221,0.32), rgba(99,91,199,0.20))',
-                    border: '1px solid rgba(127,119,221,0.45)',
-                    boxShadow:
-                      '0 4px 14px rgba(60,50,160,0.25), inset 0 1px 0 rgba(255,255,255,0.14)',
+                    background: 'var(--salix-acento-bg)',
+                    border: '1px solid var(--salix-acento-borde)',
+                    boxShadow: 'var(--salix-acento-shadow)',
                   }}
                   transition={{ type: 'spring', damping: 28, stiffness: 320 }}
                 />
@@ -134,11 +134,12 @@ function TabsRecordatorios({
                 <span>{etiqueta}</span>
                 {contador !== undefined && contador > 0 && (
                   <span
-                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold leading-none ${
+                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold leading-none"
+                    style={
                       esActivo
-                        ? 'bg-white/20 text-white'
-                        : 'bg-white/[0.08] text-white/55'
-                    }`}
+                        ? { background: 'rgba(255,255,255,0.22)', color: 'var(--salix-acento-texto)' }
+                        : { background: 'var(--salix-glass-card-hover)', color: 'var(--texto-terciario)' }
+                    }
                   >
                     {contador > 99 ? '99+' : contador}
                   </span>
@@ -163,7 +164,7 @@ function HeaderHero({
   onCerrar: () => void
 }) {
   return (
-    <div className="px-4 pt-4 pb-3 border-b border-white/[0.07] shrink-0">
+    <div className="px-4 pt-4 pb-3 border-b border-borde-sutil shrink-0">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="size-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
@@ -180,7 +181,7 @@ function HeaderHero({
         </div>
         <button
           onClick={onCerrar}
-          className="size-9 -mr-1 -mt-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex items-center justify-center shrink-0"
+          className="size-9 -mr-1 -mt-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors flex items-center justify-center shrink-0"
           title="Cerrar"
         >
           <X className="size-4" />
@@ -232,7 +233,7 @@ function ListaAgrupada({
             <span className="text-[11px] font-medium text-texto-terciario/70">
               {g.items.length}
             </span>
-            <span className="flex-1 h-px bg-white/[0.05]" />
+            <span className="flex-1 h-px bg-borde-sutil" />
           </div>
           <div className="flex flex-col gap-0.5">
             <AnimatePresence>
@@ -328,7 +329,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
               </div>
             ) : activos.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                <div className="size-14 rounded-2xl bg-white/[0.04] flex items-center justify-center">
+                <div className="size-14 rounded-2xl bg-superficie-tarjeta flex items-center justify-center">
                   <AlarmClock size={28} strokeWidth={1.2} className="text-texto-terciario/60" />
                 </div>
                 <div>
@@ -358,7 +359,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
               </div>
             ) : completados.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                <div className="size-14 rounded-2xl bg-white/[0.04] flex items-center justify-center">
+                <div className="size-14 rounded-2xl bg-superficie-tarjeta flex items-center justify-center">
                   <CheckCircle2 size={28} strokeWidth={1.2} className="text-texto-terciario/60" />
                 </div>
                 <p className="text-sm font-medium text-texto-primario">Sin recordatorios completados</p>
@@ -386,7 +387,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
       {/* Pie — botón crear/guardar (solo en tab crear) */}
       {tab === 'crear' && (
         <div
-          className="border-t border-white/[0.07] px-4 py-3 flex items-center gap-2 shrink-0"
+          className="border-t border-borde-sutil px-4 py-3 flex items-center gap-2 shrink-0"
           style={{ paddingBottom: esMovil ? 'max(env(safe-area-inset-bottom, 0px), 12px)' : undefined }}
         >
           <button
@@ -469,7 +470,7 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: '100%', opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="salix-glass salix-panel fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] flex flex-col border-l border-white/[0.07] shadow-2xl"
+                className="salix-glass salix-panel fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] flex flex-col border-l border-borde-sutil shadow-2xl"
               >
                 {contenido}
               </motion.div>

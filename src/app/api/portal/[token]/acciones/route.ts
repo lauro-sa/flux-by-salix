@@ -205,6 +205,8 @@ export async function POST(
             url: `/presupuestos`,
             referenciaTipo: 'presupuesto',
             referenciaId: portalToken.presupuesto_id,
+            // Cliente actuando en el portal: pasa el gate de horario.
+            esTiempoReal: true,
           })
         } catch { /* no bloquear */ }
 
@@ -286,6 +288,7 @@ export async function POST(
             url: `/presupuestos`,
             referenciaTipo: 'presupuesto',
             referenciaId: portalToken.presupuesto_id,
+            esTiempoReal: true,
           })
         } catch { /* no bloquear */ }
 
@@ -339,6 +342,7 @@ export async function POST(
             url: `/presupuestos`,
             referenciaTipo: 'presupuesto',
             referenciaId: portalToken.presupuesto_id,
+            esTiempoReal: true,
           })
         } catch { /* no bloquear */ }
 
@@ -436,6 +440,7 @@ export async function POST(
             url: `/presupuestos`,
             referenciaTipo: 'presupuesto',
             referenciaId: portalToken.presupuesto_id,
+            esTiempoReal: true,
           })
         } catch { /* no bloquear */ }
 

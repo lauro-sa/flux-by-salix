@@ -147,6 +147,10 @@ export interface Presupuesto {
   origen_documento_id: string | null
   origen_documento_numero: string | null
 
+  // Visita de origen (relevamiento del visitador). Se elige al crear/editar
+  // el presupuesto y se hereda a la OT al generarla. Ver migración 062.
+  visita_id: string | null
+
   // Auditoría
   creado_por: string
   creado_por_nombre: string | null

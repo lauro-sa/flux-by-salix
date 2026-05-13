@@ -20,6 +20,10 @@ export const empresas = pgTable('empresas', {
   datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
   datos_bancarios: jsonb('datos_bancarios').notNull().default(sql`'{}'`), // {banco, titular, numero_cuenta, cbu, alias}
   cuota_storage_bytes: bigint('cuota_storage_bytes', { mode: 'number' }).notNull().default(2147483648), // 2 GB por defecto
+  zona_horaria: text('zona_horaria').notNull().default('America/Argentina/Buenos_Aires'),
+  // Horario laboral por defecto para filtrar push de notificaciones diferidas.
+  // Estructura: { activo, dias: { lunes..domingo: { activo, desde, hasta } } }
+  horario_notificaciones: jsonb('horario_notificaciones').notNull().default(sql`'{"activo":true,"dias":{"lunes":{"activo":true,"desde":"09:00","hasta":"18:00"},"martes":{"activo":true,"desde":"09:00","hasta":"18:00"},"miercoles":{"activo":true,"desde":"09:00","hasta":"18:00"},"jueves":{"activo":true,"desde":"09:00","hasta":"18:00"},"viernes":{"activo":true,"desde":"09:00","hasta":"18:00"},"sabado":{"activo":false,"desde":"09:00","hasta":"13:00"},"domingo":{"activo":false,"desde":"09:00","hasta":"13:00"}}}'`),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -102,6 +106,8 @@ export const miembros = pgTable('miembros', {
   compensacion_monto: numeric('compensacion_monto').default('0'),
   compensacion_frecuencia: text('compensacion_frecuencia').default('mensual'), // 'semanal' | 'quincenal' | 'mensual' | 'eventual'
   dias_trabajo: integer('dias_trabajo').default(5), // 1-7 días por semana
+  // Override personal del horario de notificaciones. NULL = hereda empresas.horario_notificaciones.
+  horario_notificaciones: jsonb('horario_notificaciones'),
 }, (tabla) => [
   // Partial unique: permite múltiples NULL (empleados sin cuenta), pero
   // evita duplicar un usuario real en la misma empresa.
@@ -640,13 +646,19 @@ export const presupuestos = pgTable('presupuestos', {
   estado_anterior_id: uuid('estado_anterior_id').references(() => estados_presupuesto.id),
   estado_cambio_at: timestamp('estado_cambio_at', { withTimezone: true }),
 
-  // Contacto vinculado (snapshot al crear)
+  // Contacto vinculado. Los campos contacto_* son snapshot — mientras
+  // cerrado=false, el endpoint de contactos los re-propaga al editar el
+  // contacto. Al pasar a un estado terminal se setea cerrado=true y los
+  // snapshots quedan inmutables (lo que el cliente vio firmado se respeta).
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
   contacto_nombre: text('contacto_nombre'),
   contacto_apellido: text('contacto_apellido'),
   contacto_tipo: text('contacto_tipo'), // persona, empresa, etc.
   contacto_identificacion: text('contacto_identificacion'), // CUIT, DNI, etc.
   contacto_condicion_iva: text('contacto_condicion_iva'),
+  // FK a la dirección elegida. Permite propagación dirigida cuando se edita
+  // esa dirección puntual del contacto (no la principal).
+  direccion_id: uuid('direccion_id').references(() => contacto_direcciones.id, { onDelete: 'set null' }),
   contacto_direccion: text('contacto_direccion'),
   contacto_correo: text('contacto_correo'),
   contacto_telefono: text('contacto_telefono'),
@@ -714,10 +726,23 @@ export const presupuestos = pgTable('presupuestos', {
   // ordenar listados por "recién aceptados / completados" sin importar creado_en.
   estado_cambiado_en: timestamp('estado_cambiado_en', { withTimezone: true }).defaultNow().notNull(),
 
+  // Visita de origen (relevamiento del visitador). Se elige al crear/editar
+  // el presupuesto y se hereda a la OT al generarla. Es la fuente desde donde
+  // se siembra la galería de relevamiento de la OT (fotos + comentarios del
+  // visitador). Ver migración 062.
+  visita_id: uuid('visita_id'),
+
   // Soft delete
   activo: boolean('activo').notNull().default(true),
   en_papelera: boolean('en_papelera').notNull().default(false),
   papelera_en: timestamp('papelera_en', { withTimezone: true }),
+
+  // Cuando true, los snapshots de contacto (nombre, dirección, correo,
+  // teléfono, etc.) NO se actualizan al editar el contacto vinculado. Se
+  // setea automáticamente al pasar a confirmado_cliente / orden_venta /
+  // completado / rechazado / cancelado / vencido. Distinto del "PDF
+  // congelado" (que es una copia inmutable del PDF para envío).
+  cerrado: boolean('cerrado').notNull().default(false),
 }, (tabla) => [
   uniqueIndex('presupuestos_empresa_numero_idx').on(tabla.empresa_id, tabla.numero),
   index('presupuestos_empresa_idx').on(tabla.empresa_id),
@@ -725,6 +750,8 @@ export const presupuestos = pgTable('presupuestos', {
   index('presupuestos_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('presupuestos_fecha_idx').on(tabla.empresa_id, tabla.fecha_emision),
   index('presupuestos_empresa_estado_cambiado_idx').on(tabla.empresa_id, tabla.estado_cambiado_en),
+  index('presupuestos_visita_idx').on(tabla.visita_id),
+  index('presupuestos_direccion_idx').on(tabla.direccion_id),
 ])
 
 // Líneas de presupuesto — productos, servicios, secciones, notas, descuentos
@@ -1012,17 +1039,28 @@ export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   descripcion: text('descripcion'),
   notas: text('notas'),
 
-  // Contacto operativo (snapshot sin datos fiscales)
+  // Contacto operativo. Los campos contacto_* son snapshot — mientras la
+  // OT no esté publicada, el endpoint de contactos los re-propaga al editar
+  // el contacto. La columna `publicada` cumple el rol de "congelado".
   contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
   contacto_nombre: text('contacto_nombre'),
   contacto_telefono: text('contacto_telefono'),
   contacto_correo: text('contacto_correo'),
+  // FK a la dirección elegida del contacto. Backfilleada por match de texto;
+  // permite propagación dirigida cuando se edita esa dirección puntual.
+  direccion_id: uuid('direccion_id').references(() => contacto_direcciones.id, { onDelete: 'set null' }),
   contacto_direccion: text('contacto_direccion'),
   contacto_whatsapp: text('contacto_whatsapp'),
 
   // Vínculo con presupuesto origen
   presupuesto_id: uuid('presupuesto_id').references(() => presupuestos.id, { onDelete: 'set null' }),
   presupuesto_numero: text('presupuesto_numero'),
+
+  // Visita de origen (relevamiento del visitador). Se hereda del presupuesto al
+  // generar la OT, o se asigna manualmente desde la propia OT para casos legacy
+  // o cuando el admin necesita re-vincular. Ancla de la galería de relevamiento
+  // y del botón "Re-sincronizar desde visita". Ver migración 062.
+  visita_id: uuid('visita_id'),
 
   // Asignados viven en `asignados_orden_trabajo` (múltiples, con rol
   // cabecilla/común). La columna denormalizada se eliminó en 2026-04 para
@@ -1050,7 +1088,9 @@ export const ordenes_trabajo = pgTable('ordenes_trabajo', {
   index('ordenes_trabajo_contacto_idx').on(tabla.contacto_id),
   index('ordenes_trabajo_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('ordenes_trabajo_presupuesto_idx').on(tabla.presupuesto_id),
+  index('ordenes_trabajo_visita_idx').on(tabla.visita_id),
   index('ordenes_trabajo_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+  index('ordenes_trabajo_direccion_idx').on(tabla.direccion_id),
 ])
 
 // Líneas de orden de trabajo — detalle operativo SIN precios
@@ -1422,11 +1462,24 @@ export const tareas_orden = pgTable('tareas_orden', {
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   orden_trabajo_id: uuid('orden_trabajo_id').notNull().references(() => ordenes_trabajo.id, { onDelete: 'cascade' }),
 
+  // Tipo: producto (completable) | seccion (encabezado) | nota (texto libre).
+  // Las secciones/notas usan estado='no_aplica' y no cuentan en el progreso.
+  // Ver migración 063 para contexto.
+  tipo: text('tipo').notNull().default('producto'),
+
   // Contenido
   titulo: text('titulo').notNull(),
   descripcion: text('descripcion'),
+  // "Nota dentro del servicio" — espejo de lineas_presupuesto.descripcion_detalle.
+  descripcion_detalle: text('descripcion_detalle'),
+  // Código del producto del catálogo. Sirve para matchear al re-importar desde
+  // el presupuesto sin pisar ediciones manuales.
+  codigo_producto: text('codigo_producto'),
+  // FK opcional a la línea de presupuesto que originó esta tarea — match
+  // exacto al re-importar (ver migración 064).
+  origen_linea_id: uuid('origen_linea_id'),
 
-  // Estado: pendiente, completada, cancelada
+  // Estado: pendiente, completada, cancelada (para tipo='producto'); 'no_aplica' para seccion/nota.
   estado: text('estado').notNull().default('pendiente'),
   prioridad: text('prioridad').notNull().default('normal'), // 'baja' | 'normal' | 'alta'
 
@@ -1455,6 +1508,7 @@ export const tareas_orden = pgTable('tareas_orden', {
   index('tareas_orden_empresa_idx').on(tabla.empresa_id),
   index('tareas_orden_ot_idx').on(tabla.orden_trabajo_id),
   index('tareas_orden_estado_idx').on(tabla.orden_trabajo_id, tabla.estado),
+  index('tareas_orden_tipo_idx').on(tabla.orden_trabajo_id, tabla.tipo),
   index('tareas_orden_asignados_idx').using('gin', tabla.asignados_ids),
 ])
 
@@ -3212,6 +3266,11 @@ export const config_visitas = pgTable('config_visitas', {
   // al receptor de la visita. Cuando está apagado, los modales de envío no se abren
   // y "Quién recibe el aviso por WhatsApp" desaparece del modal de visita.
   enviar_avisos_whatsapp: boolean('enviar_avisos_whatsapp').notNull().default(false),
+  // Plantillas WhatsApp seleccionadas. Si NULL, los endpoints de aviso caen al
+  // lookup por nombre_api del seed (flux_aviso_en_camino, flux_aviso_llegada_visita).
+  // ON DELETE SET NULL: borrar la plantilla custom devuelve al fallback automático.
+  plantilla_aviso_en_camino_id: uuid('plantilla_aviso_en_camino_id').references(() => plantillas_whatsapp.id, { onDelete: 'set null' }),
+  plantilla_aviso_llegada_id: uuid('plantilla_aviso_llegada_id').references(() => plantillas_whatsapp.id, { onDelete: 'set null' }),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
@@ -3306,7 +3365,7 @@ export const config_salix_ia = pgTable('config_salix_ia', {
   habilitado: boolean('habilitado').notNull().default(false),
   nombre: text('nombre').notNull().default('Salix'),
   personalidad: text('personalidad').default(''),
-  herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento','anotar_nota','consultar_notas']`),
+  herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','consultar_vinculaciones_contacto','vincular_contactos','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento','anotar_nota','consultar_notas']`),
   whatsapp_copilot_habilitado: boolean('whatsapp_copilot_habilitado').notNull().default(false),
   max_iteraciones_herramientas: integer('max_iteraciones_herramientas').notNull().default(5),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),

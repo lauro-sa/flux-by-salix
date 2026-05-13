@@ -6,6 +6,7 @@ import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 import { registrarReciente } from '@/lib/recientes'
+import { enriquecerListadoPresupuestos } from '@/lib/presupuestos/enriquecer-listado'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -241,165 +242,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener presupuestos' }, { status: 500 })
     }
 
-    // ── Resumen de pagos por presupuesto ──────────────────────────────
-    // Para que el listado pueda renderizar la columna "Pagos" (dots por
-    // cuota cobrada / parcial / pendiente), traemos en paralelo un mini
-    // resumen agregado de cuotas y de pagos por cada presupuesto de la
-    // página actual. Se hace en 2 queries IN(ids) — barato.
-    const presupuestos = data || []
-    if (presupuestos.length > 0) {
-      const ids = presupuestos.map((p) => p.id)
-
-      const [cuotasResumen, pagosResumen] = await Promise.all([
-        admin
-          .from('presupuesto_cuotas')
-          .select('presupuesto_id, estado, numero')
-          .in('presupuesto_id', ids),
-        admin
-          .from('presupuesto_pagos')
-          .select('presupuesto_id, monto_en_moneda_presupuesto, es_adicional')
-          .in('presupuesto_id', ids)
-          .is('eliminado_en', null),
-      ])
-
-      // Agrupar cuotas por presupuesto, ordenadas por numero ascendente.
-      // Devolvemos la lista de estados de cuotas para que el frontend
-      // pueda dibujar 1 dot por cuota en orden.
-      const cuotasPorPres = new Map<string, { numero: number; estado: string }[]>()
-      for (const c of cuotasResumen.data || []) {
-        const arr = cuotasPorPres.get(c.presupuesto_id) || []
-        arr.push({ numero: c.numero, estado: c.estado })
-        cuotasPorPres.set(c.presupuesto_id, arr)
-      }
-      for (const arr of cuotasPorPres.values()) {
-        arr.sort((a, b) => a.numero - b.numero)
-      }
-
-      // Agregados de pagos: total cobrado (no-adicionales) + cantidad
-      const pagosPorPres = new Map<string, { cobrado: number; cantidad: number }>()
-      for (const p of pagosResumen.data || []) {
-        if (p.es_adicional) continue
-        const r = pagosPorPres.get(p.presupuesto_id) || { cobrado: 0, cantidad: 0 }
-        r.cobrado += Number(p.monto_en_moneda_presupuesto || 0)
-        r.cantidad += 1
-        pagosPorPres.set(p.presupuesto_id, r)
-      }
-
-      for (const p of presupuestos as Array<Record<string, unknown>>) {
-        const cuotas = cuotasPorPres.get(p.id as string) || []
-        const pagos = pagosPorPres.get(p.id as string) || { cobrado: 0, cantidad: 0 }
-        p.resumen_pagos = {
-          // Lista ordenada de cuotas con su estado (vacía si plazo_fijo / contado)
-          cuotas: cuotas.map((c) => c.estado),
-          // Cantidad de pagos cargados (no incluye adicionales)
-          cantidad_pagos: pagos.cantidad,
-          // Total cobrado en moneda del presupuesto
-          total_cobrado: pagos.cobrado,
-        }
-      }
-
-      // ── Enriquecimiento adicional para la vista de tarjetas mobile ──
-      // Traemos en paralelo:
-      //   - teléfono y correo ACTUALES de contactos (principal y atención).
-      //     Los campos `contacto_telefono` / `contacto_correo` de la tabla
-      //     `presupuestos` son snapshots al momento de creación y no se
-      //     sincronizan: ~56% de los presupuestos tenían el snapshot vacío
-      //     aunque el contacto sí tenía teléfono. Pisamos con datos frescos.
-      //   - actividades pendientes vinculadas a cada presupuesto
-      //   - orden de trabajo asociada si existe (con su estado)
-      const idsContacto = [...new Set([
-        ...presupuestos.map((p) => p.contacto_id).filter((x): x is string => !!x),
-        ...presupuestos.map((p) => p.atencion_contacto_id).filter((x): x is string => !!x),
-      ])]
-
-      const [resContactos, resActividades, resOrdenes] = await Promise.all([
-        idsContacto.length > 0
-          ? admin.from('contactos').select('id, telefono, whatsapp, correo').in('id', idsContacto)
-          : Promise.resolve({ data: [] }),
-        // Las actividades se vinculan vía vinculo_ids (uuid[]). Filtramos las
-        // que tengan algún presupuesto_id de la página y no estén completadas.
-        admin
-          .from('actividades')
-          .select('vinculo_ids, tipo_id, tipo:tipos_actividad!tipo_id(id, etiqueta, color, icono)')
-          .eq('empresa_id', empresaId)
-          .filter('vinculo_ids', 'ov', `{${ids.join(',')}}`)
-          .eq('en_papelera', false)
-          .not('estado_clave', 'in', '(completada,cancelada)'),
-        admin
-          .from('ordenes_trabajo')
-          .select('id, presupuesto_id, estado')
-          .in('presupuesto_id', ids)
-          .eq('en_papelera', false),
-      ])
-
-      // Mapa id contacto → teléfono y correo actuales. Preferimos `telefono`,
-      // y como móvil = WhatsApp implícito en Flux, caemos a `whatsapp` si no
-      // hay teléfono fijo. Esto vale tanto para el contacto principal como
-      // para el de atención.
-      const datosContacto = new Map<string, { telefono: string | null; correo: string | null }>()
-      for (const c of (resContactos.data || []) as Array<{ id: string; telefono: string | null; whatsapp: string | null; correo: string | null }>) {
-        datosContacto.set(c.id, {
-          telefono: c.telefono || c.whatsapp || null,
-          correo: c.correo || null,
-        })
-      }
-
-      // Actividades pendientes agrupadas por presupuesto + tipo (con etiqueta/color)
-      type TipoResumen = { tipo_id: string; tipo_etiqueta: string; tipo_color: string; cantidad: number }
-      const setIdsPres = new Set(ids)
-      const actividadesPorPres: Record<string, Map<string, TipoResumen>> = {}
-      for (const a of resActividades.data || []) {
-        const vinculoIds = (a.vinculo_ids as string[] | null) || []
-        const tipo = a.tipo as unknown as { id: string; etiqueta: string; color: string } | null
-        if (!tipo) continue
-        for (const vid of vinculoIds) {
-          if (!setIdsPres.has(vid)) continue
-          if (!actividadesPorPres[vid]) actividadesPorPres[vid] = new Map()
-          const mapaTipos = actividadesPorPres[vid]
-          const ex = mapaTipos.get(tipo.id)
-          if (ex) ex.cantidad += 1
-          else mapaTipos.set(tipo.id, { tipo_id: tipo.id, tipo_etiqueta: tipo.etiqueta, tipo_color: tipo.color, cantidad: 1 })
-        }
-      }
-
-      // Orden de trabajo activa por presupuesto (solo una; la primera no completada)
-      const ordenPorPres = new Map<string, { id: string; estado: string }>()
-      for (const o of (resOrdenes.data || []) as Array<{ id: string; presupuesto_id: string; estado: string }>) {
-        // Preferir órdenes no completadas; si hay una activa la usamos antes que las completadas
-        const existente = ordenPorPres.get(o.presupuesto_id)
-        if (!existente || (existente.estado === 'completada' && o.estado !== 'completada')) {
-          ordenPorPres.set(o.presupuesto_id, { id: o.id, estado: o.estado })
-        }
-      }
-
-      for (const p of presupuestos as Array<Record<string, unknown>>) {
-        const id = p.id as string
-
-        // Pisar snapshot del contacto principal con los datos actuales del
-        // contacto vinculado. El snapshot se hace al crear el presupuesto y
-        // no se sincroniza después, lo que dejaba ~56% de los presupuestos
-        // sin teléfono visible aunque el contacto sí lo tenía.
-        if (p.contacto_id) {
-          const datos = datosContacto.get(p.contacto_id as string)
-          if (datos) {
-            if (datos.telefono) p.contacto_telefono = datos.telefono
-            if (datos.correo) p.contacto_correo = datos.correo
-          }
-        }
-
-        // Datos del "dirigido a" (atención) — análogo al principal
-        const datosAt = p.atencion_contacto_id
-          ? datosContacto.get(p.atencion_contacto_id as string)
-          : null
-        p.atencion_telefono = datosAt?.telefono || null
-        // Si el snapshot de atencion_correo está vacío pero el contacto sí
-        // tiene correo, también pisamos.
-        if (datosAt?.correo && !p.atencion_correo) p.atencion_correo = datosAt.correo
-
-        p.actividades_activas = actividadesPorPres[id] ? [...actividadesPorPres[id].values()] : []
-        p.orden_trabajo = ordenPorPres.get(id) || null
-      }
-    }
+    // Enriquecimiento (resumen_pagos, actividades, OT, datos vivos de contactos).
+    // Helper compartido con el SSR de page.tsx para que la primera carga ya
+    // traiga los pagos y no aparezca el flash de "—" hasta el primer refetch.
+    const presupuestos = await enriquecerListadoPresupuestos(admin, empresaId, data || [])
 
     return NextResponse.json({
       presupuestos,
@@ -449,7 +295,9 @@ export async function POST(request: NextRequest) {
 
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
 
-    // Snapshot del contacto si se proporcionó
+    // Snapshot del contacto si se proporcionó. Incluye direccion_id apuntando
+    // a la principal — así, si después editan esa dirección, la propagación
+    // viva llega vía la FK (no por match de texto).
     let snapshotContacto: Record<string, string | null> = {}
     if (body.contacto_id) {
       const { data: contacto } = await admin
@@ -458,21 +306,21 @@ export async function POST(request: NextRequest) {
           nombre, apellido, correo, telefono,
           tipo_contacto:tipos_contacto!tipo_contacto_id(clave),
           numero_identificacion, datos_fiscales,
-          direcciones:contacto_direcciones(texto, es_principal)
+          direcciones:contacto_direcciones(id, texto, es_principal)
         `)
         .eq('id', body.contacto_id)
         .single()
 
       if (contacto) {
-        const dirPrincipal = (contacto.direcciones as { texto: string | null; es_principal: boolean }[])?.find(
-          (d) => d.es_principal
-        )
+        const direcciones = (contacto.direcciones as { id: string; texto: string | null; es_principal: boolean }[]) || []
+        const dirPrincipal = direcciones.find(d => d.es_principal) || direcciones[0] || null
         snapshotContacto = {
           contacto_nombre: contacto.nombre,
           contacto_apellido: contacto.apellido,
           contacto_tipo: (contacto.tipo_contacto as unknown as { clave: string } | null)?.clave || null,
           contacto_identificacion: contacto.numero_identificacion,
           contacto_condicion_iva: (contacto.datos_fiscales as Record<string, string>)?.condicion_iva || null,
+          direccion_id: dirPrincipal?.id || null,
           contacto_direccion: dirPrincipal?.texto || null,
           contacto_correo: contacto.correo,
           contacto_telefono: contacto.telefono,
@@ -488,6 +336,32 @@ export async function POST(request: NextRequest) {
     const fechaEmision = new Date()
     const fechaVencimiento = new Date(fechaEmision.getTime() + diasVenc * 24 * 60 * 60 * 1000)
 
+    // Snapshot de "Dirigido a" (atención) si vino en el body. Solo incluimos
+    // las claves recibidas para no pisar nada con null involuntariamente.
+    const snapshotAtencion: Record<string, string | null> = {}
+    if (body.atencion_contacto_id !== undefined) snapshotAtencion.atencion_contacto_id = body.atencion_contacto_id || null
+    if (body.atencion_nombre !== undefined) snapshotAtencion.atencion_nombre = body.atencion_nombre || null
+    if (body.atencion_correo !== undefined) snapshotAtencion.atencion_correo = body.atencion_correo || null
+    if (body.atencion_cargo !== undefined) snapshotAtencion.atencion_cargo = body.atencion_cargo || null
+
+    // Validar la visita si vino en el body: misma empresa. Si la visita no
+    // existe o es de otra empresa, no creamos el presupuesto — preferimos
+    // un error claro al admin antes que aceptar un vínculo inválido.
+    if (body.visita_id) {
+      const { data: visita } = await admin
+        .from('visitas')
+        .select('id')
+        .eq('id', body.visita_id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!visita) {
+        return NextResponse.json(
+          { error: 'La visita seleccionada no existe o no pertenece a esta empresa' },
+          { status: 400 },
+        )
+      }
+    }
+
     // Crear presupuesto
     const nuevoPresupuesto = {
       empresa_id: empresaId,
@@ -495,6 +369,7 @@ export async function POST(request: NextRequest) {
       estado: 'borrador',
       contacto_id: body.contacto_id || null,
       ...snapshotContacto,
+      ...snapshotAtencion,
       referencia: body.referencia || null,
       moneda: body.moneda || config?.moneda_predeterminada || 'ARS',
       condicion_pago_id: body.condicion_pago_id || condDefault?.id || null,
@@ -507,6 +382,9 @@ export async function POST(request: NextRequest) {
       condiciones_html: body.condiciones_html || config?.condiciones_predeterminadas || null,
       nota_plan_pago: condDefault?.notaPlanPago || null,
       columnas_lineas: body.columnas_lineas || config?.columnas_lineas_default || ['producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal'],
+      // Visita de origen (relevamiento del visitador). Heredada a la OT al
+      // generarla, ancla de la galería de relevamiento.
+      visita_id: body.visita_id || null,
       creado_por: user.id,
       creado_por_nombre: nombreUsuario,
     }

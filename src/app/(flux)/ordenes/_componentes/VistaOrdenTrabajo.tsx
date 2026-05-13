@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell } from 'lucide-react'
+import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell, Camera, ClipboardList, ListChecks } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -16,8 +16,11 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import CabeceraOrden from './CabeceraOrden'
 import SeccionActividadesOrden from './SeccionActividadesOrden'
+import SeccionRelevamientoOT from './SeccionRelevamientoOT'
+import SeccionBitacoraOT from './SeccionBitacoraOT'
 import { ETIQUETAS_ESTADO_OT } from '@/tipos/orden-trabajo'
 import type { OrdenTrabajo, EstadoOrdenTrabajo, AsignadoOrdenTrabajo } from '@/tipos/orden-trabajo'
+import { urlMapaDestino } from '@/componentes/mapa'
 
 /**
  * VistaOrdenTrabajo — Vista detalle completa de una orden de trabajo.
@@ -27,6 +30,10 @@ import type { OrdenTrabajo, EstadoOrdenTrabajo, AsignadoOrdenTrabajo } from '@/t
 
 interface Props {
   ordenId: string
+  /** Callback con el "título" para alimentar el breadcrumb dinámico —
+   *  evita que la migaja muestre el genérico "Detalle". La página padre
+   *  setea con `useNavegacion().setMigajaDinamica()`. */
+  onTituloCargado?: (titulo: string) => void
 }
 
 interface MiembroEquipo {
@@ -34,7 +41,9 @@ interface MiembroEquipo {
   nombre: string
 }
 
-export default function VistaOrdenTrabajo({ ordenId }: Props) {
+type TabOT = 'tareas' | 'relevamiento' | 'bitacora'
+
+export default function VistaOrdenTrabajo({ ordenId, onTituloCargado }: Props) {
   const { t } = useTraduccion()
   const formato = useFormato()
   const router = useRouter()
@@ -71,6 +80,12 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
     eliminar: false,
   })
   const [confirmarDespublicar, setConfirmarDespublicar] = useState(false)
+
+  // Tabs: Tareas | Relevamiento | Bitácora — para no apilar verticalmente
+  // toda la info de la OT (la mayor parte del uso es desde mobile, ver
+  // memoria del proyecto). La cabecera y la barra de progreso quedan
+  // siempre visibles arriba; cada tab muestra su sección.
+  const [tabActiva, setTabActiva] = useState<TabOT>('tareas')
 
   // Cargar miembros del equipo + datos del usuario actual
   useEffect(() => {
@@ -120,13 +135,18 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       setProgreso(data.progreso || { total_actividades: 0, completadas: 0, porcentaje: 0 })
       setPuedeGestionar(Boolean(data.puedeGestionar))
       if (data.permisos) setPermisos(data.permisos)
-      if (data.orden?.numero) document.title = `${data.orden.numero} — Flux`
+      if (data.orden?.numero) {
+        document.title = `${data.orden.numero} — Flux`
+        // Alimentar el breadcrumb dinámico para que muestre "OT-XXXX" en
+        // lugar del genérico "Detalle" que useNavegacion derivaría del UUID.
+        onTituloCargado?.(data.orden.numero)
+      }
     } catch {
       mostrarToast('error', 'Error al cargar la orden')
     } finally {
       setCargando(false)
     }
-  }, [ordenId, router, mostrarToast])
+  }, [ordenId, router, mostrarToast, onTituloCargado])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -370,8 +390,14 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         </div>
       )}
 
-      {/* ── Ficha operativa ── */}
+      {/* ── Tabs: Tareas | Relevamiento | Bitácora ── */}
+      <BarraTabsOT activa={tabActiva} onCambio={setTabActiva} />
+
+      {/* ── Contenido por tab ── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        {/* TAB: TAREAS — ficha operativa + sección de tareas + chatter */}
+        {tabActiva === 'tareas' && <>
 
         {/* Card principal: contacto (izq) + meta-datos (der) */}
         <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 sm:p-5">
@@ -414,14 +440,24 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                     </button>
                   </a>
                 )}
-                {orden.contacto_direccion && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orden.contacto_direccion)}`} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
-                    <button type="button" className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
-                      <MapPin size={14} />
-                      {t('ordenes.ver_mapa')}
-                    </button>
-                  </a>
-                )}
+                {(() => {
+                  // Preferir lat/lng del snapshot — el texto solo cae como fallback.
+                  const urlMapa = urlMapaDestino({
+                    lat: orden.contacto_direccion_lat,
+                    lng: orden.contacto_direccion_lng,
+                    texto: orden.contacto_direccion,
+                    modo: 'search',
+                  })
+                  if (!urlMapa) return null
+                  return (
+                    <a href={urlMapa} target="_blank" rel="noopener noreferrer" className="w-full md:w-auto">
+                      <button type="button" className="w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-3 md:py-2 rounded-card text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent text-texto-secundario hover:bg-superficie-hover/50 active:scale-95">
+                        <MapPin size={14} />
+                        {t('ordenes.ver_mapa')}
+                      </button>
+                    </a>
+                  )
+                })()}
                 {/* Avisar llegada — prioridad: atención (dirigido a) > contacto principal */}
                 {(orden.contacto_nombre || orden.atencion_nombre) && (() => {
                   const tieneAtencion = orden.atencion_nombre && orden.atencion_telefono
@@ -640,6 +676,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
             usuarioActualId={usuarioActualId}
             puedeGestionar={puedeGestionar}
             puedeEditar={puedeEditar}
+            tienePresupuesto={Boolean(orden.presupuesto_id)}
             publicada={orden.publicada}
             onProgresoChange={handleProgresoChange}
           />
@@ -658,6 +695,52 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
             />
           </div>
         )}
+
+        </>}
+
+        {/* TAB: RELEVAMIENTO — fotos + comentarios sembrados desde la visita.
+            Editable por gestores (admin, creador, cabecilla). El admin puede
+            seguir editando aunque la OT esté publicada. */}
+        {tabActiva === 'relevamiento' && (
+          <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
+            <h3 className="text-sm font-semibold text-texto-primario mb-3 flex items-center gap-2">
+              Relevamiento
+              <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                de la visita
+              </span>
+            </h3>
+            <SeccionRelevamientoOT
+              ordenId={ordenId}
+              visitaId={orden.visita_id}
+              contactoId={orden.contacto_id}
+              puedeGestionar={puedeGestionar}
+              usuarioActualId={usuarioActualId}
+              onVisitaCambio={(nuevaVisitaId: string | null) => {
+                setOrden(prev => prev ? { ...prev, visita_id: nuevaVisitaId } : null)
+              }}
+            />
+          </div>
+        )}
+
+        {/* TAB: BITÁCORA — los asignados suben fotos y notas durante la
+            ejecución (imprevistos, avances). Cada autor edita lo suyo; los
+            gestores tocan todo. */}
+        {tabActiva === 'bitacora' && (
+          <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4">
+            <h3 className="text-sm font-semibold text-texto-primario mb-3 flex items-center gap-2">
+              Bitácora de obra
+              <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                durante la ejecución
+              </span>
+            </h3>
+            <SeccionBitacoraOT
+              ordenId={ordenId}
+              usuarioActualId={usuarioActualId}
+              puedeGestionar={puedeGestionar}
+              esAsignado={Boolean(usuarioActualId && asignados.some(a => a.usuario_id === usuarioActualId))}
+            />
+          </div>
+        )}
       </div>
 
       <ModalConfirmacion
@@ -670,6 +753,58 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
         etiquetaConfirmar="Despublicar"
         cargando={guardando}
       />
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  BarraTabsOT — selector de pestaña pegado debajo de la cabecera.
+//  Mobile-first: los botones se reparten en partes iguales en pantallas
+//  chicas. Se usa subrayado animado (Framer) para la indicación activa.
+// ──────────────────────────────────────────────────────────────────────────
+
+function BarraTabsOT({
+  activa, onCambio,
+}: {
+  activa: TabOT
+  onCambio: (t: TabOT) => void
+}) {
+  const tabs: { clave: TabOT; label: string; icono: React.ReactNode }[] = [
+    { clave: 'tareas',       label: 'Tareas',       icono: <ListChecks size={14} /> },
+    { clave: 'relevamiento', label: 'Relevamiento', icono: <Camera size={14} /> },
+    { clave: 'bitacora',     label: 'Bitácora',     icono: <ClipboardList size={14} /> },
+  ]
+  return (
+    <div className="border-b border-borde-sutil bg-superficie-app/40 sticky top-0 z-10 backdrop-blur">
+      <div className="max-w-4xl mx-auto px-2 sm:px-6">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          {tabs.map(t => {
+            const esActiva = activa === t.clave
+            return (
+              <button
+                key={t.clave}
+                type="button"
+                onClick={() => onCambio(t.clave)}
+                className={`relative flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer border-none bg-transparent ${
+                  esActiva
+                    ? 'text-texto-marca'
+                    : 'text-texto-terciario hover:text-texto-secundario'
+                }`}
+              >
+                {t.icono}
+                <span>{t.label}</span>
+                {esActiva && (
+                  <motion.div
+                    layoutId="tab-ot-indicador"
+                    className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-texto-marca"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

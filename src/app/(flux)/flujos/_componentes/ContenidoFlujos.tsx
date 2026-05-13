@@ -604,7 +604,8 @@ function ContenidoFlujosInterno({ datosInicialesJson }: Props) {
           idModulo="flujos"
           vistas={['lista', 'tarjetas']}
           renderTarjeta={renderTarjeta}
-          onClickFila={(fila) => router.push(`/flujos/${fila.id}`)}
+          hrefFila={(fila) => `/flujos/${fila.id}`}
+          ariaLabelFila={(fila) => `Abrir flujo ${fila.nombre || fila.id}`}
           estadoVacio={
             // Estado vacío educativo SOLO cuando no hay flujos y no hay
             // filtros aplicados. Si hay filtros y no matchea nada,

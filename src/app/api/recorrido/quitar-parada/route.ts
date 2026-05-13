@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
 
@@ -8,12 +9,16 @@ import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
  * Body: { recorrido_id, parada_id }
  * No elimina la visita subyacente (si la tiene), solo la desvincula del recorrido.
  * Se usa en: ModalRecorrido y PaginaRecorrido.
+ *
+ * Autorización (igual que reordenar): dueño del recorrido necesita
+ * `recorrido:reordenar`; cualquier otro miembro alcanza con `visitas:asignar`.
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'reordenar')
-    if ('respuesta' in guard) return guard.respuesta
-    const { empresaId } = guard
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
     const { recorrido_id, parada_id } = body as { recorrido_id: string; parada_id: string }
@@ -26,13 +31,21 @@ export async function DELETE(request: NextRequest) {
 
     const { data: recorrido } = await admin
       .from('recorridos')
-      .select('id')
+      .select('id, asignado_a')
       .eq('id', recorrido_id)
       .eq('empresa_id', empresaId)
       .single()
 
     if (!recorrido) {
       return NextResponse.json({ error: 'Recorrido no encontrado' }, { status: 404 })
+    }
+
+    if (recorrido.asignado_a === user.id) {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'recorrido', 'reordenar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    } else {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'asignar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }
 
     const { error } = await admin

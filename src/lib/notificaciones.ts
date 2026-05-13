@@ -6,6 +6,7 @@
  */
 
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { puedeNotificarAhora } from '@/lib/notificaciones-horario'
 
 interface CrearNotificacionParams {
   empresaId: string
@@ -18,6 +19,11 @@ interface CrearNotificacionParams {
   url?: string
   referenciaTipo?: string
   referenciaId?: string
+  // true = comunicación entrante de cliente (WhatsApp/correo/llamada) — pasa el
+  // gate de horario y suena siempre. false (default) = evento diferido o interno
+  // (vencimientos, asignaciones, menciones) — respeta el horario configurado:
+  // si está fuera, la notificación in-app se crea igual pero el push se omite.
+  esTiempoReal?: boolean
 }
 
 /**
@@ -37,6 +43,7 @@ export async function crearNotificacion({
   url,
   referenciaTipo,
   referenciaId,
+  esTiempoReal = false,
 }: CrearNotificacionParams) {
   const admin = crearClienteAdmin()
 
@@ -98,7 +105,7 @@ export async function crearNotificacion({
       // Solo re-enviar push si el contenido cambió (nuevo evento real, no re-procesado)
       if (contenidoCambio) {
         console.log(`[Push] crearNotificacion (dedup, contenido nuevo): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
-        enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
+        enviarPush({ empresaId, usuarioId, titulo, cuerpo, url, esTiempoReal }).catch((err) => console.error('[Push] Error dedup:', err))
       } else {
         console.log(`[Push] crearNotificacion (dedup, mismo contenido): omitiendo push para usuario ${usuarioId.slice(0, 8)}`)
       }
@@ -113,11 +120,11 @@ export async function crearNotificacion({
 
   // Push notification (fire-and-forget, pero con log de error)
   console.log(`[Push] crearNotificacion: enviando push a usuario ${usuarioId.slice(0, 8)}...`)
-  enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error:', err))
+  enviarPush({ empresaId, usuarioId, titulo, cuerpo, url, esTiempoReal }).catch((err) => console.error('[Push] Error:', err))
 
   // Notificar a admins que tienen "recibir todas las notificaciones" activado
   notificarAdminsObservadores({
-    empresaId, usuarioIdOriginal: usuarioId, tipo, titulo, cuerpo, icono, color, url, referenciaTipo, referenciaId,
+    empresaId, usuarioIdOriginal: usuarioId, tipo, titulo, cuerpo, icono, color, url, referenciaTipo, referenciaId, esTiempoReal,
   }).catch(() => {})
 }
 
@@ -227,6 +234,7 @@ export async function crearNotificacionesBatch(
         titulo: primera.titulo,
         cuerpo: primera.cuerpo,
         url: primera.url,
+        esTiempoReal: primera.esTiempoReal ?? false,
       }).catch((err) => console.error('[Push] Error en batch:', err))
     }
   }
@@ -248,6 +256,7 @@ async function notificarAdminsObservadores({
   url,
   referenciaTipo,
   referenciaId,
+  esTiempoReal = false,
 }: Omit<CrearNotificacionParams, 'usuarioId'> & { usuarioIdOriginal: string }) {
   const admin = crearClienteAdmin()
 
@@ -295,7 +304,7 @@ async function notificarAdminsObservadores({
 
   // Push a cada observador
   for (const obs of observadores) {
-    enviarPush({ empresaId, usuarioId: obs.usuario_id, titulo, cuerpo, url }).catch(() => {})
+    enviarPush({ empresaId, usuarioId: obs.usuario_id, titulo, cuerpo, url, esTiempoReal }).catch(() => {})
   }
 }
 
@@ -315,13 +324,26 @@ async function enviarPush({
   titulo,
   cuerpo,
   url,
+  esTiempoReal = false,
 }: {
   empresaId: string
   usuarioId: string
   titulo: string
   cuerpo?: string
   url?: string
+  esTiempoReal?: boolean
 }) {
+  // Gate de horario: si NO es tiempo real (evento diferido o interno) y el
+  // usuario está fuera del horario configurado, se omite el push. La
+  // notificación in-app igualmente queda registrada — solo no suena el celular.
+  if (!esTiempoReal) {
+    const puede = await puedeNotificarAhora(empresaId, usuarioId)
+    if (!puede) {
+      console.log(`[Push] Fuera de horario laboral: omitiendo push diferido para usuario ${usuarioId.slice(0, 8)}...`)
+      return
+    }
+  }
+
   // Rate-limit: no enviar push al mismo usuario+url si ya se envió hace menos de 5 min
   const rateLimitKey = `${usuarioId}|${url || '/'}`
   const ultimoEnvio = pushRateLimit.get(rateLimitKey)

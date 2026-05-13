@@ -196,7 +196,11 @@ function ModalAvisoEnCamino({
                 <button
                   onClick={enviarAviso}
                   disabled={enviando || cargandoPreview || !preview?.tiene_whatsapp || !preview?.plantilla_lista}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-card text-sm font-semibold text-white bg-[var(--canal-whatsapp)] hover:opacity-90 transition-opacity disabled:opacity-40"
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-card text-sm font-semibold text-white bg-[var(--canal-whatsapp)] transition-opacity ${
+                    enviando
+                      ? 'opacity-100 cursor-wait'
+                      : 'hover:opacity-90 disabled:opacity-40'
+                  }`}
                 >
                   {enviando ? (
                     <Loader2 size={14} className="animate-spin" />

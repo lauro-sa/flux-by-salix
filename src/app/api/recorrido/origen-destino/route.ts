@@ -7,10 +7,11 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  * Body: { recorrido_id, origen?, destino? }
  * Cada uno puede ser: { lat, lng, texto } o null para limpiar.
  * Se usa en: ModalRecorrido (coordinador configura de dónde sale y a dónde vuelve el visitador).
+ * Permiso: visitas.asignar — es función de coordinación, no de recorrido propio.
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'reordenar')
+    const guard = await requerirPermisoAPI('visitas', 'asignar')
     if ('respuesta' in guard) return guard.respuesta
     const { empresaId } = guard
 

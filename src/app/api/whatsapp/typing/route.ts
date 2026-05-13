@@ -6,6 +6,10 @@ import { enviarTypingWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 /**
  * POST /api/whatsapp/typing — Enviar indicador "escribiendo..." al cliente.
  * Body: { conversacion_id }
+ *
+ * La API oficial de Meta exige que el typing se mande como update de status
+ * de un mensaje ENTRANTE específico. Resolvemos el último mensaje entrante
+ * de la conversación con wa_message_id válido y lo usamos como ancla.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,12 +24,29 @@ export async function POST(request: NextRequest) {
 
     const { data: conversacion } = await admin
       .from('conversaciones')
-      .select('identificador_externo, canal_id')
+      .select('canal_id')
       .eq('id', conversacion_id)
       .single()
 
-    if (!conversacion?.identificador_externo) {
-      return NextResponse.json({ error: 'Sin número' }, { status: 400 })
+    if (!conversacion?.canal_id) {
+      return NextResponse.json({ error: 'Conversación inválida' }, { status: 400 })
+    }
+
+    // Buscar el último mensaje entrante con wa_message_id (Meta solo acepta
+    // typing como update sobre un mensaje específico). Si no hay ninguno
+    // reciente, devolvemos ok sin hacer nada — el typing es decorativo.
+    const { data: ultimoEntrante } = await admin
+      .from('mensajes')
+      .select('wa_message_id')
+      .eq('conversacion_id', conversacion_id)
+      .eq('es_entrante', true)
+      .not('wa_message_id', 'is', null)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!ultimoEntrante?.wa_message_id) {
+      return NextResponse.json({ ok: true, motivo: 'sin mensaje entrante reciente' })
     }
 
     const { data: canal } = await admin
@@ -38,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
 
     const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
-    await enviarTypingWhatsApp(config, conversacion.identificador_externo)
+    await enviarTypingWhatsApp(config, ultimoEntrante.wa_message_id)
 
     return NextResponse.json({ ok: true })
   } catch {

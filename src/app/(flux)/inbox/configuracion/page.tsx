@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { SeccionEstadosEntidad } from '@/componentes/configuracion/SeccionEstadosEntidad'
 import { SeccionFlujosModulo } from '@/componentes/entidad/_seccion_flujos_modulo'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import type { CanalMensajeria, ConfigMensajeria, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { useRol } from '@/hooks/useRol'
@@ -34,6 +35,47 @@ import {
  * Configuración del Inbox — Correo e Interno.
  * WhatsApp se configurá desde su propia sección (/whatsapp/configuracion).
  */
+
+interface PlantillaResumen {
+  id: string
+  nombre: string
+  categoria?: string | null
+  modulos?: string[] | null
+  activo?: boolean
+  orden?: number
+}
+
+// Definida fuera del componente para que la referencia sea estable
+// y el useEffect del PreviewSeccionExterna no se dispare en cada render.
+function extraerPlantillas(data: unknown): ItemPreview[] {
+  const plantillas = ((data as { plantillas?: PlantillaResumen[] })?.plantillas) || []
+  return plantillas
+    .filter(p => p.activo !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map(p => ({
+      id: p.id,
+      icono: 'FileText',
+      color: 'var(--canal-correo)',
+      etiqueta: p.nombre,
+      subEtiqueta: p.categoria || undefined,
+      badges: (p.modulos || []).slice(0, 3).map(m => ({ texto: m })),
+    }))
+}
+
+function extraerRespuestasRapidas(data: unknown): ItemPreview[] {
+  const plantillas = ((data as { plantillas?: PlantillaResumen[] })?.plantillas) || []
+  return plantillas
+    .filter(p => p.activo !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map(p => ({
+      id: p.id,
+      icono: 'Zap',
+      color: '#f59e0b',
+      etiqueta: p.nombre,
+      subEtiqueta: p.categoria || undefined,
+      badges: (p.modulos || []).slice(0, 3).map(m => ({ texto: m })),
+    }))
+}
 
 export default function PaginaConfiguracionInbox() {
   const router = useRouter()
@@ -152,19 +194,42 @@ export default function PaginaConfiguracionInbox() {
       onVolver={() => router.push('/inbox')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        // Secciones que viven en su propia ruta (pantalla completa) — navegamos en vez de renderizar inline
-        if (id === 'plantillas_correo') {
-          router.push('/inbox/configuracion/plantillas-correo')
-          return
-        }
-        if (id === 'respuestas_rapidas') {
-          router.push('/inbox/configuracion/respuestas-rapidas')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
+      {/* Plantillas de correo */}
+      {seccionActiva === 'plantillas_correo' && (
+        <PreviewSeccionExterna
+          titulo={t('inbox.config.plantillas_correo')}
+          descripcion="Plantillas reutilizables para responder correos con un clic."
+          endpoint="/api/correo/plantillas"
+          extraerItems={extraerPlantillas}
+          hrefDestino="/inbox/configuracion/plantillas-correo"
+          textoBoton="Gestionar plantillas"
+          etiquetaItem={{ singular: 'plantilla', plural: 'plantillas' }}
+          textoVacio={{
+            titulo: 'No hay plantillas creadas',
+            descripcion: 'Creá la primera desde la página de gestión.',
+          }}
+        />
+      )}
+
+      {/* Respuestas rápidas */}
+      {seccionActiva === 'respuestas_rapidas' && (
+        <PreviewSeccionExterna
+          titulo="Respuestas rápidas"
+          descripcion="Respuestas cortas guardadas para insertar en cualquier conversación con un atajo."
+          endpoint="/api/correo/respuestas-rapidas"
+          extraerItems={extraerRespuestasRapidas}
+          hrefDestino="/inbox/configuracion/respuestas-rapidas"
+          textoBoton="Gestionar respuestas"
+          etiquetaItem={{ singular: 'respuesta', plural: 'respuestas' }}
+          textoVacio={{
+            titulo: 'No hay respuestas rápidas',
+            descripcion: 'Creá la primera desde la página de gestión.',
+          }}
+        />
+      )}
+
       {/* General */}
       {seccionActiva === 'general' && (
         <div className="space-y-6">

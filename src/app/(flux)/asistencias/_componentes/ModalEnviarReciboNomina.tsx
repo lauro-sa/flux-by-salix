@@ -156,15 +156,16 @@ function formatearTextoWA(texto: string): string {
  * basado en el `mapeo_variables` de la plantilla — soporta cualquier número y
  * orden de variables sin hardcodeo.
  *
- * `detalleDescuentos` se construye fuera (con `construirDetalleDescuentos`)
+ * `lineasDescuentos` se construye fuera (con `construirLineasDescuentos`)
  * porque requiere fetch de adelantos del empleado.
  */
 function resolverPreviewWA(
   plantilla: PlantillaWA,
   r: ResultadoNominaConCorreo,
   etiquetaPeriodo: string,
-  detalleDescuentos: string,
+  lineasDescuentos: string[],
 ): { encabezado: string; cuerpo: string; pie: string } {
+  const detalleLegacy = lineasDescuentos.join('\n')
   const datos = construirDatosPlantilla({
     nomina: {
       nombre: r.nombre,
@@ -177,7 +178,8 @@ function resolverPreviewWA(
       descuento_adelanto: r.descuento_adelanto ?? 0,
       saldo_anterior: r.saldo_anterior ?? 0,
       monto_detalle: r.monto_detalle,
-      detalle_descuentos: detalleDescuentos,
+      detalle_descuentos: detalleLegacy,
+      descuentos_lista: lineasDescuentos,
     },
   })
 
@@ -206,17 +208,20 @@ function resolverPreviewWA(
 }
 
 /**
- * Construye el detalle multilínea de descuentos del período a partir de los
- * adelantos cargados desde `/api/adelantos`. Mismo formato que el preview
- * del editor de nómina: orden cronológico ascendente, con tipo + fecha corta.
+ * Construye las líneas (bullets) de descuentos del período a partir de los
+ * adelantos cargados desde `/api/adelantos`. Orden cronológico ascendente.
+ *
+ * Devuelve un array porque la plantilla WA tiene 6 slots fijos
+ * (`descuento_1..descuento_6`) — el resolver de variables se encarga del
+ * padding/concat. Para previews que necesiten texto plano: `lineas.join('\n')`.
  */
-function construirDetalleDescuentos(
+function construirLineasDescuentos(
   adelantos: Array<Record<string, unknown>>,
   saldoAnterior: number,
   periodoDesde: string,
   periodoHasta: string,
   locale = 'es-AR',
-): string {
+): string[] {
   type Item = {
     notas: string;
     numeroCuota: number; cuotasTotales: number;
@@ -249,7 +254,7 @@ function construirDetalleDescuentos(
     const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
     lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
   }
-  return lineas.join('\n')
+  return lineas
 }
 
 // ─── Estado del envío en lote ────────────────────────────────
@@ -312,9 +317,9 @@ export function ModalEnviarReciboNomina({
   const [asuntoNomina, setAsuntoNomina] = useState(ASUNTO_RECIBO_NOMINA)
   const [htmlNomina, setHtmlNomina] = useState(HTML_RECIBO_NOMINA)
 
-  // Detalle de adelantos/descuentos del primer empleado para el preview WA.
+  // Líneas de adelantos/descuentos del primer empleado para el preview WA.
   // Se carga al abrir el modal si tenemos rango de fechas del período.
-  const [detalleDescuentosPreview, setDetalleDescuentosPreview] = useState('')
+  const [lineasDescuentosPreview, setLineasDescuentosPreview] = useState<string[]>([])
 
   // Cargar canales al abrir
   useEffect(() => {
@@ -394,12 +399,12 @@ export function ModalEnviarReciboNomina({
         .then(data => {
           const adelantos = (data?.adelantos || []) as Array<Record<string, unknown>>
           const saldo = empleadoPreview.saldo_anterior ?? 0
-          const detalle = construirDetalleDescuentos(adelantos, saldo, periodoDesde, periodoHasta)
-          setDetalleDescuentosPreview(detalle)
+          const lineas = construirLineasDescuentos(adelantos, saldo, periodoDesde, periodoHasta)
+          setLineasDescuentosPreview(lineas)
         })
-        .catch(() => setDetalleDescuentosPreview(''))
+        .catch(() => setLineasDescuentosPreview([]))
     } else {
-      setDetalleDescuentosPreview('')
+      setLineasDescuentosPreview([])
     }
   }, [abierto, resultados, periodoDesde, periodoHasta])
 
@@ -423,8 +428,8 @@ export function ModalEnviarReciboNomina({
   const empleadoParaPreview = empleadosConTelefono[0] || resultados[0] || null
   const previewWA = useMemo(() => {
     if (!plantillaWA || !empleadoParaPreview) return null
-    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, detalleDescuentosPreview)
-  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, detalleDescuentosPreview])
+    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview)
+  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview])
 
   // ─── Enviar correo en lote ───
   const enviarCorreoEnLote = useCallback(async () => {

@@ -9,10 +9,11 @@ import { crearNotificacion } from '@/lib/notificaciones'
  * Publicar: cambia estado de 'borrador' a 'pendiente' (visible para el visitador).
  * Despublicar: cambia estado de 'pendiente' a 'borrador' (oculto para el visitador).
  * Se usa en: ModalRecorrido (coordinador).
+ * Permiso: visitas.asignar — publicar/despublicar es función de coordinación.
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'reordenar')
+    const guard = await requerirPermisoAPI('visitas', 'asignar')
     if ('respuesta' in guard) return guard.respuesta
     const { user, empresaId } = guard
 

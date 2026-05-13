@@ -9,14 +9,21 @@ import { verificarRateLimit, obtenerIp } from '@/lib/rate-limit'
  * Se usa en: página pública /portal/[token]
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params
 
+    // Si llega `?refrescar=true`, este request es solo un re-fetch para
+    // actualizar la UI tras un evento Realtime — NO debe contar como vista
+    // ni incrementar veces_visto. Solo el primer load de la página marca
+    // la vista (vía SSR de page.tsx).
+    const url = new URL(request.url)
+    const esRefresco = url.searchParams.get('refrescar') === 'true'
+
     // Rate limit: 30 requests por minuto por IP
-    const ip = obtenerIp(_request)
+    const ip = obtenerIp(request)
     const { permitido } = verificarRateLimit(`portal:${ip}`, { maximo: 30, ventanaSegundos: 60 })
     if (!permitido) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
     const admin = crearClienteAdmin()
@@ -38,16 +45,16 @@ export async function GET(
       return NextResponse.json({ error: 'Enlace expirado' }, { status: 410 })
     }
 
-    // 3. Registrar vista (incrementar contador, marcar primera vista, estado → visto)
-    const actualizacionVista: Record<string, unknown> = {
-      veces_visto: (portalToken.veces_visto || 0) + 1,
-    }
-    if (!portalToken.visto_en) {
-      actualizacionVista.visto_en = new Date().toISOString()
-    }
-    // Solo transicionar a 'visto' si está en 'pendiente'
-    if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
-      actualizacionVista.estado_cliente = 'visto'
+    // 3. Registrar vista solo si NO es un refresco de Realtime
+    const actualizacionVista: Record<string, unknown> = {}
+    if (!esRefresco) {
+      actualizacionVista.veces_visto = (portalToken.veces_visto || 0) + 1
+      if (!portalToken.visto_en) {
+        actualizacionVista.visto_en = new Date().toISOString()
+      }
+      if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
+        actualizacionVista.estado_cliente = 'visto'
+      }
     }
     // 4. Fetch en paralelo + update vista (todo junto, sin fire-and-forget)
     const [
@@ -59,7 +66,9 @@ export async function GET(
       { data: config },
       { data: vendedor },
     ] = await Promise.all([
-      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id),
+      Object.keys(actualizacionVista).length > 0
+        ? admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id)
+        : Promise.resolve(null),
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),

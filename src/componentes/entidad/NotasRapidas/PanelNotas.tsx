@@ -23,16 +23,20 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import type { Editor } from '@tiptap/react'
 import {
   X, Plus, StickyNote, Pin, PinOff, Trash2, Mic,
   Loader2, Users, ChevronLeft, MoreHorizontal,
-  Eye, Pencil, Hash
+  Eye, Pencil, Hash, Wand2
 } from 'lucide-react'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
 import { GrabadorAudio } from '@/componentes/mensajeria/GrabadorAudio'
+import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import { useToast } from '@/componentes/feedback/Toast'
+import { previewNota, textoPlanoAHtml, htmlATextoPlano } from '@/lib/notas/html'
 import type { NotaRapida } from '@/hooks/useNotasRapidas'
 
 // ─── Tipos ───
@@ -62,6 +66,10 @@ interface MiembroAPI {
   usuario_id: string
   nombre: string
   apellido: string
+  /** Si el miembro está activo en la empresa (puede recibir notas nuevas). */
+  activo: boolean
+  /** Si este miembro corresponde al propio usuario que está viendo el panel. */
+  es_yo: boolean
 }
 
 // ─── Colores fijos por tipo ───
@@ -111,7 +119,7 @@ function AvatarsCompartidos({ nombres }: { nombres: string[] }) {
       {extra > 0 && (
         <div
           className="size-5 rounded-full flex items-center justify-center
-            bg-white/[0.08] border border-borde-sutil
+            bg-superficie-hover border border-borde-sutil
             text-texto-terciario text-[9px] font-medium leading-none shrink-0"
         >
           +{extra}
@@ -126,17 +134,6 @@ function idCorto(id: string): string {
   return id.slice(0, 8)
 }
 
-// ─── Extraer título y cuerpo del contenido (estilo Apple Notes) ───
-// La primera línea es el título, el resto es el cuerpo.
-function extraerTituloYCuerpo(texto: string): { titulo: string; cuerpo: string } {
-  const primeraLinea = texto.indexOf('\n')
-  if (primeraLinea === -1) return { titulo: texto.trim(), cuerpo: '' }
-  return {
-    titulo: texto.slice(0, primeraLinea).trim(),
-    cuerpo: texto.slice(primeraLinea + 1),
-  }
-}
-
 // ─── Componente principal ───
 
 function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
@@ -144,6 +141,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
   const { fechaRelativa, fecha: fmtFecha, hora: fmtHora } = useFormato()
+  const toast = useToast()
 
   const [pestana, setPestana] = useState<Pestana>('todas')
 
@@ -182,12 +180,37 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
   const [grabando, setGrabando] = useState(false)
   const [transcribiendo, setTranscribiendo] = useState(false)
 
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Menú ⋯ del header del editor (acciones sobre la nota abierta).
+  // Hoy expone "Re-acomodar formato" para limpiar la nota actual.
+  const [menuEditorAbierto, setMenuEditorAbierto] = useState(false)
+  const [reformateandoEditor, setReformateandoEditor] = useState(false)
+  const menuEditorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuEditorAbierto) return
+    const handler = (e: MouseEvent) => {
+      if (menuEditorRef.current && !menuEditorRef.current.contains(e.target as Node)) {
+        setMenuEditorAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuEditorAbierto])
+
+  // Instancia del editor Tiptap del cuerpo de la nota. Sirve para enfocar
+  // programáticamente (Enter en título → cuerpo) y para insertar texto
+  // del dictado por voz al final del contenido actual.
+  const editorRef = useRef<Editor | null>(null)
   const timerGuardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cargar miembros via API route (service role, sin problemas de RLS)
+  // Cargar miembros via API route (service role, sin problemas de RLS).
+  // El endpoint devuelve TODOS los miembros con perfil (incluido el
+  // propio usuario y los inactivos), porque para resolver el avatar de
+  // un compartido necesitamos el nombre incluso si el destinatario fue
+  // desactivado o si por algún caso edge el propio user aparece en
+  // `_compartidos_con`. El selector de compartir filtra después.
   const cargarMiembros = useCallback(async () => {
-    if (miembros.length > 0) return // ya cargados
+    if (miembros.length > 0) return
     setCargandoMiembros(true)
     try {
       const res = await fetch('/api/notas-rapidas/miembros')
@@ -196,11 +219,12 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
         setMiembros(data)
         const mapa: Record<string, string> = {}
         for (const m of data) {
-          mapa[m.usuario_id] = `${m.nombre} ${m.apellido}`
-        }
-        // También agregar el usuario actual
-        if (usuario) {
-          // El usuario actual no viene en la API (se filtra), pero lo necesitamos para avatares propios
+          // Nunca metemos strings vacíos / "null null" al mapa: si el
+          // perfil no tiene nombre legible, mejor que `nombresMiembros`
+          // no tenga la entrada (los avatares se ocultan en vez de
+          // mostrar "?" o iniciales basura).
+          const completo = `${m.nombre || ''} ${m.apellido || ''}`.trim()
+          if (completo) mapa[m.usuario_id] = completo
         }
         setNombresMiembros(mapa)
       }
@@ -209,7 +233,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     } finally {
       setCargandoMiembros(false)
     }
-  }, [miembros.length, usuario])
+  }, [miembros.length])
 
   // Cargar miembros al abrir el panel
   useEffect(() => {
@@ -244,14 +268,22 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     if (nota._compartida && nota._tiene_cambios) {
       notas.marcarLeida(nota.id)
     }
-  }, [notas])
+    // Si la nota tiene compartidos pero los nombres aún no cargaron,
+    // disparamos la carga ahora para que los avatares se vean apenas
+    // arranca el editor (en vez de aparecer en blanco).
+    if (nota._compartidos_con && nota._compartidos_con.length > 0) {
+      cargarMiembros()
+    }
+  }, [notas, cargarMiembros])
 
   const crearNueva = useCallback(async () => {
     setCreando(true)
     const nueva = await notas.crear({ titulo: '', contenido: '', color: 'amarillo' })
     if (nueva) {
       abrirNota(nueva)
-      setTimeout(() => inputRef.current?.focus(), 100)
+      // Pequeño delay para que el editor monte; después llevamos el foco
+      // al final del contenido (vacío en una nota nueva → cursor listo).
+      setTimeout(() => editorRef.current?.commands.focus('end'), 120)
     }
     setCreando(false)
   }, [notas, abrirNota])
@@ -268,27 +300,21 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
   }, [notaActiva, notas])
 
   const handleCambiarTitulo = (v: string) => {
-    // Si pegan texto con saltos de línea en el título, mover el excedente al cuerpo
-    if (v.includes('\n')) {
-      const lineas = v.split('\n')
-      const nuevoTitulo = lineas[0]
-      const restoAlCuerpo = lineas.slice(1).join('\n') + (cuerpoEditor ? '\n' + cuerpoEditor : '')
-      setTituloEditor(nuevoTitulo)
-      setCuerpoEditor(restoAlCuerpo)
-      autoguardar(nuevoTitulo, restoAlCuerpo, colorActivo)
-    } else {
-      setTituloEditor(v)
-      autoguardar(v, cuerpoEditor, colorActivo)
-    }
+    // El título es texto plano de una sola línea. Si pegan multilinea,
+    // colapsamos a la primera línea y descartamos el resto (no se mezcla
+    // texto plano con el HTML del cuerpo).
+    const valor = v.includes('\n') ? v.split('\n')[0] : v
+    setTituloEditor(valor)
+    autoguardar(valor, cuerpoEditor, colorActivo)
   }
   const handleCambiarCuerpo = (v: string) => { setCuerpoEditor(v); autoguardar(tituloEditor, v, colorActivo) }
   const handleCambiarColor = (color: string) => { setColorActivo(color); autoguardar(tituloEditor, cuerpoEditor, color) }
 
-  // Enter en el campo título → mover foco al cuerpo
+  // Enter en el campo título → mover foco al cuerpo (editor Tiptap)
   const handleTituloKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      inputRef.current?.focus()
+      editorRef.current?.commands.focus('end')
     }
   }
 
@@ -344,7 +370,11 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     await notas.compartir(notaActiva.id, usuario_id, puede_editar)
   }
 
-  // Dictado
+  // Dictado por voz: Whisper devuelve texto plano. Si la nota aún no tiene
+  // título, usamos la primera línea como título y el resto como cuerpo
+  // (convertido a HTML). Si ya hay título, agregamos lo dictado al final
+  // del cuerpo como un nuevo párrafo, preservando el formato existente
+  // (incluyendo checklist) — el editor inserta el HTML al final.
   const handleGrabacionCompleta = useCallback(async (audio: Blob) => {
     setGrabando(false)
     setTranscribiendo(true)
@@ -354,15 +384,29 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
       const res = await fetch('/api/salix-ia/transcribir', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Error')
       const { texto: textoTranscrito } = await res.json()
-      if (textoTranscrito) {
-        // Si no hay título, la transcripción se convierte en título
-        if (!tituloEditor) {
-          const { titulo, cuerpo } = extraerTituloYCuerpo(textoTranscrito)
-          setTituloEditor(titulo)
-          setCuerpoEditor(cuerpo)
-          autoguardar(titulo, cuerpo, colorActivo)
+      if (!textoTranscrito) return
+
+      if (!tituloEditor) {
+        // Sin título → primera línea = título, resto = cuerpo HTML
+        const idxSalto = textoTranscrito.indexOf('\n')
+        const tituloNuevo = (idxSalto === -1 ? textoTranscrito : textoTranscrito.slice(0, idxSalto)).trim()
+        const restoPlano = idxSalto === -1 ? '' : textoTranscrito.slice(idxSalto + 1)
+        const cuerpoNuevoHtml = textoPlanoAHtml(restoPlano)
+        setTituloEditor(tituloNuevo)
+        setCuerpoEditor(cuerpoNuevoHtml)
+        editorRef.current?.commands.setContent(cuerpoNuevoHtml)
+        autoguardar(tituloNuevo, cuerpoNuevoHtml, colorActivo)
+      } else {
+        // Con título → appendea como nuevo bloque al final del cuerpo
+        const bloqueNuevo = textoPlanoAHtml(textoTranscrito)
+        const editor = editorRef.current
+        if (editor) {
+          editor.chain().focus('end').insertContent(bloqueNuevo).run()
+          const html = editor.getHTML()
+          setCuerpoEditor(html)
+          autoguardar(tituloEditor, html, colorActivo)
         } else {
-          const nuevo = cuerpoEditor ? `${cuerpoEditor}\n${textoTranscrito}` : textoTranscrito
+          const nuevo = `${cuerpoEditor}${bloqueNuevo}`
           setCuerpoEditor(nuevo)
           autoguardar(tituloEditor, nuevo, colorActivo)
         }
@@ -374,9 +418,12 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     }
   }, [tituloEditor, cuerpoEditor, colorActivo, autoguardar])
 
+  // Auto-foco al editor cuando se abre una nota para editar (no estamos
+  // grabando dictado al mismo tiempo). Pequeño delay para que Tiptap monte.
   useEffect(() => {
-    if (editando && inputRef.current && !grabando) {
-      setTimeout(() => inputRef.current?.focus(), 300)
+    if (editando && !grabando) {
+      const t = setTimeout(() => editorRef.current?.commands.focus('end'), 300)
+      return () => clearTimeout(t)
     }
   }, [editando, grabando])
 
@@ -395,7 +442,13 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
 
   const nombresCompartidos = (nota: NotaRapida): string[] => {
     if (!nota._compartidos_con || nota._compartidos_con.length === 0) return []
-    return nota._compartidos_con.map((c) => nombresMiembros[c.usuario_id] || '?')
+    // Mientras los miembros no terminen de cargar, evitamos mostrar
+    // avatares con "?" como nombre — preferimos no renderizarlos hasta
+    // tener el dato real. El listado de compartidos se completa apenas
+    // `cargarMiembros` resuelve; el componente re-renderiza solo.
+    return nota._compartidos_con
+      .map((c) => nombresMiembros[c.usuario_id])
+      .filter((n): n is string => Boolean(n))
   }
 
   // ─── Menú contextual ⋯ ───
@@ -408,7 +461,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
       <div className="relative" ref={menuAbiertoId === nota.id ? menuRef : undefined}>
         <button
           onClick={(e) => { e.stopPropagation(); setMenuAbiertoId(menuAbiertoId === nota.id ? null : nota.id) }}
-          className="p-1 rounded-boton text-texto-terciario hover:text-texto-primario hover:bg-white/[0.08] transition-colors"
+          className="p-1 rounded-boton text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
         >
           <MoreHorizontal className="size-4" />
         </button>
@@ -420,32 +473,32 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute right-0 top-full mt-1 z-50 w-48 rounded-popover bg-superficie-elevada border border-white/[0.1] shadow-xl py-1"
+              className="absolute right-0 top-full mt-1 z-50 w-48 rounded-popover bg-superficie-elevada border border-borde-sutil shadow-xl py-1"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => { setMenuAbiertoId(null); abrirNota(nota); setMostrarCompartir(true); cargarMiembros() }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-texto-primario hover:bg-superficie-hover transition-colors"
               >
                 <Users className="size-3.5" />
                 Compartir con...
               </button>
               <button
                 onClick={() => handleFijar(nota)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-texto-primario hover:bg-superficie-hover transition-colors"
               >
                 {nota.fijada ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
                 {nota.fijada ? 'Desfijar' : 'Fijar arriba'}
               </button>
 
               {/* ID de referencia */}
-              <div className="border-t border-white/[0.07] my-1" />
+              <div className="border-t border-borde-sutil my-1" />
               <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-texto-terciario">
                 <Hash className="size-3" />
                 <span className="font-mono select-all">{idCorto(nota.id)}</span>
               </div>
 
-              <div className="border-t border-white/[0.07] my-1" />
+              <div className="border-t border-borde-sutil my-1" />
               <button
                 onClick={() => { setMenuAbiertoId(null); setConfirmarEliminarId(nota.id) }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-estado-error hover:bg-estado-error/10 transition-colors"
@@ -480,7 +533,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-superficie-elevada border border-white/[0.1] rounded-popover shadow-2xl p-5 mx-4 max-w-sm w-full space-y-4"
+          className="bg-superficie-elevada border border-borde-sutil rounded-popover shadow-2xl p-5 mx-4 max-w-sm w-full space-y-4"
         >
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-texto-primario">Eliminar nota</h4>
@@ -495,7 +548,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => setConfirmarEliminarId(null)}
-              className="px-3 py-1.5 rounded-card text-xs text-texto-secundario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+              className="px-3 py-1.5 rounded-card text-xs text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
             >
               Cancelar
             </button>
@@ -551,10 +604,18 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                 onClick={() => abrirNota(nota)}
                 className="w-full text-left px-3.5 py-3 pr-10"
               >
-                {/* Indicador de cambios */}
-                {nota._tiene_cambios && (
-                  <span className="absolute top-3 right-9 size-2 rounded-full bg-insignia-peligro" />
-                )}
+                {/* Indicador de actividad sin leer. Diferenciamos dos casos:
+                    - Nota nueva (te la compartieron y nunca la abriste):
+                      badge "Nuevo" prominente, color marca.
+                    - Hubo cambios después de tu última lectura: puntito
+                      rojo más sutil. */}
+                {nota._es_nueva ? (
+                  <span className="absolute top-2.5 right-9 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-texto-marca text-white shadow-sm">
+                    Nuevo
+                  </span>
+                ) : nota._tiene_cambios ? (
+                  <span className="absolute top-3 right-9 size-2 rounded-full bg-insignia-peligro" title="Tiene cambios sin leer" />
+                ) : null}
 
                 {/* Fijada */}
                 {nota.fijada && (
@@ -566,9 +627,10 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                   {nota.titulo || 'Sin título'}
                 </p>
 
-                {/* Preview del contenido — respeta saltos de línea, hasta 4 líneas */}
+                {/* Preview del contenido — strippea HTML y trunca, marcando
+                    items de checklist con [ ] / [x] para que se vea el estado. */}
                 <div className="mt-1 text-xs text-texto-secundario leading-relaxed line-clamp-4 whitespace-pre-line">
-                  {nota.contenido || 'Nota vacía'}
+                  {previewNota(nota.contenido) || 'Nota vacía'}
                 </div>
 
                 {/* Footer: fecha + badges + avatares */}
@@ -609,8 +671,12 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
   // ─── Editor de nota ───
 
   const renderEditor = () => {
-    const esPropietario = notaActiva?.creador_id === usuario?.id
-    const puedeEditar = esPropietario || notaActiva?._puede_editar
+    // Guard: el editor solo se renderiza si hay nota activa. Esto le da
+    // a TS la pista para angostar el tipo y permitir usar `notaActiva.id`
+    // directamente en el resto del bloque sin non-null assertions.
+    if (!notaActiva) return null
+    const esPropietario = notaActiva.creador_id === usuario?.id
+    const puedeEditar = esPropietario || notaActiva._puede_editar
 
     // Nombres de compartidos para mostrar en el header
     const nombresActivos = esPropietario
@@ -620,7 +686,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     return (
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.07]">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-borde-sutil">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={volverALista}
@@ -652,14 +718,14 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               <>
                 <button
                   onClick={() => { setMostrarCompartir(!mostrarCompartir); if (!mostrarCompartir) cargarMiembros() }}
-                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
                   title="Compartir"
                 >
                   <Users className="size-4" />
                 </button>
                 <button
                   onClick={() => handleFijar(notaActiva!)}
-                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
                 >
                   {notaActiva?.fijada ? <PinOff className="size-4" /> : <Pin className="size-4" />}
                 </button>
@@ -671,6 +737,68 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                 </button>
               </>
             )}
+
+            {/* Menú ⋯ del editor — acciones sobre la nota abierta. Hoy
+                solo expone "Re-acomodar formato" que aplica el parser
+                inteligente a ESTA nota únicamente. Disponible para
+                propietarios y compartidos con permiso de edición; en
+                modo solo-lectura se oculta porque no podrían persistir
+                el cambio. */}
+            {puedeEditar && (
+              <div className="relative" ref={menuEditorRef}>
+                <button
+                  onClick={() => setMenuEditorAbierto((v) => !v)}
+                  className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+                  title="Más acciones"
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+                {menuEditorAbierto && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-60 rounded-popover bg-superficie-elevada border border-borde-sutil shadow-xl py-1">
+                    <button
+                      disabled={reformateandoEditor}
+                      onClick={async () => {
+                        setMenuEditorAbierto(false)
+                        setReformateandoEditor(true)
+                        try {
+                          const res = await fetch(`/api/notas-rapidas/${notaActiva.id}/reformatear`, { method: 'POST' })
+                          if (!res.ok) {
+                            const detalle = await res.text().catch(() => '')
+                            toast.mostrar('error', `No se pudo re-acomodar (${res.status}). ${detalle.slice(0, 120)}`)
+                            return
+                          }
+                          const data = await res.json() as { ok: boolean; cambio: boolean; contenido?: string }
+                          if (data.cambio && data.contenido) {
+                            await notas.cargar()
+                            setCuerpoEditor(data.contenido)
+                            editorRef.current?.commands.setContent(data.contenido)
+                            toast.mostrar('exito', 'Nota re-acomodada')
+                          } else {
+                            toast.mostrar('info', 'La nota ya estaba bien acomodada — nada que cambiar')
+                          }
+                        } catch (e) {
+                          toast.mostrar('error', `Error al re-acomodar: ${(e as Error).message}`)
+                        } finally {
+                          setReformateandoEditor(false)
+                        }
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-texto-primario hover:bg-superficie-hover transition-colors disabled:opacity-50"
+                    >
+                      {reformateandoEditor
+                        ? <Loader2 className="size-3.5 animate-spin text-texto-marca" />
+                        : <Wand2 className="size-3.5 text-texto-marca" />
+                      }
+                      <div className="flex flex-col items-start">
+                        <span>Re-acomodar formato</span>
+                        <span className="text-[10px] text-texto-terciario">
+                          Limpia bullets, separadores y secciones
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -681,21 +809,26 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-b border-white/[0.07]"
+              className="overflow-hidden border-b border-borde-sutil"
             >
               <div className="px-3 py-3 space-y-2.5">
                 {/* Píldoras de usuarios ya compartidos */}
                 {(notaActiva?._compartidos_con?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {notaActiva!._compartidos_con!.map((c) => {
-                      const nombre = nombresMiembros[c.usuario_id] || '?'
+                      // Fallback estable cuando aún no resolvió el
+                      // nombre (mientras carga) o el miembro fue
+                      // borrado de la BD: mostramos "Miembro" en vez
+                      // de "?" o iniciales basura.
+                      const nombre = nombresMiembros[c.usuario_id] || 'Miembro'
+                      const inicial = nombre.trim().charAt(0).toUpperCase() || '·'
                       return (
                         <span
                           key={c.usuario_id}
                           className="inline-flex items-center gap-1.5 rounded-boton font-medium border border-texto-marca/30 bg-texto-marca/10 text-texto-marca pl-1.5 pr-1 py-0.5"
                         >
                           <span className="size-4 rounded-full bg-texto-marca/20 flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {nombre.charAt(0).toUpperCase()}
+                            {inicial}
                           </span>
                           <span className="text-xs">{nombre}</span>
                           <span className="text-[9px] text-texto-marca/60 mx-0.5">
@@ -719,7 +852,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                     value={busquedaMiembro}
                     onChange={(e) => setBusquedaMiembro(e.target.value)}
                     placeholder="Buscar miembro..."
-                    className="w-full px-2.5 py-2 bg-transparent text-sm text-white placeholder:text-white/40 outline-none"
+                    className="w-full px-2.5 py-2 bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario outline-none"
                   />
                 </div>
 
@@ -732,13 +865,20 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                 ) : (
                   <div className="space-y-1 max-h-[180px] overflow-y-auto scrollbar-auto-oculto">
                     {miembros
+                      // El endpoint trae todos los miembros (incluyendo
+                      // inactivos y al propio user) para resolver
+                      // avatares. Acá, en el selector de compartir, sí
+                      // filtramos: no querés compartirte una nota a vos
+                      // mismo, ni invitar a un miembro que ya no está
+                      // activo en la empresa.
+                      .filter((m) => m.activo && !m.es_yo)
                       .filter((m) => {
                         if (!busquedaMiembro) return true
                         const nombre = `${m.nombre} ${m.apellido}`.toLowerCase()
                         return nombre.includes(busquedaMiembro.toLowerCase())
                       })
                       .map((m) => {
-                        const nombre = `${m.nombre} ${m.apellido}`
+                        const nombre = `${m.nombre} ${m.apellido}`.trim() || 'Sin nombre'
                         const compartido = notaActiva?._compartidos_con?.find((c) => c.usuario_id === m.usuario_id)
                         const yaCompartido = !!compartido
 
@@ -748,7 +888,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                             className={`flex items-center justify-between px-2.5 py-2 rounded-card transition-colors ${
                               yaCompartido
                                 ? 'bg-texto-marca/8 border border-texto-marca/20'
-                                : 'border border-transparent hover:bg-white/[0.06] cursor-pointer'
+                                : 'border border-transparent hover:bg-superficie-hover cursor-pointer'
                             }`}
                             onClick={() => {
                               if (!yaCompartido) { toggleCompartir(m.usuario_id, true); setBusquedaMiembro('') }
@@ -765,8 +905,8 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                                   onClick={(e) => { e.stopPropagation(); cambiarPermiso(m.usuario_id, false) }}
                                   className={`p-1.5 rounded-boton transition-colors ${
                                     !compartido!.puede_editar
-                                      ? 'bg-white/[0.1] text-texto-primario'
-                                      : 'text-texto-terciario hover:bg-white/[0.06]'
+                                      ? 'bg-superficie-elevada text-texto-primario'
+                                      : 'text-texto-terciario hover:bg-superficie-hover'
                                   }`}
                                   title="Solo lectura"
                                 >
@@ -777,7 +917,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                                   className={`p-1.5 rounded-boton transition-colors ${
                                     compartido!.puede_editar
                                       ? 'bg-insignia-exito/15 text-insignia-exito'
-                                      : 'text-texto-terciario hover:bg-white/[0.06]'
+                                      : 'text-texto-terciario hover:bg-superficie-hover'
                                   }`}
                                   title="Puede editar"
                                 >
@@ -798,7 +938,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
         </AnimatePresence>
 
         {/* Colores + fechas */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.07]">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-borde-sutil">
           <div className="flex items-center gap-1.5">
             {COLORES_NOTA.map((c) => (
               <button
@@ -837,18 +977,31 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           className="px-4 pt-3 pb-1 bg-transparent text-lg font-bold text-texto-primario placeholder:text-texto-terciario/50 outline-none w-full"
         />
 
-        {/* Cuerpo */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={inputRef}
-            value={cuerpoEditor}
-            onChange={(e) => puedeEditar && handleCambiarCuerpo(e.target.value)}
+        {/* Cuerpo — editor Tiptap rico: hereda formato (negrita, listas,
+            checklist, color, link) y respeta dark/light vía tokens. La
+            toolbar flotante aparece al seleccionar texto.
+            - `sinMarco` para que el editor no agregue su propio border/bg
+              (el cuerpo de la nota es texto fluido, no una tarjeta).
+            - El contenedor padre maneja scroll vertical (overflow-y-auto)
+              + min-h-0 para que flex-1 respete la altura disponible y
+              no desborde el panel.
+            - La key con el id de la nota fuerza re-mount al cambiar de
+              nota — Tiptap no re-renderiza automáticamente cuando
+              `contenido` cambia desde afuera (autoguardado externo de
+              otro user, dictado por voz). */}
+        <div className="flex-1 min-h-0 relative flex flex-col overflow-y-auto px-4 py-2">
+          <EditorTexto
+            key={notaActiva.id}
+            contenido={cuerpoEditor}
+            onChange={(html) => puedeEditar && handleCambiarCuerpo(html)}
             placeholder="Escribí tu nota..."
-            readOnly={!puedeEditar}
-            className="w-full h-full px-4 py-2 bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario resize-none outline-none leading-relaxed scrollbar-auto-oculto"
+            soloLectura={!puedeEditar}
+            sinMarco
+            onEditorListo={(e) => { editorRef.current = e }}
+            className="flex-1"
           />
           {transcribiendo && (
-            <div className="absolute bottom-3 left-4 flex items-center gap-2">
+            <div className="absolute bottom-3 left-4 flex items-center gap-2 pointer-events-none">
               <Loader2 className="size-3.5 animate-spin text-texto-marca" />
               <span className="text-xs text-texto-terciario">Transcribiendo...</span>
             </div>
@@ -857,7 +1010,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
 
         {/* Barra inferior: dictado */}
         {puedeEditar && (
-          <div className="px-3 pb-3 pt-2 border-t border-white/[0.07]">
+          <div className="px-3 pb-3 pt-2 border-t border-borde-sutil">
             <GrabadorAudio
               activo={grabando}
               onGrabacionCompleta={handleGrabacionCompleta}
@@ -873,8 +1026,15 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
                   <Mic className="size-3.5" />
                   Dictar
                 </button>
+                {/* Contador: el cuerpo es HTML, contamos solo el texto real
+                    (sin tags) para que el número represente lo que el
+                    usuario ve. */}
                 <span className="text-[10px] text-texto-terciario">
-                  {(tituloEditor.length + cuerpoEditor.length) > 0 ? `${tituloEditor.length + cuerpoEditor.length} caracteres` : ''}
+                  {(() => {
+                    const largoCuerpo = htmlATextoPlano(cuerpoEditor).length
+                    const total = tituloEditor.length + largoCuerpo
+                    return total > 0 ? `${total} caracteres` : ''
+                  })()}
                 </span>
               </div>
             )}
@@ -904,7 +1064,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
       ) : (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil">
             <div className="flex items-center gap-2">
               <div className="size-8 rounded-card bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
                 <StickyNote className="size-4 text-white" />
@@ -920,14 +1080,14 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
               <button
                 onClick={crearNueva}
                 disabled={creando}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors disabled:opacity-30"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors disabled:opacity-30"
                 title="Nueva nota"
               >
                 {creando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               </button>
               <button
                 onClick={onCerrar}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
               >
                 <X className="size-4" />
               </button>
@@ -935,7 +1095,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           </div>
 
           {/* Pestañas */}
-          <div className="flex border-b border-white/[0.07]">
+          <div className="flex border-b border-borde-sutil">
             {PESTANAS.map((p) => (
               <button
                 key={p.id}
@@ -1011,7 +1171,7 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] flex flex-col border-l border-white/[0.07] shadow-2xl"
+            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] flex flex-col border-l border-borde-sutil shadow-2xl"
           >
             {contenidoPanel}
           </motion.div>

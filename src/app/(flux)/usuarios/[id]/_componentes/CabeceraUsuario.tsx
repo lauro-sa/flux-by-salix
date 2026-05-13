@@ -382,16 +382,43 @@ export function CabeceraUsuario({
                         </>
                       )}
 
-                      {/* Acciones de cuenta — solo si el empleado ya tiene cuenta Flux.
-                          Ordenadas por impacto creciente: reseteo → obligar cambio → logout → eliminar. */}
-                      {miembro.usuario_id && (
-                        <>
-                          <ItemMenu icono={<MailIcon size={15} />} onClick={() => { setMenuAcciones(false); setModalResetPassword(true) }}>Enviar reseteo de contraseña</ItemMenu>
-                          <ItemMenu icono={<KeyRound size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}>Obligar a cambiar contraseña</ItemMenu>
-                          <ItemMenu icono={<LogOut size={15} />} onClick={() => { setMenuAcciones(false); setModalForzarLogout(true) }}>Forzar cierre de sesión</ItemMenu>
-                          {(esPropietario || esAdmin) && <div className="border-t border-borde-sutil my-1" />}
-                        </>
-                      )}
+                      {/* Acciones de cuenta. Se muestran siempre para que sea evidente
+                          que existen, pero quedan en gris con tooltip explicativo si el
+                          empleado todavía no tiene cuenta Flux (no hay sesión que tocar).
+                          Ordenadas por impacto creciente: reseteo → obligar cambio → logout. */}
+                      {(() => {
+                        const sinCuenta = !miembro.usuario_id
+                        const motivo = 'Requiere cuenta Flux activa — invitá al empleado para habilitar.'
+                        return (
+                          <>
+                            <ItemMenu
+                              icono={<MailIcon size={15} />}
+                              onClick={() => { setMenuAcciones(false); setModalResetPassword(true) }}
+                              deshabilitado={sinCuenta}
+                              motivoDeshabilitado={motivo}
+                            >
+                              Enviar reseteo de contraseña
+                            </ItemMenu>
+                            <ItemMenu
+                              icono={<KeyRound size={15} />}
+                              onClick={() => { setMenuAcciones(false); setModalForzarPassword(true) }}
+                              deshabilitado={sinCuenta}
+                              motivoDeshabilitado={motivo}
+                            >
+                              Obligar a cambiar contraseña
+                            </ItemMenu>
+                            <ItemMenu
+                              icono={<LogOut size={15} />}
+                              onClick={() => { setMenuAcciones(false); setModalForzarLogout(true) }}
+                              deshabilitado={sinCuenta}
+                              motivoDeshabilitado={motivo}
+                            >
+                              Forzar cierre de sesión
+                            </ItemMenu>
+                            {(esPropietario || esAdmin) && <div className="border-t border-borde-sutil my-1" />}
+                          </>
+                        )
+                      })()}
 
                       {(esPropietario || esAdmin) && (
                         <ItemMenu icono={<Trash2 size={15} />} variante="peligro" onClick={() => { setMenuAcciones(false); setModalConfirmarEliminar(true) }}>Eliminar usuario</ItemMenu>

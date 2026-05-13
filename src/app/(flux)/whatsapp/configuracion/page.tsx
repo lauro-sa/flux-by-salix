@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@/componentes/feedback/Toast'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -33,6 +34,72 @@ import { useTraduccion } from '@/lib/i18n'
  * Incluye: canales WA, plantillas Meta, chatbot, agente IA,
  * pipeline, respuestas rápidas, asignación, SLA y notificaciones.
  */
+
+interface PlantillaWAResumen {
+  id: string
+  nombre: string
+  categoria?: string | null
+  modulos?: string[] | null
+  activo?: boolean
+  orden?: number
+}
+
+interface PlantillaMetaResumen {
+  id: string
+  nombre: string
+  nombre_api?: string
+  categoria?: string
+  idioma?: string
+  estado_meta?: string
+  activo?: boolean
+  orden?: number
+}
+
+// Definidas fuera del componente para que las referencias sean estables
+// y los useEffect del PreviewSeccionExterna no se disparen en cada render.
+function extraerRespuestasRapidasWA(data: unknown): ItemPreview[] {
+  const plantillas = ((data as { plantillas?: PlantillaWAResumen[] })?.plantillas) || []
+  return plantillas
+    .filter(p => p.activo !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map(p => ({
+      id: p.id,
+      icono: 'Zap',
+      color: '#25d366',
+      etiqueta: p.nombre,
+      subEtiqueta: p.categoria || undefined,
+      badges: (p.modulos || []).slice(0, 3).map(m => ({ texto: m })),
+    }))
+}
+
+const TONO_APROBACION: Record<string, 'sistema' | 'predefinido' | 'personalizado' | 'normal'> = {
+  APPROVED: 'sistema',
+  PENDING: 'normal',
+  REJECTED: 'personalizado',
+}
+
+function extraerPlantillasMeta(data: unknown): ItemPreview[] {
+  const plantillas = ((data as { plantillas?: PlantillaMetaResumen[] })?.plantillas) || []
+  return plantillas
+    .filter(p => p.activo !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map(p => {
+      const badges: { texto: string }[] = []
+      if (p.idioma) badges.push({ texto: p.idioma })
+      if (p.categoria) badges.push({ texto: p.categoria })
+      return {
+        id: p.id,
+        icono: 'FileText',
+        color: '#25d366',
+        etiqueta: p.nombre,
+        subEtiqueta: p.nombre_api || undefined,
+        badges,
+        origen: p.estado_meta
+          ? { texto: p.estado_meta, tono: TONO_APROBACION[p.estado_meta] || 'normal' }
+          : undefined,
+      }
+    })
+}
 
 export default function PaginaConfiguracionWhatsApp() {
   const router = useRouter()
@@ -116,18 +183,42 @@ export default function PaginaConfiguracionWhatsApp() {
       onVolver={() => router.push('/whatsapp')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        if (id === 'respuestas_rapidas') {
-          router.push('/whatsapp/configuracion/respuestas-rapidas')
-          return
-        }
-        if (id === 'plantillas_wa') {
-          router.push('/whatsapp/configuracion/plantillas-meta')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
+      {/* Respuestas rápidas */}
+      {seccionActiva === 'respuestas_rapidas' && (
+        <PreviewSeccionExterna
+          titulo="Respuestas rápidas"
+          descripcion="Mensajes cortos guardados para insertar en cualquier conversación de WhatsApp con un atajo."
+          endpoint="/api/whatsapp/respuestas-rapidas"
+          extraerItems={extraerRespuestasRapidasWA}
+          hrefDestino="/whatsapp/configuracion/respuestas-rapidas"
+          textoBoton="Gestionar respuestas"
+          etiquetaItem={{ singular: 'respuesta', plural: 'respuestas' }}
+          textoVacio={{
+            titulo: 'No hay respuestas rápidas',
+            descripcion: 'Creá la primera desde la página de gestión.',
+          }}
+        />
+      )}
+
+      {/* Plantillas Meta */}
+      {seccionActiva === 'plantillas_wa' && (
+        <PreviewSeccionExterna
+          titulo="Plantillas Meta"
+          descripcion="Plantillas oficiales aprobadas por WhatsApp para envíos masivos y notificaciones."
+          endpoint="/api/whatsapp/plantillas"
+          extraerItems={extraerPlantillasMeta}
+          hrefDestino="/whatsapp/configuracion/plantillas-meta"
+          textoBoton="Gestionar plantillas"
+          etiquetaItem={{ singular: 'plantilla', plural: 'plantillas' }}
+          textoVacio={{
+            titulo: 'No hay plantillas Meta',
+            descripcion: 'Creá la primera desde la página de gestión.',
+          }}
+        />
+      )}
+
       {/* Canales WhatsApp */}
       {seccionActiva === 'canales' && (
         <SeccionWhatsApp canales={canales} onRecargar={cargar} />

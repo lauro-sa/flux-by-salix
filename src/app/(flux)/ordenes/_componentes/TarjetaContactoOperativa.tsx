@@ -5,6 +5,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { useTraduccion } from '@/lib/i18n'
+import { urlMapaDestino } from '@/componentes/mapa'
 
 /**
  * TarjetaContactoOperativa — Card compacta con datos del contacto para uso en campo.
@@ -17,10 +18,12 @@ interface PropsTarjeta {
   telefono: string | null
   whatsapp: string | null
   direccion: string | null
+  direccionLat?: number | null
+  direccionLng?: number | null
   correo: string | null
 }
 
-export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, direccion, correo }: PropsTarjeta) {
+export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, direccion, direccionLat, direccionLng, correo }: PropsTarjeta) {
   const { t } = useTraduccion()
 
   // Limpiar teléfono para links
@@ -57,20 +60,25 @@ export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, d
         )}
       </div>
 
-      {/* Dirección */}
-      {direccion && (
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-start gap-2 text-sm text-texto-secundario hover:text-texto-marca transition-colors group"
-        >
-          <MapPin size={14} className="shrink-0 mt-0.5 text-texto-terciario group-hover:text-texto-marca" />
-          <span className="underline decoration-borde-sutil underline-offset-2 group-hover:decoration-texto-marca">
-            {direccion}
-          </span>
-        </a>
-      )}
+      {/* Dirección — preferir lat/lng cuando están disponibles para evitar
+          ambigüedad de geocoding. */}
+      {direccion && (() => {
+        const url = urlMapaDestino({ lat: direccionLat, lng: direccionLng, texto: direccion, modo: 'search' })
+        if (!url) return null
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-2 text-sm text-texto-secundario hover:text-texto-marca transition-colors group"
+          >
+            <MapPin size={14} className="shrink-0 mt-0.5 text-texto-terciario group-hover:text-texto-marca" />
+            <span className="underline decoration-borde-sutil underline-offset-2 group-hover:decoration-texto-marca">
+              {direccion}
+            </span>
+          </a>
+        )
+      })()}
 
       {/* Correo */}
       {correo && (

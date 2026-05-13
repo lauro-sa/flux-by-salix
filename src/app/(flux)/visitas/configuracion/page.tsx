@@ -12,6 +12,7 @@ import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
@@ -32,6 +33,18 @@ interface ConfigVisitas {
   motivos_predefinidos: string[]
   resultados_predefinidos: string[]
   enviar_avisos_whatsapp: boolean
+  plantilla_aviso_en_camino_id: string | null
+  plantilla_aviso_llegada_id: string | null
+}
+
+interface PlantillaElegible {
+  id: string
+  nombre: string
+  nombre_api: string
+  idioma: string
+  estado_meta: string
+  variables: number
+  compatible: boolean
 }
 
 export default function PaginaConfiguracionVisitas() {
@@ -47,6 +60,11 @@ export default function PaginaConfiguracionVisitas() {
   const [configOriginal, setConfigOriginal] = useState<ConfigVisitas | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  // Plantillas elegibles para cada flujo (filtradas por shape de variables).
+  // Las cargamos al entrar en la sección Avisos para no pegar al endpoint
+  // si el usuario nunca abre esa sección.
+  const [plantillasEnCamino, setPlantillasEnCamino] = useState<PlantillaElegible[] | null>(null)
+  const [plantillasLlegada, setPlantillasLlegada] = useState<PlantillaElegible[] | null>(null)
 
   // Cargar config
   useEffect(() => {
@@ -56,6 +74,26 @@ export default function PaginaConfiguracionVisitas() {
       .then(data => { setConfig(data); setConfigOriginal(data); setCargando(false) })
       .catch(() => setCargando(false))
   }, [puedeVer])
+
+  // Cargar plantillas elegibles cuando se abre la sección Avisos. Las dos
+  // queries son independientes (distinto shape de variables) — las hacemos
+  // en paralelo. Si la red se cae, los selectores quedan deshabilitados.
+  useEffect(() => {
+    if (seccionActiva !== 'avisos' || !puedeVer) return
+    if (plantillasEnCamino && plantillasLlegada) return
+    Promise.all([
+      fetch('/api/visitas/config/plantillas-elegibles?uso=en_camino').then(r => r.json()),
+      fetch('/api/visitas/config/plantillas-elegibles?uso=llegada').then(r => r.json()),
+    ])
+      .then(([enCamino, llegada]) => {
+        setPlantillasEnCamino(enCamino.plantillas || [])
+        setPlantillasLlegada(llegada.plantillas || [])
+      })
+      .catch(() => {
+        setPlantillasEnCamino([])
+        setPlantillasLlegada([])
+      })
+  }, [seccionActiva, puedeVer, plantillasEnCamino, plantillasLlegada])
 
   // Guardar cambios
   const guardar = async (campos: Partial<ConfigVisitas>) => {
@@ -107,6 +145,12 @@ export default function PaginaConfiguracionVisitas() {
     if (config.enviar_avisos_whatsapp !== configOriginal.enviar_avisos_whatsapp) {
       diffs.push({ campo: 'Avisos por WhatsApp', valor: config.enviar_avisos_whatsapp ? 'activado' : 'desactivado' })
     }
+    if (config.plantilla_aviso_en_camino_id !== configOriginal.plantilla_aviso_en_camino_id) {
+      diffs.push({ campo: 'Plantilla "voy en camino"', valor: config.plantilla_aviso_en_camino_id ? 'personalizada' : 'default del sistema' })
+    }
+    if (config.plantilla_aviso_llegada_id !== configOriginal.plantilla_aviso_llegada_id) {
+      diffs.push({ campo: 'Plantilla "ya llegué"', valor: config.plantilla_aviso_llegada_id ? 'personalizada' : 'default del sistema' })
+    }
     return diffs
   }, [config, configOriginal])
 
@@ -126,6 +170,8 @@ export default function PaginaConfiguracionVisitas() {
         resultados_predefinidos: config.resultados_predefinidos,
         checklist_predeterminado: config.checklist_predeterminado,
         enviar_avisos_whatsapp: config.enviar_avisos_whatsapp,
+        plantilla_aviso_en_camino_id: config.plantilla_aviso_en_camino_id,
+        plantilla_aviso_llegada_id: config.plantilla_aviso_llegada_id,
       })
     },
     onDescartar: () => { if (configOriginal) setConfig(configOriginal) },
@@ -231,31 +277,87 @@ export default function PaginaConfiguracionVisitas() {
                     guardar({ enviar_avisos_whatsapp: nuevo })
                   }}
                   disabled={!puedeEditar}
-                  className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
-                    config.enviar_avisos_whatsapp ? 'bg-texto-marca' : 'bg-white/[0.15]'
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 disabled:opacity-50 ${
+                    config.enviar_avisos_whatsapp ? 'bg-texto-marca' : 'bg-superficie-app border border-borde-sutil'
                   }`}
                 >
-                  <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform ${
-                    config.enviar_avisos_whatsapp ? 'translate-x-5' : 'translate-x-0.5'
+                  <span className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5 ${
+                    config.enviar_avisos_whatsapp ? 'translate-x-[17px]' : 'translate-x-0.5'
                   }`} />
                 </button>
               </div>
 
               {config.enviar_avisos_whatsapp && (
-                <div className="rounded-card border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
-                  <p className="text-xs font-medium text-texto-secundario uppercase tracking-wider">Plantillas usadas</p>
-                  <ul className="space-y-2 text-xs text-texto-terciario">
-                    <li className="flex items-start gap-2">
-                      <span className="text-texto-marca mt-0.5">•</span>
-                      <span><span className="text-texto-secundario font-medium">flux_aviso_en_camino</span> — al marcar &quot;voy en camino&quot;, con ETA de Google Maps.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-texto-marca mt-0.5">•</span>
-                      <span><span className="text-texto-secundario font-medium">flux_aviso_llegada_visita</span> — al confirmar llegada al destino.</span>
-                    </li>
-                  </ul>
-                  <p className="text-xs text-texto-terciario leading-relaxed pt-1 border-t border-white/[0.04]">
-                    Las plantillas deben estar aprobadas por Meta. Revisalas en <span className="text-texto-secundario">Inbox → Plantillas</span>. Si no están aprobadas, los avisos fallan con un error claro y no se envía nada.
+                <div className="rounded-card border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-texto-secundario uppercase tracking-wider">Plantillas usadas</p>
+                    <p className="text-[11px] text-texto-terciario mt-1 leading-relaxed">
+                      Elegí qué plantilla manda Flux para cada aviso. El selector solo lista plantillas <span className="text-texto-secundario">aprobadas por Meta</span> con la cantidad correcta de variables — si la plantilla no es compatible, el envío truena.
+                    </p>
+                  </div>
+
+                  {/* Aviso "voy en camino" — 3 variables: nombre, dirección, ETA */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-texto-secundario flex items-center gap-2">
+                      Aviso &quot;voy en camino&quot;
+                      <span className="text-[10px] text-texto-terciario font-normal">(3 variables: nombre · dirección · ETA)</span>
+                    </label>
+                    <Select
+                      opciones={[
+                        { valor: '', etiqueta: 'Default del sistema (flux_aviso_en_camino)' },
+                        ...((plantillasEnCamino || []).map(p => ({
+                          valor: p.id,
+                          etiqueta: `${p.nombre} (${p.idioma})`,
+                          descripcion: p.nombre_api,
+                        }))),
+                      ]}
+                      valor={config.plantilla_aviso_en_camino_id || ''}
+                      onChange={(v) => {
+                        const nuevo = v || null
+                        setConfig({ ...config, plantilla_aviso_en_camino_id: nuevo })
+                        guardar({ plantilla_aviso_en_camino_id: nuevo })
+                      }}
+                      placeholder={plantillasEnCamino === null ? 'Cargando…' : 'Seleccionar plantilla'}
+                    />
+                    {plantillasEnCamino?.length === 0 && (
+                      <p className="text-[11px] text-texto-terciario">
+                        No hay plantillas aprobadas con 3 variables. Se usa el default del sistema.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Aviso "ya llegué" — 2 variables: nombre, dirección */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-texto-secundario flex items-center gap-2">
+                      Aviso &quot;ya llegué&quot;
+                      <span className="text-[10px] text-texto-terciario font-normal">(2 variables: nombre · dirección)</span>
+                    </label>
+                    <Select
+                      opciones={[
+                        { valor: '', etiqueta: 'Default del sistema (flux_aviso_llegada_visita)' },
+                        ...((plantillasLlegada || []).map(p => ({
+                          valor: p.id,
+                          etiqueta: `${p.nombre} (${p.idioma})`,
+                          descripcion: p.nombre_api,
+                        }))),
+                      ]}
+                      valor={config.plantilla_aviso_llegada_id || ''}
+                      onChange={(v) => {
+                        const nuevo = v || null
+                        setConfig({ ...config, plantilla_aviso_llegada_id: nuevo })
+                        guardar({ plantilla_aviso_llegada_id: nuevo })
+                      }}
+                      placeholder={plantillasLlegada === null ? 'Cargando…' : 'Seleccionar plantilla'}
+                    />
+                    {plantillasLlegada?.length === 0 && (
+                      <p className="text-[11px] text-texto-terciario">
+                        No hay plantillas aprobadas con 2 variables. Se usa el default del sistema.
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-texto-terciario leading-relaxed pt-2 border-t border-white/[0.04]">
+                    Para crear o aprobar plantillas: <span className="text-texto-secundario">Inbox → Plantillas</span>. Las plantillas deben respetar el mapeo de variables del flujo: para &quot;en camino&quot; el código manda nombre, dirección y ETA en ese orden; para &quot;ya llegué&quot;, nombre y dirección.
                   </p>
                 </div>
               )}

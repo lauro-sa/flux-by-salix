@@ -55,7 +55,7 @@
     },
     {
       "path": "/api/cron/limpiar-notificaciones",
-      "schedule": "0 5 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/despertar-snooze",

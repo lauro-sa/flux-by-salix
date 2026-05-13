@@ -7,6 +7,7 @@ import {
   FileText, ArrowRightLeft, Globe, Eye, CheckCircle2, XCircle,
   CreditCard, Clock, Zap, RotateCcw, Mail, MailOpen,
   Pencil, RefreshCw, CalendarClock, Ban, MapPin, Wrench, Send, Pause,
+  Camera, ClipboardList,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { AccionSistema } from '@/tipos/chatter'
@@ -152,6 +153,29 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     icono: <Ban size={14} />,
     color: 'bg-insignia-peligro-fondo text-insignia-peligro-texto',
     etiqueta: 'Tarea cancelada',
+  },
+  // Galerías de OT (relevamiento + bitácora). Las entradas con subtipo no se
+  // muestran en el timeline general — viven en su propia sección — pero los
+  // íconos quedan definidos por consistencia y para futuras vistas unificadas.
+  relevamiento_sembrado: {
+    icono: <Camera size={14} />,
+    color: 'bg-texto-marca/10 text-texto-marca',
+    etiqueta: 'Relevamiento sembrado',
+  },
+  relevamiento_resincronizado: {
+    icono: <RefreshCw size={14} />,
+    color: 'bg-insignia-info/10 text-insignia-info',
+    etiqueta: 'Relevamiento re-sincronizado',
+  },
+  bitacora_creada: {
+    icono: <ClipboardList size={14} />,
+    color: 'bg-canal-interno/10 text-canal-interno',
+    etiqueta: 'Bitácora actualizada',
+  },
+  bitacora_editada: {
+    icono: <Pencil size={14} />,
+    color: 'bg-canal-interno/10 text-canal-interno',
+    etiqueta: 'Bitácora editada',
   },
 }
 

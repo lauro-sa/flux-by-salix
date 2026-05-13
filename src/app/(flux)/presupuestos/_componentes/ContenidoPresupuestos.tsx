@@ -918,7 +918,8 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
           // creado hace meses pero recién aceptado/cobrado aparece primero.
           { etiqueta: 'Cambio de estado reciente', clave: 'estado_cambiado_en', direccion: 'desc' },
         ]}
-        onClickFila={(fila) => router.push(`/presupuestos/${fila.id}`)}
+        hrefFila={(fila) => `/presupuestos/${fila.id}`}
+        ariaLabelFila={(fila) => `Abrir presupuesto ${fila.numero || fila.id}`}
         mostrarResumen
         estadoVacio={
           <EstadoVacio

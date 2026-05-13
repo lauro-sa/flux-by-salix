@@ -19,6 +19,11 @@ export async function ejecutarConsultarActividades(
 
   const estado = (params.estado as string) || 'pendiente'
   const limite = Math.min((params.limite as number) || 20, 50)
+  // Filtro adicional por vencimiento. Independiente del estado para poder pedir:
+  //   estado=pendiente + filtro_vencimiento=vencidas     → pendientes ya vencidas
+  //   estado=pendiente + filtro_vencimiento=no_vencidas  → pendientes todavía a tiempo
+  //   estado=pendiente + filtro_vencimiento=sin_fecha    → pendientes sin fecha de vencimiento
+  const filtroVencimiento = (params.filtro_vencimiento as string) || 'todas'
 
   // Búsqueda por texto: union de matches en `actividades.titulo` y
   // `actividades_relaciones.entidad_nombre` (reemplaza el ilike sobre
@@ -57,6 +62,20 @@ export async function ejecutarConsultarActividades(
 
   if (actIdsFromBusqueda !== null) {
     query = query.in('id', actIdsFromBusqueda)
+  }
+
+  // Aplicar filtro_vencimiento a nivel query para no traer registros que vamos
+  // a descartar después. Usamos el timestamp ahora como corte.
+  const ahoraISO = new Date().toISOString()
+  if (filtroVencimiento === 'vencidas') {
+    query = query.lt('fecha_vencimiento', ahoraISO)
+  } else if (filtroVencimiento === 'no_vencidas') {
+    // Incluye las que tienen fecha futura. Las "sin fecha" quedan afuera; si
+    // el usuario las quiere, debe pedir explícitamente filtro_vencimiento=todas
+    // o filtro_vencimiento=sin_fecha.
+    query = query.gte('fecha_vencimiento', ahoraISO)
+  } else if (filtroVencimiento === 'sin_fecha') {
+    query = query.is('fecha_vencimiento', null)
   }
 
   // Filtrar por estado
@@ -109,6 +128,7 @@ export async function ejecutarConsultarActividades(
     return {
       id: a.id,
       titulo: a.titulo,
+      descripcion: (a.descripcion as string) || null,
       tipo: a.tipo_clave,
       estado: a.estado_clave,
       prioridad: a.prioridad,

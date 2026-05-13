@@ -35,7 +35,7 @@ export async function PUT(
         .select('usuario_id, es_cabecilla')
         .eq('orden_trabajo_id', ordenId),
       admin.from('tareas_orden')
-        .select('asignados_ids')
+        .select('asignados_ids, tipo')
         .eq('id', tareaId)
         .eq('empresa_id', empresaId)
         .single(),
@@ -69,7 +69,15 @@ export async function PUT(
       (orden.publicada && esAsignadoTarea) ||
       (orden.publicada && esAsignadoOT && tareaAsignados.length === 0)
 
+    // Las tareas tipo seccion/nota son informativas: no se completan ni
+    // cancelan. Bloqueamos esas acciones a nivel servidor.
+    const tipoTarea = (tareaActual.tipo as string) || 'producto'
+    const esCompletable = tipoTarea === 'producto'
+
     if (body.accion === 'completar') {
+      if (!esCompletable) {
+        return NextResponse.json({ error: 'Las secciones y notas no se completan' }, { status: 400 })
+      }
       if (!puedeMarcar) {
         return NextResponse.json({ error: 'Sin permiso para completar esta tarea' }, { status: 403 })
       }
@@ -104,6 +112,9 @@ export async function PUT(
     }
 
     if (body.accion === 'cancelar') {
+      if (!esCompletable) {
+        return NextResponse.json({ error: 'Las secciones y notas no se cancelan — eliminalas si no las querés' }, { status: 400 })
+      }
       if (!puedeGestionar) {
         return NextResponse.json({ error: 'Solo responsable, creador o administrador pueden cancelar tareas' }, { status: 403 })
       }
@@ -141,6 +152,9 @@ export async function PUT(
     }
 
     if (body.accion === 'reactivar') {
+      if (!esCompletable) {
+        return NextResponse.json({ error: 'Solo se reactivan tareas completables' }, { status: 400 })
+      }
       if (!puedeMarcar) {
         return NextResponse.json({ error: 'Sin permiso para reabrir esta tarea' }, { status: 403 })
       }
@@ -179,13 +193,20 @@ export async function PUT(
 
     if (body.titulo !== undefined) campos.titulo = body.titulo.trim()
     if (body.descripcion !== undefined) campos.descripcion = body.descripcion
-    if (body.prioridad !== undefined) campos.prioridad = body.prioridad
-    if (body.fecha_vencimiento !== undefined) campos.fecha_vencimiento = body.fecha_vencimiento
-    if (body.asignados !== undefined) {
-      campos.asignados = body.asignados
-      campos.asignados_ids = Array.isArray(body.asignados)
-        ? body.asignados.map((a: { id?: string; usuario_id?: string }) => a.id || a.usuario_id).filter(Boolean)
-        : []
+    if (body.descripcion_detalle !== undefined) campos.descripcion_detalle = body.descripcion_detalle
+    if (body.codigo_producto !== undefined) campos.codigo_producto = body.codigo_producto
+    // prioridad / fecha / asignados solo aplican a tipo='producto'. Si la tarea
+    // es seccion/nota ignoramos esos campos en silencio (no devolvemos error
+    // para no romper formularios genéricos).
+    if (esCompletable) {
+      if (body.prioridad !== undefined) campos.prioridad = body.prioridad
+      if (body.fecha_vencimiento !== undefined) campos.fecha_vencimiento = body.fecha_vencimiento
+      if (body.asignados !== undefined) {
+        campos.asignados = body.asignados
+        campos.asignados_ids = Array.isArray(body.asignados)
+          ? body.asignados.map((a: { id?: string; usuario_id?: string }) => a.id || a.usuario_id).filter(Boolean)
+          : []
+      }
     }
 
     const { data, error } = await admin

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -12,6 +13,39 @@ import DetalleVisita from './DetalleVisita'
 
 // Forzar render dinámico — siempre leer contactos/visitas actualizados (sin caché)
 export const dynamic = 'force-dynamic'
+
+// Título de la pestaña: "{nombre contacto} — Flux" cuando se identifica al contacto;
+// caso contrario fallback genérico. Se calcula server-side para que aparezca antes
+// de que React hidrate.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await crearClienteServidor()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { title: 'Visita — Flux' }
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) return { title: 'Visita — Flux' }
+  const admin = crearClienteAdmin()
+  const { data: v } = await admin
+    .from('visitas')
+    .select('contacto_nombre, contacto_id')
+    .eq('id', id)
+    .eq('empresa_id', empresaId)
+    .maybeSingle()
+  if (!v) return { title: 'Visita — Flux' }
+  let nombre = v.contacto_nombre as string | null
+  if (v.contacto_id) {
+    const { data: c } = await admin
+      .from('contactos')
+      .select('nombre, apellido')
+      .eq('id', v.contacto_id)
+      .maybeSingle()
+    if (c) {
+      const actual = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+      if (actual) nombre = actual
+    }
+  }
+  return { title: nombre ? `Visita — ${nombre} — Flux` : 'Visita — Flux' }
+}
 
 export default async function PaginaDetalleVisita({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

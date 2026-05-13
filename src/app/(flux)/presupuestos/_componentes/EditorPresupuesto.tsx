@@ -40,6 +40,9 @@ import { TRANSICIONES_ESTADO } from '@/tipos/presupuesto'
 import type {
   ContactoResumido, Vinculacion, DatosEmpresa, LineaTemporal,
 } from './tipos-editor'
+import { unirVinculaciones } from './tipos-editor'
+import { useReportarGuardado } from '@/hooks/useIndicadorGuardado'
+import { sincronizarRecursosEnvio, type ResultadoSincronizacionEnvio } from '@/lib/presupuestos/sincronizar-recursos-envio'
 
 // ─── Sub-componentes extraídos ──────────────────────────────────────────────
 import CabeceraPresupuesto, { BannerBloqueo, BannerEdicionAdmin } from './CabeceraPresupuesto'
@@ -101,6 +104,10 @@ export default function EditorPresupuesto({
   // el check verde "Guardado" unos segundos después del autoguardado, y así
   // el usuario tiene confirmación de que su `onBlur` se persistió.
   const [ultimoGuardadoEn, setUltimoGuardadoEn] = useState<number | null>(null)
+  // Reporta el estado de guardado al indicador global del Header. Esto hace
+  // visible el feedback de autoguardado aunque el usuario haya scrolleado
+  // fuera de la cabecera del editor.
+  const reportarGuardado = useReportarGuardado()
   // Modo edición administrativa: permite a admin/propietario corregir un
   // documento ya enviado/confirmado/etc. sin cambiar el estado ni las fechas.
   // Se activa desde el menú ··· y se cierra con "Guardar correcciones".
@@ -199,6 +206,25 @@ export default function EditorPresupuesto({
   const [urlPortalReal, setUrlPortalReal] = useState<string | null>(null)
   const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
   const [pdfCongeladoUrl, setPdfCongeladoUrl] = useState<string | null>(null)
+  // Mientras se generan PDF + congelado + portal antes de abrir el modal de
+  // envío. La cabecera lo usa para mostrar "Preparando…" en el botón Enviar.
+  const [preparandoEnvio, setPreparandoEnvio] = useState(false)
+  // Estado de sincronización del PDF/portal con el contenido actual del
+  // documento. El modal lo usa para renderizar un banner reactivo (verde 'ok',
+  // azul 'sincronizando', ámbar 'desactualizado', rojo 'error') con botón
+  // Reintentar cuando algo salió mal. Se limpia al cerrar el modal.
+  const [estadoSincronizacion, setEstadoSincronizacion] = useState<'sincronizando' | 'ok' | 'desactualizado' | 'error' | null>(null)
+  const [mensajeSincronizacion, setMensajeSincronizacion] = useState<string | null>(null)
+  // True si el documento cambió desde la última preparación exitosa de envío
+  // (PDF + congelado + portal). Si está en false y los tres recursos están
+  // cacheados en estado, el handleEnviar abre el modal directo sin regenerar.
+  // Arranca en true (no preparado) y se baja a false:
+  //   - en el load de modo editar si pdf_generado_en >= actualizado_en (BD)
+  //   - al final de cada handleEnviar exitoso
+  const documentoDesactualizadoRef = useRef(true)
+  // Sentinel para evitar marcar dirty durante la inicialización del state
+  // (los setX(...) que disparan los useEffect de carga del editor).
+  const cambiosTrackingActivoRef = useRef(false)
 
   // ID efectivo del presupuesto (creado o prop)
   const idPresupuesto = modo === 'editar' ? presupuestoIdProp! : presupuestoIdCreado
@@ -211,6 +237,16 @@ export default function EditorPresupuesto({
   const [vinculaciones, setVinculaciones] = useState<Vinculacion[]>([])
   const [atencionId, setAtencionId] = useState<string | null>(null)
   const [atencionSeleccionada, setAtencionSeleccionada] = useState<Vinculacion['vinculado'] | null>(null)
+
+  // Dirección elegida por el usuario (override del principal por defecto).
+  // Persiste como snapshot textual en presupuestos.contacto_direccion.
+  const [direccionIdSeleccionada, setDireccionIdSeleccionada] = useState<string | null>(null)
+
+  // Visita de origen (relevamiento del visitador). Se elige opcionalmente al
+  // crear/editar el presupuesto y se hereda a la OT al generarla. Ver migración
+  // 062 y SelectorVisitaPresupuesto. Al cambiar de contacto se limpia: la
+  // visita pertenece a un contacto puntual.
+  const [visitaId, setVisitaId] = useState<string | null>(null)
 
   // Campos editables
   const [moneda, setMoneda] = useState('ARS')
@@ -233,6 +269,27 @@ export default function EditorPresupuesto({
 
   // Snapshot del último estado guardado — para dirty tracking
   const guardadoRef = useRef<Record<string, unknown>>({})
+
+  // ─── Tracking de cambios para reusar PDF/portal al re-enviar ────────────
+  // Cualquier mutación en contenido editable marca documentoDesactualizadoRef
+  // como true. El primer disparo (cuando termina la carga inicial) se ignora
+  // para no marcar dirty al hidratar el state.
+  useEffect(() => {
+    if (cargando) return
+    if (!cambiosTrackingActivoRef.current) {
+      cambiosTrackingActivoRef.current = true
+      return
+    }
+    documentoDesactualizadoRef.current = true
+  }, [
+    cargando,
+    notasHtml, condicionesHtml, referencia, moneda, condicionPagoId,
+    diasVencimiento, fechaEmision, columnasVisibles, lineas,
+    presupuesto?.estado, presupuesto?.fecha_vencimiento,
+    presupuesto?.contacto_id, presupuesto?.atencion_contacto_id,
+    presupuesto?.contacto_direccion, presupuesto?.descuento_global,
+    presupuesto?.total_final,
+  ])
 
   // ─── MODO CREAR: Cargar config al montar ────────────────────────────────
 
@@ -307,6 +364,16 @@ export default function EditorPresupuesto({
       setCondicionPagoId(pres.condicion_pago_id || '')
       setDiasVencimiento(pres.dias_vencimiento || 30)
       if (pres.fecha_emision) setFechaEmision(pres.fecha_emision.split('T')[0])
+      setVisitaId(pres.visita_id || null)
+      // Si el PDF persistido en BD es posterior a la última edición, no hace
+      // falta regenerar al primer "Enviar" del documento. Igual el modal todavía
+      // necesita pdfCongeladoUrl en memoria, así que la primera vez se hace una
+      // preparación rápida (sólo congelado + portal si faltan).
+      if (pres.pdf_url && pres.pdf_generado_en && pres.actualizado_en) {
+        const pdfTime = new Date(pres.pdf_generado_en).getTime()
+        const updTime = new Date(pres.actualizado_en).getTime()
+        if (pdfTime >= updTime) documentoDesactualizadoRef.current = false
+      }
       setCargando(false)
 
       guardadoRef.current = {
@@ -330,7 +397,7 @@ export default function EditorPresupuesto({
           fetch(`/api/contactos/${pres.contacto_id}`)
             .then(r => r.json())
             .then(data => {
-              setVinculaciones(data.vinculaciones || [])
+              setVinculaciones(unirVinculaciones(data.vinculaciones, data.vinculaciones_inversas))
               if (data?.id) {
                 setContactoSeleccionado({
                   id: data.id, nombre: data.nombre, apellido: data.apellido,
@@ -342,6 +409,18 @@ export default function EditorPresupuesto({
                   condicion_iva: data.datos_fiscales?.condicion_iva || null,
                   direcciones: data.direcciones || [],
                 })
+                // La dirección elegida vive en presupuestos.direccion_id (FK
+                // explícita). Para presupuestos legacy sin direccion_id,
+                // intentamos matchear por texto contra las direcciones del
+                // contacto — el backfill ya cubrió la mayoría, pero el match
+                // de texto sirve de fallback para datos pre-migración.
+                if (pres.direccion_id) {
+                  setDireccionIdSeleccionada(pres.direccion_id as string)
+                } else if (pres.contacto_direccion) {
+                  const dirs = (data.direcciones || []) as { id: string; texto: string | null }[]
+                  const match = dirs.find(d => d.texto === pres.contacto_direccion)
+                  if (match) setDireccionIdSeleccionada(match.id)
+                }
               }
             })
             .catch(() => {})
@@ -409,7 +488,7 @@ export default function EditorPresupuesto({
           condicion_iva: data.datos_fiscales?.condicion_iva || null,
           direcciones: data.direcciones || [],
         })
-        setVinculaciones(data.vinculaciones || [])
+        setVinculaciones(unirVinculaciones(data.vinculaciones, data.vinculaciones_inversas))
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -503,6 +582,10 @@ export default function EditorPresupuesto({
   presupuestoIdRef.current = idPresupuesto
   const presupuestoRef = useRef(presupuesto)
   presupuestoRef.current = presupuesto
+  const atencionSeleccionadaRef = useRef(atencionSeleccionada)
+  atencionSeleccionadaRef.current = atencionSeleccionada
+  const visitaIdRef = useRef(visitaId)
+  visitaIdRef.current = visitaId
 
   // ─── MODO CREAR: Crear presupuesto ──────────────────────────────────────
 
@@ -526,8 +609,23 @@ export default function EditorPresupuesto({
       const conds = (cfg?.condiciones_pago || []) as CondicionPago[]
       const condSel = conds.find(c => c.id === condicionPagoIdRef.current) || conds.find(c => c.predeterminado)
 
+      // Snapshot de la atención (Dirigido a) elegida en modo crear, para que
+      // quede persistida en el presupuesto y no solo en el correo enviado.
+      const at = atencionSeleccionadaRef.current
+      const atencionPayload = at
+        ? {
+            atencion_contacto_id: at.id,
+            atencion_nombre: `${at.nombre} ${at.apellido || ''}`.trim(),
+            atencion_correo: at.correo || null,
+          }
+        : {}
+
       const payload = {
         contacto_id: cId,
+        ...atencionPayload,
+        // Visita vinculada (relevamiento). Si está seteada, el backend valida
+        // que pertenezca a la empresa antes de aceptar la creación.
+        visita_id: visitaIdRef.current || undefined,
         moneda: monedaRef.current,
         condicion_pago_id: condSel?.id || condicionPagoIdRef.current || undefined,
         condicion_pago_label: condSel?.label,
@@ -556,6 +654,17 @@ export default function EditorPresupuesto({
       if (res.ok) {
         const presupuestoCreado = await res.json()
         setPresupuestoIdCreado(presupuestoCreado.id)
+        // Hidratar `presupuesto` con la respuesta del POST. Sin esto, el state
+        // queda en null durante toda la sesión post-creación y los updates
+        // funcionales (`setPresupuesto(prev => prev ? ... : null)`) son no-op.
+        // Eso causaba que el modal de envío no recibiera el pdf_url generado.
+        setPresupuesto({
+          ...presupuestoCreado,
+          lineas: presupuestoCreado.lineas || [],
+          cuotas: presupuestoCreado.cuotas || [],
+          historial: presupuestoCreado.historial || [],
+          orden_trabajo: presupuestoCreado.orden_trabajo || null,
+        })
         if (presupuestoCreado.numero !== numeroOptimista) {
           setNumeroPresupuesto(presupuestoCreado.numero)
         }
@@ -752,12 +861,15 @@ export default function EditorPresupuesto({
     setContactoSeleccionado(contacto)
     setAtencionId(null)
     setAtencionSeleccionada(null)
+    setDireccionIdSeleccionada(null)
+    // La visita pertenece a un contacto puntual; al cambiarlo se desvincula.
+    setVisitaId(null)
     contactoIdRef.current = contacto.id
 
     try {
       const res = await fetch(`/api/contactos/${contacto.id}`)
       const data = await res.json()
-      setVinculaciones(data.vinculaciones || [])
+      setVinculaciones(unirVinculaciones(data.vinculaciones, data.vinculaciones_inversas))
     } catch {
       setVinculaciones([])
     }
@@ -771,12 +883,24 @@ export default function EditorPresupuesto({
     setVinculaciones([])
     setAtencionId(null)
     setAtencionSeleccionada(null)
+    setDireccionIdSeleccionada(null)
+    setVisitaId(null)
   }, [])
 
   const seleccionarAtencion = useCallback((vinc: Vinculacion) => {
     setAtencionId(vinc.vinculado.id)
     setAtencionSeleccionada(vinc.vinculado)
   }, [])
+
+  // Cambiar la dirección visible del cliente. Persiste tanto la FK
+  // (presupuestos.direccion_id) como el snapshot textual — la FK habilita la
+  // propagación viva cuando se edita esa dirección puntual del contacto.
+  const cambiarDireccionCliente = useCallback((direccionId: string, texto: string) => {
+    setDireccionIdSeleccionada(direccionId)
+    if (presupuestoIdRef.current) {
+      autoguardar({ direccion_id: direccionId, contacto_direccion: texto })
+    }
+  }, [autoguardar])
 
   // ─── CRUD de líneas ────────────────────────────────────────────────────
 
@@ -1071,45 +1195,126 @@ export default function EditorPresupuesto({
     }).catch(() => {})
   }, [esperarGuardados, notasHtml, condicionesHtml, referencia, moneda, condicionPagoId, diasVencimiento, fechaEmision, columnasVisibles])
 
+  // Detecta cambios sin guardar en los 4 campos cuyo autoguardado es onBlur
+  // (referencia, días de vencimiento, notas y condiciones HTML). Los demás
+  // campos del editor disparan autoguardar inmediato en onChange — no pueden
+  // quedar "pendientes". Las líneas se autoguardan campo a campo vía /lineas/[id].
+  const tieneCambiosPendientes = useMemo(() => {
+    if (!presupuesto) return false
+    const norm = (s: string | null | undefined) => (s || '').trim()
+    return (
+      norm(referencia) !== norm(presupuesto.referencia) ||
+      diasVencimiento !== (presupuesto.dias_vencimiento ?? 30) ||
+      norm(notasHtml) !== norm(presupuesto.notas_html) ||
+      norm(condicionesHtml) !== norm(presupuesto.condiciones_html)
+    )
+  }, [referencia, diasVencimiento, notasHtml, condicionesHtml, presupuesto])
+
+  // Autoguardado debounceado para campos HTML (notas y condiciones).
+  // Antes dependíamos del onBlur del editor de notas, pero el blur no se
+  // dispara confiablemente cuando el usuario borra items (el elemento con
+  // foco se desmonta del DOM y el evento se pierde). Con un useEffect que
+  // observa el state, cualquier cambio se persiste 800 ms después de la
+  // última tecla — sobrevive a borrados, pegados y reordenamientos.
+  useEffect(() => {
+    if (!presupuestoIdRef.current) return
+    if ((notasHtml || '').trim() === ((presupuesto?.notas_html || '').trim())) return
+    const id = setTimeout(() => autoguardar({ notas_html: notasHtml }), 800)
+    return () => clearTimeout(id)
+  }, [notasHtml, presupuesto?.notas_html, autoguardar])
+
+  useEffect(() => {
+    if (!presupuestoIdRef.current) return
+    if ((condicionesHtml || '').trim() === ((presupuesto?.condiciones_html || '').trim())) return
+    const id = setTimeout(() => autoguardar({ condiciones_html: condicionesHtml }), 800)
+    return () => clearTimeout(id)
+  }, [condicionesHtml, presupuesto?.condiciones_html, autoguardar])
+
+  // Sincroniza el indicador global del Header con el estado de guardado del
+  // editor. Mientras `guardando` está activo se muestra "Guardando…" en las
+  // migajas; al volver a false con un guardado reciente, se muestra "Guardado"
+  // ~1.5 s y luego desaparece.
+  useEffect(() => {
+    if (guardando) {
+      reportarGuardado('guardando')
+      return
+    }
+    if (!ultimoGuardadoEn) return
+    reportarGuardado('guardado')
+    const id = setTimeout(() => reportarGuardado(null), 1500)
+    return () => clearTimeout(id)
+  }, [guardando, ultimoGuardadoEn, reportarGuardado])
+
+  // Al desmontar el editor, dejar el indicador limpio para que no quede
+  // colgado si el usuario navega a otra pantalla.
+  useEffect(() => {
+    return () => reportarGuardado(null)
+  }, [reportarGuardado])
+
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
-  const handleEnviar = () => {
-    setSnapshotCorreo(null)
-    setModalEnviarAbierto(true)
-    if (idPresupuesto) {
-      guardarTodo().then(async () => {
-        // 1. Generar/actualizar PDF normal (con ediciones actuales)
-        try {
-          const resPdf = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ forzar: true }),
-          })
-          const dataPdf = await resPdf.json()
-          if (dataPdf.url) {
-            setPresupuesto(prev => prev ? { ...prev, pdf_url: dataPdf.url } : null)
-          }
-        } catch { /* silenciar */ }
-
-        // 2. Congelar copia del PDF actualizado (sin Puppeteer, solo copia en Storage)
-        try {
-          const resCongelado = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ congelado: true }),
-          })
-          const dataCongelado = await resCongelado.json()
-          if (dataCongelado.url) setPdfCongeladoUrl(dataCongelado.url)
-        } catch { /* silenciar */ }
-
-        // 3. Generar enlace portal en paralelo
-        try {
-          const resPortal = await fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
-          const dataPortal = await resPortal.json()
-          if (dataPortal.url) setUrlPortalReal(dataPortal.url)
-        } catch { /* silenciar */ }
-      })
+  // Aplica el resultado de una sincronización a los states del editor: URLs
+  // cacheadas + flag `documentoDesactualizadoRef` + estado/mensaje del banner
+  // que ve el modal. Se reutiliza desde handleEnviar y desde el botón
+  // "Reintentar" del banner.
+  const aplicarResultadoSincronizacion = useCallback((res: ResultadoSincronizacionEnvio) => {
+    if (res.pdfUrl) setPresupuesto(prev => prev ? { ...prev, pdf_url: res.pdfUrl! } : null)
+    if (res.pdfCongeladoUrl) setPdfCongeladoUrl(res.pdfCongeladoUrl)
+    if (res.portalUrl) setUrlPortalReal(res.portalUrl)
+    if (res.estado === 'ok') {
+      documentoDesactualizadoRef.current = false
     }
+    setEstadoSincronizacion(res.estado)
+    setMensajeSincronizacion(res.mensaje || null)
+  }, [])
+
+  const sincronizarParaEnvio = useCallback(async () => {
+    if (!idPresupuesto) return
+    setEstadoSincronizacion('sincronizando')
+    setMensajeSincronizacion(null)
+    setPreparandoEnvio(true)
+    try {
+      await guardarTodo()
+      const resultado = await sincronizarRecursosEnvio({
+        presupuestoId: idPresupuesto,
+        documentoDesactualizado: documentoDesactualizadoRef.current,
+        pdfActualUrl: presupuesto?.pdf_url || null,
+        pdfCongeladoActualUrl: pdfCongeladoUrl,
+        portalActualUrl: urlPortalReal,
+      })
+      aplicarResultadoSincronizacion(resultado)
+    } finally {
+      setPreparandoEnvio(false)
+    }
+  }, [idPresupuesto, guardarTodo, presupuesto?.pdf_url, pdfCongeladoUrl, urlPortalReal, aplicarResultadoSincronizacion])
+
+  const handleEnviar = async () => {
+    if (preparandoEnvio) return
+    setSnapshotCorreo(null)
+    if (!idPresupuesto) {
+      setModalEnviarAbierto(true)
+      return
+    }
+
+    // Atajo: si nada cambió desde la última preparación y los tres recursos
+    // están en memoria, abrir el modal directo. Igual seteamos 'ok' para que
+    // el banner verde aparezca como confirmación de "está todo sincronizado".
+    const yaPreparado = !documentoDesactualizadoRef.current
+      && !!presupuesto?.pdf_url
+      && !!urlPortalReal
+      && !!pdfCongeladoUrl
+    if (yaPreparado) {
+      setEstadoSincronizacion('ok')
+      setMensajeSincronizacion(null)
+      setModalEnviarAbierto(true)
+      return
+    }
+
+    // Sincronizar antes de abrir. El modal se abre incluso si la sincronización
+    // falla — el banner rojo + botón Reintentar le da al usuario contexto y
+    // acción, en vez de que un toast desaparezca y no sepa qué pasó.
+    await sincronizarParaEnvio()
+    setModalEnviarAbierto(true)
   }
 
   const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
@@ -1270,6 +1475,13 @@ export default function EditorPresupuesto({
   const [modalVencimiento, setModalVencimiento] = useState<{ estadoPendiente: EstadoPresupuesto; nuevaFecha: string } | null>(null)
   const handleImprimir = async () => {
     if (!idPresupuesto || generandoPdf) return
+    // Atajo: si nada cambió desde la última generación y ya hay PDF, abrir
+    // el proxy directo sin tocar el backend ni mostrar "Generando…".
+    if (!documentoDesactualizadoRef.current && presupuesto?.pdf_url) {
+      const nombre = presupuesto.pdf_nombre_archivo || `${presupuesto.numero || 'Presupuesto'}.pdf`
+      window.open(`/api/presupuestos/${idPresupuesto}/pdf/archivo/${encodeURIComponent(nombre)}`, '_blank')
+      return
+    }
     setGenerandoPdf(true)
     try {
       await guardarTodo()
@@ -1289,6 +1501,8 @@ export default function EditorPresupuesto({
       // para que Chrome lo use en el diálogo de impresión y "Guardar como"
       const nombreUrl = encodeURIComponent(nombre_archivo || `${presupuesto?.numero || 'Presupuesto'}.pdf`)
       window.open(`/api/presupuestos/${idPresupuesto}/pdf/archivo/${nombreUrl}`, '_blank')
+      // Como acabamos de generar/confirmar el PDF, ya está al día.
+      documentoDesactualizadoRef.current = false
     } catch {
       alert('Error al generar el PDF')
     } finally {
@@ -1442,13 +1656,10 @@ export default function EditorPresupuesto({
     if (!pid) return
     try {
       await guardarTodo()
-      // Regenerar PDF solo si hay cambios (forzar: false usa caché inteligente)
-      await fetch(`/api/presupuestos/${pid}/pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forzar: false }),
-      }).catch(() => {})
-
+      // Nota: NO esperamos la regeneración del PDF acá. El SSR del portal
+      // (`/portal/[token]/page.tsx`) detecta si está desactualizado y lo
+      // regenera por su cuenta. Esperar acá hacía que la pestaña tardara
+      // varios segundos en abrirse (Puppeteer es lento).
       const res = await fetch(`/api/presupuestos/${pid}/portal`, { method: 'POST' })
       if (!res.ok) return
       const data = await res.json()
@@ -1589,8 +1800,11 @@ export default function EditorPresupuesto({
   const esEditable = modo === 'crear'
     || estadoActual === 'borrador'
     || (modoEdicionAdmin && puedeEdicionAdmin)
-  const estadosPosibles = modo === 'editar' ? (TRANSICIONES_ESTADO[estadoActual] || []) : []
-  const estaCancelado = modo === 'editar' && estadoActual === 'cancelado'
+  // Una vez que el presupuesto existe en BD (modo editar O modo crear ya creado),
+  // habilitamos los botones de transición de estado. Antes esto dependía solo de
+  // `modo === 'editar'` y obligaba a refrescar tras crear para ver Cancelar/Enviar.
+  const estadosPosibles = idPresupuesto ? (TRANSICIONES_ESTADO[estadoActual] || []) : []
+  const estaCancelado = !!idPresupuesto && estadoActual === 'cancelado'
 
   const fechaVenc = (() => {
     const f = new Date(fechaEmision)
@@ -1647,8 +1861,10 @@ export default function EditorPresupuesto({
           estaCancelado={estaCancelado}
           estadosPosibles={estadosPosibles}
           guardando={guardando}
+          tieneCambiosPendientes={tieneCambiosPendientes}
           ultimoGuardadoEn={ultimoGuardadoEn}
           generandoPdf={generandoPdf}
+          preparandoEnvio={preparandoEnvio}
           contactoId={contactoId}
           idPresupuesto={idPresupuesto}
           presupuestoIdCreado={presupuestoIdCreado}
@@ -1734,15 +1950,21 @@ export default function EditorPresupuesto({
             atencionSeleccionada={atencionSeleccionada}
             presupuesto={presupuesto}
             idPresupuesto={idPresupuesto}
+            direccionIdSeleccionada={direccionIdSeleccionada}
             onSeleccionarContacto={seleccionarContacto}
             onLimpiarContacto={limpiarContacto}
             onSeleccionarAtencion={seleccionarAtencion}
+            onCambiarDireccion={cambiarDireccionCliente}
             onCambiarContactoEditar={async (c) => {
               if (c) {
+                // Cambiar de contacto invalida la visita previa: la visita
+                // pertenece al contacto anterior. El backend además limpia
+                // visita_id cuando contacto_id pasa a null; acá lo hacemos
+                // explícito para mantener consistencia incluso al reasignar.
                 const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ contacto_id: c.id, atencion_contacto_id: null, atencion_nombre: null, atencion_correo: null }),
+                  body: JSON.stringify({ contacto_id: c.id, atencion_contacto_id: null, atencion_nombre: null, atencion_correo: null, visita_id: null }),
                 })
                 if (res.ok) {
                   const act = await res.json()
@@ -1751,9 +1973,11 @@ export default function EditorPresupuesto({
                   setContactoSeleccionado(c as ContactoResumido)
                   setAtencionId(null)
                   setAtencionSeleccionada(null)
+                  setDireccionIdSeleccionada(null)
+                  setVisitaId(null)
                   fetch(`/api/contactos/${c.id}`)
                     .then(r => r.json())
-                    .then(data => setVinculaciones(data.vinculaciones || []))
+                    .then(data => setVinculaciones(unirVinculaciones(data.vinculaciones, data.vinculaciones_inversas)))
                     .catch(() => {})
                 }
               } else {
@@ -1770,6 +1994,28 @@ export default function EditorPresupuesto({
                   setVinculaciones([])
                   setAtencionId(null)
                   setAtencionSeleccionada(null)
+                  setDireccionIdSeleccionada(null)
+                  setVisitaId(null)
+                }
+              }
+            }}
+            visitaId={visitaId}
+            onCambiarVisita={async (nuevaVisitaId) => {
+              setVisitaId(nuevaVisitaId)
+              // En modo editar autoguardamos contra el backend; en modo crear
+              // el state queda en local y se envía con el POST de creación.
+              if (modo === 'editar' && idPresupuesto) {
+                const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ visita_id: nuevaVisitaId }),
+                })
+                if (res.ok) {
+                  const act = await res.json()
+                  setPresupuesto(prev => prev ? { ...prev, ...act } : null)
+                } else {
+                  // Rollback si el backend rechaza (ej. visita inválida).
+                  setVisitaId(prev => prev === nuevaVisitaId ? (presupuesto?.visita_id || null) : prev)
                 }
               }
             }}
@@ -2003,7 +2249,6 @@ export default function EditorPresupuesto({
           <EditorNotasPresupuesto
             valor={notasHtml}
             onChange={(v) => setNotasHtml(v)}
-            onBlur={() => autoguardar({ notas_html: notasHtml })}
             placeholder="Escribe una nota..."
             soloLectura={!esEditable}
             etiqueta={t('documentos.notas')}
@@ -2015,7 +2260,6 @@ export default function EditorPresupuesto({
           <EditorNotasPresupuesto
             valor={condicionesHtml}
             onChange={(v) => setCondicionesHtml(v)}
-            onBlur={() => autoguardar({ condiciones_html: condicionesHtml })}
             placeholder="Escribe una condicion..."
             soloLectura={!esEditable}
             etiqueta={t('documentos.terminos')}
@@ -2174,7 +2418,15 @@ export default function EditorPresupuesto({
       {/* ─── Modal enviar documento por correo ─── */}
       <ModalEnviarDocumento
         abierto={modalEnviarAbierto}
-        onCerrar={() => { setModalEnviarAbierto(false); setCorreoLibre(false) }}
+        onCerrar={() => {
+          setModalEnviarAbierto(false)
+          setCorreoLibre(false)
+          setEstadoSincronizacion(null)
+          setMensajeSincronizacion(null)
+        }}
+        estadoSincronizacion={estadoSincronizacion}
+        mensajeSincronizacion={mensajeSincronizacion}
+        onReintentarSincronizacion={sincronizarParaEnvio}
         onEnviar={handleEnviarCorreo}
         canales={canalesCorreo}
         plantillas={correoLibre ? [] : plantillasCorreo}

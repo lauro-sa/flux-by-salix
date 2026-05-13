@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import type { Metadata } from 'next'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { generarPdfPresupuesto } from '@/lib/pdf/generar-pdf'
 import VistaPortal from './_componentes/VistaPortal'
@@ -61,20 +62,21 @@ const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal>
     // 2. Verificar expiración
     if (new Date(portalToken.expira_en).getTime() < Date.now()) return 'expirado'
 
-    // 3. Preparar update de vista (siempre incrementar contador)
+    // 3. Preparar update de vista. El chequeo de "visita interna" se hace
+    // dentro del Promise.all (en paralelo con los fetches) para no bloquear.
     const esPrimeraVista = !portalToken.visto_en
     const ahora = new Date().toISOString()
 
-    // Update básico: contador + estado (NO incluye visto_en para primera vista)
     const actualizacionVista: Record<string, unknown> = {
       veces_visto: (portalToken.veces_visto || 0) + 1,
     }
     if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
       actualizacionVista.estado_cliente = 'visto'
     }
-    // visto_en se maneja por separado con update atómico para evitar race conditions
 
-    // 4. Todo en paralelo: update vista + 6 fetches
+    // 4. Todo en paralelo: chequeo auth + tracking + 6 fetches.
+    // El tracking se cancela si la visita es interna (usuario de la misma
+    // empresa o superadmin). Antes el getSession() bloqueaba secuencialmente.
     const [
       ,
       { data: presupuesto },
@@ -85,6 +87,21 @@ const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal>
       { data: vendedor },
     ] = await Promise.all([
       (async () => {
+        // Detección de visita interna en paralelo con los fetches
+        let esVisitaInterna = false
+        try {
+          const supabase = await crearClienteServidor()
+          const { data: { session } } = await supabase.auth.getSession()
+          const meta = session?.user?.app_metadata as Record<string, unknown> | undefined
+          const empresaActivaId = meta?.empresa_activa_id as string | undefined
+          const esSuperadmin = meta?.es_superadmin === true
+          if (empresaActivaId === portalToken.empresa_id || esSuperadmin) {
+            esVisitaInterna = true
+          }
+        } catch { /* sin sesión → externo */ }
+
+        if (esVisitaInterna) return // skip todo el tracking
+
         // Siempre actualizar contador y estado
         await admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id)
 
@@ -116,6 +133,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal>
               url: '/presupuestos',
               referenciaTipo: 'presupuesto',
               referenciaId: portalToken.presupuesto_id,
+              esTiempoReal: true,
             })
           } catch { /* no bloquear renderizado */ }
         }
@@ -137,21 +155,37 @@ const obtenerDatosPortal = cache(async (token: string): Promise<ResultadoPortal>
       return 'error'
     }
 
-    // 5. Auto-generar PDF si falta o está desactualizado
+    // 5. Auto-generar PDF si falta o está desactualizado.
+    //
+    // Optimización: solo bloqueamos el render cuando NO hay ningún PDF previo
+    // (primera vista). Si ya existe un PDF aunque esté desactualizado, lo
+    // mostramos al cliente y disparamos la regeneración en background (no
+    // await) — la próxima visita verá el PDF fresco. Antes esto bloqueaba
+    // 5-10s con Puppeteer en cada apertura del portal aunque nada hubiera
+    // cambiado significativamente.
     let pdfUrl = presupuesto.pdf_url
     const pdfDesactualizado = !pdfUrl
       || !presupuesto.pdf_generado_en
       || new Date(presupuesto.pdf_generado_en).getTime() < new Date(presupuesto.actualizado_en).getTime()
 
     if (pdfDesactualizado) {
-      try {
-        const resultado = await generarPdfPresupuesto(admin, presupuesto.id, portalToken.empresa_id, {
+      if (!pdfUrl) {
+        // No existe ningún PDF — generación sincrónica obligatoria
+        try {
+          const resultado = await generarPdfPresupuesto(admin, presupuesto.id, portalToken.empresa_id, {
+            congelado: false,
+            forzar: false,
+          })
+          pdfUrl = resultado.url
+        } catch {
+          // Si falla la generación, el portal se muestra igual sin botón de PDF
+        }
+      } else {
+        // Existe pero está desactualizado — fire-and-forget para no bloquear
+        generarPdfPresupuesto(admin, presupuesto.id, portalToken.empresa_id, {
           congelado: false,
-          forzar: false,
-        })
-        pdfUrl = resultado.url
-      } catch {
-        // Si falla la generación, el portal se muestra igual sin botón de PDF
+          forzar: true,
+        }).catch(() => { /* la próxima visita reintenta */ })
       }
     }
 

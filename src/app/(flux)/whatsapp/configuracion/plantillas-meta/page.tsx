@@ -25,6 +25,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useAuth } from '@/hooks/useAuth'
 import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { normalizarBusqueda } from '@/lib/validaciones'
+import { MODULOS_PLANTILLA_WA, etiquetaModuloWA } from '@/lib/whatsapp/modulos-plantilla'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type { PlantillaWhatsApp, EstadoMeta } from '@/tipos/whatsapp'
 
@@ -49,14 +50,6 @@ const ESTADO_META_ETIQUETA: Record<EstadoMeta, string> = {
   PAUSED: 'Pausada',
   ERROR: 'Error',
 }
-
-const MODULOS_DISPONIBLES = [
-  { valor: 'inbox', etiqueta: 'Inbox' },
-  { valor: 'presupuestos', etiqueta: 'Presupuestos' },
-  { valor: 'contactos', etiqueta: 'Contactos' },
-  { valor: 'ordenes', etiqueta: 'Órdenes' },
-  { valor: 'actividades', etiqueta: 'Actividades' },
-]
 
 export default function PaginaListadoPlantillasMeta() {
   const router = useRouter()
@@ -174,7 +167,19 @@ export default function PaginaListadoPlantillasMeta() {
         body: JSON.stringify({ accion: 'eliminar', id: p.id, canal_id: p.canal_id }),
       })
       if (!res.ok) throw new Error()
-      mostrar('exito', 'Plantilla eliminada')
+      const data = await res.json() as { resultado_meta?: 'no_aplica' | 'eliminada' | 'fallo'; error_meta?: string | null }
+      // Distinguimos tres casos para que el usuario sepa si Meta también se
+      // limpió o si quedó la plantilla colgada en Meta Business.
+      if (data.resultado_meta === 'fallo') {
+        mostrar(
+          'advertencia',
+          `Plantilla eliminada en Flux, pero falló el borrado en Meta${data.error_meta ? `: ${data.error_meta}` : ''}. Revisala manualmente desde Meta Business.`,
+        )
+      } else if (data.resultado_meta === 'eliminada') {
+        mostrar('exito', 'Plantilla eliminada en Flux y en Meta')
+      } else {
+        mostrar('exito', 'Plantilla eliminada')
+      }
       cargar()
     } catch {
       mostrar('error', 'Error al eliminar')
@@ -342,7 +347,7 @@ export default function PaginaListadoPlantillasMeta() {
           <div className="flex flex-wrap gap-1">
             {p.modulos.slice(0, 3).map(m => (
               <span key={m} className="text-[11px] px-1.5 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-texto-secundario">
-                {m}
+                {etiquetaModuloWA(m)}
               </span>
             ))}
             {p.modulos.length > 3 && (
@@ -485,7 +490,7 @@ export default function PaginaListadoPlantillasMeta() {
             {
               id: 'modulos', etiqueta: 'Disponible en', tipo: 'multiple-compacto' as const,
               valor: filtroModulos, onChange: (v) => setFiltroModulos(v as string[]),
-              opciones: MODULOS_DISPONIBLES,
+              opciones: MODULOS_PLANTILLA_WA.map(m => ({ valor: m.valor, etiqueta: m.etiqueta })),
               descripcion: 'Módulos donde la plantilla puede usarse al enviar mensajes.',
             },
             {
@@ -505,7 +510,8 @@ export default function PaginaListadoPlantillasMeta() {
           onLimpiarFiltros={() => {
             setFiltroEstado(''); setFiltroCategoria(''); setFiltroAutor(''); setFiltroModulos([]); setFiltroSync('')
           }}
-          onClickFila={(p) => router.push(`/whatsapp/configuracion/plantillas-meta/${p.id}`)}
+          hrefFila={(p) => `/whatsapp/configuracion/plantillas-meta/${p.id}`}
+          ariaLabelFila={(p) => `Abrir plantilla ${p.nombre || p.id}`}
           idModulo="plantillas_meta"
           filasReordenables
           onReordenarFilas={handleReordenar}

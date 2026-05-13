@@ -190,6 +190,12 @@
     overflow: hidden;
     min-height: auto;
   }
+  /* Margen izquierdo dinámico controlado por --ancho-sidebar-actual.
+     Setea PlantillaApp en el wrapper del layout. */
+  .contenido-principal {
+    margin-left: var(--ancho-sidebar-actual, 0px);
+    transition: margin-left 200ms ease;
+  }
 }
 .layout-app--fijo .contenido-principal-layout {
   height: 100%;
@@ -428,6 +434,10 @@ input:-webkit-autofill:active {
   --color-marca-whatsapp: var(--marca-whatsapp);
   --color-marca-google: var(--marca-google);
   --color-marca-meta: var(--marca-meta);
+
+  /* Acentos UI — íconos de botones flotantes con variantes light/dark */
+  --color-acento-notas: var(--acento-notas);
+  --color-acento-recordatorios: var(--acento-recordatorios);
 
   /* Secciones */
   --color-seccion-contactos: var(--seccion-contactos);
@@ -836,13 +846,26 @@ a:hover { text-decoration: none; }
   flex: 1;
 }
 .tiptap p { margin: 0.25em 0; }
-.tiptap h1 { font-size: var(--texto-xl); font-weight: 700; margin: 0.5em 0 0.25em; line-height: 1.3; }
-.tiptap h2 { font-size: var(--texto-lg); font-weight: 600; margin: 0.4em 0 0.2em; line-height: 1.3; }
-.tiptap h3 { font-size: var(--texto-md); font-weight: 600; margin: 0.3em 0 0.15em; line-height: 1.4; }
+.tiptap h1 { font-size: var(--texto-xl); font-weight: 700; margin: 1.1em 0 0.35em; line-height: 1.3; }
+.tiptap h2 { font-size: var(--texto-lg); font-weight: 600; margin: 1em 0 0.3em; line-height: 1.3; }
+.tiptap h3 { font-size: var(--texto-md); font-weight: 600; margin: 0.9em 0 0.25em; line-height: 1.4; }
 .tiptap ul, .tiptap ol { padding-left: 1.5em; margin: 0.25em 0; }
 .tiptap ul { list-style-type: disc; }
 .tiptap ol { list-style-type: decimal; }
 .tiptap li { margin: 0.1em 0; }
+/* Respiración extra entre secciones consecutivas — para que cuando una
+   nota tenga varias listas/párrafos de temas distintos, se vea el corte
+   visual aunque no haya separador horizontal explícito. */
+.tiptap ul + ul, .tiptap ol + ol, .tiptap ol + ul, .tiptap ul + ol,
+.tiptap ul + p, .tiptap ol + p, .tiptap p + ul, .tiptap p + ol {
+  margin-top: 0.9em;
+}
+.tiptap ul + h1, .tiptap ul + h2, .tiptap ul + h3,
+.tiptap ol + h1, .tiptap ol + h2, .tiptap ol + h3,
+.tiptap p + h1, .tiptap p + h2, .tiptap p + h3 {
+  margin-top: 1.3em;
+}
+.tiptap hr { margin: 1.4em 0; border-top: 1px solid var(--borde-fuerte); }
 .tiptap a { color: var(--texto-marca); text-decoration: underline; cursor: pointer; }
 .tiptap a:hover { opacity: 0.8; }
 .tiptap mark { border-radius: 2px; padding: 0 2px; }
@@ -858,6 +881,88 @@ a:hover { text-decoration: none; }
   margin: 0.75em 0;
 }
 .tiptap span[style*="font-size: 12px"] { font-size: 12px; color: var(--texto-secundario); }
+
+/* ─── Checklist (TaskList + TaskItem de Tiptap) ──────────────────────────
+   Cada ítem es un <li data-checked="true|false"> con un <label> que envuelve
+   un <input type=checkbox> + <div> con el contenido. Estilamos el checkbox
+   con tokens semánticos para que respete dark/light. Cuando está marcado
+   atenuamos y tachamos el contenido. Funciona tanto en .tiptap (editor en
+   vivo) como en .tiptap-render (preview HTML estático). */
+.tiptap ul[data-type="taskList"],
+.tiptap-render ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25em;
+  margin: 0.4em 0;
+}
+.tiptap ul[data-type="taskList"] li,
+.tiptap-render ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  margin: 0.15em 0;
+}
+.tiptap ul[data-type="taskList"] li > label,
+.tiptap-render ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.25em;
+  user-select: none;
+  cursor: pointer;
+}
+.tiptap ul[data-type="taskList"] li > div,
+.tiptap-render ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tiptap ul[data-type="taskList"] li > div > p,
+.tiptap-render ul[data-type="taskList"] li > div > p {
+  margin: 0;
+}
+/* Checkbox real, estilizado con tokens */
+.tiptap ul[data-type="taskList"] input[type="checkbox"],
+.tiptap-render ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05em;
+  height: 1.05em;
+  border-radius: 4px;
+  border: 1.5px solid var(--borde-fuerte);
+  background: var(--superficie-tarjeta);
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+.tiptap ul[data-type="taskList"] input[type="checkbox"]:hover,
+.tiptap-render ul[data-type="taskList"] input[type="checkbox"]:hover {
+  border-color: var(--texto-marca);
+}
+.tiptap ul[data-type="taskList"] input[type="checkbox"]:checked,
+.tiptap-render ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--texto-marca);
+  border-color: var(--texto-marca);
+}
+/* Tilde dibujada con border (no requiere imagen ni font) */
+.tiptap ul[data-type="taskList"] input[type="checkbox"]:checked::after,
+.tiptap-render ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.3em;
+  top: 0.08em;
+  width: 0.3em;
+  height: 0.55em;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+/* Ítem completado: tachado + atenuado */
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > div,
+.tiptap-render ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--texto-terciario);
+}
 .tiptap code {
   background-color: var(--superficie-hover);
   border-radius: 3px;

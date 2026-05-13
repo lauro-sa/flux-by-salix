@@ -17,6 +17,7 @@ import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import type {
   Impuesto, Moneda, UnidadMedida,
@@ -52,6 +53,42 @@ import { useRol } from '@/hooks/useRol'
  * Autoguardado al cambiar cualquier campo.
  * Drag & drop en condiciones de pago para reordenar.
  */
+
+interface CondicionPagoResumen {
+  id: string
+  label: string
+  tipo?: 'plazo_fijo' | 'hitos'
+  diasVencimiento?: number | null
+  hitos?: Array<{ porcentaje?: number; descripcion?: string }>
+  predeterminado?: boolean
+  activo?: boolean
+}
+
+// Definida fuera del componente para que la referencia sea estable
+// y el useEffect del PreviewSeccionExterna no se dispare en cada render.
+function extraerCondiciones(data: unknown): ItemPreview[] {
+  const condiciones = ((data as { condiciones_pago?: CondicionPagoResumen[] })?.condiciones_pago) || []
+  return condiciones
+    .filter(c => c.activo !== false)
+    .map(c => {
+      const badges: { texto: string }[] = []
+      if (c.tipo === 'hitos' && c.hitos) {
+        badges.push({ texto: `${c.hitos.length} hito${c.hitos.length === 1 ? '' : 's'}` })
+      } else if (typeof c.diasVencimiento === 'number') {
+        badges.push({ texto: c.diasVencimiento === 0 ? 'Contado' : `${c.diasVencimiento} día${c.diasVencimiento === 1 ? '' : 's'}` })
+      }
+      return {
+        id: c.id,
+        icono: c.tipo === 'hitos' ? 'BarChart3' : 'Clock',
+        color: '#10b981',
+        etiqueta: c.label,
+        badges,
+        origen: c.predeterminado
+          ? { texto: 'Predeterminado', tono: 'predefinido' as const }
+          : undefined,
+      }
+    })
+}
 
 // Defaults para restablecer
 const IMPUESTOS_DEFAULT: Impuesto[] = [
@@ -475,14 +512,25 @@ export default function PaginaConfigPresupuestos() {
       onVolver={() => router.push('/presupuestos')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        if (id === 'condiciones') {
-          router.push('/presupuestos/configuracion/condiciones-pago')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
+      {/* ─── CONDICIONES DE PAGO (preview + link a página dedicada) ─── */}
+      {seccionActiva === 'condiciones' && (
+        <PreviewSeccionExterna
+          titulo={t('documentos.condiciones_pago')}
+          descripcion="Plazos y planes de pago disponibles al emitir un presupuesto."
+          endpoint="/api/presupuestos/config"
+          extraerItems={extraerCondiciones}
+          hrefDestino="/presupuestos/configuracion/condiciones-pago"
+          textoBoton="Gestionar condiciones"
+          etiquetaItem={{ singular: 'condición', plural: 'condiciones' }}
+          textoVacio={{
+            titulo: 'No hay condiciones configuradas',
+            descripcion: 'Creá la primera desde la página de gestión.',
+          }}
+        />
+      )}
+
       {/* ─── IMPUESTOS ─── */}
       {seccionActiva === 'impuestos' && (
         <ListaConfiguracion

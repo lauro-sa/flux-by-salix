@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTema } from '@/hooks/useTema'
 import { useTraduccion } from '@/lib/i18n'
 import { Migajas } from './Migajas'
+import { IndicadorGuardadoHeader } from './IndicadorGuardadoHeader'
 import {
   PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check,
   ChevronsLeft, ChevronsRight, RotateCcw, Headphones, Settings,
@@ -245,6 +246,7 @@ function Header({
         </div>
 
         <Migajas extras={migajasExtras} />
+        <IndicadorGuardadoHeader />
       </div>
 
       {/* Centro-derecha — Notificaciones (3 íconos) */}

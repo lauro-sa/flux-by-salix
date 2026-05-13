@@ -30,6 +30,7 @@ import {
   InputEmailChips,
   InputAsuntoVariables,
   PopoverProgramar,
+  BannerSincronizacion,
   useEnvioDocumento,
   iconoArchivo,
   formatoFechaProgramada,
@@ -79,8 +80,32 @@ export function ModalEnviarDocumento({
   portalDesactivadoInicial,
   contactoPrincipalId,
   contactoPrincipalNombre,
+  estadoSincronizacion = null,
+  mensajeSincronizacion = null,
+  onReintentarSincronizacion,
 }: PropiedadesModalEnviarDocumento) {
   const [expandido, setExpandido] = useState(false)
+
+  // El estado 'ok' se auto-desvanece a los 4 s; 'sincronizando', 'desactualizado'
+  // y 'error' se mantienen visibles hasta que cambien (los dos últimos llevan
+  // botón "Reintentar" para que el usuario actúe).
+  const [okVisible, setOkVisible] = useState(false)
+  useEffect(() => {
+    if (!abierto || estadoSincronizacion !== 'ok') {
+      setOkVisible(false)
+      return
+    }
+    setOkVisible(true)
+    const id = setTimeout(() => setOkVisible(false), 4000)
+    return () => clearTimeout(id)
+  }, [abierto, estadoSincronizacion])
+
+  // Determina si hay banner para mostrar según el estado actual.
+  const bannerVisible =
+    estadoSincronizacion === 'sincronizando' ||
+    (estadoSincronizacion === 'ok' && okVisible) ||
+    estadoSincronizacion === 'desactualizado' ||
+    estadoSincronizacion === 'error'
   const refBotonCanal = useRef<HTMLButtonElement>(null)
   const refDropdownCanal = useRef<HTMLDivElement>(null)
   const [posCanalDropdown, setPosCanalDropdown] = useState({ top: 0, left: 0, width: 0 })
@@ -173,6 +198,27 @@ export function ModalEnviarDocumento({
 
         {/* ══════════ CABEZAL FIJO ══════════ */}
         <div className="shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+          {/* Banner reactivo del estado de sincronización del PDF + portal.
+              Cuatro estados visuales con colores semánticos del sistema. */}
+          <AnimatePresence>
+            {bannerVisible && estadoSincronizacion && (
+              <motion.div
+                key={estadoSincronizacion}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <BannerSincronizacion
+                  estado={estadoSincronizacion}
+                  mensaje={mensajeSincronizacion}
+                  onReintentar={onReintentarSincronizacion}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Título + cerrar */}
           <div className="flex items-center justify-between px-6 py-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--texto-primario)' }}>

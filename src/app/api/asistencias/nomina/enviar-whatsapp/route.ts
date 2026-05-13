@@ -144,10 +144,12 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Cargar adelantos del empleado y armar `detalle_descuentos` (multilínea)
-      // con las cuotas que caen en el período. Si la plantilla no usa esa
-      // variable, el resolver ignora el dato.
+      // Cargar adelantos del empleado y armar la lista de bullets de descuentos
+      // del período. Mantenemos `detalle_descuentos` (string multilínea, legacy
+      // para plantillas que aún usan un solo slot) y `descuentos_lista` (array
+      // que el resolver expande a `descuento_1..descuento_N`).
       let detalleDescuentos = ''
+      const lineasDescuentos: string[] = []
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         const { data: adelantos } = await admin
           .from('adelantos_nomina')
@@ -175,15 +177,14 @@ export async function POST(request: NextRequest) {
         }
         items.sort((x, y) => x.fecha.localeCompare(y.fecha))
         const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-        const lineas: string[] = []
         const saldo = Number(emp.saldo_anterior || 0)
-        if (saldo > 0) lineas.push(`• A favor del período anterior · −${fmt(saldo)}`)
+        if (saldo > 0) lineasDescuentos.push(`• A favor del período anterior · −${fmt(saldo)}`)
         for (const it of items) {
           const cuotaInfo = it.cuotasTot > 1 ? ` · cuota ${it.numCuota}/${it.cuotasTot}` : ''
           const fechaCorta = it.fecha ? ` · ${formatoFechaCortaPeriodo(it.fecha)}` : ''
-          lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
+          lineasDescuentos.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
         }
-        detalleDescuentos = lineas.join('\n') || '_Sin adelantos ni descuentos en el período._'
+        detalleDescuentos = lineasDescuentos.join('\n') || '_Sin adelantos ni descuentos en el período._'
       }
 
       // Resolver variables usando el mapeo de la plantilla — así si mañana
@@ -201,6 +202,7 @@ export async function POST(request: NextRequest) {
           saldo_anterior: emp.saldo_anterior || 0,
           monto_detalle: emp.compensacion_detalle,
           detalle_descuentos: detalleDescuentos,
+          descuentos_lista: lineasDescuentos,
         },
       })
 
