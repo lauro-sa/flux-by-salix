@@ -28,6 +28,10 @@ import {
   resolverTextoPlantilla,
   resolverParametrosCuerpo,
 } from '@/lib/whatsapp/variables'
+import {
+  moduloDesdeEntidadTipo,
+  plantillaDisponibleEnModulo,
+} from '@/lib/whatsapp/modulos-plantilla'
 
 interface PropsModalWhatsApp {
   abierto: boolean
@@ -94,21 +98,31 @@ export function ModalWhatsAppChatter({
     return base
   }, [contacto, datosDocumento])
 
-  // Cargar plantillas
+  // Módulo asociado al chatter actual (ej: presupuesto → 'presupuestos').
+  // Si la entidad no tiene módulo equivalente, no se filtra por módulo y se
+  // muestran las plantillas globales (sin `modulos` asignados).
+  const moduloContexto = useMemo(() => moduloDesdeEntidadTipo(entidadTipo), [entidadTipo])
+
+  // Cargar plantillas: sólo aprobadas, activas y disponibles en el módulo
+  // del chatter actual. Las plantillas sin módulos asignados se consideran
+  // disponibles en todos.
   const cargarPlantillas = useCallback(async () => {
     setCargandoPlantillas(true)
     try {
       const res = await fetch('/api/whatsapp/plantillas')
       if (res.ok) {
         const data = await res.json()
-        const aprobadas = (data.plantillas || []).filter(
-          (p: PlantillaWhatsApp) => p.estado_meta === 'APPROVED' && p.activo
+        const disponibles = (data.plantillas || []).filter(
+          (p: PlantillaWhatsApp) =>
+            p.estado_meta === 'APPROVED' &&
+            p.activo &&
+            plantillaDisponibleEnModulo(p, moduloContexto),
         )
-        setPlantillas(aprobadas)
+        setPlantillas(disponibles)
       }
     } catch { /* silencioso */ }
     setCargandoPlantillas(false)
-  }, [])
+  }, [moduloContexto])
 
   useEffect(() => {
     if (abierto) {
@@ -375,8 +389,16 @@ export function ModalWhatsAppChatter({
         {numero && !cargandoPlantillas && plantillas.length === 0 && !enviado && (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <AlertCircle size={24} className="text-insignia-advertencia" />
-            <p className="text-sm text-texto-secundario">No hay plantillas de WhatsApp aprobadas.</p>
-            <p className="text-xs text-texto-terciario">Creá plantillas desde Inbox → Configuración.</p>
+            <p className="text-sm text-texto-secundario">
+              {moduloContexto
+                ? 'No hay plantillas habilitadas para este módulo.'
+                : 'No hay plantillas de WhatsApp aprobadas.'}
+            </p>
+            <p className="text-xs text-texto-terciario">
+              {moduloContexto
+                ? 'Habilitala desde WhatsApp → Configuración → Plantillas Meta marcando la sección en "Disponible en".'
+                : 'Creá plantillas desde WhatsApp → Configuración → Plantillas Meta.'}
+            </p>
           </div>
         )}
 

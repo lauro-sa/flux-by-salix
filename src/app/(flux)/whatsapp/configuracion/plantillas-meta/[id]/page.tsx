@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorPlantillaMeta } from '@/componentes/entidad/_editor_plantilla_meta/PaginaEditorPlantillaMeta'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 
@@ -11,6 +12,7 @@ export default function PaginaEditarPlantillaMeta() {
   const params = useParams()
   const router = useRouter()
   const { mostrar } = useToast()
+  const { setMigajaDinamica } = useNavegacion()
   const id = String(params?.id || '')
 
   const [plantilla, setPlantilla] = useState<PlantillaWhatsApp | null>(null)
@@ -53,6 +55,14 @@ export default function PaginaEditarPlantillaMeta() {
     if (id) cargarInicial()
     return () => { cancelado = true }
   }, [id, cargar])
+
+  // Reemplazar el "Detalle" automático de la migaja por el nombre real de la
+  // plantilla (lo hace el helper de useNavegacion al detectar un segmento ID).
+  useEffect(() => {
+    if (plantilla?.nombre) {
+      setMigajaDinamica(`/whatsapp/configuracion/plantillas-meta/${id}`, plantilla.nombre)
+    }
+  }, [id, plantilla?.nombre, setMigajaDinamica])
 
   if (cargando || !plantilla) {
     return (

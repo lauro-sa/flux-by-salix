@@ -40,6 +40,7 @@ import {
   EJEMPLOS_POR_CAMPO,
   type EntidadPlantillaWA,
 } from '@/lib/whatsapp/variables'
+import { MODULOS_PLANTILLA_WA } from '@/lib/whatsapp/modulos-plantilla'
 import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
@@ -74,17 +75,6 @@ const TIPOS_ENCABEZADO: { valor: TipoEncabezadoWA; etiqueta: string }[] = [
   { valor: 'IMAGE', etiqueta: 'Imagen' },
   { valor: 'VIDEO', etiqueta: 'Video' },
   { valor: 'DOCUMENT', etiqueta: 'Documento' },
-]
-
-const MODULOS_DISPONIBLES: { valor: string; etiqueta: string; entidad?: EntidadPlantillaWA }[] = [
-  { valor: 'inbox', etiqueta: 'Inbox (chat)' },
-  { valor: 'presupuestos', etiqueta: 'Presupuestos', entidad: 'presupuesto' },
-  { valor: 'contactos', etiqueta: 'Contactos', entidad: 'contacto' },
-  { valor: 'ordenes', etiqueta: 'Órdenes', entidad: 'orden' },
-  { valor: 'actividades', etiqueta: 'Actividades', entidad: 'actividad' },
-  { valor: 'visitas', etiqueta: 'Visitas', entidad: 'visita' },
-  { valor: 'recorrido', etiqueta: 'Recorrido', entidad: 'visita' },
-  { valor: 'asistencias', etiqueta: 'Nómina / Asistencias', entidad: 'nomina' },
 ]
 
 const TIPOS_BOTON: { valor: TipoBotonWA; etiqueta: string }[] = [
@@ -367,6 +357,7 @@ export function PaginaEditorPlantillaMeta({
         ...resultado,
         periodo: periodo.etiqueta,
         detalle_descuentos: lineas.join('\n'),
+        descuentos_lista: lineas,
       })
     } catch { /* silenciar */ }
   }, [locale])
@@ -435,7 +426,7 @@ export function PaginaEditorPlantillaMeta({
   // mapeo. Si la plantilla no declara módulos, se habilitan todos.
   const tiposEntidadesPermitidas = useMemo<EntidadPlantillaWA[] | undefined>(() => {
     if (modulos.length === 0) return undefined
-    const mapa = new Map(MODULOS_DISPONIBLES.filter(m => m.entidad).map(m => [m.valor, m.entidad!]))
+    const mapa = new Map(MODULOS_PLANTILLA_WA.filter(m => m.entidad).map(m => [m.valor, m.entidad!]))
     const tipos = modulos.map(m => mapa.get(m)).filter(Boolean) as EntidadPlantillaWA[]
     // Contacto siempre útil como base
     if (!tipos.includes('contacto')) tipos.push('contacto')
@@ -751,11 +742,31 @@ export function PaginaEditorPlantillaMeta({
 
         {/* Módulos */}
         <div className="space-y-2">
-          <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
-            Disponible en
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
+              Disponible en
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setModulos(MODULOS_PLANTILLA_WA.map(m => m.valor))}
+                disabled={modulos.length === MODULOS_PLANTILLA_WA.length}
+                className="text-[11px] px-2 py-0.5 rounded-boton font-medium border border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-white/[0.18] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setModulos([])}
+                disabled={modulos.length === 0}
+                className="text-[11px] px-2 py-0.5 rounded-boton font-medium border border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-white/[0.18] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Ninguno
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-1.5">
-            {MODULOS_DISPONIBLES.map(m => {
+            {MODULOS_PLANTILLA_WA.map(m => {
               const activo = modulos.includes(m.valor)
               return (
                 <button
