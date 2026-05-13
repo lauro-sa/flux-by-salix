@@ -30,6 +30,11 @@ import { ejecutarConsultarNotas } from './ejecutores/consultar-notas'
 import { ejecutarModificarNota } from './ejecutores/modificar-nota'
 import { ejecutarConsultarVinculacionesContacto } from './ejecutores/consultar-vinculaciones'
 import { ejecutarVincularContactos } from './ejecutores/vincular-contactos'
+// Movimientos de nómina — adelantos y descuentos sobre el recibo del empleado
+import { ejecutarConsultarMovimientosNomina } from './ejecutores/consultar-movimientos-nomina'
+import { ejecutarCrearMovimientoNomina } from './ejecutores/crear-movimiento-nomina'
+import { ejecutarModificarMovimientoNomina } from './ejecutores/modificar-movimiento-nomina'
+import { ejecutarEliminarMovimientoNomina } from './ejecutores/eliminar-movimiento-nomina'
 // Tools personales — scope hardcodeado al propio empleado
 import { ejecutarMiReciboPeriodo } from './ejecutores/mi-recibo-periodo'
 import { ejecutarMiProximoPago } from './ejecutores/mi-proximo-pago'
@@ -64,6 +69,10 @@ export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta>
   modificar_nota: ejecutarModificarNota,
   consultar_vinculaciones_contacto: ejecutarConsultarVinculacionesContacto,
   vincular_contactos: ejecutarVincularContactos,
+  consultar_movimientos_nomina: ejecutarConsultarMovimientosNomina,
+  crear_movimiento_nomina: ejecutarCrearMovimientoNomina,
+  modificar_movimiento_nomina: ejecutarModificarMovimientoNomina,
+  eliminar_movimiento_nomina: ejecutarEliminarMovimientoNomina,
   // Tools personales
   mi_recibo_periodo: (ctx, params) => ejecutarMiReciboPeriodo(ctx, params),
   mi_proximo_pago: (ctx) => ejecutarMiProximoPago(ctx),
