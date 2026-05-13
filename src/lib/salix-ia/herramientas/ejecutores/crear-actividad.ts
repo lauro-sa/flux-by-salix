@@ -4,6 +4,7 @@
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { insertarVinculosActividad, type VinculoLegacy } from '@/lib/actividades-relaciones-helpers'
 
 export async function ejecutarCrearActividad(
   ctx: ContextoSalixIA,
@@ -70,9 +71,9 @@ export async function ejecutarCrearActividad(
     ? [perfilAsignado.nombre, perfilAsignado.apellido].filter(Boolean).join(' ')
     : ctx.nombre_usuario
 
-  // Construir vínculos si hay contacto_id
-  const vinculos: { tipo: string; id: string; nombre?: string }[] = []
-  const vinculo_ids: string[] = []
+  // Construir vínculos si hay contacto_id o presupuesto_id. Los insertamos
+  // en actividades_relaciones después del INSERT principal.
+  const vinculos: VinculoLegacy[] = []
 
   if (params.contacto_id) {
     const { data: contacto } = await ctx.admin
@@ -88,7 +89,6 @@ export async function ejecutarCrearActividad(
         id: contacto.id,
         nombre: [contacto.nombre, contacto.apellido].filter(Boolean).join(' '),
       })
-      vinculo_ids.push(contacto.id)
     }
   }
 
@@ -107,7 +107,6 @@ export async function ejecutarCrearActividad(
         id: presupuesto.id,
         nombre: `${presupuesto.numero} — ${[presupuesto.contacto_nombre, presupuesto.contacto_apellido].filter(Boolean).join(' ')}`,
       })
-      vinculo_ids.push(presupuesto.id)
     }
   }
 
@@ -125,8 +124,6 @@ export async function ejecutarCrearActividad(
       fecha_vencimiento: (params.fecha_vencimiento as string) || null,
       asignados: [{ id: asignadoId, nombre: nombreAsignado }],
       asignados_ids: [asignadoId],
-      vinculos,
-      vinculo_ids,
       creado_por: ctx.usuario_id,
       creado_por_nombre: ctx.nombre_usuario,
     })
@@ -135,6 +132,11 @@ export async function ejecutarCrearActividad(
 
   if (error) {
     return { exito: false, error: `Error creando actividad: ${error.message}` }
+  }
+
+  // Registrar vínculos en actividades_relaciones (single source of truth).
+  if (vinculos.length > 0) {
+    await insertarVinculosActividad(ctx.admin, ctx.empresa_id, data.id, vinculos, ctx.usuario_id)
   }
 
   return {
