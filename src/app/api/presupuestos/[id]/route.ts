@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarCambioEstado } from '@/lib/chatter'
 import { obtenerYVerificarPermiso, requerirPermisoAPI, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { sincronizarCuotasPresupuesto } from '@/lib/sincronizar-cuotas-presupuesto'
 
 /**
  * GET /api/presupuestos/[id] — Obtener detalle completo de un presupuesto.
@@ -291,19 +292,42 @@ export async function PATCH(
       }
     }
 
-    // Obtener estado anterior (para chatter). El cierre automático de la
-    // actividad origen al pasar a 'enviado' lo hace el flujo del sistema
-    // `autocompletar_al_enviar_presupuesto` (sub-PR 20.3, activado en 20.5)
-    // via `cambios_estado` → `actividades_relaciones`.
+    // Obtener estado anterior (para chatter) + snapshot de la condición
+    // de pago si se está cambiando, para poder hacer rollback si la
+    // sincronización de cuotas falla por pagos ya cargados.
+    //
+    // El cierre automático de la actividad origen al pasar a 'enviado' lo
+    // hace el flujo del sistema `autocompletar_al_enviar_presupuesto`
+    // (sub-PR 20.3, activado en 20.5) via `cambios_estado` →
+    // `actividades_relaciones`.
+    const cambiaCondicionPago =
+      body.condicion_pago_id !== undefined ||
+      body.condicion_pago_tipo !== undefined ||
+      body.condicion_pago_label !== undefined
+    const cambiaTotalFinal = body.total_final !== undefined
+
     let estadoAnterior: string | null = null
-    if (body.estado) {
+    let snapshotCondicionAnterior: {
+      condicion_pago_id: string | null
+      condicion_pago_label: string | null
+      condicion_pago_tipo: string | null
+    } | null = null
+
+    if (body.estado || cambiaCondicionPago) {
       const { data: actual } = await admin
         .from('presupuestos')
-        .select('estado')
+        .select('estado, condicion_pago_id, condicion_pago_label, condicion_pago_tipo')
         .eq('id', id)
         .eq('empresa_id', empresaId)
         .single()
       estadoAnterior = actual?.estado || null
+      if (cambiaCondicionPago && actual) {
+        snapshotCondicionAnterior = {
+          condicion_pago_id: actual.condicion_pago_id,
+          condicion_pago_label: actual.condicion_pago_label,
+          condicion_pago_tipo: actual.condicion_pago_tipo,
+        }
+      }
     }
 
     // Auto-llenar fecha_aceptacion al pasar a confirmado_cliente u orden_venta
@@ -322,6 +346,36 @@ export async function PATCH(
     if (error) {
       console.error('Error al actualizar presupuesto:', error)
       return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+    }
+
+    // Sincronizar `presupuesto_cuotas` con la condición de pago y total
+    // vigentes. Las cuotas materializadas son la fuente de verdad para el
+    // portal del cliente, el PDF, los dashboards y los reportes; si no se
+    // regeneran al cambiar la condición, esos consumidores muestran datos
+    // viejos (porcentajes/montos del momento de la materialización).
+    if (cambiaCondicionPago || cambiaTotalFinal) {
+      const sync = await sincronizarCuotasPresupuesto({
+        admin,
+        empresaId,
+        presupuestoId: id,
+        condicionPagoId: actualizado.condicion_pago_id,
+        condicionPagoTipo: actualizado.condicion_pago_tipo,
+        totalFinal: Number(actualizado.total_final) || 0,
+      })
+      if (!sync.ok) {
+        // Rollback de los campos de condición si quedaron desincronizados:
+        // dejamos el presupuesto como estaba antes del PATCH para no perder
+        // la consistencia con las cuotas existentes.
+        if (sync.codigo === 'cuotas_con_pagos' && snapshotCondicionAnterior) {
+          await admin
+            .from('presupuestos')
+            .update(snapshotCondicionAnterior)
+            .eq('id', id)
+            .eq('empresa_id', empresaId)
+        }
+        const status = sync.codigo === 'cuotas_con_pagos' ? 409 : 500
+        return NextResponse.json({ error: sync.mensaje, codigo: sync.codigo }, { status })
+      }
     }
 
     // Si cambió el estado, registrar en historial + chatter
