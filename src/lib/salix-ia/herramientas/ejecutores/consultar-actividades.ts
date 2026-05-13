@@ -6,6 +6,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { determinarVisibilidad } from '@/lib/salix-ia/permisos'
+import { cargarVinculosPorActividad } from '@/lib/actividades-relaciones-helpers'
 
 export async function ejecutarConsultarActividades(
   ctx: ContextoSalixIA,
@@ -24,13 +25,44 @@ export async function ejecutarConsultarActividades(
   //   estado=pendiente + filtro_vencimiento=sin_fecha    → pendientes sin fecha de vencimiento
   const filtroVencimiento = (params.filtro_vencimiento as string) || 'todas'
 
+  // Búsqueda por texto: union de matches en `actividades.titulo` y
+  // `actividades_relaciones.entidad_nombre` (reemplaza el ilike sobre
+  // `vinculos::text` legacy).
+  let actIdsFromBusqueda: string[] | null = null
+  if (params.busqueda) {
+    const busq = params.busqueda as string
+    const [titRes, vincRes] = await Promise.all([
+      ctx.admin
+        .from('actividades')
+        .select('id')
+        .eq('empresa_id', ctx.empresa_id)
+        .eq('en_papelera', false)
+        .ilike('titulo', `%${busq}%`),
+      ctx.admin
+        .from('actividades_relaciones')
+        .select('actividad_id')
+        .eq('empresa_id', ctx.empresa_id)
+        .ilike('entidad_nombre', `%${busq}%`),
+    ])
+    const idsTit = (titRes.data || []).map((a: { id: string }) => a.id)
+    const idsVinc = (vincRes.data || []).map((r: { actividad_id: string }) => r.actividad_id)
+    actIdsFromBusqueda = [...new Set([...idsTit, ...idsVinc])]
+    if (actIdsFromBusqueda.length === 0) {
+      return { exito: true, datos: [], mensaje_usuario: 'No hay actividades que coincidan con la búsqueda.' }
+    }
+  }
+
   let query = ctx.admin
     .from('actividades')
-    .select('id, titulo, descripcion, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignados, vinculos, creado_en')
+    .select('id, titulo, descripcion, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignados, creado_en')
     .eq('empresa_id', ctx.empresa_id)
     .eq('en_papelera', false)
     .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
     .limit(limite)
+
+  if (actIdsFromBusqueda !== null) {
+    query = query.in('id', actIdsFromBusqueda)
+  }
 
   // Aplicar filtro_vencimiento a nivel query para no traer registros que vamos
   // a descartar después. Usamos el timestamp ahora como corte.
@@ -44,12 +76,6 @@ export async function ejecutarConsultarActividades(
     query = query.gte('fecha_vencimiento', ahoraISO)
   } else if (filtroVencimiento === 'sin_fecha') {
     query = query.is('fecha_vencimiento', null)
-  }
-
-  // Buscar por texto en título o vinculado
-  if (params.busqueda) {
-    const busq = params.busqueda as string
-    query = query.or(`titulo.ilike.%${busq}%,vinculos::text.ilike.%${busq}%`)
   }
 
   // Filtrar por estado
@@ -83,13 +109,21 @@ export async function ejecutarConsultarActividades(
     return { exito: false, error: `Error consultando actividades: ${error.message}` }
   }
 
-  const actividades = (data || []).map((a: Record<string, unknown>) => {
+  // Cargar vínculos del set resultante para extraer contacto / presupuesto
+  // vinculado en el shape de la respuesta.
+  const filas = (data || []) as Array<Record<string, unknown>>
+  const ids = filas.map((a) => a.id as string)
+  const mapaVinculos = await cargarVinculosPorActividad(ctx.admin, ctx.empresa_id, ids)
+
+  const actividades = filas.map((a) => {
     const vencimiento = a.fecha_vencimiento as string | null
-    const estaVencida = vencimiento && new Date(vencimiento) < new Date() && a.estado_clave === 'pendiente'
+    const estaVencida = !!vencimiento && new Date(vencimiento) < new Date() && a.estado_clave === 'pendiente'
 
     // Extraer nombres de asignados
     const asignadosList = a.asignados as { id: string; nombre: string }[] | null
     const nombresAsignados = asignadosList?.map(x => x.nombre).join(', ') || null
+
+    const vinculos = mapaVinculos.get(a.id as string) ?? []
 
     return {
       id: a.id,
@@ -101,10 +135,8 @@ export async function ejecutarConsultarActividades(
       fecha_vencimiento: vencimiento,
       vencida: estaVencida,
       asignado_a: nombresAsignados,
-      contacto_vinculado: (a.vinculos as { tipo: string; nombre: string }[] | null)
-        ?.find((v) => v.tipo === 'contacto')?.nombre || null,
-      presupuesto_vinculado: (a.vinculos as { tipo: string; nombre: string }[] | null)
-        ?.find((v) => v.tipo === 'presupuesto')?.nombre || null,
+      contacto_vinculado: vinculos.find((v) => v.tipo === 'contacto')?.nombre || null,
+      presupuesto_vinculado: vinculos.find((v) => v.tipo === 'presupuesto')?.nombre || null,
     }
   })
 

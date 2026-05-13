@@ -535,6 +535,9 @@ export async function DELETE(
  *   - visitas:       siempre (no tienen estado congelado, son operativas).
  *   - actividades / conversaciones: siempre (son contextuales).
  *
+ * Actividades: el nombre cacheado se actualiza en `actividades_relaciones.entidad_nombre`
+ * (sub-PR 20.6, reemplaza el sync de `vinculos` jsonb legacy).
+ *
  * NO toca `contacto_direccion`. La dirección se propaga por separado desde
  * el endpoint de direcciones, porque cada presupuesto/orden tiene una
  * `direccion_id` específica que puede no ser la principal.
@@ -574,31 +577,14 @@ async function propagarCambioContacto(
                    tels.find(t => t.tipo === 'movil')
   const whatsapp = movilWA?.valor || null
 
-  // 1. Vínculos JSONB en actividades (siempre, no tienen estado congelado)
-  const { data: actividades } = await admin
-    .from('actividades')
-    .select('id, vinculos')
+  // 1. Cache de nombre en actividades_relaciones (sub-PR 20.6: reemplaza el
+  //    sync de vinculos jsonb legacy por un UPDATE batch sobre la tabla N:M).
+  const updateRelaciones = admin
+    .from('actividades_relaciones')
+    .update({ entidad_nombre: nombreCompleto })
     .eq('empresa_id', empresaId)
-    .contains('vinculo_ids', [contactoId])
-
-  const updatesActividades: PromiseLike<unknown>[] = []
-  if (actividades && actividades.length > 0) {
-    for (const act of actividades) {
-      const vinculos = (act.vinculos || []) as { tipo: string; id: string; nombre: string }[]
-      let cambio = false
-      for (const v of vinculos) {
-        if (v.id === contactoId && v.nombre !== nombreCompleto) {
-          v.nombre = nombreCompleto
-          cambio = true
-        }
-      }
-      if (cambio) {
-        updatesActividades.push(
-          admin.from('actividades').update({ vinculos }).eq('id', act.id)
-        )
-      }
-    }
-  }
+    .eq('entidad_tipo', 'contacto')
+    .eq('entidad_id', contactoId)
 
   // 2. Presupuestos NO congelados: actualizar snapshot e invalidar PDF cacheado.
   // El PDF se regenera al próximo acceso porque pdf_generado_en queda null.
@@ -651,7 +637,7 @@ async function propagarCambioContacto(
     .eq('contacto_id', contactoId)
 
   await Promise.all([
-    ...updatesActividades,
+    updateRelaciones,
     updatePresupuestos,
     updateOrdenes,
     updateVisitas,

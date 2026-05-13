@@ -6,6 +6,12 @@ import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { COLORES_HEX_ESTADO_ACTIVIDAD, COLOR_TIPO_ACTIVIDAD_DEFECTO } from '@/lib/colores_entidad'
+import {
+  cargarVinculosPorActividad,
+  insertarVinculosActividad,
+  sincronizarVinculosActividad,
+  type VinculoLegacy,
+} from '@/lib/actividades-relaciones-helpers'
 
 /**
  * GET /api/actividades/[id] — Obtener una actividad por ID.
@@ -54,8 +60,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       accion: 'visto',
     })
 
+    // Adaptador `vinculos` construido desde actividades_relaciones —
+    // desacopla a la UI del schema legacy (drop final en Commit 8).
+    const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+    const vinculos = mapaVinculos.get(id) ?? []
+
     return NextResponse.json({
       ...data,
+      vinculos,
       permisos: {
         editar: puedeEditar.permitido,
         eliminar: puedeEliminar.permitido,
@@ -124,8 +136,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       if (error) return NextResponse.json({ error: 'Error al completar' }, { status: 500 })
 
+      // Vínculos desde actividades_relaciones (single source of truth).
+      const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+      const vinculos = mapaVinculos.get(id) ?? []
+
       // Registrar en chatter de cada entidad vinculada
-      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
       for (const vinculo of vinculos) {
         const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
 
@@ -221,17 +236,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 fecha_vencimiento: fechaVenc,
                 asignados: data.asignados || [],
                 asignados_ids: data.asignados_ids || [],
-                vinculos: data.vinculos || [],
                 checklist: [],
                 creado_por: user.id,
                 creado_por_nombre: nombreEditor,
               }).select().single()
 
+              if (nuevaAct) {
+                // La actividad encadenada hereda los vínculos de la previa.
+                await insertarVinculosActividad(admin, empresaId, nuevaAct.id, vinculos, user.id)
+              }
+
               siguiente = { tipo: 'creada', actividad: nuevaAct, tipo_actividad: siguienteTipo }
             }
           } else {
             // Sugerir: devolver info para que el frontend muestre el modal
-            siguiente = { tipo: 'sugerir', tipo_actividad: siguienteTipo, vinculos: data.vinculos }
+            siguiente = { tipo: 'sugerir', tipo_actividad: siguienteTipo, vinculos }
           }
         }
       }
@@ -242,12 +261,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         titulo: data.titulo || 'Actividad', subtitulo: 'completada', accion: 'editado',
       })
 
-      return NextResponse.json({ ...data, siguiente })
+      return NextResponse.json({ ...data, vinculos, siguiente })
     }
 
     if (body.accion === 'posponer') {
       const dias = body.dias || 1
-      const actividad = await admin.from('actividades').select('fecha_vencimiento, titulo, vinculos').eq('id', id).single()
+      const actividad = await admin.from('actividades').select('fecha_vencimiento, titulo').eq('id', id).single()
       const base = actividad.data?.fecha_vencimiento ? new Date(actividad.data.fecha_vencimiento) : new Date()
       base.setDate(base.getDate() + dias)
 
@@ -266,8 +285,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       if (error) return NextResponse.json({ error: 'Error al posponer' }, { status: 500 })
 
-      // Registrar en chatter de cada entidad vinculada
-      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
+      // Vínculos desde actividades_relaciones para registrar en chatter.
+      const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+      const vinculos = mapaVinculos.get(id) ?? []
       for (const vinculo of vinculos) {
         const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
         registrarChatter({
@@ -286,7 +306,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         })
       }
 
-      return NextResponse.json(data)
+      return NextResponse.json({ ...data, vinculos })
     }
 
     if (body.accion === 'cancelar') {
@@ -329,8 +349,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       if (error) return NextResponse.json({ error: 'Error al cancelar' }, { status: 500 })
 
-      // Registrar en chatter de cada entidad vinculada
-      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
+      // Vínculos desde actividades_relaciones para registrar en chatter.
+      const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+      const vinculos = mapaVinculos.get(id) ?? []
       for (const vinculo of vinculos) {
         const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
         registrarChatter({
@@ -366,7 +387,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .eq('leida', false)
         .then(() => {})
 
-      return NextResponse.json(data)
+      return NextResponse.json({ ...data, vinculos })
     }
 
     if (body.accion === 'registrar_seguimiento') {
@@ -394,7 +415,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .single()
 
       if (error) return NextResponse.json({ error: 'Error al registrar seguimiento' }, { status: 500 })
-      return NextResponse.json(data)
+      const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+      return NextResponse.json({ ...data, vinculos: mapaVinculos.get(id) ?? [] })
     }
 
     if (body.accion === 'reactivar') {
@@ -446,7 +468,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         }
       }
 
-      return NextResponse.json(data)
+      const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+      return NextResponse.json({ ...data, vinculos: mapaVinculos.get(id) ?? [] })
     }
 
     // Edición general
@@ -465,10 +488,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       campos.asignados_ids = Array.isArray(body.asignados) ? body.asignados.map((a: { id: string }) => a.id) : []
     }
     if (body.checklist !== undefined) campos.checklist = body.checklist
-    if (body.vinculos !== undefined) {
-      campos.vinculos = body.vinculos
-      campos.vinculo_ids = body.vinculos.map((v: { id: string }) => v.id)
-    }
+    // body.vinculos se sincroniza con actividades_relaciones POST-UPDATE
+    // (sub-PR 20.6). Las columnas legacy vinculos/vinculo_ids ya no se
+    // escriben acá; el commit 8 las dropea.
 
     // Cambio de tipo
     if (body.tipo_id !== undefined) {
@@ -504,6 +526,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Error al editar' }, { status: 500 })
     }
 
+    // Sincronizar vínculos contra actividades_relaciones (diff: INSERT
+    // los nuevos, DELETE los removidos, UPDATE los que cambiaron nombre).
+    if (body.vinculos !== undefined) {
+      const nuevosVinculos: VinculoLegacy[] = Array.isArray(body.vinculos) ? body.vinculos : []
+      await sincronizarVinculosActividad(admin, empresaId, id, nuevosVinculos, user.id)
+    }
+
     // Registrar edición en recientes (fire-and-forget)
     registrarReciente({
       empresaId, usuarioId: user.id, tipoEntidad: 'actividad', entidadId: id,
@@ -531,7 +560,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    return NextResponse.json(data)
+    const mapaVinculos = await cargarVinculosPorActividad(admin, empresaId, [id])
+    return NextResponse.json({ ...data, vinculos: mapaVinculos.get(id) ?? [] })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

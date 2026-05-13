@@ -1,4 +1,8 @@
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import {
+  insertarVinculosActividad,
+  sincronizarVinculosActividad,
+} from '@/lib/actividades-relaciones-helpers'
 
 /**
  * Sincroniza actividad + evento calendario al crear/editar una visita.
@@ -78,8 +82,6 @@ export async function crearRegistrosVinculados(visita: DatosVisita, tipos: Tipos
       fecha_completada: esCompletada ? new Date().toISOString() : null,
       asignado_a: visita.asignado_a,
       asignado_nombre: visita.asignado_nombre,
-      vinculos: [{ tipo: 'contacto', id: visita.contacto_id, nombre: visita.contacto_nombre }],
-      vinculo_ids: [visita.contacto_id],
       creado_por: visita.creado_por,
       creado_por_nombre: visita.creado_por_nombre,
     })
@@ -87,6 +89,16 @@ export async function crearRegistrosVinculados(visita: DatosVisita, tipos: Tipos
     .single()
 
   if (!actividad) return null
+
+  // Vincular actividad con el contacto en actividades_relaciones
+  // (sub-PR 20.6: reemplaza el legacy vinculos/vinculo_ids).
+  await insertarVinculosActividad(
+    admin,
+    visita.empresa_id,
+    actividad.id,
+    [{ tipo: 'contacto', id: visita.contacto_id, nombre: visita.contacto_nombre }],
+    visita.creado_por,
+  )
 
   // Crear evento calendario
   const asignados = visita.asignado_a
@@ -153,11 +165,19 @@ export async function sincronizarRegistrosVinculados(visita: DatosVisita, tipos:
         fecha_completada: esCompletada ? new Date().toISOString() : null,
         asignado_a: visita.asignado_a,
         asignado_nombre: visita.asignado_nombre,
-        vinculos: [{ tipo: 'contacto', id: visita.contacto_id, nombre: visita.contacto_nombre }],
-        vinculo_ids: [visita.contacto_id],
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', visita.actividad_id)
+
+    // Sincronizar vínculo con contacto en actividades_relaciones
+    // (sub-PR 20.6: reemplaza el legacy vinculos/vinculo_ids).
+    await sincronizarVinculosActividad(
+      admin,
+      visita.empresa_id,
+      visita.actividad_id,
+      [{ tipo: 'contacto', id: visita.contacto_id, nombre: visita.contacto_nombre }],
+      visita.creado_por,
+    )
   }
 
   // Actualizar evento calendario vinculado (buscar por visita_id)

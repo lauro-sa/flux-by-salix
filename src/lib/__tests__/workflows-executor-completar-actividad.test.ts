@@ -153,7 +153,6 @@ const filaActA = {
   titulo: 'Presupuestar para visita 1',
   tipo_id: 'tipo-presupuestar',
   asignados_ids: ['user-1'],
-  vinculo_ids: ['contacto-1'],
   creado_en: '2026-04-30T10:00:00Z',
 }
 const filaActB = {
@@ -161,7 +160,6 @@ const filaActB = {
   titulo: 'Presupuestar para visita 2',
   tipo_id: 'tipo-presupuestar',
   asignados_ids: ['user-1'],
-  vinculo_ids: ['contacto-2'],
   creado_en: '2026-05-02T10:00:00Z',
 }
 
