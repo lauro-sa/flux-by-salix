@@ -9,6 +9,11 @@ import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
 import { ordenarActividadesInteligente } from '@/lib/orden-actividades'
+import {
+  cargarVinculosPorActividad,
+  insertarVinculosActividad,
+  type VinculoLegacy,
+} from '@/lib/actividades-relaciones-helpers'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -117,19 +122,33 @@ export async function GET(request: NextRequest) {
       query = query.eq('creado_por', creado_por)
     }
 
-    // Filtro por contacto vinculado
-    if (contacto_id) {
-      query = query.contains('vinculo_ids', [contacto_id])
-    }
+    // Filtros por entidad vinculada: pre-query a actividades_relaciones
+    // para resolver los IDs de actividad y filtrar la query principal.
+    // Si la pre-query no encuentra nada, retornamos vacío sin tocar BD.
+    const filtrosRelacion: Array<{ tipo: string; id: string }> = []
+    if (contacto_id) filtrosRelacion.push({ tipo: 'contacto', id: contacto_id })
+    if (orden_trabajo_id) filtrosRelacion.push({ tipo: 'orden', id: orden_trabajo_id })
+    if (presupuesto_id) filtrosRelacion.push({ tipo: 'presupuesto', id: presupuesto_id })
 
-    // Filtro por orden de trabajo vinculada
-    if (orden_trabajo_id) {
-      query = query.contains('vinculo_ids', [orden_trabajo_id])
-    }
-
-    // Filtro por presupuesto vinculado
-    if (presupuesto_id) {
-      query = query.contains('vinculo_ids', [presupuesto_id])
+    if (filtrosRelacion.length > 0) {
+      let idsRelacionados: string[] | null = null
+      for (const filtro of filtrosRelacion) {
+        const { data: rels } = await admin
+          .from('actividades_relaciones')
+          .select('actividad_id')
+          .eq('empresa_id', empresaId)
+          .eq('entidad_tipo', filtro.tipo)
+          .eq('entidad_id', filtro.id)
+        const ids = [...new Set((rels || []).map(r => r.actividad_id as string))]
+        idsRelacionados = idsRelacionados === null
+          ? ids
+          : idsRelacionados.filter(x => ids.includes(x))
+        if (idsRelacionados.length === 0) break
+      }
+      if (!idsRelacionados || idsRelacionados.length === 0) {
+        return NextResponse.json({ actividades: [], total: 0, pagina, por_pagina })
+      }
+      query = query.in('id', idsRelacionados)
     }
 
     // Filtro por fecha — calculado en la zona de la empresa para que "hoy/semana/vencidas"
@@ -221,8 +240,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Adaptador `vinculos`: construido desde actividades_relaciones para
+    // sobrescribir el campo legacy y desacoplar consumidores del schema viejo.
+    const vinculosPorActividad = await cargarVinculosPorActividad(
+      admin,
+      empresaId,
+      actividades.map(a => a.id),
+    )
+    const actividadesConVinculos = actividades.map(a => ({
+      ...a,
+      vinculos: vinculosPorActividad.get(a.id) ?? [],
+    }))
+
     return NextResponse.json({
-      actividades,
+      actividades: actividadesConVinculos,
       total: count || 0,
       pagina,
       por_pagina,
@@ -272,9 +303,9 @@ export async function POST(request: NextRequest) {
 
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
 
-    // Vínculos
-    const vinculos = Array.isArray(body.vinculos) ? body.vinculos : []
-    const vinculoIds = vinculos.map((v: { id: string }) => v.id)
+    // Vínculos: ya no se persisten en actividades.vinculos / vinculo_ids
+    // (sub-PR 20.6). Se mapean a actividades_relaciones post-INSERT.
+    const vinculos: VinculoLegacy[] = Array.isArray(body.vinculos) ? body.vinculos : []
 
     const { data, error } = await admin
       .from('actividades')
@@ -291,8 +322,6 @@ export async function POST(request: NextRequest) {
         asignados: Array.isArray(body.asignados) ? body.asignados : [],
         asignados_ids: Array.isArray(body.asignados_ids) ? body.asignados_ids : [],
         checklist: body.checklist || [],
-        vinculos,
-        vinculo_ids: vinculoIds,
         creado_por: user.id,
         creado_por_nombre: nombreCreador,
       })
@@ -303,6 +332,9 @@ export async function POST(request: NextRequest) {
       console.error('Error al crear actividad:', error)
       return NextResponse.json({ error: 'Error al crear actividad' }, { status: 500 })
     }
+
+    // Persistir vínculos en actividades_relaciones (batch idempotente).
+    await insertarVinculosActividad(admin, empresaId, data.id, vinculos, user.id)
 
     // Registrar UNA entrada en el chatter de cada entidad vinculada
     // Para evitar duplicados, registrar en cada entidad con todos los vínculos como contexto
@@ -367,7 +399,7 @@ export async function POST(request: NextRequest) {
       accion: 'creado',
     })
 
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json({ ...data, vinculos }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
