@@ -184,7 +184,23 @@ await admin
 
 ---
 
-## 4. Plan de commits internos (6 commits)
+## 4. Plan de commits internos (8 commits — actualizado tras H2)
+
+> **Nota:** la versión original del plan tenía 6 commits. Tras el barrido completo de
+> consumidores durante la ejecución (Hallazgo H2, ver §12), se descubrió que el plan
+> §5 original subestimaba el blast radius en 6 archivos. La tabla revisada queda:
+>
+> | # | Commit | Archivos principales |
+> |---|---|---|
+> | 1 | Migración SQL (070+071): `entidad_nombre` + backfill + resync legacy | `sql/070_*.sql`, `sql/071_*.sql` |
+> | 2 | Backend POST/PATCH/GET actividades | `api/actividades/route.ts`, `api/actividades/[id]/route.ts` |
+> | 3 | Motor `executor.ts` (escritura + lectura) + mocks de tests del motor | `lib/workflows/executor.ts`, `lib/__tests__/workflows-executor-completar-actividad.test.ts` |
+> | 4 | Backend contactos completo (sync + enriquecimiento + filtros) | `api/contactos/[id]/route.ts`, `api/contactos/route.ts`, `lib/enriquecer-contactos.ts` |
+> | 5 | Salix IA (consultar + crear) | `lib/salix-ia/herramientas/ejecutores/consultar-actividades.ts`, `…/crear-actividad.ts` |
+> | 6 | Frontend UI (ModalActividad + chatter + listado + vista) | 5 archivos del plan §5 |
+> | — | **PAUSA — usuario commitea WIP completo a main** | — |
+> | 7 | Refactor `visitas-sync.ts` + `presupuestos/enriquecer-listado.ts` (post-rebase sobre main con WIP) | 2 archivos del WIP del usuario |
+> | 8 | Drop columnas legacy + regen `database.types.ts` | `sql/072_*.sql`, `src/db/esquema.ts`, `src/db/database.types.ts` |
 
 ### Commit 1 — Migración SQL: `actividades_relaciones.entidad_nombre` + backfill
 
@@ -533,3 +549,38 @@ Si el sub-PR rompe producción:
 ---
 
 **Generado por el coordinador el 2026-05-11 post-merge del PR 20 (hash `77e5299`).**
+
+---
+
+## 12. Hallazgo H2 — Blast radius extendido (descubierto durante ejecución)
+
+**Fecha**: 2026-05-12, durante el barrido pre-Commit 2 del ejecutor.
+
+**Resumen**: el grep completo de `actividades.vinculos` / `vinculos:` / `vinculo_ids` reveló 6 archivos críticos no anticipados en el §5 original. El plan se rebalanceó de 6 a 8 commits para cubrir el motor del PR 20 + el listado de contactos + dos archivos del WIP del usuario.
+
+### 12.1 Archivos no anticipados en plan §5
+
+| # | Archivo | Riesgo | Commit asignado |
+|---|---|---|---|
+| 1 | `src/lib/workflows/executor.ts` | 🔴 Crítico — motor del PR 20: lee `vinculo_ids` para `completar_actividad`, escribe `vinculos`+`vinculo_ids` al crear actividad desde flow | 3 |
+| 2 | `src/lib/enriquecer-contactos.ts` | 🔴 Listado de contactos: agrupa actividades pendientes por contacto via `vinculo_ids` con `.filter('vinculo_ids', 'ov', '{…}')` | 4 |
+| 3 | `src/app/api/contactos/route.ts` | 🔴 Filtros `con_pendientes`/`sin_pendientes` agg `vinculo_ids` para listado de contactos | 4 |
+| 4 | `src/lib/visitas-sync.ts` | 🟡 WIP del usuario, MODIFICADO: INSERT/UPDATE de actividad vinculada a visita con `vinculos`+`vinculo_ids` | 7 (post-PAUSA) |
+| 5 | `src/lib/presupuestos/enriquecer-listado.ts` | 🟡 WIP del usuario, NUEVO untracked: enriquece listado de presupuestos con actividades pendientes via `vinculo_ids` | 7 (post-PAUSA) |
+| 6 | `src/lib/__tests__/workflows-executor-completar-actividad.test.ts` | 🟡 Mocks de actividad con `vinculo_ids`. Hay que actualizar el shape | 3 (junto con motor) |
+
+### 12.2 Justificación de la PAUSA antes del Commit 7
+
+Los archivos del WIP del usuario (`visitas-sync.ts` modificado + `presupuestos/enriquecer-listado.ts` nuevo untracked) NO pueden refactorizarse sin colisionar con su trabajo en progreso. `git apply --3way` resuelve adjacentes pero NO archivos nuevos untracked. La estrategia: ejecutar commits 2-6, pausar, pedir al usuario commitear su WIP completo a main, rebasear la branch, y recién después ejecutar commits 7 y 8.
+
+### 12.3 Validación visual del §7
+
+La validación visual se hace **después del Commit 8** (drop final), no después del 6 como sugería el plan original. Durante el período entre Commit 6 y Commit 8, el preview de Vercel mostrará inconsistencias para los flujos de visitas y listado de presupuestos — esto es esperable.
+
+### 12.4 Deudas externas anotadas durante el 20.6
+
+- Migración `20260512230114_ordenes_trabajo_direccion_coords` aplicada en BD pero sin archivo en `sql/`. Es WIP del usuario, fuera de scope del 20.6, debe quedar INTACTA. El usuario decide cuándo volcarla a `sql/` al commitear su WIP.
+
+---
+
+**Hallazgo H2 documentado por el ejecutor el 2026-05-12 con voto del coordinador.**
