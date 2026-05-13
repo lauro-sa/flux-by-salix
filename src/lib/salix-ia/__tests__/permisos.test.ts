@@ -63,6 +63,7 @@ const configCompleta: ConfigSalixIA = {
   personalidad: '',
   herramientas_habilitadas: [
     'buscar_contactos', 'obtener_contacto', 'crear_contacto', 'modificar_contacto',
+    'consultar_vinculaciones_contacto', 'vincular_contactos',
     'buscar_direccion',
     'crear_actividad', 'crear_recordatorio', 'crear_visita',
     'consultar_equipo', 'consultar_productos',
