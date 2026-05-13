@@ -63,6 +63,7 @@ import {
 import { aplicarTransicionEstado } from '@/lib/estados/aplicar-transicion'
 import { registrarChatter } from '@/lib/chatter'
 import { esEntidadRelacionable } from '@/tipos/actividades-relaciones'
+import { insertarVinculosActividad } from '@/lib/actividades-relaciones-helpers'
 import { evaluarCondicion } from './evaluar-condicion'
 
 // =============================================================
@@ -407,11 +408,6 @@ async function ejecutarCrearActividad(
     }
   }
 
-  const vinculos = accion.contacto_id
-    ? [{ tipo: 'contacto', id: accion.contacto_id }]
-    : []
-  const vinculo_ids = accion.contacto_id ? [accion.contacto_id] : []
-
   const { data, error } = await admin
     .from('actividades')
     .insert({
@@ -427,8 +423,6 @@ async function ejecutarCrearActividad(
       asignados: [],
       asignados_ids: accion.asignados_ids ?? [],
       checklist: [],
-      vinculos,
-      vinculo_ids,
       // Marcamos creado_por como NULL: lo creó un workflow, no un
       // usuario humano. La columna nombre se mantiene legible.
       creado_por: null,
@@ -438,6 +432,29 @@ async function ejecutarCrearActividad(
     .single()
 
   if (error) return errSupabase(error, 'insertar actividad')
+
+  // Si la acción incluye contacto_id, registrarlo en actividades_relaciones
+  // (reemplaza el legacy `vinculos`/`vinculo_ids`). Fetcheamos el nombre
+  // para cachear `entidad_nombre`. Si el contacto no existe, omitimos sin
+  // romper (es responsabilidad del autor del flujo dar un id válido).
+  if (accion.contacto_id) {
+    const { data: contacto } = await admin
+      .from('contactos')
+      .select('nombre, apellido')
+      .eq('id', accion.contacto_id)
+      .eq('empresa_id', contexto.empresa_id)
+      .maybeSingle()
+    if (contacto) {
+      const nombre = `${contacto.nombre} ${contacto.apellido ?? ''}`.trim()
+      await insertarVinculosActividad(
+        admin,
+        contexto.empresa_id,
+        data.id,
+        [{ tipo: 'contacto', id: accion.contacto_id, nombre }],
+        null,
+      )
+    }
+  }
 
   // Auto-enriquecimiento (sub-PR 20.2): si el flujo tiene entidad
   // disparadora (no es cron sin entidad), registramos la relación N:M
@@ -589,17 +606,46 @@ async function ejecutarCompletarActividad(
     }
   }
 
+  // Si el criterio filtra por contacto_id, pre-query a
+  // actividades_relaciones para resolver los actividad_ids vinculados a
+  // ese contacto (reemplaza el legacy `.contains('vinculo_ids', ...)`).
+  let idsContacto: string[] | null = null
+  if (c.contacto_id) {
+    const { data: relsContacto, error: errRelsContacto } = await admin
+      .from('actividades_relaciones')
+      .select('actividad_id')
+      .eq('empresa_id', contexto.empresa_id)
+      .eq('entidad_tipo', 'contacto')
+      .eq('entidad_id', c.contacto_id)
+    if (errRelsContacto) return errSupabase(errRelsContacto, 'resolver actividades por contacto')
+    idsContacto = ((relsContacto ?? []) as Array<{ actividad_id: string }>).map((r) => r.actividad_id)
+    if (idsContacto.length === 0) {
+      // Sin actividades vinculadas a ese contacto: same fallback que matches=0
+      if (siNoEncuentra === 'fallar') {
+        return {
+          ok: false,
+          error: {
+            mensaje: 'completar_actividad: ninguna actividad coincide con el criterio.',
+            transitorio: false,
+            raw_class: 'NoEncontrada',
+          },
+        }
+      }
+      return { ok: true, resultado: { cantidad: 0, actividades_completadas: [] } }
+    }
+  }
+
   // Construir query de búsqueda. limit = 2 cuando si_multiple ≠ 'todas'
   // para detectar el caso "hay más de uno" sin traer toda la tabla.
   let q = admin
     .from('actividades')
-    .select('id, titulo, tipo_id, asignados_ids, vinculo_ids, creado_en')
+    .select('id, titulo, tipo_id, asignados_ids, creado_en')
     .eq('empresa_id', contexto.empresa_id)
     .eq('estado_clave', estadoClave)
 
   if (c.tipo_actividad_id) q = q.eq('tipo_id', c.tipo_actividad_id)
   if (c.asignado_id) q = q.contains('asignados_ids', [c.asignado_id])
-  if (c.contacto_id) q = q.contains('vinculo_ids', [c.contacto_id])
+  if (idsContacto !== null) q = q.in('id', idsContacto)
   // Restricción cross-entidad: solo actividades vinculadas a la entidad
   // del criterio.relacionada_a. Combina con tipo_actividad_id si ambos
   // vienen — más restrictivos = mejor especificidad.
@@ -620,7 +666,6 @@ async function ejecutarCompletarActividad(
     titulo: string
     tipo_id: string
     asignados_ids: string[] | null
-    vinculo_ids: string[] | null
     creado_en: string
   }>
 
