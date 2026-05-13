@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorTipoActividad } from '@/componentes/entidad/_editor_tipo_actividad/PaginaEditorTipoActividad'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useMiembrosAsignables } from '@/hooks/useMiembrosAsignables'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { TipoActividad } from '../../_tipos'
 import { MODULOS_DISPONIBLES } from '../../_tipos'
 
@@ -18,6 +19,7 @@ export default function PaginaEditarTipoActividad() {
   const [tipos, setTipos] = useState<TipoActividad[]>([])
   const { data: miembros = [] } = useMiembrosAsignables()
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(tipo?.etiqueta || null)
 
   useEffect(() => {
     let cancelado = false

@@ -4,6 +4,7 @@
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { htmlATextoPlano } from '@/lib/notas/html'
 
 export async function ejecutarConsultarNotas(
   ctx: ContextoSalixIA,
@@ -76,15 +77,18 @@ export async function ejecutarConsultarNotas(
     }
   }
 
-  // Formatear resumen
+  // Formatear resumen — el contenido en BD es HTML de Tiptap, así que
+  // lo convertimos a texto plano antes de mostrarlo por WhatsApp. Los
+  // ítems de checklist se marcan con [ ] / [x] dentro de htmlATextoPlano.
   const lineas: string[] = []
 
   if (propias.length > 0) {
     lineas.push(`*Tus notas (${propias.length}):*`)
     for (const n of propias) {
-      const preview = n.contenido.slice(0, 80).replace(/\n/g, ' ')
+      const planoLargo = htmlATextoPlano(n.contenido)
+      const preview = planoLargo.slice(0, 80).replace(/\n/g, ' ')
       const pin = n.fijada ? '📌 ' : ''
-      lineas.push(`${pin}• ${n.titulo || 'Sin título'}: ${preview}${n.contenido.length > 80 ? '...' : ''}`)
+      lineas.push(`${pin}• ${n.titulo || 'Sin título'}: ${preview}${planoLargo.length > 80 ? '...' : ''}`)
     }
   }
 
@@ -92,14 +96,21 @@ export async function ejecutarConsultarNotas(
     if (lineas.length > 0) lineas.push('')
     lineas.push(`*Compartidas conmigo (${compartidas.length}):*`)
     for (const n of compartidas) {
-      const preview = n.contenido.slice(0, 80).replace(/\n/g, ' ')
-      lineas.push(`• ${n.titulo || 'Sin título'}: ${preview}${n.contenido.length > 80 ? '...' : ''}`)
+      const planoLargo = htmlATextoPlano(n.contenido)
+      const preview = planoLargo.slice(0, 80).replace(/\n/g, ' ')
+      lineas.push(`• ${n.titulo || 'Sin título'}: ${preview}${planoLargo.length > 80 ? '...' : ''}`)
     }
   }
 
+  // Devolvemos también la versión texto plano del contenido en `datos`
+  // para que el LLM (próximo paso del agente) razone sobre el texto
+  // legible y no sobre HTML con tags.
+  const propiasTexto = propias.map((n) => ({ ...n, contenido: htmlATextoPlano(n.contenido) }))
+  const compartidasTexto = compartidas.map((n) => ({ ...n, contenido: htmlATextoPlano(n.contenido) }))
+
   return {
     exito: true,
-    datos: { propias, compartidas },
+    datos: { propias: propiasTexto, compartidas: compartidasTexto },
     mensaje_usuario: lineas.join('\n'),
   }
 }

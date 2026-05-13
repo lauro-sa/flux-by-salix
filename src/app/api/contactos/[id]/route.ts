@@ -390,11 +390,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     }
 
-    // Propagar cambio de nombre a vínculos de actividades y notificaciones (fire-and-forget)
-    if ('nombre' in campos || 'apellido' in campos) {
-      const nombreCompleto = `${data.nombre || ''} ${data.apellido || ''}`.trim()
-      propagarCambioNombreContacto(admin, empresaId, id, nombreCompleto).catch((err) =>
-        console.error('Error al propagar nombre de contacto:', err)
+    // Propagar snapshot del contacto a todas las tablas que lo desnormalizan
+    // (presupuestos no congelados, órdenes no publicadas, visitas, actividades,
+    // conversaciones). Se dispara cuando cambia cualquier campo desnormalizado:
+    // nombre/apellido, correo, identificación, condición IVA, tipo de contacto
+    // o teléfonos. La función decide qué columnas actualizar y a qué entidades.
+    const camposPropagables = ['nombre', 'apellido', 'correo', 'numero_identificacion',
+      'datos_fiscales', 'tipo_contacto_id']
+    const cambioPropagable = camposPropagables.some(c => c in campos) || reemplazarTelefonos
+    if (cambioPropagable) {
+      propagarCambioContacto(admin, empresaId, id).catch((err) =>
+        console.error('Error al propagar snapshot de contacto:', err)
       )
     }
 
@@ -516,23 +522,59 @@ export async function DELETE(
 }
 
 /**
- * Propaga el cambio de nombre de un contacto a todas las tablas que lo desnormalizan:
- * 1. Vínculos JSONB de actividades
- * 2. Conversaciones (contacto_nombre)
- * 3. Presupuestos (contacto_nombre, contacto_apellido)
- * Se ejecuta fire-and-forget para no bloquear la respuesta del PATCH.
+ * Propaga el snapshot completo del contacto a todas las tablas que lo
+ * desnormalizan. Se ejecuta fire-and-forget tras un PATCH del contacto.
+ *
+ * Reglas de respeto del estado:
+ *   - presupuestos:  solo si cerrado=false (estados borrador/enviado).
+ *                    Los terminales (confirmado_cliente, orden_venta, etc.)
+ *                    quedaron cerrados al cambiar de estado y no se tocan
+ *                    nunca más — lo que el cliente firmó / aceptó se respeta.
+ *   - ordenes_trabajo: solo si publicada=false. Una OT publicada ya está
+ *                    visible para el equipo de campo y no se modifica.
+ *   - visitas:       siempre (no tienen estado congelado, son operativas).
+ *   - actividades / conversaciones: siempre (son contextuales).
+ *
+ * NO toca `contacto_direccion`. La dirección se propaga por separado desde
+ * el endpoint de direcciones, porque cada presupuesto/orden tiene una
+ * `direccion_id` específica que puede no ser la principal.
  */
-async function propagarCambioNombreContacto(
+async function propagarCambioContacto(
   admin: ReturnType<typeof crearClienteAdmin>,
   empresaId: string,
-  contactoId: string,
-  nombreNuevo: string
+  contactoId: string
 ) {
-  const partes = nombreNuevo.split(' ')
-  const nombre = partes[0] || ''
-  const apellido = partes.slice(1).join(' ') || ''
+  // Re-leer el contacto fresco para construir el snapshot canónico.
+  const { data: contacto } = await admin
+    .from('contactos')
+    .select(`
+      nombre, apellido, correo, telefono,
+      numero_identificacion, datos_fiscales,
+      tipo_contacto:tipos_contacto!tipo_contacto_id(clave),
+      telefonos:contacto_telefonos(valor, tipo, es_principal, es_whatsapp)
+    `)
+    .eq('id', contactoId)
+    .eq('empresa_id', empresaId)
+    .single()
 
-  // 1. Actualizar vínculos JSONB en actividades — obtener y actualizar en batch con Promise.all
+  if (!contacto) return
+
+  const nombre = contacto.nombre || ''
+  const apellido = contacto.apellido || ''
+  const nombreCompleto = `${nombre} ${apellido}`.trim()
+  const tipo = (contacto.tipo_contacto as unknown as { clave: string } | null)?.clave || null
+  const condicionIva = (contacto.datos_fiscales as Record<string, string> | null)?.condicion_iva || null
+  const telefono = contacto.telefono || null
+
+  // WhatsApp implícito: el primer móvil (es_whatsapp=true) o el principal con tipo=movil.
+  // Convención AR documentada en contacto_telefonos.
+  const tels = (contacto.telefonos as { valor: string; tipo: string; es_principal: boolean; es_whatsapp: boolean }[] | null) || []
+  const movilWA = tels.find(t => t.es_whatsapp && t.tipo === 'movil') ||
+                   tels.find(t => t.es_principal && t.tipo === 'movil') ||
+                   tels.find(t => t.tipo === 'movil')
+  const whatsapp = movilWA?.valor || null
+
+  // 1. Vínculos JSONB en actividades (siempre, no tienen estado congelado)
   const { data: actividades } = await admin
     .from('actividades')
     .select('id, vinculos')
@@ -545,8 +587,8 @@ async function propagarCambioNombreContacto(
       const vinculos = (act.vinculos || []) as { tipo: string; id: string; nombre: string }[]
       let cambio = false
       for (const v of vinculos) {
-        if (v.id === contactoId && v.nombre !== nombreNuevo) {
-          v.nombre = nombreNuevo
+        if (v.id === contactoId && v.nombre !== nombreCompleto) {
+          v.nombre = nombreCompleto
           cambio = true
         }
       }
@@ -558,18 +600,61 @@ async function propagarCambioNombreContacto(
     }
   }
 
-  // Ejecutar todos los updates en paralelo
+  // 2. Presupuestos NO congelados: actualizar snapshot e invalidar PDF cacheado.
+  // El PDF se regenera al próximo acceso porque pdf_generado_en queda null.
+  // No tocamos `actualizado_en` (esto no es una edición del usuario) — la
+  // invalidación del PDF se basa en pdf_generado_en=null.
+  const updatePresupuestos = admin
+    .from('presupuestos')
+    .update({
+      contacto_nombre: nombre,
+      contacto_apellido: apellido,
+      contacto_tipo: tipo,
+      contacto_identificacion: contacto.numero_identificacion,
+      contacto_condicion_iva: condicionIva,
+      contacto_correo: contacto.correo,
+      contacto_telefono: telefono,
+      pdf_url: null,
+      pdf_miniatura_url: null,
+      pdf_storage_path: null,
+      pdf_generado_en: null,
+    })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+    .eq('cerrado', false)
+
+  // 3. Órdenes NO publicadas: actualizar snapshot operativo
+  const updateOrdenes = admin
+    .from('ordenes_trabajo')
+    .update({
+      contacto_nombre: nombreCompleto,
+      contacto_correo: contacto.correo,
+      contacto_telefono: telefono,
+      contacto_whatsapp: whatsapp,
+    })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+    .eq('publicada', false)
+
+  // 4. Visitas: solo nombre (la dirección la maneja el endpoint de direcciones)
+  const updateVisitas = admin
+    .from('visitas')
+    .update({ contacto_nombre: nombreCompleto })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+
+  // 5. Conversaciones (inbox): solo nombre
+  const updateConversaciones = admin
+    .from('conversaciones')
+    .update({ contacto_nombre: nombreCompleto })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+
   await Promise.all([
     ...updatesActividades,
-    // 2. Conversaciones
-    admin.from('conversaciones')
-      .update({ contacto_nombre: nombreNuevo })
-      .eq('empresa_id', empresaId)
-      .eq('contacto_id', contactoId),
-    // 3. Presupuestos
-    admin.from('presupuestos')
-      .update({ contacto_nombre: nombre, contacto_apellido: apellido })
-      .eq('empresa_id', empresaId)
-      .eq('contacto_id', contactoId),
+    updatePresupuestos,
+    updateOrdenes,
+    updateVisitas,
+    updateConversaciones,
   ])
 }

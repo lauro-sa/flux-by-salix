@@ -32,6 +32,14 @@ export interface PropiedadesEditorTexto {
   onEditorListo?: (editor: ReturnType<typeof useEditor>) => void
   /** Si se pasa, habilita la extension VariableChip para renderizar variables como chips inline */
   habilitarVariables?: boolean
+  /**
+   * Modo "inline": no agrega border, fondo ni rounded-card al wrapper.
+   * Pensado para casos donde el editor vive dentro de otro contenedor que
+   * ya define el chrome (ej: Panel de notas — el cuerpo es texto fluido,
+   * no una tarjeta visualmente separada del título). El consumidor es
+   * responsable de manejar overflow / scroll en su propio contenedor.
+   */
+  sinMarco?: boolean
 }
 
 // ── Tipo de panel abierto en el toolbar ─────────────────────────────────────

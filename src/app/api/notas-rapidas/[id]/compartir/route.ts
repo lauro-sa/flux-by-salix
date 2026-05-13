@@ -45,42 +45,6 @@ export async function POST(
       return NextResponse.json({ error: 'No puedes compartir contigo mismo' }, { status: 400 })
     }
 
-    // Verificar unicidad: no puede haber otra nota del creador compartida
-    // con exactamente los mismos usuarios (evitar duplicados de notas compartidas)
-    // Primero, obtener los compartidos actuales de esta nota + el nuevo
-    const { data: compartidosActuales } = await admin
-      .from('notas_rapidas_compartidas')
-      .select('usuario_id')
-      .eq('nota_id', id)
-
-    const idsCompartidos = [...(compartidosActuales ?? []).map((c) => c.usuario_id), usuario_id]
-      .sort()
-
-    // Buscar otras notas del mismo creador que tengan exactamente los mismos compartidos
-    const { data: otrasNotas } = await admin
-      .from('notas_rapidas')
-      .select('id')
-      .eq('empresa_id', empresaId)
-      .eq('creador_id', user.id)
-      .eq('archivada', false)
-      .neq('id', id)
-
-    if (otrasNotas && otrasNotas.length > 0) {
-      for (const otra of otrasNotas) {
-        const { data: otrosCompartidos } = await admin
-          .from('notas_rapidas_compartidas')
-          .select('usuario_id')
-          .eq('nota_id', otra.id)
-
-        const idsOtra = (otrosCompartidos ?? []).map((c) => c.usuario_id).sort()
-        if (idsOtra.length === idsCompartidos.length && idsOtra.every((id, i) => id === idsCompartidos[i])) {
-          return NextResponse.json({
-            error: 'Ya tenés una nota compartida con estas mismas personas',
-          }, { status: 409 })
-        }
-      }
-    }
-
     // Upsert para evitar duplicados a nivel de nota-usuario
     const { error } = await admin
       .from('notas_rapidas_compartidas')
@@ -140,7 +104,7 @@ export async function DELETE(
     // Verificar que es el creador
     const { data: nota } = await admin
       .from('notas_rapidas')
-      .select('id, creador_id')
+      .select('id, titulo, creador_id')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -155,6 +119,32 @@ export async function DELETE(
       .delete()
       .eq('nota_id', id)
       .eq('usuario_id', usuario_id)
+
+    // Avisar al usuario que ya no tiene acceso — útil porque la nota
+    // simplemente desaparece de su panel y sino no sabría por qué.
+    // Fire-and-forget: si falla, no rompemos la operación principal.
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+
+    const nombreCreador = perfil
+      ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim() || 'Alguien'
+      : 'Alguien'
+    const tituloNota = nota.titulo || 'Sin título'
+
+    crearNotificacion({
+      empresaId,
+      usuarioId: usuario_id,
+      tipo: 'nota_descompartida',
+      titulo: `${nombreCreador} dejó de compartir una nota contigo`,
+      cuerpo: `"${tituloNota}"`,
+      icono: '🔕',
+      color: '#6b7280',
+      referenciaTipo: 'nota_rapida',
+      referenciaId: id,
+    }).catch(() => {})
 
     return NextResponse.json({ ok: true })
   } catch {

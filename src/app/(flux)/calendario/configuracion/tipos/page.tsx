@@ -220,7 +220,8 @@ export default function PaginaListadoTiposEvento() {
           busqueda={busqueda}
           onBusqueda={setBusqueda}
           placeholder="Buscar por nombre..."
-          onClickFila={(t) => router.push(`/calendario/configuracion/tipos/${t.id}`)}
+          hrefFila={(t) => `/calendario/configuracion/tipos/${t.id}`}
+          ariaLabelFila={(t) => `Abrir tipo ${t.etiqueta || t.id}`}
           idModulo="tipos_evento"
           filasReordenables
           onReordenarFilas={handleReordenar}

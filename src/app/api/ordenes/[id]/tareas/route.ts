@@ -79,6 +79,13 @@ export async function POST(
       return NextResponse.json({ error: 'El título es obligatorio' }, { status: 400 })
     }
 
+    // Tipo: producto | seccion | nota. Default 'producto' para mantener
+    // compatibilidad con consumidores viejos.
+    const tipo: 'producto' | 'seccion' | 'nota' = ['producto', 'seccion', 'nota'].includes(body.tipo)
+      ? body.tipo
+      : 'producto'
+    const esCompletable = tipo === 'producto'
+
     // Verificar que la orden existe y que el usuario puede gestionar
     const [{ data: orden }, { data: asignadosOT }] = await Promise.all([
       admin
@@ -126,22 +133,38 @@ export async function POST(
       .single()
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
 
-    // Construir asignados
-    const asignados = Array.isArray(body.asignados) ? body.asignados : []
+    // Construir asignados — solo aplican a tareas tipo='producto'.
+    const asignados = esCompletable && Array.isArray(body.asignados) ? body.asignados : []
     const asignadosIds = asignados.map((a: { id?: string; usuario_id?: string }) => a.id || a.usuario_id).filter(Boolean)
+
+    // Calcular orden: al final de la lista (max + 1).
+    const { data: maxOrden } = await admin
+      .from('tareas_orden')
+      .select('orden')
+      .eq('orden_trabajo_id', id)
+      .eq('empresa_id', empresaId)
+      .order('orden', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const nuevoOrden = (maxOrden?.orden ?? -1) + 1
 
     const { data, error } = await admin
       .from('tareas_orden')
       .insert({
         empresa_id: empresaId,
         orden_trabajo_id: id,
+        tipo,
         titulo: body.titulo.trim(),
         descripcion: body.descripcion || null,
-        estado: 'pendiente',
+        descripcion_detalle: body.descripcion_detalle || null,
+        codigo_producto: body.codigo_producto || null,
+        // Secciones/notas no son completables: quedan en 'no_aplica'.
+        estado: esCompletable ? 'pendiente' : 'no_aplica',
         prioridad: body.prioridad || 'normal',
-        fecha_vencimiento: body.fecha_vencimiento || null,
+        fecha_vencimiento: esCompletable ? (body.fecha_vencimiento || null) : null,
         asignados,
         asignados_ids: asignadosIds,
+        orden: nuevoOrden,
         creado_por: user.id,
         creado_por_nombre: nombreCreador,
       })

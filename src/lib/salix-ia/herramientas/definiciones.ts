@@ -11,13 +11,22 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'buscar_contactos',
     definicion: {
       name: 'buscar_contactos',
-      description: 'Busca contactos por nombre, teléfono, email o empresa. Devuelve una lista de coincidencias.',
+      description: 'Busca contactos por nombre, teléfono, email o empresa. Soporta filtrar por tipo de contacto (persona, empresa, edificio, proveedor, lead) y enriquecer con actividad reciente (total/última visita, total/último presupuesto).',
       input_schema: {
         type: 'object',
         properties: {
           busqueda: {
             type: 'string',
             description: 'Texto a buscar: nombre, apellido, teléfono, email o empresa del contacto',
+          },
+          tipo_clave: {
+            type: 'string',
+            enum: ['persona', 'empresa', 'edificio', 'proveedor', 'lead'],
+            description: 'Filtrar por tipo de contacto. Útil para "los últimos 5 edificios" → tipo_clave="edificio".',
+          },
+          incluir_actividad: {
+            type: 'boolean',
+            description: 'Si true, agrega a cada contacto: total_visitas, ultima_visita_fecha, ultima_visita_estado, total_presupuestos, ultimo_presupuesto_fecha. Usalo cuando la pregunta involucra "el Carlos que agendé hace poco" o "edificios con visitas recientes".',
           },
           limite: {
             type: 'number',
@@ -55,7 +64,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'crear_contacto',
     definicion: {
       name: 'crear_contacto',
-      description: 'Crea un nuevo contacto en el sistema. Puede ser persona, empresa, edificio, proveedor o lead. Si se indica dirección, la valida con Google Places y la guarda con coordenadas.',
+      description: 'Crea un nuevo contacto en el sistema. Puede ser persona, empresa, edificio, proveedor o lead. Si se indica dirección, la valida con Google Places y la guarda con coordenadas. Soporta vincularlo en el mismo paso a un contacto contenedor (ej: crear "Juan" y vincularlo al edificio "Torres del Sol").',
       input_schema: {
         type: 'object',
         properties: {
@@ -76,6 +85,18 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
             description: 'Dirección del contacto (se valida con Google Places). Ej: "Av. Corrientes 1234, Buenos Aires"',
           },
           notas: { type: 'string', description: 'Notas adicionales' },
+          vincular_a_contacto_id: {
+            type: 'string',
+            description: 'ID del contacto contenedor al que vincular este nuevo contacto como hijo. Usalo para "agregale al edificio X el contacto Juan con tel 1155...". Buscá primero el contenedor con buscar_contactos.',
+          },
+          tipo_relacion_clave: {
+            type: 'string',
+            description: 'Clave del tipo de relación (configurada por la empresa, ej: "empleado_de", "administrador"). Solo aplica si pasás vincular_a_contacto_id.',
+          },
+          puesto_en_contenedor: {
+            type: 'string',
+            description: 'Rol o puesto contextual del nuevo contacto dentro del contenedor (ej: "encargado", "administrador"). Solo aplica si pasás vincular_a_contacto_id.',
+          },
         },
         required: ['nombre'],
       },
@@ -110,6 +131,74 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
           notas: { type: 'string', description: 'Nuevas notas' },
         },
         required: ['contacto_id'],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'editar',
+    soporta_visibilidad: false,
+  },
+
+  // ─── VINCULACIONES ENTRE CONTACTOS ───
+  {
+    nombre: 'consultar_vinculaciones_contacto',
+    definicion: {
+      name: 'consultar_vinculaciones_contacto',
+      description: 'Devuelve los contactos vinculados a un contacto dado. Por defecto trae las dos direcciones: hijos (contactos que este contacto agrupa, ej: empleados de una empresa, personas asignadas a un edificio) y padres (contenedores donde este contacto figura como hijo). Cada vinculado incluye su tipo de contacto, tipo de relación, puesto contextual y datos de contacto.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          contacto_id: {
+            type: 'string',
+            description: 'ID del contacto cuyas vinculaciones querés consultar. Buscalo primero con buscar_contactos.',
+          },
+          direccion: {
+            type: 'string',
+            enum: ['hijos', 'padres', 'ambas'],
+            description: 'hijos = contactos que este agrupa (ej: empleados, personas del edificio). padres = contenedores donde este figura. Default: ambas.',
+          },
+        },
+        required: ['contacto_id'],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: true,
+  },
+
+  {
+    nombre: 'vincular_contactos',
+    definicion: {
+      name: 'vincular_contactos',
+      description: 'Vincula dos contactos existentes (o desvincula si pasás desvincular=true). La vinculación es unidireccional: contacto_id es el dueño/contenedor (típicamente edificio o empresa) y vinculado_id es el hijo (la persona). Para crear un contacto nuevo Y vincularlo en un solo paso, usá crear_contacto con vincular_a_contacto_id.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          contacto_id: {
+            type: 'string',
+            description: 'ID del contacto contenedor (edificio, empresa, etc.). Buscalo con buscar_contactos.',
+          },
+          vinculado_id: {
+            type: 'string',
+            description: 'ID del contacto a vincular como hijo. Buscalo con buscar_contactos.',
+          },
+          tipo_relacion_clave: {
+            type: 'string',
+            description: 'Clave del tipo de relación (configurada por la empresa, ej: "empleado_de", "administrador"). Si no la conocés, omitilo o consultá las disponibles probando con una y leyendo el error.',
+          },
+          puesto: {
+            type: 'string',
+            description: 'Rol o puesto contextual del vinculado dentro del contenedor (ej: "encargado del edificio", "administradora").',
+          },
+          recibe_documentos: {
+            type: 'boolean',
+            description: 'Si true, este vinculado puede recibir documentos en nombre del contenedor (ej: presupuestos, facturas). Default: false.',
+          },
+          desvincular: {
+            type: 'boolean',
+            description: 'Si true, elimina la vinculación entre contacto_id y vinculado_id en vez de crearla.',
+          },
+        },
+        required: ['contacto_id', 'vinculado_id'],
       },
     },
     modulo: 'contactos',
@@ -365,7 +454,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'consultar_actividades',
     definicion: {
       name: 'consultar_actividades',
-      description: 'Consulta actividades pendientes, vencidas o completadas. Puede buscar por nombre/título, filtrar por tipo, estado, fecha y asignado.',
+      description: 'Consulta actividades pendientes, vencidas o completadas. Devuelve título, descripción, tipo, estado, prioridad, fecha de vencimiento, asignado y vínculos (contacto/presupuesto). Soporta filtrar por estado, tipo, rango de fechas, asignado y por vencimiento (vencidas / no vencidas / sin fecha).',
       input_schema: {
         type: 'object',
         properties: {
@@ -377,6 +466,11 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
             type: 'string',
             enum: ['pendiente', 'completada', 'cancelada', 'todas'],
             description: 'Estado a filtrar (default: pendiente)',
+          },
+          filtro_vencimiento: {
+            type: 'string',
+            enum: ['todas', 'vencidas', 'no_vencidas', 'sin_fecha'],
+            description: 'Filtro adicional por vencimiento. Es ortogonal al estado: "pendientes que no estén vencidas" → estado="pendiente" + filtro_vencimiento="no_vencidas". "Pendientes vencidas" → estado="pendiente" + filtro_vencimiento="vencidas". Default: todas.',
           },
           tipo_clave: {
             type: 'string',
@@ -409,7 +503,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'consultar_visitas',
     definicion: {
       name: 'consultar_visitas',
-      description: 'Consulta las visitas programadas, completadas o canceladas. Puede buscar por nombre de contacto, dirección o motivo.',
+      description: 'Consulta las visitas programadas, completadas o canceladas. Puede buscar por nombre de contacto, dirección, motivo, o filtrar por tipo de contacto (ej: visitas solo a edificios).',
       input_schema: {
         type: 'object',
         properties: {
@@ -421,6 +515,16 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
             type: 'string',
             enum: ['programada', 'en_camino', 'en_sitio', 'completada', 'cancelada', 'todas'],
             description: 'Estado a filtrar (default: programada)',
+          },
+          tipo_contacto_clave: {
+            type: 'string',
+            enum: ['persona', 'empresa', 'edificio', 'proveedor', 'lead'],
+            description: 'Filtrar visitas cuyo contacto sea de cierto tipo. Útil para "los últimos 5 edificios" → tipo_contacto_clave="edificio" + orden="desc".',
+          },
+          orden: {
+            type: 'string',
+            enum: ['asc', 'desc'],
+            description: 'Orden por fecha. asc = próximas primero, desc = más recientes primero. Default: asc para programadas, desc para completadas/canceladas.',
           },
           fecha_desde: {
             type: 'string',

@@ -20,6 +20,7 @@ function Sidebar({
   hoverExpandido,
   onMouseEnter,
   onMouseLeave,
+  onMenuActivoChange,
 }: PropiedadesSidebar) {
   // Swipe para cerrar el drawer en movil
   const swipeProps = useSwipe({ onSwipeIzquierda: onCerrarMobil })
@@ -29,6 +30,7 @@ function Sidebar({
       colapsado={colapsado}
       onToggle={onToggle}
       onCerrarMobil={onCerrarMobil}
+      onMenuActivoChange={onMenuActivoChange}
     />
   )
 
@@ -39,24 +41,36 @@ function Sidebar({
         <aside
           className="hidden md:block fixed top-0 left-0 h-dvh border-r border-borde-sutil bg-superficie-sidebar z-30 transition-[width] duration-200 cristal-panel overflow-hidden sidebar-scroll"
           style={{ width: colapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)' }}
+          aria-label="Barra lateral"
         >
           {contenido}
         </aside>
       )}
 
-      {/* Modo auto-ocultar: barra minimizada + expansion al hover */}
+      {/* Modo auto-ocultar: barra minimizada + expansion al hover/foco.
+          onFocus/Blur (capture) permite que la sidebar se mantenga abierta
+          cuando el usuario navega con teclado (Tab). */}
       {autoOcultar && (
         <aside
           className="hidden md:flex fixed top-0 left-0 h-dvh bg-superficie-sidebar z-50 cristal-panel overflow-hidden sidebar-scroll border-r border-borde-sutil"
           style={{
             width: hoverExpandido ? 'var(--sidebar-ancho)' : 'var(--sidebar-ancho-colapsado)',
-            boxShadow: hoverExpandido ? '4px 0 24px rgba(0,0,0,0.25)' : 'none',
+            // Shadow nunca pasa a 'none' bruscamente — siempre interpola desde un shadow transparente
+            boxShadow: hoverExpandido ? '4px 0 24px rgba(0,0,0,0.25)' : '0 0 0 rgba(0,0,0,0)',
             transition: hoverExpandido
-              ? 'width 400ms cubic-bezier(0.4,0,0.2,1), box-shadow 400ms ease'
-              : 'width 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms ease',
+              ? 'width 400ms cubic-bezier(0.4,0,0.2,1), box-shadow 400ms cubic-bezier(0.4,0,0.2,1)'
+              : 'width 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms cubic-bezier(0.4,0,0.2,1)',
           }}
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
+          onFocusCapture={onMouseEnter}
+          onBlurCapture={(e) => {
+            // Solo cerrar si el foco se va fuera del aside
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+              onMouseLeave?.()
+            }
+          }}
+          aria-label="Barra lateral"
         >
           {contenido}
         </aside>

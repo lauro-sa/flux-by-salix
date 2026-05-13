@@ -4,6 +4,8 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { sembrarRelevamientoOT } from '@/lib/sembrar-relevamiento-ot'
+import { sembrarTareasOT } from '@/lib/sembrar-tareas-ot'
 
 /**
  * POST /api/ordenes/generar — Generar orden de trabajo desde un presupuesto en estado orden_venta.
@@ -81,6 +83,19 @@ export async function POST(request: NextRequest) {
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
     const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido].filter(Boolean).join(' ')
 
+    // Coords de la dirección elegida en el presupuesto. Presupuestos no tiene
+    // las columnas de coords (no las necesita para PDF), pero la OT sí — el
+    // botón Navegar las usa. Se leen desde contacto_direcciones vía direccion_id.
+    let coordsDireccion: { lat: number | null; lng: number | null } = { lat: null, lng: null }
+    if (presupuesto.direccion_id) {
+      const { data: dir } = await admin
+        .from('contacto_direcciones')
+        .select('lat, lng')
+        .eq('id', presupuesto.direccion_id)
+        .maybeSingle()
+      if (dir) coordsDireccion = { lat: dir.lat ?? null, lng: dir.lng ?? null }
+    }
+
     // Obtener datos del contacto de atención ("Dirigido a") si existe
     let atencionSnapshot: Record<string, string | null> = {}
     if (presupuesto.atencion_contacto_id) {
@@ -118,13 +133,20 @@ export async function POST(request: NextRequest) {
       contacto_nombre: nombreContacto || null,
       contacto_telefono: presupuesto.contacto_telefono,
       contacto_correo: presupuesto.contacto_correo,
+      direccion_id: presupuesto.direccion_id,
       contacto_direccion: presupuesto.contacto_direccion,
+      contacto_direccion_lat: coordsDireccion.lat,
+      contacto_direccion_lng: coordsDireccion.lng,
       contacto_whatsapp: presupuesto.contacto_telefono,
       // Dirigido a (atención)
       ...atencionSnapshot,
       // Link al presupuesto
       presupuesto_id: presupuesto.id,
       presupuesto_numero: presupuesto.numero,
+      // Visita de origen heredada del presupuesto. Si está seteada, después de
+      // crear la OT sembramos la galería de relevamiento clonando el chatter
+      // de la visita.
+      visita_id: presupuesto.visita_id || null,
       // Fechas
       fecha_inicio: body.fecha_inicio || null,
       fecha_fin_estimada: body.fecha_fin_estimada || null,
@@ -154,56 +176,21 @@ export async function POST(request: NextRequest) {
 
     if (!orden) return NextResponse.json({ error: 'No se pudo crear la orden' }, { status: 500 })
 
-    // Copiar líneas del presupuesto SIN precios
-    const lineas = lineasRes.data || []
-    const lineasOT = lineas
-      .filter(l => ['producto', 'seccion', 'nota'].includes(l.tipo_linea))
-      .map(l => ({
-        orden_trabajo_id: orden!.id as string,
-        empresa_id: empresaId,
-        tipo_linea: l.tipo_linea,
-        orden: l.orden,
-        codigo_producto: l.codigo_producto,
-        descripcion: l.descripcion,
-        descripcion_detalle: l.descripcion_detalle,
-        cantidad: l.cantidad,
-        unidad: l.unidad,
-      }))
-
-    // Generar tareas automáticas desde las líneas de producto
-    const lineasProducto = lineas.filter(l => l.tipo_linea === 'producto' && l.descripcion)
-
-    const tareasAutoGeneradas = lineasProducto.map((l, idx) => {
-      const cantidadTexto = l.cantidad && l.cantidad !== '1'
-        ? `${l.cantidad}${l.unidad ? ' ' + l.unidad : ''}`
-        : null
-      // Si la descripción es genérica ("Servicio", "Producto") y hay detalle, usar el detalle como título
-      const esGenerica = ['servicio', 'producto'].includes((l.descripcion || '').toLowerCase().trim())
-      const titulo = esGenerica && l.descripcion_detalle
-        ? l.descripcion_detalle.slice(0, 150)
-        : l.descripcion
-      const descripcion = esGenerica
-        ? cantidadTexto
-        : [l.descripcion_detalle, cantidadTexto].filter(Boolean).join(' — ') || null
-      return {
-        empresa_id: empresaId,
-        orden_trabajo_id: orden!.id as string,
-        titulo,
-        descripcion,
-        estado: 'pendiente',
-        prioridad: 'normal',
-        asignados: [],
-        asignados_ids: [],
-        orden: idx,
-        creado_por: user.id,
-        creado_por_nombre: nombreUsuario,
-      }
+    // Sembrar tareas (productos + secciones + notas) desde las líneas del
+    // presupuesto vía helper compartido. Las secciones/notas viajan como
+    // tareas tipo='seccion' / 'nota' con estado='no_aplica' — mantenemos
+    // una sola lista en la OT, espejo del presupuesto, sin duplicar tablas.
+    const sembradoTareas = await sembrarTareasOT({
+      empresaId,
+      presupuestoId: presupuesto.id,
+      ordenTrabajoId: orden.id as string,
+      creadoPor: user.id,
+      creadoPorNombre: nombreUsuario,
     })
 
-    // Insertar líneas + tareas + historial + chatter + asignados en paralelo
+    // Insertar asignados + historial + chatter en paralelo (las tareas ya se
+    // insertaron arriba dentro del helper).
     await Promise.all([
-      lineasOT.length > 0 ? admin.from('lineas_orden_trabajo').insert(lineasOT) : Promise.resolve(),
-      tareasAutoGeneradas.length > 0 ? admin.from('tareas_orden').insert(tareasAutoGeneradas) : Promise.resolve(),
       asignados.length > 0
         ? admin.from('asignados_orden_trabajo').insert(
             asignados.map(a => ({
@@ -235,6 +222,7 @@ export async function POST(request: NextRequest) {
           accion: 'creado',
           presupuesto_id: presupuesto.id,
           presupuesto_numero: presupuesto.numero,
+          detalles: { tareas_sembradas: sembradoTareas.agregadas },
         },
       }),
       // Chatter en el presupuesto
@@ -253,6 +241,37 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
+    // Sembrar galería de relevamiento desde la visita vinculada (si hay).
+    // Best-effort: si falla la siembra no abortamos la creación de la OT — la
+    // OT ya quedó creada y el admin puede re-sincronizar manualmente desde la
+    // sección Relevamiento. Loguear para diagnóstico.
+    if (presupuesto.visita_id) {
+      try {
+        const { agregados } = await sembrarRelevamientoOT({
+          empresaId,
+          visitaId: presupuesto.visita_id as string,
+          ordenTrabajoId: orden.id as string,
+        })
+        if (agregados > 0) {
+          await registrarChatter({
+            empresaId,
+            entidadTipo: 'orden_trabajo',
+            entidadId: orden.id as string,
+            contenido: `Se importaron ${agregados} ${agregados === 1 ? 'entrada' : 'entradas'} de la visita al relevamiento`,
+            autorId: user.id,
+            autorNombre: nombreUsuario || 'Sistema',
+            metadata: {
+              accion: 'relevamiento_sembrado',
+              visita_id: presupuesto.visita_id as string,
+              detalles: { agregados },
+            },
+          })
+        }
+      } catch (err) {
+        console.error('Generar OT: falló la siembra del relevamiento', err)
+      }
+    }
+
     // Registrar en recientes
     registrarReciente({
       empresaId,
@@ -266,7 +285,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       orden,
-      lineas: lineasOT,
+      tareas_sembradas: sembradoTareas.agregadas,
     }, { status: 201 })
   } catch (err) {
     console.error('Error interno POST /api/ordenes/generar:', err)

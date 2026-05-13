@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { sanitizarHtmlNota } from '@/lib/notas/html'
 
 /**
  * GET /api/notas-rapidas — Listar notas del usuario (propias + compartidas).
@@ -49,19 +50,30 @@ export async function GET(request: NextRequest) {
       .select('*, nota:notas_rapidas(*)')
       .eq('usuario_id', user.id)
 
-    // Filtrar compartidas no archivadas, no en papelera, y agregar info de compartido
+    // Filtrar compartidas no archivadas, no en papelera, y agregar info
+    // de compartido. Distinguimos:
+    //  - `_es_nueva`: te la compartieron y nunca la abriste (`leido_en`
+    //     null). Render como badge "Nuevo" en la tarjeta.
+    //  - `_tiene_cambios`: la abriste pero hubo edits posteriores. Render
+    //     como puntito rojo. NOTA: para retro-compatibilidad mantiene el
+    //     comportamiento histórico de incluir las nuevas, así otros
+    //     consumidores (header, useNotasRapidas) siguen funcionando.
     const compartidas = (compartidas_raw ?? [])
       .filter((c) => c.nota && !c.nota.archivada && !c.nota.en_papelera)
-      .map((c) => ({
-        ...c.nota,
-        _compartida: true,
-        _puede_editar: c.puede_editar,
-        _leido_en: c.leido_en,
-        _compartida_id: c.id,
-        _tiene_cambios: c.nota.actualizado_en && c.leido_en
-          ? new Date(c.nota.actualizado_en) > new Date(c.leido_en)
-          : !c.leido_en, // nunca leída = tiene cambios
-      }))
+      .map((c) => {
+        const esNueva = !c.leido_en
+        const huboCambiosDespuesDeLeer = !!(c.nota.actualizado_en && c.leido_en
+          && new Date(c.nota.actualizado_en) > new Date(c.leido_en))
+        return {
+          ...c.nota,
+          _compartida: true,
+          _puede_editar: c.puede_editar,
+          _leido_en: c.leido_en,
+          _compartida_id: c.id,
+          _es_nueva: esNueva,
+          _tiene_cambios: esNueva || huboCambiosDespuesDeLeer,
+        }
+      })
 
     // Para cada nota propia, obtener con quién está compartida
     const notaIds = (propias ?? []).map((n) => n.id)
@@ -111,14 +123,16 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Crear la nota
+    // Crear la nota — el contenido es HTML de Tiptap; sanitizamos antes
+    // de persistir para bloquear scripts/iframes/eventos inline. El
+    // título queda como texto plano (no admite formato).
     const { data: nota, error } = await admin
       .from('notas_rapidas')
       .insert({
         empresa_id: empresaId,
         creador_id: user.id,
-        titulo: titulo || '',
-        contenido: contenido || '',
+        titulo: typeof titulo === 'string' ? titulo : '',
+        contenido: sanitizarHtmlNota(typeof contenido === 'string' ? contenido : ''),
         color: color || 'amarillo',
         actualizado_por: user.id,
       })

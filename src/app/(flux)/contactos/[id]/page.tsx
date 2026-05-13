@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
@@ -115,6 +116,9 @@ function PaginaContactoInterno() {
   // ─── Estado compartido ───
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [codigo, setCodigo] = useState('')
+
+  // Título de la pestaña: nombre del contacto cuando existe; para "nuevo" lo dejamos genérico.
+  useTituloPestana(esNuevo ? null : (nombreCompleto.trim() || null))
   const [tipoContactoId, setTipoContactoId] = useState('')
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [datosFiscales, setDatosFiscales] = useState<Record<string, string>>({})

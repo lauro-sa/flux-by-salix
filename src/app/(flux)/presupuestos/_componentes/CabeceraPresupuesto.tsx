@@ -8,7 +8,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import {
-  Cloud, CloudCheck, X, Info, RefreshCw,
+  Cloud, CloudCheck, CloudUpload, X, Info, RefreshCw,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
   Loader2, MoreHorizontal, Wrench, ShieldCheck, Save,
 } from 'lucide-react'
@@ -28,10 +28,15 @@ interface PropsCabeceraPresupuesto {
   estaCancelado: boolean
   estadosPosibles: EstadoPresupuesto[]
   guardando: boolean
-  /** Timestamp del último guardado exitoso. Se usa para mostrar el feedback
-   *  "Guardado ✓" durante unos segundos después del autoguardado. */
+  /** True cuando el usuario tiene cambios locales aún no enviados al servidor
+   *  (campos con autoguardado en onBlur: notas, condiciones, referencia, días). */
+  tieneCambiosPendientes?: boolean
+  /** Timestamp del último guardado exitoso. Se mantiene por compatibilidad
+   *  pero el indicador ahora se basa en tieneCambiosPendientes (estado real). */
   ultimoGuardadoEn?: number | null
   generandoPdf: boolean
+  /** True mientras se generan PDF + congelado + portal antes de abrir el modal de envío */
+  preparandoEnvio?: boolean
   contactoId: string | null
   idPresupuesto: string | null | undefined
   presupuestoIdCreado: string | null
@@ -70,8 +75,10 @@ export default function CabeceraPresupuesto({
   estaCancelado,
   estadosPosibles,
   guardando,
+  tieneCambiosPendientes = false,
   ultimoGuardadoEn,
   generandoPdf,
+  preparandoEnvio = false,
   contactoId,
   idPresupuesto,
   presupuestoIdCreado,
@@ -98,16 +105,47 @@ export default function CabeceraPresupuesto({
 }: PropsCabeceraPresupuesto) {
   const { t } = useTraduccion()
 
-  // Indicador "Guardado ✓" verde por 2s después de cada guardado exitoso.
-  // Después vuelve al icono Cloud normal. Permite confirmación visual de
-  // los autoguardados sin necesidad de toasts ruidosos.
-  const [mostrarGuardado, setMostrarGuardado] = useState(false)
-  useEffect(() => {
-    if (!ultimoGuardadoEn) return
-    setMostrarGuardado(true)
-    const t = setTimeout(() => setMostrarGuardado(false), 2000)
-    return () => clearTimeout(t)
-  }, [ultimoGuardadoEn])
+  // Indicador de autoguardado con 4 estados claros.
+  // Antes: solo había "guardando" o "verde por 2s" → el usuario no sabía si
+  // estaba todo guardado o no, y los campos onBlur (notas/condiciones) podían
+  // quedar en estado pendiente sin feedback visual.
+  //
+  //   - guardando        → CloudUpload azul animado (request HTTP en vuelo)
+  //   - pendiente        → Cloud ámbar (cambios locales sin enviar; típico
+  //                        mientras escribís en notas o condiciones)
+  //   - guardado         → CloudCheck verde (estado canónico de "todo limpio")
+  //   - inicial          → Cloud gris (modo crear, todavía no se persistió)
+  type EstadoIndicador = 'guardando' | 'pendiente' | 'guardado' | 'inicial'
+  const estadoIndicador: EstadoIndicador =
+    guardando ? 'guardando'
+    : tieneCambiosPendientes ? 'pendiente'
+    : idPresupuesto ? 'guardado'
+    : 'inicial'
+
+  const ICONO_INDICADOR = {
+    guardando: <CloudUpload size={16} />,
+    pendiente: <Cloud size={16} />,
+    guardado: <CloudCheck size={16} />,
+    inicial: <Cloud size={16} />,
+  }[estadoIndicador]
+
+  const CLASES_INDICADOR = {
+    guardando: 'text-texto-marca animate-pulse',
+    pendiente: 'text-insignia-advertencia',
+    guardado: 'text-insignia-exito',
+    inicial: 'text-texto-terciario',
+  }[estadoIndicador]
+
+  const TITULO_INDICADOR = {
+    guardando: 'Guardando…',
+    pendiente: 'Tenés cambios sin guardar (se guardan al salir del campo)',
+    guardado: 'Todo guardado',
+    inicial: contactoId ? 'Guardar presupuesto' : 'Selecciona un cliente primero',
+  }[estadoIndicador]
+
+  // ultimoGuardadoEn queda para futuros usos (toasts, telemetría) — el indicador
+  // ya no depende de él porque el estado canónico viene de tieneCambiosPendientes.
+  void ultimoGuardadoEn
 
   return (
     <div className="px-6 pt-5 pb-4 border-b border-borde-sutil">
@@ -133,33 +171,11 @@ export default function CabeceraPresupuesto({
             variante="fantasma"
             tamano="xs"
             soloIcono
-            icono={
-              guardando
-                ? <Cloud size={16} />
-                : mostrarGuardado
-                  ? <CloudCheck size={16} />
-                  : <Cloud size={16} />
-            }
+            icono={ICONO_INDICADOR}
             onClick={modo === 'crear' && !idPresupuesto ? onCrearPresupuesto : onGuardar}
             disabled={modo === 'crear' && (!contactoId || guardando)}
-            titulo={
-              guardando
-                ? 'Guardando…'
-                : mostrarGuardado
-                  ? 'Guardado'
-                  : idPresupuesto
-                    ? 'Guardado'
-                    : modo === 'crear' && contactoId
-                      ? 'Guardar presupuesto'
-                      : 'Selecciona un cliente primero'
-            }
-            className={
-              guardando
-                ? 'text-texto-marca animate-pulse'
-                : mostrarGuardado
-                  ? 'text-insignia-exito'
-                  : ''
-            }
+            titulo={TITULO_INDICADOR}
+            className={CLASES_INDICADOR}
           />
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={onDescartar} titulo={idPresupuesto ? 'Eliminar presupuesto' : 'Descartar'} className={idPresupuesto ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10' : ''} />
           {/* Info y RefreshCw en modo editar o post-creación */}
@@ -183,6 +199,7 @@ export default function CabeceraPresupuesto({
             estaCancelado={estaCancelado}
             estadosPosibles={estadosPosibles}
             generandoPdf={generandoPdf}
+            preparandoEnvio={preparandoEnvio}
             presupuestoFechaEmision={presupuestoFechaEmision}
             fechaEmision={fechaEmision}
             onCambiarEstado={onCambiarEstado}
@@ -215,7 +232,7 @@ export default function CabeceraPresupuesto({
 
 /** Botones de acción — principales visibles + secundarios en menú ··· */
 function BotonesAccion({
-  estadoActual, estaCancelado, estadosPosibles, generandoPdf,
+  estadoActual, estaCancelado, estadosPosibles, generandoPdf, preparandoEnvio,
   presupuestoFechaEmision, fechaEmision,
   onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir,
   onGenerarOT, onVerOT, generandoOT, ordenTrabajoVinculada,
@@ -225,6 +242,7 @@ function BotonesAccion({
   estaCancelado: boolean
   estadosPosibles: EstadoPresupuesto[]
   generandoPdf: boolean
+  preparandoEnvio?: boolean
   presupuestoFechaEmision?: string | null
   fechaEmision?: string | null
   onCambiarEstado: (estado: EstadoPresupuesto) => void
@@ -338,7 +356,13 @@ function BotonesAccion({
           />
         ) : null
       )}
-      <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />
+      <BotonAccion
+        onClick={onEnviar}
+        icono={preparandoEnvio ? Loader2 : Send}
+        label={preparandoEnvio ? 'Preparando...' : t('documentos.enviar')}
+        disabled={preparandoEnvio}
+        animarIcono={preparandoEnvio}
+      />
       <BotonAccion onClick={onImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
       <BotonAccion onClick={onVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
 

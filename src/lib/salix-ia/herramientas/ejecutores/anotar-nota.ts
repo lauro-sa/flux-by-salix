@@ -5,6 +5,7 @@
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { textoPlanoAHtml, appendTextoPlanoAHtml, sanitizarHtmlNota } from '@/lib/notas/html'
 
 export async function ejecutarAnotarNota(
   ctx: ContextoSalixIA,
@@ -56,7 +57,12 @@ export async function ejecutarAnotarNota(
     }
   }
 
-  // Si hay nota_id, actualizar nota existente (agregar contenido)
+  // El contenido en BD se guarda como HTML de Tiptap. Lo que llega de
+  // params.contenido es texto plano del LLM, así que lo convertimos antes
+  // de persistir (envolver en <p>, escapar caracteres, manejar saltos).
+  // Sanitizamos también para mantener paridad con el endpoint REST.
+
+  // Si hay nota_id, actualizar nota existente (agregar contenido al final)
   if (nota_id) {
     const { data: notaExistente } = await ctx.admin
       .from('notas_rapidas')
@@ -69,9 +75,11 @@ export async function ejecutarAnotarNota(
       return { exito: false, error: 'No encontré esa nota' }
     }
 
-    const nuevoContenido = notaExistente.contenido
-      ? `${notaExistente.contenido}\n${contenido}`
-      : contenido
+    // Append: convierte el texto nuevo a HTML y lo concatena al HTML
+    // existente como un nuevo bloque (preserva checklist y formato).
+    const nuevoContenido = sanitizarHtmlNota(
+      appendTextoPlanoAHtml(notaExistente.contenido || '', contenido)
+    )
 
     const { error } = await ctx.admin
       .from('notas_rapidas')
@@ -100,7 +108,7 @@ export async function ejecutarAnotarNota(
       empresa_id: ctx.empresa_id,
       creador_id: ctx.usuario_id,
       titulo,
-      contenido,
+      contenido: sanitizarHtmlNota(textoPlanoAHtml(contenido)),
       color: 'amarillo',
       actualizado_por: ctx.usuario_id,
     })

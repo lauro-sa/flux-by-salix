@@ -28,6 +28,8 @@ import { ejecutarModificarEvento } from './ejecutores/modificar-evento'
 import { ejecutarAnotarNota } from './ejecutores/anotar-nota'
 import { ejecutarConsultarNotas } from './ejecutores/consultar-notas'
 import { ejecutarModificarNota } from './ejecutores/modificar-nota'
+import { ejecutarConsultarVinculacionesContacto } from './ejecutores/consultar-vinculaciones'
+import { ejecutarVincularContactos } from './ejecutores/vincular-contactos'
 // Tools personales — scope hardcodeado al propio empleado
 import { ejecutarMiReciboPeriodo } from './ejecutores/mi-recibo-periodo'
 import { ejecutarMiProximoPago } from './ejecutores/mi-proximo-pago'
@@ -60,6 +62,8 @@ export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta>
   anotar_nota: ejecutarAnotarNota,
   consultar_notas: ejecutarConsultarNotas,
   modificar_nota: ejecutarModificarNota,
+  consultar_vinculaciones_contacto: ejecutarConsultarVinculacionesContacto,
+  vincular_contactos: ejecutarVincularContactos,
   // Tools personales
   mi_recibo_periodo: (ctx, params) => ejecutarMiReciboPeriodo(ctx, params),
   mi_proximo_pago: (ctx) => ejecutarMiProximoPago(ctx),

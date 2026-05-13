@@ -1,6 +1,54 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
+ * Combina nombre + apellido en un único string. Devuelve null si ambos vacíos.
+ */
+function unirNombre(
+  fuente: { nombre?: string | null; apellido?: string | null } | null | undefined
+): string | null {
+  if (!fuente) return null
+  const completo = `${fuente.nombre || ''} ${fuente.apellido || ''}`.trim()
+  return completo || null
+}
+
+/**
+ * Resuelve nombre de UN miembro siguiendo la misma preferencia:
+ * perfil (cuenta Flux) → contacto equipo vinculado → "Sin nombre".
+ *
+ * Pensado para flujos puntuales (kiosco identificación, modales, paneles)
+ * donde solo se necesita un miembro y traer todos los de la empresa sería
+ * desperdicio. Mantiene paridad de comportamiento con `resolverNombresMiembros`.
+ */
+export async function resolverNombreMiembro(
+  admin: SupabaseClient,
+  args: { miembroId: string; usuarioId: string | null }
+): Promise<string> {
+  const { miembroId, usuarioId } = args
+
+  const [perfilRes, contactoRes] = await Promise.all([
+    usuarioId
+      ? admin
+          .from('perfiles')
+          .select('nombre, apellido')
+          .eq('id', usuarioId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin
+      .from('contactos')
+      .select('nombre, apellido')
+      .eq('miembro_id', miembroId)
+      .eq('en_papelera', false)
+      .maybeSingle(),
+  ])
+
+  return (
+    unirNombre(perfilRes.data as { nombre?: string | null; apellido?: string | null } | null) ||
+    unirNombre(contactoRes.data as { nombre?: string | null; apellido?: string | null } | null) ||
+    'Sin nombre'
+  )
+}
+
+/**
  * Resuelve nombre+apellido de miembros para listados/exports.
  * Con preferencia: perfil (cuenta Flux) → contacto equipo vinculado → "Sin nombre".
  *

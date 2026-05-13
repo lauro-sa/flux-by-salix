@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Bell, Camera, Mic, MapPin, RefreshCw, CheckCircle2, XCircle, AlertCircle,
-  Volume2, VolumeX, MessagesSquare, Zap, Smartphone,
+  Volume2, VolumeX, MessagesSquare, Zap, Smartphone, Clock,
 } from 'lucide-react'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
+import { EditorHorarioNotificaciones, HORARIO_DEFAULT } from '@/componentes/entidad/EditorHorarioNotificaciones'
 import { sonidos } from '@/hooks/useSonido'
 import {
   leerPrefs, guardarPrefs, PREFS_DEFAULT,
@@ -16,6 +17,7 @@ import {
 import { usePushNotificaciones } from '@/hooks/usePushNotificaciones'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { useRol } from '@/hooks/useRol'
+import type { HorarioNotificaciones } from '@/lib/notificaciones-horario'
 
 /**
  * SeccionNotificaciones — permisos PWA + configuración de sonidos por categoría.
@@ -62,8 +64,41 @@ export function SeccionNotificaciones() {
   const { esAdmin, esPropietario } = useRol()
   const esAdminOPropietario = esAdmin || esPropietario
 
+  // Horario laboral (gate de notificaciones diferidas)
+  const [horarioEmpresa, setHorarioEmpresa] = useState<HorarioNotificaciones>(HORARIO_DEFAULT)
+  const [horarioPersonal, setHorarioPersonal] = useState<HorarioNotificaciones | null>(null)
+  const [horarioCargado, setHorarioCargado] = useState(false)
+
   /* Cargar preferencias */
   useEffect(() => { setPrefs(leerPrefs()) }, [])
+
+  /* Cargar horario de notificaciones (empresa + override personal) */
+  useEffect(() => {
+    let cancelado = false
+    const cargar = async () => {
+      try {
+        const res = await fetch('/api/miembros/horario-notificaciones')
+        if (!res.ok) return
+        const data = await res.json() as { empresa: HorarioNotificaciones | null, miembro: HorarioNotificaciones | null }
+        if (cancelado) return
+        setHorarioEmpresa(data.empresa || HORARIO_DEFAULT)
+        setHorarioPersonal(data.miembro)
+      } finally {
+        if (!cancelado) setHorarioCargado(true)
+      }
+    }
+    cargar()
+    return () => { cancelado = true }
+  }, [])
+
+  const guardarHorarioPersonal = useCallback(async (nuevo: HorarioNotificaciones | null) => {
+    setHorarioPersonal(nuevo)
+    await fetch('/api/miembros/horario-notificaciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ horario: nuevo }),
+    })
+  }, [])
 
   const actualizarPref = (campo: keyof PrefsNotificacion, valor: boolean) => {
     const nuevas = { ...prefs, [campo]: valor }
@@ -312,6 +347,49 @@ export function SeccionNotificaciones() {
                 if (v) await push.suscribir()
                 else await push.desuscribir()
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Horario laboral (gate de notificaciones diferidas) ── */}
+      {horarioCargado && (
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-borde-sutil">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock size={18} className="text-texto-terciario" />
+              <h3 className="text-sm font-semibold text-texto-primario">Horario laboral</h3>
+            </div>
+            <p className="text-xs text-texto-terciario">
+              Define cuándo querés recibir notificaciones diferidas (vencimientos, recordatorios, asignaciones internas). Mensajes entrantes de clientes (WhatsApp, correo, portal) suenan siempre.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between px-5 py-4 border-b border-borde-sutil">
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-texto-primario">Personalizar mi horario</span>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                {horarioPersonal
+                  ? 'Estás usando tu horario personal. Apagá para volver al horario por defecto de la empresa.'
+                  : 'Estás usando el horario por defecto de la empresa. Activá para definir uno propio.'}
+              </p>
+            </div>
+            <Interruptor
+              activo={!!horarioPersonal}
+              onChange={(v) => {
+                if (v) guardarHorarioPersonal(horarioEmpresa)
+                else guardarHorarioPersonal(null)
+              }}
+            />
+          </div>
+
+          <div className="px-5 py-4">
+            <EditorHorarioNotificaciones
+              valor={horarioPersonal || horarioEmpresa}
+              onChange={(nuevo) => {
+                if (horarioPersonal) guardarHorarioPersonal(nuevo)
+              }}
+              deshabilitado={!horarioPersonal}
             />
           </div>
         </div>

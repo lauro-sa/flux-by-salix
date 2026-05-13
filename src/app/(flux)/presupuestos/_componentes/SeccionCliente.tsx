@@ -11,6 +11,7 @@ import { Mail, Phone, ExternalLink, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
+import SelectorVisitaPresupuesto from './SelectorVisitaPresupuesto'
 import { useTraduccion } from '@/lib/i18n'
 import type { ContactoResumido, Vinculacion } from './tipos-editor'
 import type { PresupuestoConLineas } from '@/tipos/presupuesto'
@@ -24,6 +25,10 @@ interface PropsSeccionCliente {
   atencionSeleccionada: Vinculacion['vinculado'] | null
   presupuesto: PresupuestoConLineas | null
   idPresupuesto: string | null | undefined
+  /** ID de la dirección elegida (snapshot persistido o selección en curso) */
+  direccionIdSeleccionada: string | null
+  /** Visita de origen vinculada al presupuesto (relevamiento del visitador). */
+  visitaId: string | null
   // Callbacks
   onSeleccionarContacto: (contacto: ContactoResumido) => void
   onLimpiarContacto: () => void
@@ -31,6 +36,9 @@ interface PropsSeccionCliente {
   onCambiarContactoEditar: (contacto: ContactoResumido | null) => void
   onCambiarAtencionEditar: (vincId: string | null, vinculado: Vinculacion['vinculado'] | null, datos?: Record<string, unknown>) => void
   onSeleccionarConDirigidoA: (padre: ContactoResumido, hijoId: string) => void
+  onCambiarDireccion: (direccionId: string, texto: string) => void
+  /** Cambia la visita vinculada. null = quitar vínculo. */
+  onCambiarVisita: (visitaId: string | null) => void
 }
 
 export default function SeccionCliente({
@@ -42,12 +50,16 @@ export default function SeccionCliente({
   atencionSeleccionada,
   presupuesto,
   idPresupuesto,
+  direccionIdSeleccionada,
+  visitaId,
   onSeleccionarContacto,
   onLimpiarContacto,
   onSeleccionarAtencion,
   onCambiarContactoEditar,
   onCambiarAtencionEditar,
   onSeleccionarConDirigidoA,
+  onCambiarDireccion,
+  onCambiarVisita,
 }: PropsSeccionCliente) {
   const router = useRouter()
   const { t } = useTraduccion()
@@ -89,6 +101,8 @@ export default function SeccionCliente({
                 }
               }}
               hayVinculacionesConCorreo={hayVinculacionesConCorreo}
+              direccionIdSeleccionada={direccionIdSeleccionada}
+              onCambiarDireccion={onCambiarDireccion}
               onSeleccionarConDirigidoA={(padre, hijoId) => {
                 onSeleccionarConDirigidoA(padre, hijoId)
               }}
@@ -121,6 +135,8 @@ export default function SeccionCliente({
               onChange={(c) => onCambiarContactoEditar(c)}
               soloLectura={!esEditable}
               hayVinculacionesConCorreo={hayVinculacionesConCorreo}
+              direccionIdSeleccionada={direccionIdSeleccionada}
+              onCambiarDireccion={onCambiarDireccion}
             />
           )}
         </div>
@@ -163,6 +179,19 @@ export default function SeccionCliente({
               atencion_correo: v.vinculado.correo,
             })
           }}
+        />
+      )}
+
+      {/* VISITA DE ORIGEN — relevamiento del visitador.
+          Sólo se muestra cuando hay contacto seleccionado: las visitas se
+          listan filtradas por contacto. La visita se hereda a la OT al
+          generarla y siembra la galería de relevamiento. */}
+      {(contactoSeleccionado?.id || presupuesto?.contacto_id) && (
+        <SelectorVisitaPresupuesto
+          contactoId={contactoSeleccionado?.id || presupuesto?.contacto_id || null}
+          visitaId={visitaId}
+          onCambiar={onCambiarVisita}
+          esEditable={esEditable}
         />
       )}
     </div>

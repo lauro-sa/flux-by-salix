@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   AlignLeft, AlignCenter, AlignRight,
-  List, ListOrdered,
+  List, ListOrdered, ListChecks,
   Link as LinkIcon, Unlink,
   Palette, Type, ChevronDown,
   X, Check,
@@ -435,6 +435,11 @@ export function ToolbarEditorTexto({
 
           <Btn activo={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} titulo={t('editor.vinetas')}><List size={14} /></Btn>
           <Btn activo={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} titulo={t('editor.numerada')}><ListOrdered size={14} /></Btn>
+          <Btn
+            activo={editor.isActive('taskList')}
+            onClick={() => editor.chain().focus().toggleList('taskList', 'taskItem').run()}
+            titulo="Checklist"
+          ><ListChecks size={14} /></Btn>
 
           <Sep />
 

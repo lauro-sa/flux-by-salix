@@ -8,8 +8,47 @@ import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
 import { useRol } from '@/hooks/useRol'
+import { PreviewSeccionExterna, type ItemPreview } from '@/componentes/entidad/PreviewSeccionExterna'
 import { SeccionHorarioCalendario } from './secciones/SeccionHorarioCalendario'
 import { SeccionVistaDefault } from './secciones/SeccionVistaDefault'
+
+interface TipoEventoCalendario {
+  id: string
+  clave: string
+  etiqueta: string
+  icono: string
+  color: string
+  duracion_default?: number | null
+  todo_el_dia_default?: boolean
+  orden: number
+  activo: boolean
+  es_predefinido: boolean
+}
+
+// Definida fuera del componente para que la referencia sea estable
+// y el useEffect del PreviewSeccionExterna no se dispare en cada render.
+function extraerTiposEvento(data: unknown): ItemPreview[] {
+  const tipos = ((data as { tipos?: TipoEventoCalendario[] })?.tipos) || []
+  return tipos
+    .filter(t => t.activo)
+    .sort((a, b) => a.orden - b.orden)
+    .map(t => {
+      const badges: { texto: string }[] = []
+      if (t.todo_el_dia_default) badges.push({ texto: 'Todo el día' })
+      else if (t.duracion_default) badges.push({ texto: `${t.duracion_default} min` })
+      return {
+        id: t.id,
+        icono: t.icono,
+        color: t.color,
+        etiqueta: t.etiqueta,
+        subEtiqueta: t.clave,
+        badges,
+        origen: t.es_predefinido
+          ? { texto: 'Predefinido', tono: 'predefinido' as const }
+          : { texto: 'Personalizado', tono: 'personalizado' as const },
+      }
+    })
+}
 
 /**
  * Página de configuración del Calendario.
@@ -76,14 +115,23 @@ export default function PaginaConfiguracionCalendario() {
       onVolver={() => router.push('/calendario')}
       secciones={secciones}
       seccionActiva={seccionActiva}
-      onCambiarSeccion={(id) => {
-        if (id === 'tipos') {
-          router.push('/calendario/configuracion/tipos')
-          return
-        }
-        setSeccionActiva(id)
-      }}
+      onCambiarSeccion={setSeccionActiva}
     >
+      {seccionActiva === 'tipos' && (
+        <PreviewSeccionExterna
+          titulo="Tipos de evento"
+          descripcion="Personalizá los tipos de evento del calendario, con su ícono, color y duración predeterminada."
+          endpoint="/api/calendario/config"
+          extraerItems={extraerTiposEvento}
+          hrefDestino="/calendario/configuracion/tipos"
+          textoBoton="Gestionar tipos"
+          etiquetaItem={{ singular: 'tipo', plural: 'tipos' }}
+          textoVacio={{
+            titulo: 'No hay tipos de evento',
+            descripcion: 'Creá el primer tipo desde la página de gestión.',
+          }}
+        />
+      )}
       {seccionActiva === 'horario' && (
         <SeccionHorarioCalendario
           config={config as {

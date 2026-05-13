@@ -189,11 +189,69 @@ export async function ejecutarCrearContacto(
     }
   }
 
+  // Vinculación opcional: si se indica `vincular_a_contacto_id`, el nuevo contacto
+  // queda como hijo de ese contenedor (edificio, empresa, etc.). Útil para crear
+  // y vincular en una sola llamada — por ej: "agregale al edificio X el contacto
+  // Juan con tel 1155...".
+  let vinculoMsg = ''
+  const vincularA = (params.vincular_a_contacto_id as string)?.trim()
+
+  if (vincularA) {
+    if (vincularA === data.id) {
+      vinculoMsg = '\n⚠ No se pudo vincular: el contacto no puede ser hijo de sí mismo.'
+    } else {
+      // Verificar que el contenedor exista en la empresa
+      const { data: contenedor } = await ctx.admin
+        .from('contactos')
+        .select('id, nombre, apellido')
+        .eq('id', vincularA)
+        .eq('empresa_id', ctx.empresa_id)
+        .eq('en_papelera', false)
+        .maybeSingle()
+
+      if (!contenedor) {
+        vinculoMsg = '\n⚠ No se pudo vincular: el contenedor indicado no existe.'
+      } else {
+        // Resolver tipo_relacion_clave si vino
+        let tipo_relacion_id: string | null = null
+        const tipoRelClave = (params.tipo_relacion_clave as string)?.trim()?.toLowerCase()
+        if (tipoRelClave) {
+          const { data: tipoRel } = await ctx.admin
+            .from('tipos_relacion')
+            .select('id')
+            .eq('empresa_id', ctx.empresa_id)
+            .eq('clave', tipoRelClave)
+            .eq('activo', true)
+            .maybeSingle()
+          if (tipoRel) tipo_relacion_id = tipoRel.id
+        }
+
+        const { error: errVinc } = await ctx.admin
+          .from('contacto_vinculaciones')
+          .insert({
+            empresa_id: ctx.empresa_id,
+            contacto_id: vincularA,
+            vinculado_id: data.id,
+            tipo_relacion_id,
+            puesto: (params.puesto_en_contenedor as string)?.trim() || null,
+            recibe_documentos: false,
+          })
+
+        if (errVinc) {
+          vinculoMsg = `\n⚠ Se creó el contacto pero falló la vinculación: ${errVinc.message}`
+        } else {
+          const nombreContenedor = [contenedor.nombre, contenedor.apellido].filter(Boolean).join(' ')
+          vinculoMsg = `\n🔗 Vinculado a *${nombreContenedor}*`
+        }
+      }
+    }
+  }
+
   const tipoTexto = tipoElegido.clave !== 'persona' ? ` (${(tipoElegido as { etiqueta: string }).etiqueta})` : ''
 
   return {
     exito: true,
     datos: data,
-    mensaje_usuario: `Contacto "${nombre}${params.apellido ? ' ' + params.apellido : ''}"${tipoTexto} creado correctamente.${direccionMsg}`,
+    mensaje_usuario: `Contacto "${nombre}${params.apellido ? ' ' + params.apellido : ''}"${tipoTexto} creado correctamente.${direccionMsg}${vinculoMsg}`,
   }
 }

@@ -5,6 +5,7 @@
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { textoPlanoAHtml, htmlATextoPlano, sanitizarHtmlNota } from '@/lib/notas/html'
 
 export async function ejecutarModificarNota(
   ctx: ContextoSalixIA,
@@ -56,8 +57,10 @@ export async function ejecutarModificarNota(
       return { exito: false, error: `No encontré una nota con "${busqueda}". ¿Podrías darme más detalles?` }
     }
     if (todas.length > 1) {
+      // El contenido en BD es HTML — strippeamos tags para mostrar un
+      // preview legible al usuario por WhatsApp.
       const opciones = todas.map((n: { titulo: string; contenido: string }) =>
-        `• ${n.titulo || 'Sin título'}: ${n.contenido.slice(0, 50)}...`
+        `• ${n.titulo || 'Sin título'}: ${htmlATextoPlano(n.contenido).slice(0, 50)}...`
       ).join('\n')
       return { exito: false, error: `Encontré ${todas.length} notas:\n${opciones}\n¿Cuál querés modificar?` }
     }
@@ -124,7 +127,11 @@ export async function ejecutarModificarNota(
   }
 
   if (params.contenido !== undefined) {
-    cambios.contenido = (params.contenido as string).trim()
+    // Lo que pasa el LLM es texto plano. Lo convertimos a HTML de Tiptap
+    // y lo sanitizamos antes de persistir, para mantener compatibilidad
+    // con el editor del PanelNotas y la sanitización del REST PATCH.
+    const contenidoTexto = (params.contenido as string).trim()
+    cambios.contenido = sanitizarHtmlNota(textoPlanoAHtml(contenidoTexto))
     descripcionCambios.push('contenido actualizado')
   }
 

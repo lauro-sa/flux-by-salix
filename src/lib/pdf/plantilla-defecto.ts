@@ -135,7 +135,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   .tabla-lineas thead th.num { text-align: center; }
   .tabla-lineas thead th.col-desc { white-space: normal; }
   .tabla-lineas tbody td {
-    padding: 6px 6px;
+    padding: 9px 6px;
     border-bottom: 1px solid #e5e7eb;
     vertical-align: top;
     word-wrap: break-word;
@@ -152,17 +152,20 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     font-weight: 600;
     background: {color_primario_05};
     color: #374151;
-    padding-top: 10px;
-    padding-bottom: 6px;
+    padding-top: 20px;
+    padding-bottom: 10px;
+    border-top: 1px solid {color_primario_15};
     border-bottom: 1px solid {color_primario_15};
   }
+  /* La primera sección (justo después del thead) no necesita border-top extra */
+  .tabla-lineas tbody tr:first-child.linea-seccion td { border-top: none; }
   .linea-nota td {
     font-style: italic;
     color: #6b7280;
     font-size: 8pt;
     border-bottom: none;
-    padding-top: 2px;
-    padding-bottom: 2px;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
   .desc-detalle {
     display: block;
@@ -175,7 +178,8 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   .bloque-totales {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 18px;
+    margin-top: 14px;
+    margin-bottom: 22px;
     page-break-inside: avoid;
     break-inside: avoid;
     page-break-before: auto;
@@ -202,7 +206,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   }
 
   /* ── Cuotas de pago ── */
-  .seccion-cuotas { margin-bottom: 16px; page-break-inside: avoid; }
+  .seccion-cuotas { margin-top: 8px; margin-bottom: 20px; page-break-inside: avoid; }
   .seccion-cuotas h3 {
     font-size: 9pt;
     font-weight: 600;
@@ -230,13 +234,15 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   }
 
   /* ── Notas y condiciones ── */
-  .seccion-notas { margin-bottom: 14px; page-break-inside: avoid; }
+  .seccion-notas { margin-top: 18px; margin-bottom: 18px; page-break-inside: avoid; }
+  .seccion-notas + .seccion-notas { margin-top: 14px; }
   .seccion-notas h3 {
     font-size: 9pt;
     font-weight: 600;
     color: #374151;
-    margin-bottom: 4px;
-    padding-bottom: 3px;
+    margin-top: 0;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #e5e7eb;
   }
 

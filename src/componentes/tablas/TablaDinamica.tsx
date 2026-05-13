@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTraduccion } from '@/lib/i18n'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
@@ -67,6 +69,8 @@ function TablaDinamica<T>({
   gruposFiltros,
   accionesLote = [],
   onClickFila,
+  hrefFila,
+  ariaLabelFila,
   onVistaExterna,
   vistaExternaActiva,
   ocultarSwitcherVistas = false,
@@ -90,6 +94,26 @@ function TablaDinamica<T>({
 
   const { t } = useTraduccion()
   const { locale } = useFormato()
+  const router = useRouter()
+
+  /**
+   * Navegación unificada de fila cuando hay `hrefFila`:
+   * - Click izquierdo simple → `router.push` (SPA, navegación cliente)
+   * - Cmd/Ctrl/Shift+click → nueva pestaña/ventana (`window.open`)
+   * - Click central / botón auxiliar → nueva pestaña (`onAuxClick`)
+   * El `<Link>` absoluto dentro de la fila habilita además el menú contextual nativo
+   * del navegador ("Abrir en pestaña nueva", "Copiar enlace") sobre la zona del link.
+   */
+  const navegarFila = useCallback((href: string, e: React.MouseEvent) => {
+    // Si el click ya fue capturado por un <a> descendiente (el <Link> stretched),
+    // dejamos que él maneje la navegación — evita doble router.push.
+    if ((e.target as HTMLElement).closest('a[href]')) return
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+      window.open(href, '_blank', 'noopener,noreferrer')
+      return
+    }
+    router.push(href)
+  }, [router])
 
   /* ── Preferencias (persistencia por usuario+dispositivo) ── */
   const { preferencias, cargando: cargandoPrefs, guardar: guardarPreferencias } = usePreferencias()
@@ -1629,13 +1653,30 @@ function TablaDinamica<T>({
                       const siendoArrastrada = dragFilaId === id
                       const destinoDrag = dragSobreId === id && dragFilaId !== null && dragFilaId !== id
 
+                      const hrefDestino = hrefFila?.(fila)
+                      const filaClickeable = !!hrefDestino || !!onClickFila
+
                       return (
                         <tr
                           key={id}
-                          role={onClickFila ? 'button' : undefined}
-                          tabIndex={onClickFila ? 0 : undefined}
-                          onClick={() => onClickFila?.(fila)}
-                          onKeyDown={onClickFila ? (e) => {
+                          role={!hrefDestino && onClickFila ? 'button' : undefined}
+                          tabIndex={!hrefDestino && onClickFila ? 0 : undefined}
+                          onClick={(e) => {
+                            // Side-effects (sessionStorage, telemetría, etc.) siempre.
+                            onClickFila?.(fila)
+                            // Si hay link, manejamos navegación + modifiers acá. El <Link> interno
+                            // sigue activo para middle-click nativo y menú contextual del browser.
+                            if (hrefDestino) navegarFila(hrefDestino, e)
+                          }}
+                          onAuxClick={hrefDestino ? (e) => {
+                            // Click central (botón 1) → nueva pestaña. Cubre la zona del contenido
+                            // que está stacked por encima del <Link> absoluto.
+                            if (e.button === 1) {
+                              e.preventDefault()
+                              window.open(hrefDestino, '_blank', 'noopener,noreferrer')
+                            }
+                          } : undefined}
+                          onKeyDown={!hrefDestino && onClickFila ? (e) => {
                             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickFila(fila) }
                           } : undefined}
                           draggable={dragActivo}
@@ -1668,16 +1709,17 @@ function TablaDinamica<T>({
                           } : undefined}
                           onDragEnd={dragActivo ? () => { setDragFilaId(null); setDragSobreId(null) } : undefined}
                           className={[
-                            'transition-colors duration-100',
+                            // `relative` permite que el <Link> stretched (absolute inset-0) cubra toda la fila.
+                            'relative transition-colors duration-100',
                             opcionesVisuales.mostrarDivisores ? 'border-b border-borde-sutil last:border-b-0' : '',
-                            onClickFila ? 'cursor-pointer' : '',
+                            filaClickeable ? 'cursor-pointer' : '',
                             estaSeleccionado
                               ? 'bg-superficie-seleccionada'
                               : esAlterna
                               ? 'bg-superficie-anclada-alterna'
                               : '',
                             !estaSeleccionado ? 'hover:bg-superficie-hover' : '',
-                            onClickFila ? 'focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2' : '',
+                            filaClickeable ? 'focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2' : '',
                             siendoArrastrada ? 'opacity-40' : '',
                             destinoDrag ? 'outline outline-2 outline-texto-marca -outline-offset-2' : '',
                           ].join(' ')}
@@ -1711,31 +1753,57 @@ function TablaDinamica<T>({
                           )}
 
                           {/* Celdas */}
-                          {columnasRenderizar.map((col) => {
-                            const anclada = columnasAncladas.includes(col.clave)
-                            const ancho = anchoColumnas[col.clave] || col.ancho || ANCHO_DEFAULT_COLUMNA
+                          {(() => {
+                            // En la primera celda no-anclada va el <Link> stretched que cubre toda la fila.
+                            // Las stickys conservan su z-10. El contenido de las no-stickys se envuelve en
+                            // un span con pointer-events:none para que los clicks (incluido click derecho)
+                            // atraviesen al Link y el browser muestre "Abrir en pestaña nueva" sobre todo el tr.
+                            const idxPrimeraNoAnclada = columnasRenderizar.findIndex((c) => !columnasAncladas.includes(c.clave))
+                            return columnasRenderizar.map((col, idxCol) => {
+                              const anclada = columnasAncladas.includes(col.clave)
+                              const ancho = anchoColumnas[col.clave] || col.ancho || ANCHO_DEFAULT_COLUMNA
+                              const esCeldaConLink = !anclada && idxCol === idxPrimeraNoAnclada && !!hrefDestino
 
-                            return (
-                              <td
-                                key={col.clave}
-                                className={[
-                                  'px-4 py-2.5 text-texto-primario',
-                                  anclada ? 'sticky z-10 border-r-2 border-r-borde-fuerte' : '',
-                                  opcionesVisuales.bordesColumnas && !anclada ? 'border-r border-borde-sutil last:border-r-0' : '',
-                                ].join(' ')}
-                                style={{
-                                  width: ancho,
-                                  minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
-                                  textAlign: alineacionColumnas[col.clave] || col.alineacion,
-                                  ...(anclada ? { left: offsetAncladas[col.clave], background: fondoStickyFila } : {}),
-                                }}
-                              >
-                                {col.render
-                                  ? col.render(fila)
-                                  : String((fila as Record<string, unknown>)[col.clave] ?? '')}
-                              </td>
-                            )
-                          })}
+                              return (
+                                <td
+                                  key={col.clave}
+                                  className={[
+                                    'px-4 py-2.5 text-texto-primario',
+                                    anclada ? 'sticky z-10 border-r-2 border-r-borde-fuerte' : '',
+                                    opcionesVisuales.bordesColumnas && !anclada ? 'border-r border-borde-sutil last:border-r-0' : '',
+                                  ].join(' ')}
+                                  style={{
+                                    width: ancho,
+                                    minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
+                                    textAlign: alineacionColumnas[col.clave] || col.alineacion,
+                                    ...(anclada ? { left: offsetAncladas[col.clave], background: fondoStickyFila } : {}),
+                                  }}
+                                >
+                                  {esCeldaConLink && (
+                                    <Link
+                                      href={hrefDestino!}
+                                      aria-label={ariaLabelFila?.(fila)}
+                                      className="absolute inset-0 z-0"
+                                      tabIndex={0}
+                                    />
+                                  )}
+                                  {/* En celdas no-ancladas envolvemos el contenido con pointer-events:none.
+                                      Las ancladas (sticky) capturan sus propios clicks normalmente. */}
+                                  {!anclada && hrefDestino ? (
+                                    <span className="relative pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_textarea]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
+                                      {col.render
+                                        ? col.render(fila)
+                                        : String((fila as Record<string, unknown>)[col.clave] ?? '')}
+                                    </span>
+                                  ) : (
+                                    col.render
+                                      ? col.render(fila)
+                                      : String((fila as Record<string, unknown>)[col.clave] ?? '')
+                                  )}
+                                </td>
+                              )
+                            })
+                          })()}
                         </tr>
                       )
                     }
@@ -1810,18 +1878,39 @@ function TablaDinamica<T>({
             const renderizarTarjetaItem = (fila: T) => {
               const id = claveFila(fila)
               const estaSeleccionado = seleccionados.has(id)
+              const hrefDestino = hrefFila?.(fila)
               return (
                 <motion.div
                   key={id}
                   layout
                   className={[
-                    'relative rounded-card border transition-all duration-150 cursor-pointer',
+                    'relative rounded-card border transition-all duration-150',
+                    (hrefDestino || onClickFila) ? 'cursor-pointer' : '',
                     estaSeleccionado
                       ? 'border-texto-marca bg-superficie-seleccionada'
                       : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte sm:hover:shadow-sm',
                   ].join(' ')}
-                  onClick={() => onClickFila?.(fila)}
+                  onClick={(e) => {
+                    onClickFila?.(fila)
+                    if (hrefDestino) navegarFila(hrefDestino, e)
+                  }}
+                  onAuxClick={hrefDestino ? (e) => {
+                    if (e.button === 1) {
+                      e.preventDefault()
+                      window.open(hrefDestino, '_blank', 'noopener,noreferrer')
+                    }
+                  } : undefined}
                 >
+                  {/* Stretched link — cubre toda la tarjeta. z-0 queda detrás del checkbox (z-10)
+                      y del contenido (envuelto en wrapper relative). */}
+                  {hrefDestino && (
+                    <Link
+                      href={hrefDestino}
+                      aria-label={ariaLabelFila?.(fila)}
+                      className="absolute inset-0 z-0 rounded-card"
+                      tabIndex={0}
+                    />
+                  )}
                   {seleccionables && (
                     <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -1830,20 +1919,29 @@ function TablaDinamica<T>({
                       />
                     </div>
                   )}
-                  {renderTarjeta ? renderTarjeta(fila) : (
-                    <div className="p-3 flex flex-col gap-1.5">
-                      {columnasRenderizar.slice(0, 4).map((col) => (
-                        <div key={col.clave} className="flex items-baseline gap-2">
-                          <span className="text-xs text-texto-terciario shrink-0">{col.etiqueta}:</span>
-                          <span className="text-sm text-texto-primario truncate">
-                            {col.render
-                              ? col.render(fila)
-                              : String((fila as Record<string, unknown>)[col.clave] ?? '')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Wrapper con pointer-events:none cuando hay link → clicks atraviesan al <Link>
+                      stretched (habilita middle-click, click derecho → "Abrir en pestaña nueva", etc.).
+                      Botones/links/inputs/role=button recuperan pointer-events para no romper
+                      menús contextuales internos de la tarjeta. */}
+                  <div className={hrefDestino
+                    ? 'relative pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_textarea]:pointer-events-auto [&_[role=button]]:pointer-events-auto'
+                    : 'relative'
+                  }>
+                    {renderTarjeta ? renderTarjeta(fila) : (
+                      <div className="p-3 flex flex-col gap-1.5">
+                        {columnasRenderizar.slice(0, 4).map((col) => (
+                          <div key={col.clave} className="flex items-baseline gap-2">
+                            <span className="text-xs text-texto-terciario shrink-0">{col.etiqueta}:</span>
+                            <span className="text-sm text-texto-primario truncate">
+                              {col.render
+                                ? col.render(fila)
+                                : String((fila as Record<string, unknown>)[col.clave] ?? '')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )
             }

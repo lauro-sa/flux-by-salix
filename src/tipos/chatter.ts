@@ -33,6 +33,11 @@ export type AccionSistema =
   | 'despublicar'
   | 'tarea_completada'
   | 'tarea_cancelada'
+  // Galerías de OT (relevamiento sembrado desde visita + bitácora de obra)
+  | 'relevamiento_sembrado'
+  | 'relevamiento_resincronizado'
+  | 'bitacora_creada'
+  | 'bitacora_editada'
   // Correo
   | 'correo_enviado'
   | 'correo_recibido'
@@ -58,10 +63,28 @@ export interface AdjuntoChatter {
   endpoint_descarga?: string
 }
 
+// ─── Sub-tipo de entrada — separa chatter "general" de las galerías ───
+// Solo se usa en chatter de entidad_tipo='orden_trabajo' (por ahora).
+// Las entradas sin subtipo viven en el timeline general (PanelChatter).
+// Las entradas con subtipo viven en su propia sección dedicada y NO aparecen
+// en el timeline para no duplicar la galería como "ruido".
+//   - 'relevamiento': fotos/comentarios sembrados desde la visita de origen.
+//     Editables por admin/creador/cabecilla con permiso editar.
+//   - 'bitacora': fotos/notas que el cabecilla/asignados suben durante la obra.
+//     Cada autor edita/borra lo suyo; admin/creador tocan todo.
+export type SubtipoChatter = 'relevamiento' | 'bitacora'
+
 // ─── Metadata de evento de sistema ───
 export interface MetadataChatter {
   accion?: AccionSistema
   detalles?: Record<string, unknown>
+  /** Sub-tipo para entradas de OT que viven en una galería dedicada en lugar
+   *  del timeline general del chatter. Ver SubtipoChatter para la semántica. */
+  subtipo?: SubtipoChatter
+  /** Cuando subtipo='relevamiento' y el adjunto/comentario provino de un
+   *  chatter de visita, guardamos el id original para detectar duplicados al
+   *  re-sincronizar (no pisamos lo ya copiado). */
+  origen_chatter_id?: string
   // Para cambios de estado
   estado_anterior?: string
   estado_nuevo?: string

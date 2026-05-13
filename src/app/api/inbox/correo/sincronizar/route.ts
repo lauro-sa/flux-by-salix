@@ -596,6 +596,8 @@ async function procesarCorreoEntrante(
           url: `/inbox?conv=${conversacionId}&tab=correo`,
           referenciaTipo: 'conversacion',
           referenciaId: conversacionId,
+          // Correo entrante de cliente: pasa el gate de horario, suena siempre.
+          esTiempoReal: true,
         }
 
         if (convActual.asignado_a) {

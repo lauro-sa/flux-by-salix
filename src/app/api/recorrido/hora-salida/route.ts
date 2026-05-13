@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularHorariosRecorrido, type ParadaHorario } from '@/lib/recorrido-horarios'
 
@@ -19,9 +20,10 @@ import { calcularHorariosRecorrido, type ParadaHorario } from '@/lib/recorrido-h
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'registrar')
-    if ('respuesta' in guard) return guard.respuesta
-    const { empresaId } = guard
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json() as {
       recorrido_id?: string
@@ -42,6 +44,16 @@ export async function PATCH(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .single()
     if (errR || !recorrido) return NextResponse.json({ error: 'Recorrido no encontrado' }, { status: 404 })
+
+    // Autorización: dueño del recorrido necesita `recorrido:registrar`;
+    // cualquier otro miembro alcanza con `visitas:asignar` (coordinador).
+    if (recorrido.asignado_a === user.id) {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'recorrido', 'registrar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    } else {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'asignar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    }
 
     // Si solo limpian la hora, actualizamos el campo y salimos sin tocar visitas.
     if (!horaSalidaISO) {

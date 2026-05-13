@@ -510,6 +510,8 @@ export default function PaginaListadoPlantillasMeta() {
           onLimpiarFiltros={() => {
             setFiltroEstado(''); setFiltroCategoria(''); setFiltroAutor(''); setFiltroModulos([]); setFiltroSync('')
           }}
+          hrefFila={(p) => `/whatsapp/configuracion/plantillas-meta/${p.id}`}
+          ariaLabelFila={(p) => `Abrir plantilla ${p.nombre || p.id}`}
           idModulo="plantillas_meta"
           filasReordenables
           onReordenarFilas={handleReordenar}

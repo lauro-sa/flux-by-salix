@@ -88,19 +88,67 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   /** Auto-ocultar activo: por config global O por estar en ruta con menú secundario */
   const autoOcultarEfectivo = autoOcultar || (autoColapsarConfig && esRutaConMenuSecundario)
   const [hoverExpandido, setHoverExpandido] = useState(false)
+  // Bloquea el cierre por hover-leave mientras hay un menú contextual abierto
+  // dentro del sidebar (los 3-puntos, long-press), porque el menú vive en
+  // un portal y queda colgado si el sidebar se cierra.
+  const [menuContextualActivo, setMenuContextualActivo] = useState(false)
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onSidebarMouseEnter = useCallback(() => {
     if (!autoOcultarEfectivo) return
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
     setHoverExpandido(true)
   }, [autoOcultarEfectivo])
 
   const onSidebarMouseLeave = useCallback(() => {
     if (!autoOcultarEfectivo) return
+    // Si hay menú contextual abierto, no cerrar
+    if (menuContextualActivo) return
     // Delay breve para evitar parpadeo al mover entre sidebar y contenido
-    hoverTimeoutRef.current = setTimeout(() => setHoverExpandido(false), 300)
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoverExpandido(false)
+      hoverTimeoutRef.current = null
+    }, 150)
+  }, [autoOcultarEfectivo, menuContextualActivo])
+
+  /* Cuando se cierra el menú contextual, programar el cierre del sidebar.
+     Si el mouse seguía sobre el sidebar, mouseEnter va a cancelar el timer. */
+  const menuActivoPrevRef = useRef(false)
+  useEffect(() => {
+    const eraActivo = menuActivoPrevRef.current
+    menuActivoPrevRef.current = menuContextualActivo
+    if (eraActivo && !menuContextualActivo && autoOcultarEfectivo && hoverExpandido) {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = setTimeout(() => {
+        setHoverExpandido(false)
+        hoverTimeoutRef.current = null
+      }, 150)
+    }
+  }, [menuContextualActivo, autoOcultarEfectivo, hoverExpandido])
+
+  /* Si auto-ocultar deja de aplicar (cambio de ruta o de preferencia),
+     cancelar timeout pendiente y resetear hoverExpandido para que el
+     próximo render no quede con estado colgado. */
+  useEffect(() => {
+    if (!autoOcultarEfectivo) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+        hoverTimeoutRef.current = null
+      }
+      setHoverExpandido(false)
+    }
   }, [autoOcultarEfectivo])
+
+  /* Cleanup al desmontar la plantilla */
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    }
+  }, [])
 
   /* Resolver si el sidebar está colapsado para la sección actual */
   const sidebarColapsado = useMemo(() => {
@@ -127,6 +175,21 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       },
     })
   }, [autoOcultar, sidebarColapsado, seccion, preferencias.sidebar_secciones, guardar])
+
+  /* Atajo Cmd/Ctrl + B para colapsar/expandir el sidebar (patrón VSCode) */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B') && !e.shiftKey && !e.altKey) {
+        // Ignorar si el foco está en un input/textarea/contenteditable
+        const t = e.target as HTMLElement | null
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+        e.preventDefault()
+        toggleSidebar()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleSidebar])
 
   /* Activar/desactivar auto-ocultar */
   const toggleAutoOcultar = useCallback(() => {
@@ -199,7 +262,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
      - Rutas con paneles (inbox, calendario): siempre fijo via layout-app--fijo */
 
   return (
-    <div className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo safe-area-top' : ' safe-area'}`}>
+    <div
+      className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo safe-area-top' : ' safe-area'}`}
+      style={{ '--ancho-sidebar-actual': anchoSidebarReal } as React.CSSProperties}
+    >
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}
@@ -209,6 +275,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         hoverExpandido={hoverExpandido}
         onMouseEnter={onSidebarMouseEnter}
         onMouseLeave={onSidebarMouseLeave}
+        onMenuActivoChange={setMenuContextualActivo}
       />
 
       <div className="contenido-principal contenido-principal-layout flex flex-col">
@@ -254,15 +321,6 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       {botonesMontados && !mobilMenuAbierto && !pathname.startsWith('/recorrido') && (
         <BotonesFlotantes notasRapidas={notasRapidas} />
       )}
-
-      <style suppressHydrationWarning>{`
-        @media (min-width: 768px) {
-          .contenido-principal {
-            margin-left: ${anchoSidebarReal} !important;
-            transition: margin-left 200ms ease !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }

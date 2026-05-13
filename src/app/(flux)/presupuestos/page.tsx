@@ -5,6 +5,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { enriquecerListadoPresupuestos } from '@/lib/presupuestos/enriquecer-listado'
 
 /**
  * Página de presupuestos — /presupuestos (Server Component)
@@ -52,8 +53,13 @@ export default async function PaginaPresupuestos() {
     .order('numero', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
+  // Enriquecer con resumen_pagos / actividades / OT / contactos vivos antes
+  // de hidratar — sin esto la columna "Pagos" aparece vacía hasta el primer
+  // refetch del cliente (mismo helper que usa /api/presupuestos GET).
+  const presupuestos = await enriquecerListadoPresupuestos(admin, empresaId, data || [])
+
   const datosInicialesJson = {
-    presupuestos: data || [],
+    presupuestos,
     total: count || 0,
     pagina: 1,
     por_pagina: POR_PAGINA,

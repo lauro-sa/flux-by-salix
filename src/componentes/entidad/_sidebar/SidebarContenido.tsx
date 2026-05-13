@@ -5,7 +5,7 @@
  * Orquesta: SwitcherEmpresa, secciones de navegacion, items fijos, ocultos/deshabilitados y perfil.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -18,7 +18,6 @@ import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
 import { usePendientes } from '@/hooks/usePendientes'
-import { useNavegarProtegido } from '@/hooks/useCambiosPendientes'
 import type { Modulo } from '@/tipos'
 import type { ItemNav } from './tipos'
 import { crearItemsNav, crearItemsEmpresa, crearItemAplicaciones, crearSecciones, crearItemInicio } from './itemsNav'
@@ -32,9 +31,12 @@ interface PropiedadesSidebarContenido {
   colapsado: boolean
   onToggle: () => void
   onCerrarMobil: () => void
+  /** Notifica al padre cuando hay un menú contextual abierto (para mantener
+   *  el sidebar expandido en modo auto-ocultar). */
+  onMenuActivoChange?: (activo: boolean) => void
 }
 
-function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSidebarContenido) {
+function SidebarContenido({ colapsado, onToggle, onCerrarMobil, onMenuActivoChange }: PropiedadesSidebarContenido) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useTraduccion()
@@ -43,7 +45,6 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria, porCategoria } = useNotificaciones({ deshabilitado: false })
   const { hayPendientes } = usePendientes()
-  const intentarNavegar = useNavegarProtegido()
   const sonido = useSonido()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
@@ -92,6 +93,8 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const [ocultos, setOcultos] = useState<Set<string>>(new Set())
   const [deshabilitados, setDeshabilitados] = useState<Set<string>>(new Set())
 
+  // Deps específicos: solo se recalcula al cambiar lo que afecta al sidebar,
+  // no al cambiar tema/idioma/etc.
   useEffect(() => {
     if (preferencias.sidebar_orden) {
       try {
@@ -101,15 +104,21 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
         setOrden(parsed)
       } catch {}
     }
+  }, [preferencias.sidebar_orden])
+
+  useEffect(() => {
     if (preferencias.sidebar_ocultos) {
       const arr = Array.isArray(preferencias.sidebar_ocultos) ? preferencias.sidebar_ocultos : []
       setOcultos(new Set(arr))
     }
+  }, [preferencias.sidebar_ocultos])
+
+  useEffect(() => {
     if (preferencias.sidebar_deshabilitados) {
       const arr = Array.isArray(preferencias.sidebar_deshabilitados) ? preferencias.sidebar_deshabilitados : []
       setDeshabilitados(new Set(arr))
     }
-  }, [preferencias])
+  }, [preferencias.sidebar_deshabilitados])
 
   const guardarOrden = (nuevoOrden: Record<string, string[]>) => {
     setOrden(nuevoOrden)
@@ -134,6 +143,11 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const [animandoSalida, setAnimandoSalida] = useState<string | null>(null)
   const [menuItemId, setMenuItemId] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  // Notificar al padre cuando se abre/cierra un menú contextual
+  useEffect(() => {
+    onMenuActivoChange?.(menuItemId !== null)
+  }, [menuItemId, onMenuActivoChange])
 
   const abrirMenu = useCallback((itemId: string, triggerEl: HTMLElement) => {
     const rect = triggerEl.getBoundingClientRect()
@@ -198,13 +212,22 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   )
 
-  // Prefetch de rutas principales para navegación instantánea
+  // Prefetch de rutas principales — una sola vez al montar, en idle para no
+  // robar tiempo al primer render. Next ya hashea por ruta así que prefetchear
+  // la actual es no-op.
   useEffect(() => {
     const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias', '/visitas', '/recorrido', '/whatsapp', '/inbox', '/calendario', '/ordenes']
-    rutasPrefetch.forEach(ruta => {
-      if (ruta !== pathname) router.prefetch(ruta)
-    })
-  }, [pathname, router])
+    const correr = () => rutasPrefetch.forEach(r => router.prefetch(r))
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const id = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(correr)
+      return () => {
+        const w = window as Window & { cancelIdleCallback?: (id: number) => void }
+        w.cancelIdleCallback?.(id)
+      }
+    }
+    const t = setTimeout(correr, 200)
+    return () => clearTimeout(t)
+  }, [router])
 
   const esActivo = (ruta: string) => {
     if (ruta === '/dashboard') return pathname === '/dashboard' || pathname === '/'
@@ -220,13 +243,14 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
     }
   }, [pathname, onCerrarMobil])
 
-  const navegar = (ruta: string) => {
-    intentarNavegar(() => {
-      vibrar()
-      navegando.current = true
-      router.push(ruta)
-    })
-  }
+  // Side-effects que corren al hacer click izquierdo en un ítem (vibrar + marcar
+  // que viene una navegación para que el drawer mobile se cierre cuando cambie pathname).
+  // La navegación en sí + el chequeo de cambios pendientes los hace ItemSortable
+  // internamente — el <Link> de Next preserva middle-click / Cmd+click nativos.
+  const sideEffectNavegar = useCallback(() => {
+    vibrar()
+    navegando.current = true
+  }, [vibrar])
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
@@ -234,7 +258,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
       <SwitcherEmpresa colapsado={colapsado} onToggle={onToggle} />
 
       {/* Navegacion */}
-      <nav className="flex-1 overflow-y-auto pb-2 px-1.5 sidebar-scroll">
+      <nav className="flex-1 overflow-y-auto pb-2 px-1.5 sidebar-scroll" aria-label="Navegación principal">
         {/* Inicio — siempre primero, sin seccion */}
         <ItemSortable
           item={ITEM_INICIO}
@@ -244,7 +268,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
           animandoSalida={false}
           menuAbierto={false}
           menuPos={menuPos}
-          onNavegar={() => navegar(ITEM_INICIO.ruta)}
+          onNavegar={sideEffectNavegar}
           onAbrirMenu={abrirMenu}
           onCerrarMenu={() => setMenuItemId(null)}
           onOcultar={ocultarItem}
@@ -265,7 +289,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
             menuItemId={menuItemId}
             menuPos={menuPos}
             onDragEnd={manejarDragEnd(s.id)}
-            onNavegar={navegar}
+            onNavegar={sideEffectNavegar}
             onAbrirMenu={abrirMenu}
             onCerrarMenu={() => setMenuItemId(null)}
             onOcultar={ocultarItem}
@@ -298,7 +322,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
             animandoSalida={false}
             menuAbierto={false}
             menuPos={menuPos}
-            onNavegar={() => navegar(ITEM_APLICACIONES.ruta)}
+            onNavegar={sideEffectNavegar}
             onAbrirMenu={abrirMenu}
             onCerrarMenu={() => setMenuItemId(null)}
             onOcultar={ocultarItem}
@@ -324,7 +348,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
                 animandoSalida={false}
                 menuAbierto={false}
                 menuPos={menuPos}
-                onNavegar={() => navegar(i.ruta)}
+                onNavegar={sideEffectNavegar}
                 onAbrirMenu={abrirMenu}
                 onCerrarMenu={() => setMenuItemId(null)}
                 onOcultar={ocultarItem}
@@ -341,4 +365,8 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   )
 }
 
-export { SidebarContenido }
+/* Memoizamos: SidebarContenido lee preferencias/auth/etc. desde contextos,
+   así que sus props son pocas y estables. Evitar re-render cuando el padre
+   se re-renderiza por hoverExpandido sin cambios reales en colapsado. */
+const SidebarContenidoMemo = memo(SidebarContenido)
+export { SidebarContenidoMemo as SidebarContenido }

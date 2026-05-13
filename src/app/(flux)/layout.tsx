@@ -6,6 +6,7 @@ import { ProveedorIdioma } from '@/lib/i18n'
 import { ProveedorToast } from '@/componentes/feedback/Toast'
 import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { ProveedorCambiosPendientes } from '@/hooks/useCambiosPendientes'
+import { ProveedorIndicadorGuardado } from '@/hooks/useIndicadorGuardado'
 import { ProveedorQuery } from '@/hooks/useQueryClient'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorPermisos } from '@/hooks/usePermisosActuales'
@@ -32,9 +33,11 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
               <ProveedorToast>
               <ProveedorEnvioPendiente>
               <ProveedorCambiosPendientes>
+              <ProveedorIndicadorGuardado>
                 <PlantillaApp>
                   {children}
                 </PlantillaApp>
+              </ProveedorIndicadorGuardado>
               </ProveedorCambiosPendientes>
               </ProveedorEnvioPendiente>
               </ProveedorToast>

@@ -116,9 +116,23 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
   for (let iteracion = 0; iteracion < maxIteraciones; iteracion++) {
     // Llamar a Claude
     const respuesta = await anthropic.messages.create({
-      model: configIA.modelo_anthropic || 'claude-sonnet-4-20250514',
+      // Default Haiku 4.5: ~3-5x más rápido que Sonnet con calidad suficiente
+      // para las consultas operativas del copiloto. Las empresas que prefieran
+      // Sonnet/Opus lo configuran desde Configuración → IA.
+      model: configIA.modelo_anthropic || 'claude-haiku-4-5-20251001',
       max_tokens: configIA.max_tokens || 4096,
-      system: systemPrompt,
+      // Prompt caching: el system prompt (~3-5KB con la guía completa de
+      // herramientas + ejemplos de formato) se cachea por 5 min con cache_control
+      // ephemeral. A partir del 2do turno dentro de esa ventana, la lectura del
+      // system cuesta ~10% y baja la latencia notablemente. Caché también las
+      // tools como segundo bloque, así reutilizan el mismo prefijo entre turnos.
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       tools: tools as Anthropic.Messages.Tool[],
       messages: mensajesAPI as Anthropic.Messages.MessageParam[],
     })

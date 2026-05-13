@@ -34,6 +34,8 @@ export type NombreHerramienta =
   | 'anotar_nota'
   | 'consultar_notas'
   | 'modificar_nota'
+  | 'consultar_vinculaciones_contacto'
+  | 'vincular_contactos'
   // ─── Tools personales: scope hardcodeado al propio empleado, disponibles
   //     para nivel_salix='personal' o 'completo'. No chequean permisos de rol
   //     porque son siempre sobre uno mismo.

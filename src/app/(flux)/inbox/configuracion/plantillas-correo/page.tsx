@@ -487,7 +487,8 @@ export default function PaginaListadoPlantillasCorreo() {
             setFiltroModulos([])
             setFiltroEstado('')
           }}
-          onClickFila={(p) => router.push(`/inbox/configuracion/plantillas-correo/${p.id}`)}
+          hrefFila={(p) => `/inbox/configuracion/plantillas-correo/${p.id}`}
+          ariaLabelFila={(p) => `Abrir plantilla ${p.nombre || p.id}`}
           accionesLote={[
             {
               id: 'eliminar',

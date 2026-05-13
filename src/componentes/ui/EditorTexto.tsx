@@ -18,6 +18,8 @@ import { Color } from '@tiptap/extension-color'
 import { Highlight } from '@tiptap/extension-highlight'
 import { Link } from '@tiptap/extension-link'
 import { Placeholder } from '@tiptap/extension-placeholder'
+import { TaskList } from '@tiptap/extension-task-list'
+import { TaskItem } from '@tiptap/extension-task-item'
 import { VariableChip } from '@/componentes/ui/ExtensionVariableChip'
 import { useTema } from '@/hooks/useTema'
 import { FontSizeInline } from '@/componentes/ui/_editor_texto/extensiones'
@@ -42,6 +44,7 @@ function EditorTexto({
   autoEnfocar = false,
   onEditorListo,
   habilitarVariables = false,
+  sinMarco = false,
 }: PropiedadesEditorTexto) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
@@ -60,6 +63,13 @@ function EditorTexto({
       Highlight.configure({ multicolor: true }),
       Link.configure({ openOnClick: false, autolink: false, HTMLAttributes: { class: 'text-texto-marca underline cursor-pointer' } }),
       Placeholder.configure({ placeholder }),
+      // Checklist al estilo Apple Notes / Notion: cada ítem renderiza como un
+      // <li data-checked="true|false"> con un checkbox real clickeable. El
+      // estado se persiste dentro del HTML, así que sobrevive al guardado
+      // tal cual. El estilo visual del checkbox vive en globals.css (`.tiptap
+      // ul[data-type="taskList"]`) usando tokens dark/light.
+      TaskList,
+      TaskItem.configure({ nested: true }),
       ...(habilitarVariables ? [VariableChip] : []),
     ],
     content: contenido,
@@ -107,19 +117,30 @@ function EditorTexto({
     ? { backgroundColor: 'var(--superficie-flotante)', backdropFilter: 'blur(32px) saturate(1.5)', WebkitBackdropFilter: 'blur(32px) saturate(1.5)' }
     : { backgroundColor: 'var(--superficie-elevada)' }
 
+  // Modo "sinMarco": el wrapper no aporta chrome propio (sin border, sin
+  // fondo, sin rounded). Se asume que el consumidor maneja el contenedor
+  // exterior. También sacamos `overflow-hidden` para que el padre pueda
+  // scrollear el contenido cuando crece.
+  const wrapperClassName = sinMarco
+    ? ['flex flex-col', className].join(' ')
+    : ['rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden',
+       'focus-within:ring-2 focus-within:ring-texto-marca/20 transition-shadow', className].join(' ')
+
+  // Sin marco = sin padding interno tampoco (el padre lo decide); con
+  // marco mantenemos el padding default del contenido.
+  const contentClassName = sinMarco
+    ? 'text-sm flex flex-col flex-1 [&>div]:flex-1 [&>div>div]:flex-1'
+    : 'px-4 py-3 text-sm flex flex-col flex-1 [&>div]:flex-1 [&>div>div]:flex-1'
+
   return (
-    <div
-      className={['rounded-card border border-borde-sutil bg-superficie-tarjeta overflow-hidden',
-        'focus-within:ring-2 focus-within:ring-texto-marca/20 transition-shadow', className].join(' ')}
-      style={style}
-    >
+    <div className={wrapperClassName} style={style}>
       <ToolbarEditorTexto
         editor={editor}
         estiloSuperficie={estiloSuperficie}
         coloresMarca={coloresMarca}
         accionesExtra={accionesExtra}
       />
-      <EditorContent editor={editor} className="px-4 py-3 text-sm flex flex-col flex-1 [&>div]:flex-1 [&>div>div]:flex-1" style={{ minHeight: alturaMinima }} />
+      <EditorContent editor={editor} className={contentClassName} style={sinMarco ? undefined : { minHeight: alturaMinima }} />
     </div>
   )
 }

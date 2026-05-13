@@ -59,6 +59,7 @@ function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
   if (!notasRapidas) return null
 
   const cantidadSinLeer = notasRapidas.compartidas.filter((n) => n._tiene_cambios).length
+  const hayAlerta = cantidadSinLeer > 0
 
   return (
     <>
@@ -71,19 +72,45 @@ function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
             exit={{ scale: 0, opacity: 0 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setPanelAbierto(true)}
-            className="size-12 flex items-center justify-center text-amber-400/60 hover:text-amber-400/80 drop-shadow-lg transition-all duration-200 cursor-pointer"
-            title="Notas rápidas"
+            // Cuando hay alertas sin leer subimos la saturación del ícono
+            // al 100% para que se note que requiere atención. Sin alertas
+            // queda al 70% como antes (presencia discreta).
+            className={`size-12 flex items-center justify-center drop-shadow-lg transition-all duration-200 cursor-pointer relative ${
+              hayAlerta
+                ? 'text-acento-notas'
+                : 'text-acento-notas/70 hover:text-acento-notas'
+            }`}
+            title={hayAlerta
+              ? `Notas rápidas — ${cantidadSinLeer} sin leer`
+              : 'Notas rápidas'}
           >
+            {/* Halo respirante detrás del ícono cuando hay alertas. Le
+                da presencia sin ser invasivo (animación de 2.4s). */}
+            {hayAlerta && (
+              <motion.span
+                aria-hidden
+                animate={{
+                  scale: [1, 1.35, 1],
+                  opacity: [0.45, 0, 0.45],
+                }}
+                transition={{
+                  duration: 2.4,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                className="absolute inset-0 rounded-full bg-acento-notas/40 pointer-events-none"
+              />
+            )}
             <motion.span
               whileHover={{ scale: 1.15 }}
               transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-              className="size-6"
+              className="size-6 relative"
             >
               <IconoNota className="size-6" />
             </motion.span>
 
             {/* Badge con número de cambios sin leer */}
-            {cantidadSinLeer > 0 && (
+            {hayAlerta && (
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{
@@ -94,7 +121,7 @@ function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
                   scale: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
                   opacity: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
                 }}
-                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-1 shadow-md shadow-insignia-peligro/40"
+                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-1 shadow-md shadow-insignia-peligro/40 z-10"
               >
                 <span className="text-[10px] font-bold text-white leading-none">
                   {cantidadSinLeer > 9 ? '9+' : cantidadSinLeer}

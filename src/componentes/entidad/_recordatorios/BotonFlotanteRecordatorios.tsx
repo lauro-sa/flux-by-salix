@@ -53,7 +53,7 @@ function BotonFlotanteRecordatorios() {
             exit={{ scale: 0, opacity: 0 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setPanelAbierto(true)}
-            className="size-12 flex items-center justify-center text-orange-400/60 hover:text-orange-400/85 drop-shadow-lg transition-all duration-200 cursor-pointer relative"
+            className="size-12 flex items-center justify-center text-acento-recordatorios/70 hover:text-acento-recordatorios drop-shadow-lg transition-all duration-200 cursor-pointer relative"
             title="Recordatorios"
           >
             <motion.span

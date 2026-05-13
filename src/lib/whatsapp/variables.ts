@@ -13,6 +13,41 @@
 
 import type { CuerpoPlantillaWA } from '@/tipos/whatsapp'
 
+// ─── Constantes ───
+
+/**
+ * Cantidad de slots fijos en la plantilla `recibo_haberes_nomina` para los
+ * adelantos/descuentos del período (`descuento_1`..`descuento_N`). Meta no
+ * respeta `\n` dentro de un valor de variable, por eso los bullets se mandan
+ * como N variables separadas. Si hay menos ítems, se rellena con SLOT_VACIO;
+ * si hay más, los excedentes se concatenan en el último slot.
+ */
+export const TOTAL_SLOTS_DESCUENTOS = 4
+
+/** Texto que ocupa los slots de descuento sobrantes cuando hay menos de N. */
+export const SLOT_VACIO_DESCUENTO = '—'
+
+/**
+ * Expande una lista variable de bullets a exactamente `slots` posiciones:
+ *  - Si hay menos: rellena con `SLOT_VACIO_DESCUENTO`.
+ *  - Si hay más: el último slot concatena los excedentes con `  ·  `.
+ *
+ * Exportado para que los callers (backend de envío, preview del modal) usen
+ * el mismo padding/concat que el resolver de variables.
+ */
+export function expandirSlotsDescuentos(lineas: string[], slots = TOTAL_SLOTS_DESCUENTOS): string[] {
+  const limpias = lineas.map(l => String(l || '').trim()).filter(Boolean)
+  const resultado: string[] = []
+  if (limpias.length <= slots) {
+    for (let i = 0; i < slots; i++) resultado.push(limpias[i] || SLOT_VACIO_DESCUENTO)
+  } else {
+    for (let i = 0; i < slots - 1; i++) resultado.push(limpias[i])
+    const sobrantes = limpias.slice(slots - 1).join('  ·  ')
+    resultado.push(sobrantes)
+  }
+  return resultado
+}
+
 // ─── Entidades aceptadas ───
 
 export type EntidadPlantillaWA =
@@ -102,6 +137,15 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'monto_descuentos', etiqueta: 'Nómina — Total de descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$156.229', modulos: ['asistencias'] },
   { valor: 'monto_neto', etiqueta: 'Nómina — Neto a transferir', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$183.771', modulos: ['asistencias'] },
   { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229\n• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
+  // Slots fijos para listar adelantos/descuentos como variables separadas en
+  // plantillas WA. Necesario porque Meta no respeta `\n` dentro de un valor de
+  // variable: cada bullet va a su propio slot y el `\n` queda en el cuerpo
+  // aprobado. Si hay menos de 4 ítems se rellenan con "—"; si hay más, los
+  // excedentes se concatenan en el último.
+  { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• A favor del período anterior · −$18.000', modulos: ['asistencias'] },
+  { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Inyectores cuota 2/2 · 17 abr · −$58.000', modulos: ['asistencias'] },
+  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
+  { valor: 'descuento_4', etiqueta: 'Nómina — Descuento 4', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229', modulos: ['asistencias'] },
   { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
 
   // Empresa (siempre disponible)
@@ -293,6 +337,18 @@ export function construirDatosPlantilla(
     // (formato WA: _texto_) para no caer al ejemplo del catálogo.
     const detalle = String(nomina.detalle_descuentos || '').trim()
     datos['detalle_descuentos'] = detalle || '_Sin adelantos ni descuentos en el período._'
+
+    // Slots fijos descuento_1..descuento_6: cada bullet en su propia variable
+    // (Meta no respeta `\n` dentro del valor de un parámetro). Aceptamos un
+    // array `descuentos_lista`; si no llega, lo derivamos partiendo `detalle`.
+    const slots = TOTAL_SLOTS_DESCUENTOS
+    const lista = Array.isArray(nomina.descuentos_lista)
+      ? (nomina.descuentos_lista as unknown[]).map(v => String(v || '').trim()).filter(Boolean)
+      : detalle.split('\n').map(s => s.trim()).filter(Boolean)
+    const slotsValores = expandirSlotsDescuentos(lista, slots)
+    for (let i = 0; i < slots; i++) {
+      datos[`descuento_${i + 1}`] = slotsValores[i]
+    }
 
     if (nomina.monto_detalle) datos['compensacion_detalle'] = String(nomina.monto_detalle)
   }

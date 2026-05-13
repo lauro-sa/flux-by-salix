@@ -18,6 +18,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Camera, ImagePlus, X, Loader2, MapPin, Trash2, Check, Thermometer, FileText, CheckSquare, ImageIcon } from 'lucide-react'
 import { BottomSheet } from '@/componentes/ui/BottomSheet'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import NextImage from 'next/image'
@@ -76,6 +77,11 @@ function RegistroVisita({
   const [cargandoUbicacion, setCargandoUbicacion] = useState(false)
   const [cargandoDatos, setCargandoDatos] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Estado de compresión de fotos: muestra "Procesando X/Y" como feedback
+  // inmediato cuando el visitador toca Cámara/Galería con varias fotos pesadas.
+  const [comprimiendoFotos, setComprimiendoFotos] = useState<{ actual: number; total: number } | null>(null)
+  // Confirmación al completar sin cargar nada (solo modo 'completar').
+  const [confirmacionVacioAbierta, setConfirmacionVacioAbierta] = useState(false)
   const inputCamaraRef = useRef<HTMLInputElement>(null)
   const inputGaleriaRef = useRef<HTMLInputElement>(null)
 
@@ -218,16 +224,24 @@ function RegistroVisita({
   // Manejar selección de fotos (cámara o galería) — compresión secuencial
   // para no causar pico de memoria con varias fotos pesadas en iOS standalone.
   // Previews con URL.createObjectURL (mucho más liviano que FileReader.readAsDataURL).
+  // Mostramos progreso "X/Y" para que el visitador sepa que la app está trabajando
+  // — sin feedback parecía colgada al tocar Cámara con varias fotos pesadas.
   const manejarFotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivosOriginales = Array.from(e.target.files || [])
     e.target.value = ''
     if (!archivosOriginales.length) return
 
-    for (const original of archivosOriginales) {
-      const comprimido = await comprimirImagen(original)
-      const preview = URL.createObjectURL(comprimido)
-      setFotosNuevas(prev => [...prev, comprimido])
-      setPreviewsNuevas(prev => [...prev, preview])
+    setComprimiendoFotos({ actual: 0, total: archivosOriginales.length })
+    try {
+      for (let i = 0; i < archivosOriginales.length; i++) {
+        setComprimiendoFotos({ actual: i + 1, total: archivosOriginales.length })
+        const comprimido = await comprimirImagen(archivosOriginales[i])
+        const preview = URL.createObjectURL(comprimido)
+        setFotosNuevas(prev => [...prev, comprimido])
+        setPreviewsNuevas(prev => [...prev, preview])
+      }
+    } finally {
+      setComprimiendoFotos(null)
     }
   }
 
@@ -281,8 +295,32 @@ function RegistroVisita({
     return `${fallback} (${resp.status})`
   }
 
+  // True si el visitador no cargó nada todavía (sin fotos nuevas ni existentes,
+  // sin notas, sin resultado, sin temperatura, sin items completados del checklist).
+  const formularioVacio = (
+    !notas.trim() &&
+    !resultado.trim() &&
+    !temperatura &&
+    fotosNuevas.length === 0 &&
+    fotosExistentes.length === 0 &&
+    !checklist.some(i => i.completado)
+  )
+
+  // Wrap del enviar: si el visitador toca "Guardar" en modo 'completar' sin haber
+  // cargado nada, abrimos un confirm para que confirme que quiere completar la
+  // visita sin registro. Para 'llegada' / 'editar' no aplica — son flujos
+  // distintos (llegada solo cambia estado a en_sitio; editar es para refinar).
+  const intentarEnviar = () => {
+    if (modo === 'completar' && formularioVacio) {
+      setConfirmacionVacioAbierta(true)
+      return
+    }
+    enviar()
+  }
+
   // Enviar registro
   const enviar = async () => {
+    setConfirmacionVacioAbierta(false)
     setEnviando(true)
     try {
       // 1. Cambiar estado (solo si no es modo editar)
@@ -357,6 +395,7 @@ function RegistroVisita({
   }
 
   return (
+    <>
     <BottomSheet
       abierto={abierto}
       onCerrar={onCerrar}
@@ -364,13 +403,15 @@ function RegistroVisita({
       altura="alto"
       fondo="var(--superficie-app)"
       accionPrimaria={{
-        etiqueta: modo === 'editar' ? 'Guardar cambios' : 'Guardar visita',
-        onClick: enviar,
+        etiqueta: modo === 'editar' ? 'Guardar cambios' : modo === 'completar' ? 'Completar visita' : 'Guardar visita',
+        onClick: intentarEnviar,
         cargando: enviando,
         icono: <Check size={16} strokeWidth={2.5} />,
       }}
       accionSecundaria={{
-        etiqueta: 'Cerrar',
+        // Texto explícito: aclara que cerrar no completa la visita —
+        // queda como 'en sitio' y se puede terminar después.
+        etiqueta: modo === 'completar' ? 'Salir (terminar después)' : 'Cerrar',
         onClick: onCerrar,
       }}
       // Reabrir solo en modo 'editar' (visita ya completada). Al tocar, cambia
@@ -553,22 +594,49 @@ function RegistroVisita({
                 </div>
               ))}
 
-              {/* Botones agregar: cámara y galería */}
+              {/* Botones agregar: cámara y galería. Mientras se comprimen
+                  fotos, ambos quedan en estado de loading con contador
+                  "X/Y" — el visitador ve respuesta inmediata al toque. */}
               <button
                 onClick={() => inputCamaraRef.current?.click()}
-                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
+                disabled={!!comprimiendoFotos}
+                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
               >
-                <Camera size={18} className="text-texto-terciario" />
-                <span className="text-[10px] text-texto-terciario">Cámara</span>
+                {comprimiendoFotos ? (
+                  <Loader2 size={18} className="text-texto-terciario animate-spin" />
+                ) : (
+                  <Camera size={18} className="text-texto-terciario" />
+                )}
+                <span className="text-[10px] text-texto-terciario">
+                  {comprimiendoFotos ? `${comprimiendoFotos.actual}/${comprimiendoFotos.total}` : 'Cámara'}
+                </span>
               </button>
               <button
                 onClick={() => inputGaleriaRef.current?.click()}
-                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
+                disabled={!!comprimiendoFotos}
+                className="shrink-0 size-20 rounded-card border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
               >
-                <ImagePlus size={18} className="text-texto-terciario" />
-                <span className="text-[10px] text-texto-terciario">Galería</span>
+                {comprimiendoFotos ? (
+                  <Loader2 size={18} className="text-texto-terciario animate-spin" />
+                ) : (
+                  <ImagePlus size={18} className="text-texto-terciario" />
+                )}
+                <span className="text-[10px] text-texto-terciario">
+                  {comprimiendoFotos ? `${comprimiendoFotos.actual}/${comprimiendoFotos.total}` : 'Galería'}
+                </span>
               </button>
             </div>
+
+            {/* Banner de progreso global cuando hay fotos en compresión.
+                Visible incluso si los botones quedan fuera de viewport. */}
+            {comprimiendoFotos && (
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-card bg-[var(--insignia-info)]/[0.08] border border-[var(--insignia-info)]/15">
+                <Loader2 size={12} className="text-[var(--insignia-info)] animate-spin shrink-0" />
+                <span className="text-[11px] text-[var(--insignia-info)] font-medium">
+                  Procesando foto {comprimiendoFotos.actual} de {comprimiendoFotos.total}…
+                </span>
+              </div>
+            )}
 
             {/* Inputs ocultos */}
             <input
@@ -591,6 +659,22 @@ function RegistroVisita({
         </div>
       )}
     </BottomSheet>
+
+    {/* Confirmación al completar sin haber cargado nada — evita que se cierre
+        la visita "vacía" por accidente. El visitador puede confirmar (sí, fui
+        pero no hay nada que cargar) o cancelar (vuelve al modal a llenar). */}
+    <ModalConfirmacion
+      abierto={confirmacionVacioAbierta}
+      onCerrar={() => setConfirmacionVacioAbierta(false)}
+      onConfirmar={enviar}
+      tipo="advertencia"
+      titulo="Completar sin registro"
+      descripcion="Vas a marcar esta visita como completada sin haber cargado fotos, notas ni descripción. ¿Querés continuar?"
+      etiquetaConfirmar="Sí, completar"
+      etiquetaCancelar="Cancelar"
+      cargando={enviando}
+    />
+    </>
   )
 }
 

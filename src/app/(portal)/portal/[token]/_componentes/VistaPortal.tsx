@@ -70,23 +70,50 @@ export default function VistaPortal({ datos }: Props) {
     }
   }, [estadoCliente, mostrarFirma])
 
-  // Polling: recargar mensajes, comprobantes, cuotas y estado cada 15s
+  // Refrescar todos los datos del portal desde el servidor. `refrescar=true`
+  // evita que cada poll cuente como una vista nueva (no incrementa veces_visto).
+  const refrescarDatos = useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`/api/portal/${token}?refrescar=true`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.mensajes) setMensajes(data.mensajes)
+      if (data.comprobantes) setComprobantes(data.comprobantes)
+      if (data.presupuesto?.cuotas) setCuotas(data.presupuesto.cuotas)
+      if (data.presupuesto?.estado) setEstadoPresupuesto(data.presupuesto.estado)
+      if (data.estado_cliente) setEstadoCliente(data.estado_cliente as EstadoPortal)
+      if (data.firma) {
+        setFirmaNombre(data.firma.nombre || null)
+        setFirmaUrl(data.firma.url || null)
+      }
+    } catch { /* silencioso */ }
+  }, [token])
+
+  // Polling cada 5s mientras la pestaña está visible. Cuando se oculta
+  // (otra pestaña o background), bajamos a 60s para ahorrar batería y red.
+  // Antes era 15s fijo independientemente del foco.
   useEffect(() => {
     if (!token) return
-    const intervalo = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/portal/${token}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.mensajes) setMensajes(data.mensajes)
-          if (data.comprobantes) setComprobantes(data.comprobantes)
-          if (data.presupuesto?.cuotas) setCuotas(data.presupuesto.cuotas)
-          if (data.presupuesto?.estado) setEstadoPresupuesto(data.presupuesto.estado)
-        }
-      } catch { /* silencioso */ }
-    }, 15000)
-    return () => clearInterval(intervalo)
-  }, [token])
+    let intervalo: ReturnType<typeof setInterval> | null = null
+    const programar = (ms: number) => {
+      if (intervalo) clearInterval(intervalo)
+      intervalo = setInterval(refrescarDatos, ms)
+    }
+    const ajustarSegunVisibilidad = () => {
+      programar(document.visibilityState === 'visible' ? 5000 : 60000)
+    }
+    ajustarSegunVisibilidad()
+    document.addEventListener('visibilitychange', ajustarSegunVisibilidad)
+    // Refresco inmediato al volver al foco (no esperar al próximo intervalo)
+    const onFocus = () => refrescarDatos()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      if (intervalo) clearInterval(intervalo)
+      document.removeEventListener('visibilitychange', ajustarSegunVisibilidad)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [token, refrescarDatos])
 
   // Limpiar error después de 5s
   useEffect(() => {
@@ -191,7 +218,7 @@ export default function VistaPortal({ datos }: Props) {
       <CabeceraPortal empresa={empresa} />
 
       {/* Contenido principal */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-8">
         {/* Error toast */}
         {error && (
           <div className="rounded-card bg-estado-error/10 border border-estado-error/20 px-4 py-3 text-sm text-estado-error text-center">

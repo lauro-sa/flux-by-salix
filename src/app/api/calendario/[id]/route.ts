@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { recalcularFechaVencimientoDesdeBloques } from '@/lib/actividades-sync'
 
 type Contexto = { params: Promise<{ id: string }> }
 
@@ -116,6 +117,11 @@ export async function PUT(request: NextRequest, contexto: Contexto) {
         .single()
 
       if (error) return NextResponse.json({ error: 'Error al mover evento' }, { status: 500 })
+
+      if (data?.actividad_id) {
+        await recalcularFechaVencimientoDesdeBloques(data.actividad_id, empresaId)
+      }
+
       return NextResponse.json(data)
     }
 
@@ -212,6 +218,12 @@ export async function PUT(request: NextRequest, contexto: Contexto) {
       })
     }
 
+    // Si el evento está vinculado a una actividad ejecutable, recalcular su
+    // fecha_vencimiento (el bloque más temprano puede haber cambiado).
+    if (data?.actividad_id) {
+      await recalcularFechaVencimientoDesdeBloques(data.actividad_id, empresaId)
+    }
+
     return NextResponse.json(data)
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -235,13 +247,20 @@ export async function PATCH(request: NextRequest, contexto: Contexto) {
     // Solo soportamos restaurar desde papelera por ahora
     if (body.en_papelera === false) {
       const admin = crearClienteAdmin()
-      const { error } = await admin
+      const { data, error } = await admin
         .from('eventos_calendario')
         .update({ en_papelera: false, papelera_en: null })
         .eq('id', id)
         .eq('empresa_id', empresaId)
+        .select('actividad_id')
+        .maybeSingle()
 
       if (error) return NextResponse.json({ error: 'Error al restaurar evento' }, { status: 500 })
+
+      if (data?.actividad_id) {
+        await recalcularFechaVencimientoDesdeBloques(data.actividad_id, empresaId)
+      }
+
       return NextResponse.json({ ok: true })
     }
 
@@ -273,7 +292,7 @@ export async function DELETE(_request: NextRequest, contexto: Contexto) {
     // Verificar si ya está en papelera
     const { data: evento } = await admin
       .from('eventos_calendario')
-      .select('id, en_papelera')
+      .select('id, en_papelera, actividad_id')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -289,6 +308,13 @@ export async function DELETE(_request: NextRequest, contexto: Contexto) {
         .eq('empresa_id', empresaId)
 
       if (error) return NextResponse.json({ error: 'Error al eliminar evento definitivamente' }, { status: 500 })
+
+      // Sincronizar (ya estaba excluido por en_papelera, pero por consistencia
+      // en caso de que el bloque eliminado fuera el último).
+      if (evento.actividad_id) {
+        await recalcularFechaVencimientoDesdeBloques(evento.actividad_id, empresaId)
+      }
+
       return NextResponse.json({ ok: true, accion: 'eliminado_definitivo' })
     }
 
@@ -303,6 +329,13 @@ export async function DELETE(_request: NextRequest, contexto: Contexto) {
       .eq('empresa_id', empresaId)
 
     if (error) return NextResponse.json({ error: 'Error al eliminar evento' }, { status: 500 })
+
+    // Si el bloque eliminado era el más temprano, recalcular desde el siguiente.
+    // Si no quedan bloques, la fecha_vencimiento se mantiene (decisión de producto).
+    if (evento.actividad_id) {
+      await recalcularFechaVencimientoDesdeBloques(evento.actividad_id, empresaId)
+    }
+
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

@@ -83,7 +83,8 @@ export async function GET(request: NextRequest) {
       .from('ordenes_trabajo')
       .select(`
         id, numero, estado, prioridad, titulo, descripcion, publicada,
-        contacto_id, contacto_nombre, contacto_telefono, contacto_whatsapp, contacto_direccion,
+        contacto_id, contacto_nombre, contacto_telefono, contacto_whatsapp,
+        contacto_direccion, contacto_direccion_lat, contacto_direccion_lng,
         atencion_contacto_id, atencion_nombre, atencion_telefono,
         presupuesto_id, presupuesto_numero,
         fecha_inicio, fecha_fin_estimada, fecha_fin_real,
@@ -413,25 +414,32 @@ export async function POST(request: NextRequest) {
 
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
 
-    // Snapshot del contacto operativo (sin datos fiscales)
-    let snapshotContacto: Record<string, string | null> = {}
+    // Snapshot del contacto operativo (sin datos fiscales). Incluye direccion_id
+    // apuntando a la principal — así si después editan esa dirección, la
+    // propagación viva llega vía la FK. Las coords se snapshotean también
+    // para que el botón "Navegar" use lat/lng exactos en vez de texto ambiguo.
+    let snapshotContacto: Record<string, string | number | null> = {}
     if (body.contacto_id) {
       const { data: contacto } = await admin
         .from('contactos')
         .select(`
           nombre, apellido, correo, telefono, whatsapp,
-          direcciones:contacto_direcciones(texto, es_principal)
+          direcciones:contacto_direcciones(id, texto, es_principal, lat, lng)
         `)
         .eq('id', body.contacto_id)
         .single()
 
       if (contacto) {
-        const dirPrincipal = (contacto.direcciones as { texto: string | null; es_principal: boolean }[])?.find(d => d.es_principal)
+        const direcciones = (contacto.direcciones as { id: string; texto: string | null; es_principal: boolean; lat: number | null; lng: number | null }[]) || []
+        const dirPrincipal = direcciones.find(d => d.es_principal) || direcciones[0] || null
         snapshotContacto = {
           contacto_nombre: [contacto.nombre, contacto.apellido].filter(Boolean).join(' '),
           contacto_telefono: contacto.telefono,
           contacto_correo: contacto.correo,
+          direccion_id: dirPrincipal?.id || null,
           contacto_direccion: dirPrincipal?.texto || null,
+          contacto_direccion_lat: dirPrincipal?.lat ?? null,
+          contacto_direccion_lng: dirPrincipal?.lng ?? null,
           contacto_whatsapp: contacto.whatsapp || contacto.telefono,
         }
       }

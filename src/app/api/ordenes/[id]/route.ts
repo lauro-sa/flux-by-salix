@@ -52,10 +52,11 @@ export async function GET(
         .select('*')
         .eq('orden_trabajo_id', id)
         .order('es_cabecilla', { ascending: false }),
-      // Tareas de la orden (tabla propia)
+      // Tareas de la orden (tabla propia). Incluimos `tipo` para excluir
+      // secciones/notas del cálculo de progreso (no son completables).
       admin
         .from('tareas_orden')
-        .select('id, estado, fecha_vencimiento')
+        .select('id, estado, fecha_vencimiento, tipo')
         .eq('orden_trabajo_id', id)
         .eq('empresa_id', empresaId),
     ])
@@ -97,13 +98,15 @@ export async function GET(
       }
     }
 
-    // Calcular progreso de tareas
+    // Calcular progreso — solo cuentan tareas completables (tipo='producto').
+    // Las secciones y notas son informativas y no entran en el porcentaje.
     const tareas = tareasRes.data || []
-    const totalActividades = tareas.length
-    const completadas = tareas.filter((t: { estado: string }) => t.estado === 'completada').length
+    const tareasCompletables = tareas.filter((t: { tipo?: string }) => (t.tipo || 'producto') === 'producto')
+    const totalActividades = tareasCompletables.length
+    const completadas = tareasCompletables.filter((t: { estado: string }) => t.estado === 'completada').length
 
-    // Calcular fechas desde tareas con fecha
-    const fechasActividades = tareas
+    // Calcular fechas desde tareas con fecha (solo completables tienen fecha de venc.)
+    const fechasActividades = tareasCompletables
       .map((t: { fecha_vencimiento: string | null }) => t.fecha_vencimiento)
       .filter(Boolean)
       .sort() as string[]
@@ -326,8 +329,12 @@ export async function PATCH(
       'estado', 'prioridad', 'titulo', 'descripcion', 'notas', 'publicada',
       'fecha_inicio', 'fecha_fin_estimada', 'fecha_fin_real',
       'contacto_id', 'contacto_nombre', 'contacto_telefono',
-      'contacto_correo', 'contacto_direccion', 'contacto_whatsapp',
+      'contacto_correo', 'direccion_id', 'contacto_direccion',
+      'contacto_direccion_lat', 'contacto_direccion_lng', 'contacto_whatsapp',
       'atencion_contacto_id', 'atencion_nombre', 'atencion_telefono', 'atencion_correo',
+      // Visita de origen — para vincular o desvincular sin disparar siembra
+      // (la siembra/re-sincronización va por endpoint dedicado).
+      'visita_id',
     ]
 
     const actualizacion: Record<string, unknown> = {
@@ -338,6 +345,39 @@ export async function PATCH(
 
     for (const campo of camposPermitidos) {
       if (campo in body) actualizacion[campo] = body[campo]
+    }
+
+    // Si llega direccion_id explícito, refrescar snapshot (texto + coords) desde
+    // contacto_direcciones para mantenerlos coherentes — solo los campos que el
+    // cliente no haya enviado explícitamente. Esto deja al cliente la opción de
+    // forzar valores propios, pero por defecto sincroniza todo el snapshot.
+    if (body.direccion_id !== undefined && body.direccion_id !== null) {
+      const { data: dir } = await admin
+        .from('contacto_direcciones')
+        .select('texto, lat, lng')
+        .eq('id', body.direccion_id)
+        .maybeSingle()
+      if (dir) {
+        if (body.contacto_direccion === undefined) actualizacion.contacto_direccion = dir.texto
+        if (body.contacto_direccion_lat === undefined) actualizacion.contacto_direccion_lat = dir.lat
+        if (body.contacto_direccion_lng === undefined) actualizacion.contacto_direccion_lng = dir.lng
+      }
+    }
+
+    // Validar pertenencia de la visita: debe ser de la misma empresa.
+    if ('visita_id' in body && body.visita_id) {
+      const { data: visita } = await admin
+        .from('visitas')
+        .select('id')
+        .eq('id', body.visita_id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!visita) {
+        return NextResponse.json(
+          { error: 'La visita seleccionada no existe o no pertenece a esta empresa' },
+          { status: 400 },
+        )
+      }
     }
 
     // Si se envían asignados, reemplazar la tabla de asignados

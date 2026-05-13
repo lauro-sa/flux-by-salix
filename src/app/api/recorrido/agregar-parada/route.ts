@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
@@ -31,9 +32,10 @@ import { recalcularContadoresRecorrido } from '@/lib/recorrido-contadores'
  */
 export async function POST(request: NextRequest) {
   try {
-    const guard = await requerirPermisoAPI('recorrido', 'reordenar')
-    if ('respuesta' in guard) return guard.respuesta
-    const { user, empresaId } = guard
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json() as {
       recorrido_id?: string
@@ -68,6 +70,17 @@ export async function POST(request: NextRequest) {
 
     if (!recorrido) {
       return NextResponse.json({ error: 'Recorrido no encontrado' }, { status: 404 })
+    }
+
+    // Autorización (mismo patrón que /api/recorrido/reordenar):
+    //  - Dueño del recorrido → necesita `recorrido:reordenar` (visitador).
+    //  - No dueño → con `visitas:asignar` alcanza (coordinador desde Planificación).
+    if (recorrido.asignado_a === user.id) {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'recorrido', 'reordenar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+    } else {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'visitas', 'asignar')
+      if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
     }
 
     // Obtener el último orden (compartido por los dos modos)

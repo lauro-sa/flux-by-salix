@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorTurnoLaboral } from '@/componentes/entidad/_editor_turno_laboral/PaginaEditorTurnoLaboral'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { TurnoLaboral } from '@/componentes/entidad/_editor_turno_laboral/PaginaEditorTurnoLaboral'
 
 interface Sector {
@@ -21,6 +22,7 @@ export default function PaginaEditarTurno() {
   const [turno, setTurno] = useState<TurnoLaboral | null>(null)
   const [sectores, setSectores] = useState<Sector[]>([])
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(turno?.nombre || null)
 
   useEffect(() => {
     let cancelado = false

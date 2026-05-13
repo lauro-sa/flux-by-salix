@@ -151,6 +151,16 @@ export interface PropiedadesTablaDinamica<T> {
 
   /* Eventos */
   onClickFila?: (fila: T) => void
+  /**
+   * URL destino de la fila — habilita navegación nativa (click central abre nueva pestaña,
+   * Cmd/Ctrl+click también, click derecho ofrece "Copiar enlace", arrastre del link, etc.).
+   * Si devuelve `undefined` para una fila, esa fila cae al `onClickFila` (sin link).
+   * Si `onClickFila` también está definido, se ejecuta antes de navegar (útil para side-effects
+   * como guardar contexto en sessionStorage).
+   */
+  hrefFila?: (fila: T) => string | undefined
+  /** Label accesible del link cuando se usa `hrefFila` (anunciado por lectores de pantalla) */
+  ariaLabelFila?: (fila: T) => string
   /** Callback cuando se selecciona una vista que no se maneja internamente (ej: 'matriz') */
   onVistaExterna?: (vista: TipoVista) => void
   /** Vista externa activa — se usa para resaltar el botón cuando la vista la maneja el padre */

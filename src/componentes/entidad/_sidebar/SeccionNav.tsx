@@ -22,7 +22,8 @@ interface PropiedadesSeccionNav {
   menuItemId: string | null
   menuPos: { top: number; left: number }
   onDragEnd: (event: DragEndEvent) => void
-  onNavegar: (ruta: string) => void
+  /** Side-effect al click izquierdo (vibrar, etc.) — la navegación la hace el <Link> de ItemSortable. */
+  onNavegar: () => void
   onAbrirMenu: (itemId: string, triggerEl: HTMLElement) => void
   onCerrarMenu: () => void
   onOcultar: (id: string) => void
@@ -70,7 +71,7 @@ function SeccionNav({
                 animandoSalida={animandoSalida === i.id}
                 menuAbierto={menuItemId === i.id}
                 menuPos={menuPos}
-                onNavegar={() => onNavegar(i.ruta)}
+                onNavegar={onNavegar}
                 onAbrirMenu={onAbrirMenu}
                 onCerrarMenu={onCerrarMenu}
                 onOcultar={onOcultar}

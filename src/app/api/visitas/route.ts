@@ -10,6 +10,7 @@ import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { inicioRangoFechaISO } from '@/lib/presets-fecha'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
+import { geocodificarDireccion } from '@/lib/geocoding'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -257,6 +258,18 @@ export async function POST(request: NextRequest) {
         direccionTexto = [dir.calle, dir.ciudad, dir.provincia, dir.pais].filter(Boolean).join(', ')
         direccionLat = dir.lat
         direccionLng = dir.lng
+      }
+    }
+
+    // Geocoding de respaldo: si quedó texto sin coords (visita escrita a mano
+    // sin usar autocompletar), intentar resolver lat/lng vía Google Geocoding.
+    // Sin coords no se puede calcular ETA del aviso "en camino" ni navegar
+    // con precisión. Si falla, seguimos sin coords — no bloqueamos la creación.
+    if (direccionTexto && (direccionLat == null || direccionLng == null)) {
+      const coords = await geocodificarDireccion(direccionTexto)
+      if (coords) {
+        direccionLat = coords.lat
+        direccionLng = coords.lng
       }
     }
 

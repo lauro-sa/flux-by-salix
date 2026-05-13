@@ -30,4 +30,7 @@ export interface PropiedadesSidebar {
   hoverExpandido?: boolean
   onMouseEnter?: () => void
   onMouseLeave?: () => void
+  /** Notifica al padre cuando hay un menú contextual abierto (para mantener
+   *  el sidebar expandido aunque salga el mouse). */
+  onMenuActivoChange?: (activo: boolean) => void
 }

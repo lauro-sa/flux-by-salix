@@ -33,6 +33,7 @@ import type { TipoActividad } from '../configuracion/_tipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { tiempoRelativoDias } from '@/lib/formato-fecha'
 import { useTraduccion } from '@/lib/i18n'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
@@ -629,6 +630,8 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
         const completada = fila.estado_clave === 'completada' || fila.estado_clave === 'cancelada'
         const contacto = (fila.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
         const cantSeguimientos = Array.isArray(fila.seguimientos) ? fila.seguimientos.length : 0
+        // Línea 1: nombre del contacto (protagonista). Si no hay contacto vinculado, cae al título.
+        const lineaPrincipal = contacto?.nombre || fila.titulo
         return (
           <div className="flex items-center gap-2.5 min-w-0">
             {tipo && (
@@ -641,21 +644,21 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
             )}
             <div className="min-w-0">
               <p className={`text-sm font-medium truncate flex items-center gap-1.5 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
-                {fila.titulo}
+                {lineaPrincipal}
                 {cantSeguimientos > 0 && (
                   <span className="inline-flex items-center gap-0.5 text-xxs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full shrink-0" title={`${cantSeguimientos} seguimiento${cantSeguimientos > 1 ? 's' : ''}`}>
                     🔥{cantSeguimientos}
                   </span>
                 )}
               </p>
-              {contacto && (
-                <p className="text-xs text-texto-terciario truncate flex items-center gap-1">
-                  <User size={10} /> {contacto.nombre}
+              {fila.descripcion && (
+                <p className="text-xs text-texto-terciario truncate">
+                  {fila.descripcion}
                 </p>
               )}
-              {fila.descripcion && (
-                <p className="text-xs text-texto-terciario/60 truncate">
-                  {fila.descripcion}
+              {tipo && (
+                <p className="text-xs font-medium truncate" style={{ color: tipo.color }}>
+                  {tipo.etiqueta}
                 </p>
               )}
             </div>
@@ -713,20 +716,36 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
     {
       clave: 'fecha_vencimiento',
       etiqueta: 'Vencimiento',
-      ancho: 110,
+      ancho: 130,
       ordenable: true,
       render: (fila) => {
         if (!fila.fecha_vencimiento) return <span className="text-xs text-texto-terciario/50">—</span>
         const fecha = new Date(fila.fecha_vencimiento)
         const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
-        const vencida = fecha < hoy && fila.estado_clave !== 'completada' && fila.estado_clave !== 'cancelada'
+        const completada = fila.estado_clave === 'completada' || fila.estado_clave === 'cancelada'
+        const vencida = fecha < hoy && !completada
         const esHoy = Math.abs(fecha.getTime() - hoy.getTime()) < 86400000
+        // fechaCorta ya cubre Hoy/Ayer/Mañana y nombres de día (≤6d): el relativo solo aporta a partir de 7 días.
+        const fechaSinHoras = new Date(fecha); fechaSinHoras.setHours(0, 0, 0, 0)
+        const dias = Math.abs(Math.round((fechaSinHoras.getTime() - hoy.getTime()) / 86400000))
+        const mostrarRelativo = dias >= 7
+        const colorPrincipal = vencida
+          ? 'text-insignia-peligro-texto'
+          : esHoy ? 'text-insignia-advertencia-texto' : 'text-texto-secundario'
+        const colorRelativo = completada
+          ? 'text-texto-terciario/60'
+          : vencida ? 'text-insignia-peligro-texto/80' : 'text-texto-terciario/70'
         return (
-          <span className={`text-xs font-medium ${
-            vencida ? 'text-insignia-peligro-texto' : esHoy ? 'text-insignia-advertencia-texto' : 'text-texto-terciario'
-          }`}>
-            {fechaCorta(fila.fecha_vencimiento, formato.locale)}
-          </span>
+          <div className="flex flex-col leading-tight">
+            <span className={`text-xs font-medium ${colorPrincipal}`}>
+              {fechaCorta(fila.fecha_vencimiento, formato.locale)}
+            </span>
+            {mostrarRelativo && (
+              <span className={`text-[10.5px] ${colorRelativo}`}>
+                {tiempoRelativoDias(fila.fecha_vencimiento)}
+              </span>
+            )}
+          </div>
         )
       },
     },
@@ -924,11 +943,21 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
               {(fila.fecha_vencimiento || fila.prioridad === 'alta' || fila.prioridad === 'baja') && (
                 <span className="flex items-center gap-2.5 text-xs">
                   <CalendarClock size={13} className={`shrink-0 ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario/70'}`} />
-                  {fila.fecha_vencimiento && (
-                    <span className={`leading-snug ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
-                      {fechaCorta(fila.fecha_vencimiento, formato.locale)}
-                    </span>
-                  )}
+                  {fila.fecha_vencimiento && (() => {
+                    const fechaV = new Date(fila.fecha_vencimiento); fechaV.setHours(0, 0, 0, 0)
+                    const hoyV = new Date(); hoyV.setHours(0, 0, 0, 0)
+                    const dV = Math.abs(Math.round((fechaV.getTime() - hoyV.getTime()) / 86400000))
+                    return (
+                      <span className={`leading-snug ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
+                        {fechaCorta(fila.fecha_vencimiento, formato.locale)}
+                        {dV >= 7 && (
+                          <span className={`ml-1.5 text-[10.5px] ${vencida ? 'text-insignia-peligro-texto/80' : 'text-texto-terciario/70'}`}>
+                            · {tiempoRelativoDias(fila.fecha_vencimiento)}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })()}
                   {fila.prioridad === 'alta' && <Insignia color="peligro" tamano="sm">Alta</Insignia>}
                   {fila.prioridad === 'baja' && <Insignia color="info" tamano="sm">Baja</Insignia>}
                 </span>

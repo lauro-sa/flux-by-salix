@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -7,6 +8,24 @@ import {
 } from '@/lib/permisos-servidor'
 import EditorFlujo from './_componentes/EditorFlujo'
 import type { FlujoEditable } from './_componentes/hooks/useEditorFlujo'
+
+// Título de la pestaña: nombre del flujo cuando se identifica.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await crearClienteServidor()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { title: 'Flujo — Flux' }
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) return { title: 'Flujo — Flux' }
+  const admin = crearClienteAdmin()
+  const { data } = await admin
+    .from('flujos')
+    .select('nombre')
+    .eq('id', id)
+    .eq('empresa_id', empresaId)
+    .maybeSingle()
+  return { title: data?.nombre ? `${data.nombre} — Flux` : 'Flujo — Flux' }
+}
 
 /**
  * /flujos/[id] — Editor visual del flujo (sub-PR 19.2).

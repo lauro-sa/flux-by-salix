@@ -148,4 +148,18 @@ export interface PropiedadesModalEnviarDocumento {
   contactoPrincipalId?: string | null
   /** Nombre del contacto principal — para el separador "Vinculados a …" en el popover */
   contactoPrincipalNombre?: string | null
+  /** Estado de sincronización del PDF + portal con el contenido actual del
+   *  documento. El modal renderiza un banner reactivo que confirma al usuario
+   *  qué va a enviar y le permite reintentar si algo falló:
+   *
+   *   - 'sincronizando' → azul, spinner. Regeneración en curso.
+   *   - 'ok'            → verde, check. Auto-fade a los 4 s.
+   *   - 'desactualizado'→ ámbar persistente con "Reintentar".
+   *   - 'error'         → rojo persistente con "Reintentar" + mensaje.
+   *   - null/undefined  → sin banner. */
+  estadoSincronizacion?: 'sincronizando' | 'ok' | 'desactualizado' | 'error' | null
+  /** Mensaje opcional con detalle del error (solo aplica a 'error'). */
+  mensajeSincronizacion?: string | null
+  /** Callback del botón "Reintentar" cuando hay error o desactualizado. */
+  onReintentarSincronizacion?: () => void | Promise<void>
 }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { PaginaEditorPlantillaMeta } from '@/componentes/entidad/_editor_plantilla_meta/PaginaEditorPlantillaMeta'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTituloPestana } from '@/hooks/useTituloPestana'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 
@@ -18,6 +19,7 @@ export default function PaginaEditarPlantillaMeta() {
   const [plantilla, setPlantilla] = useState<PlantillaWhatsApp | null>(null)
   const [canales, setCanales] = useState<CanalMensajeria[]>([])
   const [cargando, setCargando] = useState(true)
+  useTituloPestana(plantilla?.nombre || null)
 
   // Fetcher compartido — se reusa para carga inicial y para el refresh tras
   // re-enviar a Meta (así el timeline/badge/banner reflejan el nuevo estado
