@@ -11,8 +11,8 @@
 | 2 | Tablas base: contratos y conceptos | ✅ Hecho (PR #40) | 5 migraciones + tipos TS + seed de 6 contratos vigentes desde miembros |
 | 3 | Verificar y completar sectores y turnos | ✅ Hecho (PR #41) | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
 | 4 | Migración UI y API: nóminas → módulo propio | ✅ Hecho (PR #42) | Files movidos con `git mv` + wrappers de compat |
-| 4b | Limpiar asistencias y agregar tabs en /nominas | ✅ Hecho | Pestaña "Nómina" desmontada de asistencias + botón "Nómina" quitado de matriz + 4 tabs en /nominas (Liquidaciones / Adelantos / Empleados / Configuración) con sync URL |
-| 5 | Ficha laboral con timeline de contratos | ⏳ Pendiente | |
+| 4b | Limpiar asistencias y agregar tabs en /nominas | ✅ Hecho (PR #43) | Pestaña "Nómina" desmontada de asistencias + botón "Nómina" quitado de matriz + 4 tabs en /nominas (Liquidaciones / Adelantos / Empleados / Configuración) con sync URL |
+| 5 | Ficha laboral con timeline de contratos | ✅ Hecho | API completa /api/nominas/contratos + /api/nominas/empleados + ficha laboral 5-tabs + EditorContrato modal con doble escritura legacy |
 | 6 | Configuración de conceptos + asignación | ⏳ Pendiente | |
 | 7 | Motor de cálculo automático del recibo | ⏳ Pendiente | |
 | 8 | Recibo PDF profesional + envío | ⏳ Pendiente | |
@@ -114,3 +114,44 @@ El plan PR 4 incluía además: desmontar pestaña "Nómina" de asistencias, agre
 - Tab Empleados queda como placeholder hasta PR 5 (ficha laboral con timeline).
 - Tab Configuración queda como placeholder hasta PR 6 (catálogo de conceptos).
 - Tab Adelantos espera UI dedicada en PR futuro (no está en el plan formal pero se incluye en la nav para señalizar a usuarios dónde buscar).
+
+## PR 5 — Detalle
+
+**API nueva (3 endpoints):**
+- `src/app/api/nominas/contratos/route.ts` — `GET ?miembro_id=...` (lista vigente + históricos) y `POST` (crea nuevo, cierra anterior con `fecha_fin = nuevo.fecha_inicio - 1` y `vigente=false`, todo en sucesión + doble escritura legacy en `miembros.compensacion_*`).
+- `src/app/api/nominas/contratos/[id]/route.ts` — `GET` detalle + `PATCH` whitelist (solo `motivo_cambio`, `notas`, `pdf_url`; los cambios económicos requieren contrato nuevo por inmutabilidad del histórico).
+- `src/app/api/nominas/empleados/route.ts` — listado de empleados con su contrato vigente expandido (sector + turno + modalidad + monto + frecuencia + régimen). Soporta filtros opcionales `sector_id`, `turno_id`, `modalidad`, `regimen`.
+
+**Validaciones backend en POST contratos:**
+- `miembro_id` debe pertenecer a la empresa del JWT (RLS + safety check explícito).
+- `condicion`, `modalidad_calculo`, `frecuencia_pago`, `regimen` validados contra whitelist (enums espejo del CHECK SQL).
+- `fecha_inicio` formato YYYY-MM-DD.
+- `monto_base ≥ 0`.
+- `fecha_inicio` no puede ser anterior al `fecha_inicio` del contrato vigente actual (sino el `restarUnDia` daría una fecha de cierre inválida).
+- Permiso `nomina:editar` requerido.
+- Restricción de `ver_propio`: el GET solo puede leer contratos del miembro vinculado al usuario.
+
+**Componentes nuevos:**
+- `EditorContrato.tsx` — modal 5xl con layout patrón ModalTipoActividad (identidad ancho completo + 2 columnas: cálculo izq / régimen-docs der). Prefilea desde `contratoActual` para el caso típico de "subir el sueldo" (solo cambia monto + motivo).
+- `ContratoVigente.tsx` — card con datos del contrato actual + CTA "Nuevo contrato"; muestra EstadoVacio si no hay contrato.
+- `TimelineContratos.tsx` — historial vertical con punto del timeline + ítems clickables (expanden detalle). Vigente arriba con badge "ACTIVO".
+- `VistaEmpleados.tsx` — listado con búsqueda por nombre/número de empleado. Click navega a la ficha.
+
+**Refactor de ficha laboral (`/nominas/empleado/[miembro_id]/page.tsx`):**
+- Header sticky con foto/iniciales + nombre + sector/turno/modalidad/monto vigente.
+- 5 tabs (sync con `?tab=...`): Contrato vigente · Historial · Liquidaciones · Adelantos · Conceptos.
+- "Liquidaciones" envuelve la `<PaginaEditorNominaEmpleado />` legacy intacta (motor de cálculo aún no se cambió; lo ataca PR 7).
+- "Adelantos" y "Conceptos" son placeholders por ahora.
+- El editor de contrato se abre desde "Contrato vigente" o desde el EstadoVacio si no hay vigente; al guardar refresca y vuelve a la tab Contrato.
+
+**Wire del tab Empleados en /nominas:**
+- Reemplazado el placeholder por `<VistaEmpleados />`.
+
+**Doble escritura legacy:**
+- Al POST de contrato, además del insert en `contratos_laborales`, se actualiza `miembros.compensacion_tipo`, `compensacion_monto` y `compensacion_frecuencia` con el mapeo inverso al seed de PR 2 (modalidad → tipo legacy, frecuencia → frecuencia legacy con fallback `diaria → mensual` para no romper el CHECK del legacy).
+- Esto permite seguir sirviendo a consumidores que aún lean los campos viejos hasta que se haga el cleanup final.
+
+**Verificado:**
+- `npx tsc --noEmit` verde.
+- `npm run test:run` — 1675/1675.
+- Smoke SQL: las queries de empleados + sus joins funcionan con datos reales en flux-dev.

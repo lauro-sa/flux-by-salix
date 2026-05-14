@@ -23,6 +23,7 @@ import { Tabs } from '@/componentes/ui/Tabs'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Banknote, Wallet, Users, Settings } from 'lucide-react'
 import { VistaNomina } from './_componentes/VistaNomina'
+import { VistaEmpleados } from './_componentes/VistaEmpleados'
 
 type TabClave = 'liquidaciones' | 'adelantos' | 'empleados' | 'configuracion'
 
@@ -72,13 +73,7 @@ function ContenidoNominas() {
         />
       )}
 
-      {tab === 'empleados' && (
-        <EstadoVacio
-          icono={<Users size={48} strokeWidth={1.5} />}
-          titulo="Empleados — en construcción"
-          descripcion="Va a mostrar el listado de empleados con su contrato vigente (modalidad, monto, sector, turno) y un atajo a la ficha laboral con timeline."
-        />
-      )}
+      {tab === 'empleados' && <VistaEmpleados />}
 
       {tab === 'configuracion' && (
         <EstadoVacio
