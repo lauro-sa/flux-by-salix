@@ -6,7 +6,6 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CHROMIUM_DOWNLOAD_URL } from '@/lib/constantes/api-urls'
 import {
   renderizarHtml,
   generarNombreArchivo,
@@ -14,6 +13,7 @@ import {
   type DatosEmpresa,
   type ConfigPdf,
 } from './renderizar-html'
+import { htmlAPdf } from './html-a-pdf'
 import type { LineaPresupuesto, CuotaPago } from '@/tipos/presupuesto'
 
 // Re-exportar para que la API route siga importando desde aquí
@@ -24,135 +24,6 @@ interface ResultadoPdf {
   storage_path: string
   nombre_archivo: string
   tamano: number
-}
-
-// ─── Conversión HTML a PDF con Puppeteer ───
-
-interface OpcionesPdf {
-  /** HTML del mini header que va en <thead> (repite en cada página via CSS) */
-  theadHtml?: string
-  /** Template HTML del footer para Puppeteer displayHeaderFooter (siempre al fondo) */
-  footerTemplate?: string
-}
-
-/**
- * Envuelve el contenido del <body> en una <table> con <thead>/<tfoot> para repetición.
- * - <thead> repite el mini header en cada página (display: table-header-group)
- * - <tfoot> repite el pie visual en cada página (display: table-footer-group)
- * - Oculta .pie-wrapper del body (el pie ahora va en tfoot)
- */
-function envolverEnTabla(html: string, theadHtml: string): string {
-  const cssTabla = `<style>
-    @page{size:A4;margin:10mm 13mm 28mm 13mm!important}
-    body{padding:0!important;margin:0!important}
-    .pie-wrapper{display:none!important}
-    table.doc-wrapper{width:100%;border-collapse:collapse}
-    table.doc-wrapper thead{display:table-header-group}
-    table.doc-wrapper thead td,table.doc-wrapper tbody td{padding:0}
-    table.doc-wrapper tr{border:none}
-  </style>`
-
-  let resultado = html.replace('</head>', `${cssTabla}\n</head>`)
-
-  const bodyMatch = resultado.match(/<body[^>]*>([\s\S]*)<\/body>/i)
-  if (bodyMatch) {
-    const bodyContent = bodyMatch[1]
-    const tablaHtml = `
-<table class="doc-wrapper">
-  <thead><tr><td>${theadHtml}</td></tr></thead>
-  <tbody><tr><td>${bodyContent}</td></tr></tbody>
-</table>`
-    resultado = resultado.replace(bodyMatch[1], tablaHtml)
-  }
-
-  return resultado
-}
-
-async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
-  let browser
-  try {
-    const chromium = (await import('@sparticuz/chromium-min')).default
-    const puppeteer = await import('puppeteer-core')
-    browser = await puppeteer.default.launch({
-      args: chromium.args,
-      defaultViewport: { width: 1280, height: 720 },
-      executablePath: await chromium.executablePath(CHROMIUM_DOWNLOAD_URL),
-      headless: true,
-    })
-  } catch (errChromiumMin) {
-    // Fallback: buscar Chrome local (desarrollo)
-    try {
-      const puppeteer = await import('puppeteer-core')
-      const rutasChrome = [
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/usr/bin/google-chrome',
-        '/usr/bin/chromium-browser',
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      ]
-      let executablePath = ''
-      const { existsSync } = await import('fs')
-      for (const ruta of rutasChrome) {
-        if (existsSync(ruta)) { executablePath = ruta; break }
-      }
-      if (!executablePath) {
-        throw new Error(`No se encontró Chrome/Chromium. Error original: ${errChromiumMin instanceof Error ? errChromiumMin.message : 'desconocido'}`)
-      }
-      browser = await puppeteer.default.launch({
-        executablePath,
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      })
-    } catch (err) {
-      throw new Error(`No se pudo iniciar el navegador: ${err instanceof Error ? err.message : 'Error desconocido'}`)
-    }
-  }
-
-  try {
-    const pagina = await browser.newPage()
-
-    // Si hay thead (mini header), envolver el body en tabla para que repita en cada página.
-    // Si hay footerTemplate, usar displayHeaderFooter de Puppeteer para el pie + paginación.
-    let htmlFinal = html
-    if (opciones?.theadHtml) {
-      htmlFinal = envolverEnTabla(htmlFinal, opciones.theadHtml)
-    } else {
-      // Sin thead: usar approach original con body padding
-      const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 25mm 13mm!important;margin:0!important}</style>'
-      htmlFinal = htmlFinal.replace('</head>', `${cssMargen}\n</head>`)
-    }
-
-    await pagina.setContent(htmlFinal, { waitUntil: 'networkidle0' })
-
-    const usarFooter = !!opciones?.footerTemplate
-    const pdfBuffer = await pagina.pdf({
-      format: 'A4',
-      printBackground: true,
-      // Con thead: Puppeteer pone márgenes por página (contenido + footer no se pisan)
-      // Sin thead: approach original (margin 0, body padding)
-      margin: opciones?.theadHtml
-        ? { top: '10mm', bottom: usarFooter ? '28mm' : '10mm', left: '13mm', right: '13mm' }
-        : { top: '0', bottom: '0', left: '0', right: '0' },
-      displayHeaderFooter: usarFooter,
-      headerTemplate: '<span></span>',
-      footerTemplate: opciones?.footerTemplate || '<span></span>',
-      preferCSSPageSize: false,
-    })
-
-    // Generar miniatura (screenshot de la primera página)
-    let miniaturaBuffer: Buffer | null = null
-    try {
-      await pagina.setViewport({ width: 794, height: 1123 }) // A4 a 96dpi
-      miniaturaBuffer = Buffer.from(await pagina.screenshot({
-        type: 'webp',
-        quality: 80,
-        clip: { x: 0, y: 0, width: 794, height: 1123 },
-      }))
-    } catch { /* si falla la miniatura, no bloquear el PDF */ }
-
-    return { pdf: Buffer.from(pdfBuffer), miniatura: miniaturaBuffer }
-  } finally {
-    await browser.close()
-  }
 }
 
 // ─── Subida a Supabase Storage ───
@@ -411,7 +282,7 @@ export async function generarPdfPresupuesto(
 </div>`
 
   // 6. Convertir y subir
-  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { theadHtml, footerTemplate })
+  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { theadHtml, footerTemplate, generarMiniatura: true })
   const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,

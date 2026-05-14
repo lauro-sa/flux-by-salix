@@ -5,6 +5,7 @@ import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { resolverVariables } from '@/lib/variables/resolver'
 import { construirContextoNomina, type DatosNominaCorreo } from '@/lib/plantilla-correo-nomina'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
+import { generarPdfRecibo } from '@/lib/nominas/generar-pdf-recibo'
 // Importar entidades para que el registro de variables esté disponible
 import '@/lib/variables/entidades'
 
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
       empleados,
       nombre_empresa,
       adjuntos_ids,
+      periodo_desde,
+      periodo_hasta,
     } = body as {
       canal_id: string
       asunto_plantilla: string
@@ -53,6 +56,10 @@ export async function POST(request: NextRequest) {
       empleados: DatosNominaCorreo[]
       nombre_empresa: string
       adjuntos_ids?: string[]
+      /** Período del recibo. Si viene, el server busca el pago grabado
+       *  del empleado y adjunta el PDF del recibo. */
+      periodo_desde?: string
+      periodo_hasta?: string
     }
 
     if (!canal_id) return NextResponse.json({ error: 'canal_id requerido' }, { status: 400 })
@@ -98,6 +105,33 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      // ─── Adjuntar PDF del recibo (si existe pago en el período) ───
+      let pdfUrl: string | null = null
+      let pdfNombre: string | null = null
+      if (empleado.miembro_id && periodo_desde && periodo_hasta) {
+        try {
+          const { data: pago } = await admin
+            .from('pagos_nomina')
+            .select('id')
+            .eq('empresa_id', empresaId)
+            .eq('miembro_id', empleado.miembro_id)
+            .eq('fecha_inicio_periodo', periodo_desde)
+            .eq('fecha_fin_periodo', periodo_hasta)
+            .eq('eliminado', false)
+            .order('creado_en', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (pago) {
+            const { url } = await generarPdfRecibo(admin, pago.id, empresaId)
+            pdfUrl = url
+            pdfNombre = `Recibo_${empleado.nombre_empleado.replace(/\s+/g, '_')}_${periodo_desde}_${periodo_hasta}.pdf`
+          }
+        } catch (errPdf) {
+          // No bloqueamos el envío si falla la generación del PDF.
+          console.error('[nominas/enviar] error al generar PDF:', errPdf)
+        }
+      }
+
       try {
         // Llamar a la API interna de envío de correo
         const baseUrl = request.nextUrl.origin
@@ -115,6 +149,8 @@ export async function POST(request: NextRequest) {
             html: htmlFinal,
             tipo: 'nuevo',
             adjuntos_ids: adjuntos_ids || [],
+            pdf_url: pdfUrl,
+            pdf_nombre: pdfNombre,
           }),
         })
 
