@@ -65,15 +65,15 @@ Estos archivos fueron traídos desde `wip/recovery-multiples-chats` para destrab
 | `src/lib/sembrar-tareas-ot.ts` | 693 B | **Implementado (Tanda 1, PR #13)** |
 | `src/lib/whatsapp/modulos-plantilla.ts` | 3.4 KB | Stub (PR #9 lo reemplazó con versión real, verificá) |
 | `src/lib/presupuestos/enriquecer-listado.ts` | 542 B | Stub pass-through |
-| `src/lib/presupuestos/sincronizar-recursos-envio.ts` | 1.2 KB | Stub |
-| `src/componentes/entidad/_enviar_documento/BannerSincronizacion.tsx` | — | Stub (renderiza null) |
-| `src/componentes/entidad/IndicadorGuardadoHeader.tsx` | — | Stub |
+| `src/lib/presupuestos/sincronizar-recursos-envio.ts` | 1.2 KB | **Implementado (Tanda 2, PR #20)** |
+| `src/componentes/entidad/_enviar_documento/BannerSincronizacion.tsx` | — | **Implementado (Tanda 2, PR #20)** |
+| `src/componentes/entidad/IndicadorGuardadoHeader.tsx` | — | **Implementado (Tanda 2, PR #18)** |
 | `src/componentes/entidad/PreviewSeccionExterna.tsx` | — | Stub |
 | `src/app/(flux)/ordenes/_componentes/SeccionBitacoraOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
 | `src/app/(flux)/ordenes/_componentes/SeccionRelevamientoOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
-| `src/app/(flux)/presupuestos/_componentes/SelectorVisitaPresupuesto.tsx` | — | Stub |
-| `src/hooks/useTituloPestana.ts` | — | Stub (no-op) |
-| `src/hooks/useIndicadorGuardado.tsx` | — | Stub (pass-through provider) |
+| `src/app/(flux)/presupuestos/_componentes/SelectorVisitaPresupuesto.tsx` | — | **Implementado (Tanda 2, PR #19)** |
+| `src/hooks/useTituloPestana.ts` | — | **Implementado (Tanda 2, PR #21)** |
+| `src/hooks/useIndicadorGuardado.tsx` | — | **Implementado (Tanda 2, PR #18)** |
 
 **Excepción**: `src/lib/sincronizar-cuotas-presupuesto.ts` y `src/lib/whatsapp/modulos-plantilla.ts` fueron mergeados con código real vía PR #9 y #10 — verificá que la versión actual no sea el stub.
 
