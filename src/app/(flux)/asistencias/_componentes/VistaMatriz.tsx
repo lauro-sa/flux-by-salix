@@ -14,7 +14,7 @@ import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalNomina } from './ModalNomina'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useFormato } from '@/hooks/useFormato'
-import Holidays from 'date-holidays'
+import { useQuery } from '@tanstack/react-query'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -267,21 +267,31 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
     })
   }, [todasLasFechas, ocultarFindes])
 
-  // Feriados argentinos (offline via date-holidays)
+  // Feriados oficiales del año vienen de /api/calendario/feriados-oficiales
+  // (server-side) cacheado por React Query y por HTTP. Antes esto se calculaba
+  // en cliente con `date-holidays`, que arrastraba moment + todas las locales
+  // (~1.6 MB) al bundle.
+  const aniosClave = useMemo(() => {
+    const set = new Set(todasLasFechas.map(f => parseInt(f.split('-')[0])))
+    return Array.from(set).sort().join(',')
+  }, [todasLasFechas])
+  const { data: feriadosResp } = useQuery({
+    queryKey: ['feriados-oficiales', 'AR', aniosClave],
+    queryFn: async () => {
+      const res = await fetch(`/api/calendario/feriados-oficiales?pais=AR&anios=${aniosClave}`)
+      if (!res.ok) return { feriados: [] as Array<{ fecha: string; nombre: string }> }
+      return res.json() as Promise<{ feriados: Array<{ fecha: string; nombre: string }> }>
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 1 día: los feriados oficiales no cambian
+    enabled: aniosClave.length > 0,
+  })
   const feriados = useMemo(() => {
-    const hd = new Holidays('AR')
-    const anios = new Set(todasLasFechas.map(f => parseInt(f.split('-')[0])))
     const mapa = new Map<string, string>()
-    for (const anio of anios) {
-      for (const h of hd.getHolidays(anio)) {
-        if (h.type === 'public') {
-          const fecha = h.date.split(' ')[0] // "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DD"
-          mapa.set(fecha, h.name)
-        }
-      }
+    for (const f of feriadosResp?.feriados || []) {
+      mapa.set(f.fecha, f.nombre)
     }
     return mapa
-  }, [todasLasFechas])
+  }, [feriadosResp])
   const diasLaborales = useMemo(() => todasLasFechas.filter(f => {
     const d = new Date(f + 'T12:00:00').getDay()
     return d !== 0 && d !== 6 && !feriados.has(f)
