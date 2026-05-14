@@ -10,7 +10,8 @@
 | 1 | Esqueleto del módulo + auto-dependencias | ✅ Hecho (PR #37) | Catálogo + sidebar + auto-instalación cascada de `asistencias` |
 | 2 | Tablas base: contratos y conceptos | ✅ Hecho (PR #40) | 5 migraciones + tipos TS + seed de 6 contratos vigentes desde miembros |
 | 3 | Verificar y completar sectores y turnos | ✅ Hecho (PR #41) | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
-| 4 | Migración UI y API: nóminas → módulo propio | ✅ Hecho | Files movidos con `git mv` (historia preservada), API con wrappers de compat, `/nominas` ya renderiza la vista real. **Pendiente PR 4b**: desmontar la pestaña "Nómina" de asistencias y agregar tabs (Liquidaciones / Adelantos / Empleados / Config) |
+| 4 | Migración UI y API: nóminas → módulo propio | ✅ Hecho (PR #42) | Files movidos con `git mv` + wrappers de compat |
+| 4b | Limpiar asistencias y agregar tabs en /nominas | ✅ Hecho | Pestaña "Nómina" desmontada de asistencias + botón "Nómina" quitado de matriz + 4 tabs en /nominas (Liquidaciones / Adelantos / Empleados / Configuración) con sync URL |
 | 5 | Ficha laboral con timeline de contratos | ⏳ Pendiente | |
 | 6 | Configuración de conceptos + asignación | ⏳ Pendiente | |
 | 7 | Motor de cálculo automático del recibo | ⏳ Pendiente | |
@@ -96,3 +97,20 @@ Reemplazado el placeholder de PR 1 por una página real que renderiza `<VistaNom
 
 **Scope reducido vs plan original:**
 El plan PR 4 incluía además: desmontar pestaña "Nómina" de asistencias, agregar tabs (Liquidaciones / Adelantos / Empleados / Configuración). Se difiere a PR 4b para reducir blast radius: este PR es solo mecánico (renames + wrappers + imports). Los users no perciben cambios funcionales — sigue funcionando todo donde antes funcionaba, más ahora también desde `/nominas`.
+
+## PR 4b — Detalle
+
+**Cambios funcionales (usuario percibe):**
+- `/asistencias` ya no tiene pestaña "Nómina". Queda como una sola vista de fichajes/matriz. El acceso a nómina es exclusivamente por sidebar → `/nominas`.
+- `/asistencias` (vista matriz) ya no tiene el botón "Nómina" que abría el modal de cálculo desde la selección. La selección sigue funcionando para otras acciones (export, etc.), pero la generación de nómina se hace ahora desde `/nominas`.
+- `/nominas` tiene 4 pestañas: **Liquidaciones**, **Adelantos**, **Empleados**, **Configuración**. Solo la primera tiene contenido real (la `<VistaNomina />` que se movió en PR 4). Las otras tres muestran "en construcción" para señalizar al usuario qué viene. La tab activa se sincroniza con `?tab=...` en la URL para linkear directo.
+
+**Archivos tocados:**
+- `src/app/(flux)/asistencias/_componentes/ContenidoAsistencias.tsx`: quitados imports VistaNomina/Tabs/Banknote/Send/useRef, vars de permisos de nomina, `seccion` state, `nominaRef`, `tabsSeccion`, branches de `accionPrincipalHero` y `accionesHero`, JSX de `<Tabs>` y `<VistaNomina>`. Resultado: archivo solo de fichajes.
+- `src/app/(flux)/asistencias/_componentes/VistaMatriz.tsx`: quitados import `ModalNomina`, ícono `Printer`, state `nominaAbierta`, computados `selEmpleadosNomina` y `selDiasNomina`, botón "Nómina" del toolbar y render del `<ModalNomina>`.
+- `src/app/(flux)/nominas/page.tsx`: reemplazado el wrapper PR-4 por una página con 4 tabs (`Tabs` + ternarios) y sync URL.
+
+**Scope deferido a PR siguientes:**
+- Tab Empleados queda como placeholder hasta PR 5 (ficha laboral con timeline).
+- Tab Configuración queda como placeholder hasta PR 6 (catálogo de conceptos).
+- Tab Adelantos espera UI dedicada en PR futuro (no está en el plan formal pero se incluye en la nav para señalizar a usuarios dónde buscar).

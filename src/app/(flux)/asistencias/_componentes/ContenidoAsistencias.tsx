@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
@@ -10,7 +10,7 @@ import { useRol } from '@/hooks/useRol'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Plus, History, Banknote, Send, List, LayoutGrid, CalendarDays } from 'lucide-react'
+import { Download, Clock, TimerOff, Plus, History, List, LayoutGrid, CalendarDays } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
@@ -22,8 +22,6 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './VistaMatriz'
 import { TarjetaAsistencia } from './TarjetaAsistencia'
 import { ModalCrearFichaje } from './ModalCrearFichaje'
-import { VistaNomina, type VistaNominaHandle } from '@/app/(flux)/nominas/_componentes/VistaNomina'
-import { Tabs } from '@/componentes/ui/Tabs'
 import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
 
 // ─── Constantes ──────────────────────────────────────────────
@@ -154,11 +152,8 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
   const puedeMarcar = tienePermiso('asistencias', 'marcar')
   const puedeEditar = tienePermiso('asistencias', 'editar')
   const puedeEliminar = tienePermiso('asistencias', 'eliminar')
-  // Nómina (módulo separado) — pestaña, enviar recibos, editar adelantos
-  const puedeVerNominaTodos = tienePermiso('nomina', 'ver_todos')
-  const puedeVerNominaPropio = tienePermiso('nomina', 'ver_propio')
-  const puedeEnviarNomina = tienePermiso('nomina', 'enviar')
-  const puedeVerNomina = puedeVerNominaTodos || puedeVerNominaPropio
+  // Nómina ya no vive en esta pantalla — pasó a su módulo propio en /nominas
+  // (PR 4 + 4b del plan). El acceso se hace desde el sidebar.
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
@@ -167,13 +162,6 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
   const [matrizKey, setMatrizKey] = useState(0)
-  const [seccion, setSeccion] = useState<'fichajes' | 'nomina'>('fichajes')
-  // Si el usuario estaba en la pestaña Nómina y le quitan el permiso en vivo,
-  // forzamos fallback a Fichajes para no mostrar contenido sin autorización.
-  useEffect(() => {
-    if (seccion === 'nomina' && !puedeVerNomina) setSeccion('fichajes')
-  }, [seccion, puedeVerNomina])
-  const nominaRef = useRef<VistaNominaHandle>(null)
 
   // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
   // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
@@ -487,14 +475,6 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
     },
   ]
 
-  // La pestaña "Nómina" muestra sueldos del equipo → solo con ver_todos.
-  const tabsSeccion = [
-    { clave: 'fichajes', etiqueta: 'Fichajes', icono: <Clock size={15} /> },
-    // Nómina es un módulo aparte: la pestaña aparece con `nomina:ver_propio`
-    // (ve su propio recibo) o `ver_todos` (ve nómina del equipo).
-    ...(puedeVerNomina ? [{ clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> }] : []),
-  ]
-
   // Switcher de vistas — se renderiza en el hero de matriz (al lado de ‹ Hoy ›)
   // y se oculta de la toolbar de TablaDinamica cuando vista === 'matriz'.
   const switcherVistasHero = (
@@ -518,32 +498,16 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
     </GrupoBotones>
   )
 
-  // Acción principal del hero según pestaña activa y permisos granulares:
-  //  • Fichajes  → "Agregar fichaje" (requiere marcar o editar de asistencias).
-  //  • Nómina    → "Enviar recibos" (requiere nomina:enviar).
-  const accionPrincipalHero =
-    seccion === 'fichajes'
-      ? ((puedeMarcar || puedeEditar)
-        ? { etiqueta: 'Agregar fichaje', icono: <Plus size={14} />, onClick: () => setCreando({}) }
-        : undefined)
-      : (puedeEnviarNomina
-        ? { etiqueta: 'Enviar recibos', icono: <Send size={14} />, onClick: () => nominaRef.current?.enviarRecibos() }
-        : undefined)
+  // Acción principal del hero: "Agregar fichaje" (requiere marcar o editar).
+  const accionPrincipalHero = (puedeMarcar || puedeEditar)
+    ? { etiqueta: 'Agregar fichaje', icono: <Plus size={14} />, onClick: () => setCreando({}) }
+    : undefined
 
-  // Exportar Excel:
-  //  • Fichajes → siempre visible (el API filtra por ver_propio/ver_todos).
-  //  • Nómina   → solo con nomina:ver_todos (export del equipo completo).
-  const accionesHero = (seccion === 'nomina' && !puedeVerNominaTodos)
-    ? []
-    : [{
-        id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {
-          if (seccion === 'nomina') {
-            nominaRef.current?.exportar()
-          } else {
-            window.open('/api/asistencias/exportar', '_blank')
-          }
-        },
-      }]
+  // Exportar Excel: el API filtra por ver_propio/ver_todos.
+  const accionesHero = [{
+    id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />,
+    onClick: () => window.open('/api/asistencias/exportar', '_blank'),
+  }]
 
   return (
     <PlantillaListado
@@ -554,14 +518,7 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
       mostrarConfiguracion={puedeVerTodos}
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
-      {/* ── Tabs: siempre arriba del contenido, pegados al cabezal (mismo bloque de navegación) ── */}
-      <div className="px-4 md:px-6 -mt-2">
-        <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
-      </div>
-
-      {/* ── Contenido según pestaña ── */}
-      {seccion === 'fichajes' ? (
-        <TablaDinamica
+      <TablaDinamica
           columnas={columnas}
           datos={registros}
           claveFila={(r) => r.id}
@@ -731,9 +688,6 @@ function ContenidoAsistenciasInterno({ datosInicialesJson }: Props) {
             />
           }
         />
-      ) : (
-        <VistaNomina ref={nominaRef} />
-      )}
 
       <ModalEditarFichaje
         abierto={!!editando}

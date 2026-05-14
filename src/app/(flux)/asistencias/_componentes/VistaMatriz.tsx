@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import {
-  Loader2, Printer, Download,
+  Loader2, Download,
   Maximize2, CheckSquare, X,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -11,7 +11,6 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { formatearPuntualidadCorta } from '@/lib/constantes/asistencias'
 import { Checkbox } from '@/componentes/ui/Checkbox'
-import { ModalNomina } from '@/app/(flux)/nominas/_componentes/ModalNomina'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useFormato } from '@/hooks/useFormato'
 import { useQuery } from '@tanstack/react-query'
@@ -189,7 +188,6 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
   /** Slot opcional para acciones a la izquierda de la navegación ‹ Hoy › (ej. switcher de vistas) */
   slotAcciones?: ReactNode
 }) {
-  const [nominaAbierta, setNominaAbierta] = useState(false)
   const esMovil = useEsMovil()
   const { formatoHora, locale } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -243,19 +241,6 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
   }
 
   const haySeleccion = selCeldas.size > 0
-
-  // Derivar empleados y días seleccionados para la nómina
-  const selEmpleadosNomina = useMemo(() => {
-    const ids = new Set<string>()
-    selCeldas.forEach(k => ids.add(k.split(':')[0]))
-    return Array.from(ids)
-  }, [selCeldas])
-
-  const selDiasNomina = useMemo(() => {
-    const dias = new Set<string>()
-    selCeldas.forEach(k => dias.add(k.split(':')[1]))
-    return Array.from(dias)
-  }, [selCeldas])
 
   const { desde, hasta, etiqueta } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
@@ -395,17 +380,6 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
 
           {/* Acciones a la derecha */}
           <GrupoBotones>
-          <Boton
-            variante="secundario"
-            tamano="sm"
-            icono={<Printer size={12} />}
-            onClick={() => setNominaAbierta(true)}
-          >
-            <span className="hidden sm:inline">Nómina</span>
-            {haySeleccion && (
-              <span className="text-xxs bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full ml-1">{selCeldas.size}</span>
-            )}
-          </Boton>
           <Boton
             variante="secundario"
             tamano="sm"
@@ -902,15 +876,6 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey, sl
         </div>
       )}
 
-      <ModalNomina
-        abierto={nominaAbierta}
-        onCerrar={() => setNominaAbierta(false)}
-        desde={desde.toISOString().split('T')[0]}
-        hasta={hasta.toISOString().split('T')[0]}
-        etiquetaPeriodo={etiqueta}
-        empleadosSeleccionados={haySeleccion ? selEmpleadosNomina : undefined}
-        diasSeleccionados={haySeleccion ? selDiasNomina : undefined}
-      />
     </div>
   )
 }
