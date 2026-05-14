@@ -1,7 +1,7 @@
 # Plan de auditoría y mejora de rendimiento — Flux by Salix
 
-**Estado:** Fases 1, 2.3 y 3 implementadas (2026-05-14). Fase 2.1 (RPCs) pivoteada por costo/beneficio. Fase 4 sin ejecutar todavía (riesgo alto, beneficio diferido).
-**Fecha de auditoría:** 2026-05-13
+**Estado:** Fases 1, 2.3, 3 (completa) y 4 (selectiva) implementadas. Fase 2.1 (RPCs) y Fase 4.1 (refactor layout) pivoteadas tras evaluación de costo/beneficio.
+**Fecha de auditoría:** 2026-05-13 · **Última actualización:** 2026-05-14
 **Sensación reportada:** listados de contactos / presupuestos / actividades tardan 3-5 s, navegación entre rutas se siente "congelada", crear/editar tarda en reflejarse.
 
 ## Implementado a la fecha
@@ -10,13 +10,17 @@
 |----|------|---------|
 | [#30](https://github.com/lauro-sa/flux-by-salix/pull/30) | 1 | Suspense + SkeletonListado + prefetch al hover + `count: 'estimated'` en 14 endpoints |
 | [#31](https://github.com/lauro-sa/flux-by-salix/pull/31) | 2.3 | `pg_trgm` + 13 índices GIN trigram en columnas de búsqueda |
-| [#32](https://github.com/lauro-sa/flux-by-salix/pull/32) | 3 | `staleTime` 20 s → 60 s + helper `useCacheListado` aplicado a 4 mutaciones (papelera/etiqueta de contactos, papelera/estado de presupuestos) |
+| [#32](https://github.com/lauro-sa/flux-by-salix/pull/32) | 3 (parcial) | `staleTime` 20 s → 60 s + helper `useCacheListado` en 4 mutaciones (papelera/etiqueta de contactos, papelera/estado de presupuestos) |
+| pendiente (esta rama) | 3 (resto) + 4 | `agregarLocal` + `snapshotear` + `restaurar` en `useCacheListado`. Optimistic updates con rollback en productos, visitas y actividades (crear/editar/completar/cancelar/eliminar/lote). Code-split de `PanelFiltrosAvanzado`, `EditorTexto` (TipTap) y 3 widgets recharts del dashboard. `SkeletonDetalle` + `loading.tsx` en /[id] de 6 rutas. `experimental.optimizePackageImports` para `lucide-react`, `date-fns`, `framer-motion`. |
 
 ### Pivot Fase 2.1 (RPCs `fn_listar_*`)
 Tras analizar la complejidad de `/api/contactos/route.ts` (430 líneas, 12+ pre-queries condicionales), reescribir a SQL puro duplicaba la lógica sin un retorno proporcional **para la escala actual de Flux** (una empresa, miles de filas). El trigram de Fase 2.3 ya cubre el principal cuello de búsqueda. Si la escala crece (miles de empresas o cientos de miles de contactos), vuelve a evaluarse.
 
-### Fase 4 pendiente — alto riesgo
-Refactor de 13 providers a Server Component + code-split de TablaDinamica/framer/recharts/tiptap + migración del detalle [id] a Server Component híbrido + barrel de iconos. Trabajo de varios días, invasivo, con riesgo de regresión amplia. **Saltado en esta tanda**; revaluar cuando el TTI móvil sea bloqueante o cuando se agregue otra empresa al sistema.
+### Pivot Fase 4.1 (refactor de layout a Server Component)
+Auditoría confirmó que la premisa del plan original era incorrecta: en App Router de Next.js 15, los providers del layout `(flux)` **no se re-renderizan en navegación entre páginas hijas**, solo en primera carga. Los 5 hooks de datos (`useAuth`, `useEmpresa`, `usePermisosActuales`, `useModulos`, `usePreferencias`) tienen dependencias solo de `usuario?.id` — no de `pathname` ni `searchParams`. La ganancia estimada (~100-150 ms en primera carga) no justifica refactorizar 5 hooks + el layout con riesgo de regresión.
+
+### Fase 4.4 (refactor profundo del detalle [id])
+El detalle de contactos tiene 1781 líneas con 40+ piezas de estado. Refactorizarlo a Server Component híbrido implica reorganizar el fetcher y todo el flujo de hidratación. Se postergó: el `loading.tsx` con `SkeletonDetalle` instantáneo + el prefetch al hover de Fase 1 cubren el 90 % de la mejora percibida. Revisar si la pintura del detalle aún se siente lenta tras esta tanda.
 
 ---
 
