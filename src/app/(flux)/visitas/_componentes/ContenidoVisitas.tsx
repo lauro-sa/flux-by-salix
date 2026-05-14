@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
+import { useCacheListado } from '@/hooks/useCacheListado'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -104,6 +105,7 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   const puedeCrear = tienePermiso('visitas', 'crear')
   const puedeCompletar = tienePermiso('visitas', 'completar')
   const puedeEliminar = tienePermiso('visitas', 'eliminar')
+  const cacheVisitas = useCacheListado<Visita>('visitas')
 
   // Tab activo: listado o planificación
   const [vistaActiva, setVistaActiva] = useState<'listado' | 'planificacion'>('listado')
@@ -362,6 +364,9 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
     return [...visitas, ...extras]
   }, [visitas, finalizadasHoy, filtroEstado])
 
+  // Reactivar mueve la visita de "finalizadas hoy" al listado activo.
+  // Como toca dos sets de datos distintos, hacemos revalidar() después
+  // del PATCH en lugar de optimistic local.
   const reactivarVisita = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/visitas/${id}`, {
@@ -371,15 +376,17 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
       })
       if (!res.ok) throw new Error()
       mostrar('exito', 'Visita reactivada')
-      recargarVisitas()
+      cacheVisitas.revalidar()
       recargarFinalizadasHoy()
     } catch {
       mostrar('error', 'Error al reactivar la visita')
     }
-  }, [recargarVisitas, recargarFinalizadasHoy, mostrar])
+  }, [cacheVisitas, recargarFinalizadasHoy, mostrar])
 
   // ── Acciones ──
 
+  // Crear: POST y, si OK, insertamos al inicio del listado activo. Si falla,
+  // mostramos error sin tocar el cache.
   const crearVisita = async (datos: Record<string, unknown>) => {
     try {
       // Incluir actividad_origen_id si viene de una actividad — el backend
@@ -397,30 +404,45 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
       // Limpiar ref después de usar
       actividadOrigenIdRef.current = null
       mostrar('exito', 'Visita programada')
-      recargarVisitas()
+      const nueva = (resultado?.visita || resultado) as Visita
+      if (nueva?.id) cacheVisitas.agregarLocal(nueva, 'inicio')
+      else cacheVisitas.revalidar()
       return resultado
     } catch {
       mostrar('error', 'Error al crear la visita')
     }
   }
 
+  // Editar: aplicamos los campos al cache de inmediato y, si el PATCH falla,
+  // revertimos. Si el servidor responde con la fila actualizada se reusa.
   const editarVisita = async (datos: Record<string, unknown>) => {
+    const { id, ...campos } = datos as { id: string } & Record<string, unknown>
+    if (!id) return
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.actualizarLocal(id, campos as Partial<Visita>)
     try {
-      const { id, ...campos } = datos
       const res = await fetch(`/api/visitas/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(campos),
       })
       if (!res.ok) throw new Error('Error al editar')
+      const actualizada = (await res.json().catch(() => null))?.visita
+      if (actualizada?.id) cacheVisitas.actualizarLocal(id, actualizada as Partial<Visita>)
       mostrar('exito', 'Visita actualizada')
-      recargarVisitas()
     } catch {
+      cacheVisitas.restaurar(snapshot)
       mostrar('error', 'Error al guardar la visita')
     }
   }
 
+  // Completar / cancelar / rechazar sacan la visita del listado activo.
+  // Optimismo: removerLocal antes del fetch + restaurar si falla. La visita
+  // pasa a "finalizadas hoy" — revalidamos esa lista por separado.
   const completarVisita = async (id: string) => {
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.removerLocal([id])
+    mostrar('exito', 'Visita completada')
     try {
       const res = await fetch(`/api/visitas/${id}`, {
         method: 'PATCH',
@@ -428,15 +450,17 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         body: JSON.stringify({ accion: 'completar' }),
       })
       if (!res.ok) throw new Error()
-      mostrar('exito', 'Visita completada')
-      recargarVisitas()
       recargarFinalizadasHoy()
     } catch {
+      cacheVisitas.restaurar(snapshot)
       mostrar('error', 'Error al completar la visita')
     }
   }
 
   const cancelarVisita = async (id: string) => {
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.removerLocal([id])
+    mostrar('info', 'Visita cancelada')
     try {
       const res = await fetch(`/api/visitas/${id}`, {
         method: 'PATCH',
@@ -444,16 +468,18 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         body: JSON.stringify({ accion: 'cancelar' }),
       })
       if (!res.ok) throw new Error()
-      mostrar('info', 'Visita cancelada')
-      recargarVisitas()
       recargarFinalizadasHoy()
     } catch {
+      cacheVisitas.restaurar(snapshot)
       mostrar('error', 'Error al cancelar la visita')
     }
   }
 
   // Rechazar visita provisoria (estado provisoria → cancelada)
   const rechazarVisita = async (id: string) => {
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.removerLocal([id])
+    mostrar('info', 'Visita rechazada')
     try {
       const res = await fetch(`/api/visitas/${id}`, {
         method: 'PATCH',
@@ -461,9 +487,8 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
         body: JSON.stringify({ accion: 'rechazar' }),
       })
       if (!res.ok) throw new Error()
-      mostrar('info', 'Visita rechazada')
-      recargarVisitas()
     } catch {
+      cacheVisitas.restaurar(snapshot)
       mostrar('error', 'Error al rechazar la visita')
     }
   }
@@ -471,30 +496,44 @@ function ContenidoVisitasInterno({ datosInicialesJson, soloPropio }: Props) {
   // ── Acciones en lote ──
   const [confirmEliminarLote, setConfirmEliminarLote] = useState<Set<string> | null>(null)
 
+  // Acciones en lote: sacamos las filas del listado de inmediato y, si falla
+  // el lote, restauramos el snapshot completo. El refetch en background se
+  // dispara igualmente para sincronizar el total exacto del servidor.
   const completarLote = useCallback(async (ids: Set<string>) => {
+    if (ids.size === 0) return
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.removerLocal(ids)
+    mostrar('exito', `${ids.size} visita${ids.size > 1 ? 's' : ''} completada${ids.size > 1 ? 's' : ''}`)
     try {
       await Promise.all([...ids].map(id =>
         fetch(`/api/visitas/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion: 'completar' }),
-        })
+        }).then(r => { if (!r.ok) throw new Error() })
       ))
-      mostrar('exito', `${ids.size} visita${ids.size > 1 ? 's' : ''} completada${ids.size > 1 ? 's' : ''}`)
-      recargarVisitas()
-    } catch { mostrar('error', 'Error al completar visitas') }
-  }, [recargarVisitas, mostrar])
+      recargarFinalizadasHoy()
+    } catch {
+      cacheVisitas.restaurar(snapshot)
+      mostrar('error', 'Error al completar visitas')
+    }
+  }, [cacheVisitas, recargarFinalizadasHoy, mostrar])
 
   const eliminarLote = useCallback(async (ids: Set<string>) => {
+    if (ids.size === 0) return
+    const snapshot = cacheVisitas.snapshotear()
+    cacheVisitas.removerLocal(ids)
+    setConfirmEliminarLote(null)
+    mostrar('info', `${ids.size} visita${ids.size > 1 ? 's' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
     try {
       await Promise.all([...ids].map(id =>
-        fetch(`/api/visitas/${id}`, { method: 'DELETE' })
+        fetch(`/api/visitas/${id}`, { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error() })
       ))
-      mostrar('info', `${ids.size} visita${ids.size > 1 ? 's' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
-      setConfirmEliminarLote(null)
-      recargarVisitas()
-    } catch { mostrar('error', 'Error al eliminar visitas') }
-  }, [recargarVisitas, mostrar])
+    } catch {
+      cacheVisitas.restaurar(snapshot)
+      mostrar('error', 'Error al eliminar visitas')
+    }
+  }, [cacheVisitas, mostrar])
 
   const accionesLote: AccionLote[] = useMemo(() => {
     const acciones: AccionLote[] = []
