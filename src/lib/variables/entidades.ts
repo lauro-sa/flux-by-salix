@@ -559,6 +559,12 @@ registrarEntidad({
     { clave: 'notas', etiqueta: 'Notas', tipo_dato: 'texto', origen: 'columna', grupo: 'detalles' },
 
     { clave: 'creado_por_nombre', etiqueta: 'Creado por', tipo_dato: 'texto', origen: 'columna', grupo: 'relacion' },
+
+    // Link al PDF del recibo. Vacío si todavía no hay pago grabado del
+    // período. Las plantillas que lo incluyan deben usar la versión
+    // legible (`{{nomina.enlace_recibo}}`) — al enviar por WhatsApp,
+    // el server lo resuelve a una URL firmada de 30 días.
+    { clave: 'enlace_recibo', etiqueta: 'Enlace al recibo (PDF)', tipo_dato: 'texto', origen: 'calculado', grupo: 'enlaces' },
   ],
 })
 

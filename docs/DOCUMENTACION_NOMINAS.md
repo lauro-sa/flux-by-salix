@@ -247,7 +247,7 @@ Flux le manda un correo a cada empleado con:
 
 Si querés modificar el texto del correo, podés editar la plantilla en *Inbox → Configuración → Plantillas → Recibo de nómina*.
 
-> 📱 **WhatsApp:** todavía no se puede adjuntar PDF a un mensaje de plantilla (limitación de Meta). Vas a poder mandar el aviso por WhatsApp, pero el archivo PDF lo entregás por correo o lo descargás y lo mandás a mano.
+> 📱 **WhatsApp:** Meta no permite adjuntar PDF dentro de una plantilla aprobada. Lo que sí podés hacer es **incluir un link al PDF** en el cuerpo del mensaje. Usá la variable **`{{nomina.enlace_recibo}}`** en tu plantilla de WhatsApp (la editás desde *Inbox → Configuración → Plantillas*). Cuando Flux envía el mensaje, reemplaza esa variable por una URL del recibo que vence en 30 días — el empleado toca el link, se abre el PDF en su navegador.
 
 ---
 

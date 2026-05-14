@@ -34,8 +34,18 @@ interface ResultadoPdfRecibo {
   tamano: number
 }
 
+interface OpcionesGenerar {
+  /**
+   * Segundos de validez de la URL firmada devuelta. Default 7 días.
+   * Se usa 30 días al enviar por WhatsApp (el destinatario puede tardar
+   * en abrir el link). Para acceso interno (descarga desde la app), 7
+   * días es suficiente porque la app regenera el link con cada GET.
+   */
+  expiracionSegundos?: number
+}
+
 const BUCKET = 'comprobantes-pago'
-const EXPIRACION_FIRMA_SEGUNDOS = 60 * 60 * 24 * 7 // 7 días
+const EXPIRACION_DEFAULT_SEGUNDOS = 60 * 60 * 24 * 7 // 7 días
 
 /**
  * Genera (o regenera) el PDF de un recibo y lo deja persistido en Storage.
@@ -45,7 +55,9 @@ export async function generarPdfRecibo(
   admin: SupabaseClient,
   pagoId: string,
   empresaId: string,
+  opciones: OpcionesGenerar = {},
 ): Promise<ResultadoPdfRecibo> {
+  const expiracion = opciones.expiracionSegundos ?? EXPIRACION_DEFAULT_SEGUNDOS
   // ─── 1) Cargar pago + datos relacionados ───
   const { data: pago, error: errPago } = await admin
     .from('pagos_nomina')
@@ -171,7 +183,7 @@ export async function generarPdfRecibo(
   // Bucket privado → URL firmada con expiración.
   const { data: signed, error: errSigned } = await admin.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, EXPIRACION_FIRMA_SEGUNDOS)
+    .createSignedUrl(storagePath, expiracion)
   if (errSigned || !signed) {
     throw new Error(`Error al firmar URL: ${errSigned?.message}`)
   }
