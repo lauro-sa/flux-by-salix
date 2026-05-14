@@ -4,8 +4,16 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
 
 /**
- * GET /api/adelantos — Listar adelantos de un miembro con cuotas.
- * Query: miembro_id (requerido), estado (opcional: activo|pagado|cancelado)
+ * GET /api/adelantos — Listar adelantos con cuotas.
+ *
+ * Query:
+ *   - miembro_id (opcional): si viene, filtra al miembro. Sin él lista
+ *     todos los adelantos de la empresa (para la vista global de Nóminas).
+ *   - estado (opcional): activo | pagado | cancelado.
+ *   - tipo (opcional): adelanto | descuento.
+ *   - frecuencia (opcional): semanal | quincenal | mensual.
+ *   - desde, hasta (opcionales): rango sobre `fecha_solicitud`.
+ *   - q (opcional): búsqueda libre (notas + nombre empleado).
  *
  * POST /api/adelantos — Crear adelanto + generar cuotas programadas.
  * Body: miembro_id, monto_total, cuotas_totales, fecha_solicitud,
@@ -51,37 +59,53 @@ export async function GET(request: NextRequest) {
 
     const params = request.nextUrl.searchParams
     const miembroId = params.get('miembro_id')
-    if (!miembroId) return NextResponse.json({ error: 'miembro_id requerido' }, { status: 400 })
 
     // Los adelantos son parte del módulo Nómina (descuentos sobre sueldos).
     // ver_propio → solo consulta los suyos. ver_todos → todos.
     const vis = await verificarVisibilidad(user.id, empresaId, 'nomina')
     if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+
+    // Si soloPropio, forzar miembro_id al del usuario actual.
+    let miembroFiltro: string | null = miembroId
     if (vis.soloPropio) {
-      const admin = crearClienteAdmin()
       const { data: miembroPropio } = await admin
         .from('miembros')
         .select('id')
         .eq('usuario_id', user.id)
         .eq('empresa_id', empresaId)
         .single()
-      if (!miembroPropio || miembroPropio.id !== miembroId) {
+      if (!miembroPropio) return NextResponse.json({ adelantos: [] })
+      // Si el caller especificó otro miembro_id, rechazamos. Si no especificó,
+      // limitamos a su propio miembro_id.
+      if (miembroId && miembroPropio.id !== miembroId) {
         return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
       }
+      miembroFiltro = miembroPropio.id
     }
 
     const estado = params.get('estado')
-    const admin = crearClienteAdmin()
+    const tipo = params.get('tipo')
+    const frecuencia = params.get('frecuencia')
+    const desde = params.get('desde')
+    const hasta = params.get('hasta')
+    const q = params.get('q')?.trim()
 
     let query = admin
       .from('adelantos_nomina')
       .select('*')
       .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembroId)
       .eq('eliminado', false)
       .order('creado_en', { ascending: false })
 
+    if (miembroFiltro) query = query.eq('miembro_id', miembroFiltro)
     if (estado) query = query.eq('estado', estado)
+    if (tipo) query = query.eq('tipo', tipo)
+    if (frecuencia) query = query.eq('frecuencia_descuento', frecuencia)
+    if (desde) query = query.gte('fecha_solicitud', desde)
+    if (hasta) query = query.lte('fecha_solicitud', hasta)
+    if (q) query = query.ilike('notas', `%${q}%`)
 
     const { data: adelantos, error } = await query
     if (error) throw error
@@ -89,7 +113,7 @@ export async function GET(request: NextRequest) {
     // Cargar cuotas de todos los adelantos
     const adelantoIds = (adelantos || []).map((a: Record<string, unknown>) => a.id as string)
 
-    let cuotasMap = new Map<string, Record<string, unknown>[]>()
+    const cuotasMap = new Map<string, Record<string, unknown>[]>()
     if (adelantoIds.length > 0) {
       const { data: cuotas } = await admin
         .from('adelantos_cuotas')
