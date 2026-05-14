@@ -8,8 +8,8 @@
 | # | Título | Estado | Notas |
 |---|---|---|---|
 | 1 | Esqueleto del módulo + auto-dependencias | ✅ Hecho (PR #37) | Catálogo + sidebar + auto-instalación cascada de `asistencias` |
-| 2 | Tablas base: contratos y conceptos | ✅ Hecho | 5 migraciones + tipos TS + seed de 6 contratos vigentes desde miembros |
-| 3 | Verificar y completar sectores y turnos | ⏳ Pendiente | |
+| 2 | Tablas base: contratos y conceptos | ✅ Hecho (PR #40) | 5 migraciones + tipos TS + seed de 6 contratos vigentes desde miembros |
+| 3 | Verificar y completar sectores y turnos | ✅ Hecho | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
 | 4 | Migración UI y API: nóminas → módulo propio | ⏳ Pendiente | |
 | 5 | Ficha laboral con timeline de contratos | ⏳ Pendiente | |
 | 6 | Configuración de conceptos + asignación | ⏳ Pendiente | |
@@ -48,3 +48,20 @@
 - FK de auditoría apuntan a `auth.users(id)` (mismo patrón que `pagos_nomina`), no a `perfiles`.
 - `RLS` usa `auth.jwt() ->> 'empresa_id'` (convención estándar del repo).
 - No se eliminaron las columnas legacy `miembros.compensacion_*` — se ataca en PR 4 (doble escritura) y PR 5 (cierre).
+
+## PR 3 — Detalle
+
+**Auditoría de sectores y turnos:**
+- Tabla `sectores`: existe en flux-dev con todas las columnas esperadas. UI completa en `src/app/(flux)/configuracion/secciones/SeccionEstructura.tsx` (CRUD vía cliente Supabase + RLS). Sin API REST dedicada, lo cual es consistente con el patrón del repo para tablas de configuración.
+- Tabla `turnos_laborales`: existe con todas las columnas. API completa en `src/app/api/asistencias/turnos/route.ts` (GET + POST CRUD + acción reordenar). UI en `src/app/(flux)/asistencias/configuracion/turnos/*`.
+- **Faltaba**: el `CREATE TABLE` no estaba trackeado en `sql/`. Las tablas se crearon vía Studio. Se agregan archivos "shadow" idempotentes (079, 080) para que un dev nuevo pueda recrear el esquema desde `sql/`.
+
+**Archivos tocados:**
+- `sql/079_sectores_definicion.sql` (nuevo, idempotente con `IF NOT EXISTS` + `DO $$` guard para policy).
+- `sql/080_turnos_laborales_definicion.sql` (nuevo, idempotente; incluye trigger `actualizar_timestamp`).
+
+**Hallazgos para revisar fuera del scope nóminas (tech debt pre-existente):**
+- `sectores.turno_id` y `miembros.turno_id` no tienen FK a `turnos_laborales(id)`. Permite valores huérfanos. Bajo impacto porque la app valida desde el lado servidor.
+- `sectores` tiene **3 policies RLS** activas en flux-dev: dos legacy con `app_metadata.empresa_activa_id` + una con `auth.jwt() ->> 'empresa_id'`. La canónica del repo es la última; las otras dos quedan pendientes de limpieza en una migración futura.
+
+**Aplicado en flux-dev:** no requiere ejecutar nada (las tablas ya existen; el archivo SQL es documentación reproducible).
