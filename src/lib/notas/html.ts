@@ -4,25 +4,33 @@
  * Las notas se almacenan como HTML producido por Tiptap. Estos helpers
  * coordinan las conversiones entre texto plano (LLM por WhatsApp,
  * dictado por voz, búsquedas) y HTML (almacenamiento + render).
+ *
+ * NOTA: sanitización implementada con whitelist regex pura (sin jsdom /
+ * DOMPurify). El HTML solo viene de Tiptap o del LLM, ambos controlados,
+ * y se renderiza dentro de la app autenticada (no expone superficie XSS
+ * a terceros). Razón del cambio: isomorphic-dompurify carga jsdom, que
+ * en runtime serverless de Vercel falla con ERR_REQUIRE_ESM al cargar
+ * html-encoding-sniffer/@exodus/bytes, y eso cascaba sobre todo el
+ * pipeline de Salix IA (webhook WhatsApp 500, ver incidente 2026-05-13).
  */
 
-import DOMPurify from 'isomorphic-dompurify'
-
-const TAGS_PERMITIDOS = [
+const TAGS_PERMITIDOS = new Set([
   'p', 'br', 'span', 'strong', 'em', 's', 'u', 'mark',
   'h1', 'h2', 'h3',
   'ul', 'ol', 'li',
   'a',
   'hr',
   'label', 'input', 'div',
-]
+])
 
-const ATTRS_PERMITIDOS = [
+const ATTRS_PERMITIDOS = new Set([
   'href', 'target', 'rel',
   'class', 'style',
   'data-type', 'data-checked',
   'type', 'checked',
-]
+])
+
+const URI_SEGURA = /^(?:https?|mailto|tel):/i
 
 /**
  * Sanitiza el HTML de una nota antes de persistirlo o renderizarlo.
@@ -31,11 +39,43 @@ const ATTRS_PERMITIDOS = [
  */
 export function sanitizarHtmlNota(html: string): string {
   if (!html) return ''
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: TAGS_PERMITIDOS,
-    ALLOWED_ATTR: ATTRS_PERMITIDOS,
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+
+  // 1) Eliminar bloques peligrosos completos (script, style, iframe, etc.).
+  let s = html.replace(/<(script|style|iframe|object|embed|noscript|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+
+  // 2) Procesar cada tag de apertura/cierre por whitelist.
+  //    Atributos: filtrados por whitelist + chequeo de URLs en href/src.
+  s = s.replace(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (_match, slash: string, tag: string, attrs: string) => {
+    const t = tag.toLowerCase()
+    if (!TAGS_PERMITIDOS.has(t)) return ''
+    if (slash) return `</${t}>`
+
+    // Procesar atributos uno por uno.
+    const attrsLimpios: string[] = []
+    const attrRe = /([a-zA-Z_:][\w:.-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g
+    let m: RegExpExecArray | null
+    while ((m = attrRe.exec(attrs)) !== null) {
+      const nombre = m[1].toLowerCase()
+      const valor = m[3] ?? m[4] ?? m[5] ?? ''
+      if (nombre.startsWith('on')) continue // eventos inline bloqueados
+      if (!ATTRS_PERMITIDOS.has(nombre)) continue
+      // href: solo URI seguro o ancla relativa.
+      if (nombre === 'href') {
+        const trimVal = valor.trim()
+        if (!URI_SEGURA.test(trimVal) && !trimVal.startsWith('#') && !trimVal.startsWith('/')) continue
+      }
+      // style: bloquear expresiones JS embebidas.
+      if (nombre === 'style' && /(javascript:|expression\s*\(|url\s*\(\s*['"]?javascript:)/i.test(valor)) continue
+      attrsLimpios.push(`${nombre}="${valor.replace(/"/g, '&quot;')}"`)
+    }
+
+    // Self-closing tags compatibles con Tiptap (input, br, hr).
+    const esVoid = t === 'br' || t === 'hr' || t === 'input'
+    const attrsTexto = attrsLimpios.length > 0 ? ' ' + attrsLimpios.join(' ') : ''
+    return esVoid ? `<${t}${attrsTexto}>` : `<${t}${attrsTexto}>`
   })
+
+  return s
 }
 
 /**
