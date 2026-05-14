@@ -6,6 +6,7 @@
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { textoPlanoAHtml, appendTextoPlanoAHtml, sanitizarHtmlNota } from '@/lib/notas/html'
+import { normalizarBusqueda } from '@/lib/validaciones'
 
 export async function ejecutarAnotarNota(
   ctx: ContextoSalixIA,
@@ -25,30 +26,55 @@ export async function ejecutarAnotarNota(
   let compartir_nombre_completo = ''
 
   if (compartir_con_nombre) {
-    // Queries separadas — los joins con perfiles son inestables en Supabase
+    // Solo se comparte con miembros que tienen cuenta Flux (usuario_id != null);
+    // los empleados sin cuenta solo existen en `contactos` y no reciben notas compartidas.
     const { data: miembros } = await ctx.admin
       .from('miembros')
       .select('id, usuario_id')
       .eq('empresa_id', ctx.empresa_id)
       .eq('activo', true)
+      .not('usuario_id', 'is', null)
 
     if (miembros && miembros.length > 0) {
-      const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
+      const usuarioIds = (miembros as Array<{ id: string; usuario_id: string | null }>)
+        .map(m => m.usuario_id)
+        .filter((id): id is string => !!id)
+
       const { data: perfiles } = await ctx.admin
         .from('perfiles')
         .select('id, nombre, apellido')
         .in('id', usuarioIds)
 
-      const busqueda = compartir_con_nombre.toLowerCase()
-      const perfilEncontrado = (perfiles || []).find((p: { nombre: string; apellido: string }) => {
-        const nombre = `${p.nombre} ${p.apellido || ''}`.toLowerCase()
-        return nombre.includes(busqueda) || p.nombre.toLowerCase().includes(busqueda)
+      const palabras = compartir_con_nombre.split(/\s+/).filter(p => p.length >= 2).map(normalizarBusqueda)
+      const perfilEncontrado = (perfiles || []).find((p: { nombre: string; apellido: string | null }) => {
+        const nombreCompleto = normalizarBusqueda(`${p.nombre} ${p.apellido || ''}`)
+        return palabras.every(palabra => nombreCompleto.includes(palabra))
       })
 
       if (perfilEncontrado) {
         compartir_usuario_id = perfilEncontrado.id
         compartir_nombre_completo = `${perfilEncontrado.nombre} ${perfilEncontrado.apellido || ''}`.trim()
       } else {
+        // "no existe" vs "existe sin cuenta": chequear contactos-equipo.
+        const { data: contactoEq } = await ctx.admin
+          .from('contactos')
+          .select('nombre, apellido')
+          .eq('empresa_id', ctx.empresa_id)
+          .not('miembro_id', 'is', null)
+          .limit(50)
+
+        const sinCuenta = (contactoEq || []).find((c: { nombre: string | null; apellido: string | null }) => {
+          const nombreCompleto = normalizarBusqueda(`${c.nombre || ''} ${c.apellido || ''}`)
+          return palabras.every(palabra => nombreCompleto.includes(palabra))
+        })
+
+        if (sinCuenta) {
+          return {
+            exito: false,
+            error: `${sinCuenta.nombre || compartir_con_nombre} es empleado pero todavía no tiene cuenta de Flux, así que no puede recibir notas compartidas. Se puede crear como nota personal y avisarle por otro medio.`,
+          }
+        }
+
         return {
           exito: false,
           error: `No encontré a "${compartir_con_nombre}" en el equipo. ¿Podrías darme el nombre completo?`,

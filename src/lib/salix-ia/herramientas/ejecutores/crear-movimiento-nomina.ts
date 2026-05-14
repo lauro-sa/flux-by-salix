@@ -17,6 +17,7 @@ import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { verificarPermiso } from '@/lib/permisos-servidor'
 import type { Rol } from '@/tipos/miembro'
 import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { normalizarBusqueda } from '@/lib/validaciones'
 
 type Frecuencia = 'semanal' | 'quincenal' | 'mensual'
 
@@ -97,14 +98,15 @@ export async function ejecutarCrearMovimientoNomina(
       }
     }
 
+    const palabrasNorm = palabras.map(normalizarBusqueda)
     const candidatos = lista
       .map(m => ({
         miembro: m,
         perfil: m.usuario_id ? perfilesMap.get(m.usuario_id) : null,
       }))
       .filter(c => {
-        const nombreCompleto = `${c.perfil?.nombre || ''} ${c.perfil?.apellido || ''}`.toLowerCase()
-        return palabras.every(p => nombreCompleto.includes(p.toLowerCase()))
+        const nombreCompleto = normalizarBusqueda(`${c.perfil?.nombre || ''} ${c.perfil?.apellido || ''}`)
+        return palabrasNorm.every(p => nombreCompleto.includes(p))
       })
 
     if (candidatos.length === 0) {
