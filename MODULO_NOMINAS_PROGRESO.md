@@ -12,8 +12,8 @@
 | 3 | Verificar y completar sectores y turnos | ✅ Hecho (PR #41) | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
 | 4 | Migración UI y API: nóminas → módulo propio | ✅ Hecho (PR #42) | Files movidos con `git mv` + wrappers de compat |
 | 4b | Limpiar asistencias y agregar tabs en /nominas | ✅ Hecho (PR #43) | Pestaña "Nómina" desmontada de asistencias + botón "Nómina" quitado de matriz + 4 tabs en /nominas (Liquidaciones / Adelantos / Empleados / Configuración) con sync URL |
-| 5 | Ficha laboral con timeline de contratos | ✅ Hecho | API completa /api/nominas/contratos + /api/nominas/empleados + ficha laboral 5-tabs + EditorContrato modal con doble escritura legacy |
-| 6 | Configuración de conceptos + asignación | ⏳ Pendiente | |
+| 5 | Ficha laboral con timeline de contratos | ✅ Hecho (PR #44) | API completa /api/nominas/contratos + /api/nominas/empleados + ficha laboral 5-tabs + EditorContrato modal con doble escritura legacy |
+| 6 | Configuración de conceptos + asignación | ✅ Hecho | API CRUD + seed 4 conceptos + EditorConcepto modal + VistaConfiguracion en tab. Asignación a contratos diferida a PR 6b |
 | 7 | Motor de cálculo automático del recibo | ⏳ Pendiente | |
 | 8 | Recibo PDF profesional + envío | ⏳ Pendiente | |
 | 9 | Documentación de usuario | ⏳ Pendiente | |
@@ -155,3 +155,32 @@ El plan PR 4 incluía además: desmontar pestaña "Nómina" de asistencias, agre
 - `npx tsc --noEmit` verde.
 - `npm run test:run` — 1675/1675.
 - Smoke SQL: las queries de empleados + sus joins funcionan con datos reales en flux-dev.
+
+## PR 6 — Detalle
+
+**Migración + seed:**
+- `sql/081_seed_conceptos_sugeridos.sql` — inserta 4 conceptos sugeridos (Presentismo / Premio puntualidad / Antigüedad / Descuento por uniforme) en el catálogo de toda empresa que ya tenga el módulo `nominas` activo. Aplicado en flux-dev (Herreelec SAS quedó con los 4).
+- Hook en `src/app/api/modulos/route.ts` (`seedConceptosNominaSugeridos`): cuando una empresa nueva instala el módulo Nóminas, el endpoint ejecuta el mismo seed automáticamente. Idempotente con chequeo `NOT IN (nombres existentes)`.
+
+**API nueva:**
+- `src/app/api/nominas/conceptos/route.ts` — `GET` (lista, opcional `?incluirInactivos=true`) y `POST` (crea).
+- `src/app/api/nominas/conceptos/[id]/route.ts` — `PATCH` (whitelist amplia) y `DELETE` (soft con `activo=false`). Permisos: `nomina:editar` para mutaciones, `nomina:ver_propio`/`ver_todos` para GET.
+
+**Validaciones backend:**
+- Whitelist de enums (`tipo`, `categoria`, `modo_calculo`) espejo del CHECK SQL.
+- Coherencia `modo↔valor`: modo `manual` → valor NULL obligatorio; otros modos → valor numérico ≥ 0 obligatorio (matches el `CONSTRAINT conceptos_valor_segun_modo`).
+
+**Componentes nuevos:**
+- `EditorConcepto.tsx` — modal 5xl patrón ModalTipoActividad: identidad (nombre + categoría) → tipo (pills haber/descuento) → 2 columnas (Cálculo / Comportamiento). El campo "valor" se oculta cuando `modo = manual`. Constructor de condición simple con 4 opciones predefinidas (sin ausencias / sin tardanzas / antigüedad mínima / siempre), JSONB abierto para extender después.
+- `VistaConfiguracion.tsx` — lista de conceptos con filtros (todos / haberes / descuentos + checkbox "mostrar inactivos"), tabla con color/nombre/categoría/tipo/modo/valor, botones Editar y Desactivar. CTA "Nuevo concepto" en el header.
+
+**Wire:**
+- Tab "Configuración" de `/nominas` reemplaza el placeholder por `<VistaConfiguracion />`.
+
+**Scope deferido a PR 6b:**
+- Asignación de conceptos al contrato dentro de `EditorContrato` (sub-tab "Conceptos aplicables" con tags toggleables + valor override). El plan original lo metía acá, lo separo porque `EditorContrato` ya está cargado y este PR ya tiene scope alto. Una vez listo, el tab "Conceptos" de la ficha laboral (hoy placeholder) muestra los conceptos asignados al contrato vigente.
+
+**Verificado:**
+- `npx tsc --noEmit` verde.
+- `npm run test:run` — 1675/1675.
+- Seed corrido contra flux-dev: 4 conceptos insertados en Herreelec SAS.
