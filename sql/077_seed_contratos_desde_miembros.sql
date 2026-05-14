@@ -24,9 +24,13 @@
 --
 -- Sector: se toma de `miembros_sectores` donde es_primario=true.
 -- Turno:  se toma de `miembros.turno_id`.
--- Fecha de inicio: `unido_en::date` (cuando el miembro se unió a la
--- empresa). Esto evita usar fechas inventadas y respeta el histórico
--- real.
+-- Fecha de inicio: MIN(unido_en, primer fichaje del miembro).
+-- `unido_en` corresponde a la fecha en que el miembro fue cargado en
+-- Flux; el primer fichaje refleja cuándo arrancó la relación laboral
+-- real. Tomamos el menor de ambos para no inventar una fecha futura
+-- en empresas que adoptan Flux con empleados activos previos.
+-- Ver sql/082_fix_fecha_inicio_contratos_migrados.sql para el fix
+-- aplicado a los contratos creados con la versión anterior de este seed.
 --
 -- Régimen: 'informal' por default (Fase 3 introduce los demás).
 -- Motivo: 'Migración inicial desde campos legacy en miembros'.
@@ -37,7 +41,12 @@ WITH miembros_a_migrar AS (
   SELECT
     m.id            AS miembro_id,
     m.empresa_id,
-    m.unido_en::date AS fecha_inicio,
+    -- fecha_inicio = MIN(unido_en, primer fichaje). Si no hay
+    -- fichajes, COALESCE deja unido_en. LEAST ignora NULL en Postgres.
+    LEAST(
+      m.unido_en::date,
+      (SELECT MIN(a.fecha) FROM asistencias a WHERE a.miembro_id = m.id)
+    ) AS fecha_inicio,
     m.compensacion_tipo,
     m.compensacion_frecuencia,
     m.compensacion_monto,
