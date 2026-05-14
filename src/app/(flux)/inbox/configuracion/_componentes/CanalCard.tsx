@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
-import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import { EditorTextoLazy as EditorTexto } from '@/componentes/ui/EditorTextoLazy'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Pencil, Trash2, Shield, ChevronDown, Mail, Users } from 'lucide-react'
 import type { CanalMensajeria, TipoCanal } from '@/tipos/inbox'
