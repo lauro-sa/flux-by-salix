@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { ModuloConEstado } from '@/tipos'
@@ -22,12 +22,20 @@ interface ContextoModulos {
 
 const ContextoModulosInterno = createContext<ContextoModulos | null>(null)
 
-function ProveedorModulos({ children }: { children: ReactNode }) {
+interface PropsProveedorModulos {
+  children: ReactNode
+  /** Módulos precargados desde el server. Si están presentes, evita el
+   *  primer fetch /api/modulos al montar. */
+  modulosIniciales?: ModuloConEstado[]
+}
+
+function ProveedorModulos({ children, modulosIniciales }: PropsProveedorModulos) {
   const { usuario } = useAuth()
-  const [modulos, setModulos] = useState<ModuloConEstado[]>([])
-  const [cargando, setCargando] = useState(true)
+  const [modulos, setModulos] = useState<ModuloConEstado[]>(modulosIniciales || [])
+  const [cargando, setCargando] = useState(!modulosIniciales)
   // Si la tabla no existe aún (migración pendiente), permitir todo
   const [sinCatalogo, setSinCatalogo] = useState(false)
+  const cargaInicialDeServerRef = useRef(!!modulosIniciales)
 
   const cargar = useCallback(async () => {
     if (!usuario) {
@@ -53,6 +61,11 @@ function ProveedorModulos({ children }: { children: ReactNode }) {
   }, [usuario])
 
   useEffect(() => {
+    // Si los módulos llegaron del server, saltamos el primer fetch.
+    if (cargaInicialDeServerRef.current) {
+      cargaInicialDeServerRef.current = false
+      return
+    }
     cargar()
   }, [cargar])
 

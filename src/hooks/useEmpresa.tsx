@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Empresa } from '@/tipos'
@@ -28,11 +28,24 @@ const ContextoEmpresaInterno = createContext<ContextoEmpresa | null>(null)
 // Singleton estable — misma instancia que useAuth
 const supabase = crearClienteNavegador()
 
-function ProveedorEmpresa({ children }: { children: ReactNode }) {
+interface PropsProveedorEmpresa {
+  children: ReactNode
+  /** Empresa activa precargada desde el server. */
+  empresaInicial?: Empresa | null
+  /** Lista completa de empresas del usuario precargada desde el server. */
+  empresasIniciales?: EmpresaConRol[]
+}
+
+function ProveedorEmpresa({ children, empresaInicial = null, empresasIniciales }: PropsProveedorEmpresa) {
   const { usuario, sesion } = useAuth()
-  const [empresa, setEmpresa] = useState<Empresa | null>(null)
-  const [empresas, setEmpresas] = useState<EmpresaConRol[]>([])
-  const [cargando, setCargando] = useState(true)
+  const [empresa, setEmpresa] = useState<Empresa | null>(empresaInicial)
+  const [empresas, setEmpresas] = useState<EmpresaConRol[]>(empresasIniciales || [])
+  // Si ya recibimos datos del server, no hay nada que esperar.
+  const [cargando, setCargando] = useState(!empresasIniciales)
+  // Para evitar refetch redundante: marcamos si ya hicimos la primera carga
+  // desde server (props) y dejamos que los efectos solo corran cuando el
+  // usuarioId cambia (login/logout/cambio de cuenta), no al montar inicial.
+  const cargaInicialDeServerRef = useRef(!!empresasIniciales)
 
   // Extraer empresa_activa_id del JWT para usarlo como dependencia estable
   // (evita re-cargar empresas cada vez que la sesión se refresca sin cambios)
@@ -44,6 +57,15 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
       setEmpresa(null)
       setEmpresas([])
       setCargando(false)
+      cargaInicialDeServerRef.current = false
+      return
+    }
+
+    // Si ya tenemos los datos del server para este usuario, saltamos el
+    // primer fetch. Los siguientes (cuando empresaActivaId cambia, etc.)
+    // sí corren.
+    if (cargaInicialDeServerRef.current) {
+      cargaInicialDeServerRef.current = false
       return
     }
 

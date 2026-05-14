@@ -107,10 +107,25 @@ function obtenerDispositivoId(): string {
 
 const ContextoPreferenciasInterno = createContext<ContextoPreferencias | null>(null)
 
-function ProveedorPreferencias({ children }: { children: ReactNode }) {
+interface PropsProveedorPreferencias {
+  children: ReactNode
+  /** Preferencias precargadas desde el server (usuario, sin dispositivo).
+   *  Se mezclan con DEFAULTS y se usan como state inicial. El fetch que
+   *  refina por dispositivo sigue corriendo en cliente porque el dispositivo_id
+   *  solo se conoce ahí. */
+  preferenciasIniciales?: Partial<Preferencias>
+}
+
+function ProveedorPreferencias({ children, preferenciasIniciales }: PropsProveedorPreferencias) {
   const { usuario } = useAuth()
-  const [preferencias, setPreferencias] = useState<Preferencias>(DEFAULTS)
-  const [cargando, setCargando] = useState(true)
+  const [preferencias, setPreferencias] = useState<Preferencias>(() => (
+    preferenciasIniciales
+      ? { ...DEFAULTS, ...preferenciasIniciales }
+      : DEFAULTS
+  ))
+  // Si vinieron preferencias del server las tomamos como buenas inmediatamente;
+  // el fetch específico de dispositivo todavía corre en cliente.
+  const [cargando, setCargando] = useState(!preferenciasIniciales)
   const dispositivoIdRef = useRef<string>('ssr')
   const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Ref con los últimos cambios pendientes para flush antes de cerrar */

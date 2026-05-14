@@ -1,54 +1,33 @@
-'use client'
-
-import { ProveedorTema } from '@/hooks/useTema'
-import { ProveedorNavegacion } from '@/hooks/useNavegacion'
-import { ProveedorIdioma } from '@/lib/i18n'
-import { ProveedorToast } from '@/componentes/feedback/Toast'
-import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
-import { ProveedorCambiosPendientes } from '@/hooks/useCambiosPendientes'
-import { ProveedorIndicadorGuardado } from '@/hooks/useIndicadorGuardado'
-import { ProveedorQuery } from '@/hooks/useQueryClient'
-import { ProveedorAuth } from '@/hooks/useAuth'
-import { ProveedorPermisos } from '@/hooks/usePermisosActuales'
-import { ProveedorPreferencias } from '@/hooks/usePreferencias'
-import { ProveedorEmpresa } from '@/hooks/useEmpresa'
-import { ProveedorModulos } from '@/hooks/useModulos'
-import { PlantillaApp } from '@/componentes/entidad/PlantillaApp'
+import { ProveedoresCliente } from './_componentes/ProveedoresCliente'
+import { precargarDatosLayout } from '@/lib/precarga-layout'
 
 /**
- * Layout del grupo (flux) — envuelve todas las páginas autenticadas.
- * Provee: tema, idioma, auth, empresa, navegación, toasts, y el layout visual.
+ * Layout del grupo (flux) — Server Component.
+ *
+ * Precarga en paralelo todo lo que necesitan los providers cliente:
+ * usuario + sesión, empresa activa, lista de empresas, permisos del
+ * miembro y catálogo de módulos. Le pasa el resultado a
+ * <ProveedoresCliente>, que es el único `'use client'` del árbol y
+ * agrupa todos los providers (tema, idioma, auth, empresa, permisos,
+ * módulos, navegación, toast, etc.).
+ *
+ * Antes este archivo era 'use client' y cada provider hacía su propio
+ * fetch al montar, en cascada (Auth bloqueaba al resto). Ahora la app
+ * pinta con datos correctos en el primer render.
  */
-export default function LayoutFlux({ children }: { children: React.ReactNode }) {
+export default async function LayoutFlux({ children }: { children: React.ReactNode }) {
+  const datos = await precargarDatosLayout()
   return (
-    <ProveedorQuery>
-    <ProveedorIdioma>
-      <ProveedorAuth>
-        <ProveedorPermisos>
-        <ProveedorPreferencias>
-          <ProveedorTema>
-            <ProveedorEmpresa>
-            <ProveedorModulos>
-            <ProveedorNavegacion>
-              <ProveedorToast>
-              <ProveedorEnvioPendiente>
-              <ProveedorCambiosPendientes>
-              <ProveedorIndicadorGuardado>
-                <PlantillaApp>
-                  {children}
-                </PlantillaApp>
-              </ProveedorIndicadorGuardado>
-              </ProveedorCambiosPendientes>
-              </ProveedorEnvioPendiente>
-              </ProveedorToast>
-            </ProveedorNavegacion>
-            </ProveedorModulos>
-            </ProveedorEmpresa>
-          </ProveedorTema>
-        </ProveedorPreferencias>
-        </ProveedorPermisos>
-      </ProveedorAuth>
-    </ProveedorIdioma>
-    </ProveedorQuery>
+    <ProveedoresCliente
+      usuarioInicial={datos.usuario}
+      sesionInicial={datos.sesion}
+      empresaInicial={datos.empresa}
+      empresasIniciales={datos.empresas}
+      permisosIniciales={datos.permisos}
+      modulosIniciales={datos.modulos}
+      preferenciasIniciales={null}
+    >
+      {children}
+    </ProveedoresCliente>
   )
 }
