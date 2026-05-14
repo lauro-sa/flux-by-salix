@@ -97,6 +97,13 @@ interface PayloadCrearContrato {
   pdf_url?: string | null
   motivo_cambio?: string | null
   notas?: string | null
+  /**
+   * Asignación inicial de conceptos. Si se omite y existe contrato
+   * vigente anterior, se heredan automáticamente los conceptos activos
+   * de ese contrato (caso típico "subo el sueldo y mantengo todo lo demás").
+   * Si viene `[]` explícito, se crea sin conceptos.
+   */
+  conceptos?: { concepto_id: string; valor_override?: number | null }[]
 }
 
 const CONDICIONES: CondicionContrato[] = ['tiempo_indeterminado', 'plazo_fijo', 'temporal', 'pasantia', 'otro']
@@ -210,6 +217,45 @@ export async function POST(request: NextRequest) {
   if (errCreate || !nuevo) {
     console.error('[contratos] error al crear nuevo:', errCreate)
     return NextResponse.json({ error: 'No se pudo crear el contrato' }, { status: 500 })
+  }
+
+  // ─── Asignación inicial de conceptos ───
+  // Prioridad: payload explícito > herencia del vigente anterior > vacío.
+  // El array vacío explícito (body.conceptos === []) crea sin conceptos.
+  let conceptosIniciales: { concepto_id: string; valor_override: number | null }[] = []
+  if (Array.isArray(body.conceptos)) {
+    conceptosIniciales = body.conceptos
+      .filter(c => c.concepto_id)
+      .map(c => ({ concepto_id: c.concepto_id, valor_override: c.valor_override ?? null }))
+  } else if (vigentePrev) {
+    const { data: heredables } = await admin
+      .from('conceptos_contrato')
+      .select('concepto_id, valor_override')
+      .eq('empresa_id', empresaId)
+      .eq('contrato_id', vigentePrev.id)
+      .eq('activo', true)
+    conceptosIniciales = (heredables || []).map(h => ({
+      concepto_id: h.concepto_id,
+      valor_override: h.valor_override,
+    }))
+  }
+
+  if (conceptosIniciales.length > 0) {
+    const { error: errConceptos } = await admin
+      .from('conceptos_contrato')
+      .insert(conceptosIniciales.map(c => ({
+        empresa_id: empresaId,
+        contrato_id: nuevo.id,
+        concepto_id: c.concepto_id,
+        valor_override: c.valor_override,
+        activo: true,
+        creado_por: user.id,
+      })))
+    if (errConceptos) {
+      // No fallamos el endpoint — el contrato ya está creado. Logueamos
+      // y dejamos que el usuario reasigne desde la ficha si hace falta.
+      console.error('[contratos] error al asignar conceptos iniciales:', errConceptos)
+    }
   }
 
   // ─── Doble escritura legacy en miembros.compensacion_* ───

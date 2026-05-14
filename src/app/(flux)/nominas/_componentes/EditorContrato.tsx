@@ -31,8 +31,10 @@ import { Select } from '@/componentes/ui/Select'
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useToast } from '@/componentes/feedback/Toast'
+import { AsignadorConceptosContrato } from './AsignadorConceptosContrato'
 import type {
   ContratoLaboral,
+  ConceptoNomina,
   CondicionContrato,
   ModalidadCalculo,
   FrecuenciaPago,
@@ -52,6 +54,14 @@ interface Props {
   /** Catálogos de sector y turno para los selects. */
   sectores: OpcionRef[]
   turnos: OpcionRef[]
+  /** Catálogo de conceptos activos (para asignación inicial). */
+  conceptos?: ConceptoNomina[]
+  /**
+   * IDs de conceptos heredados del contrato vigente actual (preselección).
+   * Si se omite, el backend hace la herencia. Pasarlo permite al usuario
+   * ver y modificar la herencia antes de confirmar.
+   */
+  conceptosHeredados?: string[]
   onCerrar: () => void
   /** Se llama después de un POST exitoso con el contrato creado. */
   onCreado: (nuevo: ContratoLaboral) => void
@@ -96,7 +106,7 @@ function hoyIso(): string {
 }
 
 export function EditorContrato({
-  abierto, miembroId, contratoActual, sectores, turnos, onCerrar, onCreado,
+  abierto, miembroId, contratoActual, sectores, turnos, conceptos = [], conceptosHeredados = [], onCerrar, onCreado,
 }: Props) {
   const toast = useToast()
 
@@ -115,6 +125,8 @@ export function EditorContrato({
   const [motivoCambio, setMotivoCambio] = useState<string>('')
   const [notas, setNotas] = useState<string>('')
 
+  const [conceptosSeleccionados, setConceptosSeleccionados] = useState<string[]>([])
+
   const [guardando, setGuardando] = useState(false)
 
   // ─── Prefill desde contratoActual cuando se abre ───
@@ -132,6 +144,7 @@ export function EditorContrato({
       setPdfUrl('')
       setMotivoCambio('')
       setNotas('')
+      setConceptosSeleccionados([...conceptosHeredados])
     } else {
       // Sin contrato previo: defaults conservadores.
       setFechaInicio(hoyIso())
@@ -145,8 +158,9 @@ export function EditorContrato({
       setPdfUrl('')
       setMotivoCambio('')
       setNotas('')
+      setConceptosSeleccionados([])
     }
-  }, [abierto, contratoActual])
+  }, [abierto, contratoActual, conceptosHeredados])
 
   const guardar = async () => {
     const monto = Number(montoBase)
@@ -171,6 +185,7 @@ export function EditorContrato({
           pdf_url: pdfUrl || null,
           motivo_cambio: motivoCambio || null,
           notas: notas || null,
+          conceptos: conceptosSeleccionados.map(id => ({ concepto_id: id })),
         }),
       })
       const data = await res.json()
@@ -294,6 +309,24 @@ export function EditorContrato({
             </div>
           </section>
         </div>
+
+        {/* ─── Sección Conceptos (ancho completo) ─── */}
+        <section className="pt-4 border-t border-white/[0.07]">
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h3 className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Conceptos aplicables</h3>
+            <p className="text-[11px] text-texto-terciario">
+              {contratoActual
+                ? 'Se heredan del contrato vigente. Tocá para quitar.'
+                : 'Tocá para asignar al nuevo contrato.'}
+            </p>
+          </div>
+          <AsignadorConceptosContrato
+            modo="seleccion"
+            catalogo={conceptos}
+            seleccionados={conceptosSeleccionados}
+            onCambio={setConceptosSeleccionados}
+          />
+        </section>
       </div>
     </Modal>
   )

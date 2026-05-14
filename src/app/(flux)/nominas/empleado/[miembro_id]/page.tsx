@@ -32,12 +32,13 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { ContratoVigente } from '@/app/(flux)/nominas/_componentes/ContratoVigente'
 import { TimelineContratos } from '@/app/(flux)/nominas/_componentes/TimelineContratos'
 import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato'
+import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
   type EmpleadoLista,
 } from '@/componentes/entidad/_editor_nomina_empleado/PaginaEditorNominaEmpleado'
-import type { ContratoLaboral } from '@/tipos/nominas'
+import type { ContratoLaboral, ConceptoNomina } from '@/tipos/nominas'
 
 // ────────────────────────────────────────────────────────────────
 // Helpers de período (mantenidos del archivo original)
@@ -144,6 +145,8 @@ function ContenidoFicha() {
   const [contratos, setContratos] = useState<ContratoLaboral[]>([])
   const [sectores, setSectores] = useState<OpcionRef[]>([])
   const [turnos, setTurnos] = useState<OpcionRef[]>([])
+  const [conceptosCatalogo, setConceptosCatalogo] = useState<ConceptoNomina[]>([])
+  const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [editorAbierto, setEditorAbierto] = useState(false)
 
@@ -161,20 +164,39 @@ function ContenidoFicha() {
         .maybeSingle()
       const usuarioId = miembroData?.usuario_id ?? null
 
-      const [perfilRes, contratosRes, sectoresRes, turnosRes] = await Promise.all([
+      const [perfilRes, contratosRes, sectoresRes, turnosRes, conceptosRes] = await Promise.all([
         usuarioId
           ? supabase.from('perfiles').select('nombre, apellido, avatar_url').eq('id', usuarioId).maybeSingle()
           : Promise.resolve({ data: null }),
         fetch(`/api/nominas/contratos?miembro_id=${miembroId}`).then(r => r.json()),
         supabase.from('sectores').select('id, nombre').eq('activo', true).order('orden'),
         supabase.from('turnos_laborales').select('id, nombre').order('orden'),
+        fetch('/api/nominas/conceptos').then(r => r.json()),
       ])
 
       const p = perfilRes.data as PerfilMini | null
       setPerfil(p ?? null)
-      setContratos((contratosRes.contratos ?? []) as ContratoLaboral[])
+      const contratosLista = (contratosRes.contratos ?? []) as ContratoLaboral[]
+      setContratos(contratosLista)
       setSectores((sectoresRes.data ?? []) as OpcionRef[])
       setTurnos((turnosRes.data ?? []) as OpcionRef[])
+      setConceptosCatalogo((conceptosRes.conceptos ?? []) as ConceptoNomina[])
+
+      // Cargar conceptos heredados del contrato vigente (si existe)
+      // para preseleccionarlos en el EditorContrato.
+      const vigente = contratosLista.find(c => c.vigente)
+      if (vigente) {
+        try {
+          const conceptosVigenteRes = await fetch(`/api/nominas/contratos/${vigente.id}/conceptos`)
+          const conceptosVigenteData = await conceptosVigenteRes.json()
+          const asig = (conceptosVigenteData.asignaciones ?? []) as { concepto_id: string; activo: boolean }[]
+          setConceptosHeredados(asig.filter(a => a.activo).map(a => a.concepto_id))
+        } catch {
+          setConceptosHeredados([])
+        }
+      } else {
+        setConceptosHeredados([])
+      }
     } catch (err) {
       console.error('[ficha] error', err)
       toast.mostrar('error', 'No se pudo cargar la ficha laboral')
@@ -299,11 +321,26 @@ function ContenidoFicha() {
       )}
 
       {tab === 'conceptos' && (
-        <EstadoVacio
-          icono={<Tag size={48} strokeWidth={1.5} />}
-          titulo="Conceptos — en construcción"
-          descripcion="Acá vas a poder asignar al contrato los conceptos del catálogo (presentismo, premios, descuentos) con valor override por empleado. Se habilita en el próximo PR (PR 6)."
-        />
+        contratoVigente ? (
+          <div className="px-4 md:px-6 py-4">
+            <AsignadorConceptosContrato
+              modo="contrato"
+              contratoId={contratoVigente.id}
+              vigente={true}
+            />
+          </div>
+        ) : (
+          <EstadoVacio
+            icono={<Tag size={48} strokeWidth={1.5} />}
+            titulo="Sin contrato vigente"
+            descripcion="Para asignar conceptos primero creá un contrato laboral desde la pestaña Contrato vigente."
+            accion={puedeEditar ? (
+              <Boton icono={<FileText size={14} />} onClick={() => { setTab('contrato'); setEditorAbierto(true) }}>
+                Crear contrato
+              </Boton>
+            ) : undefined}
+          />
+        )
       )}
 
       {/* ─── Modal nuevo contrato ─── */}
@@ -313,6 +350,8 @@ function ContenidoFicha() {
         contratoActual={contratoVigente}
         sectores={sectores}
         turnos={turnos}
+        conceptos={conceptosCatalogo}
+        conceptosHeredados={conceptosHeredados}
         onCerrar={() => setEditorAbierto(false)}
         onCreado={async () => {
           await cargarTodo()
