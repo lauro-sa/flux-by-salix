@@ -3,6 +3,7 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarError } from '@/lib/logger'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
+import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
 
 /**
  * GET /api/miembros — Lista de empleados (miembros) de la empresa activa.
@@ -81,49 +82,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar miembros' }, { status: 500 })
     }
 
-    // 2) Enriquecer con perfil en query separada (solo para los que tienen usuario_id)
-    const usuarioIds = (miembrosData || []).map(m => m.usuario_id).filter(Boolean)
-    const perfilesMap = new Map<string, { nombre: string; apellido: string | null; correo: string | null; avatar_url: string | null }>()
-    if (usuarioIds.length > 0) {
-      const { data: perfilesData } = await admin
-        .from('perfiles')
-        .select('id, nombre, apellido, correo, avatar_url')
-        .in('id', usuarioIds)
-      for (const p of (perfilesData || [])) {
-        perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido, correo: p.correo, avatar_url: p.avatar_url })
-      }
-    }
-
-    // 2b) Para miembros sin cuenta, los datos personales viven en la tabla
-    //     `contactos` (contacto-equipo creado al cargar el empleado manualmente).
-    //     Lo cargamos para que aparezcan con nombre/correo igual que los demás.
-    const miembrosSinPerfil = (miembrosData || []).filter(m => !m.usuario_id).map(m => m.id)
-    const contactoEquipoMap = new Map<string, { nombre: string | null; apellido: string | null; correo: string | null }>()
-    if (miembrosSinPerfil.length > 0) {
-      const { data: contactosData } = await admin
-        .from('contactos')
-        .select('miembro_id, nombre, apellido, correo')
-        .in('miembro_id', miembrosSinPerfil)
-        .eq('empresa_id', empresaId)
-      for (const c of (contactosData || [])) {
-        if (c.miembro_id) contactoEquipoMap.set(c.miembro_id, { nombre: c.nombre, apellido: c.apellido, correo: c.correo })
-      }
-    }
+    // 2) Identidad consolidada (perfil de cuenta o contacto-equipo).
+    //    Ver src/lib/miembros/identidad.ts para el detalle.
+    const identidades = await cargarIdentidadMiembros(
+      admin,
+      (miembrosData || []).map(m => ({ id: m.id, usuario_id: m.usuario_id })),
+      empresaId,
+    )
 
     // 3) Etiquetas (puesto + sector) resueltas desde FK + miembros_sectores
     const etiquetas = await cargarEtiquetasMiembros(admin, (miembrosData || []).map(m => ({ id: m.id, puesto_id: m.puesto_id })))
 
     const miembros = (miembrosData || []).map(m => {
-      const perfilCuenta = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
-      const contactoEq = !m.usuario_id ? contactoEquipoMap.get(m.id) : null
-      // Datos efectivos: priorizamos perfil de cuenta, fallback a contacto-equipo.
-      const nombre = perfilCuenta?.nombre || contactoEq?.nombre || null
-      const apellido = perfilCuenta?.apellido || contactoEq?.apellido || null
-      const correo = perfilCuenta?.correo || contactoEq?.correo || null
+      const id = identidades.get(m.id) ?? null
+      const nombre = id?.nombre ?? null
+      const apellido = id?.apellido ?? null
+      const correo = id?.correo ?? null
       const et = etiquetas.get(m.id)
       // perfil unificado: el shape esperado por consumidores no cambia.
       const perfil = (nombre || apellido || correo)
-        ? { nombre: nombre || '', apellido, correo, avatar_url: perfilCuenta?.avatar_url || null }
+        ? { nombre: nombre || '', apellido, correo, avatar_url: id?.avatar_url ?? null }
         : null
       return {
         id: m.id,
