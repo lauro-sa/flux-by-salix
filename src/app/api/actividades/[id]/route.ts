@@ -6,6 +6,7 @@ import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { COLORES_HEX_ESTADO_ACTIVIDAD, COLOR_TIPO_ACTIVIDAD_DEFECTO } from '@/lib/colores_entidad'
+import { moverPrimerBloqueAFecha, recalcularFechaVencimientoDesdeBloques } from '@/lib/actividades-sync'
 import {
   cargarVinculosPorActividad,
   insertarVinculosActividad,
@@ -482,7 +483,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.titulo !== undefined) campos.titulo = body.titulo.trim()
     if (body.descripcion !== undefined) campos.descripcion = body.descripcion
     if (body.prioridad !== undefined) campos.prioridad = body.prioridad
-    if (body.fecha_vencimiento !== undefined) campos.fecha_vencimiento = body.fecha_vencimiento
+    // Si el tipo de actividad usa calendario y llega una nueva fecha_vencimiento,
+    // movemos el bloque más temprano vinculado preservando la duración. La
+    // fecha_vencimiento se sobrescribe al final con `recalcularFechaVencimientoDesdeBloques`
+    // para garantizar consistencia (timezone). Si no hay bloques (o el tipo no
+    // usa calendario), la fecha_vencimiento se persiste tal cual viene del body.
+    let bloqueMovido = false
+    if (body.fecha_vencimiento !== undefined && body.fecha_vencimiento !== null) {
+      bloqueMovido = await moverPrimerBloqueAFecha(id, empresaId, body.fecha_vencimiento)
+    }
+    if (body.fecha_vencimiento !== undefined && !bloqueMovido) {
+      campos.fecha_vencimiento = body.fecha_vencimiento
+    }
     if (body.asignados !== undefined) {
       campos.asignados = body.asignados
       campos.asignados_ids = Array.isArray(body.asignados) ? body.asignados.map((a: { id: string }) => a.id) : []
@@ -524,6 +536,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error) {
       console.error('Error al editar actividad:', error)
       return NextResponse.json({ error: 'Error al editar' }, { status: 500 })
+    }
+
+    // Si movimos un bloque, sincronizamos fecha_vencimiento con la fecha_inicio
+    // efectiva del bloque (por si hubo ajuste de timezone). Para tipos sin
+    // bloques activos el helper sale temprano sin tocar nada.
+    if (bloqueMovido) {
+      await recalcularFechaVencimientoDesdeBloques(id, empresaId)
     }
 
     // Sincronizar vínculos contra actividades_relaciones (diff: INSERT

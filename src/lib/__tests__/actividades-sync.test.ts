@@ -18,7 +18,10 @@ vi.mock('@/lib/supabase/admin', () => ({
   crearClienteAdmin: vi.fn(),
 }))
 
-import { recalcularFechaVencimientoDesdeBloques } from '../actividades-sync'
+import {
+  recalcularFechaVencimientoDesdeBloques,
+  moverPrimerBloqueAFecha,
+} from '../actividades-sync'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 const crearClienteAdminMock = vi.mocked(crearClienteAdmin)
@@ -180,6 +183,143 @@ describe('recalcularFechaVencimientoDesdeBloques', () => {
       recalcularFechaVencimientoDesdeBloques(ACTIVIDAD_ID, EMPRESA_ID),
     ).resolves.toBeUndefined()
 
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
+  })
+})
+
+// ─── Tests de moverPrimerBloqueAFecha ─────────────────────────────────────
+
+interface BloqueMover {
+  id: string
+  fecha_inicio: string
+  fecha_fin: string | null
+}
+
+interface EstadoMover {
+  bloque: BloqueMover | null
+  errorSelect?: { message: string } | null
+  errorUpdate?: { message: string } | null
+  updatePayload: Record<string, unknown> | null
+  updateFiltros: Record<string, unknown>
+}
+
+function crearAdminMoverMock(estado: EstadoMover) {
+  return {
+    from: vi.fn((tabla: string) => {
+      if (tabla !== 'eventos_calendario') {
+        throw new Error(`Tabla mock no soportada: ${tabla}`)
+      }
+      const builder: Record<string, unknown> = {
+        select: vi.fn(() => builder),
+        eq: vi.fn((col: string, val: unknown) => {
+          // En la fase de update, capturamos los filtros.
+          if ((builder as { _modo?: string })._modo === 'update') {
+            estado.updateFiltros[col] = val
+            if (Object.keys(estado.updateFiltros).length >= 2) {
+              return Promise.resolve({ data: null, error: estado.errorUpdate ?? null }) as never
+            }
+          }
+          return builder
+        }),
+        neq: vi.fn(() => builder),
+        order: vi.fn(() => builder),
+        limit: vi.fn(() => builder),
+        maybeSingle: vi.fn(() =>
+          Promise.resolve({
+            data: estado.errorSelect ? null : estado.bloque,
+            error: estado.errorSelect ?? null,
+          }),
+        ),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          ;(builder as { _modo?: string })._modo = 'update'
+          estado.updatePayload = payload
+          return builder
+        }),
+      }
+      return builder
+    }),
+  }
+}
+
+function estadoMoverBase(over: Partial<EstadoMover> = {}): EstadoMover {
+  return {
+    bloque: null,
+    updatePayload: null,
+    updateFiltros: {},
+    ...over,
+  }
+}
+
+describe('moverPrimerBloqueAFecha', () => {
+  it('mueve fecha_inicio + recalcula fecha_fin preservando duración', async () => {
+    const estado = estadoMoverBase({
+      bloque: {
+        id: 'b1',
+        fecha_inicio: '2026-06-01T10:00:00.000Z',
+        fecha_fin: '2026-06-01T11:00:00.000Z', // duración: 1 hora
+      },
+    })
+    crearClienteAdminMock.mockReturnValue(crearAdminMoverMock(estado) as never)
+
+    const movido = await moverPrimerBloqueAFecha(
+      ACTIVIDAD_ID,
+      EMPRESA_ID,
+      '2026-06-10T15:00:00.000Z',
+    )
+
+    expect(movido).toBe(true)
+    expect(estado.updatePayload).toEqual({
+      fecha_inicio: '2026-06-10T15:00:00.000Z',
+      fecha_fin: '2026-06-10T16:00:00.000Z', // +1 hora preservada
+    })
+    expect(estado.updateFiltros).toEqual({ id: 'b1', empresa_id: EMPRESA_ID })
+  })
+
+  it('bloque sin fecha_fin → solo mueve fecha_inicio', async () => {
+    const estado = estadoMoverBase({
+      bloque: { id: 'b1', fecha_inicio: '2026-06-01T10:00:00Z', fecha_fin: null },
+    })
+    crearClienteAdminMock.mockReturnValue(crearAdminMoverMock(estado) as never)
+
+    const movido = await moverPrimerBloqueAFecha(ACTIVIDAD_ID, EMPRESA_ID, '2026-06-10T15:00:00Z')
+
+    expect(movido).toBe(true)
+    expect(estado.updatePayload).toEqual({ fecha_inicio: '2026-06-10T15:00:00Z' })
+  })
+
+  it('sin bloque activo → devuelve false sin hacer update', async () => {
+    const estado = estadoMoverBase({ bloque: null })
+    crearClienteAdminMock.mockReturnValue(crearAdminMoverMock(estado) as never)
+
+    const movido = await moverPrimerBloqueAFecha(ACTIVIDAD_ID, EMPRESA_ID, '2026-06-10T15:00:00Z')
+
+    expect(movido).toBe(false)
+    expect(estado.updatePayload).toBeNull()
+  })
+
+  it('args vacíos → devuelve false sin tocar Supabase', async () => {
+    const estado = estadoMoverBase()
+    crearClienteAdminMock.mockReturnValue(crearAdminMoverMock(estado) as never)
+
+    expect(await moverPrimerBloqueAFecha('', EMPRESA_ID, '2026-06-10T15:00:00Z')).toBe(false)
+    expect(await moverPrimerBloqueAFecha(ACTIVIDAD_ID, '', '2026-06-10T15:00:00Z')).toBe(false)
+    expect(await moverPrimerBloqueAFecha(ACTIVIDAD_ID, EMPRESA_ID, '')).toBe(false)
+    expect(crearClienteAdminMock).not.toHaveBeenCalled()
+  })
+
+  it('error en UPDATE → devuelve false y loguea', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const estado = estadoMoverBase({
+      bloque: { id: 'b1', fecha_inicio: '2026-06-01T10:00:00Z', fecha_fin: null },
+      errorUpdate: { message: 'rls denied' },
+    })
+    crearClienteAdminMock.mockReturnValue(crearAdminMoverMock(estado) as never)
+
+    const movido = await moverPrimerBloqueAFecha(ACTIVIDAD_ID, EMPRESA_ID, '2026-06-10T15:00:00Z')
+
+    expect(movido).toBe(false)
     expect(errSpy).toHaveBeenCalled()
     errSpy.mockRestore()
   })
