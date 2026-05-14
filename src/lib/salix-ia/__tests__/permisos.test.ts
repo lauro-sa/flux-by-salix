@@ -76,6 +76,9 @@ const configCompleta: ConfigSalixIA = {
     // Tools personales
     'mi_recibo_periodo', 'mi_proximo_pago', 'mi_periodo_actual',
     'mis_tardanzas_e_inasistencias', 'mi_historial_pagos',
+    // Tools de movimientos de nómina (PR #12)
+    'consultar_movimientos_nomina', 'crear_movimiento_nomina',
+    'modificar_movimiento_nomina', 'eliminar_movimiento_nomina',
   ],
   whatsapp_copilot_habilitado: false,
   max_iteraciones_herramientas: 5,
