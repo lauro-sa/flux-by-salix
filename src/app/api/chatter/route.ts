@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const admin = crearClienteAdmin()
     const { data, error, count } = await admin
       .from('chatter')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('entidad_tipo', entidadTipo)
       .eq('entidad_id', entidadId)

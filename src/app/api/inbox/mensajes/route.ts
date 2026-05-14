@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         adjuntos:mensaje_adjuntos(*)
-      `, { count: 'exact' })
+      `, { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('conversacion_id', conversacion_id)
       .is('eliminado_en', null)

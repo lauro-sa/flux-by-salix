@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from('recordatorios')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', auth.empresaId)
       .eq('asignado_a', auth.user.id)
 

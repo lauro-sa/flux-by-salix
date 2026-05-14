@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from('notificaciones')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('usuario_id', user.id)
 

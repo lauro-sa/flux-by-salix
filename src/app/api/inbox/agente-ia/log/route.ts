@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     // Query principal con filtros
     let query = admin
       .from('log_agente_ia')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .order('creado_en', { ascending: false })
       .range(offset, offset + limite - 1)

@@ -30,7 +30,7 @@ export async function GET() {
       // Actividades para hoy
       admin
         .from('actividades')
-        .select(camposActividad, { count: 'exact' })
+        .select(camposActividad, { count: 'estimated' })
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .eq('estado_clave', 'pendiente')
@@ -43,7 +43,7 @@ export async function GET() {
       // Actividades vencidas (más recientes primero)
       admin
         .from('actividades')
-        .select(camposActividad, { count: 'exact' })
+        .select(camposActividad, { count: 'estimated' })
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado_clave', ['pendiente', 'vencida'])

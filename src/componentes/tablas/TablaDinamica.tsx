@@ -1668,6 +1668,7 @@ function TablaDinamica<T>({
                             // sigue activo para middle-click nativo y menú contextual del browser.
                             if (hrefDestino) navegarFila(hrefDestino, e)
                           }}
+                          onMouseEnter={hrefDestino ? () => router.prefetch(hrefDestino) : undefined}
                           onAuxClick={hrefDestino ? (e) => {
                             // Click central (botón 1) → nueva pestaña. Cubre la zona del contenido
                             // que está stacked por encima del <Link> absoluto.
