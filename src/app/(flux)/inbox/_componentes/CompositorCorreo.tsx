@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
-import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import { EditorTextoLazy as EditorTexto } from '@/componentes/ui/EditorTextoLazy'
 import {
   Send, Paperclip, X, Upload, Clock,
   Image, Film, FileText, File, Loader2,

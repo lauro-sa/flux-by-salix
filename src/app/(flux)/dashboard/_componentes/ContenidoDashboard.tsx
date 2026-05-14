@@ -23,15 +23,20 @@ import { Cargador } from '@/componentes/ui/Cargador'
 import { Boton } from '@/componentes/ui/Boton'
 
 // Widgets del dashboard
+// Los widgets que dependen de recharts (~8.5 MB de gráficos) se cargan
+// dinámicamente para que el bundle inicial del dashboard sea más liviano
+// y se pinten antes las tarjetas con números mientras el chart engine
+// llega en background.
 import { WidgetPipeline } from './WidgetPipeline'
 import { WidgetProductosTop } from './WidgetProductosTop'
 import { WidgetPorVencer } from './WidgetPorVencer'
 import { WidgetAsistencia } from './WidgetAsistencia'
 import { WidgetInbox } from './WidgetInbox'
-import { WidgetCobros } from './WidgetCobros'
+import dynamic from 'next/dynamic'
+const WidgetCobros = dynamic(() => import('./WidgetCobros').then(m => ({ default: m.WidgetCobros })), { ssr: false })
 import { WidgetDetalleCobrosMes } from './WidgetDetalleCobrosMes'
-import { WidgetComparativa } from './WidgetComparativa'
-import { WidgetClientes } from './WidgetClientes'
+const WidgetComparativa = dynamic(() => import('./WidgetComparativa').then(m => ({ default: m.WidgetComparativa })), { ssr: false })
+const WidgetClientes = dynamic(() => import('./WidgetClientes').then(m => ({ default: m.WidgetClientes })), { ssr: false })
 import { WidgetRecientes } from './WidgetRecientes'
 import { WidgetMisOrdenes } from './WidgetMisOrdenes'
 import { WidgetOrdenesPorGestionar } from './WidgetOrdenesPorGestionar'

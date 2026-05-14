@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Excluir puppeteer/chromium del bundling serverless (solo se usa en PDF generation)
   serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min'],
+  // Tree-shaking agresivo para paquetes con barrel files grandes. Sin esto,
+  // `import { X } from 'lucide-react'` arrastra el archivo barrel completo
+  // (~1500 íconos) al bundle por archivo que importe. Con la flag, Next.js
+  // reescribe cada import al subpath específico del ícono (X resuelve a
+  // lucide-react/dist/esm/icons/x.js) y el bundler descarta el resto.
+  // Mismo beneficio para date-fns y framer-motion.
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns', 'framer-motion'],
+  },
   images: {
     // Formatos de imagen optimizados (WebP y AVIF)
     formats: ['image/avif', 'image/webp'],

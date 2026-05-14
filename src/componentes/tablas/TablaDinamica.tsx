@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useTraduccion } from '@/lib/i18n'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
@@ -35,7 +36,13 @@ import { Tooltip } from '@/componentes/ui/Tooltip'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { PanelColumnas } from '@/componentes/tablas/PanelColumnas'
 import { SeccionFiltroPanel, GuardarVistaInline, FilaVista } from '@/componentes/tablas/PanelFiltros'
-import { PanelFiltrosAvanzado } from '@/componentes/tablas/PanelFiltrosAvanzado'
+// PanelFiltrosAvanzado se carga dinámicamente: solo se descarga cuando el
+// usuario abre el panel de filtros avanzado (condicional con gruposFiltros).
+// Evita meter ~600 líneas + dependencias al bundle inicial de cada listado.
+const PanelFiltrosAvanzado = dynamic(
+  () => import('@/componentes/tablas/PanelFiltrosAvanzado').then(m => ({ default: m.PanelFiltrosAvanzado })),
+  { ssr: false },
+)
 import { PieResumenFila } from '@/componentes/tablas/PieResumen'
 import { BarraAccionesLote } from '@/componentes/tablas/BarraAccionesLote'
 

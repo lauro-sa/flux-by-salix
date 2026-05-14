@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
+import { useCacheListado } from '@/hooks/useCacheListado'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
@@ -66,7 +66,7 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const formato = useFormato()
-  const queryClient = useQueryClient()
+  const cacheProductos = useCacheListado<FilaProducto>('productos')
   const { mostrar: mostrarToast } = useToast()
   const { tienePermiso } = useRol()
   const puedeCrear = tienePermiso('productos', 'crear')
@@ -172,7 +172,7 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
     pagina === 1
 
   // ---- useListado reemplaza fetch manual ----
-  const { datos: productos, total, cargando, recargar: recargarProductos } = useListado<FilaProducto>({
+  const { datos: productos, total, cargando } = useListado<FilaProducto>({
     clave: 'productos',
     url: '/api/productos',
     parametros: {
@@ -225,20 +225,25 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ---- Eliminar en lote ----
+  // ---- Eliminar en lote (optimistic + rollback) ----
   const eliminarProductosLote = useCallback(async (ids: Set<string>) => {
+    if (ids.size === 0) return
+    const snapshot = cacheProductos.snapshotear()
+    cacheProductos.removerLocal(ids)
+    mostrarToast('exito', `${ids.size} producto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
     try {
       await Promise.all(
         Array.from(ids).map(id =>
-          fetch(`/api/productos/${id}`, { method: 'DELETE' })
+          fetch(`/api/productos/${id}`, { method: 'DELETE' }).then(r => {
+            if (!r.ok) throw new Error()
+          })
         )
       )
-      queryClient.invalidateQueries({ queryKey: ['productos'] })
-      mostrarToast('exito', `${ids.size} producto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
     } catch {
+      cacheProductos.restaurar(snapshot)
       mostrarToast('error', 'Error al eliminar productos')
     }
-  }, [queryClient, mostrarToast])
+  }, [cacheProductos, mostrarToast])
 
   // ---- Helpers ----
   const formatoMonedaLocal = useCallback((valor: string | null, monedaCodigo?: string | null, mostrarCero = false) => {
@@ -292,9 +297,16 @@ function ContenidoProductosInterno({ datosInicialesJson }: Props) {
     setModalAbierto(true)
   }, [])
 
-  const manejarGuardado = useCallback(() => {
-    recargarProductos()
-  }, [recargarProductos])
+  // Optimistic update post-fetch: el modal hace POST/PATCH y nos devuelve el
+  // producto guardado. Si era edición (productoEditar tenía valor) parcheamos
+  // el item en cache; si era creación, lo insertamos al inicio del listado.
+  const manejarGuardado = useCallback((producto: Producto) => {
+    if (productoEditar) {
+      cacheProductos.actualizarLocal(producto.id, producto as Partial<FilaProducto>)
+    } else {
+      cacheProductos.agregarLocal(producto as unknown as FilaProducto, 'inicio')
+    }
+  }, [productoEditar, cacheProductos])
 
   // ---- Columnas visibles por defecto ----
   const COLUMNAS_VISIBLES_DEFAULT = ['codigo', 'nombre', 'categoria', 'precio_unitario', 'unidad', 'veces_presupuestado', 'veces_vendido']

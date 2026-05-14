@@ -162,4 +162,81 @@ describe('useCacheListado', () => {
     const queryStateDespues = qc.getQueryState(['contactos', {}])
     expect(queryStateDespues?.isInvalidated).toBe(true)
   })
+
+  it('agregarLocal inserta al inicio por default y suma 1 al total', () => {
+    const qc = new QueryClient()
+    poblarCache(qc, [{ id: 'c1', nombre: 'Ana' }, { id: 'c2', nombre: 'Bea' }])
+
+    const { result } = renderHook(() => useCacheListado<Contacto>('contactos'), {
+      wrapper: crearWrapper(qc),
+    })
+
+    act(() => result.current.agregarLocal({ id: 'c3', nombre: 'Carla' }))
+
+    const data = qc.getQueryData<{ contactos: Contacto[]; total: number }>(['contactos', {}])
+    expect(data?.contactos.map((c) => c.id)).toEqual(['c3', 'c1', 'c2'])
+    expect(data?.total).toBe(3)
+  })
+
+  it('agregarLocal con posicion="fin" inserta al final', () => {
+    const qc = new QueryClient()
+    poblarCache(qc, [{ id: 'c1', nombre: 'Ana' }])
+
+    const { result } = renderHook(() => useCacheListado<Contacto>('contactos'), {
+      wrapper: crearWrapper(qc),
+    })
+
+    act(() => result.current.agregarLocal({ id: 'c2', nombre: 'Bea' }, 'fin'))
+
+    const data = qc.getQueryData<{ contactos: Contacto[]; total: number }>(['contactos', {}])
+    expect(data?.contactos.map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(data?.total).toBe(2)
+  })
+
+  it('agregarLocal no duplica items con id existente', () => {
+    const qc = new QueryClient()
+    poblarCache(qc, [{ id: 'c1', nombre: 'Ana' }])
+
+    const { result } = renderHook(() => useCacheListado<Contacto>('contactos'), {
+      wrapper: crearWrapper(qc),
+    })
+
+    act(() => result.current.agregarLocal({ id: 'c1', nombre: 'Ana actualizada' }))
+
+    const data = qc.getQueryData<{ contactos: Contacto[]; total: number }>(['contactos', {}])
+    expect(data?.contactos).toHaveLength(1)
+    expect(data?.total).toBe(1)
+  })
+
+  it('snapshotear + restaurar revierten cambios optimistas', () => {
+    const qc = new QueryClient()
+    poblarCache(qc, [
+      { id: 'c1', nombre: 'Ana' },
+      { id: 'c2', nombre: 'Bea' },
+    ])
+
+    const { result } = renderHook(() => useCacheListado<Contacto>('contactos'), {
+      wrapper: crearWrapper(qc),
+    })
+
+    let snapshot!: ReturnType<typeof result.current.snapshotear>
+    act(() => {
+      snapshot = result.current.snapshotear()
+      result.current.removerLocal(['c1'])
+      result.current.actualizarLocal('c2', { nombre: 'Beatriz' })
+    })
+
+    const intermedio = qc.getQueryData<{ contactos: Contacto[]; total: number }>(['contactos', {}])
+    expect(intermedio?.contactos).toEqual([{ id: 'c2', nombre: 'Beatriz' }])
+    expect(intermedio?.total).toBe(1)
+
+    act(() => result.current.restaurar(snapshot))
+
+    const final = qc.getQueryData<{ contactos: Contacto[]; total: number }>(['contactos', {}])
+    expect(final?.contactos).toEqual([
+      { id: 'c1', nombre: 'Ana' },
+      { id: 'c2', nombre: 'Bea' },
+    ])
+    expect(final?.total).toBe(2)
+  })
 })

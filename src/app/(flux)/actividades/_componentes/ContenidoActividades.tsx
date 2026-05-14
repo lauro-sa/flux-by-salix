@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
+import { useCacheListado } from '@/hooks/useCacheListado'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -142,6 +143,7 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   const puedeEliminar = tienePermiso('actividades', 'eliminar')
   const puedeCompletar = tienePermiso('actividades', 'completar')
   const puedeEditar = tienePermiso('actividades', 'editar')
+  const cacheActividades = useCacheListado<Actividad>('actividades')
   // Marcar notificaciones de actividades como leídas al entrar a la página
   const notificacionesMarcadasRef = useRef(false)
   useEffect(() => {
@@ -389,6 +391,8 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   }, [actividadIdParam, actividades, router])
 
   // Acciones
+  // Crear: POST y, si OK, agregamos al inicio del listado activo. Si falla,
+  // mostramos error sin tocar el cache.
   const crearActividad = async (datos: Record<string, unknown>) => {
     try {
       const res = await fetch('/api/actividades', {
@@ -399,25 +403,35 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       if (!res.ok) throw new Error('Error al crear')
       const resultado = await res.json()
       mostrar('exito', 'Actividad creada')
-      recargarActividades()
+      const nueva = (resultado?.actividad || resultado) as Actividad
+      if (nueva?.id) cacheActividades.agregarLocal(nueva, 'inicio')
+      else cacheActividades.revalidar()
       return resultado // Devolver para que el modal pueda usar el ID
     } catch {
       mostrar('error', 'Error al crear la actividad')
     }
   }
 
+  // Editar: aplicamos los campos en cache al instante; si el PUT falla,
+  // restauramos snapshot. Si el server devuelve la fila actualizada, la
+  // reaplicamos.
   const editarActividad = async (datos: Record<string, unknown>) => {
+    const { id, ...campos } = datos as { id: string } & Record<string, unknown>
+    if (!id) return
+    const snapshot = cacheActividades.snapshotear()
+    cacheActividades.actualizarLocal(id, campos as Partial<Actividad>)
     try {
-      const { id, ...campos } = datos
       const res = await fetch(`/api/actividades/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(campos),
       })
       if (!res.ok) throw new Error('Error al editar')
+      const actualizada = (await res.json().catch(() => null))?.actividad
+      if (actualizada?.id) cacheActividades.actualizarLocal(id, actualizada as Partial<Actividad>)
       mostrar('exito', 'Actividad actualizada')
-      recargarActividades()
     } catch {
+      cacheActividades.restaurar(snapshot)
       mostrar('error', 'Error al guardar la actividad')
     }
   }
@@ -446,6 +460,8 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   })
   const finalizadasHoy = finalizadasHoyData || []
 
+  // Reactivar mueve la actividad de "finalizadas hoy" al listado activo —
+  // como toca dos sets de datos, revalidamos ambos en background.
   const reactivarActividad = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/actividades/${id}`, {
@@ -455,14 +471,20 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       })
       if (!res.ok) throw new Error()
       mostrar('exito', 'Actividad reactivada')
-      recargarActividades()
+      cacheActividades.revalidar()
       recargarFinalizadasHoy()
     } catch {
       mostrar('error', 'Error al reactivar la actividad')
     }
-  }, [recargarActividades, recargarFinalizadasHoy, mostrar])
+  }, [cacheActividades, recargarFinalizadasHoy, mostrar])
 
+  // Completar saca la actividad del listado activo. Optimismo: la removemos
+  // de inmediato; si el PUT falla, restauramos. El encadenamiento se procesa
+  // con la respuesta del servidor.
   const completarActividad = async (id: string) => {
+    const snapshot = cacheActividades.snapshotear()
+    cacheActividades.removerLocal([id])
+    mostrar('exito', 'Actividad completada')
     try {
       const res = await fetch(`/api/actividades/${id}`, {
         method: 'PUT',
@@ -471,14 +493,14 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      mostrar('exito', 'Actividad completada')
-      recargarActividades()
       recargarFinalizadasHoy()
 
       // Manejar encadenamiento
       if (data.siguiente) {
         if (data.siguiente.tipo === 'creada') {
           mostrar('info', `Se creó automáticamente: ${data.siguiente.actividad?.titulo || 'siguiente actividad'}`)
+          // Refrescar para que aparezca la siguiente actividad creada por el server.
+          cacheActividades.revalidar()
         } else if (data.siguiente.tipo === 'sugerir') {
           setSugerenciaSiguiente({
             tipoActividad: data.siguiente.tipo_actividad,
@@ -487,10 +509,13 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
         }
       }
     } catch {
+      cacheActividades.restaurar(snapshot)
       mostrar('error', 'Error al completar la actividad')
     }
   }
 
+  // Posponer cambia fecha_vencimiento pero la actividad sigue en el listado
+  // activo — revalidamos para que el server recalcule fechas y orden.
   const posponerActividad = async (id: string, dias: number) => {
     try {
       const res = await fetch(`/api/actividades/${id}`, {
@@ -500,7 +525,7 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
       })
       if (!res.ok) throw new Error()
       mostrar('info', `Actividad pospuesta ${dias} día${dias > 1 ? 's' : ''}`)
-      recargarActividades()
+      cacheActividades.revalidar()
     } catch {
       mostrar('error', 'Error al posponer la actividad')
     }
@@ -511,45 +536,63 @@ function ContenidoActividadesInterno({ datosInicialesJson }: Props) {
   const [menuPosponerLote, setMenuPosponerLote] = useState<Set<string> | null>(null)
   const [posMenuPosponer, setPosMenuPosponer] = useState<{ x: number; top: number; bottom: number } | null>(null)
 
+  // Acciones en lote: optimismo con snapshot/restaurar. Completar y eliminar
+  // sacan filas del listado activo (removerLocal). Posponer las deja pero
+  // cambia fechas — revalidamos para que el orden inteligente del server las
+  // reubique correctamente.
   const completarLote = useCallback(async (ids: Set<string>) => {
+    if (ids.size === 0) return
+    const snapshot = cacheActividades.snapshotear()
+    cacheActividades.removerLocal(ids)
+    mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} completada${ids.size > 1 ? 's' : ''}`)
     try {
       await Promise.all([...ids].map(id =>
         fetch(`/api/actividades/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion: 'completar' }),
-        })
+        }).then(r => { if (!r.ok) throw new Error() })
       ))
-      mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} completada${ids.size > 1 ? 's' : ''}`)
-      recargarActividades()
-    } catch { mostrar('error', 'Error al completar actividades') }
-  }, [recargarActividades, mostrar])
+      recargarFinalizadasHoy()
+    } catch {
+      cacheActividades.restaurar(snapshot)
+      mostrar('error', 'Error al completar actividades')
+    }
+  }, [cacheActividades, recargarFinalizadasHoy, mostrar])
 
   const posponerLote = useCallback(async (ids: Set<string>, dias: number) => {
+    if (ids.size === 0) return
+    setMenuPosponerLote(null)
     try {
       await Promise.all([...ids].map(id =>
         fetch(`/api/actividades/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion: 'posponer', dias }),
-        })
+        }).then(r => { if (!r.ok) throw new Error() })
       ))
       mostrar('info', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} pospuesta${ids.size > 1 ? 's' : ''} ${dias} día${dias > 1 ? 's' : ''}`)
-      setMenuPosponerLote(null)
-      recargarActividades()
-    } catch { mostrar('error', 'Error al posponer actividades') }
-  }, [recargarActividades, mostrar])
+      cacheActividades.revalidar()
+    } catch {
+      mostrar('error', 'Error al posponer actividades')
+    }
+  }, [cacheActividades, mostrar])
 
   const eliminarLote = useCallback(async (ids: Set<string>) => {
+    if (ids.size === 0) return
+    const snapshot = cacheActividades.snapshotear()
+    cacheActividades.removerLocal(ids)
+    setConfirmEliminarLote(null)
+    mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
     try {
       await Promise.all([...ids].map(id =>
-        fetch(`/api/actividades/${id}`, { method: 'DELETE' })
+        fetch(`/api/actividades/${id}`, { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error() })
       ))
-      mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
-      setConfirmEliminarLote(null)
-      recargarActividades()
-    } catch { mostrar('error', 'Error al eliminar actividades') }
-  }, [recargarActividades, mostrar])
+    } catch {
+      cacheActividades.restaurar(snapshot)
+      mostrar('error', 'Error al eliminar actividades')
+    }
+  }, [cacheActividades, mostrar])
 
   const accionesLote = useMemo((): AccionLote[] => {
     const acciones: AccionLote[] = []

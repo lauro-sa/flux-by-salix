@@ -29,21 +29,34 @@ const ContextoAuthInterno = createContext<ContextoAuth | null>(null)
 // pero al extraerlo aquí queda explícito que la referencia es estable
 const supabase = crearClienteNavegador()
 
-function ProveedorAuth({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<User | null>(null)
-  const [sesion, setSesion] = useState<Session | null>(null)
-  const [cargando, setCargando] = useState(true)
+interface PropsProveedorAuth {
+  children: ReactNode
+  /** Usuario inicial precargado desde el server. Si está presente, el
+   *  provider arranca con `cargando: false` y no necesita esperar al
+   *  primer `getSession()` del cliente para que GuardPagina y los
+   *  consumidores tengan datos. */
+  usuarioInicial?: User | null
+  sesionInicial?: Session | null
+}
 
-  // Inicializar sesión y escuchar cambios
+function ProveedorAuth({ children, usuarioInicial = null, sesionInicial = null }: PropsProveedorAuth) {
+  const [usuario, setUsuario] = useState<User | null>(usuarioInicial)
+  const [sesion, setSesion] = useState<Session | null>(sesionInicial)
+  // Si recibimos datos del server, evitamos el flash de "cargando" inicial.
+  const [cargando, setCargando] = useState(!usuarioInicial)
+
+  // Inicializar sesión y escuchar cambios. Si ya tenemos sesión inicial,
+  // saltamos el primer getSession() (datos del server son la fuente de
+  // verdad para esta navegación) pero mantenemos el listener para
+  // refrescos posteriores (login/logout/token refresh).
   useEffect(() => {
-    const obtenerSesion = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSesion(session)
-      setUsuario(session?.user ?? null)
-      setCargando(false)
+    if (!usuarioInicial) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSesion(session)
+        setUsuario(session?.user ?? null)
+        setCargando(false)
+      })
     }
-
-    obtenerSesion()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, session) => {
       setSesion(session)
