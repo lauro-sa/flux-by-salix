@@ -907,4 +907,146 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     soporta_visibilidad: false,
     categoria: 'personal',
   },
+
+  // ─── MOVIMIENTOS DE NÓMINA (adelantos y descuentos) ───
+  // Tools de gestión: requieren ver_todos / editar / eliminar según operación.
+  // El campo `tipo` distingue dinero entregado al empleado (adelanto) de
+  // penalidades o multas que se aplican al recibo (descuento).
+  {
+    nombre: 'consultar_movimientos_nomina',
+    definicion: {
+      name: 'consultar_movimientos_nomina',
+      description: 'Lista adelantos y/o descuentos de nómina. Devuelve por cada uno: tipo, monto, cuotas totales/descontadas/pendientes, saldo, frecuencia, fechas, descripción, estado, y especialmente `es_editable` (bool) + `motivo_no_editable` (texto humano) que indican si se puede modificar o eliminar — la nómina ya pagada bloquea cambios. Soporta filtrar por miembro, tipo (adelanto/descuento), estado (activo/pagado/cancelado/todos) y rango de fechas. Si pedís incluir_cuotas=true, devuelve el detalle de cada cuota.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          miembro_id: {
+            type: 'string',
+            description: 'ID del miembro a consultar. Si no lo conocés, usá busqueda_miembro.',
+          },
+          busqueda_miembro: {
+            type: 'string',
+            description: 'Nombre o nombre+apellido del empleado. Resuelve a un miembro_id, falla si hay ambigüedad.',
+          },
+          tipo: {
+            type: 'string',
+            enum: ['adelanto', 'descuento', 'ambos'],
+            description: 'Filtrar por tipo. Default: ambos.',
+          },
+          estado: {
+            type: 'string',
+            enum: ['activo', 'pagado', 'cancelado', 'todos'],
+            description: 'Estado del movimiento. Default: activo.',
+          },
+          fecha_desde: {
+            type: 'string',
+            description: 'Fecha de solicitud desde (YYYY-MM-DD).',
+          },
+          fecha_hasta: {
+            type: 'string',
+            description: 'Fecha de solicitud hasta (YYYY-MM-DD).',
+          },
+          incluir_cuotas: {
+            type: 'boolean',
+            description: 'Si true, devuelve el detalle de cada cuota (número, monto, fecha programada, estado).',
+          },
+          limite: {
+            type: 'number',
+            description: 'Máximo de movimientos a devolver (default 30, máx 100).',
+          },
+        },
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: true,
+  },
+
+  {
+    nombre: 'crear_movimiento_nomina',
+    definicion: {
+      name: 'crear_movimiento_nomina',
+      description: 'Crea un adelanto (dinero entregado al empleado que se descuenta en cuotas del recibo) o un descuento puntual (penalidad/multa que se aplica al próximo recibo). Los descuentos siempre son de 1 cuota. Los adelantos pueden ser de 1 o N cuotas con frecuencia semanal/quincenal/mensual.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          miembro_id: { type: 'string', description: 'ID del empleado. Si no lo tenés, usá busqueda_miembro.' },
+          busqueda_miembro: { type: 'string', description: 'Nombre o nombre+apellido del empleado.' },
+          tipo: {
+            type: 'string',
+            enum: ['adelanto', 'descuento'],
+            description: 'Tipo de movimiento. Default: adelanto.',
+          },
+          monto: { type: 'number', description: 'Monto total en pesos.' },
+          cuotas: {
+            type: 'number',
+            description: 'Cantidad de cuotas para descontar. Solo aplica a adelantos. Default: 1.',
+          },
+          frecuencia: {
+            type: 'string',
+            enum: ['semanal', 'quincenal', 'mensual'],
+            description: 'Cadencia con la que se descuentan las cuotas. Default: mensual.',
+          },
+          fecha_solicitud: {
+            type: 'string',
+            description: 'Fecha en que se otorga el adelanto/descuento (YYYY-MM-DD). Default: hoy.',
+          },
+          fecha_inicio_descuento: {
+            type: 'string',
+            description: 'Fecha en que arranca el primer descuento (YYYY-MM-DD). Default: fecha_solicitud.',
+          },
+          descripcion: {
+            type: 'string',
+            description: 'Motivo o nota del movimiento (ej: "retiro de cajero", "multa por rotura de herramienta"). Se guarda en notas.',
+          },
+        },
+        required: ['monto'],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'editar',
+    soporta_visibilidad: false,
+  },
+
+  {
+    nombre: 'modificar_movimiento_nomina',
+    definicion: {
+      name: 'modificar_movimiento_nomina',
+      description: 'Modifica monto, cuotas o descripción de un adelanto/descuento. Aplica reglas inteligentes: NO se puede modificar si está pagado o cancelado, NO se puede reducir a menos cuotas de las ya descontadas. Si hay cuotas descontadas + pendientes, solo se regeneran las pendientes preservando el histórico. Buscá el movimiento primero con consultar_movimientos_nomina para obtener el id y verificar es_editable.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          movimiento_id: { type: 'string', description: 'ID del adelanto/descuento a modificar.' },
+          monto_total: { type: 'number', description: 'Nuevo monto total. Debe ser mayor a 0.' },
+          cuotas_totales: {
+            type: 'number',
+            description: 'Nueva cantidad de cuotas totales. Debe ser >= cuotas ya descontadas.',
+          },
+          descripcion: { type: 'string', description: 'Nueva descripción (notas).' },
+        },
+        required: ['movimiento_id'],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'editar',
+    soporta_visibilidad: false,
+  },
+
+  {
+    nombre: 'eliminar_movimiento_nomina',
+    definicion: {
+      name: 'eliminar_movimiento_nomina',
+      description: 'Cancela un adelanto o descuento (soft delete). NO se puede eliminar si ya está pagado — habría que hacer un ajuste contable manual desde Nómina. Si tiene cuotas ya descontadas, solo cancela las pendientes y deja constancia del histórico.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          movimiento_id: { type: 'string', description: 'ID del adelanto/descuento a cancelar.' },
+        },
+        required: ['movimiento_id'],
+      },
+    },
+    modulo: 'nomina',
+    accion_requerida: 'eliminar',
+    soporta_visibilidad: false,
+  },
 ]
