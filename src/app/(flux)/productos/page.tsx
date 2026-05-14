@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoProductos from './_componentes/ContenidoProductos'
@@ -7,10 +8,19 @@ import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ShieldX } from 'lucide-react'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 const POR_PAGINA = 50
 
-export default async function PaginaProductos() {
+export default function PaginaProductos() {
+  return (
+    <Suspense fallback={<SkeletonListado columnas={6} />}>
+      <ContenidoServidor />
+    </Suspense>
+  )
+}
+
+async function ContenidoServidor() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -33,7 +43,7 @@ export default async function PaginaProductos() {
 
   const { data, count } = await admin
     .from('productos')
-    .select('*', { count: 'exact' })
+    .select('*', { count: 'estimated' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .eq('es_provisorio', false)

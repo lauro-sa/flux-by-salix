@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoContactos from './_componentes/ContenidoContactos'
@@ -6,15 +7,28 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { enriquecerContactos } from '@/lib/enriquecer-contactos'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
  * Página de contactos — /contactos (Server Component)
- * Sin Suspense: Next.js mantiene la página anterior visible durante la navegación.
+ *
+ * El cuerpo está envuelto en <Suspense> para que durante la navegación se
+ * pinte un skeleton al instante, en lugar de quedar congelado en la página
+ * anterior hasta que termine el fetch del servidor. La función async
+ * ContenidoServidor hace todo el trabajo de datos.
  */
 
 const POR_PAGINA = 50
 
-export default async function PaginaContactos() {
+export default function PaginaContactos() {
+  return (
+    <Suspense fallback={<SkeletonListado columnas={7} />}>
+      <ContenidoServidor />
+    </Suspense>
+  )
+}
+
+async function ContenidoServidor() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -41,7 +55,7 @@ export default async function PaginaContactos() {
       responsables:contacto_responsables(usuario_id),
       direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
       vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp))
-    `, { count: 'exact' })
+    `, { count: 'estimated' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
 

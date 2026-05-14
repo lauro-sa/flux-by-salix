@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoVisitas from './_componentes/ContenidoVisitas'
@@ -5,15 +6,25 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
  * Página de visitas — /visitas (Server Component)
- * Hidrata React Query con la primera página para renderizar sin loading.
+ * Hidrata React Query con la primera página dentro de un Suspense que
+ * muestra skeleton al instante durante la navegación.
  */
 
 const POR_PAGINA = 50
 
-export default async function PaginaVisitas() {
+export default function PaginaVisitas() {
+  return (
+    <Suspense fallback={<SkeletonListado columnas={6} />}>
+      <ContenidoServidor />
+    </Suspense>
+  )
+}
+
+async function ContenidoServidor() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -34,7 +45,7 @@ export default async function PaginaVisitas() {
 
   let query = admin
     .from('visitas')
-    .select('*', { count: 'exact' })
+    .select('*', { count: 'estimated' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .in('estado', estadosActivos)
