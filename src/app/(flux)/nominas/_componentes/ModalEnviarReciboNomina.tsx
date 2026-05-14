@@ -115,6 +115,7 @@ const fmtHoras = (h: number) => {
 function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: string): DatosNominaCorreo {
   const diasLab = r.dias_laborales || 1
   return ({
+    miembro_id: r.miembro_id,
     nombre_empleado: r.nombre,
     correo_empleado: r.correo,
     periodo: etiquetaPeriodo,
@@ -448,6 +449,10 @@ export function ModalEnviarReciboNomina({
           html_plantilla: htmlNomina,
           empleados: empleadosData,
           nombre_empresa: nombreEmpresa,
+          // Período del recibo: el backend lo usa para buscar el pago
+          // grabado del empleado y adjuntar el PDF del recibo si existe.
+          periodo_desde: periodoDesde,
+          periodo_hasta: periodoHasta,
         }),
       })
       const data = await res.json()
@@ -457,7 +462,7 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
       setResultadoLote({ enviados: 0, fallidos: empleadosConCorreo.length, total: empleadosConCorreo.length, resultados: [] })
     }
-  }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa, asuntoNomina, htmlNomina])
+  }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa, asuntoNomina, htmlNomina, periodoDesde, periodoHasta])
 
   // ─── Enviar WhatsApp en lote ───
   const enviarWAEnLote = useCallback(async () => {

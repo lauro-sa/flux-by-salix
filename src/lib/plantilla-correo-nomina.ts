@@ -49,6 +49,12 @@ export const HTML_RECIBO_NOMINA = `<p>Hola <strong>{{nomina.nombre_empleado}}</s
 // ─── Tipos ───
 
 export interface DatosNominaCorreo {
+  /**
+   * ID del miembro empleado. Opcional para compatibilidad con consumidores
+   * viejos, pero requerido para adjuntar el PDF del recibo al correo: el
+   * backend usa este ID + el período para buscar el pago grabado.
+   */
+  miembro_id?: string
   nombre_empleado: string
   correo_empleado: string
   periodo: string

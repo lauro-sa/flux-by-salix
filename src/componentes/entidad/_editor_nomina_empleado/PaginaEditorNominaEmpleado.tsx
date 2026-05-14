@@ -16,7 +16,7 @@ import { motion } from 'framer-motion'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
-  ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard,
+  ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
 } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
@@ -554,6 +554,22 @@ export function PaginaEditorNominaEmpleado({
     }).eq('id', pagoId)
     setEditandoPago(null)
     await recargarDatos()
+  }
+
+  // Descargar el PDF del recibo: pide al backend que lo genere (Puppeteer)
+  // y abre la URL firmada en una pestaña nueva para ver/descargar.
+  const handleDescargarPdf = async (pagoId: string) => {
+    try {
+      const res = await fetch(`/api/nominas/pagos/${pagoId}/pdf`, { method: 'GET' })
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        console.error('[PaginaEditorNominaEmpleado] error PDF:', data)
+        return
+      }
+      window.open(data.url, '_blank')
+    } catch (err) {
+      console.error('[PaginaEditorNominaEmpleado] error de red al pedir PDF:', err)
+    }
   }
 
   const handleEliminarPago = async (pagoId: string) => {
@@ -1541,6 +1557,9 @@ export function PaginaEditorNominaEmpleado({
                                   </p>
                                 )}
                               </div>
+                              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Descargar recibo PDF"
+                                icono={<Download size={11} />}
+                                onClick={() => handleDescargarPdf(pagoId)} />
                               {puedeEditarNomina && (
                                 <>
                                   <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar monto"
