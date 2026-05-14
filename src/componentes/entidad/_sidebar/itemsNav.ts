@@ -11,7 +11,7 @@ import {
   Route, Wrench,
   Zap, LayoutDashboard,
   Megaphone, FileBarChart,
-  Workflow,
+  Workflow, Banknote,
 } from 'lucide-react'
 import { createElement } from 'react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -36,6 +36,7 @@ export function crearItemsNav(t: (c: string) => string): ItemNav[] {
     { id: 'ordenes', etiqueta: t('navegacion.ordenes'), icono: icono(Wrench), ruta: '/ordenes', seccion: 'documentos', modulo: 'ordenes_trabajo', moduloCatalogo: 'ordenes_trabajo' },
     { id: 'marketing', etiqueta: t('navegacion.marketing'), icono: icono(Megaphone), ruta: '/marketing', seccion: 'principal', moduloCatalogo: 'marketing' },
     { id: 'asistencias', etiqueta: t('navegacion.asistencias'), icono: icono(Clock), ruta: '/asistencias', seccion: 'admin', modulo: 'asistencias', moduloCatalogo: 'asistencias' },
+    { id: 'nominas', etiqueta: t('navegacion.nominas'), icono: icono(Banknote), ruta: '/nominas', seccion: 'admin', modulo: 'nomina', moduloCatalogo: 'nominas' },
     { id: 'flujos', etiqueta: t('navegacion.flujos'), icono: icono(Workflow), ruta: '/flujos', seccion: 'admin', modulo: 'flujos', moduloCatalogo: 'flujos' },
     { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: icono(Shield), ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria', moduloCatalogo: 'auditoria' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: icono(Trash2), ruta: '/papelera', seccion: 'otros' },

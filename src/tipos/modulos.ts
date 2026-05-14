@@ -84,6 +84,7 @@ export const RUTAS_POR_MODULO: Record<string, string[]> = {
   informes: ['/informes'],
   ordenes_trabajo: ['/ordenes'],
   asistencias: ['/asistencias'],
+  nominas: ['/nominas'],
   auditoria: ['/auditoria'],
   inteligencia_artificial: [],
   portal_clientes: ['/portal'],
@@ -98,6 +99,7 @@ export const MODULO_POR_RUTA: Record<string, string> = {
   '/informes': 'informes',
   '/ordenes': 'ordenes_trabajo',
   '/asistencias': 'asistencias',
+  '/nominas': 'nominas',
   '/auditoria': 'auditoria',
 }
 // Nota: las rutas base (/inbox, /contactos, /actividades, /calendario) NO se validan

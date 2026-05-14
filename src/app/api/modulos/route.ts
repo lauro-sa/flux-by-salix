@@ -115,22 +115,75 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'El módulo ya está instalado' }, { status: 409 })
       }
 
-      // Verificar dependencias
-      const dependencias = moduloCatalogo.requiere || []
-      if (dependencias.length > 0) {
-        const { data: modulosActivos } = await admin
-          .from('modulos_empresa')
-          .select('modulo')
-          .eq('empresa_id', empresaId)
-          .eq('activo', true)
+      // Resolver dependencias transitivamente e instalarlas en cascada.
+      // Al instalar un módulo `requiere: [a, b]`, si `a` o `b` no están
+      // activos los activamos automáticamente (y sus propias dependencias),
+      // así el usuario no tiene que ir uno por uno. Ejemplo: Nóminas
+      // depende de Asistencias → instalar Nóminas instala Asistencias si
+      // falta. Se evita la recursión infinita con un set de visitados.
+      const dependenciasInstaladas: string[] = []
+      const visitados = new Set<string>([slug])
 
-        const slugsActivos = new Set((modulosActivos || []).map(m => m.modulo))
-        const faltantes = dependencias.filter((dep: string) => !slugsActivos.has(dep))
-        if (faltantes.length > 0) {
+      const { data: modulosActivos } = await admin
+        .from('modulos_empresa')
+        .select('id, modulo, activo')
+        .eq('empresa_id', empresaId)
+
+      const estadoPorSlug = new Map(
+        (modulosActivos || []).map(m => [m.modulo, m])
+      )
+
+      // BFS sobre las dependencias requeridas por el módulo a instalar.
+      const cola: string[] = [...(moduloCatalogo.requiere || [])]
+      while (cola.length > 0) {
+        const depSlug = cola.shift()!
+        if (visitados.has(depSlug)) continue
+        visitados.add(depSlug)
+
+        const estado = estadoPorSlug.get(depSlug)
+        if (estado?.activo) continue
+
+        // Buscar la dependencia en el catálogo para conocer sus propias
+        // dependencias transitivas y su id.
+        const { data: depCat, error: errDep } = await admin
+          .from('catalogo_modulos')
+          .select('id, slug, requiere')
+          .eq('slug', depSlug)
+          .single()
+        if (errDep || !depCat) {
           return NextResponse.json({
-            error: `Requiere módulos: ${faltantes.join(', ')}`,
-            faltantes,
+            error: `Dependencia no encontrada en el catálogo: ${depSlug}`,
           }, { status: 400 })
+        }
+
+        if (estado) {
+          // Estaba instalada pero desactivada → reactivar.
+          await admin
+            .from('modulos_empresa')
+            .update({
+              activo: true,
+              activado_en: new Date().toISOString(),
+              desactivado_en: null,
+            })
+            .eq('id', estado.id)
+        } else {
+          await admin
+            .from('modulos_empresa')
+            .insert({
+              empresa_id: empresaId,
+              modulo: depCat.slug,
+              activo: true,
+              catalogo_modulo_id: depCat.id,
+              instalado_por: user.id,
+              activado_en: new Date().toISOString(),
+            })
+        }
+        dependenciasInstaladas.push(depCat.slug)
+        console.info(`[modulos] Auto-instalada dependencia "${depCat.slug}" al instalar "${slug}"`)
+
+        // Encolar las dependencias transitivas de esta dep.
+        for (const sub of (depCat.requiere || []) as string[]) {
+          if (!visitados.has(sub)) cola.push(sub)
         }
       }
 
@@ -158,7 +211,11 @@ export async function POST(request: NextRequest) {
           })
       }
 
-      return NextResponse.json({ ok: true, accion: 'instalado' })
+      return NextResponse.json({
+        ok: true,
+        accion: 'instalado',
+        dependenciasInstaladas,
+      })
     }
 
     if (accion === 'desinstalar') {

@@ -9,6 +9,7 @@ import {
   FileText, FileBarChart, Wrench, Clock, Shield, Rocket,
   MessageCircle, Brain, Globe, Sparkles, BarChart3, Landmark,
   UsersRound, Megaphone, Workflow, KanbanSquare, Bot, MessageSquareCode,
+  Banknote,
   type LucideIcon,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -29,7 +30,7 @@ const ICONOS_MODULO: Record<string, LucideIcon> = {
   'mail': Mail, 'users': Users, 'zap': Zap, 'calendar': Calendar,
   'map-pin': MapPin, 'route': Route, 'package': Package,
   'file-text': FileText, 'file-bar-chart': FileBarChart, 'wrench': Wrench,
-  'clock': Clock, 'shield': Shield, 'message-circle': MessageCircle,
+  'clock': Clock, 'shield': Shield, 'message-circle': MessageCircle, 'banknote': Banknote,
   'brain': Brain, 'globe': Globe, 'whatsapp': IconoWhatsApp as unknown as LucideIcon,
   'megaphone': Megaphone, 'kanban': KanbanSquare, 'landmark': Landmark,
   'users-round': UsersRound, 'workflow': Workflow, 'bar-chart-3': BarChart3,
