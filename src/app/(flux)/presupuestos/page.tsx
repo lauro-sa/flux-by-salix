@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoPresupuestos from './_componentes/ContenidoPresupuestos'
@@ -6,16 +7,25 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { enriquecerListadoPresupuestos } from '@/lib/presupuestos/enriquecer-listado'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
  * Página de presupuestos — /presupuestos (Server Component)
- * Hace el fetch inicial en el servidor para que la tabla se renderice instantáneamente.
- * Sin Suspense: Next.js mantiene la página anterior visible durante la navegación.
+ * El fetch inicial corre dentro de un Suspense que muestra skeleton durante
+ * la navegación, evitando que la pantalla anterior quede congelada.
  */
 
 const POR_PAGINA = 50
 
-export default async function PaginaPresupuestos() {
+export default function PaginaPresupuestos() {
+  return (
+    <Suspense fallback={<SkeletonListado columnas={7} />}>
+      <ContenidoServidor />
+    </Suspense>
+  )
+}
+
+async function ContenidoServidor() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -41,7 +51,7 @@ export default async function PaginaPresupuestos() {
       subtotal_neto, total_impuestos, descuento_global, total_final,
       origen_documento_numero,
       creado_por, creado_por_nombre, creado_en, actualizado_en
-    `, { count: 'exact' })
+    `, { count: 'estimated' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
 

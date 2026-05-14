@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from('asistencias')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .order('fecha', { ascending: false })
       .order('hora_entrada', { ascending: false })

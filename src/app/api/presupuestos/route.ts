@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         notas_html,
         origen_documento_numero,
         creado_por, creado_por_nombre, creado_en, actualizado_en
-      `, { count: 'exact' })
+      `, { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 

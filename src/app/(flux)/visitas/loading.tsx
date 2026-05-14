@@ -1,5 +1,5 @@
-import { CargadorPaginaCompleta } from '@/componentes/ui/Cargador'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 export default function Loading() {
-  return <CargadorPaginaCompleta seccion="visitas" />
+  return <SkeletonListado columnas={6} />
 }

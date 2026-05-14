@@ -47,6 +47,7 @@ describe('useTituloPestana', () => {
     const largo = 'a'.repeat(120)
     renderHook(() => useTituloPestana(largo))
     const titulo = document.title
+    // 79 caracteres del título + "…" + " · Flux"
     expect(titulo.length).toBeLessThanOrEqual(80 + ' · Flux'.length)
     expect(titulo.endsWith('… · Flux')).toBe(true)
   })

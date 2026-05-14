@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         presupuesto_id, presupuesto_numero,
         fecha_inicio, fecha_fin_estimada, fecha_fin_real,
         creado_por, creado_por_nombre, creado_en, actualizado_en
-      `, { count: 'exact' })
+      `, { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 

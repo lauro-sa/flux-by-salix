@@ -6,3 +6,6 @@ export { EstadoVacio } from './EstadoVacio'
 export type { PropiedadesEstadoVacio } from './EstadoVacio'
 
 export { ContenedorConEstado } from './ContenedorConEstado'
+
+export { SkeletonTabla, SkeletonLista } from './SkeletonTabla'
+export { SkeletonListado } from './SkeletonListado'

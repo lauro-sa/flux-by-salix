@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         *,
         contacto:contactos!contacto_id(id, nombre, apellido, correo, telefono, whatsapp, avatar_url, es_provisorio),
         etapa:etapas_conversacion!etapa_id(id, etiqueta, color, icono)
-      `, { count: 'exact' })
+      `, { count: 'estimated' })
       .eq('empresa_id', empresaId)
 
     // Filtros de papelera y bloqueadas (excluir por defecto)

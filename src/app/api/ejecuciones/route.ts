@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       'id, empresa_id, flujo_id, estado, disparado_por, contexto_inicial, ' +
       'log, inicio_en, fin_en, proximo_paso_en, intentos, clave_idempotencia, ' +
       'creado_en, flujos!inner(nombre, estado)',
-      { count: 'exact' },
+      { count: 'estimated' },
     )
     .eq('empresa_id', empresaId)
 

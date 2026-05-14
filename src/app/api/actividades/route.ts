@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from('actividades')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 

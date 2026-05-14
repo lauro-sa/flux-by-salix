@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
       'icono, color, ' +
       'creado_por, creado_por_nombre, editado_por, editado_por_nombre, ' +
       'creado_en, actualizado_en, ultima_ejecucion_en, total_ejecuciones_30d',
-      { count: 'exact' },
+      { count: 'estimated' },
     )
     .eq('empresa_id', empresaId)
 

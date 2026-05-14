@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal, origen),
         telefonos:contacto_telefonos(id, tipo, valor, es_whatsapp, es_principal, etiqueta, orden, origen),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp))
-      `, { count: 'exact' })
+      `, { count: 'estimated' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 

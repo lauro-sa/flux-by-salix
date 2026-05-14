@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoActividades from './_componentes/ContenidoActividades'
@@ -7,15 +8,25 @@ import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { ordenarActividadesInteligente } from '@/lib/orden-actividades'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
  * Página de actividades — /actividades (Server Component)
- * Sin Suspense: Next.js mantiene la página anterior visible durante la navegación.
+ * El cuerpo async vive dentro de un Suspense para que el skeleton se pinte
+ * inmediatamente durante la navegación.
  */
 
 const POR_PAGINA = 50
 
-export default async function PaginaActividades() {
+export default function PaginaActividades() {
+  return (
+    <Suspense fallback={<SkeletonListado columnas={6} />}>
+      <ContenidoServidor />
+    </Suspense>
+  )
+}
+
+async function ContenidoServidor() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -32,7 +43,7 @@ export default async function PaginaActividades() {
   // Permisos: si el usuario solo puede ver lo propio, filtrar por creador/asignado.
   let query = admin
     .from('actividades')
-    .select('*', { count: 'exact' })
+    .select('*', { count: 'estimated' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .not('estado_clave', 'in', '(completada,cancelada)')
