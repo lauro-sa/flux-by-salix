@@ -46,21 +46,52 @@ const ContextoPermisos = createContext<EstadoPermisosActuales | null>(null)
 
 const supabase = crearClienteNavegador()
 
-export function ProveedorPermisos({ children }: { children: ReactNode }) {
+/** Datos precargados desde el server para evitar el primer fetch en cliente. */
+export interface PermisosInicialesServer {
+  miembro_id: string | null
+  rol: Rol | null
+  permisos_custom: PermisosMapa | null
+  activo: boolean
+  es_propietario: boolean
+  es_superadmin: boolean
+  metodo_fichaje: MetodoFichaje | null
+}
+
+interface PropsProveedorPermisos {
+  children: ReactNode
+  permisosIniciales?: PermisosInicialesServer | null
+}
+
+export function ProveedorPermisos({ children, permisosIniciales }: PropsProveedorPermisos) {
   const { usuario, cargando: cargandoAuth } = useAuth()
-  const [estado, setEstado] = useState<Omit<EstadoPermisosActuales, 'recargar'>>({
-    cargando: true,
-    miembroId: null,
-    rol: null,
-    permisosCustom: null,
-    activo: false,
-    esPropietario: false,
-    esSuperadmin: false,
-    metodoFichaje: null,
-  })
+  const [estado, setEstado] = useState<Omit<EstadoPermisosActuales, 'recargar'>>(() => (
+    permisosIniciales
+      ? {
+        cargando: false,
+        miembroId: permisosIniciales.miembro_id,
+        rol: permisosIniciales.rol,
+        permisosCustom: permisosIniciales.permisos_custom,
+        activo: permisosIniciales.activo,
+        esPropietario: permisosIniciales.es_propietario,
+        esSuperadmin: permisosIniciales.es_superadmin,
+        metodoFichaje: permisosIniciales.metodo_fichaje,
+      }
+      : {
+        cargando: true,
+        miembroId: null,
+        rol: null,
+        permisosCustom: null,
+        activo: false,
+        esPropietario: false,
+        esSuperadmin: false,
+        metodoFichaje: null,
+      }
+  ))
   // Guardamos el miembro_id para el filtro de realtime y para evitar loops
   // cuando cambia la sesión pero no el miembro.
-  const miembroIdRef = useRef<string | null>(null)
+  const miembroIdRef = useRef<string | null>(permisosIniciales?.miembro_id ?? null)
+  // Si la primera carga vino del server, evitamos refetch al montar.
+  const cargaInicialDeServerRef = useRef(!!permisosIniciales)
 
   const fetchPermisos = useCallback(async (): Promise<string | null> => {
     try {
@@ -119,12 +150,22 @@ export function ProveedorPermisos({ children }: { children: ReactNode }) {
       })
       return
     }
+    // Si la primera carga vino del server, saltamos el refetch al montar
+    // pero dejamos que las renovaciones posteriores (cambio de cuenta, etc.)
+    // sigan funcionando.
+    if (cargaInicialDeServerRef.current) {
+      cargaInicialDeServerRef.current = false
+      // Aún así guardamos el miembro_id en la ref para la suscripción realtime.
+      miembroIdRef.current = estado.miembroId
+      return
+    }
     // Solo marcar `cargando: true` si todavía no tenemos datos. Si ya había
     // permisos cargados (refetch por cambio de id del usuario o disparo manual
     // vía `recargar()`), mantenemos los datos previos hasta que llegue el
     // fetch nuevo para evitar el flash de pantalla vacía en los guards.
     setEstado(s => s.miembroId ? s : { ...s, cargando: true })
     fetchPermisos().then(id => { miembroIdRef.current = id })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioId, cargandoAuth, fetchPermisos])
 
   // Suscripción realtime: escuchamos UPDATE sobre la fila del miembro.
