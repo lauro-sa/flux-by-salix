@@ -118,9 +118,18 @@ export async function ejecutarCrearRecordatorio(
   const canales: string[] = ['notificación in-app', 'push']
   if (params.notificar_whatsapp !== false) canales.push('WhatsApp')
 
+  // Tiempo hasta el recordatorio para ajustar el mensaje:
+  // los recordatorios se procesan cada 5 minutos (cron */5 en vercel.json),
+  // así que para horarios "en X minutos" puede haber hasta 5 min de delay.
+  // Le avisamos al usuario para que no espere precisión al minuto.
+  const minutosHasta = Math.round((fechaObj.getTime() - Date.now()) / 60000)
+  const necesitaAclaracionDelay = minutosHasta > 0 && minutosHasta < 30
+
   return {
     exito: true,
     datos: recordatorio,
-    mensaje_usuario: `🔔 Recordatorio "${titulo}" creado para ${fechaFormateada}${repetirTexto[repetir]}.\nTe aviso por: ${canales.join(' + ')}.`,
+    mensaje_usuario: necesitaAclaracionDelay
+      ? `🔔 Recordatorio "${titulo}" creado para ${fechaFormateada}${repetirTexto[repetir]}.\nTe aviso por: ${canales.join(' + ')}.\n\n_Los recordatorios se procesan cada 5 minutos, así que el aviso puede llegar un poco después de la hora exacta._`
+      : `🔔 Recordatorio "${titulo}" creado para ${fechaFormateada}${repetirTexto[repetir]}.\nTe aviso por: ${canales.join(' + ')}.`,
   }
 }
