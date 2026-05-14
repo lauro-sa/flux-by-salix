@@ -1498,7 +1498,157 @@ El **Chatter** es un panel estilo Odoo presente en cada entidad (contacto, visit
 
 ---
 
-## 24. NOTA IMPORTANTE PARA EL NUEVO CHAT
+## 24. MÓDULO NÓMINAS
+
+> Módulo independiente para liquidación de sueldos, contratos laborales,
+> conceptos automáticos (presentismo, premios) y generación de recibos
+> PDF. Documentado para usuario final en `docs/DOCUMENTACION_NOMINAS.md`.
+
+### 24.1 Modelo de datos
+
+**Tabla `contratos_laborales`** — un empleado puede tener N contratos
+históricos pero **solo uno vigente** (enforced por UNIQUE parcial donde
+`vigente=true`). Cada contrato congela cómo se calcula el sueldo en un
+período de tiempo:
+
+| Columna | Descripción |
+|---|---|
+| `id`, `empresa_id`, `miembro_id` | Identificación + multi-tenant |
+| `fecha_inicio`, `fecha_fin`, `vigente` | Vigencia. Al crear uno nuevo, el anterior se cierra con fecha_fin = inicio nuevo − 1 día |
+| `condicion` | `tiempo_indeterminado` \| `plazo_fijo` \| `temporal` \| `pasantia` \| `otro` |
+| `modalidad_calculo` | `por_hora` \| `por_dia` \| `fijo_semanal` \| `fijo_quincenal` \| `fijo_mensual` |
+| `monto_base` | Valor económico según modalidad |
+| `frecuencia_pago` | `diaria` \| `semanal` \| `quincenal` \| `mensual` |
+| `sector_id`, `turno_id` | FK a sectores y turnos_laborales |
+| `regimen` | `informal` \| `monotributo` \| `relacion_dependencia` (Fase 3) |
+| `pdf_url`, `motivo_cambio`, `notas` | Documentos + trazabilidad |
+
+**Tabla `conceptos_nomina`** — catálogo de premios y descuentos por
+empresa. Reglas reusables: presentismo, premio puntualidad, antigüedad,
+descuento por uniforme, etc.
+
+| Columna | Descripción |
+|---|---|
+| `tipo` | `haber` \| `descuento` |
+| `categoria` | Etiqueta visual: presentismo, premio, bono, antiguedad, etc. |
+| `modo_calculo` | Cómo se interpreta `valor`: `monto_fijo`, `porcentaje_basico`, `por_dia`, `por_evento`, `manual` |
+| `valor` | Numérico, interpretado según modo. NULL solo si manual |
+| `automatico` | Si true, el motor lo evalúa solo |
+| `condicion_jsonb` | Variants: `{tipo: 'siempre'}` \| `{tipo: 'sin_ausencias'}` \| `{tipo: 'sin_tardanzas'}` \| `{tipo: 'minimo_dias', dias}` \| `{tipo: 'antiguedad_minima', meses}` |
+
+**Tabla `conceptos_contrato`** — N:M entre contratos y conceptos.
+Permite `valor_override` para que un empleado tenga un porcentaje
+distinto al estándar. UNIQUE por (contrato_id, concepto_id).
+
+**Tabla `conceptos_aplicados_pago`** — **snapshot inmutable** de cada
+haber/descuento aplicado en un pago concreto. Si el concepto del
+catálogo se borra o cambia, el recibo histórico queda intacto.
+
+**Tabla `pagos_nomina`** — un registro por pago liquidado. Campos clave:
+
+| Columna | Descripción |
+|---|---|
+| `fecha_inicio_periodo`, `fecha_fin_periodo`, `concepto` | Período liquidado |
+| `monto_sugerido`, `monto_abonado` | Lo que sugirió el motor vs lo que se pagó |
+| `dias_habiles`, `dias_trabajados`, `dias_ausentes`, `tardanzas` | Snapshot de asistencia |
+| `contrato_id` | FK al contrato vigente al momento del pago |
+| `contrato_snapshot` (jsonb) | Snapshot **inmutable** del contrato — usado por el PDF para garantizar reproducibilidad |
+| `comprobante_url` | URL firmada del PDF en `comprobantes-pago` |
+
+**Tabla `adelantos_nomina` + `adelantos_cuotas`** — adelantos en cuotas.
+Cada cuota tiene `fecha_programada` y `estado` (pendiente/descontada).
+Al grabar un pago, el motor toma cuotas pendientes con `fecha_programada
+<= periodo_fin` y las marca como descontadas con `pago_nomina_id`.
+
+### 24.2 Motor de cálculo
+
+`src/lib/nominas/motor-calculo.ts` — arquitectura en dos capas:
+
+1. **`calcularReciboPuro(datos)`** — función pura, sin BD. Recibe
+   contrato + asistencias + conceptos + cuotas ya cargados. Calcula:
+   - Métricas de asistencia (días trabajados/ausentes/tardanzas, horas netas).
+   - Monto base según modalidad (por_día/por_hora multiplican; fijo_*
+     prorratea por días naturales).
+   - Conceptos automáticos cuya condición se cumple → aplicados.
+   - Conceptos no aplicados (manual, o que no cumplen) → sugerencias.
+   - Cuotas pendientes hasta `periodo_fin` (incluye atrasadas).
+   - Totales: subtotal_haberes, subtotal_descuentos, neto.
+   - Snapshot del contrato + advertencias.
+2. **`calcularReciboDesdeBD(admin, params)`** — wrapper que carga
+   datos de Supabase y delega al core puro.
+
+Tests: `src/lib/nominas/__tests__/motor-calculo.test.ts` (25 casos,
+cubre los 7 escenarios obligatorios del plan + helpers + edge cases).
+
+### 24.3 Identidad del empleado
+
+`src/lib/miembros/identidad.ts` — helper compartido que resuelve
+nombre/apellido/correo/teléfono/documento de un miembro consolidando
+dos fuentes:
+
+1. `perfiles` cuando el miembro tiene cuenta de Flux (`usuario_id`).
+2. `contactos` con `miembro_id` apuntando al miembro
+   ("contacto-equipo") cuando no tiene cuenta.
+
+Lo usan: `/api/miembros`, `/api/miembros/[id]`, `/api/nominas/empleados`,
+`/api/nominas/route` (cálculo legacy), `/api/asistencias/detalle` y
+`generar-pdf-recibo.ts`. Una sola fuente de verdad: nuevos lugares que
+necesiten mostrar nombre deben usar este helper, no leer `perfiles` directo.
+
+### 24.4 Endpoints
+
+| Endpoint | Permiso | Descripción |
+|---|---|---|
+| `GET /api/nominas?desde&hasta` | `nomina:ver_*` | Cálculo legacy de todos los empleados del período (todavía consumido por la UI del editor). |
+| `GET/POST /api/nominas/contratos` | `nomina:editar` para POST | Listar/crear contratos. POST cierra vigente anterior y crea nuevo + opcionalmente hereda conceptos. |
+| `PATCH /api/nominas/contratos/[id]` | `nomina:editar` | Whitelist: solo `motivo_cambio`, `notas`, `pdf_url`. Cambios económicos requieren un contrato nuevo. |
+| `GET/PUT /api/nominas/contratos/[id]/conceptos` | `nomina:editar` para PUT | Listar/sobrescribir conceptos asignados al contrato (batch idempotente). |
+| `GET /api/nominas/empleados` | `nomina:ver_*` | Listado de empleados con su contrato vigente (sector, turno, modalidad, monto). |
+| `GET/POST/PATCH/DELETE /api/nominas/conceptos[/id]` | `nomina:editar` para mutaciones | CRUD del catálogo de conceptos. |
+| `POST /api/nominas/calcular` | `nomina:ver_*` | Preview del recibo con el motor (no persiste). |
+| `POST /api/nominas/pagos` | `nomina:editar` | Graba el pago: inserta `pagos_nomina` con snapshot, inserta `conceptos_aplicados_pago`, marca cuotas. |
+| `GET/POST /api/nominas/pagos/[id]/pdf` | `nomina:ver_*` (GET) / `nomina:editar` (POST) | Genera/regenera el PDF del recibo y devuelve URL firmada. |
+| `POST /api/nominas/enviar` | `nomina:enviar` | Envío masivo por correo. Adjunta automáticamente el PDF del recibo si encuentra el pago grabado del período. |
+| `POST /api/nominas/enviar-whatsapp` | `nomina:enviar` | Envío masivo por WhatsApp. Sin adjunto PDF (limitación de Meta en plantillas). |
+
+### 24.5 UI
+
+- `/nominas` (`src/app/(flux)/nominas/page.tsx`) — 4 tabs:
+  *Liquidaciones*, *Adelantos* (placeholder), *Empleados*, *Configuración*.
+  Botón "Guía de uso" abre `/documentacion/nominas`.
+- `/nominas/empleado/[miembro_id]` — ficha laboral con 5 tabs:
+  *Contrato vigente*, *Historial*, *Liquidaciones*, *Adelantos*, *Conceptos*.
+- `PaginaEditorNominaEmpleado` (legacy) — editor del recibo por período.
+  Botón "Pagar" llama a `POST /api/nominas/pagos`. Botón "Descargar PDF"
+  por cada pago.
+- `EditorContrato`, `ContratoVigente`, `TimelineContratos`,
+  `EditorConcepto`, `VistaConfiguracion`, `AsignadorConceptosContrato`
+  — componentes del flujo de configuración + contratos + conceptos.
+- `ModalEnviarReciboNomina` — envío masivo correo/WhatsApp con preview.
+
+### 24.6 PDF del recibo
+
+- Template HTML: `src/lib/nominas/template-recibo.ts`.
+- Generador: `src/lib/nominas/generar-pdf-recibo.ts` → usa
+  `src/lib/pdf/html-a-pdf.ts` (Puppeteer + Chromium) → sube a
+  bucket privado `comprobantes-pago/<empresa>/nominas/<año>/<pago_id>.pdf`
+  → URL firmada (7 días) en `pagos_nomina.comprobante_url`.
+- Encabezado con datos fiscales de la empresa, datos del empleado,
+  tabla de haberes (monto base + conceptos), tabla de descuentos
+  (conceptos + adelantos), neto destacado, firmas, pie.
+- El PDF usa el **snapshot del contrato** del pago, no el contrato
+  vigente actual — garantiza reproducibilidad histórica.
+
+### 24.7 Fase 3 (pendiente)
+
+Régimen fiscal formal: alícuotas configurables por empresa
+(`parametros_fiscales_empresa`), retenciones automáticas (jubilación,
+IPS, obra social) según régimen del contrato, recibo legal AFIP/IPS,
+reporte mensual de aportes, integración con módulo Contaduría.
+
+---
+
+## 25. NOTA IMPORTANTE PARA EL NUEVO CHAT
 
 > **Este proyecto tiene un chat anterior (conversación de Claude Code) con contexto extenso.**
 > Si necesitás más información sobre cualquier módulo, flujo o decisión de diseño,
@@ -1514,7 +1664,7 @@ El **Chatter** es un panel estilo Odoo presente en cada entidad (contacto, visit
 
 ---
 
-## FIN DEL DOCUMENTO
+## 26. FIN DEL DOCUMENTO
 
 > Este documento contiene TODA la funcionalidad de SalixCRM v1 para reconstruirlo desde cero.
 > Stack recomendado: **Next.js + TypeScript + Supabase (PostgreSQL + Auth + Realtime + Storage) + Tailwind + Drizzle ORM + Framer Motion + react-email + FCM**

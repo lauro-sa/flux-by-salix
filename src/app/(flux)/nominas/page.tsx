@@ -21,7 +21,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { Banknote, Wallet, Users, Settings } from 'lucide-react'
+import { Banknote, Wallet, Users, Settings, BookOpen } from 'lucide-react'
 import { VistaNomina } from './_componentes/VistaNomina'
 import { VistaEmpleados } from './_componentes/VistaEmpleados'
 import { VistaConfiguracion } from './_componentes/VistaConfiguracion'
@@ -59,8 +59,18 @@ function ContenidoNominas() {
   return (
     <>
       {/* Tabs: pegadas al cabezal de la vista (mismo bloque que el hero). */}
-      <div className="px-4 md:px-6 pt-4">
+      <div className="px-4 md:px-6 pt-4 flex items-center justify-between gap-3">
         <Tabs tabs={TABS} activo={tab} onChange={cambiarTab} layoutId="tab-nominas" />
+        {/* Acceso rápido a la guía del módulo. */}
+        <button
+          type="button"
+          onClick={() => router.push('/documentacion/nominas')}
+          title="Cómo funciona Nóminas"
+          className="shrink-0 inline-flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-primario px-2.5 py-1.5 rounded-md hover:bg-superficie-elevada/40 transition-colors"
+        >
+          <BookOpen size={13} />
+          <span className="hidden md:inline">Guía de uso</span>
+        </button>
       </div>
 
       {/* Contenido por pestaña */}
