@@ -211,6 +211,13 @@ export async function POST(request: NextRequest) {
           })
       }
 
+      // Hooks post-instalación específicos por módulo. Si el módulo
+      // necesita seed inicial o setup adicional, se hace acá. Idempotente:
+      // los handlers chequean estado antes de insertar.
+      if (slug === 'nominas') {
+        await seedConceptosNominaSugeridos(admin, empresaId)
+      }
+
       return NextResponse.json({
         ok: true,
         accion: 'instalado',
@@ -243,5 +250,51 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Error en módulos:', err)
     return NextResponse.json({ error: 'Error al procesar módulo' }, { status: 500 })
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// Helpers de seed post-instalación
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Inserta los 4 conceptos sugeridos para el catálogo de una empresa
+ * al instalar el módulo Nóminas. Idempotente: si ya tiene conceptos
+ * con esos nombres, no los duplica.
+ *
+ * Coincide con `sql/081_seed_conceptos_sugeridos.sql` para que
+ * empresas que ya tenían el módulo cuando se creó la migración y
+ * las que lo instalan después arranquen con los mismos defaults.
+ */
+async function seedConceptosNominaSugeridos(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  empresaId: string,
+): Promise<void> {
+  const sugeridos = [
+    { nombre: 'Presentismo',           descripcion: 'Premio del 10% sobre el monto base cuando el empleado no tuvo ausencias en el período.', icono: 'BadgeCheck', color: '#10b981', tipo: 'haber',     categoria: 'presentismo',        modo_calculo: 'porcentaje_basico', valor: 10,   automatico: true,  condicion_jsonb: { tipo: 'sin_ausencias' },   recurrente: true, activo: true, orden: 1 },
+    { nombre: 'Premio puntualidad',    descripcion: 'Monto fijo cuando el empleado no llegó tarde en el período.',                              icono: 'Clock',      color: '#3b82f6', tipo: 'haber',     categoria: 'premio',             modo_calculo: 'monto_fijo',        valor: 0,    automatico: true,  condicion_jsonb: { tipo: 'sin_tardanzas' },   recurrente: true, activo: true, orden: 2 },
+    { nombre: 'Antigüedad',            descripcion: 'Adicional por antigüedad. Se calcula manualmente por empleado según años de relación.',    icono: 'Award',      color: '#f59e0b', tipo: 'haber',     categoria: 'antiguedad',         modo_calculo: 'manual',            valor: null, automatico: false, condicion_jsonb: { tipo: 'siempre' },          recurrente: true, activo: true, orden: 3 },
+    { nombre: 'Descuento por uniforme',descripcion: 'Descuento mensual del uniforme. El monto se carga manualmente al asignar a un contrato.', icono: 'Shirt',      color: '#94a3b8', tipo: 'descuento', categoria: 'descuento_uniforme', modo_calculo: 'manual',            valor: null, automatico: false, condicion_jsonb: null,                         recurrente: true, activo: true, orden: 4 },
+  ]
+
+  // Chequear qué nombres ya existen para no duplicar.
+  const { data: existentes } = await admin
+    .from('conceptos_nomina')
+    .select('nombre')
+    .eq('empresa_id', empresaId)
+    .in('nombre', sugeridos.map(s => s.nombre))
+  const yaTiene = new Set((existentes ?? []).map(e => e.nombre))
+
+  const filas = sugeridos
+    .filter(s => !yaTiene.has(s.nombre))
+    .map(s => ({ ...s, empresa_id: empresaId }))
+
+  if (filas.length === 0) return
+
+  const { error } = await admin.from('conceptos_nomina').insert(filas)
+  if (error) {
+    console.error('[modulos] error al seed conceptos nominas:', error)
+  } else {
+    console.info(`[modulos] Seed inicial: ${filas.length} conceptos creados en empresa ${empresaId}`)
   }
 }

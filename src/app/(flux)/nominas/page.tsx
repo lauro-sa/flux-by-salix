@@ -24,6 +24,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Banknote, Wallet, Users, Settings } from 'lucide-react'
 import { VistaNomina } from './_componentes/VistaNomina'
 import { VistaEmpleados } from './_componentes/VistaEmpleados'
+import { VistaConfiguracion } from './_componentes/VistaConfiguracion'
 
 type TabClave = 'liquidaciones' | 'adelantos' | 'empleados' | 'configuracion'
 
@@ -75,13 +76,7 @@ function ContenidoNominas() {
 
       {tab === 'empleados' && <VistaEmpleados />}
 
-      {tab === 'configuracion' && (
-        <EstadoVacio
-          icono={<Settings size={48} strokeWidth={1.5} />}
-          titulo="Configuración — en construcción"
-          descripcion="Va a permitir administrar el catálogo de conceptos de nómina (presentismo, premios, descuentos) y asignarlos a contratos."
-        />
-      )}
+      {tab === 'configuracion' && <VistaConfiguracion />}
     </>
   )
 }
