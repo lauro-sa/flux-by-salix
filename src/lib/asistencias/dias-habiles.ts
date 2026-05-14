@@ -1,7 +1,7 @@
 /**
  * Cálculo de días hábiles para una empresa.
  *
- * Centraliza la lógica que hasta ahora vivía inline en `/api/asistencias/nomina`:
+ * Centraliza la lógica que hasta ahora vivía inline en `/api/nominas`:
  * combina los feriados oficiales del país (vía `date-holidays`) con la tabla
  * `feriados` de la empresa (que el admin puede editar). El resultado es un set
  * de strings YYYY-MM-DD listo para chequeos rápidos.

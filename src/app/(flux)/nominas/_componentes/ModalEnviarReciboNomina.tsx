@@ -68,7 +68,7 @@ interface ResultadoNominaConCorreo {
   monto_pagar: number
   monto_detalle: string
   // Campos opcionales que ahora resuelve la plantilla nueva (neto + descuentos).
-  // El backend de /api/asistencias/nomina ya los devuelve; el padre los propaga.
+  // El backend de /api/nominas ya los devuelve; el padre los propaga.
   monto_neto?: number
   descuento_adelanto?: number
   saldo_anterior?: number
@@ -439,7 +439,7 @@ export function ModalEnviarReciboNomina({
     const empleadosData = empleadosConCorreo.map(r => construirDatosEmpleado(r, etiquetaPeriodo))
 
     try {
-      const res = await fetch('/api/asistencias/nomina/enviar', {
+      const res = await fetch('/api/nominas/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -485,7 +485,7 @@ export function ModalEnviarReciboNomina({
     }))
 
     try {
-      const res = await fetch('/api/asistencias/nomina/enviar-whatsapp', {
+      const res = await fetch('/api/nominas/enviar-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

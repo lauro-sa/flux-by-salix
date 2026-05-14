@@ -9,8 +9,8 @@
 |---|---|---|---|
 | 1 | Esqueleto del módulo + auto-dependencias | ✅ Hecho (PR #37) | Catálogo + sidebar + auto-instalación cascada de `asistencias` |
 | 2 | Tablas base: contratos y conceptos | ✅ Hecho (PR #40) | 5 migraciones + tipos TS + seed de 6 contratos vigentes desde miembros |
-| 3 | Verificar y completar sectores y turnos | ✅ Hecho | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
-| 4 | Migración UI y API: nóminas → módulo propio | ⏳ Pendiente | |
+| 3 | Verificar y completar sectores y turnos | ✅ Hecho (PR #41) | Auditoría: UI + API ya estaban completos. Se agregan 2 archivos SQL "shadow" (079, 080) para que el repo sea reproducible |
+| 4 | Migración UI y API: nóminas → módulo propio | ✅ Hecho | Files movidos con `git mv` (historia preservada), API con wrappers de compat, `/nominas` ya renderiza la vista real. **Pendiente PR 4b**: desmontar la pestaña "Nómina" de asistencias y agregar tabs (Liquidaciones / Adelantos / Empleados / Config) |
 | 5 | Ficha laboral con timeline de contratos | ⏳ Pendiente | |
 | 6 | Configuración de conceptos + asignación | ⏳ Pendiente | |
 | 7 | Motor de cálculo automático del recibo | ⏳ Pendiente | |
@@ -65,3 +65,34 @@
 - `sectores` tiene **3 policies RLS** activas en flux-dev: dos legacy con `app_metadata.empresa_activa_id` + una con `auth.jwt() ->> 'empresa_id'`. La canónica del repo es la última; las otras dos quedan pendientes de limpieza en una migración futura.
 
 **Aplicado en flux-dev:** no requiere ejecutar nada (las tablas ya existen; el archivo SQL es documentación reproducible).
+
+## PR 4 — Detalle
+
+**Archivos movidos con `git mv` (preserva historia):**
+- `src/app/(flux)/asistencias/_componentes/ModalNomina.tsx` → `src/app/(flux)/nominas/_componentes/ModalNomina.tsx`
+- `src/app/(flux)/asistencias/_componentes/VistaNomina.tsx` → `src/app/(flux)/nominas/_componentes/VistaNomina.tsx`
+- `src/app/(flux)/asistencias/_componentes/ModalEnviarReciboNomina.tsx` → `src/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina.tsx`
+- `src/app/(flux)/asistencias/nomina/[miembro_id]/page.tsx` → `src/app/(flux)/nominas/empleado/[miembro_id]/page.tsx`
+- `src/app/api/asistencias/nomina/route.ts` → `src/app/api/nominas/route.ts`
+- `src/app/api/asistencias/nomina/enviar/route.ts` → `src/app/api/nominas/enviar/route.ts`
+- `src/app/api/asistencias/nomina/enviar-whatsapp/route.ts` → `src/app/api/nominas/enviar-whatsapp/route.ts`
+
+**Wrappers de compat (deprecados, eliminar tras 1 release):**
+- `src/app/api/asistencias/nomina/route.ts` — re-exporta `GET` desde `/api/nominas`.
+- `src/app/api/asistencias/nomina/enviar/route.ts` — re-exporta `POST` desde `/api/nominas/enviar`.
+- `src/app/api/asistencias/nomina/enviar-whatsapp/route.ts` — re-exporta `POST` desde `/api/nominas/enviar-whatsapp`.
+
+**Archivos actualizados (imports + URLs):**
+- `src/app/(flux)/asistencias/_componentes/ContenidoAsistencias.tsx` — `import VistaNomina` ahora apunta al nuevo path.
+- `src/app/(flux)/asistencias/_componentes/VistaMatriz.tsx` — idem para `ModalNomina`.
+- `src/componentes/entidad/_editor_nomina_empleado/PaginaEditorNominaEmpleado.tsx` — `import ModalEnviarReciboNomina` + fetch URLs + breadcrumb + replaceState.
+- `src/componentes/entidad/_editor_plantilla_meta/PaginaEditorPlantillaMeta.tsx` — fetch URL.
+- `src/app/(flux)/dashboard/_componentes/WidgetSueldos.tsx` — link "Asistencias → Nómina" reemplazado por "Nóminas" → `/nominas`.
+- `src/lib/salix-ia/herramientas/ejecutores/{eliminar,modificar}-movimiento-nomina.ts` — links `{{link:/nominas|Nómina}}`.
+- `src/lib/{asistencias/dias-habiles,salix-ia/herramientas/ejecutores/mi-recibo-periodo,whatsapp/variables}.ts` y `src/app/api/dashboard/{sueldos-mes,asistencia-mes}/route.ts` — comentarios actualizados al path canónico.
+
+**Página /nominas:**
+Reemplazado el placeholder de PR 1 por una página real que renderiza `<VistaNomina>`. La página `/asistencias` sigue teniendo la pestaña Nómina (mismo componente importado del nuevo path) — eso se limpia en PR 4b.
+
+**Scope reducido vs plan original:**
+El plan PR 4 incluía además: desmontar pestaña "Nómina" de asistencias, agregar tabs (Liquidaciones / Adelantos / Empleados / Configuración). Se difiere a PR 4b para reducir blast radius: este PR es solo mecánico (renames + wrappers + imports). Los users no perciben cambios funcionales — sigue funcionando todo donde antes funcionaba, más ahora también desde `/nominas`.

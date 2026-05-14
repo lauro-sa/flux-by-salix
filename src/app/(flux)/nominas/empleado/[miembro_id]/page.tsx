@@ -5,7 +5,7 @@
  * ModalDetalleNomina. Carga el resultado del empleado + la lista completa
  * del período (para navegación entre empleados) y pasa todo al editor.
  *
- * URL: /asistencias/nomina/[miembro_id]?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+ * URL: /nominas/empleado/[miembro_id]?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
  */
 
 import { useEffect, useState } from 'react'
@@ -107,7 +107,7 @@ function PaginaNominaEmpleadoInterno() {
       setCargando(true)
       setNoEncontrado(false)
       try {
-        const res = await fetch(`/api/asistencias/nomina?desde=${desde}&hasta=${hasta}`)
+        const res = await fetch(`/api/nominas?desde=${desde}&hasta=${hasta}`)
         const data = await res.json()
         if (cancelado) return
 

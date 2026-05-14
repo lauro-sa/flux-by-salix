@@ -366,7 +366,7 @@ export async function GET(request: NextRequest) {
     // ─── Asistencias del mes (para estimar por_dia / por_hora) ───
     // Solo necesitamos el cálculo de jornales (días con presencia) y horas
     // netas trabajadas, descontando almuerzo. La lógica más detallada
-    // (jornadas completas/medias/parciales) vive en /api/asistencias/nomina;
+    // (jornadas completas/medias/parciales) vive en /api/nominas;
     // para el dashboard alcanza con esta versión simple.
     const asistenciasIds = Array.from(new Set(miembrosData.map((m) => m.id as string)))
     type AsistenciaRow = {

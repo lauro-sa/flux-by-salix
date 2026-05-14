@@ -72,7 +72,7 @@ export async function ejecutarModificarMovimientoNomina(
       exito: false,
       error:
         'Este movimiento ya fue pagado: la nómina del periodo se cerró y no se puede modificar. ' +
-        'Si necesitás ajustarlo, andá manualmente a {{link:/asistencias/nomina|Nómina}} → ese empleado, y registrá un ajuste contable.',
+        'Si necesitás ajustarlo, andá manualmente a {{link:/nominas|Nómina}} → ese empleado, y registrá un ajuste contable.',
     }
   }
   if (mov.estado === 'cancelado') {

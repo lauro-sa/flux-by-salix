@@ -22,7 +22,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './VistaMatriz'
 import { TarjetaAsistencia } from './TarjetaAsistencia'
 import { ModalCrearFichaje } from './ModalCrearFichaje'
-import { VistaNomina, type VistaNominaHandle } from './VistaNomina'
+import { VistaNomina, type VistaNominaHandle } from '@/app/(flux)/nominas/_componentes/VistaNomina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
 

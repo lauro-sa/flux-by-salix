@@ -65,7 +65,7 @@ export interface EntidadesPlantilla {
   orden?: Record<string, unknown> | null
   actividad?: Record<string, unknown> | null
   /**
-   * Datos de nómina del período: combina el resultado de `/api/asistencias/nomina`
+   * Datos de nómina del período: combina el resultado de `/api/nominas`
    * con el detalle de adelantos/descuentos para resolver variables de recibos.
    * Estructura esperada:
    *   { ...resultado_nomina, periodo, detalle_descuentos: string }

@@ -1,28 +1,21 @@
 'use client'
 
 /**
- * Página /nominas — placeholder del módulo Nóminas (PR 1 del plan).
- * En PRs siguientes (ver PLAN_MODULO_NOMINAS.md) se reemplaza por el
- * listado real con pestañas Liquidaciones · Adelantos · Empleados ·
- * Configuración. Por ahora solo protege la ruta con GuardPagina y
- * muestra un estado de "en construcción" para que el sidebar pueda
- * navegar sin romperse mientras avanzamos.
+ * Página /nominas — Vista principal del módulo Nóminas (PR 4 del plan).
+ *
+ * Reemplaza al placeholder de PR 1. Renderiza `<VistaNomina>`, la misma
+ * vista que hasta ahora vivía como pestaña dentro de Asistencias.
+ *
+ * En PR 4b se agregan las pestañas Liquidaciones · Adelantos ·
+ * Empleados · Configuración. Por ahora solo está la vista de
+ * liquidaciones (la que ya existía).
  */
 
-import { Banknote } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
-import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { VistaNomina } from './_componentes/VistaNomina'
 
 function ContenidoNominas() {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center p-8">
-      <EstadoVacio
-        icono={<Banknote size={48} strokeWidth={1.5} className="text-texto-terciario" />}
-        titulo="Módulo Nóminas — en construcción"
-        descripcion="Estamos armando este módulo. Pronto vas a poder liquidar sueldos, gestionar contratos laborales, conceptos de pago y adelantos desde acá."
-      />
-    </div>
-  )
+  return <VistaNomina />
 }
 
 export default function PaginaNominas() {
