@@ -491,49 +491,41 @@ export function PaginaEditorNominaEmpleado({
   }, [datosEmpleado.miembro_id, supabase, recargarDatos])
 
   // ─── Confirmar pago ───
+  //
+  // Llama al endpoint nuevo POST /api/nominas/pagos que:
+  //   1. Recalcula el recibo con el motor (autoritativo).
+  //   2. Inserta pagos_nomina con contrato_id + contrato_snapshot.
+  //   3. Inserta conceptos_aplicados_pago (snapshot inmutable de
+  //      cada haber/descuento aplicado).
+  //   4. Marca las cuotas de adelanto como descontadas.
+  //
+  // Antes la UI insertaba directo a pagos_nomina y llamaba aparte a
+  // /api/adelantos/descontar, lo que dejaba los pagos sin snapshot del
+  // contrato ni desglose de conceptos.
 
   const handleConfirmarPago = async () => {
     setPagando(true)
     const montoReal = parseFloat(montoAPagar) || emp.monto_neto
 
-    const [{ data: user }, { data: miembroData }] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.from('miembros').select('empresa_id').eq('id', datosEmpleado.miembro_id).single(),
-    ])
-
-    const empresaId = (miembroData as Record<string, unknown>)?.empresa_id as string
-    const userId = user.user?.id || ''
-
-    const { data: perfil } = await supabase.from('perfiles').select('nombre, apellido').eq('id', userId).single()
-    const nombreCreador = perfil ? `${(perfil as Record<string, unknown>).nombre} ${(perfil as Record<string, unknown>).apellido}` : 'Sistema'
-
-    const { data: pagoInsertado } = await supabase.from('pagos_nomina').insert({
-      empresa_id: empresaId,
-      miembro_id: datosEmpleado.miembro_id,
-      fecha_inicio_periodo: periodoActual.desde,
-      fecha_fin_periodo: periodoActual.hasta,
-      concepto: periodoActual.etiqueta,
-      monto_sugerido: emp.monto_neto,
-      monto_abonado: montoReal,
-      dias_habiles: emp.dias_laborales,
-      dias_trabajados: emp.dias_trabajados,
-      dias_ausentes: emp.dias_ausentes,
-      tardanzas: emp.dias_tardanza,
-      notas: notasPago || null,
-      creado_por: userId,
-      creado_por_nombre: nombreCreador,
-    }).select('id').single()
-
-    if (pagoInsertado) {
-      fetch('/api/adelantos/descontar', {
+    try {
+      const res = await fetch('/api/nominas/pagos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pago_nomina_id: (pagoInsertado as Record<string, unknown>).id,
           miembro_id: datosEmpleado.miembro_id,
-          fecha_fin_periodo: periodoActual.hasta,
+          periodo_inicio: periodoActual.desde,
+          periodo_fin: periodoActual.hasta,
+          monto_abonado: montoReal,
+          concepto: periodoActual.etiqueta,
+          notas: notasPago || null,
         }),
-      }).catch(() => {})
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        console.error('[PaginaEditorNominaEmpleado] error al grabar pago:', data)
+      }
+    } catch (err) {
+      console.error('[PaginaEditorNominaEmpleado] error de red al grabar pago:', err)
     }
 
     await recargarDatos()

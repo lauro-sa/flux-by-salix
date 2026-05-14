@@ -336,6 +336,34 @@ describe('calcularReciboPuro — casos del plan', () => {
     expect(r.neto).toBe(350000)
   })
 
+  it('CASO 6b: cuotas atrasadas de períodos anteriores también se acumulan', () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      cuotas_adelanto: [
+        // Atrasada del período anterior (marzo) — todavía pendiente.
+        { id: 'cuota-m', adelanto_id: 'ad-1', numero_cuota: 1, monto_cuota: 30000, fecha_programada: '2026-03-15', estado: 'pendiente' },
+        // Del período actual (abril).
+        { id: 'cuota-a', adelanto_id: 'ad-1', numero_cuota: 2, monto_cuota: 30000, fecha_programada: '2026-04-15', estado: 'pendiente' },
+      ],
+    }))
+    expect(r.adelantos_aplicados).toHaveLength(2)
+    expect(r.subtotal_descuentos).toBe(60000)
+    expect(r.neto).toBe(340000)
+  })
+
+  it('CASO 6c: cuota futura (post-periodo) NO se descuenta', () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      cuotas_adelanto: [
+        { id: 'cuota-may', adelanto_id: 'ad-1', numero_cuota: 1, monto_cuota: 50000, fecha_programada: '2026-05-15', estado: 'pendiente' },
+      ],
+    }))
+    expect(r.adelantos_aplicados).toHaveLength(0)
+    expect(r.neto).toBe(400000)
+  })
+
   it('CASO 7: cambio de contrato a mitad de período (toma el más reciente que cubre fin)', () => {
     // El motor solo recibe UN contrato — la responsabilidad de elegirlo
     // es del loader. Acá probamos que con un contrato que arrancó dentro

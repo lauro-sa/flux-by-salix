@@ -173,11 +173,17 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   }
 
   // ─── 4. Cuotas de adelanto vencidas en el período ───
-  // Solo aplicamos las pendientes. Las que ya están descontadas (en un
-  // pago previo del mismo período) NO se vuelven a descontar.
+  // Aplicamos toda cuota pendiente con fecha programada <= periodo_fin.
+  // Esto cubre dos casos:
+  //   1) Cuotas cuya fecha cae dentro del período actual.
+  //   2) Cuotas pendientes que ya vencieron en períodos anteriores y no
+  //      se descontaron (típico: empleado tenía un adelanto pero no se
+  //      le pagó nada el período pasado, ahora se acumulan).
+  // Las cuotas ya descontadas en pagos previos no se vuelven a aplicar
+  // (el filtro de estado='pendiente' las excluye).
   const adelantos_aplicados: CuotaAdelantoAplicada[] = datos.cuotas_adelanto
     .filter(q => q.estado === 'pendiente')
-    .filter(q => q.fecha_programada >= datos.periodo_inicio && q.fecha_programada <= datos.periodo_fin)
+    .filter(q => q.fecha_programada <= datos.periodo_fin)
     .map(q => ({
       cuota_id: q.id,
       adelanto_id: q.adelanto_id,
@@ -485,12 +491,14 @@ export async function calcularReciboDesdeBD(
   }
 
   // ─── Cuotas de adelanto vencidas ───
+  // Traemos cuotas pendientes con fecha <= periodoFin. Incluye atrasadas
+  // de períodos anteriores, que se acumulan en este recibo. El core puro
+  // hace el filtro final por estado y fecha.
   const { data: cuotas } = await admin
     .from('adelantos_cuotas')
     .select('id, adelanto_id, numero_cuota, monto_cuota, fecha_programada, estado')
     .eq('empresa_id', empresaId)
     .eq('miembro_id', miembroId)
-    .gte('fecha_programada', periodoInicio)
     .lte('fecha_programada', periodoFin)
     .eq('estado', 'pendiente')
 
