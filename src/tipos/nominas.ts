@@ -223,3 +223,129 @@ export interface ContratoSnapshot {
   sector: Pick<SectorMin, 'id' | 'nombre'> | null
   turno: TurnoMin | null
 }
+
+// ════════════════════════════════════════════════════════════════
+// Motor de cálculo del recibo (PR 7)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Métricas de asistencia agregadas para un miembro en un período.
+ * Las calcula el motor a partir de la tabla `asistencias`.
+ */
+export interface MetricasAsistencia {
+  /** Días naturales del período (fin - inicio + 1). */
+  dias_periodo: number
+  /** Días con fichaje completo (hora_entrada presente). */
+  dias_trabajados: number
+  /** Registros con estado='ausente'. */
+  dias_ausentes: number
+  /** Registros marcados como tardanza (tipo='tardanza' o flag específico). */
+  tardanzas: number
+  /**
+   * Horas netas trabajadas: suma de (salida - entrada) − almuerzo −
+   * salidas particulares por todos los días con fichaje. Usado para
+   * modalidad `por_hora`.
+   */
+  horas_netas: number
+}
+
+/**
+ * Forma de la columna `condiciones_jsonb` de los conceptos. Las
+ * variantes soportadas por el motor V1.
+ *
+ * - `siempre`            → aplica en todos los recibos del contrato.
+ * - `sin_ausencias`      → cumple si dias_ausentes === 0.
+ * - `sin_tardanzas`      → cumple si tardanzas === 0.
+ * - `minimo_dias`        → cumple si dias_trabajados >= dias.
+ * - `antiguedad_minima`  → cumple si meses desde contrato.fecha_inicio >= meses.
+ *
+ * Si no encaja con ninguna variante o falla la evaluación, el motor
+ * trata el concepto como NO cumplido (fail-closed) y lo deja como
+ * sugerencia para que el operador lo decida manualmente.
+ */
+export type CondicionConcepto =
+  | { tipo: 'siempre' }
+  | { tipo: 'sin_ausencias' }
+  | { tipo: 'sin_tardanzas' }
+  | { tipo: 'minimo_dias'; dias: number }
+  | { tipo: 'antiguedad_minima'; meses: number }
+
+/** Detalle de un concepto efectivamente aplicado por el motor. */
+export interface ConceptoAplicadoCalculado {
+  concepto_id: string
+  nombre: string
+  tipo: TipoConcepto
+  modo_calculo: ModoCalculoConcepto
+  /** Valor usado (override del contrato si existía, sino del catálogo). */
+  valor: number | null
+  /** Monto efectivo aplicado al recibo. */
+  monto: number
+  automatico: boolean
+  /** Una línea humana explicando por qué se aplicó. */
+  detalle: string | null
+}
+
+/** Cuota de adelanto vencida en el período → descontada en el recibo. */
+export interface CuotaAdelantoAplicada {
+  cuota_id: string
+  adelanto_id: string
+  numero_cuota: number
+  monto: number
+  fecha_programada: string
+}
+
+/**
+ * Resultado completo del motor para un recibo. Cubre todo lo que
+ * necesita la UI para mostrar el desglose y el endpoint de creación
+ * para persistir el pago + snapshot.
+ */
+export interface DetalleReciboCalculado {
+  miembro_id: string
+  empresa_id: string
+  periodo_inicio: string
+  periodo_fin: string
+
+  /** Métricas agregadas usadas para calcular monto base y aplicar conceptos. */
+  asistencia: MetricasAsistencia
+
+  /** Contrato vigente en el período (o el más reciente si todos cerraron). */
+  contrato: {
+    id: string | null
+    snapshot: ContratoSnapshot | null
+  }
+
+  /**
+   * Monto base calculado según la modalidad del contrato y los datos
+   * de asistencia. Es la base sobre la que se aplican porcentajes y
+   * el primer renglón del recibo.
+   */
+  monto_base_calculado: number
+
+  /** Conceptos automáticos que cumplieron condición y se aplicaron. */
+  conceptos_aplicados: ConceptoAplicadoCalculado[]
+
+  /**
+   * Conceptos del contrato que NO se aplicaron (no eran automáticos,
+   * o no cumplieron condición). La UI los muestra como "sugerencias"
+   * para que el operador decida si agregarlos manualmente.
+   */
+  conceptos_sugeridos: ConceptoAplicadoCalculado[]
+
+  /** Cuotas de adelantos del miembro vencidas en este período. */
+  adelantos_aplicados: CuotaAdelantoAplicada[]
+
+  /** Suma de monto_base_calculado + conceptos tipo='haber'. */
+  subtotal_haberes: number
+
+  /** Suma de conceptos tipo='descuento' + adelantos. */
+  subtotal_descuentos: number
+
+  /** subtotal_haberes − subtotal_descuentos. */
+  neto: number
+
+  /**
+   * Advertencias no fatales (ej. "Sin contrato vigente, se usó monto
+   * legacy de miembros"). La UI las muestra como banner amarillo.
+   */
+  advertencias: string[]
+}
