@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 import { normalizarTelefono } from '@/lib/validaciones'
+import { generarPdfRecibo } from '@/lib/nominas/generar-pdf-recibo'
 import {
   diagnosticarCredencialesCanal,
   etiquetaFaltantesCanal,
@@ -187,6 +188,36 @@ export async function POST(request: NextRequest) {
         detalleDescuentos = lineasDescuentos.join('\n') || '_Sin adelantos ni descuentos en el período._'
       }
 
+      // ─── Link al PDF del recibo (si hay pago grabado del período) ───
+      // El destinatario abre el WhatsApp y desde ahí puede tocar el link y
+      // ver el recibo en el navegador. URL firmada con expiración larga
+      // (30 días) porque el empleado puede tardar en revisar el mensaje.
+      let enlaceRecibo = ''
+      if (emp.miembro_id && periodo_desde && periodo_hasta) {
+        try {
+          const { data: pago } = await admin
+            .from('pagos_nomina')
+            .select('id')
+            .eq('empresa_id', empresaId)
+            .eq('miembro_id', emp.miembro_id)
+            .eq('fecha_inicio_periodo', periodo_desde)
+            .eq('fecha_fin_periodo', periodo_hasta)
+            .eq('eliminado', false)
+            .order('creado_en', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (pago) {
+            const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
+              expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
+            })
+            enlaceRecibo = url
+          }
+        } catch (errPdf) {
+          console.error('[nominas/enviar-whatsapp] error al generar PDF:', errPdf)
+          // Seguimos sin enlace: el cuerpo del mensaje todavía va.
+        }
+      }
+
       // Resolver variables usando el mapeo de la plantilla — así si mañana
       // se agregan/quitan variables, el código no necesita cambios.
       const datos = construirDatosPlantilla({
@@ -203,6 +234,9 @@ export async function POST(request: NextRequest) {
           monto_detalle: emp.compensacion_detalle,
           detalle_descuentos: detalleDescuentos,
           descuentos_lista: lineasDescuentos,
+          // Disponible para que las plantillas WA incluyan {{nomina.enlace_recibo}}.
+          // Si no hay pago grabado en el período, queda string vacío.
+          enlace_recibo: enlaceRecibo,
         },
       })
 
