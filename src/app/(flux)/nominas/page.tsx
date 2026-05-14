@@ -20,11 +20,11 @@ import { useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
-import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Banknote, Wallet, Users, Settings, BookOpen } from 'lucide-react'
 import { VistaNomina } from './_componentes/VistaNomina'
 import { VistaEmpleados } from './_componentes/VistaEmpleados'
 import { VistaConfiguracion } from './_componentes/VistaConfiguracion'
+import { VistaAdelantos } from './_componentes/VistaAdelantos'
 
 type TabClave = 'liquidaciones' | 'adelantos' | 'empleados' | 'configuracion'
 
@@ -76,13 +76,7 @@ function ContenidoNominas() {
       {/* Contenido por pestaña */}
       {tab === 'liquidaciones' && <VistaNomina />}
 
-      {tab === 'adelantos' && (
-        <EstadoVacio
-          icono={<Wallet size={48} strokeWidth={1.5} />}
-          titulo="Adelantos — en construcción"
-          descripcion="Por ahora los adelantos se gestionan desde el detalle de cada empleado dentro de Liquidaciones. Próximamente esta pestaña va a mostrar el listado completo de adelantos por empresa."
-        />
-      )}
+      {tab === 'adelantos' && <VistaAdelantos />}
 
       {tab === 'empleados' && <VistaEmpleados />}
 

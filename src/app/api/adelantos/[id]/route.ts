@@ -5,7 +5,13 @@ import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/l
 
 /**
  * GET /api/adelantos/[id] — Detalle de un adelanto con cuotas.
- * PATCH /api/adelantos/[id] — Cancelar adelanto (marca cuotas pendientes como canceladas).
+ *
+ * PATCH /api/adelantos/[id] — Operaciones de mantenimiento:
+ *   - `{estado: 'cancelado'}` → cancela el adelanto y sus cuotas pendientes.
+ *   - `{monto_total, cuotas_totales, notas}` → edita y regenera cuotas pendientes.
+ *   - `{reasignar_a_miembro_id}` → mueve el adelanto + cuotas pendientes a
+ *     otro empleado. Solo permitido si no hay cuotas descontadas (no se
+ *     puede transferir un préstamo ya parcialmente cobrado a otro).
  */
 
 export async function GET(
@@ -81,11 +87,12 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { estado, monto_total, cuotas_totales, notas } = body as {
+    const { estado, monto_total, cuotas_totales, notas, reasignar_a_miembro_id } = body as {
       estado?: string
       monto_total?: number
       cuotas_totales?: number
       notas?: string
+      reasignar_a_miembro_id?: string
     }
 
     const admin = crearClienteAdmin()
@@ -103,6 +110,47 @@ export async function PATCH(
 
     if (a.estado === 'pagado') {
       return NextResponse.json({ error: 'No se puede modificar un adelanto ya pagado' }, { status: 400 })
+    }
+
+    // ─── Reasignar a otro empleado ───
+    // Solo se permite si no hay cuotas descontadas. La idea es que un
+    // adelanto recién creado se pueda mover si lo asociaste al empleado
+    // equivocado; cuando ya hubo movimiento financiero, lo correcto es
+    // cancelar este y crear uno nuevo en el otro empleado.
+    if (reasignar_a_miembro_id) {
+      if ((a.cuotas_descontadas as number) > 0) {
+        return NextResponse.json(
+          { error: 'No se puede reasignar: ya hay cuotas descontadas. Cancelá este adelanto y creá uno nuevo en el otro empleado.' },
+          { status: 400 },
+        )
+      }
+      // Confirmar que el nuevo miembro pertenece a la empresa.
+      const { data: nuevoMiembro } = await admin
+        .from('miembros')
+        .select('id')
+        .eq('id', reasignar_a_miembro_id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      if (!nuevoMiembro) {
+        return NextResponse.json({ error: 'Empleado destino no encontrado' }, { status: 400 })
+      }
+
+      await admin
+        .from('adelantos_nomina')
+        .update({
+          miembro_id: reasignar_a_miembro_id,
+          editado_por: user.id,
+          editado_en: new Date().toISOString(),
+        })
+        .eq('id', id)
+
+      // También las cuotas (mismas reglas de RLS).
+      await admin
+        .from('adelantos_cuotas')
+        .update({ miembro_id: reasignar_a_miembro_id, actualizado_en: new Date().toISOString() })
+        .eq('adelanto_id', id)
+
+      return NextResponse.json({ ok: true, reasignado_a: reasignar_a_miembro_id })
     }
 
     // ─── Cancelar ───
