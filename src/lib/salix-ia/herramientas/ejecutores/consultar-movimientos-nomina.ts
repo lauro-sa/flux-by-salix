@@ -79,31 +79,48 @@ export async function ejecutarConsultarMovimientosNomina(
       if (palabras.length === 0) {
         return { exito: false, error: 'La búsqueda del empleado es muy corta.' }
       }
+      // miembros + perfiles en dos queries (la FK miembros→perfiles no está
+      // declarada en Drizzle; el patrón "perfiles:perfil_id(...)" no funciona).
       const { data: miembros } = await ctx.admin
         .from('miembros')
-        .select('id, perfiles:perfil_id(nombre, apellido)')
+        .select('id, usuario_id')
         .eq('empresa_id', ctx.empresa_id)
         .eq('activo', true)
-        .limit(20)
+        .limit(200)
 
-      const lista = (miembros || []) as Array<{ id: string; perfiles: { nombre: string; apellido: string | null } | null }>
-      const candidatos = lista.filter(m => {
-        const nombreCompleto = `${m.perfiles?.nombre || ''} ${m.perfiles?.apellido || ''}`.toLowerCase()
-        return palabras.every(p => nombreCompleto.includes(p.toLowerCase()))
-      })
+      const lista = (miembros || []) as Array<{ id: string; usuario_id: string | null }>
+      const usuarioIds = lista.map(m => m.usuario_id).filter(Boolean) as string[]
+
+      const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
+      if (usuarioIds.length > 0) {
+        const { data: perfilesData } = await ctx.admin
+          .from('perfiles')
+          .select('id, nombre, apellido')
+          .in('id', usuarioIds)
+        for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
+          perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
+        }
+      }
+
+      const candidatos = lista
+        .map(m => ({ miembro: m, perfil: m.usuario_id ? perfilesMap.get(m.usuario_id) : null }))
+        .filter(c => {
+          const nombreCompleto = `${c.perfil?.nombre || ''} ${c.perfil?.apellido || ''}`.toLowerCase()
+          return palabras.every(p => nombreCompleto.includes(p.toLowerCase()))
+        })
 
       if (candidatos.length === 0) {
         return { exito: false, error: `No encontré un empleado con "${busquedaMiembro}".` }
       }
       if (candidatos.length > 1) {
-        const nombres = candidatos.map(c => `${c.perfiles?.nombre} ${c.perfiles?.apellido || ''}`).join(', ')
+        const nombres = candidatos.map(c => `${c.perfil?.nombre} ${c.perfil?.apellido || ''}`).join(', ')
         return {
           exito: false,
           error: `Encontré ${candidatos.length} empleados que coinciden con "${busquedaMiembro}": ${nombres}. Especificá nombre y apellido.`,
         }
       }
-      miembroIdFiltro = candidatos[0].id
-      miembroNombreFiltro = [candidatos[0].perfiles?.nombre, candidatos[0].perfiles?.apellido].filter(Boolean).join(' ')
+      miembroIdFiltro = candidatos[0].miembro.id
+      miembroNombreFiltro = [candidatos[0].perfil?.nombre, candidatos[0].perfil?.apellido].filter(Boolean).join(' ')
     }
     // Sin filtro → trae movimientos de todos los empleados (visión gerencial)
   }
@@ -158,7 +175,7 @@ export async function ejecutarConsultarMovimientosNomina(
       .order('numero_cuota', { ascending: true }),
     ctx.admin
       .from('miembros')
-      .select('id, perfiles:perfil_id(nombre, apellido)')
+      .select('id, usuario_id')
       .in('id', miembrosIds),
   ])
 
@@ -175,9 +192,24 @@ export async function ejecutarConsultarMovimientosNomina(
     })
   }
 
+  // Nombres por miembro: cargar perfiles en query separada vía usuario_id.
+  const miembrosList = (miembrosData || []) as Array<{ id: string; usuario_id: string | null }>
+  const usuarioIdsList = miembrosList.map(m => m.usuario_id).filter(Boolean) as string[]
+  const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
+  if (usuarioIdsList.length > 0) {
+    const { data: perfilesData } = await ctx.admin
+      .from('perfiles')
+      .select('id, nombre, apellido')
+      .in('id', usuarioIdsList)
+    for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
+      perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
+    }
+  }
+
   const nombresPorMiembro = new Map<string, string>()
-  for (const m of (miembrosData || []) as Array<{ id: string; perfiles: { nombre: string; apellido: string | null } | null }>) {
-    nombresPorMiembro.set(m.id, [m.perfiles?.nombre, m.perfiles?.apellido].filter(Boolean).join(' '))
+  for (const m of miembrosList) {
+    const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
+    nombresPorMiembro.set(m.id, [perfil?.nombre, perfil?.apellido].filter(Boolean).join(' '))
   }
 
   // ─── Calcular es_editable + motivo por cada movimiento ───

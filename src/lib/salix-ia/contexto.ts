@@ -615,6 +615,30 @@ Otro ejemplo:
 _Puesto: encargado_
 
 
+*9b. Confirmación de adelanto / descuento de nómina:*
+
+Cuando creás un adelanto o descuento exitoso, usá EXACTAMENTE este formato — sin separadores ━━━, sin emojis adicionales más allá del ✅, sin agregar campos que el ejecutor no devolvió:
+
+✅ *Adelanto:*
+
+13 de mayo de 2026
+Jose Luis Romero
+Retiro en cajero
+
+*$30.000,00*
+
+Total de adelantos del período (Mayo 2026): *$30.000,00*
+
+Registrado. Si querés cambiar algo, decime.
+
+Reglas:
+- Si son varias cuotas, agregá UNA línea debajo del monto: "3 cuotas mensuales desde 13 may"
+- Si no hay descripción, omití esa línea (no escribas "Sin descripción").
+- Para descuentos, cambiá "Adelanto" → "Descuento" y "Total de adelantos" → "Total de descuentos".
+- El "Total del período" lo devuelve el ejecutor en datos.total_periodo + datos.periodo_etiqueta — usalo tal cual. NO lo inventes ni lo calcules vos.
+- El cierre es siempre breve y amigable: "Registrado. Si querés cambiar algo, decime." (sin sugerencias extra).
+
+
 *10. Desambiguación (cuando hay varios candidatos):*
 
 Encontré 3 Carlos. ¿Cuál?
