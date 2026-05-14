@@ -3,11 +3,13 @@
 /**
  * VistaConfiguracion — Tab "Configuración" del módulo Nóminas.
  *
- * Por ahora muestra solo el catálogo de conceptos de nómina. En PRs
- * futuros se pueden sumar otras sub-secciones (parámetros fiscales,
- * formato del recibo, etc.) como tabs internas o sub-rutas.
+ * Tiene sub-tabs internas para separar áreas distintas:
+ *   - "Conceptos" — catálogo de conceptos de nómina (premios, descuentos).
+ *   - "Plantillas de envío" — canal + plantilla default para enviar
+ *     recibos por correo y WhatsApp.
  *
- * Ver PLAN_MODULO_NOMINAS.md (PR 6).
+ * Cada sub-tab es un componente independiente, así escalamos al sumar
+ * más en el futuro (parámetros fiscales, formato del recibo, etc.).
  */
 
 import { useEffect, useState } from 'react'
@@ -16,7 +18,9 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
-import { Plus, Pencil, Trash2, EyeOff, Tag, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, EyeOff, Tag, Loader2, Mail, MessageSquare, Save } from 'lucide-react'
+import { Tabs } from '@/componentes/ui/Tabs'
+import { Select } from '@/componentes/ui/Select'
 import { EditorConcepto } from './EditorConcepto'
 import type { ConceptoNomina, TipoConcepto } from '@/tipos/nominas'
 
@@ -45,7 +49,37 @@ function formatearValor(c: ConceptoNomina): string {
   return `$ ${Number(c.valor).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
+type SubTab = 'conceptos' | 'plantillas'
+
+const SUB_TABS = [
+  { clave: 'conceptos', etiqueta: 'Conceptos', icono: <Tag size={14} /> },
+  { clave: 'plantillas', etiqueta: 'Plantillas de envío', icono: <Mail size={14} /> },
+]
+
 export function VistaConfiguracion() {
+  const [subTab, setSubTab] = useState<SubTab>('conceptos')
+
+  return (
+    <div className="px-4 md:px-6 py-4 space-y-4">
+      {/* Sub-tabs: separan Conceptos de Plantillas de envío. */}
+      <Tabs
+        tabs={SUB_TABS}
+        activo={subTab}
+        onChange={(c) => setSubTab(c as SubTab)}
+        layoutId="tab-config-nomina"
+      />
+
+      {subTab === 'conceptos' && <PanelConceptos />}
+      {subTab === 'plantillas' && <PanelPlantillasEnvio />}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// Panel: Conceptos (catálogo)
+// ════════════════════════════════════════════════════════════════
+
+function PanelConceptos() {
   const toast = useToast()
   const { tienePermiso } = useRol()
   const puedeEditar = tienePermiso('nomina', 'editar')
@@ -91,7 +125,7 @@ export function VistaConfiguracion() {
   }
 
   return (
-    <div className="px-4 md:px-6 py-4 space-y-4">
+    <div className="space-y-4">
       {/* Header con filtros + CTA */}
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div>
@@ -241,5 +275,219 @@ function Pill({ activo, onClick, children }: { activo: boolean; onClick: () => v
     >
       {children}
     </button>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// Panel: Plantillas de envío (defaults para correo y WhatsApp)
+// ════════════════════════════════════════════════════════════════
+
+interface OpcionRef { id: string; nombre: string }
+interface ConfigPlantillas {
+  canal_correo_default_id: string | null
+  plantilla_correo_default_id: string | null
+  canal_whatsapp_default_id: string | null
+  plantilla_whatsapp_default_id: string | null
+}
+
+function PanelPlantillasEnvio() {
+  const toast = useToast()
+  const { tienePermiso } = useRol()
+  const puedeEditar = tienePermiso('nomina', 'editar')
+
+  const [config, setConfig] = useState<ConfigPlantillas | null>(null)
+  const [canalesCorreo, setCanalesCorreo] = useState<OpcionRef[]>([])
+  const [canalesWhatsApp, setCanalesWhatsApp] = useState<OpcionRef[]>([])
+  const [plantillasCorreo, setPlantillasCorreo] = useState<OpcionRef[]>([])
+  const [plantillasWhatsApp, setPlantillasWhatsApp] = useState<OpcionRef[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+
+  // ─── Carga inicial ───
+  useEffect(() => {
+    let cancelado = false
+    const cargar = async () => {
+      try {
+        const [confRes, ccRes, cwaRes, pcRes, pwaRes] = await Promise.all([
+          fetch('/api/nominas/configuracion').then(r => r.json()),
+          fetch('/api/correo/canales').then(r => r.json()).catch(() => ({ canales: [] })),
+          fetch('/api/whatsapp/canales').then(r => r.json()).catch(() => ({ canales: [] })),
+          fetch('/api/correo/plantillas').then(r => r.json()).catch(() => ({ plantillas: [] })),
+          fetch('/api/whatsapp/plantillas').then(r => r.json()).catch(() => ({ plantillas: [] })),
+        ])
+        if (cancelado) return
+
+        setConfig(confRes.configuracion ?? {
+          canal_correo_default_id: null,
+          plantilla_correo_default_id: null,
+          canal_whatsapp_default_id: null,
+          plantilla_whatsapp_default_id: null,
+        })
+
+        // Canales: tomamos id y un nombre legible. La estructura puede
+        // variar entre endpoints, normalizamos.
+        const norm = (lista: Array<Record<string, unknown>>): OpcionRef[] =>
+          lista.map(c => ({
+            id: c.id as string,
+            nombre: (c.nombre as string) || (c.nombre_visible as string) || (c.alias as string) || '—',
+          }))
+        setCanalesCorreo(norm((ccRes.canales as Array<Record<string, unknown>>) ?? []))
+        setCanalesWhatsApp(norm((cwaRes.canales as Array<Record<string, unknown>>) ?? []))
+
+        // Plantillas: filtramos solo las que están marcadas para nóminas
+        // (campo `modulos` contiene 'nomina' o 'nominas') o categoría
+        // 'nomina'. Si no hay ninguna así, mostramos todas para no
+        // bloquear al usuario.
+        const filtrar = (lista: Array<Record<string, unknown>>): OpcionRef[] => {
+          const todas = lista.map(p => ({
+            id: p.id as string,
+            nombre: (p.nombre as string) || '—',
+            modulos: (p.modulos as string[]) ?? [],
+            categoria: (p.categoria as string) ?? null,
+          }))
+          const especificas = todas.filter(p =>
+            p.modulos?.some(m => m === 'nomina' || m === 'nominas') || p.categoria === 'nomina',
+          )
+          return (especificas.length > 0 ? especificas : todas).map(p => ({ id: p.id, nombre: p.nombre }))
+        }
+        setPlantillasCorreo(filtrar((pcRes.plantillas as Array<Record<string, unknown>>) ?? []))
+        setPlantillasWhatsApp(filtrar((pwaRes.plantillas as Array<Record<string, unknown>>) ?? []))
+      } catch (err) {
+        console.error('[PanelPlantillasEnvio] error:', err)
+        toast.mostrar('error', 'No se pudo cargar la configuración')
+      } finally {
+        if (!cancelado) setCargando(false)
+      }
+    }
+    cargar()
+    return () => { cancelado = true }
+  }, [toast])
+
+  const actualizar = (campo: keyof ConfigPlantillas, valor: string | null) => {
+    setConfig(prev => prev ? { ...prev, [campo]: valor || null } : prev)
+  }
+
+  const guardar = async () => {
+    if (!config) return
+    setGuardando(true)
+    try {
+      const res = await fetch('/api/nominas/configuracion', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        return toast.mostrar('error', data.error || 'No se pudo guardar')
+      }
+      toast.mostrar('exito', 'Configuración guardada')
+    } catch {
+      toast.mostrar('error', 'Error de red')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (cargando || !config) {
+    return (
+      <div className="flex items-center justify-center py-12 text-texto-terciario">
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-base font-semibold text-texto-primario">Plantillas de envío</h2>
+        <p className="text-xs text-texto-terciario mt-1">
+          Elegí el canal y la plantilla por defecto. Cuando envíes recibos desde la pestaña Liquidaciones, vienen preseleccionados (podés cambiarlos en el momento si querés).
+        </p>
+      </div>
+
+      {/* Bloque correo */}
+      <section className="rounded-card border border-borde-sutil p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-texto-primario">
+          <Mail size={14} className="text-texto-terciario" />
+          Correo
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Select
+            etiqueta="Canal de correo"
+            valor={config.canal_correo_default_id ?? ''}
+            opciones={[
+              { valor: '', etiqueta: 'Sin canal default' },
+              ...canalesCorreo.map(c => ({ valor: c.id, etiqueta: c.nombre })),
+            ]}
+            onChange={v => actualizar('canal_correo_default_id', v || null)}
+          />
+          <Select
+            etiqueta="Plantilla de correo"
+            valor={config.plantilla_correo_default_id ?? ''}
+            opciones={[
+              { valor: '', etiqueta: 'Sin plantilla default' },
+              ...plantillasCorreo.map(p => ({ valor: p.id, etiqueta: p.nombre })),
+            ]}
+            onChange={v => actualizar('plantilla_correo_default_id', v || null)}
+          />
+        </div>
+        {plantillasCorreo.length === 0 && (
+          <p className="text-[11px] text-texto-terciario">
+            Todavía no hay plantillas de correo. Creá una en{' '}
+            <a href="/inbox/configuracion?tab=plantillas" className="text-texto-marca underline-offset-2 hover:underline">
+              Inbox → Configuración → Plantillas
+            </a>
+            {' '}y volvé acá para asignarla.
+          </p>
+        )}
+      </section>
+
+      {/* Bloque WhatsApp */}
+      <section className="rounded-card border border-borde-sutil p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-texto-primario">
+          <MessageSquare size={14} className="text-texto-terciario" />
+          WhatsApp
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Select
+            etiqueta="Canal de WhatsApp"
+            valor={config.canal_whatsapp_default_id ?? ''}
+            opciones={[
+              { valor: '', etiqueta: 'Sin canal default' },
+              ...canalesWhatsApp.map(c => ({ valor: c.id, etiqueta: c.nombre })),
+            ]}
+            onChange={v => actualizar('canal_whatsapp_default_id', v || null)}
+          />
+          <Select
+            etiqueta="Plantilla de WhatsApp"
+            valor={config.plantilla_whatsapp_default_id ?? ''}
+            opciones={[
+              { valor: '', etiqueta: 'Sin plantilla default' },
+              ...plantillasWhatsApp.map(p => ({ valor: p.id, etiqueta: p.nombre })),
+            ]}
+            onChange={v => actualizar('plantilla_whatsapp_default_id', v || null)}
+          />
+        </div>
+        {plantillasWhatsApp.length === 0 && (
+          <p className="text-[11px] text-texto-terciario">
+            Todavía no hay plantillas de WhatsApp aprobadas. Creá y aprobá una en{' '}
+            <a href="/inbox/configuracion?tab=plantillas-whatsapp" className="text-texto-marca underline-offset-2 hover:underline">
+              Inbox → Configuración → Plantillas
+            </a>
+            . Si querés incluir el link al PDF del recibo, agregá la variable{' '}
+            <code className="px-1 py-0.5 bg-superficie-elevada rounded text-[10px]">{`{{nomina.enlace_recibo}}`}</code>
+            {' '}al cuerpo de la plantilla.
+          </p>
+        )}
+      </section>
+
+      {puedeEditar && (
+        <div className="flex justify-end">
+          <Boton icono={<Save size={14} />} onClick={guardar} cargando={guardando}>
+            Guardar configuración
+          </Boton>
+        </div>
+      )}
+    </div>
   )
 }

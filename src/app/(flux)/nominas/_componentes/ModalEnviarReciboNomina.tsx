@@ -328,8 +328,24 @@ export function ModalEnviarReciboNomina({
     setEstadoEnvio('idle')
     setResultadoLote(null)
 
+    // ─── Defaults del módulo Nóminas ───
+    // Si el operador configuró canal/plantilla default en
+    // Nóminas → Configuración → Plantillas de envío, usamos esos.
+    // Si no, caemos al fallback histórico (predeterminado del canal,
+    // plantilla detectada por convención de nombre).
+    let configNomina: {
+      canal_correo_default_id: string | null
+      plantilla_correo_default_id: string | null
+      canal_whatsapp_default_id: string | null
+      plantilla_whatsapp_default_id: string | null
+    } | null = null
+    const promesaConfig = fetch('/api/nominas/configuracion')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { configNomina = data?.configuracion ?? null })
+      .catch(() => { configNomina = null })
+
     // Canales de correo
-    fetch('/api/correo/canales?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/correo/canales?modulo=asistencias')
       .then(r => r.json())
       .then(data => {
         const mapped: CanalCorreoEmpresa[] = ((data.canales || []) as Record<string, unknown>[])
@@ -344,15 +360,18 @@ export function ModalEnviarReciboNomina({
             }
           })
         setCanalesCorreo(mapped)
-        const pred = mapped.find(c => c.predeterminado)
-        setCanalCorreoSeleccionado(pred?.id || mapped[0]?.id || '')
+        const defaultModulo = configNomina?.canal_correo_default_id
+        const elegido = (defaultModulo && mapped.some(c => c.id === defaultModulo))
+          ? defaultModulo
+          : (mapped.find(c => c.predeterminado)?.id || mapped[0]?.id || '')
+        setCanalCorreoSeleccionado(elegido)
       })
-      .catch(() => {})
+      .catch(() => {}))
 
     // Canales de WhatsApp — incluimos los marcados "conectado" pero exponemos
     // si tienen credenciales válidas para que la UI bloquee el envío con un
     // mensaje claro en vez de fallar contra Meta con error 190.
-    fetch('/api/whatsapp/canales')
+    promesaConfig.then(() => fetch('/api/whatsapp/canales')
       .then(r => r.json())
       .then(data => {
         const mapped = ((data.canales || []) as Record<string, unknown>[])
@@ -364,32 +383,40 @@ export function ModalEnviarReciboNomina({
             credenciales_faltantes: (c.credenciales_faltantes as string[] | undefined) ?? [],
           }))
         setCanalesWA(mapped)
-        setCanalWASeleccionado(mapped[0]?.id || '')
+        const defaultModulo = configNomina?.canal_whatsapp_default_id
+        const elegido = (defaultModulo && mapped.some(c => c.id === defaultModulo))
+          ? defaultModulo
+          : mapped[0]?.id || ''
+        setCanalWASeleccionado(elegido)
       })
-      .catch(() => {})
+      .catch(() => {}))
 
     // Plantilla de WhatsApp para nómina
-    fetch('/api/whatsapp/plantillas?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/whatsapp/plantillas?modulo=asistencias')
       .then(r => r.json())
       .then(data => {
         const plantillas = (data.plantillas || []) as PlantillaWA[]
-        const nomina = plantillas.find(p => p.nombre_api === 'recibo_haberes_nomina')
-        if (nomina) setPlantillaWA(nomina)
+        const defaultModulo = configNomina?.plantilla_whatsapp_default_id
+        const elegida = (defaultModulo && plantillas.find(p => p.id === defaultModulo))
+          || plantillas.find(p => p.nombre_api === 'recibo_haberes_nomina')
+        if (elegida) setPlantillaWA(elegida)
       })
-      .catch(() => {})
+      .catch(() => {}))
 
-    // Plantillas de correo — buscar plantilla de nómina de sistema
-    fetch('/api/correo/plantillas')
+    // Plantillas de correo — preferir la default de nóminas si está
+    // configurada, sino caer a la convención de clave_sistema.
+    promesaConfig.then(() => fetch('/api/correo/plantillas')
       .then(r => r.json())
       .then(data => {
         const todas = (data.plantillas || []) as (PlantillaCorreo & { clave_sistema?: string })[]
         setPlantillasCorreo(todas)
-        // Buscar plantilla de nómina de sistema en BD
-        const nominaBD = todas.find(p => p.clave_sistema?.endsWith('_recibo_nomina'))
-        if (nominaBD?.asunto) setAsuntoNomina(nominaBD.asunto)
-        if (nominaBD?.contenido_html) setHtmlNomina(nominaBD.contenido_html)
+        const defaultModulo = configNomina?.plantilla_correo_default_id
+        const elegida = (defaultModulo && todas.find(p => p.id === defaultModulo))
+          || todas.find(p => p.clave_sistema?.endsWith('_recibo_nomina'))
+        if (elegida?.asunto) setAsuntoNomina(elegida.asunto)
+        if (elegida?.contenido_html) setHtmlNomina(elegida.contenido_html)
       })
-      .catch(() => {})
+      .catch(() => {}))
 
     // Detalle de adelantos/descuentos para el preview WA. Tomamos el primer
     // empleado con teléfono (envío real) o el primero a secas (preview puro).
