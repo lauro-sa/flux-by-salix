@@ -1,8 +1,24 @@
 # Plan de auditoría y mejora de rendimiento — Flux by Salix
 
-**Estado:** pendiente de implementación
+**Estado:** Fases 1, 2.3 y 3 implementadas (2026-05-14). Fase 2.1 (RPCs) pivoteada por costo/beneficio. Fase 4 sin ejecutar todavía (riesgo alto, beneficio diferido).
 **Fecha de auditoría:** 2026-05-13
 **Sensación reportada:** listados de contactos / presupuestos / actividades tardan 3-5 s, navegación entre rutas se siente "congelada", crear/editar tarda en reflejarse.
+
+## Implementado a la fecha
+
+| PR | Fase | Resumen |
+|----|------|---------|
+| [#30](https://github.com/lauro-sa/flux-by-salix/pull/30) | 1 | Suspense + SkeletonListado + prefetch al hover + `count: 'estimated'` en 14 endpoints |
+| [#31](https://github.com/lauro-sa/flux-by-salix/pull/31) | 2.3 | `pg_trgm` + 13 índices GIN trigram en columnas de búsqueda |
+| [#32](https://github.com/lauro-sa/flux-by-salix/pull/32) | 3 | `staleTime` 20 s → 60 s + helper `useCacheListado` aplicado a 4 mutaciones (papelera/etiqueta de contactos, papelera/estado de presupuestos) |
+
+### Pivot Fase 2.1 (RPCs `fn_listar_*`)
+Tras analizar la complejidad de `/api/contactos/route.ts` (430 líneas, 12+ pre-queries condicionales), reescribir a SQL puro duplicaba la lógica sin un retorno proporcional **para la escala actual de Flux** (una empresa, miles de filas). El trigram de Fase 2.3 ya cubre el principal cuello de búsqueda. Si la escala crece (miles de empresas o cientos de miles de contactos), vuelve a evaluarse.
+
+### Fase 4 pendiente — alto riesgo
+Refactor de 13 providers a Server Component + code-split de TablaDinamica/framer/recharts/tiptap + migración del detalle [id] a Server Component híbrido + barrel de iconos. Trabajo de varios días, invasivo, con riesgo de regresión amplia. **Saltado en esta tanda**; revaluar cuando el TTI móvil sea bloqueante o cuando se agregue otra empresa al sistema.
+
+---
 
 ---
 
