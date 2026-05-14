@@ -1097,6 +1097,7 @@ export const en: Traducciones = {
     correo: 'Email',
     interno: 'Internal',
     asistencias: 'Attendance',
+    nominas: 'Payroll',
     calendario: 'Calendar',
     ordenes: 'Work Orders',
     auditoria: 'Audit',

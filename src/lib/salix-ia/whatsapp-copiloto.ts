@@ -77,6 +77,25 @@ export async function procesarMensajeCopiloto(
     return true
   }
 
+  // ─── Deduplicación por wa_message_id ───
+  // Meta reenvía el mismo webhook si no recibe 200 a tiempo. Sin este
+  // check el pipeline corre dos veces y duplica side-effects (ej: dos
+  // recordatorios desde un solo mensaje). Filtramos acá antes de cualquier
+  // ejecución de tool.
+  if (msg.id) {
+    const { data: yaProcesado } = await admin
+      .from('mensajes')
+      .select('id')
+      .eq('empresa_id', canal.empresa_id)
+      .eq('wa_message_id', msg.id)
+      .eq('es_entrante', true)
+      .maybeSingle()
+    if (yaProcesado) {
+      console.info(`[SALIX WA] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
+      return true
+    }
+  }
+
   // ─── Conversación perpetua del empleado en la bandeja principal ───
   // Asegurar la conversación en `conversaciones` y registrar el mensaje entrante
   // ANTES de cualquier gate. Aún si Salix IA está apagada a nivel empresa o
@@ -234,9 +253,20 @@ export async function procesarMensajeCopiloto(
       }
     }
   } catch (err) {
-    // Si el pipeline falla, enviar mensaje de error al empleado por WA — NUNCA caer a Valentina
-    console.error('[Salix IA WA] Error en pipeline:', err)
-    const mensajeError = '⚠ _Salix IA no pudo procesar tu mensaje. Puede que no haya créditos en la API. Avisale al administrador._'
+    // Logging estructurado para diagnosticar desde logs de Vercel. El
+    // mensaje al usuario es neutral; los detalles se loggean al console.
+    const detalleError = err instanceof Error
+      ? { mensaje: err.message, stack: err.stack, name: err.name }
+      : { raw: String(err) }
+    console.error('[Salix IA WA] Error en pipeline:', JSON.stringify({
+      miembro_id: empleado.miembro.id,
+      usuario_id: empleado.miembro.usuario_id,
+      empresa_id: canal.empresa_id,
+      wa_message_id: msg.id,
+      texto_entrada: texto.slice(0, 200),
+      error: detalleError,
+    }))
+    const mensajeError = '⚠ _Hubo un problema procesando tu mensaje. Probá de nuevo en un momento; si sigue, avisale al administrador._'
     const waMessageId = await enviarRespuestaWA(canal, msg.from, mensajeError)
     if (conversacionEmpleadoId) {
       await registrarMensajeEmpleado({
@@ -249,7 +279,7 @@ export async function procesarMensajeCopiloto(
         texto: mensajeError,
         wa_message_id: waMessageId,
         estado: waMessageId ? 'enviado' : 'fallido',
-        error_envio: err instanceof Error ? err.message : String(err),
+        error_envio: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
       })
     }
   }

@@ -1133,6 +1133,7 @@ export interface Traducciones {
     correo: string
     interno: string
     asistencias: string
+    nominas: string
     calendario: string
     ordenes: string
     auditoria: string
