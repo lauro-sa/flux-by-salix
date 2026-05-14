@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { obtenerIdentidadMiembro } from '@/lib/miembros/identidad'
 
 /**
  * GET /api/asistencias/detalle?id=xxx — Obtener un registro por ID con tiempo activo.
@@ -45,37 +46,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Obtener nombre del miembro (perfil con fallback a contacto equipo)
+    // Nombre del miembro vía helper de identidad: cubre tanto miembros con
+    // cuenta (perfil) como sin cuenta (contacto-equipo). Necesitamos primero
+    // el `usuario_id` del miembro para alimentar el helper.
     const { data: miembro } = await admin
       .from('miembros')
       .select('usuario_id')
       .eq('id', registro.miembro_id)
       .single()
 
-    let miembroNombre = 'Sin nombre'
-    if (miembro) {
-      if (miembro.usuario_id) {
-        const { data: perfil } = await admin
-          .from('perfiles')
-          .select('nombre, apellido')
-          .eq('id', miembro.usuario_id)
-          .single()
-        if (perfil && (perfil.nombre || perfil.apellido)) {
-          miembroNombre = `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
-        }
-      }
-      if (miembroNombre === 'Sin nombre') {
-        const { data: contacto } = await admin
-          .from('contactos')
-          .select('nombre, apellido')
-          .eq('miembro_id', registro.miembro_id)
-          .eq('en_papelera', false)
-          .maybeSingle()
-        if (contacto && (contacto.nombre || contacto.apellido)) {
-          miembroNombre = `${contacto.nombre || ''} ${contacto.apellido || ''}`.trim()
-        }
-      }
-    }
+    const identidad = await obtenerIdentidadMiembro(
+      admin,
+      { id: registro.miembro_id, usuario_id: miembro?.usuario_id ?? null },
+      empresaId,
+    )
+    const miembroNombre = identidad
+      ? `${identidad.nombre ?? ''} ${identidad.apellido ?? ''}`.trim() || 'Sin nombre'
+      : 'Sin nombre'
 
     // Calcular tiempo activo real desde heartbeats.
     // Solo usamos 'heartbeat' (cada ~5 min de actividad real) — NO visibility/login/beforeunload

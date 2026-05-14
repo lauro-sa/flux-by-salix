@@ -36,6 +36,16 @@ export interface IdentidadMiembro {
   telefono_empresa: string | null
   /** Solo presente cuando viene de perfil (los contactos-equipo no tienen avatar). */
   avatar_url: string | null
+  /**
+   * Documento personal del empleado, unificado entre ambas fuentes:
+   *   - `perfil` → viene de `perfiles.documento_tipo` / `perfiles.documento_numero`.
+   *   - `contacto_equipo` → viene de `contactos.tipo_identificacion` /
+   *     `contactos.numero_identificacion` (el trigger `sync_perfil_a_contactos`
+   *     copia ahí el documento del perfil real cuando existe).
+   * Si el miembro no tiene documento cargado en su fuente, ambos quedan en null.
+   */
+  documento_tipo: string | null
+  documento_numero: string | null
   /** De dónde se resolvió (útil para debug / decisiones de UI). */
   fuente: 'perfil' | 'contacto_equipo'
 }
@@ -66,7 +76,7 @@ export async function cargarIdentidadMiembros(
     const usuarioIds = conCuenta.map(m => m.usuario_id as string)
     const { data: perfiles } = await admin
       .from('perfiles')
-      .select('id, nombre, apellido, correo, correo_empresa, telefono, telefono_empresa, avatar_url')
+      .select('id, nombre, apellido, correo, correo_empresa, telefono, telefono_empresa, avatar_url, documento_tipo, documento_numero')
       .in('id', usuarioIds)
 
     const porUsuarioId = new Map<string, IdentidadMiembro>()
@@ -79,6 +89,8 @@ export async function cargarIdentidadMiembros(
         telefono: p.telefono ?? null,
         telefono_empresa: p.telefono_empresa ?? null,
         avatar_url: p.avatar_url ?? null,
+        documento_tipo: p.documento_tipo ?? null,
+        documento_numero: p.documento_numero ?? null,
         fuente: 'perfil',
       })
     }
@@ -90,11 +102,14 @@ export async function cargarIdentidadMiembros(
   }
 
   // ─── 2) Contacto-equipo (miembros sin cuenta) ───
+  // El documento se guarda en `contactos.tipo_identificacion` /
+  // `contactos.numero_identificacion` y lo mapeamos a `documento_tipo` /
+  // `documento_numero` para unificar el shape con `fuente='perfil'`.
   if (sinCuenta.length > 0) {
     const miembroIds = sinCuenta.map(m => m.id)
     const { data: contactos } = await admin
       .from('contactos')
-      .select('miembro_id, nombre, apellido, correo, telefono')
+      .select('miembro_id, nombre, apellido, correo, telefono, tipo_identificacion, numero_identificacion')
       .in('miembro_id', miembroIds)
       .eq('empresa_id', empresaId)
       .eq('en_papelera', false)
@@ -109,6 +124,8 @@ export async function cargarIdentidadMiembros(
         telefono: c.telefono ?? null,
         telefono_empresa: null,
         avatar_url: null,
+        documento_tipo: c.tipo_identificacion ?? null,
+        documento_numero: c.numero_identificacion ?? null,
         fuente: 'contacto_equipo',
       })
     }

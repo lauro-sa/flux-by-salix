@@ -4,6 +4,7 @@ import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
+import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
 import Holidays from 'date-holidays'
 
 /**
@@ -129,24 +130,16 @@ export async function GET(request: NextRequest) {
 
     const { data: miembrosData } = await queryMiembros
 
-    const { data: perfilesData } = await admin
-      .from('perfiles')
-      .select('id, nombre, apellido, correo_empresa, correo, telefono, telefono_empresa, documento_tipo, documento_numero')
-
-    const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
-
-    // Fallback para empleados sin cuenta Flux: nombre + contacto desde el contacto de equipo.
-    // Empleados sin perfil (sin login en Flux) no tienen perfiles.telefono; vive en contactos.telefono.
-    const miembrosIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
-    const { data: contactosEquipo } = miembrosIds.length > 0
-      ? await admin
-          .from('contactos')
-          .select('miembro_id, nombre, apellido, correo, telefono, tipo_identificacion, numero_identificacion')
-          .in('miembro_id', miembrosIds)
-          .eq('en_papelera', false)
-      : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null; correo: string | null; telefono: string | null; tipo_identificacion: string | null; numero_identificacion: string | null }> }
-    const contactoMapNomina = new Map(
-      (contactosEquipo || []).filter(c => c.miembro_id).map(c => [c.miembro_id as string, c])
+    // Identidad consolidada (perfil para miembros con cuenta Flux, contacto-equipo
+    // para los cargados a mano). Reemplaza las dos queries previas a `perfiles` y
+    // `contactos`. Ver src/lib/miembros/identidad.ts.
+    const identidades = await cargarIdentidadMiembros(
+      admin,
+      (miembrosData || []).map((m: Record<string, unknown>) => ({
+        id: m.id as string,
+        usuario_id: (m.usuario_id as string | null) ?? null,
+      })),
+      empresaId,
     )
 
     // Etiquetas de puesto/sector (vía FK puesto_id + miembros_sectores)
@@ -264,37 +257,36 @@ export async function GET(request: NextRequest) {
     // ─── Calcular por cada miembro ───
     const resultados = (miembrosData || []).map((miembro) => {
       const m = miembro as Record<string, unknown>
-      const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
-      const contactoEquipo = contactoMapNomina.get(m.id as string)
-      // Datos de contacto unificados para empleados con/sin cuenta Flux.
-      // Con perfil: respeta canal elegido (empresa | personal). Sin perfil:
-      // usa el correo/teléfono únicos del contacto de equipo. La UI avisa y
-      // los endpoints de envío devuelven error explícito si quedan vacíos.
+      // Reconstruimos los shapes de perfil / contactoEquipo a partir de la
+      // identidad consolidada para mantener intacto el contrato de
+      // `resolverDatosContactoMiembro` (que necesita saber la fuente para
+      // aplicar la lógica de canal personal vs empresa).
+      const identidad = identidades.get(m.id as string)
       const datosContacto = resolverDatosContactoMiembro({
         miembro: {
           canal_notif_correo: m.canal_notif_correo as 'empresa' | 'personal' | null,
           canal_notif_telefono: m.canal_notif_telefono as 'empresa' | 'personal' | null,
         },
-        perfil: perfil
+        perfil: identidad?.fuente === 'perfil'
           ? {
-              nombre: perfil.nombre as string | null,
-              apellido: perfil.apellido as string | null,
-              correo: perfil.correo as string | null,
-              correo_empresa: perfil.correo_empresa as string | null,
-              telefono: perfil.telefono as string | null,
-              telefono_empresa: perfil.telefono_empresa as string | null,
-              documento_tipo: perfil.documento_tipo as string | null,
-              documento_numero: perfil.documento_numero as string | null,
+              nombre: identidad.nombre,
+              apellido: identidad.apellido,
+              correo: identidad.correo,
+              correo_empresa: identidad.correo_empresa,
+              telefono: identidad.telefono,
+              telefono_empresa: identidad.telefono_empresa,
+              documento_tipo: identidad.documento_tipo,
+              documento_numero: identidad.documento_numero,
             }
           : null,
-        contactoEquipo: contactoEquipo
+        contactoEquipo: identidad?.fuente === 'contacto_equipo'
           ? {
-              nombre: contactoEquipo.nombre,
-              apellido: contactoEquipo.apellido,
-              correo: contactoEquipo.correo,
-              telefono: contactoEquipo.telefono,
-              tipo_identificacion: contactoEquipo.tipo_identificacion,
-              numero_identificacion: contactoEquipo.numero_identificacion,
+              nombre: identidad.nombre,
+              apellido: identidad.apellido,
+              correo: identidad.correo,
+              telefono: identidad.telefono,
+              tipo_identificacion: identidad.documento_tipo,
+              numero_identificacion: identidad.documento_numero,
             }
           : null,
       })
