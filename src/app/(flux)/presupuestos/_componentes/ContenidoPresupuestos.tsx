@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useListado } from '@/hooks/useListado'
+import { useCacheListado } from '@/hooks/useCacheListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
@@ -112,6 +113,7 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const cachePresupuestos = useCacheListado<FilaPresupuesto>('presupuestos')
 
   // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
   // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
@@ -289,13 +291,16 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
           })
         )
       )
-      queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
+      // Optimistic: los presupuestos desaparecen del listado al instante;
+      // el refetch silencioso reconcilia.
+      cachePresupuestos.removerLocal(ids)
+      cachePresupuestos.revalidar()
       mostrarToast('exito', `${ids.size} presupuesto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
     } catch (err) {
       console.error('Error al enviar a papelera:', err)
       mostrarToast('error', 'Error al enviar a papelera')
     }
-  }, [mostrarToast, queryClient])
+  }, [mostrarToast, cachePresupuestos])
 
   // Cambiar estado en lote
   const cambiarEstadoLote = useCallback(async (ids: Set<string>) => {
@@ -306,22 +311,28 @@ function ContenidoPresupuestosInterno({ datosInicialesJson }: Props) {
       mostrarToast('error', `Estado inválido. Opciones: ${estadosValidos.join(', ')}`)
       return
     }
+    const estadoLimpio = estado.trim()
     try {
       await Promise.all(
         Array.from(ids).map(id =>
           fetch(`/api/presupuestos/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado: estado.trim() }),
+            body: JSON.stringify({ estado: estadoLimpio }),
           })
         )
       )
-      queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
-      mostrarToast('exito', `Estado cambiado a "${estado.trim()}" en ${ids.size} presupuesto${ids.size !== 1 ? 's' : ''}`)
+      // Optimistic: parchear el estado de los presupuestos afectados.
+      // El cast es seguro: ya validamos arriba que estadoLimpio ∈ estadosValidos.
+      cachePresupuestos.transformarLocal((p) =>
+        ids.has(p.id) ? { ...p, estado: estadoLimpio as FilaPresupuesto['estado'] } : p,
+      )
+      cachePresupuestos.revalidar()
+      mostrarToast('exito', `Estado cambiado a "${estadoLimpio}" en ${ids.size} presupuesto${ids.size !== 1 ? 's' : ''}`)
     } catch {
       mostrarToast('error', 'Error al cambiar estado')
     }
-  }, [mostrarToast, queryClient])
+  }, [mostrarToast, cachePresupuestos])
 
   // Exportar presupuestos seleccionados a CSV
   const exportarPresupuestosCSV = useCallback(async (ids: Set<string>) => {

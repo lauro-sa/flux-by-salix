@@ -75,7 +75,12 @@ export function useListado<T>({
     },
     enabled: habilitado,
     placeholderData: keepPreviousData,
-    staleTime: 20_000,
+    // 60 s de stale: listados de Flux cambian poco entre navegaciones.
+    // React Query refetchea en background al volver al foco / cambiar de
+    // ventana, así que volver a un listado ya visto es instantáneo (no se
+    // ve spinner). El refetch silencioso mantiene los datos frescos sin
+    // bloquear UX. Antes era 20 s, perdíamos cache al alternar pantallas.
+    staleTime: 60_000,
     ...(datosInicialesJson ? { initialData: datosInicialesJson } : {}),
   })
 
