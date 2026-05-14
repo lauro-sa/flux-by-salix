@@ -7,6 +7,7 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useListado, useConfig } from '@/hooks/useListado'
+import { useCacheListado } from '@/hooks/useCacheListado'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -113,6 +114,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const cacheContactos = useCacheListado<FilaContacto>('contactos')
 
   // Filtros con sync bidireccional URL ↔ estado (ver useFiltrosUrl).
   // Mantiene los filtros al volver de un detalle por migajas o botón atrás.
@@ -376,7 +378,11 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
       }
       setModalPapeleraLote(false)
       setIdsPapeleraPendientes(new Set())
-      queryClient.invalidateQueries({ queryKey: ['contactos'] })
+      // Optimistic: quitamos los ids del cache local al instante para
+      // que la lista se refresque sin esperar al refetch. revalidar()
+      // dispara un fetch silencioso en background que reconcilia.
+      cacheContactos.removerLocal(ids)
+      cacheContactos.revalidar()
     } catch (err) {
       console.error('Error al enviar contactos a la papelera:', err)
       mostrarToast(
@@ -420,22 +426,32 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const agregarEtiquetaLote = useCallback(async (ids: Set<string>) => {
     const etiqueta = window.prompt('Nombre de la etiqueta a agregar:')
     if (!etiqueta?.trim()) return
+    const etiquetaLimpia = etiqueta.trim()
     try {
       await Promise.all(
         Array.from(ids).map(id =>
           fetch(`/api/contactos/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agregar_etiqueta: etiqueta.trim() }),
+            body: JSON.stringify({ agregar_etiqueta: etiquetaLimpia }),
           })
         )
       )
-      mostrarToast('exito', `Etiqueta "${etiqueta.trim()}" agregada a ${ids.size} contacto${ids.size !== 1 ? 's' : ''}`)
-      queryClient.invalidateQueries({ queryKey: ['contactos'] })
+      mostrarToast('exito', `Etiqueta "${etiquetaLimpia}" agregada a ${ids.size} contacto${ids.size !== 1 ? 's' : ''}`)
+      // Optimistic: agregar la etiqueta al cache de los contactos afectados
+      // sin pisar las que ya tenían. revalidar() corrige si el servidor
+      // normalizó la etiqueta de otra forma.
+      cacheContactos.transformarLocal((c) => {
+        if (!ids.has(c.id)) return c
+        const yaTiene = (c.etiquetas ?? []).includes(etiquetaLimpia)
+        if (yaTiene) return c
+        return { ...c, etiquetas: [...(c.etiquetas ?? []), etiquetaLimpia] }
+      })
+      cacheContactos.revalidar()
     } catch {
       mostrarToast('error', 'Error al agregar etiqueta')
     }
-  }, [mostrarToast, queryClient])
+  }, [mostrarToast, cacheContactos])
 
   // Helpers de formato
   const ETIQUETAS_IVA: Record<string, string> = {
