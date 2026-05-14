@@ -156,26 +156,33 @@ function ContenidoFicha() {
     try {
       const supabase = crearClienteNavegador()
 
-      // Perfil (a través de miembro→usuario_id→perfiles)
-      const { data: miembroData } = await supabase
-        .from('miembros')
-        .select('usuario_id')
-        .eq('id', miembroId)
-        .maybeSingle()
-      const usuarioId = miembroData?.usuario_id ?? null
-
-      const [perfilRes, contratosRes, sectoresRes, turnosRes, conceptosRes] = await Promise.all([
-        usuarioId
-          ? supabase.from('perfiles').select('nombre, apellido, avatar_url').eq('id', usuarioId).maybeSingle()
-          : Promise.resolve({ data: null }),
+      // Identidad del empleado: el endpoint `/api/miembros/[id]` ya consolida
+      // perfil (cuenta de Flux) y contacto-equipo (empleado sin cuenta).
+      // Aquí sólo cargamos el nombre/apellido para el header; el avatar lo
+      // traemos aparte de `perfiles` cuando hay cuenta.
+      const [identidadRes, miembroRes, contratosRes, sectoresRes, turnosRes, conceptosRes] = await Promise.all([
+        fetch(`/api/miembros/${miembroId}`).then(r => r.ok ? r.json() : null),
+        supabase.from('miembros').select('usuario_id').eq('id', miembroId).maybeSingle(),
         fetch(`/api/nominas/contratos?miembro_id=${miembroId}`).then(r => r.json()),
         supabase.from('sectores').select('id, nombre').eq('activo', true).order('orden'),
         supabase.from('turnos_laborales').select('id, nombre').order('orden'),
         fetch('/api/nominas/conceptos').then(r => r.json()),
       ])
 
-      const p = perfilRes.data as PerfilMini | null
-      setPerfil(p ?? null)
+      // Avatar sólo aplica a miembros con cuenta.
+      let avatarUrl: string | null = null
+      const usuarioId = miembroRes.data?.usuario_id ?? null
+      if (usuarioId) {
+        const { data: perfilAvatar } = await supabase
+          .from('perfiles').select('avatar_url').eq('id', usuarioId).maybeSingle()
+        avatarUrl = perfilAvatar?.avatar_url ?? null
+      }
+
+      setPerfil(identidadRes ? {
+        nombre: identidadRes.nombre || '',
+        apellido: identidadRes.apellido || '',
+        avatar_url: avatarUrl,
+      } : null)
       const contratosLista = (contratosRes.contratos ?? []) as ContratoLaboral[]
       setContratos(contratosLista)
       setSectores((sectoresRes.data ?? []) as OpcionRef[])

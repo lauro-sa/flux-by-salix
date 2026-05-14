@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
+import { obtenerIdentidadMiembro } from '@/lib/miembros/identidad'
 
 /**
  * GET /api/miembros/[id] — Datos públicos accionables del miembro: nombre,
@@ -36,43 +37,18 @@ export async function GET(
       return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })
     }
 
-    // Si tiene cuenta Flux, traer perfil real
-    if (miembro.usuario_id) {
-      const { data: perfil } = await admin
-        .from('perfiles')
-        .select('nombre, apellido, correo, correo_empresa, telefono, telefono_empresa')
-        .eq('id', miembro.usuario_id)
-        .maybeSingle()
-
-      if (perfil) {
-        return NextResponse.json({
-          id: miembro.id,
-          nombre: perfil.nombre,
-          apellido: perfil.apellido,
-          correo: perfil.correo,
-          correo_empresa: perfil.correo_empresa,
-          telefono: perfil.telefono,
-          telefono_empresa: perfil.telefono_empresa,
-        })
-      }
-    }
-
-    // Miembro sin cuenta (solo fichaje): derivar del contacto tipo equipo
-    const { data: contacto } = await admin
-      .from('contactos')
-      .select('nombre, apellido, correo, telefono')
-      .eq('miembro_id', miembro.id)
-      .eq('en_papelera', false)
-      .maybeSingle()
+    // Identidad consolidada: perfil para los que tienen cuenta, contacto-equipo
+    // para los que no. Ver src/lib/miembros/identidad.ts.
+    const identidad = await obtenerIdentidadMiembro(admin, miembro, empresaId)
 
     return NextResponse.json({
       id: miembro.id,
-      nombre: contacto?.nombre || '',
-      apellido: contacto?.apellido || '',
-      correo: contacto?.correo || null,
-      correo_empresa: null,
-      telefono: contacto?.telefono || null,
-      telefono_empresa: null,
+      nombre: identidad?.nombre ?? '',
+      apellido: identidad?.apellido ?? '',
+      correo: identidad?.correo ?? null,
+      correo_empresa: identidad?.correo_empresa ?? null,
+      telefono: identidad?.telefono ?? null,
+      telefono_empresa: identidad?.telefono_empresa ?? null,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

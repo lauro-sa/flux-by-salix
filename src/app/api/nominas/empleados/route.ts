@@ -18,6 +18,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
 
 interface ContratoVista {
   id: string
@@ -89,14 +90,16 @@ export async function GET(request: NextRequest) {
   if (!miembros || miembros.length === 0) return NextResponse.json({ empleados: [] })
 
   const miembroIds = miembros.map(m => m.id)
-  const usuarioIds = miembros.map(m => m.usuario_id).filter((u): u is string => !!u)
 
-  // ─── Perfiles ───
-  const { data: perfiles } = await admin
-    .from('perfiles')
-    .select('id, nombre, apellido')
-    .in('id', usuarioIds)
-  const mapaPerfiles = new Map((perfiles ?? []).map(p => [p.id, p as { id: string; nombre: string; apellido: string }]))
+  // ─── Identidad consolidada ───
+  // Cubre tanto miembros con perfil (cuenta de Flux) como sin cuenta
+  // (contacto-equipo). Antes este endpoint solo leía `perfiles` y mostraba
+  // "—" para los empleados sin cuenta. Ver src/lib/miembros/identidad.ts.
+  const identidades = await cargarIdentidadMiembros(
+    admin,
+    miembros.map(m => ({ id: m.id, usuario_id: m.usuario_id })),
+    empresaId,
+  )
 
   // ─── Contratos vigentes ───
   let queryContratos = admin
@@ -133,14 +136,14 @@ export async function GET(request: NextRequest) {
 
   const empleados: FilaEmpleado[] = miembros
     .map(m => {
-      const perfil = m.usuario_id ? mapaPerfiles.get(m.usuario_id) : null
+      const id = identidades.get(m.id)
       const contrato = mapaContratos.get(m.id) ?? null
       const sector = contrato?.sector_id ? mapaSectores.get(contrato.sector_id) ?? null : null
       const turno = contrato?.turno_id ? mapaTurnos.get(contrato.turno_id) ?? null : null
       return {
         miembro_id: m.id,
-        nombre: perfil?.nombre ?? '—',
-        apellido: perfil?.apellido ?? '',
+        nombre: id?.nombre ?? '—',
+        apellido: id?.apellido ?? '',
         numero_empleado: m.numero_empleado,
         contrato,
         sector,
