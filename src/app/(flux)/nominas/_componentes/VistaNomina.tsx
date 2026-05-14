@@ -1,9 +1,11 @@
 'use client'
 
 /**
- * VistaNomina — Pestaña de nómina dentro de Asistencias.
- * Selector de período, tabla de empleados con montos, adelantos, acciones.
- * Se usa en: ContenidoAsistencias.tsx (tab "Nómina")
+ * VistaNomina — Vista principal del módulo Nóminas.
+ * Selector de período + tabla de empleados con montos, adelantos y acciones.
+ * Se usa en: src/app/(flux)/nominas/page.tsx y (temporal, hasta PR 4b)
+ * en src/app/(flux)/asistencias/_componentes/ContenidoAsistencias.tsx
+ * como tab "Nómina".
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react'
@@ -191,7 +193,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
     setCargando(true)
     try {
-      const res = await fetch(`/api/asistencias/nomina?desde=${periodo.desde}&hasta=${periodo.hasta}`)
+      const res = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}`)
       const data = await res.json()
       const r = data.resultados || []
       const n = data.nombre_empresa || ''
@@ -312,7 +314,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                   // centrado en HOY, no en el período que el usuario estaba viendo en la lista.
                   const tipoEmpleado = tipoPeriodoPorFrecuencia(r.compensacion_frecuencia)
                   const p = calcularPeriodo(new Date(), tipoEmpleado)
-                  router.push(`/asistencias/nomina/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
+                  router.push(`/nominas/empleado/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
                 }}
                 className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group"
               >

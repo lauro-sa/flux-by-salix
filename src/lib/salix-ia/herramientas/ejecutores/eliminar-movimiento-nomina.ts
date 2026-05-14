@@ -56,7 +56,7 @@ export async function ejecutarEliminarMovimientoNomina(
       exito: false,
       error:
         'No se puede eliminar: el movimiento ya fue pagado y la nómina del periodo se cerró. ' +
-        'Si necesitás revertirlo, andá manualmente a {{link:/asistencias/nomina|Nómina}} y registrá un ajuste contable.',
+        'Si necesitás revertirlo, andá manualmente a {{link:/nominas|Nómina}} y registrá un ajuste contable.',
     }
   }
   if (mov.estado === 'cancelado') {

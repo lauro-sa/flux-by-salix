@@ -81,7 +81,7 @@ export async function ejecutarMiReciboPeriodo(
     datos = pagoExistente as PagoNominaRow
   } else {
     // Sin pago registrado todavía (típico del periodo en curso): calculamos
-    // los números en vivo con las mismas reglas que /api/asistencias/nomina,
+    // los números en vivo con las mismas reglas que /api/nominas,
     // simplificadas para el alcance personal.
     const { data: asist } = await ctx.admin
       .from('asistencias')

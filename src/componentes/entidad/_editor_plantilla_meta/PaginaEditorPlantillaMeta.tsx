@@ -302,7 +302,7 @@ export function PaginaEditorPlantillaMeta({
       // Período actual (asumimos quincenal: /api/miembros no expone frecuencia).
       const periodo = periodoActual(null, locale)
 
-      const resNomina = await fetch(`/api/asistencias/nomina?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+      const resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
       const dataNomina = await resNomina.json()
       const resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
         .find(r => r.miembro_id === miembroId)

@@ -83,7 +83,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
     const params = new URLSearchParams({ desde, hasta })
     if (empleadosSeleccionados?.length) params.set('empleados', empleadosSeleccionados.join(','))
     if (diasSeleccionados?.length) params.set('dias', diasSeleccionados.join(','))
-    fetch(`/api/asistencias/nomina?${params}`)
+    fetch(`/api/nominas?${params}`)
       .then(r => r.json())
       .then(data => {
         setResultados(data.resultados || [])

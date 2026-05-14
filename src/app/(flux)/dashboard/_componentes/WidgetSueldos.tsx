@@ -872,10 +872,10 @@ export function WidgetSueldos({ formatoMoneda }: Props) {
                     Tu empresa todavía no tiene pagos de nómina cargados. Cargá uno desde{' '}
                     <button
                       type="button"
-                      onClick={() => router.push('/asistencias/nomina')}
+                      onClick={() => router.push('/nominas')}
                       className="text-texto-marca hover:underline"
                     >
-                      Asistencias → Nómina
+                      Nóminas
                     </button>.
                   </p>
                   {datos._debug.muestra_global && datos._debug.muestra_global.length > 0 && (
@@ -913,7 +913,7 @@ export function WidgetSueldos({ formatoMoneda }: Props) {
       {/* Footer */}
       <button
         type="button"
-        onClick={() => router.push('/asistencias/nomina')}
+        onClick={() => router.push('/nominas')}
         className="w-full px-4 sm:px-5 py-2.5 border-t border-borde-sutil/60 text-xxs text-texto-terciario hover:text-texto-marca transition-colors inline-flex items-center justify-center gap-1"
       >
         Ver nómina detallada <ArrowRight className="size-3" />

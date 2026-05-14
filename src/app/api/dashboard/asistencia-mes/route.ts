@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Fallback: contactos del equipo (miembros sin cuenta Flux) ───
-    // Mismo patrón que /api/asistencias/nomina: si el miembro no tiene
+    // Mismo patrón que /api/nominas: si el miembro no tiene
     // usuario_id o el perfil viene vacío, usamos el contacto vinculado.
     let contactosEquipo: Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> = []
     if (miembroIds.length > 0) {

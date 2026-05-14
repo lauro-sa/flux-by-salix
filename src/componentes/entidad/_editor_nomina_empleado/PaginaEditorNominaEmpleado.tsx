@@ -31,7 +31,7 @@ import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
-import { ModalEnviarReciboNomina } from '@/app/(flux)/asistencias/_componentes/ModalEnviarReciboNomina'
+import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -322,7 +322,7 @@ export function PaginaEditorNominaEmpleado({
 
   // Registrar migaja dinámica con nombre del empleado
   useEffect(() => {
-    setMigajaDinamica(`/asistencias/nomina/${datosEmpleado.miembro_id}`, datosEmpleado.nombre)
+    setMigajaDinamica(`/nominas/empleado/${datosEmpleado.miembro_id}`, datosEmpleado.nombre)
   }, [datosEmpleado.miembro_id, datosEmpleado.nombre, setMigajaDinamica])
 
   // Cargar días de trabajo del miembro (no viene en el resultado de nómina)
@@ -377,11 +377,11 @@ export function PaginaEditorNominaEmpleado({
     // Sync URL sin re-ejecutar el page.tsx (evita flash de "Cargando...")
     if (typeof window !== 'undefined') {
       const nuevoQuery = `?desde=${nuevo.desde}&hasta=${nuevo.hasta}`
-      window.history.replaceState(null, '', `/asistencias/nomina/${datosEmpleado.miembro_id}${nuevoQuery}`)
+      window.history.replaceState(null, '', `/nominas/empleado/${datosEmpleado.miembro_id}${nuevoQuery}`)
     }
 
     try {
-      const res = await fetch(`/api/asistencias/nomina?desde=${nuevo.desde}&hasta=${nuevo.hasta}&empleados=${datosEmpleado.miembro_id}`)
+      const res = await fetch(`/api/nominas?desde=${nuevo.desde}&hasta=${nuevo.hasta}&empleados=${datosEmpleado.miembro_id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
       if (resultado) setDatosEmpleado(resultado)
@@ -395,7 +395,7 @@ export function PaginaEditorNominaEmpleado({
   const recargarDatos = useCallback(async () => {
     setRecalculando(true)
     try {
-      const res = await fetch(`/api/asistencias/nomina?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${datosEmpleado.miembro_id}`)
+      const res = await fetch(`/api/nominas?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${datosEmpleado.miembro_id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
       if (resultado) setDatosEmpleado(resultado)
@@ -434,11 +434,11 @@ export function PaginaEditorNominaEmpleado({
 
     // Sync URL sin disparar loading.tsx ni re-ejecutar el page
     if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `/asistencias/nomina/${id}?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}`)
+      window.history.replaceState(null, '', `/nominas/empleado/${id}?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}`)
     }
 
     try {
-      const res = await fetch(`/api/asistencias/nomina?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}&empleados=${id}`)
+      const res = await fetch(`/api/nominas?desde=${periodoDestino.desde}&hasta=${periodoDestino.hasta}&empleados=${id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === id)
       if (resultado) {
