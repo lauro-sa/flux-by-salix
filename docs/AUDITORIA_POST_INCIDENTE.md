@@ -59,23 +59,23 @@ Estos archivos fueron traídos desde `wip/recovery-multiples-chats` para destrab
 
 | Archivo | Tamaño | Estado |
 |---|---|---|
-| `src/lib/actividades-sync.ts` | 615 B | Stub |
+| `src/lib/actividades-sync.ts` | 615 B | **Implementado (Tanda 3, PR #23)** |
 | `src/lib/recorrido-plantilla-aviso.ts` | 1.3 KB | **Implementado (Tanda 1, PR #16)** |
 | `src/lib/sembrar-relevamiento-ot.ts` | 619 B | **Implementado (Tanda 1, PR #14)** |
 | `src/lib/sembrar-tareas-ot.ts` | 693 B | **Implementado (Tanda 1, PR #13)** |
-| `src/lib/whatsapp/modulos-plantilla.ts` | 3.4 KB | Stub (PR #9 lo reemplazó con versión real, verificá) |
-| `src/lib/presupuestos/enriquecer-listado.ts` | 542 B | Stub pass-through |
+| `src/lib/whatsapp/modulos-plantilla.ts` | 3.4 KB | Implementado vía PR #9 (versión real, no stub) |
+| `src/lib/presupuestos/enriquecer-listado.ts` | 542 B | **Implementado (Tanda 3, PR #24)** |
 | `src/lib/presupuestos/sincronizar-recursos-envio.ts` | 1.2 KB | **Implementado (Tanda 2, PR #20)** |
 | `src/componentes/entidad/_enviar_documento/BannerSincronizacion.tsx` | — | **Implementado (Tanda 2, PR #20)** |
 | `src/componentes/entidad/IndicadorGuardadoHeader.tsx` | — | **Implementado (Tanda 2, PR #18)** |
-| `src/componentes/entidad/PreviewSeccionExterna.tsx` | — | Stub |
+| `src/componentes/entidad/PreviewSeccionExterna.tsx` | — | **Implementado (Tanda 3, PR #25)** |
 | `src/app/(flux)/ordenes/_componentes/SeccionBitacoraOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
 | `src/app/(flux)/ordenes/_componentes/SeccionRelevamientoOT.tsx` | — | **Implementado (Tanda 1, PR #15)** |
 | `src/app/(flux)/presupuestos/_componentes/SelectorVisitaPresupuesto.tsx` | — | **Implementado (Tanda 2, PR #19)** |
 | `src/hooks/useTituloPestana.ts` | — | **Implementado (Tanda 2, PR #21)** |
 | `src/hooks/useIndicadorGuardado.tsx` | — | **Implementado (Tanda 2, PR #18)** |
 
-**Excepción**: `src/lib/sincronizar-cuotas-presupuesto.ts` y `src/lib/whatsapp/modulos-plantilla.ts` fueron mergeados con código real vía PR #9 y #10 — verificá que la versión actual no sea el stub.
+**Todos los stubs originales del incidente fueron implementados** en Tandas 1, 2 y 3 (PRs #13–#25). El archivo `whatsapp/modulos-plantilla.ts` quedó como versión real desde PR #9.
 
 ### 2.5 Bug visual confirmado por el usuario
 
