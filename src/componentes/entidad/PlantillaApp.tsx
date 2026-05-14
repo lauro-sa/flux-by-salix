@@ -264,7 +264,6 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   return (
     <div
       className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo safe-area-top' : ' safe-area'}`}
-      style={{ '--ancho-sidebar-actual': anchoSidebarReal } as React.CSSProperties}
     >
       <Sidebar
         colapsado={sidebarColapsado}
@@ -278,7 +277,16 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         onMenuActivoChange={setMenuContextualActivo}
       />
 
-      <div className="contenido-principal contenido-principal-layout flex flex-col">
+      {/* La variable `--ancho-sidebar-actual` se setea inline AQUÍ (no en el
+          ancestor) para que la regla CSS de `.contenido-principal` la lea del
+          mismo elemento que la consume. Antes vivía en `.layout-app`,
+          dependiendo de la propagación heredada — cuando una mutación DOM o
+          un re-render parcial cortaba la herencia, el margen quedaba en 0px
+          y el sidebar fijo tapaba el contenido (bug del 2026-05-13). */}
+      <div
+        className="contenido-principal contenido-principal-layout flex flex-col"
+        style={{ '--ancho-sidebar-actual': anchoSidebarReal } as React.CSSProperties}
+      >
         <Header
           onAbrirMenuMobil={() => setMobilMenuAbierto(true)}
           onToggleSidebar={toggleSidebar}
