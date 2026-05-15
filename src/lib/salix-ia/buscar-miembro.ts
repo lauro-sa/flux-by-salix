@@ -1,15 +1,14 @@
 /**
  * Busca miembros activos de la empresa que coincidan con un texto libre.
  *
- * Resuelve nombre desde dos fuentes:
- * - `perfiles` (miembros con cuenta Flux)
- * - `contactos` (miembros sin cuenta Flux, vinculados por `contactos.miembro_id`)
+ * Fuente del nombre: `contactos` (vinculados por `contactos.miembro_id`).
+ * Todo miembro tiene su contacto: lo garantizan los endpoints de creación
+ * (`/api/miembros/*`, `/api/empresas/crear`, `/api/invitaciones/aceptar`,
+ * `/api/auth/registro`) más el trigger SQL `trg_sync_perfil_a_contactos`
+ * que mantiene sincronizado el nombre/apellido cuando se edita el perfil.
  *
- * La búsqueda es insensible a acentos y mayúsculas. Cada palabra de la búsqueda
+ * Búsqueda insensible a acentos y mayúsculas. Cada palabra de la búsqueda
  * (>= 2 caracteres) debe estar contenida en el "nombre apellido" del miembro.
- *
- * Devuelve la lista de candidatos para que el llamador decida si pedir
- * desambiguación, error 0-matches, o usar el match único.
  */
 
 import type { SupabaseAdmin } from '@/tipos/salix-ia'
@@ -47,41 +46,24 @@ export async function buscarMiembroPorTexto(
 
   if (lista.length === 0) return []
 
-  const usuarioIds = lista.map(m => m.usuario_id).filter((u): u is string => !!u)
-  const miembroIds = lista.map(m => m.id)
-
-  const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
-  if (usuarioIds.length > 0) {
-    const { data: perfilesData } = await admin
-      .from('perfiles')
-      .select('id, nombre, apellido')
-      .in('id', usuarioIds)
-    for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
-      perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
-    }
-  }
-
-  // Contactos vinculados: cubre empleados sin cuenta Flux.
-  const contactosMap = new Map<string, { nombre: string; apellido: string | null }>()
   const { data: contactosData } = await admin
     .from('contactos')
     .select('miembro_id, nombre, apellido')
     .eq('empresa_id', empresa_id)
-    .in('miembro_id', miembroIds)
+    .in('miembro_id', lista.map(m => m.id))
+
+  const contactosMap = new Map<string, { nombre: string; apellido: string | null }>()
   for (const c of (contactosData || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
-    if (!c.miembro_id) continue
-    contactosMap.set(c.miembro_id, { nombre: c.nombre || '', apellido: c.apellido })
+    if (c.miembro_id) contactosMap.set(c.miembro_id, { nombre: c.nombre || '', apellido: c.apellido })
   }
 
   const palabrasNorm = palabras.map(normalizarBusqueda)
 
   return lista
     .map(m => {
-      const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
       const contacto = contactosMap.get(m.id)
-      const fuente = perfil && (perfil.nombre || perfil.apellido) ? perfil : contacto
-      const nombre = fuente?.nombre || ''
-      const apellido = fuente?.apellido || null
+      const nombre = contacto?.nombre || ''
+      const apellido = contacto?.apellido || null
       return {
         miembro_id: m.id,
         usuario_id: m.usuario_id,

@@ -91,38 +91,26 @@ export async function ejecutarCrearMovimientoNomina(
     frecuenciaCompensacion = candidatos[0].compensacion_frecuencia
   } else {
     // Tenemos id, busquemos el nombre + frecuencia para el mensaje final.
-    // Si el miembro no tiene perfil (sin cuenta Flux), tomamos el nombre del
-    // contacto vinculado.
+    // Nombre desde contactos (todo miembro tiene su contacto vinculado).
     const { data: m } = await ctx.admin
       .from('miembros')
-      .select('id, usuario_id, compensacion_frecuencia')
+      .select('id, compensacion_frecuencia')
       .eq('id', miembro_id)
       .eq('empresa_id', ctx.empresa_id)
       .maybeSingle()
     if (!m) {
       return { exito: false, error: 'El miembro indicado no existe en esta empresa.' }
     }
-    const mTyped = m as { id: string; usuario_id: string | null; compensacion_frecuencia: string | null }
-    frecuenciaCompensacion = mTyped.compensacion_frecuencia
-    if (mTyped.usuario_id) {
-      const { data: perf } = await ctx.admin
-        .from('perfiles')
-        .select('nombre, apellido')
-        .eq('id', mTyped.usuario_id)
-        .maybeSingle()
-      const perfTyped = perf as { nombre: string; apellido: string | null } | null
-      nombreMiembro = [perfTyped?.nombre, perfTyped?.apellido].filter(Boolean).join(' ')
-    }
-    if (!nombreMiembro) {
-      const { data: contacto } = await ctx.admin
-        .from('contactos')
-        .select('nombre, apellido')
-        .eq('empresa_id', ctx.empresa_id)
-        .eq('miembro_id', miembro_id)
-        .maybeSingle()
-      const cTyped = contacto as { nombre: string | null; apellido: string | null } | null
-      nombreMiembro = [cTyped?.nombre, cTyped?.apellido].filter(Boolean).join(' ')
-    }
+    frecuenciaCompensacion = (m as { compensacion_frecuencia: string | null }).compensacion_frecuencia
+
+    const { data: contacto } = await ctx.admin
+      .from('contactos')
+      .select('nombre, apellido')
+      .eq('empresa_id', ctx.empresa_id)
+      .eq('miembro_id', miembro_id)
+      .maybeSingle()
+    const cTyped = contacto as { nombre: string | null; apellido: string | null } | null
+    nombreMiembro = [cTyped?.nombre, cTyped?.apellido].filter(Boolean).join(' ')
   }
 
   // ─── Validar y normalizar parámetros ───
