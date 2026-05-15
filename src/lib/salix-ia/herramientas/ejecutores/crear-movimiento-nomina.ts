@@ -17,7 +17,7 @@ import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { verificarPermiso } from '@/lib/permisos-servidor'
 import type { Rol } from '@/tipos/miembro'
 import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
-import { normalizarBusqueda } from '@/lib/validaciones'
+import { buscarMiembroPorTexto } from '@/lib/salix-ia/buscar-miembro'
 
 type Frecuencia = 'semanal' | 'quincenal' | 'mensual'
 
@@ -74,56 +74,25 @@ export async function ejecutarCrearMovimientoNomina(
   let frecuenciaCompensacion: string | null = null
 
   if (!miembro_id && busquedaMiembro) {
-    const palabras = busquedaMiembro.split(/\s+/).filter(p => p.length >= 2)
-    // miembros + perfiles en dos queries (no hay FK declarada entre ambas; el
-    // patrón "perfiles:perfil_id(...)" no funciona porque la columna no existe).
-    const { data: miembros } = await ctx.admin
-      .from('miembros')
-      .select('id, usuario_id, compensacion_frecuencia')
-      .eq('empresa_id', ctx.empresa_id)
-      .eq('activo', true)
-      .limit(200)
-
-    const lista = (miembros || []) as Array<{ id: string; usuario_id: string | null; compensacion_frecuencia: string | null }>
-    const usuarioIds = lista.map(m => m.usuario_id).filter(Boolean) as string[]
-
-    const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
-    if (usuarioIds.length > 0) {
-      const { data: perfilesData } = await ctx.admin
-        .from('perfiles')
-        .select('id, nombre, apellido')
-        .in('id', usuarioIds)
-      for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
-        perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
-      }
-    }
-
-    const palabrasNorm = palabras.map(normalizarBusqueda)
-    const candidatos = lista
-      .map(m => ({
-        miembro: m,
-        perfil: m.usuario_id ? perfilesMap.get(m.usuario_id) : null,
-      }))
-      .filter(c => {
-        const nombreCompleto = normalizarBusqueda(`${c.perfil?.nombre || ''} ${c.perfil?.apellido || ''}`)
-        return palabrasNorm.every(p => nombreCompleto.includes(p))
-      })
+    const candidatos = await buscarMiembroPorTexto(ctx.admin, ctx.empresa_id, busquedaMiembro)
 
     if (candidatos.length === 0) {
       return { exito: false, error: `No encontré un empleado con "${busquedaMiembro}".` }
     }
     if (candidatos.length > 1) {
-      const nombres = candidatos.map(c => `${c.perfil?.nombre} ${c.perfil?.apellido || ''}`).join(', ')
+      const nombres = candidatos.map(c => c.nombre_completo).join(', ')
       return {
         exito: false,
         error: `Encontré varios empleados con "${busquedaMiembro}": ${nombres}. Especificá nombre y apellido.`,
       }
     }
-    miembro_id = candidatos[0].miembro.id
-    nombreMiembro = [candidatos[0].perfil?.nombre, candidatos[0].perfil?.apellido].filter(Boolean).join(' ')
-    frecuenciaCompensacion = candidatos[0].miembro.compensacion_frecuencia
+    miembro_id = candidatos[0].miembro_id
+    nombreMiembro = candidatos[0].nombre_completo
+    frecuenciaCompensacion = candidatos[0].compensacion_frecuencia
   } else {
-    // Tenemos id, busquemos el nombre + frecuencia para el mensaje final
+    // Tenemos id, busquemos el nombre + frecuencia para el mensaje final.
+    // Si el miembro no tiene perfil (sin cuenta Flux), tomamos el nombre del
+    // contacto vinculado.
     const { data: m } = await ctx.admin
       .from('miembros')
       .select('id, usuario_id, compensacion_frecuencia')
@@ -143,6 +112,16 @@ export async function ejecutarCrearMovimientoNomina(
         .maybeSingle()
       const perfTyped = perf as { nombre: string; apellido: string | null } | null
       nombreMiembro = [perfTyped?.nombre, perfTyped?.apellido].filter(Boolean).join(' ')
+    }
+    if (!nombreMiembro) {
+      const { data: contacto } = await ctx.admin
+        .from('contactos')
+        .select('nombre, apellido')
+        .eq('empresa_id', ctx.empresa_id)
+        .eq('miembro_id', miembro_id)
+        .maybeSingle()
+      const cTyped = contacto as { nombre: string | null; apellido: string | null } | null
+      nombreMiembro = [cTyped?.nombre, cTyped?.apellido].filter(Boolean).join(' ')
     }
   }
 
