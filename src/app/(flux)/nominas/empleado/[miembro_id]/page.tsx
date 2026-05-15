@@ -40,7 +40,7 @@ import {
   type ResultadoNomina,
   type EmpleadoLista,
 } from '@/componentes/entidad/_editor_nomina_empleado/PaginaEditorNominaEmpleado'
-import type { ContratoLaboral, ConceptoNomina } from '@/tipos/nominas'
+import type { ContratoLaboral, ConceptoNomina, ConceptoContratoConDetalle } from '@/tipos/nominas'
 
 // ────────────────────────────────────────────────────────────────
 // Helpers de período (mantenidos del archivo original)
@@ -158,7 +158,13 @@ function ContenidoFicha() {
   const [sectores, setSectores] = useState<SectorOpcion[]>([])
   const [turnos, setTurnos] = useState<OpcionRef[]>([])
   const [conceptosCatalogo, setConceptosCatalogo] = useState<ConceptoNomina[]>([])
-  const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
+  /**
+   * Asignaciones completas del contrato vigente (vigentes + cerradas).
+   * Las vigentes son las que tienen `fecha_baja === null`. Se usan
+   * para mostrar la lista en "Contrato vigente" y derivar
+   * `conceptosHeredados` (preselección al renovar).
+   */
+  const [conceptosAsignados, setConceptosAsignados] = useState<ConceptoContratoConDetalle[]>([])
   /**
    * `primeraCarga` controla si se muestra el spinner full-screen
    * (que reemplaza header + tabs). Solo se muestra en la primera
@@ -233,20 +239,20 @@ function ContenidoFicha() {
       setTurnos((turnosRes.data ?? []) as OpcionRef[])
       setConceptosCatalogo((conceptosRes.conceptos ?? []) as ConceptoNomina[])
 
-      // Cargar conceptos heredados del contrato vigente (si existe)
-      // para preseleccionarlos en el EditorContrato.
+      // Cargar las asignaciones del contrato vigente (si existe). Se
+      // usan para mostrar la lista en "Contrato vigente" y para
+      // preseleccionar conceptos al renovar/cambiar condiciones.
       const vigente = contratosLista.find(c => c.vigente)
       if (vigente) {
         try {
           const conceptosVigenteRes = await fetch(`/api/nominas/contratos/${vigente.id}/conceptos`)
           const conceptosVigenteData = await conceptosVigenteRes.json()
-          const asig = (conceptosVigenteData.asignaciones ?? []) as { concepto_id: string; activo: boolean }[]
-          setConceptosHeredados(asig.filter(a => a.activo).map(a => a.concepto_id))
+          setConceptosAsignados((conceptosVigenteData.asignaciones ?? []) as ConceptoContratoConDetalle[])
         } catch {
-          setConceptosHeredados([])
+          setConceptosAsignados([])
         }
       } else {
-        setConceptosHeredados([])
+        setConceptosAsignados([])
       }
     } catch (err) {
       console.error('[ficha] error', err)
@@ -260,6 +266,20 @@ function ContenidoFicha() {
 
   const sectoresMap = useMemo(() => new Map(sectores.map(s => [s.id, s.nombre])), [sectores])
   const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
+  /**
+   * IDs de conceptos vigentes hoy (para preselección al renovar el
+   * contrato). Derivado de `conceptosAsignados`: filas con
+   * `fecha_baja === null` son las activas.
+   */
+  const conceptosHeredados = useMemo(
+    () => conceptosAsignados.filter(a => a.fecha_baja === null).map(a => a.concepto_id),
+    [conceptosAsignados],
+  )
+  /** Asignaciones vigentes hoy (las que se muestran en Contrato vigente). */
+  const conceptosVigentes = useMemo(
+    () => conceptosAsignados.filter(a => a.fecha_baja === null),
+    [conceptosAsignados],
+  )
   /**
    * Mapa sector_id → turno_id del turno predeterminado del sector.
    * Sirve para resolver el "turno efectivo" del contrato: si el contrato
@@ -464,6 +484,7 @@ function ContenidoFicha() {
             sectoresMap={sectoresMap}
             turnosMap={turnosMap}
             sectorTurnoMap={sectorTurnoMap}
+            conceptosVigentes={conceptosVigentes}
             puedeEditar={puedeEditar}
             onNuevoContrato={() => {
               setEditorModoCambio(false)
@@ -474,6 +495,7 @@ function ContenidoFicha() {
               setEditorAbierto(true)
             }}
             onEditarContrato={() => setModalEditarAbierto(true)}
+            onIrAConceptos={() => setTab('conceptos')}
             onContratoActualizado={cargarTodo}
           />
         </div>

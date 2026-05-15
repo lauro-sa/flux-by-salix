@@ -278,7 +278,16 @@ export interface ConceptoNomina {
   actualizado_por: string | null
 }
 
-/** N:M entre contratos y conceptos. */
+/**
+ * N:M entre contratos y conceptos con vigencia temporal.
+ *
+ * Una asignación está vigente en un período si:
+ *   `fecha_alta <= periodo_fin AND (fecha_baja IS NULL OR fecha_baja >= periodo_inicio)`
+ *
+ * El campo `activo` se mantiene por compatibilidad y lo sincroniza un
+ * trigger de la BD: `activo = (fecha_baja IS NULL)`. Para lógica
+ * nueva, usar siempre `fecha_baja IS NULL` (= vigente hoy).
+ */
 export interface ConceptoContrato {
   id: string
   empresa_id: string
@@ -286,6 +295,11 @@ export interface ConceptoContrato {
   concepto_id: string
   /** Si presente, anula `ConceptoNomina.valor` para este contrato. */
   valor_override: number | null
+  /** Desde cuándo se aplica este concepto. */
+  fecha_alta: string
+  /** Desde cuándo deja de aplicarse. NULL = vigente. */
+  fecha_baja: string | null
+  /** Derivado: `fecha_baja IS NULL`. Mantenido por trigger. */
   activo: boolean
   creado_en: string
   creado_por: string | null

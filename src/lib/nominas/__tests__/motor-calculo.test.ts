@@ -82,6 +82,23 @@ function concepto(p: Partial<ConceptoNomina> = {}): ConceptoNomina {
   }
 }
 
+/**
+ * Helper para armar un `ConceptoContratoInput` con vigencia por
+ * defecto bien amplia (alta en 2020, sin baja). Los tests que quieran
+ * probar vigencia por fecha pueden sobrescribir `fecha_alta` y/o
+ * `fecha_baja` puntualmente.
+ */
+function asignacion(p: Partial<ConceptoContratoInput> = {}): ConceptoContratoInput {
+  return {
+    concepto_id: 'concepto-1',
+    valor_override: null,
+    fecha_alta: '2020-01-01',
+    fecha_baja: null,
+    concepto: concepto(),
+    ...p,
+  }
+}
+
 function asistenciaTrabajada(fecha: string, opts: Partial<AsistenciaInput> = {}): AsistenciaInput {
   return {
     fecha,
@@ -281,11 +298,10 @@ describe('calcularReciboPuro — casos del plan', () => {
 
   it('CASO 4: presentismo se aplica cuando no hay ausencias', () => {
     const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
-    const presentismo: ConceptoContratoInput = {
+    const presentismo = asignacion({
       concepto_id: concepto().id,
-      valor_override: null,
       concepto: concepto({ nombre: 'Presentismo', condicion_jsonb: { tipo: 'sin_ausencias' } }),
-    }
+    })
     const r = calcularReciboPuro(datosBase({
       contrato: c,
       conceptos_contrato: [presentismo],
@@ -302,11 +318,10 @@ describe('calcularReciboPuro — casos del plan', () => {
 
   it('CASO 5: presentismo NO se aplica si hubo ausencia', () => {
     const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
-    const presentismo: ConceptoContratoInput = {
+    const presentismo = asignacion({
       concepto_id: concepto().id,
-      valor_override: null,
       concepto: concepto({ nombre: 'Presentismo', condicion_jsonb: { tipo: 'sin_ausencias' } }),
-    }
+    })
     const asistencias: AsistenciaInput[] = [
       ...Array.from({ length: 21 }, (_, i) => asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`)),
       { fecha: '2026-04-22', estado: 'ausente', tipo: null, hora_entrada: null, hora_salida: null, inicio_almuerzo: null, fin_almuerzo: null, salida_particular: null, vuelta_particular: null },
@@ -397,11 +412,10 @@ describe('calcularReciboPuro — casos del plan', () => {
 
   it('CASO extra: concepto con valor_override usa el override, no el del catálogo', () => {
     const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
-    const cc: ConceptoContratoInput = {
-      concepto_id: 'concepto-1',
+    const cc = asignacion({
       valor_override: 25, // 25% en vez del 10% default
       concepto: concepto({ valor: 10, condicion_jsonb: { tipo: 'siempre' } }),
-    }
+    })
     const r = calcularReciboPuro(datosBase({ contrato: c, conceptos_contrato: [cc] }))
     expect(r.conceptos_aplicados[0].valor).toBe(25)
     expect(r.conceptos_aplicados[0].monto).toBe(100000) // 25% de 400k
@@ -409,14 +423,95 @@ describe('calcularReciboPuro — casos del plan', () => {
 
   it('CASO extra: concepto no automático va a sugerencias', () => {
     const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
-    const cc: ConceptoContratoInput = {
-      concepto_id: 'concepto-1',
-      valor_override: null,
+    const cc = asignacion({
       concepto: concepto({ automatico: false }),
-    }
+    })
     const r = calcularReciboPuro(datosBase({ contrato: c, conceptos_contrato: [cc] }))
     expect(r.conceptos_aplicados).toHaveLength(0)
     expect(r.conceptos_sugeridos).toHaveLength(1)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Vigencia temporal de conceptos (sql/091)
+// ════════════════════════════════════════════════════════════════
+
+describe('calcularReciboPuro — vigencia de conceptos', () => {
+  it('concepto con fecha_alta posterior al período NO se aplica', () => {
+    // Período abril 2026, concepto dado de alta el 2026-05-01.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const cc = asignacion({
+      fecha_alta: '2026-05-01',
+      concepto: concepto({ condicion_jsonb: { tipo: 'siempre' } }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [cc],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+  })
+
+  it('concepto con fecha_baja anterior al período NO se aplica', () => {
+    // Período abril 2026, concepto cerrado el 2026-03-15.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const cc = asignacion({
+      fecha_alta: '2025-01-01',
+      fecha_baja: '2026-03-15',
+      concepto: concepto({ condicion_jsonb: { tipo: 'siempre' } }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [cc],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+  })
+
+  it('concepto vigente que solapa parcialmente con el período SÍ se aplica', () => {
+    // Período abril 2026, concepto dado de alta el 2026-04-15 (mitad del período).
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const cc = asignacion({
+      fecha_alta: '2026-04-15',
+      fecha_baja: null,
+      concepto: concepto({ condicion_jsonb: { tipo: 'siempre' } }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [cc],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    // El motor no proratea por días dentro del período — si está
+    // vigente en algún momento del período, se aplica completo. Esto
+    // es intencional: el motor ya proratea el básico por días reales,
+    // los conceptos como Presentismo o Antigüedad son montos
+    // mensuales fijos que no se reparten.
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].monto).toBe(40000) // 10% de 400k
+  })
+
+  it('concepto cerrado dentro del período SÍ se aplica (snapshot histórico)', () => {
+    // Período abril 2026, concepto cerrado el 2026-04-20 — solapa.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const cc = asignacion({
+      fecha_alta: '2025-01-01',
+      fecha_baja: '2026-04-20',
+      concepto: concepto({ condicion_jsonb: { tipo: 'siempre' } }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [cc],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(1)
   })
 })
 

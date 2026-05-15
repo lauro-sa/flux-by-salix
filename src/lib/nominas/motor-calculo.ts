@@ -80,10 +80,22 @@ export interface CuotaInput {
   estado: string
 }
 
-/** Concepto asignado al contrato + detalle del catálogo. */
+/**
+ * Concepto asignado al contrato + detalle del catálogo.
+ *
+ * `fecha_alta` y `fecha_baja` permiten que el motor filtre conceptos
+ * por vigencia dentro del período: una asignación se aplica si
+ *   `fecha_alta <= periodo_fin AND (fecha_baja IS NULL OR fecha_baja >= periodo_inicio)`.
+ *
+ * El caller (cargador desde BD) ya filtra por vigencia, pero el core
+ * vuelve a chequear como red de seguridad — así los tests pueden
+ * pasar arrays con cualquier vigencia sin ensuciar fixtures.
+ */
 export interface ConceptoContratoInput {
   concepto_id: string
   valor_override: number | string | null
+  fecha_alta: string
+  fecha_baja: string | null
   concepto: ConceptoNomina
 }
 
@@ -188,6 +200,15 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   for (const cc of datos.conceptos_contrato) {
     const c = cc.concepto
     if (!c.activo) continue
+
+    // Red de seguridad: aunque el caller debería filtrar por vigencia
+    // antes de pasarnos los conceptos, re-chequeamos contra el período
+    // para que los tests puedan pasar arrays sin pre-filtrar y para
+    // proteger contra cambios futuros del cargador.
+    const vigenteEnPeriodo =
+      cc.fecha_alta <= datos.periodo_fin &&
+      (cc.fecha_baja === null || cc.fecha_baja >= datos.periodo_inicio)
+    if (!vigenteEnPeriodo) continue
 
     const valor = cc.valor_override !== null && cc.valor_override !== undefined
       ? Number(cc.valor_override)
@@ -691,19 +712,28 @@ export async function calcularReciboDesdeBD(
     .lte('fecha', periodoFin)
 
   // ─── Conceptos del contrato + catálogo ───
+  // Filtramos por vigencia EN EL PERÍODO (no por `activo`): una
+  // asignación se aplica si su rango [fecha_alta, fecha_baja] solapa
+  // con [periodoInicio, periodoFin]. Esto permite que un concepto
+  // que se dio de alta a mitad de período aparezca en este recibo, y
+  // que uno dado de baja siga apareciendo en recibos del período en
+  // que estuvo vigente (snapshot histórico).
   let conceptos_contrato: ConceptoContratoInput[] = []
   if (contrato) {
     const { data: cc } = await admin
       .from('conceptos_contrato')
-      .select('concepto_id, valor_override, activo, concepto:conceptos_nomina(*)')
+      .select('concepto_id, valor_override, fecha_alta, fecha_baja, concepto:conceptos_nomina(*)')
       .eq('empresa_id', empresaId)
       .eq('contrato_id', contrato.id)
-      .eq('activo', true)
+      .lte('fecha_alta', periodoFin)
+      .or(`fecha_baja.is.null,fecha_baja.gte.${periodoInicio}`)
     // El select anidado con Supabase devuelve `concepto` como objeto cuando
     // existe la relación, pero TS lo infiere como array. Normalizamos.
     conceptos_contrato = ((cc ?? []) as unknown as ConceptoContratoConDetalle[]).map(c => ({
       concepto_id: c.concepto_id,
       valor_override: c.valor_override,
+      fecha_alta: c.fecha_alta,
+      fecha_baja: c.fecha_baja,
       concepto: c.concepto as unknown as ConceptoNomina,
     }))
   }
