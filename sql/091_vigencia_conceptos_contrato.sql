@@ -45,6 +45,20 @@ UPDATE conceptos_contrato
    AND fecha_baja IS NULL
    AND creado_en IS NOT NULL;
 
+-- Alinear `fecha_alta` con `contrato.fecha_inicio` cuando quedó
+-- posterior. Sin esto, una asignación inicial creada el mismo día
+-- que el contrato (caso normal en el flujo de POST) heredaría como
+-- fecha_alta el momento del INSERT, no el inicio del contrato — lo
+-- que rompe la lectura "Activo desde el inicio del contrato" en la
+-- UI y, en contratos retroactivos, puede dejar fecha_alta posterior
+-- a fecha_baja (inválido). El endpoint de POST ya escribe el valor
+-- correcto, esto es solo para datos pre-migración.
+UPDATE conceptos_contrato cc
+   SET fecha_alta = cl.fecha_inicio
+  FROM contratos_laborales cl
+ WHERE cc.contrato_id = cl.id
+   AND cc.fecha_alta > cl.fecha_inicio;
+
 -- Backfill complementario: si una asignación quedó vigente
 -- (fecha_baja IS NULL) pero su contrato ya está terminado, cerramos
 -- la asignación con la `fecha_fin` del contrato. Es coherente con la
