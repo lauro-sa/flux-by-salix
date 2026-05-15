@@ -323,9 +323,10 @@ function ModalEditarTurno({ turno, onCerrar, onGuardado }: PropsModalEditarTurno
             />
             <Input
               tipo="number"
-              etiqueta="Tolerancia (min)"
+              etiqueta="Tolerancia por fichaje (min)"
               value={String(tolerancia)}
               onChange={e => setTolerancia(Math.max(0, Number(e.target.value) || 0))}
+              ayuda="Minutos de gracia para llegada o salida sin marcar tardanza."
             />
           </div>
           <div className="mt-3 flex items-center justify-between rounded-card border border-borde-sutil bg-superficie-tarjeta px-3 py-2">
