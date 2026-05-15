@@ -151,6 +151,13 @@ function ContenidoFicha() {
   const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [editorAbierto, setEditorAbierto] = useState(false)
+  /**
+   * Cuando es true, el EditorContrato se abre en modo "Cambiar
+   * condiciones": cierra el vigente con motivo `cambio_condiciones` y
+   * muestra un aviso explicativo. Cuando es false (default), abre como
+   * "Nuevo contrato" sin motivo de cierre.
+   */
+  const [editorModoCambio, setEditorModoCambio] = useState(false)
 
   const cargarTodo = useCallback(async () => {
     if (!miembroId) return
@@ -230,6 +237,14 @@ function ContenidoFicha() {
    * operador necesita ver.
    */
   const contratoMostrado = contratoVigente ?? contratos[0] ?? null
+
+  /**
+   * Contratos anteriores (cerrados) que NO son el `contratoMostrado`.
+   * Aparecen en el listado al pie de la pestaña "Contrato vigente",
+   * dando contexto histórico sin necesidad de saltar a la pestaña
+   * "Historial". Ya vienen ordenados por fecha_inicio desc desde el API.
+   */
+  const contratosAnteriores = contratos.filter(c => c.id !== contratoMostrado?.id)
 
   // ─── Header data ───
   const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : '...'
@@ -321,11 +336,21 @@ function ContenidoFicha() {
       {tab === 'contrato' && (
         <ContratoVigente
           contrato={contratoMostrado}
+          contratosAnteriores={contratosAnteriores}
           sectorNombre={sectorMostrado}
           turnoNombre={turnoMostrado}
+          sectoresMap={sectoresMap}
+          turnosMap={turnosMap}
           puedeEditar={puedeEditar}
-          onNuevoContrato={() => setEditorAbierto(true)}
-          onContratoTerminado={cargarTodo}
+          onNuevoContrato={() => {
+            setEditorModoCambio(false)
+            setEditorAbierto(true)
+          }}
+          onCambiarCondiciones={() => {
+            setEditorModoCambio(true)
+            setEditorAbierto(true)
+          }}
+          onContratoActualizado={cargarTodo}
         />
       )}
 
@@ -390,7 +415,7 @@ function ContenidoFicha() {
         )
       )}
 
-      {/* ─── Modal nuevo contrato ─── */}
+      {/* ─── Modal nuevo contrato / cambiar condiciones ─── */}
       <EditorContrato
         abierto={editorAbierto}
         miembroId={miembroId}
@@ -399,9 +424,18 @@ function ContenidoFicha() {
         turnos={turnos}
         conceptos={conceptosCatalogo}
         conceptosHeredados={conceptosHeredados}
-        onCerrar={() => setEditorAbierto(false)}
+        motivoFinAlCerrar={editorModoCambio ? 'cambio_condiciones' : undefined}
+        tituloOverride={editorModoCambio ? 'Cambiar condiciones del contrato' : undefined}
+        aviso={editorModoCambio
+          ? 'Al guardar, el contrato actual se cerrará el día anterior a la nueva fecha de inicio con motivo "Cambio de condiciones", y se abrirá un contrato nuevo con los datos que cargues acá. El empleado sigue activo.'
+          : undefined}
+        onCerrar={() => {
+          setEditorAbierto(false)
+          setEditorModoCambio(false)
+        }}
         onCreado={async () => {
           await cargarTodo()
+          setEditorModoCambio(false)
           setTab('contrato')
         }}
       />

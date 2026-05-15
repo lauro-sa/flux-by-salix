@@ -30,6 +30,8 @@ const MOTIVOS_VALIDOS: MotivoFinContrato[] = [
   'abandono',
   'jubilacion',
   'fallecimiento',
+  'cambio_condiciones',
+  'renovacion',
   'otro',
 ]
 

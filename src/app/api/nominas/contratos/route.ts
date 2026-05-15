@@ -28,6 +28,7 @@ import type {
   ModalidadCalculo,
   FrecuenciaPago,
   RegimenContrato,
+  MotivoFinContrato,
 } from '@/tipos/nominas'
 
 // ════════════════════════════════════════════════════════════════
@@ -104,7 +105,30 @@ interface PayloadCrearContrato {
    * Si viene `[]` explícito, se crea sin conceptos.
    */
   conceptos?: { concepto_id: string; valor_override?: number | null }[]
+  /**
+   * Motivo con el que se cierra el contrato vigente anterior (si existe).
+   * Permite distinguir entre un cambio de condiciones, una renovación,
+   * un fin de plazo, etc. Sin este dato el cierre queda sin motivo,
+   * comportamiento histórico previo a esta extensión.
+   */
+  motivo_fin?: MotivoFinContrato | null
+  /** Nota libre sobre el cierre del contrato anterior. */
+  nota_fin?: string | null
 }
+
+const MOTIVOS_FIN: MotivoFinContrato[] = [
+  'renuncia',
+  'despido_con_causa',
+  'despido_sin_causa',
+  'fin_plazo',
+  'mutuo_acuerdo',
+  'abandono',
+  'jubilacion',
+  'fallecimiento',
+  'cambio_condiciones',
+  'renovacion',
+  'otro',
+]
 
 const CONDICIONES: CondicionContrato[] = ['tiempo_indeterminado', 'plazo_fijo', 'temporal', 'pasantia', 'otro']
 const MODALIDADES: ModalidadCalculo[] = ['por_hora', 'por_dia', 'fijo_semanal', 'fijo_quincenal', 'fijo_mensual']
@@ -141,6 +165,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'monto_base debe ser un número ≥ 0' }, { status: 400 })
   }
   const regimen: RegimenContrato = body.regimen && REGIMENES.includes(body.regimen) ? body.regimen : 'informal'
+
+  // Validar motivo_fin si vino en el payload. Si llega vacío/null
+  // queda como antes (se cierra sin motivo). "otro" exige nota_fin.
+  let motivoFin: MotivoFinContrato | null = null
+  if (body.motivo_fin) {
+    if (!MOTIVOS_FIN.includes(body.motivo_fin)) {
+      return NextResponse.json({ error: 'motivo_fin inválido' }, { status: 400 })
+    }
+    if (body.motivo_fin === 'otro' && !body.nota_fin?.trim()) {
+      return NextResponse.json({ error: 'Motivo "otro" requiere una nota.' }, { status: 400 })
+    }
+    motivoFin = body.motivo_fin
+  }
+  const notaFin = body.nota_fin?.trim() || null
 
   const admin = crearClienteAdmin()
 
@@ -181,6 +219,8 @@ export async function POST(request: NextRequest) {
       .update({
         vigente: false,
         fecha_fin: fechaFinAnterior,
+        motivo_fin: motivoFin,
+        nota_fin: notaFin,
         actualizado_por: user.id,
       })
       .eq('id', vigentePrev.id)

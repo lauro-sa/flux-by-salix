@@ -47,6 +47,11 @@ export type MotivoFinContrato =
   | 'abandono'
   | 'jubilacion'
   | 'fallecimiento'
+  // Motivos "no salida" — el empleado sigue activo, solo cambia el
+  // contrato que rige sus condiciones. Se usan al abrir un contrato
+  // nuevo que sucede al actual.
+  | 'cambio_condiciones'
+  | 'renovacion'
   | 'otro'
 
 /**

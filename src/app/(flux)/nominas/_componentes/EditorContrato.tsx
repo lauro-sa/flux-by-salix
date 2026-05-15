@@ -39,7 +39,9 @@ import type {
   ModalidadCalculo,
   FrecuenciaPago,
   RegimenContrato,
+  MotivoFinContrato,
 } from '@/tipos/nominas'
+import { Info } from 'lucide-react'
 
 interface OpcionRef {
   id: string
@@ -62,6 +64,17 @@ interface Props {
    * ver y modificar la herencia antes de confirmar.
    */
   conceptosHeredados?: string[]
+  /**
+   * Si se provee, el contrato vigente anterior se cerrará con este motivo.
+   * Usado por el flujo "Cambiar condiciones" para distinguirlo de una
+   * salida real del empleado. Si se omite, el cierre queda sin motivo
+   * (comportamiento clásico de "Nuevo contrato").
+   */
+  motivoFinAlCerrar?: MotivoFinContrato
+  /** Override del título del modal (default: "Crear contrato" o "Nuevo contrato (cierra el vigente)"). */
+  tituloOverride?: string
+  /** Mensaje informativo destacado arriba del form (opcional). */
+  aviso?: string
   onCerrar: () => void
   /** Se llama después de un POST exitoso con el contrato creado. */
   onCreado: (nuevo: ContratoLaboral) => void
@@ -106,7 +119,9 @@ function hoyIso(): string {
 }
 
 export function EditorContrato({
-  abierto, miembroId, contratoActual, sectores, turnos, conceptos = [], conceptosHeredados = [], onCerrar, onCreado,
+  abierto, miembroId, contratoActual, sectores, turnos, conceptos = [], conceptosHeredados = [],
+  motivoFinAlCerrar, tituloOverride, aviso,
+  onCerrar, onCreado,
 }: Props) {
   const toast = useToast()
 
@@ -186,6 +201,7 @@ export function EditorContrato({
           motivo_cambio: motivoCambio || null,
           notas: notas || null,
           conceptos: conceptosSeleccionados.map(id => ({ concepto_id: id })),
+          motivo_fin: motivoFinAlCerrar ?? null,
         }),
       })
       const data = await res.json()
@@ -211,12 +227,20 @@ export function EditorContrato({
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={contratoActual ? 'Nuevo contrato (cierra el vigente)' : 'Crear contrato'}
+      titulo={tituloOverride ?? (contratoActual ? 'Nuevo contrato (cierra el vigente)' : 'Crear contrato')}
       tamano="5xl"
       accionPrimaria={{ etiqueta: 'Crear contrato', onClick: guardar, cargando: guardando }}
       accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
     >
       <div className="space-y-5">
+
+        {/* Aviso informativo (cambiar condiciones, etc.) */}
+        {aviso && (
+          <div className="rounded-card border border-texto-marca/30 bg-texto-marca/10 p-3 flex items-start gap-2">
+            <Info size={14} className="text-texto-marca shrink-0 mt-0.5" />
+            <p className="text-xs text-texto-secundario">{aviso}</p>
+          </div>
+        )}
 
         {/* ─── Sección Identidad (ancho completo) ─── */}
         <section>
