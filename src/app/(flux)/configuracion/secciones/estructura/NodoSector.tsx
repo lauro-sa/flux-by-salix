@@ -14,6 +14,7 @@ import {
   type MiembroSimple,
   type AsignacionMiembroSector,
 } from './tipos'
+import { resumirDias, type TurnoLaboral } from './TabTurnos'
 
 interface PropsNodoSector {
   sector: SectorConHijos
@@ -22,8 +23,8 @@ interface PropsNodoSector {
   miembrosPorSector: Map<string, number>
   miembros: MiembroSimple[]
   asignaciones: AsignacionMiembroSector[]
-  /** Map id→nombre de los turnos de la empresa, para mostrar el turno asignado al sector. */
-  turnosMap?: Map<string, string>
+  /** Map id→turno completo, para mostrar nombre + horario del turno asignado al sector. */
+  turnosMap?: Map<string, TurnoLaboral>
   onEditar: (sector: Sector) => void
   onEliminar: (sector: Sector) => void
   onAgregarHijo: (padreId: string) => void
@@ -53,11 +54,11 @@ export function NodoSector({
   const jefe = sector.jefe_id ? miembros.find(m => m.usuario_id === sector.jefe_id) : null
   const personasSector = mostrarPersonas ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros) : []
   const IconoSector = obtenerIcono(sector.icono || 'Building')
-  // Nombre del turno predeterminado del sector. Aparece como chip al
-  // lado del jefe. Si no hay turno asignado no se muestra nada — la
-  // ausencia se entiende como "hereda del general o el miembro tiene
-  // uno propio".
-  const turnoNombre = sector.turno_id && turnosMap ? turnosMap.get(sector.turno_id) ?? null : null
+  // Turno predeterminado del sector. Mostramos nombre + resumen del
+  // horario ("Taller · L-V 09:00-18:00") como chip al lado del jefe.
+  // Si no hay turno asignado, no aparece chip.
+  const turno = sector.turno_id && turnosMap ? turnosMap.get(sector.turno_id) ?? null : null
+  const turnoHorario = turno ? resumirDias(turno.dias) : null
 
   return (
     <div className="relative">
@@ -87,8 +88,8 @@ export function NodoSector({
 
       {/* Nodo */}
       <div
-        className="group relative flex items-center gap-3 py-2.5 pr-3 my-0.5 rounded-card hover:bg-superficie-hover/60 transition-colors"
-        style={{ paddingLeft: nivel * 32 + 6 }}
+        className="group relative flex items-center gap-3 py-3 pr-3 my-1 mx-1 rounded-lg hover:bg-superficie-hover/60 transition-colors"
+        style={{ paddingLeft: nivel * 32 + 10 }}
       >
         <Boton
           variante="fantasma"
@@ -132,22 +133,28 @@ export function NodoSector({
         </Boton>
 
         <div className="flex items-center gap-2 ml-1">
-          {turnoNombre && (
+          {turno && (
             <div
-              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
+              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
               title="Turno predeterminado del sector"
             >
-              <Clock size={10} />
-              <span className="truncate max-w-32">{turnoNombre}</span>
+              <Clock size={11} className="text-texto-terciario shrink-0" />
+              <span className="truncate max-w-28 text-texto-primario">{turno.nombre}</span>
+              {turnoHorario && (
+                <>
+                  <span className="text-texto-terciario">·</span>
+                  <span className="text-texto-terciario truncate">{turnoHorario}</span>
+                </>
+              )}
             </div>
           )}
           {jefe && (
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
               style={{ backgroundColor: sector.color + '20', color: sector.color }}
               title="Jefe del sector"
             >
-              <Crown size={10} />
+              <Crown size={11} />
               <span className="truncate max-w-24">{jefe.nombre} {jefe.apellido}</span>
             </div>
           )}

@@ -129,7 +129,12 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     }
 
     setCargando(false)
-  }, [empresa, supabase])
+  // `supabase` se crea con `crearClienteNavegador()` en cada render pero
+  // es estable a nivel funcional (mismo singleton interno). Lo omitimos
+  // de las deps para que `cargarDatos` no se invalide en cada render —
+  // si quedaba en deps, cualquier set-state hacía un re-fetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa?.id])
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
@@ -137,8 +142,11 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
 
   const arbol = useMemo(() => construirArbol(sectores), [sectores])
   const miembrosPorSector = useMemo(() => contarMiembrosPorSector(asignaciones), [asignaciones])
-  /** Map id→nombre de turnos para mostrar el turno asignado en cada nodo del organigrama. */
-  const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
+  /**
+   * Map id→turno completo, para que NodoSector pueda mostrar nombre +
+   * resumen del horario sin necesidad de re-fetchear.
+   */
+  const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t])), [turnos])
 
   const totalAsignados = new Set(asignaciones.map(a => a.miembro_id)).size
   const sinAsignar = miembros.length - totalAsignados
@@ -452,6 +460,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
       {tab === 'turnos' && empresa && (
         <TabTurnos
           sectores={sectores}
+          turnos={turnos}
           onCambio={cargarDatos}
         />
       )}

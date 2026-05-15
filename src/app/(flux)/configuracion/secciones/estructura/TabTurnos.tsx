@@ -19,7 +19,7 @@
  * /asistencias/configuracion/turnos.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Clock, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -57,7 +57,13 @@ export interface TurnoLaboral {
 
 interface PropsTabTurnos {
   sectores: Sector[]
-  /** Refresca el padre cuando hay cambios (para re-cargar sectores que cambien de turno). */
+  /**
+   * Turnos cargados por el padre (SeccionEstructura). Recibirlos como
+   * prop evita que TabTurnos haga su propio fetch cada vez que se monta
+   * — al cambiar de subtab y volver, antes parpadeaba la lista.
+   */
+  turnos: TurnoLaboral[]
+  /** Refresca el padre cuando hay cambios (para re-cargar sectores y turnos). */
   onCambio?: () => void
 }
 
@@ -82,7 +88,7 @@ const DIAS_DEFAULT: DiasConfig = {
 }
 
 /** Resumen compacto: "L-V · 09:00 a 18:00" o "Sin días activos". */
-function resumirDias(dias: DiasConfig): string {
+export function resumirDias(dias: DiasConfig): string {
   const activos = DIAS_SEMANA.filter(d => dias[d.clave]?.activo)
   if (activos.length === 0) return 'Sin días activos'
   const primero = dias[activos[0].clave]
@@ -93,28 +99,10 @@ function resumirDias(dias: DiasConfig): string {
     : `${etiquetaDias} · horarios variables`
 }
 
-export function TabTurnos({ sectores, onCambio }: PropsTabTurnos) {
+export function TabTurnos({ sectores, turnos, onCambio }: PropsTabTurnos) {
   const toast = useToast()
-  const [turnos, setTurnos] = useState<TurnoLaboral[]>([])
-  const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<TurnoLaboral | 'nuevo' | null>(null)
   const [confirmarEliminar, setConfirmarEliminar] = useState<TurnoLaboral | null>(null)
-
-  // ─── Carga ───
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    try {
-      const res = await fetch('/api/asistencias/turnos')
-      const data = await res.json()
-      setTurnos(data.turnos || [])
-    } catch {
-      toast.mostrar('error', 'No se pudieron cargar los turnos')
-    } finally {
-      setCargando(false)
-    }
-  }, [toast])
-
-  useEffect(() => { cargar() }, [cargar])
 
   // ─── Eliminar ───
   const handleEliminar = async () => {
@@ -128,7 +116,6 @@ export function TabTurnos({ sectores, onCambio }: PropsTabTurnos) {
       if (!res.ok) throw new Error()
       toast.mostrar('exito', 'Turno eliminado')
       setConfirmarEliminar(null)
-      await cargar()
       onCambio?.()
     } catch {
       toast.mostrar('error', 'No se pudo eliminar el turno')
@@ -145,9 +132,7 @@ export function TabTurnos({ sectores, onCambio }: PropsTabTurnos) {
       </p>
 
       <div className="space-y-2">
-        {cargando ? (
-          <p className="text-sm text-texto-terciario py-8 text-center">Cargando...</p>
-        ) : turnos.length === 0 ? (
+        {turnos.length === 0 ? (
           <div className="rounded-card border border-dashed border-borde-sutil p-8 text-center">
             <Clock size={32} strokeWidth={1.5} className="mx-auto text-texto-terciario mb-3" />
             <p className="text-sm text-texto-secundario mb-1">Sin turnos creados</p>
@@ -230,9 +215,8 @@ export function TabTurnos({ sectores, onCambio }: PropsTabTurnos) {
         <ModalEditarTurno
           turno={editando === 'nuevo' ? null : editando}
           onCerrar={() => setEditando(null)}
-          onGuardado={async () => {
+          onGuardado={() => {
             setEditando(null)
-            await cargar()
             onCambio?.()
           }}
         />
