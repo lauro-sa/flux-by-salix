@@ -135,16 +135,17 @@ export async function ejecutarConsultarMovimientosNomina(
   const ids = movimientos.map((m: { id: string }) => m.id)
   const miembrosIds = Array.from(new Set(movimientos.map((m: { miembro_id: string }) => m.miembro_id)))
 
-  const [{ data: cuotas }, { data: miembrosData }] = await Promise.all([
+  const [{ data: cuotas }, { data: contactosData }] = await Promise.all([
     ctx.admin
       .from('adelantos_cuotas')
       .select('adelanto_id, numero_cuota, monto_cuota, fecha_programada, fecha_descontada, estado')
       .in('adelanto_id', ids)
       .order('numero_cuota', { ascending: true }),
     ctx.admin
-      .from('miembros')
-      .select('id, usuario_id')
-      .in('id', miembrosIds),
+      .from('contactos')
+      .select('miembro_id, nombre, apellido')
+      .eq('empresa_id', ctx.empresa_id)
+      .in('miembro_id', miembrosIds),
   ])
 
   const cuotasPorAdelanto = new Map<string, CuotaVista[]>()
@@ -160,36 +161,11 @@ export async function ejecutarConsultarMovimientosNomina(
     })
   }
 
-  // Nombres por miembro: perfiles (con cuenta Flux) + contactos vinculados
-  // (sin cuenta Flux) en queries paralelas.
-  const miembrosList = (miembrosData || []) as Array<{ id: string; usuario_id: string | null }>
-  const usuarioIdsList = miembrosList.map(m => m.usuario_id).filter(Boolean) as string[]
-
-  const [perfilesRes, contactosRes] = await Promise.all([
-    usuarioIdsList.length > 0
-      ? ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIdsList)
-      : Promise.resolve({ data: [] as Array<{ id: string; nombre: string; apellido: string | null }> }),
-    ctx.admin
-      .from('contactos')
-      .select('miembro_id, nombre, apellido')
-      .eq('empresa_id', ctx.empresa_id)
-      .in('miembro_id', miembrosList.map(m => m.id)),
-  ])
-
-  const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
-  for (const p of (perfilesRes.data || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
-    perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
-  }
-  const contactosMap = new Map<string, { nombre: string; apellido: string | null }>()
-  for (const c of (contactosRes.data || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
-    if (c.miembro_id) contactosMap.set(c.miembro_id, { nombre: c.nombre || '', apellido: c.apellido })
-  }
-
+  // Nombre por miembro desde contactos: todo miembro tiene su contacto.
   const nombresPorMiembro = new Map<string, string>()
-  for (const m of miembrosList) {
-    const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
-    const fuente = perfil && (perfil.nombre || perfil.apellido) ? perfil : contactosMap.get(m.id)
-    nombresPorMiembro.set(m.id, [fuente?.nombre, fuente?.apellido].filter(Boolean).join(' '))
+  for (const c of (contactosData || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
+    if (!c.miembro_id) continue
+    nombresPorMiembro.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
   }
 
   // ─── Calcular es_editable + motivo por cada movimiento ───
