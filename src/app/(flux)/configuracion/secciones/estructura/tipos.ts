@@ -1,6 +1,6 @@
 /**
  * Tipos y utilidades puras del módulo de estructura organizacional.
- * Se usan desde SeccionEstructura, NodoSector y TabHorarios.
+ * Se usan desde SeccionEstructura, NodoSector y TabTurnos.
  */
 
 export interface Sector {
@@ -13,20 +13,13 @@ export interface Sector {
   padre_id: string | null
   jefe_id: string | null
   es_predefinido: boolean
+  /** Turno predeterminado del sector (FK a turnos_laborales). */
+  turno_id?: string | null
 }
 
 /** Sector enriquecido con sus hijos ya resueltos (árbol recursivo). */
 export interface SectorConHijos extends Sector {
   hijos: SectorConHijos[]
-}
-
-export interface Horario {
-  id: string
-  sector_id: string | null
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
-  activo: boolean
 }
 
 export interface Puesto {

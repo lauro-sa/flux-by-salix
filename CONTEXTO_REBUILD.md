@@ -1522,6 +1522,27 @@ período de tiempo:
 | `sector_id`, `turno_id` | FK a sectores y turnos_laborales |
 | `regimen` | `informal` \| `monotributo` \| `relacion_dependencia` (Fase 3) |
 | `pdf_url`, `motivo_cambio`, `notas` | Documentos + trazabilidad |
+| `motivo_fin`, `nota_fin` | Solo cuando el contrato se cierra explícitamente. `motivo_fin` ∈ `renuncia` \| `despido_con_causa` \| `despido_sin_causa` \| `fin_plazo` \| `mutuo_acuerdo` \| `abandono` \| `jubilacion` \| `fallecimiento` \| `otro`. Constraint enforza que solo existe cuando `vigente=false` |
+
+**Tabla `licencias_contrato`** — período donde el empleado no trabaja pero
+el contrato sigue vigente (médica, maternidad, suspensión, vacaciones, etc.).
+
+| Columna | Descripción |
+|---|---|
+| `contrato_id` | FK al contrato (cascade). `miembro_id` se denormaliza para queries por miembro |
+| `tipo` | Lista cerrada: `medica`, `maternidad`, `paternidad`, `estudio`, `examen`, `duelo`, `matrimonio`, `mudanza`, `vacaciones`, `suspension_disciplinaria`, `suspension_economica`, `otro` |
+| `fecha_inicio`, `fecha_fin` | `fecha_fin` nullable = licencia abierta (en curso sin fin conocido) |
+| `goce_sueldo` | Si `true` los días siguen pagos; si `false` el motor los descuenta del recibo |
+| `notas` | Texto libre (obligatorio cuando `tipo='otro'`, enforced en endpoint) |
+
+Constraint `licencias_sin_superposicion` (EXCLUDE GiST con daterange) impide
+dos licencias solapadas para el mismo contrato.
+
+**Tabla `configuracion_nomina_empresa`** — además de los defaults de envío
+(canal+plantilla correo/WhatsApp), agrega `mostrar_empleados_terminados`
+(bool, default false): si true, los empleados con último contrato cerrado
+antes del período aparecen en Liquidaciones en gris con $0. Si false, se
+ocultan (default — caso día a día).
 
 **Tabla `conceptos_nomina`** — catálogo de premios y descuentos por
 empresa. Reglas reusables: presentismo, premio puntualidad, antigüedad,
@@ -1577,8 +1598,20 @@ Al grabar un pago, el motor toma cuotas pendientes con `fecha_programada
 2. **`calcularReciboDesdeBD(admin, params)`** — wrapper que carga
    datos de Supabase y delega al core puro.
 
-Tests: `src/lib/nominas/__tests__/motor-calculo.test.ts` (25 casos,
-cubre los 7 escenarios obligatorios del plan + helpers + edge cases).
+El motor también respeta el **estado del contrato** y las **licencias**:
+- Si el contrato tiene `fecha_fin < periodo_inicio`: `monto_base_calculado=0`
+  + advertencia "Contrato terminado el X" en el resultado.
+- Si terminó *dentro* del período: calcula prorrateado pero emite advertencia
+  para revisión manual.
+- Por cada licencia que solape con el período: si `goce_sueldo=true` solo
+  informa; si `false` descuenta proporcional (modalidades fijas: monto_base /
+  días_naturales × días_en_periodo; `por_dia`: monto_base × días).
+- Modalidad `por_hora` con licencia sin goce: emite advertencia y deja en
+  cero porque el motor no conoce las horas que hubiese trabajado.
+
+Tests: `src/lib/nominas/__tests__/motor-calculo.test.ts` (33 casos, cubre
+los 7 escenarios obligatorios del plan + helpers + edge cases + 8 nuevos
+para contrato terminado y licencias).
 
 ### 24.3 Identidad del empleado
 
@@ -1601,8 +1634,10 @@ necesiten mostrar nombre deben usar este helper, no leer `perfiles` directo.
 |---|---|---|
 | `GET /api/nominas?desde&hasta` | `nomina:ver_*` | Cálculo legacy de todos los empleados del período (todavía consumido por la UI del editor). |
 | `GET/POST /api/nominas/contratos` | `nomina:editar` para POST | Listar/crear contratos. POST cierra vigente anterior y crea nuevo + opcionalmente hereda conceptos. |
-| `PATCH /api/nominas/contratos/[id]` | `nomina:editar` | Whitelist: solo `motivo_cambio`, `notas`, `pdf_url`. Cambios económicos requieren un contrato nuevo. |
+| `PATCH /api/nominas/contratos/[id]` | `nomina:editar` | Dos modos: `{accion: 'terminar', fecha_fin, motivo_fin, nota_fin?}` cierra el contrato; sin `accion` edita whitelist (`motivo_cambio`, `notas`, `pdf_url`). Cambios económicos requieren un contrato nuevo. |
 | `GET/PUT /api/nominas/contratos/[id]/conceptos` | `nomina:editar` para PUT | Listar/sobrescribir conceptos asignados al contrato (batch idempotente). |
+| `GET/POST /api/nominas/contratos/[id]/licencias` | `nomina:editar` para POST | Listar/crear licencias del contrato. POST falla con 409 si la nueva licencia se superpone (EXCLUDE de la BD). |
+| `PATCH/DELETE /api/nominas/licencias/[id]` | `nomina:editar` | Editar/cerrar/eliminar una licencia. PATCH con `fecha_fin` cierra una licencia abierta. |
 | `GET /api/nominas/empleados` | `nomina:ver_*` | Listado de empleados con su contrato vigente (sector, turno, modalidad, monto). |
 | `GET/POST/PATCH/DELETE /api/nominas/conceptos[/id]` | `nomina:editar` para mutaciones | CRUD del catálogo de conceptos. |
 | `POST /api/nominas/calcular` | `nomina:ver_*` | Preview del recibo con el motor (no persiste). |
@@ -1616,14 +1651,23 @@ necesiten mostrar nombre deben usar este helper, no leer `perfiles` directo.
 - `/nominas` (`src/app/(flux)/nominas/page.tsx`) — 4 tabs:
   *Liquidaciones*, *Adelantos* (placeholder), *Empleados*, *Configuración*.
   Botón "Guía de uso" abre `/documentacion/nominas`.
-- `/nominas/empleado/[miembro_id]` — ficha laboral con 5 tabs:
-  *Contrato vigente*, *Historial*, *Liquidaciones*, *Adelantos*, *Conceptos*.
+- `/nominas/empleado/[miembro_id]` — ficha laboral con 6 tabs:
+  *Contrato vigente*, *Historial*, *Liquidaciones*, *Adelantos*, *Licencias*,
+  *Conceptos*.
 - `PaginaEditorNominaEmpleado` (legacy) — editor del recibo por período.
   Botón "Pagar" llama a `POST /api/nominas/pagos`. Botón "Descargar PDF"
-  por cada pago.
+  por cada pago. Muestra banner persistente cuando el último contrato
+  del miembro está terminado.
 - `EditorContrato`, `ContratoVigente`, `TimelineContratos`,
   `EditorConcepto`, `VistaConfiguracion`, `AsignadorConceptosContrato`
   — componentes del flujo de configuración + contratos + conceptos.
+- `ModalTerminarContrato` — cierra el contrato vigente con fecha + motivo.
+  `ContratoVigente` muestra estado "Terminado" en rojo cuando aplica.
+- `SeccionLicencias` + `ModalLicencia` — CRUD de licencias por contrato.
+- `VistaEmpleados` con segmented *Activos / Terminados / Todos* y badge
+  "Terminado" en cada fila.
+- `VistaNomina` pinta los empleados terminados en gris con badge cuando
+  el setting `mostrar_empleados_terminados` está activo.
 - `ModalEnviarReciboNomina` — envío masivo correo/WhatsApp con preview.
 
 ### 24.6 PDF del recibo

@@ -199,22 +199,30 @@ export async function ejecutarCrearMovimientoNomina(
     return { exito: false, error: `Error generando cuotas: ${errCuotas.message}` }
   }
 
-  // ─── Total de cuotas del período actual del empleado ───
-  // Sumamos las cuotas pendientes del empleado cuya fecha_programada caiga
-  // dentro del período de recibo en curso. Le da contexto al usuario sobre
-  // cuánto se descontará en el próximo recibo, no solo este movimiento.
+  // ─── Totales del período actual del empleado (separados por tipo) ───
+  // Inner join con adelantos_nomina para saber si cada cuota corresponde a
+  // un adelanto o a un descuento. Sumamos solo cuotas pendientes cuya
+  // fecha_programada cae dentro del período de recibo en curso.
   const periodo = periodoActual(frecuenciaCompensacion)
   const { data: cuotasPeriodo } = await ctx.admin
     .from('adelantos_cuotas')
-    .select('monto_cuota, estado')
+    .select('monto_cuota, adelantos_nomina!inner(tipo, eliminado)')
     .eq('empresa_id', ctx.empresa_id)
     .eq('miembro_id', miembro_id)
     .eq('estado', 'pendiente')
+    .eq('adelantos_nomina.eliminado', false)
     .gte('fecha_programada', periodo.desde)
     .lte('fecha_programada', periodo.hasta)
 
-  const totalPeriodo = ((cuotasPeriodo || []) as Array<{ monto_cuota: string }>)
-    .reduce((acc, c) => acc + parseFloat(c.monto_cuota), 0)
+  let totalAdelantos = 0
+  let totalDescuentos = 0
+  for (const c of (cuotasPeriodo || []) as Array<{ monto_cuota: string; adelantos_nomina: { tipo: string } | Array<{ tipo: string }> }>) {
+    const padre = Array.isArray(c.adelantos_nomina) ? c.adelantos_nomina[0] : c.adelantos_nomina
+    const monto = parseFloat(c.monto_cuota)
+    if (padre?.tipo === 'descuento') totalDescuentos += monto
+    else totalAdelantos += monto
+  }
+  const totalPeriodo = totalAdelantos + totalDescuentos
 
   // ─── Mensaje al usuario ───
   const tipoTexto = tipo === 'adelanto' ? 'Adelanto' : 'Descuento'
@@ -223,7 +231,21 @@ export async function ejecutarCrearMovimientoNomina(
     ? ''
     : `\n${cuotas} cuotas ${frecuencia}es desde ${formatoFechaCortaPeriodo(fechaInicioDescuento)}`
   const descLinea = descripcion ? `\n${descripcion}` : ''
-  const totalLinea = `\n\nTotal de ${tipo === 'descuento' ? 'descuentos' : 'adelantos'} del período (${periodo.etiqueta}): *${formatoMoneda(totalPeriodo)}*`
+
+  // Bloque de totales: si solo hay de un tipo, una sola línea; si hay de
+  // ambos, mostramos desglose y total combinado.
+  let bloqueTotales = ''
+  if (totalAdelantos > 0 && totalDescuentos > 0) {
+    bloqueTotales =
+      `\n\nPeríodo ${periodo.etiqueta}:` +
+      `\n• Adelantos: *${formatoMoneda(totalAdelantos)}*` +
+      `\n• Descuentos: *${formatoMoneda(totalDescuentos)}*` +
+      `\n• Total a descontar del recibo: *${formatoMoneda(totalPeriodo)}*`
+  } else if (totalDescuentos > 0) {
+    bloqueTotales = `\n\nTotal de descuentos del período (${periodo.etiqueta}): *${formatoMoneda(totalDescuentos)}*`
+  } else {
+    bloqueTotales = `\n\nTotal de adelantos del período (${periodo.etiqueta}): *${formatoMoneda(totalAdelantos)}*`
+  }
 
   return {
     exito: true,
@@ -235,6 +257,8 @@ export async function ejecutarCrearMovimientoNomina(
       cuotas,
       frecuencia,
       total_periodo: totalPeriodo,
+      total_adelantos: totalAdelantos,
+      total_descuentos: totalDescuentos,
       periodo_etiqueta: periodo.etiqueta,
     },
     mensaje_usuario:
@@ -244,7 +268,7 @@ export async function ejecutarCrearMovimientoNomina(
       descLinea +
       `\n\n*${formatoMoneda(monto)}*` +
       cuotasTexto +
-      totalLinea +
+      bloqueTotales +
       `\n\nRegistrado. Si querés cambiar algo, decime.`,
   }
 }

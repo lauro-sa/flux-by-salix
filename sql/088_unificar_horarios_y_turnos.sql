@@ -1,0 +1,31 @@
+-- 088_unificar_horarios_y_turnos.sql
+--
+-- Unifica el modelo de "horarios" y "turnos" en una sola entidad:
+-- `turnos_laborales`. Antes de este PR había duplicación:
+--
+--   - `horarios`: tabla con (empresa_id, sector_id, dia_semana,
+--     hora_inicio, hora_fin). Editable desde Configuración → Estructura
+--     → Horarios. NO la consumía ningún módulo de negocio (asistencias,
+--     nómina, fichaje) — era información visual sin efecto real.
+--
+--   - `turnos_laborales`: tabla con plantillas de horario por empresa
+--     (nombre + JSONB con desde/hasta por día). SÍ se usa para
+--     validación de fichajes, snapshot en recibos de nómina, y FK
+--     desde miembros/sectores/contratos.
+--
+-- Mantener dos tablas con el mismo propósito conceptual confundía al
+-- operador ("¿el horario va en Configuración o el turno va en Asistencias?")
+-- y no aportaba valor — los `horarios` quedaban huérfanos.
+--
+-- Cambios:
+--   1. DROP de la tabla `horarios`. Los 7 registros existentes no se
+--      consumen en ningún lado; el usuario recrea los horarios como
+--      turnos desde la UI unificada.
+--   2. Se mantiene `sectores.turno_id` (ya existe). La UI del editor
+--      de sector ahora permite asignar el turno predeterminado del
+--      sector desde ahí (en vez del dropdown raro de "Horario de").
+--
+-- Ver también: PLAN_MODULO_NOMINAS.md y la sección "Estructura" en
+-- CLAUDE.md.
+
+DROP TABLE IF EXISTS horarios CASCADE;

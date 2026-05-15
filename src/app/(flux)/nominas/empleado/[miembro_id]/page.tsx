@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag } from 'lucide-react'
+import { ChevronLeft, ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
@@ -32,7 +32,9 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { ContratoVigente } from '@/app/(flux)/nominas/_componentes/ContratoVigente'
 import { TimelineContratos } from '@/app/(flux)/nominas/_componentes/TimelineContratos'
 import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato'
+import { ModalEditarContrato } from '@/app/(flux)/nominas/_componentes/ModalEditarContrato'
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
+import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
@@ -86,7 +88,7 @@ export default function PaginaFichaLaboral() {
 // Tipos auxiliares
 // ────────────────────────────────────────────────────────────────
 
-type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'conceptos'
+type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos'
 
 interface PerfilMini {
   nombre: string
@@ -125,6 +127,7 @@ function ContenidoFicha() {
     { clave: 'historial',     etiqueta: 'Historial',        icono: <History size={15} /> },
     { clave: 'liquidaciones', etiqueta: 'Liquidaciones',    icono: <Banknote size={15} /> },
     { clave: 'adelantos',     etiqueta: 'Adelantos',        icono: <Wallet size={15} /> },
+    { clave: 'licencias',     etiqueta: 'Licencias',        icono: <CalendarOff size={15} /> },
     { clave: 'conceptos',     etiqueta: 'Conceptos',        icono: <Tag size={15} /> },
   ]
   const [tab, setTab] = useState<TabClave>(
@@ -149,6 +152,14 @@ function ContenidoFicha() {
   const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [editorAbierto, setEditorAbierto] = useState(false)
+  /**
+   * Cuando es true, el EditorContrato se abre en modo "Cambiar
+   * condiciones": cierra el vigente con motivo `cambio_condiciones` y
+   * muestra un aviso explicativo. Cuando es false (default), abre como
+   * "Nuevo contrato" sin motivo de cierre.
+   */
+  const [editorModoCambio, setEditorModoCambio] = useState(false)
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false)
 
   const cargarTodo = useCallback(async () => {
     if (!miembroId) return
@@ -218,11 +229,29 @@ function ContenidoFicha() {
   const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
 
   const contratoVigente = contratos.find(c => c.vigente) ?? null
+  /**
+   * Contrato a mostrar en la ficha: el vigente si existe, sino el último
+   * (que estará terminado). El API ya devuelve contratos ordenados con
+   * `vigente` primero y luego por `fecha_inicio` desc, así que
+   * `contratos[0]` es el más reciente cuando no hay vigente. Esto evita
+   * que la pestaña "Contrato vigente" se muestre vacía cuando en
+   * realidad hay un contrato terminado con motivo y fecha que el
+   * operador necesita ver.
+   */
+  const contratoMostrado = contratoVigente ?? contratos[0] ?? null
+
+  /**
+   * Contratos anteriores (cerrados) que NO son el `contratoMostrado`.
+   * Aparecen en el listado al pie de la pestaña "Contrato vigente",
+   * dando contexto histórico sin necesidad de saltar a la pestaña
+   * "Historial". Ya vienen ordenados por fecha_inicio desc desde el API.
+   */
+  const contratosAnteriores = contratos.filter(c => c.id !== contratoMostrado?.id)
 
   // ─── Header data ───
   const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : '...'
-  const sectorVigente = contratoVigente?.sector_id ? sectoresMap.get(contratoVigente.sector_id) ?? null : null
-  const turnoVigente = contratoVigente?.turno_id ? turnosMap.get(contratoVigente.turno_id) ?? null : null
+  const sectorMostrado = contratoMostrado?.sector_id ? sectoresMap.get(contratoMostrado.sector_id) ?? null : null
+  const turnoMostrado = contratoMostrado?.turno_id ? turnosMap.get(contratoMostrado.turno_id) ?? null : null
 
   if (cargando) {
     return (
@@ -278,12 +307,19 @@ function ContenidoFicha() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold text-texto-primario">{nombreCompleto}</h1>
-              {contratoVigente ? (
+              <h1 className="text-lg font-semibold text-texto-primario flex items-center gap-2 flex-wrap">
+                <span className="truncate">{nombreCompleto}</span>
+                {contratoMostrado && !contratoMostrado.vigente && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-insignia-peligro/15 text-insignia-peligro">
+                    Contrato terminado
+                  </span>
+                )}
+              </h1>
+              {contratoMostrado ? (
                 <p className="text-xs text-texto-terciario mt-1">
-                  {sectorVigente ?? '—'} · {turnoVigente ?? 'Sin turno'} ·{' '}
-                  {modalidadCorta(contratoVigente.modalidad_calculo)} ·{' '}
-                  {formatearMonto(contratoVigente.monto_base)} {frecuenciaCorta(contratoVigente.frecuencia_pago)}
+                  {sectorMostrado ?? '—'} · {turnoMostrado ?? 'Sin turno'} ·{' '}
+                  {modalidadCorta(contratoMostrado.modalidad_calculo)} ·{' '}
+                  {formatearMonto(contratoMostrado.monto_base)} {frecuenciaCorta(contratoMostrado.frecuencia_pago)}
                 </p>
               ) : (
                 <p className="text-xs text-texto-terciario mt-1">Sin contrato laboral cargado</p>
@@ -301,11 +337,23 @@ function ContenidoFicha() {
       {/* ─── Contenido por tab ─── */}
       {tab === 'contrato' && (
         <ContratoVigente
-          contrato={contratoVigente}
-          sectorNombre={sectorVigente}
-          turnoNombre={turnoVigente}
+          contrato={contratoMostrado}
+          contratosAnteriores={contratosAnteriores}
+          sectorNombre={sectorMostrado}
+          turnoNombre={turnoMostrado}
+          sectoresMap={sectoresMap}
+          turnosMap={turnosMap}
           puedeEditar={puedeEditar}
-          onNuevoContrato={() => setEditorAbierto(true)}
+          onNuevoContrato={() => {
+            setEditorModoCambio(false)
+            setEditorAbierto(true)
+          }}
+          onCambiarCondiciones={() => {
+            setEditorModoCambio(true)
+            setEditorAbierto(true)
+          }}
+          onEditarContrato={() => setModalEditarAbierto(true)}
+          onContratoActualizado={cargarTodo}
         />
       )}
 
@@ -325,6 +373,26 @@ function ContenidoFicha() {
           titulo="Adelantos — en construcción"
           descripcion="Pronto vas a poder ver y administrar los adelantos vigentes de este empleado desde acá. Por ahora se gestionan en la liquidación."
         />
+      )}
+
+      {tab === 'licencias' && (
+        contratoVigente ? (
+          <SeccionLicencias
+            contratoId={contratoVigente.id}
+            puedeEditar={puedeEditar}
+          />
+        ) : (
+          <EstadoVacio
+            icono={<CalendarOff size={48} strokeWidth={1.5} />}
+            titulo="Sin contrato vigente"
+            descripcion="Las licencias se registran sobre un contrato. Primero creá un contrato laboral desde la pestaña Contrato vigente."
+            accion={puedeEditar ? (
+              <Boton icono={<FileText size={14} />} onClick={() => { setTab('contrato'); setEditorAbierto(true) }}>
+                Crear contrato
+              </Boton>
+            ) : undefined}
+          />
+        )
       )}
 
       {tab === 'conceptos' && (
@@ -350,7 +418,7 @@ function ContenidoFicha() {
         )
       )}
 
-      {/* ─── Modal nuevo contrato ─── */}
+      {/* ─── Modal nuevo contrato / cambiar condiciones ─── */}
       <EditorContrato
         abierto={editorAbierto}
         miembroId={miembroId}
@@ -359,12 +427,35 @@ function ContenidoFicha() {
         turnos={turnos}
         conceptos={conceptosCatalogo}
         conceptosHeredados={conceptosHeredados}
-        onCerrar={() => setEditorAbierto(false)}
+        motivoFinAlCerrar={editorModoCambio ? 'cambio_condiciones' : undefined}
+        tituloOverride={editorModoCambio ? 'Cambiar condiciones del contrato' : undefined}
+        aviso={editorModoCambio
+          ? 'Al guardar, el contrato actual se cerrará el día anterior a la nueva fecha de inicio con motivo "Cambio de condiciones", y se abrirá un contrato nuevo con los datos que cargues acá. El empleado sigue activo.'
+          : undefined}
+        onCerrar={() => {
+          setEditorAbierto(false)
+          setEditorModoCambio(false)
+        }}
         onCreado={async () => {
           await cargarTodo()
+          setEditorModoCambio(false)
           setTab('contrato')
         }}
       />
+
+      {/* ─── Modal editar contrato vigente (corrección sin historial) ─── */}
+      {modalEditarAbierto && contratoVigente && (
+        <ModalEditarContrato
+          contrato={contratoVigente}
+          sectores={sectores}
+          turnos={turnos}
+          onCerrar={() => setModalEditarAbierto(false)}
+          onActualizado={async () => {
+            setModalEditarAbierto(false)
+            await cargarTodo()
+          }}
+        />
+      )}
     </div>
   )
 }

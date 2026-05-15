@@ -25,17 +25,16 @@ import {
   type Sector,
   type Puesto,
   type MiembroSimple,
-  type Horario,
   type AsignacionMiembroSector,
 } from './estructura/tipos'
 import { NodoSector } from './estructura/NodoSector'
-import { TabHorarios } from './estructura/TabHorarios'
+import { TabTurnos, type TurnoLaboral } from './estructura/TabTurnos'
 
 /**
- * SeccionEstructura — Gestión de sectores (organigrama jerárquico), puestos y horarios laborales.
- * Sectores: árbol con jerarquía padre-hijo, jefes, miembros asignados.
+ * SeccionEstructura — Gestión de sectores (organigrama jerárquico), puestos y turnos laborales.
+ * Sectores: árbol con jerarquía padre-hijo, jefes, miembros asignados, turno predeterminado.
  * Puestos: catálogo vinculable a sectores específicos o globales.
- * Horarios: por empresa o por sector.
+ * Turnos: plantillas de horario L-D que se asignan al sector (y por cascada a sus miembros).
  */
 
 const COLORES_SECTOR = PALETA_COLORES_SECTOR
@@ -59,10 +58,14 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
   const [puestos, setPuestos] = useState<Puesto[]>([])
   const [miembros, setMiembros] = useState<MiembroSimple[]>([])
   const [asignaciones, setAsignaciones] = useState<AsignacionMiembroSector[]>([])
-  const [horarios, setHorarios] = useState<Horario[]>([])
+  const [turnos, setTurnos] = useState<TurnoLaboral[]>([])
   const [cargando, setCargando] = useState(true)
-  const tabInicialValido = (tabInicial === 'sectores' || tabInicial === 'puestos' || tabInicial === 'horarios') ? tabInicial : 'sectores'
-  const [tab, setTab] = useState<'sectores' | 'puestos' | 'horarios'>(tabInicialValido)
+  // Acepta `horarios` por compatibilidad con URLs viejas: lo mapeamos a `turnos`.
+  const tabInicialValido =
+    tabInicial === 'puestos' ? 'puestos'
+    : tabInicial === 'turnos' || tabInicial === 'horarios' ? 'turnos'
+    : 'sectores'
+  const [tab, setTab] = useState<'sectores' | 'puestos' | 'turnos'>(tabInicialValido)
 
   // Modales
   const [modalEditar, setModalEditar] = useState<Sector | null>(null)
@@ -78,6 +81,9 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
   const [formIcono, setFormIcono] = useState('Building')
   const [formPadreId, setFormPadreId] = useState<string | null>(null)
   const [formJefeId, setFormJefeId] = useState<string | null>(null)
+  // Turno predeterminado del sector. Sus miembros heredan este turno
+  // salvo que tengan uno propio asignado.
+  const [formTurnoId, setFormTurnoId] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   // Formulario puesto
@@ -91,17 +97,17 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     if (!empresa) return
     setCargando(true)
 
-    const [sectoresRes, puestosRes, miembrosRes, horariosRes, asignacionesRes] = await Promise.all([
+    const [sectoresRes, puestosRes, miembrosRes, turnosRes, asignacionesRes] = await Promise.all([
       supabase.from('sectores').select('*').eq('empresa_id', empresa.id).order('orden'),
       supabase.from('puestos').select('*').eq('empresa_id', empresa.id).order('orden'),
       supabase.from('miembros').select('id, usuario_id').eq('empresa_id', empresa.id),
-      supabase.from('horarios').select('*').eq('empresa_id', empresa.id).order('dia_semana'),
+      fetch('/api/asistencias/turnos').then(r => r.ok ? r.json() : { turnos: [] }),
       fetch('/api/miembros-sectores').then(r => r.ok ? r.json() : []),
     ])
 
     setSectores(sectoresRes.data || [])
     setPuestos(puestosRes.data || [])
-    setHorarios(horariosRes.data || [])
+    setTurnos(turnosRes.turnos || [])
     setAsignaciones(asignacionesRes || [])
 
     // NOTA: el join miembros→perfiles falla en el cliente Supabase por políticas RLS
@@ -131,6 +137,8 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
 
   const arbol = useMemo(() => construirArbol(sectores), [sectores])
   const miembrosPorSector = useMemo(() => contarMiembrosPorSector(asignaciones), [asignaciones])
+  /** Map id→nombre de turnos para mostrar el turno asignado en cada nodo del organigrama. */
+  const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
 
   const totalAsignados = new Set(asignaciones.map(a => a.miembro_id)).size
   const sinAsignar = miembros.length - totalAsignados
@@ -143,6 +151,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     setFormIcono('Building')
     setFormPadreId(padreId)
     setFormJefeId(null)
+    setFormTurnoId(null)
     setModalNuevo({ padreId })
   }
 
@@ -152,6 +161,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     setFormIcono(sector.icono || 'Building')
     setFormPadreId(sector.padre_id)
     setFormJefeId(sector.jefe_id)
+    setFormTurnoId((sector as Sector & { turno_id?: string | null }).turno_id ?? null)
     setModalEditar(sector)
   }
 
@@ -166,6 +176,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         icono: formIcono,
         padre_id: formPadreId,
         jefe_id: formJefeId,
+        turno_id: formTurnoId,
       }).eq('id', modalEditar.id)
       setModalEditar(null)
     } else if (modalNuevo) {
@@ -176,6 +187,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         icono: formIcono,
         padre_id: modalNuevo.padreId,
         jefe_id: formJefeId,
+        turno_id: formTurnoId,
         orden: sectores.length,
       })
       setModalNuevo(null)
@@ -326,10 +338,11 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
           variante="fantasma"
           tamano="sm"
           icono={<Clock size={15} />}
-          onClick={() => setTab('horarios')}
-          className={tab === 'horarios' ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'}
+          onClick={() => setTab('turnos')}
+          className={tab === 'turnos' ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'}
         >
-          Horarios
+          Turnos
+          <span className="text-xs bg-superficie-hover px-1.5 py-0.5 rounded-full">{turnos.length}</span>
         </Boton>
       </div>
 
@@ -364,7 +377,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
             ) : arbol.length === 0 ? (
               <EstadoVacio titulo="No hay sectores" descripcion="Creá el primero para armar tu organigrama." />
             ) : (
-              <div className="py-2">
+              <div className="py-3 px-2">
                 {arbol.map((sector, idx) => (
                   <NodoSector
                     key={sector.id}
@@ -374,6 +387,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
                     miembrosPorSector={miembrosPorSector}
                     miembros={miembros}
                     asignaciones={asignaciones}
+                    turnosMap={turnosMap}
                     onEditar={abrirEditar}
                     onEliminar={(s) => setModalEliminar(s)}
                     onAgregarHijo={(padreId) => abrirNuevo(padreId)}
@@ -434,12 +448,10 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         </div>
       )}
 
-      {/* ==================== TAB HORARIOS ==================== */}
-      {tab === 'horarios' && empresa && (
-        <TabHorarios
-          empresaId={empresa.id}
+      {/* ==================== TAB TURNOS ==================== */}
+      {tab === 'turnos' && empresa && (
+        <TabTurnos
           sectores={sectores}
-          horarios={horarios}
           onCambio={cargarDatos}
         />
       )}
@@ -509,6 +521,21 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
               valor={formJefeId || '__ninguno__'}
               onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)}
             />
+          </div>
+
+          <div>
+            <Select
+              etiqueta="Turno predeterminado"
+              opciones={[
+                { valor: '__ninguno__', etiqueta: '— Sin turno asignado' },
+                ...turnos.map(t => ({ valor: t.id, etiqueta: t.nombre })),
+              ]}
+              valor={formTurnoId || '__ninguno__'}
+              onChange={(v) => setFormTurnoId(v === '__ninguno__' ? null : v)}
+            />
+            <p className="text-xs text-texto-terciario mt-1.5">
+              Los miembros de este sector heredan este turno salvo que tengan uno propio.
+            </p>
           </div>
         </div>
       </Modal>

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, ChevronRight, Loader2 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 
 interface ContratoResumen {
@@ -27,6 +28,8 @@ interface ContratoResumen {
   regimen: string
   condicion: string
   fecha_inicio: string
+  fecha_fin: string | null
+  vigente: boolean
   sector_id: string | null
   turno_id: string | null
 }
@@ -37,9 +40,12 @@ interface FilaEmpleado {
   apellido: string
   numero_empleado: number | null
   contrato: ContratoResumen | null
+  terminado: boolean
   sector: { id: string; nombre: string; color: string } | null
   turno: { id: string; nombre: string } | null
 }
+
+type FiltroEstado = 'activos' | 'terminados' | 'todos'
 
 const ETIQUETAS_MODALIDAD: Record<string, string> = {
   por_hora: 'Por hora',
@@ -63,11 +69,12 @@ export function VistaEmpleados() {
   const [empleados, setEmpleados] = useState<FilaEmpleado[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
+  const [estado, setEstado] = useState<FiltroEstado>('activos')
 
   useEffect(() => {
     let cancelado = false
     setCargando(true)
-    fetch('/api/nominas/empleados')
+    fetch(`/api/nominas/empleados?estado=${estado}`)
       .then(r => r.json())
       .then((data) => {
         if (cancelado) return
@@ -78,7 +85,7 @@ export function VistaEmpleados() {
       })
       .finally(() => { if (!cancelado) setCargando(false) })
     return () => { cancelado = true }
-  }, [])
+  }, [estado])
 
   const filtrados = useMemo(() => {
     if (!busqueda.trim()) return empleados
@@ -97,24 +104,69 @@ export function VistaEmpleados() {
     )
   }
 
+  // Segmented Activos/Terminados/Todos siempre visible (incluso si la
+  // lista actual quedó vacía por el filtro) para que el usuario pueda
+  // cambiar de subconjunto sin recargar.
+  const segmented = (
+    <div className="inline-flex p-0.5 rounded-boton bg-superficie-elevada border border-borde-sutil">
+      {([
+        { v: 'activos' as const, et: 'Activos' },
+        { v: 'terminados' as const, et: 'Terminados' },
+        { v: 'todos' as const, et: 'Todos' },
+      ]).map(o => {
+        const activo = estado === o.v
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => setEstado(o.v)}
+            className={`h-7 px-3 text-xs font-medium rounded-[5px] transition-colors ${
+              activo
+                ? 'bg-texto-marca/15 text-texto-marca'
+                : 'text-texto-terciario hover:text-texto-primario'
+            }`}
+          >
+            {o.et}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   if (empleados.length === 0) {
     return (
-      <EstadoVacio
-        icono={<Users size={48} strokeWidth={1.5} />}
-        titulo="Sin empleados todavía"
-        descripcion="Cuando agregues miembros con compensación a la empresa, van a aparecer acá con su contrato laboral vigente."
-      />
+      <div className="px-4 md:px-6 py-4 space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">{segmented}</div>
+        <EstadoVacio
+          icono={<Users size={48} strokeWidth={1.5} />}
+          titulo={
+            estado === 'activos' ? 'Sin empleados activos' :
+            estado === 'terminados' ? 'Sin empleados terminados' :
+            'Sin empleados todavía'
+          }
+          descripcion={
+            estado === 'activos'
+              ? 'No hay empleados con contrato vigente. Cargá un contrato a un miembro para verlo acá.'
+              : estado === 'terminados'
+                ? 'Cuando termines el contrato de un empleado, va a aparecer en esta vista.'
+                : 'Cuando agregues miembros con compensación a la empresa, van a aparecer acá con su contrato laboral vigente.'
+          }
+        />
+      </div>
     )
   }
 
   return (
     <div className="px-4 md:px-6 py-4 space-y-3">
-      <div className="max-w-md">
-        <Input
-          placeholder="Buscar por nombre o N° de empleado..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        {segmented}
+        <div className="max-w-md flex-1 min-w-[220px]">
+          <Input
+            placeholder="Buscar por nombre o N° de empleado..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="rounded-card border border-borde-sutil overflow-hidden">
@@ -137,12 +189,17 @@ export function VistaEmpleados() {
               key={e.miembro_id}
               type="button"
               onClick={() => router.push(`/nominas/empleado/${e.miembro_id}`)}
-              className="w-full grid grid-cols-[1fr_120px_120px_120px_24px] gap-3 items-center px-4 py-3 hover:bg-superficie-elevada/30 transition-colors text-left border-b border-borde-sutil last:border-b-0"
+              className={`w-full grid grid-cols-[1fr_120px_120px_120px_24px] gap-3 items-center px-4 py-3 hover:bg-superficie-elevada/30 transition-colors text-left border-b border-borde-sutil last:border-b-0 ${
+                e.terminado ? 'opacity-65' : ''
+              }`}
             >
               {/* Empleado */}
               <div className="min-w-0">
-                <div className="text-sm font-medium text-texto-primario truncate">
-                  {e.nombre} {e.apellido}
+                <div className="text-sm font-medium text-texto-primario truncate flex items-center gap-2">
+                  <span className="truncate">{e.nombre} {e.apellido}</span>
+                  {e.terminado && (
+                    <Insignia color="peligro" tamano="sm">Terminado</Insignia>
+                  )}
                 </div>
                 {e.numero_empleado !== null && (
                   <div className="text-xs text-texto-terciario">N° {e.numero_empleado}</div>

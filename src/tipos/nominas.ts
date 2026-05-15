@@ -33,6 +33,46 @@ export type FrecuenciaPago = 'diaria' | 'semanal' | 'quincenal' | 'mensual'
 /** Régimen fiscal/legal del contrato (Fase 3 usa los otros valores). */
 export type RegimenContrato = 'informal' | 'monotributo' | 'relacion_dependencia'
 
+/**
+ * Motivo por el cual un contrato fue cerrado. Solo aplica cuando
+ * `vigente=false` y `fecha_fin IS NOT NULL`. Lista cerrada para reportes
+ * agrupados ("rotación por renuncia", "despidos sin causa", etc).
+ */
+export type MotivoFinContrato =
+  | 'renuncia'
+  | 'despido_con_causa'
+  | 'despido_sin_causa'
+  | 'fin_plazo'
+  | 'mutuo_acuerdo'
+  | 'abandono'
+  | 'jubilacion'
+  | 'fallecimiento'
+  // Motivos "no salida" — el empleado sigue activo, solo cambia el
+  // contrato que rige sus condiciones. Se usan al abrir un contrato
+  // nuevo que sucede al actual.
+  | 'cambio_condiciones'
+  | 'renovacion'
+  | 'otro'
+
+/**
+ * Tipos de licencia / pausa de un contrato. Determinan cómo se rotula
+ * la pausa en la UI y permiten reportes; el efecto en el cálculo lo
+ * decide `goce_sueldo` (no el tipo).
+ */
+export type TipoLicencia =
+  | 'medica'
+  | 'maternidad'
+  | 'paternidad'
+  | 'estudio'
+  | 'examen'
+  | 'duelo'
+  | 'matrimonio'
+  | 'mudanza'
+  | 'vacaciones'
+  | 'suspension_disciplinaria'
+  | 'suspension_economica'
+  | 'otro'
+
 /** Suma o resta sobre el haber base. */
 export type TipoConcepto = 'haber' | 'descuento'
 
@@ -90,7 +130,58 @@ export interface ContratoLaboral {
   motivo_cambio: string | null
   notas: string | null
 
+  /**
+   * Motivo del cierre del contrato. Solo se setea cuando el operador
+   * "termina" el contrato (renuncia, despido, fin de plazo, etc).
+   * Null mientras el contrato está vigente o si quedó cerrado de forma
+   * implícita al crear uno nuevo (motivo_cambio cubre ese caso).
+   */
+  motivo_fin: MotivoFinContrato | null
+  /** Detalle libre del cierre (número de telegrama, etc). */
+  nota_fin: string | null
+
   // Auditoría
+  creado_en: string
+  creado_por: string | null
+  actualizado_en: string
+  actualizado_por: string | null
+
+  /**
+   * Campo derivado del API (no existe en BD): true si este contrato
+   * tiene al menos un pago en `pagos_nomina`. La UI lo usa para decidir
+   * si los campos económicos son editables (sin pagos) o si hay que
+   * crear un contrato nuevo vía "Cambiar condiciones" (con pagos).
+   */
+  tiene_pagos?: boolean
+}
+
+/**
+ * Licencia / pausa de un contrato. Período donde el empleado no
+ * trabaja pero el vínculo sigue. La UI muestra estas licencias en la
+ * ficha laboral; el motor las usa para descontar días según
+ * `goce_sueldo`.
+ */
+export interface LicenciaContrato {
+  id: string
+  empresa_id: string
+  miembro_id: string
+  contrato_id: string
+
+  tipo: TipoLicencia
+
+  /** Inicio de la licencia (ISO date). */
+  fecha_inicio: string
+  /** Fin de la licencia. Null = licencia abierta (sin fecha de fin todavía). */
+  fecha_fin: string | null
+
+  /**
+   * Si `true`, los días de licencia siguen pagos (cuentan para el
+   * prorrateo). Si `false`, el motor los descuenta del cálculo.
+   */
+  goce_sueldo: boolean
+
+  notas: string | null
+
   creado_en: string
   creado_por: string | null
   actualizado_en: string
@@ -295,6 +386,27 @@ export interface CuotaAdelantoAplicada {
 }
 
 /**
+ * Licencia que solapa con el período y el motor consideró al calcular.
+ * - Con `goce_sueldo=true`: informativa, no descuenta nada.
+ * - Con `goce_sueldo=false`: el motor descuenta `dias_descontados` del
+ *   prorrateo (modalidades fijas) o de `dias_trabajados` (por_dia).
+ */
+export interface LicenciaAplicada {
+  licencia_id: string
+  tipo: TipoLicencia
+  goce_sueldo: boolean
+  fecha_inicio: string
+  fecha_fin: string | null
+  /** Días del período cubiertos por esta licencia. */
+  dias_en_periodo: number
+  /**
+   * Monto descontado del recibo por esta licencia.
+   * 0 si goce_sueldo=true. > 0 si goce_sueldo=false.
+   */
+  monto_descontado: number
+}
+
+/**
  * Resultado completo del motor para un recibo. Cubre todo lo que
  * necesita la UI para mostrar el desglose y el endpoint de creación
  * para persistir el pago + snapshot.
@@ -333,6 +445,13 @@ export interface DetalleReciboCalculado {
 
   /** Cuotas de adelantos del miembro vencidas en este período. */
   adelantos_aplicados: CuotaAdelantoAplicada[]
+
+  /**
+   * Licencias que solapan con el período. El motor ya aplicó su efecto
+   * sobre `monto_base_calculado`/`subtotal_descuentos`; este array es
+   * para que la UI las muestre con su detalle (tipo, días, goce).
+   */
+  licencias_aplicadas: LicenciaAplicada[]
 
   /** Suma de monto_base_calculado + conceptos tipo='haber'. */
   subtotal_haberes: number
