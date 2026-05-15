@@ -32,6 +32,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { ContratoVigente } from '@/app/(flux)/nominas/_componentes/ContratoVigente'
 import { TimelineContratos } from '@/app/(flux)/nominas/_componentes/TimelineContratos'
 import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato'
+import { ModalEditarContrato } from '@/app/(flux)/nominas/_componentes/ModalEditarContrato'
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
 import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
 import {
@@ -158,6 +159,7 @@ function ContenidoFicha() {
    * "Nuevo contrato" sin motivo de cierre.
    */
   const [editorModoCambio, setEditorModoCambio] = useState(false)
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false)
 
   const cargarTodo = useCallback(async () => {
     if (!miembroId) return
@@ -350,6 +352,7 @@ function ContenidoFicha() {
             setEditorModoCambio(true)
             setEditorAbierto(true)
           }}
+          onEditarContrato={() => setModalEditarAbierto(true)}
           onContratoActualizado={cargarTodo}
         />
       )}
@@ -439,6 +442,20 @@ function ContenidoFicha() {
           setTab('contrato')
         }}
       />
+
+      {/* ─── Modal editar contrato vigente (corrección sin historial) ─── */}
+      {modalEditarAbierto && contratoVigente && (
+        <ModalEditarContrato
+          contrato={contratoVigente}
+          sectores={sectores}
+          turnos={turnos}
+          onCerrar={() => setModalEditarAbierto(false)}
+          onActualizado={async () => {
+            setModalEditarAbierto(false)
+            await cargarTodo()
+          }}
+        />
+      )}
     </div>
   )
 }

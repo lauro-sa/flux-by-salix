@@ -78,7 +78,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Error al listar contratos' }, { status: 500 })
   }
 
-  return NextResponse.json({ contratos: (data || []) as ContratoLaboral[] })
+  // Adjuntar `tiene_pagos` por contrato. La UI lo usa para decidir si
+  // el botón del hero es "Editar" (corrección, sin pagos) o "Cambiar
+  // condiciones" (crea nuevo contrato porque ya hay recibos cerrados).
+  const ids = (data || []).map(c => c.id)
+  const conPagos = new Set<string>()
+  if (ids.length > 0) {
+    const { data: pagos } = await admin
+      .from('pagos_nomina')
+      .select('contrato_id')
+      .eq('empresa_id', empresaId)
+      .in('contrato_id', ids)
+    for (const p of pagos || []) {
+      if (p.contrato_id) conPagos.add(p.contrato_id)
+    }
+  }
+
+  const contratos = (data || []).map(c => ({
+    ...(c as ContratoLaboral),
+    tiene_pagos: conPagos.has(c.id),
+  }))
+
+  return NextResponse.json({ contratos })
 }
 
 // ════════════════════════════════════════════════════════════════

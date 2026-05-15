@@ -145,6 +145,14 @@ export interface ContratoLaboral {
   creado_por: string | null
   actualizado_en: string
   actualizado_por: string | null
+
+  /**
+   * Campo derivado del API (no existe en BD): true si este contrato
+   * tiene al menos un pago en `pagos_nomina`. La UI lo usa para decidir
+   * si los campos económicos son editables (sin pagos) o si hay que
+   * crear un contrato nuevo vía "Cambiar condiciones" (con pagos).
+   */
+  tiene_pagos?: boolean
 }
 
 /**

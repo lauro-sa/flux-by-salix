@@ -34,7 +34,7 @@ import type { ContratoLaboral, MotivoFinContrato } from '@/tipos/nominas'
 import { Boton } from '@/componentes/ui/Boton'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
-  Plus, FileText, ExternalLink, FileQuestion, Ban, Power, RotateCw, SlidersHorizontal, History,
+  Plus, FileText, ExternalLink, FileQuestion, Ban, Power, RotateCw, SlidersHorizontal, History, Pencil,
 } from 'lucide-react'
 import { ModalTerminarContrato } from './ModalTerminarContrato'
 import { ModalRenovarContrato } from './ModalRenovarContrato'
@@ -59,6 +59,12 @@ interface Props {
   onNuevoContrato: () => void
   /** Apertura del editor en modo "cambiar condiciones". */
   onCambiarCondiciones?: () => void
+  /**
+   * Apertura del modal de edición directa (corrección). Solo se mostrará
+   * el botón si se provee este callback y el contrato vigente NO tiene
+   * pagos asociados.
+   */
+  onEditarContrato?: () => void
   /** Avisa al padre que la operación tuvo éxito para recargar la ficha. */
   onContratoActualizado?: () => void
 }
@@ -155,7 +161,7 @@ function calcularDuracion(inicio: string, fin?: string | null): string {
 export function ContratoVigente({
   contrato, contratosAnteriores = [], sectorNombre, turnoNombre, sectoresMap, turnosMap,
   locale = 'es-AR', monedaSimbolo = '$',
-  puedeEditar, onNuevoContrato, onCambiarCondiciones, onContratoActualizado,
+  puedeEditar, onNuevoContrato, onCambiarCondiciones, onEditarContrato, onContratoActualizado,
 }: Props) {
   const [modalTerminar, setModalTerminar] = useState(false)
   const [modalRenovar, setModalRenovar] = useState(false)
@@ -187,6 +193,11 @@ export function ContratoVigente({
     contrato.condicion === 'temporal' ||
     contrato.condicion === 'pasantia'
   )
+  // Si el contrato no generó pagos todavía, el botón principal es
+  // "Editar" (corrección de carga). Si ya hay recibos, el operador
+  // debe usar "Cambiar condiciones" — la diferencia importa porque
+  // editar retroactivamente con pagos rompería liquidaciones pasadas.
+  const puedeEditarDirecto = !estaTerminado && !contrato.tiene_pagos && !!onEditarContrato
 
   return (
     <div className="px-4 md:px-6 py-4 space-y-5">
@@ -235,7 +246,18 @@ export function ContratoVigente({
             {/* Acciones (solo si puedeEditar) */}
             {puedeEditar && (
               <div className="flex items-center gap-2 flex-wrap shrink-0">
-                {!estaTerminado && onCambiarCondiciones && (
+                {puedeEditarDirecto && (
+                  <Boton
+                    onClick={onEditarContrato}
+                    variante="secundario"
+                    tamano="sm"
+                    icono={<Pencil size={14} />}
+                    titulo="Corregir errores de carga (sin pagos generados todavía)"
+                  >
+                    Editar contrato
+                  </Boton>
+                )}
+                {!estaTerminado && !puedeEditarDirecto && onCambiarCondiciones && (
                   <Boton
                     onClick={onCambiarCondiciones}
                     variante="secundario"
