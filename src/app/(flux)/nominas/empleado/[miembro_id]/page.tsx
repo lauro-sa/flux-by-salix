@@ -220,11 +220,21 @@ function ContenidoFicha() {
   const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
 
   const contratoVigente = contratos.find(c => c.vigente) ?? null
+  /**
+   * Contrato a mostrar en la ficha: el vigente si existe, sino el último
+   * (que estará terminado). El API ya devuelve contratos ordenados con
+   * `vigente` primero y luego por `fecha_inicio` desc, así que
+   * `contratos[0]` es el más reciente cuando no hay vigente. Esto evita
+   * que la pestaña "Contrato vigente" se muestre vacía cuando en
+   * realidad hay un contrato terminado con motivo y fecha que el
+   * operador necesita ver.
+   */
+  const contratoMostrado = contratoVigente ?? contratos[0] ?? null
 
   // ─── Header data ───
   const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : '...'
-  const sectorVigente = contratoVigente?.sector_id ? sectoresMap.get(contratoVigente.sector_id) ?? null : null
-  const turnoVigente = contratoVigente?.turno_id ? turnosMap.get(contratoVigente.turno_id) ?? null : null
+  const sectorMostrado = contratoMostrado?.sector_id ? sectoresMap.get(contratoMostrado.sector_id) ?? null : null
+  const turnoMostrado = contratoMostrado?.turno_id ? turnosMap.get(contratoMostrado.turno_id) ?? null : null
 
   if (cargando) {
     return (
@@ -280,12 +290,19 @@ function ContenidoFicha() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold text-texto-primario">{nombreCompleto}</h1>
-              {contratoVigente ? (
+              <h1 className="text-lg font-semibold text-texto-primario flex items-center gap-2 flex-wrap">
+                <span className="truncate">{nombreCompleto}</span>
+                {contratoMostrado && !contratoMostrado.vigente && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-insignia-peligro/15 text-insignia-peligro">
+                    Contrato terminado
+                  </span>
+                )}
+              </h1>
+              {contratoMostrado ? (
                 <p className="text-xs text-texto-terciario mt-1">
-                  {sectorVigente ?? '—'} · {turnoVigente ?? 'Sin turno'} ·{' '}
-                  {modalidadCorta(contratoVigente.modalidad_calculo)} ·{' '}
-                  {formatearMonto(contratoVigente.monto_base)} {frecuenciaCorta(contratoVigente.frecuencia_pago)}
+                  {sectorMostrado ?? '—'} · {turnoMostrado ?? 'Sin turno'} ·{' '}
+                  {modalidadCorta(contratoMostrado.modalidad_calculo)} ·{' '}
+                  {formatearMonto(contratoMostrado.monto_base)} {frecuenciaCorta(contratoMostrado.frecuencia_pago)}
                 </p>
               ) : (
                 <p className="text-xs text-texto-terciario mt-1">Sin contrato laboral cargado</p>
@@ -303,9 +320,9 @@ function ContenidoFicha() {
       {/* ─── Contenido por tab ─── */}
       {tab === 'contrato' && (
         <ContratoVigente
-          contrato={contratoVigente}
-          sectorNombre={sectorVigente}
-          turnoNombre={turnoVigente}
+          contrato={contratoMostrado}
+          sectorNombre={sectorMostrado}
+          turnoNombre={turnoMostrado}
           puedeEditar={puedeEditar}
           onNuevoContrato={() => setEditorAbierto(true)}
           onContratoTerminado={cargarTodo}
