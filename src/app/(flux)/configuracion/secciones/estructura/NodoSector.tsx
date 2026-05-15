@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Crown, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Crown, Clock, Users } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
@@ -47,18 +47,42 @@ export function NodoSector({
   onAgregarHijo,
 }: PropsNodoSector) {
   const { t } = useTraduccion()
-  // Un solo estado para mostrar/ocultar TODO lo del sector (miembros
-  // propios + sub-sectores). Antes había dos toggles independientes
-  // (`expandido` para hijos y `mostrarPersonas` para personas) — eso
-  // hacía que un sector con miembros propios Y sub-sectores nunca
-  // mostrara las personas al usar el chevron principal. Ahora un click
-  // abre/cierra el sector entero.
-  const [abierto, setAbierto] = useState(nivel < 2)
   const tieneHijos = sector.hijos.length > 0
   const cantidadMiembros = miembrosPorSector.get(sector.id) || 0
-  const tieneContenido = tieneHijos || cantidadMiembros > 0
+  // Dos toggles independientes para que el operador decida qué ver:
+  //   - `expandido`: muestra/oculta los sub-sectores (sólo si tiene hijos).
+  //   - `mostrarPersonas`: muestra/oculta los empleados directos del sector
+  //     (sólo si tiene miembros propios).
+  // Ambos persisten en localStorage por sector — al volver a la página
+  // se respeta cómo lo dejó el usuario. Por defecto, el primer nivel
+  // arranca expandido (jerarquía visible) y las personas ocultas.
+  const claveHijos = `organigrama-${sector.id}-hijos`
+  const clavePersonas = `organigrama-${sector.id}-personas`
+  const [expandido, setExpandido] = useState(nivel < 2)
+  const [mostrarPersonas, setMostrarPersonas] = useState(false)
+
+  // Hidratación desde localStorage en el primer render del cliente.
+  // Se hace en useEffect (no en useState init) para evitar mismatch SSR.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const savedHijos = localStorage.getItem(claveHijos)
+    if (savedHijos !== null) setExpandido(savedHijos === 'true')
+    const savedPersonas = localStorage.getItem(clavePersonas)
+    if (savedPersonas !== null) setMostrarPersonas(savedPersonas === 'true')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(claveHijos, String(expandido))
+  }, [expandido, claveHijos])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(clavePersonas, String(mostrarPersonas))
+  }, [mostrarPersonas, clavePersonas])
+
   const jefe = sector.jefe_id ? miembros.find(m => m.usuario_id === sector.jefe_id) : null
-  const personasSector = abierto && cantidadMiembros > 0
+  const personasSector = mostrarPersonas && cantidadMiembros > 0
     ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros)
     : []
   const IconoSector = obtenerIcono(sector.icono || 'Building')
@@ -101,25 +125,31 @@ export function NodoSector({
         className="group relative flex items-stretch gap-3 my-1.5 mx-2 rounded-xl hover:bg-superficie-hover/60 transition-colors"
         style={{ paddingLeft: nivel * 32 + 12, paddingRight: 12 }}
       >
-        {/* Chevron expandir/contraer (controla miembros propios + sub-sectores) */}
+        {/* Chevron principal: expande/contrae sub-sectores. Solo aparece
+            si el sector tiene hijos — si no, queda como un punto inerte. */}
         <button
           type="button"
-          onClick={() => tieneContenido && setAbierto(!abierto)}
-          title={tieneContenido ? (abierto ? 'Contraer' : 'Expandir') : undefined}
-          aria-label={tieneContenido ? (abierto ? 'Contraer' : 'Expandir') : 'Sector vacío'}
-          disabled={!tieneContenido}
+          onClick={() => tieneHijos && setExpandido(!expandido)}
+          title={tieneHijos ? (expandido ? 'Contraer sub-sectores' : 'Expandir sub-sectores') : undefined}
+          aria-label={tieneHijos ? (expandido ? 'Contraer' : 'Expandir') : 'Sector sin sub-sectores'}
+          disabled={!tieneHijos}
           className="self-center w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-elevada transition-colors disabled:cursor-default disabled:hover:bg-transparent"
         >
-          {tieneContenido
-            ? (abierto ? <ChevronDown size={15} /> : <ChevronRight size={15} />)
+          {tieneHijos
+            ? (expandido ? <ChevronDown size={15} /> : <ChevronRight size={15} />)
             : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />}
         </button>
 
-        {/* Identidad del sector (icono + nombre + meta) — también toggle del contenido */}
+        {/* Identidad del sector. Clickeable solo si tiene miembros —
+            toggle de la lista de empleados directos. */}
         <button
           type="button"
-          onClick={() => tieneContenido && setAbierto(!abierto)}
-          className="flex items-center gap-3 py-3.5 min-w-0 text-left"
+          onClick={() => cantidadMiembros > 0 && setMostrarPersonas(!mostrarPersonas)}
+          disabled={cantidadMiembros === 0}
+          title={cantidadMiembros > 0
+            ? (mostrarPersonas ? 'Ocultar empleados' : 'Mostrar empleados')
+            : undefined}
+          className="flex items-center gap-3 py-3.5 min-w-0 text-left disabled:cursor-default"
         >
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
@@ -131,10 +161,20 @@ export function NodoSector({
             <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
               {sector.nombre}
             </span>
-            <span className="text-xs text-texto-terciario leading-none">
-              {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
-              {cantidadMiembros > 0 && tieneHijos && ' · '}
-              {tieneHijos && `${sector.hijos.length} sub-sector${sector.hijos.length > 1 ? 'es' : ''}`}
+            <span className="text-xs text-texto-terciario leading-none flex items-center gap-1">
+              {cantidadMiembros > 0 && (
+                <span className="inline-flex items-center gap-1 hover:text-texto-primario transition-colors">
+                  <Users size={11} />
+                  {cantidadMiembros} miembro{cantidadMiembros > 1 ? 's' : ''}
+                  {mostrarPersonas
+                    ? <ChevronDown size={11} />
+                    : <ChevronRight size={11} />}
+                </span>
+              )}
+              {cantidadMiembros > 0 && tieneHijos && <span className="text-texto-terciario/40">·</span>}
+              {tieneHijos && (
+                <span>{sector.hijos.length} sub-sector{sector.hijos.length > 1 ? 'es' : ''}</span>
+              )}
               {cantidadMiembros === 0 && !tieneHijos && (
                 <span className="italic text-texto-terciario/70">Sin miembros</span>
               )}
@@ -182,7 +222,7 @@ export function NodoSector({
       </div>
 
       <AnimatePresence>
-        {abierto && cantidadMiembros > 0 && (
+        {mostrarPersonas && cantidadMiembros > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -221,7 +261,7 @@ export function NodoSector({
       </AnimatePresence>
 
       <AnimatePresence>
-        {abierto && tieneHijos && (
+        {expandido && tieneHijos && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
