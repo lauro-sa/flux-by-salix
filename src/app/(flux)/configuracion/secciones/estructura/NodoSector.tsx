@@ -47,12 +47,20 @@ export function NodoSector({
   onAgregarHijo,
 }: PropsNodoSector) {
   const { t } = useTraduccion()
-  const [expandido, setExpandido] = useState(nivel < 2)
-  const [mostrarPersonas, setMostrarPersonas] = useState(false)
+  // Un solo estado para mostrar/ocultar TODO lo del sector (miembros
+  // propios + sub-sectores). Antes había dos toggles independientes
+  // (`expandido` para hijos y `mostrarPersonas` para personas) — eso
+  // hacía que un sector con miembros propios Y sub-sectores nunca
+  // mostrara las personas al usar el chevron principal. Ahora un click
+  // abre/cierra el sector entero.
+  const [abierto, setAbierto] = useState(nivel < 2)
   const tieneHijos = sector.hijos.length > 0
   const cantidadMiembros = miembrosPorSector.get(sector.id) || 0
+  const tieneContenido = tieneHijos || cantidadMiembros > 0
   const jefe = sector.jefe_id ? miembros.find(m => m.usuario_id === sector.jefe_id) : null
-  const personasSector = mostrarPersonas ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros) : []
+  const personasSector = abierto && cantidadMiembros > 0
+    ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros)
+    : []
   const IconoSector = obtenerIcono(sector.icono || 'Building')
   // Turno predeterminado del sector. Mostramos nombre + resumen del
   // horario ("Taller · L-V 09:00-18:00") como chip al lado del jefe.
@@ -93,23 +101,24 @@ export function NodoSector({
         className="group relative flex items-stretch gap-3 my-1.5 mx-2 rounded-xl hover:bg-superficie-hover/60 transition-colors"
         style={{ paddingLeft: nivel * 32 + 12, paddingRight: 12 }}
       >
-        {/* Chevron expandir/contraer */}
+        {/* Chevron expandir/contraer (controla miembros propios + sub-sectores) */}
         <button
           type="button"
-          onClick={() => tieneHijos ? setExpandido(!expandido) : setMostrarPersonas(!mostrarPersonas)}
-          title="Expandir"
-          aria-label="Expandir"
-          className="self-center w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-elevada transition-colors"
+          onClick={() => tieneContenido && setAbierto(!abierto)}
+          title={tieneContenido ? (abierto ? 'Contraer' : 'Expandir') : undefined}
+          aria-label={tieneContenido ? (abierto ? 'Contraer' : 'Expandir') : 'Sector vacío'}
+          disabled={!tieneContenido}
+          className="self-center w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-elevada transition-colors disabled:cursor-default disabled:hover:bg-transparent"
         >
-          {(tieneHijos || cantidadMiembros > 0)
-            ? (expandido || mostrarPersonas ? <ChevronDown size={15} /> : <ChevronRight size={15} />)
+          {tieneContenido
+            ? (abierto ? <ChevronDown size={15} /> : <ChevronRight size={15} />)
             : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />}
         </button>
 
-        {/* Identidad del sector (icono + nombre + meta) — clickeable para mostrar/ocultar personas */}
+        {/* Identidad del sector (icono + nombre + meta) — también toggle del contenido */}
         <button
           type="button"
-          onClick={() => setMostrarPersonas(!mostrarPersonas)}
+          onClick={() => tieneContenido && setAbierto(!abierto)}
           className="flex items-center gap-3 py-3.5 min-w-0 text-left"
         >
           <div
@@ -173,7 +182,7 @@ export function NodoSector({
       </div>
 
       <AnimatePresence>
-        {mostrarPersonas && cantidadMiembros > 0 && (
+        {abierto && cantidadMiembros > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -212,7 +221,7 @@ export function NodoSector({
       </AnimatePresence>
 
       <AnimatePresence>
-        {expandido && tieneHijos && (
+        {abierto && tieneHijos && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}

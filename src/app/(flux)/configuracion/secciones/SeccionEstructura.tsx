@@ -110,20 +110,47 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
     setTurnos(turnosRes.turnos || [])
     setAsignaciones(asignacionesRes || [])
 
-    // NOTA: el join miembros→perfiles falla en el cliente Supabase por políticas RLS
-    // entre tablas — mientras no se resuelva a nivel FK/RLS, hacemos dos queries.
+    // Identidad consolidada: perfiles (miembros con cuenta) + contactos
+    // con miembro_id (empleados sin cuenta — "contacto-equipo"). El join
+    // directo en Supabase falla por políticas RLS entre tablas, así que
+    // hacemos las dos queries por separado y unificamos. Antes solo
+    // miraba `perfiles` → los empleados sin cuenta aparecían como
+    // "Usuario" sin nombre.
     if (miembrosRes.data) {
-      const ids = miembrosRes.data.map(m => m.usuario_id)
-      const { data: perfilesData } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', ids)
-      const perfilesMap = new Map((perfilesData || []).map(p => [p.id, p]))
+      const usuarioIds = miembrosRes.data
+        .map(m => m.usuario_id)
+        .filter((u): u is string => !!u)
+      const miembroIds = miembrosRes.data.map(m => m.id)
+
+      const [perfilesRes, contactosEquipoRes] = await Promise.all([
+        usuarioIds.length > 0
+          ? supabase.from('perfiles').select('id, nombre, apellido').in('id', usuarioIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; nombre: string | null; apellido: string | null }> }),
+        miembroIds.length > 0
+          ? supabase.from('contactos')
+              .select('miembro_id, nombre, apellido')
+              .in('miembro_id', miembroIds)
+              .eq('empresa_id', empresa.id)
+              .eq('en_papelera', false)
+          : Promise.resolve({ data: [] as Array<{ miembro_id: string; nombre: string | null; apellido: string | null }> }),
+      ])
+
+      const perfilesPorUsuario = new Map(
+        (perfilesRes.data || []).map(p => [p.id, { nombre: p.nombre, apellido: p.apellido }]),
+      )
+      const contactosPorMiembro = new Map(
+        (contactosEquipoRes.data || []).map(c => [c.miembro_id, { nombre: c.nombre, apellido: c.apellido }]),
+      )
 
       setMiembros(miembrosRes.data.map(m => {
-        const perfil = perfilesMap.get(m.usuario_id)
+        const desdePerfil = m.usuario_id ? perfilesPorUsuario.get(m.usuario_id) : null
+        const desdeContacto = contactosPorMiembro.get(m.id)
+        const fuente = desdePerfil ?? desdeContacto
         return {
           id: m.id,
           usuario_id: m.usuario_id,
-          nombre: perfil?.nombre || 'Usuario',
-          apellido: perfil?.apellido || '',
+          nombre: fuente?.nombre || 'Sin nombre',
+          apellido: fuente?.apellido || '',
         }
       }))
     }
