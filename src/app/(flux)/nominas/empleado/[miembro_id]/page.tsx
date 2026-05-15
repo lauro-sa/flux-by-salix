@@ -369,8 +369,14 @@ function ContenidoFicha() {
 
   return (
     <div className="flex flex-col">
-      {/* ─── Header ─── */}
-      <div className="border-b border-borde-sutil bg-superficie-app">
+      {/* ─── Header sticky ───
+          Se mantiene pegado arriba del área de scroll del módulo
+          (`<main>` de PlantillaApp) para que al scrollear dentro de
+          una pestaña — Contrato vigente, Conceptos, Liquidaciones — el
+          operador siempre vea de qué empleado se trata. El z-index lo
+          deja por arriba del contenido de la tab pero por debajo de
+          modales y popovers. */}
+      <div className="sticky top-0 z-20 border-b border-borde-sutil bg-superficie-app">
         {/* Bloque identidad: respira arriba y abajo para separarlo de
             las migajas (arriba) y de las tabs (abajo). */}
         <div className="px-4 md:px-6 pt-6 pb-5">
