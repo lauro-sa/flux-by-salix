@@ -60,6 +60,18 @@ export interface DiaDetalleNomina {
   clasificacion: ClasificacionDiaNomina
 }
 
+/** Concepto aplicado a la liquidación de un miembro en un período. */
+export interface ConceptoAplicadoRecibo {
+  concepto_id: string
+  nombre: string
+  tipo: 'haber' | 'descuento'
+  modo_calculo: string
+  valor: number | null
+  monto: number
+  automatico: boolean
+  detalle: string | null
+}
+
 export interface ResultadoNomina {
   miembro_id: string
   nombre: string
@@ -97,6 +109,15 @@ export interface ResultadoNomina {
   dias_detalle?: DiaDetalleNomina[]
   monto_pagar: number
   monto_detalle: string
+  /**
+   * Conceptos del contrato aplicados al recibo (premios, antigüedad,
+   * descuentos automáticos, etc). El motor los evalúa según la condición
+   * configurada del concepto y los devuelve listos para sumar al bruto
+   * (tipo='haber') o restar (tipo='descuento').
+   */
+  conceptos_aplicados?: ConceptoAplicadoRecibo[]
+  total_haberes?: number
+  total_descuentos_conceptos?: number
   descuento_adelanto: number
   cuotas_adelanto: number
   saldo_anterior: number
@@ -117,6 +138,17 @@ interface Props {
   empleadosPeriodoInicial: EmpleadoLista[]
   rutaVolver: string
   textoVolver?: string
+  /**
+   * Si true, oculta los elementos que vienen de la versión "pantalla
+   * completa" del editor y son redundantes cuando se renderiza embebido
+   * dentro de la ficha del empleado (tab Liquidaciones):
+   *   - Botón "Volver a Nóminas"
+   *   - Paginador entre empleados ("2/5 < >")
+   *   - Título "Nombre del empleado" (ya está en el header de la ficha)
+   * El banner del período, las cards de asistencia/desglose/adelantos
+   * y las acciones de pago siguen visibles.
+   */
+  embed?: boolean
 }
 
 // ─── Formatos ───
@@ -245,6 +277,7 @@ export function PaginaEditorNominaEmpleado({
   empleadosPeriodoInicial,
   rutaVolver,
   textoVolver = 'Nómina',
+  embed = false,
 }: Props) {
   const router = useRouter()
   const supabase = crearClienteNavegador()
@@ -725,10 +758,13 @@ export function PaginaEditorNominaEmpleado({
 
   // ─── Render ───
 
-  // Insignias del cabecero (navegación entre empleados + tipo de compensación)
+  // Insignias del cabecero. En modo embed (dentro de la ficha del
+  // empleado) ocultamos el paginador inter-empleados: la ficha ya
+  // identifica de quién estamos viendo el recibo, navegar a otro
+  // empleado se hace desde el listado de Nóminas, no desde acá.
   const insigniasCabecero = (
     <div className="flex items-center gap-2">
-      {empleadosPeriodo.length > 1 && (
+      {!embed && empleadosPeriodo.length > 1 && (
         <div className="flex items-center gap-1 mr-1">
           <Boton
             variante="fantasma"
@@ -903,76 +939,74 @@ export function PaginaEditorNominaEmpleado({
     return terminos
   })()
 
-  return (
-    <>
-      <PlantillaEditor
-        titulo={datosEmpleado.nombre}
-        insignias={insigniasCabecero}
-        volverTexto={textoVolver}
-        onVolver={() => router.push(rutaVolver)}
-        acciones={[
-          // Enviar recibo: requiere nomina:enviar. Sin ese permiso (p. ej. un
-          // empleado viendo su propio recibo), el botón desaparece.
-          ...(puedeEnviarNomina ? [{
-            id: 'enviar-recibo',
-            etiqueta: 'Enviar recibo',
-            icono: <Send size={13} />,
-            variante: 'secundario' as const,
-            onClick: () => setModalEnvio(true),
-          }] : []),
-          // Registrar pago: requiere nomina:editar. Modifica pagos_nomina.
-          ...(puedeEditarNomina ? [{
-            id: 'pagar',
-            etiqueta: 'Registrar pago',
-            icono: <Banknote size={14} />,
-            variante: 'primario' as const,
-            onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
-          }] : []),
-        ]}
-        banner={banner}
-      >
-        <div className="max-w-6xl mx-auto space-y-5">
+  // Acciones (Enviar recibo / Registrar pago). Se usan en ambos modos:
+  // como `acciones` de `PlantillaEditor` cuando es pantalla completa, o
+  // renderizadas inline arriba del banner cuando es embed.
+  const accionesPago = [
+    ...(puedeEnviarNomina ? [{
+      id: 'enviar-recibo',
+      etiqueta: 'Enviar recibo',
+      icono: <Send size={13} />,
+      variante: 'secundario' as const,
+      onClick: () => setModalEnvio(true),
+    }] : []),
+    ...(puedeEditarNomina ? [{
+      id: 'pagar',
+      etiqueta: 'Registrar pago',
+      icono: <Banknote size={14} />,
+      variante: 'primario' as const,
+      onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
+    }] : []),
+  ]
 
-          {/* ── BANNER PERSISTENTE: contrato terminado ── */}
-          {/*
-            Aparece cuando el último contrato del miembro quedó cerrado.
-            No bloquea acciones (el operador puede liquidar períodos
-            retroactivos), solo deja claro el estado para que no se
-            confunda con un empleado activo sin asistencias.
-          */}
-          {contratoTerminado && (
-            <div className="rounded-card border border-insignia-peligro/30 bg-insignia-peligro/10 px-4 py-3 flex items-start gap-3">
-              <Ban size={16} className="text-insignia-peligro shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-insignia-peligro">
-                  Contrato terminado el {contratoTerminado.fecha_fin}
-                </p>
-                <p className="text-xs text-texto-secundario mt-0.5">
-                  El empleado ya no tiene contrato vigente. Podés revisar este recibo histórico o liquidar un período retroactivo, pero ya no se generan más liquidaciones automáticamente.
-                </p>
-              </div>
-            </div>
-          )}
+  // Contenido principal (banner cálculo + cards). Es el mismo para los
+  // dos modos. Lo que cambia es el wrapper: en pantalla completa lo
+  // envuelve `PlantillaEditor` con título/migajas/acciones; en embed
+  // se renderiza directo bajo el header de la ficha del empleado, sin
+  // duplicar identidad ni acciones.
+  const contenidoPrincipal = (
+    <div className="max-w-6xl mx-auto space-y-5">
 
-          {/* ── CABEZAL DEL EMPLEADO ── */}
-          <CabezaloPersona
-            etiquetaTipo="Empleado"
-            nombre={datosEmpleado.nombre}
-            foto={emp.foto_url}
-            subtitulo={emp.puesto || undefined}
-            badge={<Insignia color="exito" tamano="sm">● Activo</Insignia>}
-            metadatos={metadatosEmpleado}
-          />
+      {/* ── BANNER PERSISTENTE: contrato terminado ── */}
+      {contratoTerminado && (
+        <div className="rounded-card border border-insignia-peligro/30 bg-insignia-peligro/10 px-4 py-3 flex items-start gap-3">
+          <Ban size={16} className="text-insignia-peligro shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-insignia-peligro">
+              Contrato terminado el {contratoTerminado.fecha_fin}
+            </p>
+            <p className="text-xs text-texto-secundario mt-0.5">
+              El empleado ya no tiene contrato vigente. Podés revisar este recibo histórico o liquidar un período retroactivo, pero ya no se generan más liquidaciones automáticamente.
+            </p>
+          </div>
+        </div>
+      )}
 
-          {/* ── BANNER RESUMEN DE CÁLCULO ── */}
-          <BannerResumenCalculo
-            tono={bannerEstado.tono}
-            etiquetaEstado={bannerEstado.etiqueta}
-            subEstado={bannerEstado.subtitulo}
-            titulo={bannerEstado.titulo}
-            descripcion={bannerEstado.descripcion}
-            formula={formulaCalculo}
-          />
+      {/* ── CABEZAL DEL EMPLEADO ──
+          Solo se renderiza en modo pantalla completa. En modo embed, la
+          ficha del empleado (header de la página) ya muestra foto, nombre,
+          puesto y metadatos, así que ocultamos este cabezal para no
+          duplicar la identidad. */}
+      {!embed && (
+        <CabezaloPersona
+          etiquetaTipo="Empleado"
+          nombre={datosEmpleado.nombre}
+          foto={emp.foto_url}
+          subtitulo={emp.puesto || undefined}
+          badge={<Insignia color="exito" tamano="sm">● Activo</Insignia>}
+          metadatos={metadatosEmpleado}
+        />
+      )}
+
+      {/* ── BANNER RESUMEN DE CÁLCULO ── */}
+      <BannerResumenCalculo
+        tono={bannerEstado.tono}
+        etiquetaEstado={bannerEstado.etiqueta}
+        subEstado={bannerEstado.subtitulo}
+        titulo={bannerEstado.titulo}
+        descripcion={bannerEstado.descripcion}
+        formula={formulaCalculo}
+      />
 
           {/* ── GRID 2 COLUMNAS ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1063,7 +1097,7 @@ export function PaginaEditorNominaEmpleado({
                 </TarjetaPanel>
               )}
 
-              {/* ─── DESGLOSE DEL CÁLCULO ─── */}
+              {/* ─── DESGLOSE DEL CÁLCULO (recibo) ─── */}
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
@@ -1074,88 +1108,173 @@ export function PaginaEditorNominaEmpleado({
                   </Boton>
                 )}
               >
-                <div className="space-y-3">
-                  {/* ─── BRUTO — protagonista: lo que realmente generó el empleado ─── */}
-                  <div className="pb-3 border-b border-white/[0.07]">
-                    <p className="text-[11px] text-texto-terciario uppercase tracking-wider">Bruto del período</p>
-                    <p className="text-3xl font-bold tabular-nums mt-1 text-texto-primario">
-                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
-                    </p>
-                    <p className="text-[11px] text-texto-terciario mt-1">
-                      {emp.monto_detalle}
-                      {emp.horas_netas > 0 ? ` · ${fmtHoras(emp.horas_netas)} trabajadas` : ''}
-                    </p>
-                  </div>
+                {(() => {
+                  const haberes = emp.conceptos_aplicados?.filter(c => c.tipo === 'haber') ?? []
+                  const descuentosConceptos = emp.conceptos_aplicados?.filter(c => c.tipo === 'descuento') ?? []
+                  const totalHaberes = emp.total_haberes ?? 0
+                  const totalDescuentosConceptos = emp.total_descuentos_conceptos ?? 0
+                  const subtotalHaberes = emp.monto_pagar + totalHaberes
+                  const saldoEnContra = emp.saldo_anterior < 0 ? Math.abs(emp.saldo_anterior) : 0
+                  const saldoAFavor = emp.saldo_anterior > 0 ? emp.saldo_anterior : 0
+                  const totalDescuentos = totalDescuentosConceptos + emp.descuento_adelanto + saldoAFavor
 
-                  {/* ─── DESCUENTOS Y AJUSTES — desglose línea por línea ─── */}
-                  <div className="space-y-2 text-sm">
-                    {(emp.descuento_adelanto > 0 || emp.saldo_anterior > 0) && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-insignia-advertencia">Descuentos del período</p>
-                          <span className="text-insignia-advertencia font-medium tabular-nums">
-                            −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
+                  return (
+                    <div className="divide-y divide-white/[0.06]">
+                      {/* ───── HABERES ───── */}
+                      <section className="pb-4">
+                        <header className="flex items-center justify-between mb-3">
+                          <p className="text-[11px] font-medium text-insignia-exito uppercase tracking-wider">
+                            Haberes
+                          </p>
+                          <span className="text-[11px] text-texto-terciario">
+                            {1 + haberes.length} {haberes.length === 0 ? 'concepto' : 'conceptos'}
                           </span>
-                        </div>
-                        <div className="space-y-1 ml-1.5 pl-2 border-l border-insignia-advertencia/20">
-                          {emp.saldo_anterior > 0 && (
-                            <div className="flex items-start justify-between gap-3 text-[11px]">
-                              <p className="text-texto-terciario">A favor del período anterior</p>
-                              <span className="text-texto-secundario tabular-nums shrink-0">
-                                −{fmtMonto(emp.saldo_anterior)}
-                              </span>
-                            </div>
-                          )}
-                          {cuotasInfoPeriodo.map((c, idx) => (
-                            <div key={idx} className="flex items-start justify-between gap-3 text-[11px]">
-                              <p className="text-texto-terciario truncate flex items-center gap-1.5">
-                                {c.tipo === 'descuento' && (
-                                  <span className="inline-flex items-center px-1 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide shrink-0">
-                                    Descuento
-                                  </span>
-                                )}
-                                <span className="truncate">
-                                  {c.notas || (c.tipo === 'descuento' ? `Descuento ${idx + 1}` : `Adelanto ${idx + 1}`)}
-                                  {c.tipo === 'adelanto' && c.cuotasTotales > 1 ? ` · cuota ${c.numeroCuota}/${c.cuotasTotales}` : ''}
-                                  {c.fechaSolicitud ? ` · ${fmtFecha(c.fechaSolicitud)}` : ''}
-                                </span>
+                        </header>
+
+                        <div className="space-y-2">
+                          {/* Sueldo base */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm text-texto-primario">Sueldo base</p>
+                              <p className="text-[11px] text-texto-terciario truncate">
+                                {emp.monto_detalle}
+                                {emp.horas_netas > 0 ? ` · ${fmtHoras(emp.horas_netas)} trabajadas` : ''}
                               </p>
-                              <span className="text-texto-secundario tabular-nums shrink-0">
-                                −{fmtMonto(c.monto)}
+                            </div>
+                            <span className="text-sm tabular-nums text-texto-primario font-medium shrink-0">
+                              {fmtMonto(emp.monto_pagar)}
+                            </span>
+                          </div>
+
+                          {/* Conceptos haber */}
+                          {haberes.map(c => (
+                            <div key={c.concepto_id} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-texto-primario">{c.nombre}</p>
+                                {c.detalle && (
+                                  <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                )}
+                              </div>
+                              <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
+                                +{fmtMonto(c.monto)}
                               </span>
                             </div>
                           ))}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Saldo en contra del período anterior (se suma al bruto) */}
-                    {emp.saldo_anterior < 0 && (
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-insignia-peligro">Quedó debiendo el período anterior</p>
-                          <p className="text-[11px] text-texto-terciario mt-0.5">Se suma a este período</p>
+                          {/* Saldo en contra del período anterior (se suma al bruto) */}
+                          {saldoEnContra > 0 && (
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm text-insignia-peligro">Saldo período anterior</p>
+                                <p className="text-[11px] text-texto-terciario">Se cobró de menos antes</p>
+                              </div>
+                              <span className="text-sm tabular-nums text-insignia-peligro font-medium shrink-0">
+                                +{fmtMonto(saldoEnContra)}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-insignia-peligro font-medium tabular-nums">
-                          +{fmtMonto(Math.abs(emp.saldo_anterior))}
-                        </span>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* ─── NETO — resultado final (cierre del cálculo) ─── */}
-                  <div className="flex items-start justify-between gap-3 pt-3 border-t border-white/[0.07]">
-                    <div>
-                      <p className="text-texto-primario font-semibold">Neto a transferir</p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">
-                        Asistencia del {pctAsistencia}%{emp.monto_neto < 0 ? ' · se arrastra al próximo período' : ''}
-                      </p>
+                        <div className="mt-3 pt-2 border-t border-dashed border-white/[0.08] flex items-center justify-between">
+                          <p className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                            Total haberes
+                          </p>
+                          <span className="text-sm font-semibold tabular-nums text-texto-primario">
+                            {fmtMonto(subtotalHaberes + saldoEnContra)}
+                          </span>
+                        </div>
+                      </section>
+
+                      {/* ───── DESCUENTOS ───── */}
+                      {totalDescuentos > 0 && (
+                        <section className="py-4">
+                          <header className="flex items-center justify-between mb-3">
+                            <p className="text-[11px] font-medium text-insignia-advertencia uppercase tracking-wider">
+                              Descuentos
+                            </p>
+                            <span className="text-[11px] text-texto-terciario">
+                              {descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)} {(descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)) === 1 ? 'concepto' : 'conceptos'}
+                            </span>
+                          </header>
+
+                          <div className="space-y-2">
+                            {/* Conceptos descuento del contrato */}
+                            {descuentosConceptos.map(c => (
+                              <div key={c.concepto_id} className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-texto-primario">{c.nombre}</p>
+                                  {c.detalle && (
+                                    <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                  )}
+                                </div>
+                                <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
+                                  −{fmtMonto(c.monto)}
+                                </span>
+                              </div>
+                            ))}
+
+                            {/* Saldo a favor del período anterior (se descuenta del bruto) */}
+                            {saldoAFavor > 0 && (
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm text-texto-primario">A favor del período anterior</p>
+                                  <p className="text-[11px] text-texto-terciario">Se cobró de más antes</p>
+                                </div>
+                                <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
+                                  −{fmtMonto(saldoAFavor)}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Adelantos y descuentos manuales del período */}
+                            {cuotasInfoPeriodo.map((c, idx) => (
+                              <div key={`cuota-${idx}`} className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                    {c.tipo === 'descuento' ? 'Descuento manual' : 'Adelanto'}
+                                    {c.tipo === 'adelanto' && c.cuotasTotales > 1 && (
+                                      <span className="text-[10px] text-texto-terciario">cuota {c.numeroCuota}/{c.cuotasTotales}</span>
+                                    )}
+                                  </p>
+                                  <p className="text-[11px] text-texto-terciario truncate">
+                                    {c.notas || (c.fechaSolicitud ? fmtFecha(c.fechaSolicitud) : '')}
+                                  </p>
+                                </div>
+                                <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
+                                  −{fmtMonto(c.monto)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-dashed border-white/[0.08] flex items-center justify-between">
+                            <p className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                              Total descuentos
+                            </p>
+                            <span className="text-sm font-semibold tabular-nums text-insignia-advertencia">
+                              −{fmtMonto(totalDescuentos)}
+                            </span>
+                          </div>
+                        </section>
+                      )}
+
+                      {/* ───── NETO ───── */}
+                      <section className="pt-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-base text-texto-primario font-semibold">Neto a transferir</p>
+                            <p className="text-[11px] text-texto-terciario mt-0.5">
+                              Asistencia del {pctAsistencia}%{emp.monto_neto < 0 ? ' · se arrastra al próximo período' : ''}
+                            </p>
+                          </div>
+                          <span className={`text-2xl font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
+                            <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
+                          </span>
+                        </div>
+                      </section>
                     </div>
-                    <span className={`text-xl font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
-                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
-                    </span>
-                  </div>
-                </div>
+                  )
+                })()}
               </TarjetaPanel>
             </div>
 
@@ -1628,8 +1747,43 @@ export function PaginaEditorNominaEmpleado({
               </TarjetaPanel>
             </div>
           </div>
+    </div>
+  )
+
+  return (
+    <>
+      {embed ? (
+        // ─── Modo embed: dentro de la ficha del empleado ───
+        // El header de la ficha (foto + nombre + sector·turno·modalidad
+        // + tabs) ya identifica al empleado. Acá solo mostramos las
+        // acciones de pago, el banner del período (selector con hero) y
+        // el contenido principal — sin envolver con PlantillaEditor.
+        <div className="px-4 md:px-6 py-4 space-y-5">
+          {accionesPago.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              {accionesPago.map(a => (
+                <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
+                  {a.etiqueta}
+                </Boton>
+              ))}
+            </div>
+          )}
+          {banner}
+          {contenidoPrincipal}
         </div>
-      </PlantillaEditor>
+      ) : (
+        // ─── Modo pantalla completa ───
+        <PlantillaEditor
+          titulo={datosEmpleado.nombre}
+          insignias={insigniasCabecero}
+          volverTexto={textoVolver}
+          onVolver={() => router.push(rutaVolver)}
+          acciones={accionesPago}
+          banner={banner}
+        >
+          {contenidoPrincipal}
+        </PlantillaEditor>
+      )}
 
       {/* Modal de confirmación de pago */}
       <Modal

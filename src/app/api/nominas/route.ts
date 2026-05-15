@@ -5,6 +5,19 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
+import {
+  parsearCondicion,
+  evaluarCondicion,
+  calcularMontoConcepto,
+  esUltimaLiquidacionDelMes,
+  calcularBasicoMensual,
+} from '@/lib/nominas/motor-calculo'
+import type {
+  ContratoLaboral,
+  ConceptoNomina,
+  ConceptoAplicadoCalculado,
+  MetricasAsistencia,
+} from '@/tipos/nominas'
 import Holidays from 'date-holidays'
 
 /**
@@ -48,11 +61,27 @@ export async function GET(request: NextRequest) {
     const nombreEmpresa = (empresaData?.nombre as string) || ''
     const paisEmpresa = (empresaData?.pais as string) || 'AR'
 
-    // ─── Feriados del país ───
+    // ─── Feriados y días no laborables ───
+    // Distinguimos DOS conjuntos porque la legislación argentina los
+    // trata distinto y eso impacta directamente en los conceptos de
+    // "pago doble por trabajar en feriado":
+    //
+    //   • `feriadosSet` (nacional / puente / empresa / regional):
+    //     son días de descanso obligatorio pagado. Si el empleado va a
+    //     trabajar, corresponde pago doble. La librería `date-holidays`
+    //     solo devuelve estos con `type === 'public'`.
+    //
+    //   • `diasNoLaborablesSet` (no_laborable):
+    //     el empleador decide si abre. Si abre y el empleado va, se
+    //     paga normal (no doble). Si no abre, no hay ausencia. Para el
+    //     cálculo de "días laborales del período", estos días se tratan
+    //     como días que simplemente no estaban planificados —ni laboral
+    //     ni feriado.
     const hd = new Holidays(paisEmpresa)
     const anioDesde = parseInt(desde.split('-')[0])
     const anioHasta = parseInt(hasta.split('-')[0])
     const feriadosSet = new Set<string>()
+    const diasNoLaborablesSet = new Set<string>()
     const feriadosNombres = new Map<string, string>()
 
     for (let anio = anioDesde; anio <= anioHasta; anio++) {
@@ -61,6 +90,32 @@ export async function GET(request: NextRequest) {
           const fechaStr = h.date.split(' ')[0]
           feriadosSet.add(fechaStr)
           feriadosNombres.set(fechaStr, h.name)
+        }
+      }
+    }
+
+    // Feriados configurados por la empresa (tabla `feriados`).
+    // Cargamos un rango amplio (todo el año del período) porque el
+    // cálculo mensual puede evaluar días del mes fuera de [desde,
+    // hasta] cuando el período es la última liquidación del mes.
+    // Mapeamos el `tipo` para meter cada fila en el set correcto.
+    const { data: feriadosEmpresa } = await admin
+      .from('feriados')
+      .select('fecha, nombre, tipo')
+      .eq('empresa_id', empresaId)
+      .eq('activo', true)
+      .gte('fecha', `${anioDesde}-01-01`)
+      .lte('fecha', `${anioHasta}-12-31`)
+    if (feriadosEmpresa) {
+      for (const f of feriadosEmpresa) {
+        const fechaStr = f.fecha as string
+        const tipo = (f.tipo as string) || 'nacional'
+        if (tipo === 'no_laborable') {
+          diasNoLaborablesSet.add(fechaStr)
+        } else {
+          // nacional | puente | empresa | regional → pago doble
+          feriadosSet.add(fechaStr)
+          feriadosNombres.set(fechaStr, f.nombre as string)
         }
       }
     }
@@ -172,6 +227,65 @@ export async function GET(request: NextRequest) {
           !miembrosTerminadosAntes.has(m.id as string),
         )
 
+    // ─── Contratos vigentes + conceptos aplicables ───
+    // Cargamos en dos pasos:
+    //   1) El contrato vigente de cada miembro (con fecha_inicio para
+    //      evaluar condiciones tipo "antigüedad ≥ N años").
+    //   2) Los conceptos asignados (activos) a esos contratos, con el
+    //      detalle completo del catálogo (modo_calculo, condicion_jsonb,
+    //      tipo, etc) para que el motor pueda evaluarlos.
+    // Se aplican luego en el loop por miembro, sumando haberes y
+    // restando descuentos sobre el monto base.
+    const contratoVigentePorMiembro = new Map<string, ContratoLaboral>()
+    const conceptosPorMiembro = new Map<string, Array<{ valor_override: number | string | null; concepto: ConceptoNomina }>>()
+    const miembrosFinalesIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
+
+    if (miembrosFinalesIds.length > 0) {
+      const { data: contratosVigentes } = await admin
+        .from('contratos_laborales')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .in('miembro_id', miembrosFinalesIds)
+        .eq('vigente', true)
+
+      for (const c of (contratosVigentes ?? []) as ContratoLaboral[]) {
+        contratoVigentePorMiembro.set(c.miembro_id, c)
+      }
+
+      const contratoIds = (contratosVigentes ?? []).map(c => (c as ContratoLaboral).id)
+      if (contratoIds.length > 0) {
+        const { data: asignaciones } = await admin
+          .from('conceptos_contrato')
+          .select('contrato_id, valor_override, concepto:conceptos_nomina(*)')
+          .eq('empresa_id', empresaId)
+          .in('contrato_id', contratoIds)
+          .eq('activo', true)
+
+        const contratoIdAMiembro = new Map<string, string>()
+        for (const [mid, c] of contratoVigentePorMiembro) contratoIdAMiembro.set(c.id, mid)
+
+        // El join `concepto:conceptos_nomina(*)` lo tipa Supabase como
+        // array por defecto, pero la relación es many-to-one — viene
+        // siempre un solo objeto. Casteamos vía unknown para evitar el
+        // error de TypeScript sin que el código tenga que envolver en
+        // arrays innecesarios.
+        type FilaAsignacion = {
+          contrato_id: string
+          valor_override: number | string | null
+          concepto: ConceptoNomina
+        }
+        for (const a of ((asignaciones ?? []) as unknown as FilaAsignacion[])) {
+          const miembroId = contratoIdAMiembro.get(a.contrato_id)
+          if (!miembroId || !a.concepto) continue
+          if (!conceptosPorMiembro.has(miembroId)) conceptosPorMiembro.set(miembroId, [])
+          conceptosPorMiembro.get(miembroId)!.push({
+            valor_override: a.valor_override,
+            concepto: a.concepto,
+          })
+        }
+      }
+    }
+
     // Identidad consolidada (perfil para miembros con cuenta Flux, contacto-equipo
     // para los cargados a mano). Reemplaza las dos queries previas a `perfiles` y
     // `contactos`. Ver src/lib/miembros/identidad.ts.
@@ -201,6 +315,43 @@ export async function GET(request: NextRequest) {
       .gte('fecha', desde)
       .lte('fecha', hasta)
 
+    // ─── Asistencias del MES entero (para conceptos mensuales) ───
+    //
+    // Los conceptos `periodicidad='mensual'` evalúan su condición sobre
+    // el mes completo, no sobre el período del recibo. Por ejemplo,
+    // Presentismo "sin ausencias" considera el mes entero — si el
+    // empleado faltó en Q1 pero cobra Q2, el premio no aplica.
+    //
+    // Carga: solo si hay al menos un concepto mensual activo asignado
+    // a algún miembro del listado, y solo cuando el período del recibo
+    // sea la última liquidación del mes (sino no se va a aplicar igual).
+    // El rango del mes se toma del `hasta`.
+    const [yHasta, mHasta] = hasta.split('-').map(Number)
+    const primerDiaMes = `${yHasta}-${String(mHasta).padStart(2, '0')}-01`
+    const ultimoDiaMesNum = new Date(yHasta, mHasta, 0).getDate()
+    const ultimoDiaMes = `${yHasta}-${String(mHasta).padStart(2, '0')}-${String(ultimoDiaMesNum).padStart(2, '0')}`
+    const periodoEsUltimaDelMes = esUltimaLiquidacionDelMes(desde, hasta)
+    // Cargamos solo si el período actual ES la última del mes y abarca
+    // un rango menor al mes (es decir, hay días del mes fuera del período).
+    const necesitaAsistenciasMes = periodoEsUltimaDelMes && (desde > primerDiaMes || hasta < ultimoDiaMes)
+    let asistenciasMes: Record<string, unknown>[] | null = null
+    if (necesitaAsistenciasMes) {
+      const { data } = await admin
+        .from('asistencias')
+        .select('miembro_id, fecha, estado, tipo, hora_entrada')
+        .eq('empresa_id', empresaId)
+        .gte('fecha', primerDiaMes)
+        .lte('fecha', ultimoDiaMes)
+      asistenciasMes = data || []
+    }
+    const asistenciasMesPorMiembro = new Map<string, Record<string, unknown>[]>()
+    for (const a of asistenciasMes ?? []) {
+      const r = a as Record<string, unknown>
+      const mid = r.miembro_id as string
+      if (!asistenciasMesPorMiembro.has(mid)) asistenciasMesPorMiembro.set(mid, [])
+      asistenciasMesPorMiembro.get(mid)!.push(r)
+    }
+
     const diasSet = diasFiltro ? new Set(diasFiltro) : null
 
     // Agrupar asistencias por miembro
@@ -216,7 +367,18 @@ export async function GET(request: NextRequest) {
     // ─── Helper: generar todas las fechas del período ───
     const diasSemanaStr = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
 
-    /** Genera las fechas del período separadas en laborales y feriados según el turno */
+    /** Genera las fechas del período separadas en laborales y feriados según el turno.
+     *
+     *  Reglas:
+     *   - Día activo del turno + feriado (pago doble) → `fechasFeriado`.
+     *   - Día activo del turno + sin feriado y sin no_laborable → `fechasLaborales`.
+     *   - Día no_laborable: NUNCA cuenta como laboral ni como feriado. El
+     *     empleador puede o no abrir; si abre y el empleado va se procesa
+     *     como día trabajado normal (no genera doble pago), pero si no va
+     *     no genera ausencia.
+     *   - Día no activo del turno (ej: domingo no laborable según turno):
+     *     se descarta.
+     */
     function calcularDiasDelPeriodo(
       turno: Record<string, unknown> | undefined,
     ): { fechasLaborales: string[]; fechasFeriado: string[] } {
@@ -239,11 +401,16 @@ export async function GET(request: NextRequest) {
         const d = new Date(f + 'T12:00:00')
         const diaNombre = diasSemanaStr[d.getDay()]
         const esActivo = diasConfig[diaNombre]?.activo !== false
+        if (!esActivo) continue
 
-        if (feriadosSet.has(f) && esActivo) {
-          // Es feriado en día laboral — no cuenta como laboral, pero se suma aparte
+        // Día no_laborable: queda fuera del esquema de laboral/feriado.
+        // Si el empleado vino igual, se cuenta vía `fechasConPresencia`
+        // como día trabajado normal sin generar doble pago.
+        if (diasNoLaborablesSet.has(f)) continue
+
+        if (feriadosSet.has(f)) {
           fechasFer.push(f)
-        } else if (!feriadosSet.has(f) && esActivo) {
+        } else {
           fechasLab.push(f)
         }
       }
@@ -556,6 +723,147 @@ export async function GET(request: NextRequest) {
         montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${horasTotales}h`
       }
 
+      // ─── Aplicar conceptos del contrato (haberes y descuentos) ───
+      //
+      // Cada concepto declara su `periodicidad`:
+      //   - 'por_periodo': se aplica en cada liquidación con métricas del período.
+      //   - 'mensual': solo aplica en la última liquidación del mes; se evalúa
+      //     la condición sobre el MES completo y el monto se calcula sobre
+      //     el básico MENSUAL del empleado. Esto evita que un Presentismo
+      //     10% se cobre dos veces si la frecuencia es quincenal.
+      //   - 'unico': reservado.
+      //
+      // Régimen: agnóstico — un contrato informal puede tener Presentismo
+      // y Antigüedad igual que uno en relación de dependencia.
+      const conceptosAplicados: ConceptoAplicadoCalculado[] = []
+      let totalHaberes = 0
+      let totalDescuentosConceptos = 0
+      const contratoVigenteMiembro = contratoVigentePorMiembro.get(m.id as string) ?? null
+      const conceptosDelMiembro = conceptosPorMiembro.get(m.id as string) ?? []
+
+      if (conceptosDelMiembro.length > 0) {
+        // ─── Métricas del PERÍODO (para conceptos por_periodo) ───
+        const metricasPeriodo: MetricasAsistencia = {
+          dias_periodo: todasLasFechas.length,
+          dias_trabajados: diasTrabajados,
+          dias_ausentes: diasAusentes,
+          tardanzas: diasTardanza,
+          horas_netas: horasNetas,
+          // Días que el empleado fichó en un feriado (alimenta la
+          // condición "trabajo_feriado" del motor).
+          dias_feriados_trabajados: diasTrabajadosEnFeriado,
+        }
+
+        // ─── Métricas del MES (para conceptos mensuales) ───
+        // Si el período cubre el mes entero, las métricas mensuales son
+        // las del período. Si no, las calculamos sobre las asistencias
+        // del mes que cargamos al principio.
+        let metricasMes: MetricasAsistencia = metricasPeriodo
+        let basicoMensual = montoPagar
+        if (contratoVigenteMiembro && periodoEsUltimaDelMes) {
+          // Días laborales del mes según el turno del empleado
+          const fechasMesArr: string[] = []
+          const d = new Date(primerDiaMes + 'T12:00:00')
+          const finMes = new Date(ultimoDiaMes + 'T12:00:00')
+          while (d <= finMes) {
+            fechasMesArr.push(d.toISOString().split('T')[0])
+            d.setDate(d.getDate() + 1)
+          }
+          let diasLaboralesMes = 0
+          for (const f of fechasMesArr) {
+            const dt = new Date(f + 'T12:00:00')
+            const diaNombre = diasSemanaStr[dt.getDay()]
+            const turnoObjMes = turno as Record<string, unknown> | undefined
+            const cfg = (turnoObjMes?.dias as Record<string, { activo?: boolean }> | undefined)?.[diaNombre]
+            const esActivo = cfg?.activo !== false
+            // Mismo criterio que calcularDiasDelPeriodo: día activo del
+            // turno y NO feriado y NO no_laborable.
+            if (esActivo && !feriadosSet.has(f) && !diasNoLaborablesSet.has(f)) {
+              diasLaboralesMes++
+            }
+          }
+          // Métricas reales del mes (asistencias del mes si las cargamos, sino del período)
+          const asistMes = necesitaAsistenciasMes
+            ? (asistenciasMesPorMiembro.get(m.id as string) ?? [])
+            : registros
+          const diasTrabajadosMes = new Set(
+            asistMes.filter(r => r.hora_entrada != null).map(r => r.fecha as string),
+          ).size
+          const diasAusentesMes = asistMes.filter(r => r.estado === 'ausente').length
+          const tardanzasMes = asistMes.filter(r => r.tipo === 'tardanza').length
+          // Feriados del mes que el empleado vino a trabajar (fichó entrada).
+          const diasFeriadosTrabajadosMes = asistMes
+            .filter(r => r.hora_entrada != null && feriadosSet.has(r.fecha as string))
+            .length
+          metricasMes = {
+            dias_periodo: fechasMesArr.length,
+            dias_trabajados: diasTrabajadosMes,
+            dias_ausentes: Math.max(0, diasLaboralesMes - diasTrabajadosMes),
+            tardanzas: tardanzasMes,
+            horas_netas: horasNetas, // del período (heurística — el mes completo no se calcula por costo)
+            dias_feriados_trabajados: diasFeriadosTrabajadosMes,
+          }
+          // Suplementar: si dias_ausentes calculado por asistencias es mayor, usarlo
+          if (diasAusentesMes > metricasMes.dias_ausentes) {
+            metricasMes = { ...metricasMes, dias_ausentes: diasAusentesMes }
+          }
+          basicoMensual = calcularBasicoMensual(
+            contratoVigenteMiembro.modalidad_calculo,
+            Number(contratoVigenteMiembro.monto_base),
+            diasLaboralesMes,
+          )
+        }
+
+        for (const cc of conceptosDelMiembro) {
+          const c = cc.concepto
+          if (!c.activo) continue
+          if (!c.automatico) continue
+
+          // Decidir si este concepto aplica AHORA según su periodicidad
+          if (c.periodicidad === 'mensual' && !periodoEsUltimaDelMes) {
+            // El concepto vendrá en la última liquidación del mes — no aquí.
+            continue
+          }
+          if (c.periodicidad === 'unico') {
+            // Reservado: se implementa con tabla de "ya aplicado por contrato".
+            continue
+          }
+
+          // Métricas y base según periodicidad
+          const esMensual = c.periodicidad === 'mensual'
+          const metricas = esMensual ? metricasMes : metricasPeriodo
+          const baseCalculo = esMensual ? basicoMensual : montoPagar
+
+          const valorBase = cc.valor_override !== null && cc.valor_override !== undefined
+            ? Number(cc.valor_override)
+            : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
+
+          const condicion = parsearCondicion(c.condicion_jsonb as Record<string, unknown> | null)
+          const evaluacion = evaluarCondicion(condicion, metricas, contratoVigenteMiembro, hasta)
+          if (!evaluacion.cumple) continue
+
+          const montoConcepto = calcularMontoConcepto(c.modo_calculo, valorBase, baseCalculo, metricas)
+          const detalleConPeriodicidad = esMensual
+            ? `${evaluacion.detalle ?? ''}${evaluacion.detalle ? ' · ' : ''}calculado sobre el básico mensual`.trim()
+            : evaluacion.detalle
+
+          conceptosAplicados.push({
+            concepto_id: c.id,
+            nombre: c.nombre,
+            tipo: c.tipo,
+            modo_calculo: c.modo_calculo,
+            valor: valorBase,
+            monto: Math.round(montoConcepto * 100) / 100,
+            automatico: c.automatico,
+            detalle: detalleConPeriodicidad,
+          })
+          if (c.tipo === 'haber') totalHaberes += montoConcepto
+          else totalDescuentosConceptos += montoConcepto
+        }
+        totalHaberes = Math.round(totalHaberes * 100) / 100
+        totalDescuentosConceptos = Math.round(totalDescuentosConceptos * 100) / 100
+      }
+
       // Datos de identidad/identificación del empleado (para el cabezal del detalle)
       const puesto = etiquetasNomina.get(m.id as string)?.puesto ?? null
       const fechaIngreso = (m.unido_en as string | null) || null
@@ -606,18 +914,26 @@ export async function GET(request: NextRequest) {
         dias_con_salida_particular: diasConSalidaParticular,
         descuenta_almuerzo: descontarAlmuerzo,
         duracion_almuerzo_config: duracionAlmuerzoMin,
-        // Pago (bruto)
+        // Pago — bruto base (sueldo según modalidad, sin conceptos extra)
         monto_pagar: Math.round(montoPagar * 100) / 100,
         monto_detalle: montoDetalle,
+        // Conceptos aplicados al contrato. La UI los desglosa en
+        // secciones HABERES / DESCUENTOS junto con adelantos/saldo.
+        conceptos_aplicados: conceptosAplicados,
+        total_haberes: totalHaberes,
+        total_descuentos_conceptos: totalDescuentosConceptos,
         // Adelantos
         descuento_adelanto: Math.round((cuotasPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
         cuotas_adelanto: cuotasPorMiembro.get(m.id as string)?.cantidad || 0,
         // Saldo anterior (positivo = a favor del empleado, negativo = le deben descontar)
         saldo_anterior: Math.round((saldoAnteriorPorMiembro.get(m.id as string) || 0) * 100) / 100,
+        // Neto = bruto + haberes - descuentos conceptos - adelantos - saldo
         monto_neto: Math.round((
           montoPagar
+          + totalHaberes
+          - totalDescuentosConceptos
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
-          - (saldoAnteriorPorMiembro.get(m.id as string) || 0) // restar si pagó de más antes
+          - (saldoAnteriorPorMiembro.get(m.id as string) || 0)
         ) * 100) / 100,
         // Flag para que la UI muestre en gris los empleados terminados.
         // Solo aparece como true cuando el setting `mostrar_empleados_terminados`

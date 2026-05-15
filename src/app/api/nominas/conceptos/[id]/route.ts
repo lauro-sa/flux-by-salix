@@ -3,10 +3,11 @@
  *
  * PATCH   → actualiza campos del concepto (whitelist amplia: todos
  *           menos identificadores y autoría que se setea en server).
- * DELETE  → soft delete (activo = false). Si el concepto está en uso
- *           por algún `conceptos_contrato`, igual se permite porque
- *           ya hay UNIQUE/FK que protegen consistencia (el contrato
- *           queda apuntando a un concepto inactivo, no se rompe).
+ * DELETE  → si es predefinido: 409 (usar toggle activo).
+ *           Si NO es predefinido y no está referenciado por ningún
+ *           contrato ni pago: hard delete real.
+ *           Si NO es predefinido pero está referenciado: soft delete
+ *           (activo = false) para no romper históricos.
  *
  * Auth: requiere `nomina:editar` para ambos.
  *
@@ -46,6 +47,7 @@ interface PayloadPatch {
   recurrente?: boolean
   activo?: boolean
   orden?: number
+  periodicidad?: 'mensual' | 'por_periodo' | 'unico'
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
@@ -71,9 +73,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const campos: (keyof PayloadPatch)[] = [
     'nombre', 'descripcion', 'icono', 'color', 'tipo', 'categoria',
     'modo_calculo', 'valor', 'automatico', 'condicion_jsonb',
-    'recurrente', 'activo', 'orden',
+    'recurrente', 'activo', 'orden', 'periodicidad',
   ]
   for (const c of campos) if (c in body) update[c] = body[c]
+  // Validar periodicidad si vino.
+  if ('periodicidad' in body && !['mensual', 'por_periodo', 'unico'].includes(body.periodicidad as string)) {
+    return NextResponse.json({ error: 'periodicidad inválida' }, { status: 400 })
+  }
 
   if (Object.keys(update).length === 1) {
     return NextResponse.json({ error: 'No se envió ningún campo editable' }, { status: 400 })
@@ -104,19 +110,66 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { user, empresaId } = guard
 
   const admin = crearClienteAdmin()
-  const { data, error } = await admin
+
+  // Si es predefinido del sistema, bloqueamos el borrado. El operador
+  // puede usar el toggle `activo` para desactivarlo, pero no quitarlo
+  // del catálogo — están atados a la lógica del motor.
+  const { data: actual } = await admin
     .from('conceptos_nomina')
-    .update({ activo: false, actualizado_por: user.id })
+    .select('es_predefinido')
     .eq('empresa_id', empresaId)
     .eq('id', id)
-    .select('id')
     .maybeSingle()
+  if (!actual) return NextResponse.json({ error: 'Concepto no encontrado' }, { status: 404 })
+  if (actual.es_predefinido) {
+    return NextResponse.json({
+      error: 'Este concepto es predefinido del sistema y no se puede eliminar. Desactivalo con el switch "Activo" si no querés que aparezca.',
+      codigo: 'PREDEFINIDO',
+    }, { status: 409 })
+  }
+
+  // Para no predefinidos, chequeamos si está asignado a algún
+  // contrato vigente. `conceptos_contrato` tiene ON DELETE RESTRICT,
+  // así que un hard delete tiraría error de FK si lo borráramos. En
+  // ese caso hacemos soft delete (activo=false). La tabla snapshot
+  // `conceptos_aplicados_pago` tiene ON DELETE SET NULL, así que no
+  // bloquea — el nombre_snapshot queda y los pagos siguen mostrando
+  // el detalle aunque el concepto desaparezca del catálogo.
+  const { count: refContratos } = await admin
+    .from('conceptos_contrato')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId)
+    .eq('concepto_id', id)
+
+  if ((refContratos ?? 0) > 0) {
+    // Soft delete: queda en la BD pero inactivo, así los pagos
+    // históricos siguen mostrando el nombre correcto.
+    const { data, error } = await admin
+      .from('conceptos_nomina')
+      .update({ activo: false, actualizado_por: user.id })
+      .eq('empresa_id', empresaId)
+      .eq('id', id)
+      .select('id')
+      .maybeSingle()
+    if (error) {
+      console.error('[conceptos:id] DELETE soft error:', error)
+      return NextResponse.json({ error: 'Error al desactivar concepto' }, { status: 500 })
+    }
+    if (!data) return NextResponse.json({ error: 'Concepto no encontrado' }, { status: 404 })
+    return NextResponse.json({ ok: true, modo: 'desactivado' })
+  }
+
+  // Hard delete: no hay referencias, podemos borrarlo de verdad.
+  const { error } = await admin
+    .from('conceptos_nomina')
+    .delete()
+    .eq('empresa_id', empresaId)
+    .eq('id', id)
 
   if (error) {
-    console.error('[conceptos:id] DELETE error:', error)
-    return NextResponse.json({ error: 'Error al desactivar concepto' }, { status: 500 })
+    console.error('[conceptos:id] DELETE hard error:', error)
+    return NextResponse.json({ error: 'Error al eliminar concepto' }, { status: 500 })
   }
-  if (!data) return NextResponse.json({ error: 'Concepto no encontrado' }, { status: 404 })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, modo: 'eliminado' })
 }

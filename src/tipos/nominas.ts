@@ -95,6 +95,21 @@ export type ModoCalculoConcepto =
   | 'por_evento'
   | 'manual'
 
+/**
+ * Cada cuánto se aplica el concepto a la liquidación.
+ *
+ * - `mensual`: el concepto pertenece al mes completo. Aplica solo en la
+ *   ÚLTIMA liquidación que cubre el mes (segunda quincena o última
+ *   semana). El monto se calcula sobre el básico MENSUAL, no del período.
+ *   Default para Presentismo, Premio puntualidad, Antigüedad.
+ *
+ * - `por_periodo`: aplica en cada período de pago. Default para
+ *   descuentos recurrentes (uniforme cuota X/N).
+ *
+ * - `unico`: aplica una sola vez en la vida del contrato (reservado).
+ */
+export type PeriodicidadConcepto = 'mensual' | 'por_periodo' | 'unico'
+
 // ════════════════════════════════════════════════════════════════
 // Entidades base
 // ════════════════════════════════════════════════════════════════
@@ -242,6 +257,21 @@ export interface ConceptoNomina {
   activo: boolean
   orden: number
 
+  /**
+   * Cada cuánto se aplica este concepto a la liquidación. Default
+   * 'mensual' para premios estándar, 'por_periodo' para descuentos
+   * de cuota a cuota (uniforme).
+   */
+  periodicidad: PeriodicidadConcepto
+
+  /**
+   * true para conceptos del catálogo base que el sistema seedea
+   * automáticamente al instalar el módulo Nóminas. No se pueden
+   * eliminar (sí editar y desactivar). Los duplicados que cree la
+   * empresa quedan en false.
+   */
+  es_predefinido: boolean
+
   creado_en: string
   creado_por: string | null
   actualizado_en: string
@@ -338,6 +368,13 @@ export interface MetricasAsistencia {
    * modalidad `por_hora`.
    */
   horas_netas: number
+  /**
+   * Días con fichaje que cayeron en un feriado. Lo usa la condición
+   * `trabajo_feriado` para premios por trabajar feriados. Opcional —
+   * los callers que no lo provean (motor puro, fixtures viejas) lo
+   * tratan como 0.
+   */
+  dias_feriados_trabajados?: number
 }
 
 /**
@@ -358,7 +395,13 @@ export type CondicionConcepto =
   | { tipo: 'siempre' }
   | { tipo: 'sin_ausencias' }
   | { tipo: 'sin_tardanzas' }
+  /** Sin ausencias Y sin tardanzas en el período evaluado. */
+  | { tipo: 'asistencia_perfecta' }
   | { tipo: 'minimo_dias'; dias: number }
+  /** Cumple si trabajó al menos `feriados` días feriados. Default 1. */
+  | { tipo: 'trabajo_feriado'; feriados?: number }
+  /** Cumple si horas_netas >= horas (período evaluado). */
+  | { tipo: 'horas_minimas'; horas: number }
   | { tipo: 'antiguedad_minima'; meses: number }
 
 /** Detalle de un concepto efectivamente aplicado por el motor. */

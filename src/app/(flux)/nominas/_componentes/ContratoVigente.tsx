@@ -49,10 +49,14 @@ interface Props {
   contratosAnteriores?: ContratoLaboral[]
   sectorNombre?: string | null
   turnoNombre?: string | null
+  /** True si el turno mostrado fue heredado del sector (no asignado en el contrato). */
+  turnoHeredadoDelSector?: boolean
   /** Mapa id→nombre de sector para resolver nombres en los contratos previos. */
   sectoresMap?: Map<string, string>
   /** Mapa id→nombre de turno para los contratos previos. */
   turnosMap?: Map<string, string>
+  /** Mapa sector_id → turno_id predeterminado del sector (para resolver herencia). */
+  sectorTurnoMap?: Map<string, string | null>
   locale?: string
   monedaSimbolo?: string
   puedeEditar: boolean
@@ -159,7 +163,7 @@ function calcularDuracion(inicio: string, fin?: string | null): string {
 }
 
 export function ContratoVigente({
-  contrato, contratosAnteriores = [], sectorNombre, turnoNombre, sectoresMap, turnosMap,
+  contrato, contratosAnteriores = [], sectorNombre, turnoNombre, turnoHeredadoDelSector, sectoresMap, turnosMap, sectorTurnoMap,
   locale = 'es-AR', monedaSimbolo = '$',
   puedeEditar, onNuevoContrato, onCambiarCondiciones, onEditarContrato, onContratoActualizado,
 }: Props) {
@@ -337,7 +341,16 @@ export function ContratoVigente({
           <Campo etiqueta="Frecuencia de pago" valor={ETIQUETAS_FRECUENCIA[contrato.frecuencia_pago] ?? contrato.frecuencia_pago} />
           <Campo etiqueta="Condición" valor={ETIQUETAS_CONDICION[contrato.condicion] ?? contrato.condicion} />
           <Campo etiqueta="Sector" valor={sectorNombre ?? '—'} />
-          <Campo etiqueta="Turno" valor={turnoNombre ?? '—'} />
+          <Campo
+            etiqueta="Turno"
+            valor={
+              turnoNombre
+                ? turnoHeredadoDelSector
+                  ? `${turnoNombre} (heredado del sector)`
+                  : turnoNombre
+                : '—'
+            }
+          />
           <Campo etiqueta="Régimen" valor={ETIQUETAS_REGIMEN[contrato.regimen] ?? contrato.regimen} />
           <Campo etiqueta="Fecha de inicio" valor={formatearFecha(contrato.fecha_inicio, locale)} />
 
@@ -373,16 +386,29 @@ export function ContratoVigente({
             </h3>
           </div>
           <div className="space-y-2">
-            {contratosAnteriores.map(c => (
-              <ContratoAnterior
-                key={c.id}
-                contrato={c}
-                sectorNombre={c.sector_id ? sectoresMap?.get(c.sector_id) ?? null : null}
-                turnoNombre={c.turno_id ? turnosMap?.get(c.turno_id) ?? null : null}
-                locale={locale}
-                monedaSimbolo={monedaSimbolo}
-              />
-            ))}
+            {contratosAnteriores.map(c => {
+              // Turno efectivo: propio del contrato o heredado del sector.
+              let turnoNombreItem: string | null = c.turno_id ? turnosMap?.get(c.turno_id) ?? null : null
+              let heredadoItem = false
+              if (!turnoNombreItem && c.sector_id && sectorTurnoMap) {
+                const turnoSectorId = sectorTurnoMap.get(c.sector_id)
+                if (turnoSectorId) {
+                  turnoNombreItem = turnosMap?.get(turnoSectorId) ?? null
+                  heredadoItem = !!turnoNombreItem
+                }
+              }
+              return (
+                <ContratoAnterior
+                  key={c.id}
+                  contrato={c}
+                  sectorNombre={c.sector_id ? sectoresMap?.get(c.sector_id) ?? null : null}
+                  turnoNombre={turnoNombreItem}
+                  turnoHeredado={heredadoItem}
+                  locale={locale}
+                  monedaSimbolo={monedaSimbolo}
+                />
+              )
+            })}
           </div>
         </section>
       )}
@@ -428,11 +454,13 @@ function Campo({ etiqueta, valor, multilinea = false }: { etiqueta: string; valo
 }
 
 function ContratoAnterior({
-  contrato, sectorNombre, turnoNombre, locale = 'es-AR', monedaSimbolo = '$',
+  contrato, sectorNombre, turnoNombre, turnoHeredado = false, locale = 'es-AR', monedaSimbolo = '$',
 }: {
   contrato: ContratoLaboral
   sectorNombre?: string | null
   turnoNombre?: string | null
+  /** Mostrar el turno con sufijo "(heredado)" cuando viene del sector. */
+  turnoHeredado?: boolean
   locale?: string
   monedaSimbolo?: string
 }) {
@@ -463,7 +491,7 @@ function ContratoAnterior({
             {' · '}
             {ETIQUETAS_FRECUENCIA[contrato.frecuencia_pago] ?? contrato.frecuencia_pago}
             {sectorNombre && <> · {sectorNombre}</>}
-            {turnoNombre && <> · {turnoNombre}</>}
+            {turnoNombre && <> · {turnoNombre}{turnoHeredado && <span className="text-texto-terciario/70"> (heredado)</span>}</>}
           </p>
         </div>
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${

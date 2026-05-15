@@ -80,7 +80,10 @@ export function VistaAdelantos() {
   // Datos
   const [adelantos, setAdelantos] = useState<Adelanto[]>([])
   const [empleados, setEmpleados] = useState<EmpleadoMini[]>([])
-  const [cargando, setCargando] = useState(true)
+  // `primeraCarga` solo se usa para el spinner inicial. Refrescos post-acción
+  // (crear, cancelar, reasignar) NO la activan: la lista se actualiza en su
+  // lugar sin parpadear.
+  const [primeraCarga, setPrimeraCarga] = useState(true)
 
   // Filtros
   const [filtroMiembro, setFiltroMiembro] = useState('')
@@ -98,7 +101,6 @@ export function VistaAdelantos() {
 
   // ─── Cargas ───
   const cargarAdelantos = useCallback(async () => {
-    setCargando(true)
     try {
       const params = new URLSearchParams()
       if (filtroMiembro) params.set('miembro_id', filtroMiembro)
@@ -115,7 +117,7 @@ export function VistaAdelantos() {
       console.error('[VistaAdelantos] error:', err)
       toast.mostrar('error', 'No se pudieron cargar los adelantos')
     } finally {
-      setCargando(false)
+      setPrimeraCarga(false)
     }
   }, [filtroMiembro, filtroEstado, filtroTipo, filtroFrecuencia, filtroDesde, filtroHasta, toast])
 
@@ -245,8 +247,10 @@ export function VistaAdelantos() {
         <SelectorFecha etiqueta="Hasta" valor={filtroHasta} onChange={(v) => setFiltroHasta(v || '')} />
       </div>
 
-      {/* Listado */}
-      {cargando ? (
+      {/* Listado.
+          Spinner solo en la primera carga; los refrescos post-acción
+          actualizan la lista en su lugar, sin parpadeo. */}
+      {primeraCarga && adelantos.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-texto-terciario">
           <Loader2 size={20} className="animate-spin" />
         </div>
