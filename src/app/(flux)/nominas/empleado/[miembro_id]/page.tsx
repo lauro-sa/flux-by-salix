@@ -18,7 +18,7 @@
  * uno desde la primera tab.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
@@ -159,7 +159,14 @@ function ContenidoFicha() {
   const [turnos, setTurnos] = useState<OpcionRef[]>([])
   const [conceptosCatalogo, setConceptosCatalogo] = useState<ConceptoNomina[]>([])
   const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
-  const [cargando, setCargando] = useState(true)
+  /**
+   * `primeraCarga` controla si se muestra el spinner full-screen
+   * (que reemplaza header + tabs). Solo se muestra en la primera
+   * carga; las recargas posteriores (refrescar contratos al renovar,
+   * por ejemplo) no tocan este flag para que el header y las tabs
+   * permanezcan visibles, evitando la sensación de remontaje.
+   */
+  const [primeraCarga, setPrimeraCarga] = useState(true)
   const [editorAbierto, setEditorAbierto] = useState(false)
   /**
    * Cuando es true, el EditorContrato se abre en modo "Cambiar
@@ -170,9 +177,20 @@ function ContenidoFicha() {
   const [editorModoCambio, setEditorModoCambio] = useState(false)
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false)
 
+  /**
+   * Ref al `toast` para usarlo dentro de `cargarTodo` sin meterlo
+   * en sus dependencias. El value del context de Toast no está
+   * memoizado y cambia de referencia cada vez que el provider
+   * re-renderiza (por ejemplo, al aparecer/desaparecer cualquier
+   * toast en la app), lo que recreaba `cargarTodo` y disparaba
+   * un re-fetch espontáneo que reemplazaba toda la página por el
+   * spinner — borrando el header y las tabs visualmente.
+   */
+  const toastRef = useRef(toast)
+  useEffect(() => { toastRef.current = toast }, [toast])
+
   const cargarTodo = useCallback(async () => {
     if (!miembroId) return
-    setCargando(true)
     try {
       const supabase = crearClienteNavegador()
 
@@ -232,11 +250,11 @@ function ContenidoFicha() {
       }
     } catch (err) {
       console.error('[ficha] error', err)
-      toast.mostrar('error', 'No se pudo cargar la ficha laboral')
+      toastRef.current.mostrar('error', 'No se pudo cargar la ficha laboral')
     } finally {
-      setCargando(false)
+      setPrimeraCarga(false)
     }
-  }, [miembroId, toast])
+  }, [miembroId])
 
   useEffect(() => { cargarTodo() }, [cargarTodo])
 
@@ -300,7 +318,11 @@ function ContenidoFicha() {
   const turnoEfectivo = resolverTurnoEfectivo(contratoMostrado)
   const turnoMostrado = turnoEfectivo?.nombre ?? null
 
-  if (cargando) {
+  // Spinner full-screen SOLO en la primera carga (cuando aún no
+  // tenemos datos del perfil). Las recargas posteriores (renovar
+  // contrato, refrescar conceptos, etc.) mantienen el header y las
+  // tabs visibles para que el usuario no vea la página parpadear.
+  if (primeraCarga && !perfil) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-texto-terciario">
         <Loader2 size={20} className="animate-spin" />

@@ -16,7 +16,7 @@
  * para no dar la sensación de bug.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -45,6 +45,15 @@ function ContenidoNominas() {
   const [tab, setTab] = useState<TabClave>(
     TABS.some(t => t.clave === tabUrl) ? tabUrl! : 'liquidaciones',
   )
+  // Tabs ya visitadas. Mantenemos vivas en memoria las que ya se
+  // mostraron (solo las ocultamos con `hidden`), así cambiar de tab
+  // no remonta el componente ni dispara re-fetches: el estado interno
+  // (período seleccionado, scroll, búsqueda, conceptos cargados) queda
+  // cacheado. La primera visita sí monta (lazy).
+  const [tabsVisitadas, setTabsVisitadas] = useState<Set<TabClave>>(() => new Set([tab]))
+  useEffect(() => {
+    setTabsVisitadas(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
+  }, [tab])
 
   const cambiarTab = (claveStr: string) => {
     const clave = claveStr as TabClave
@@ -73,14 +82,33 @@ function ContenidoNominas() {
         </button>
       </div>
 
-      {/* Contenido por pestaña */}
-      {tab === 'liquidaciones' && <VistaNomina />}
+      {/* Contenido por pestaña — keep-alive: cada tab se monta la
+          primera vez que el usuario entra y luego se oculta con
+          `hidden` en lugar de desmontarse. Esto evita refetch y
+          recálculos al alternar entre tabs. */}
+      {tabsVisitadas.has('liquidaciones') && (
+        <div hidden={tab !== 'liquidaciones'}>
+          <VistaNomina />
+        </div>
+      )}
 
-      {tab === 'adelantos' && <VistaAdelantos />}
+      {tabsVisitadas.has('adelantos') && (
+        <div hidden={tab !== 'adelantos'}>
+          <VistaAdelantos />
+        </div>
+      )}
 
-      {tab === 'empleados' && <VistaEmpleados />}
+      {tabsVisitadas.has('empleados') && (
+        <div hidden={tab !== 'empleados'}>
+          <VistaEmpleados />
+        </div>
+      )}
 
-      {tab === 'configuracion' && <VistaConfiguracion />}
+      {tabsVisitadas.has('configuracion') && (
+        <div hidden={tab !== 'configuracion'}>
+          <VistaConfiguracion />
+        </div>
+      )}
     </>
   )
 }
