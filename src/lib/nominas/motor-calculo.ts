@@ -46,7 +46,9 @@ import type {
   DetalleReciboCalculado,
   ConceptoAplicadoCalculado,
   CuotaAdelantoAplicada,
+  LicenciaAplicada,
   TipoConcepto,
+  TipoLicencia,
   ModoCalculoConcepto,
   ModalidadCalculo,
 } from '@/tipos/nominas'
@@ -86,6 +88,20 @@ export interface ConceptoContratoInput {
 }
 
 /**
+ * Licencia mínima que el motor consume. Solo trae lo necesario para
+ * calcular el efecto en el recibo (tipo, fechas, goce). El caller debe
+ * pasar SOLO las licencias del contrato que solapan con el período;
+ * el motor las filtra de nuevo por las dudas pero no las vuelve a buscar.
+ */
+export interface LicenciaInput {
+  id: string
+  tipo: TipoLicencia
+  fecha_inicio: string
+  fecha_fin: string | null
+  goce_sueldo: boolean
+}
+
+/**
  * Toda la data que el motor necesita para calcular un recibo,
  * pre-cargada por el caller. Tener esto desacoplado del cliente
  * Supabase es lo que permite testear el motor sin BD.
@@ -99,6 +115,8 @@ export interface DatosCalculoRecibo {
   asistencias: AsistenciaInput[]
   conceptos_contrato: ConceptoContratoInput[]
   cuotas_adelanto: CuotaInput[]
+  /** Licencias del contrato que solapan con el período. */
+  licencias: LicenciaInput[]
   /** Info de sector/turno para armar el snapshot. */
   sector: { id: string; nombre: string } | null
   turno: { id: string; nombre: string } | null
@@ -125,9 +143,27 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     datos.periodo_fin,
   )
 
-  // ─── 2. Monto base según modalidad del contrato ───
+  // ─── 2. Estado del contrato vs el período ───
+  // Si el contrato terminó ANTES del inicio del período, el empleado
+  // ya no estaba bajo ese contrato — no se genera recibo.
+  // Si terminó DENTRO del período, igual se calcula proporcional pero
+  // dejamos una advertencia para que el operador lo vea.
+  const contratoTerminadoAntes =
+    !!datos.contrato &&
+    !datos.contrato.vigente &&
+    !!datos.contrato.fecha_fin &&
+    datos.contrato.fecha_fin < datos.periodo_inicio
+
+  const contratoTerminadoDentro =
+    !!datos.contrato &&
+    !datos.contrato.vigente &&
+    !!datos.contrato.fecha_fin &&
+    datos.contrato.fecha_fin >= datos.periodo_inicio &&
+    datos.contrato.fecha_fin <= datos.periodo_fin
+
+  // ─── 3. Monto base según modalidad del contrato ───
   let monto_base_calculado = 0
-  if (datos.contrato) {
+  if (datos.contrato && !contratoTerminadoAntes) {
     monto_base_calculado = calcularMontoBase(
       datos.contrato.modalidad_calculo,
       Number(datos.contrato.monto_base),
@@ -135,8 +171,14 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       datos.periodo_inicio,
       datos.periodo_fin,
     )
+  } else if (contratoTerminadoAntes && datos.contrato) {
+    advertencias.push(`El contrato terminó el ${datos.contrato.fecha_fin} (antes del inicio del período). No corresponde liquidar este período.`)
   } else {
     advertencias.push('Sin contrato laboral cargado: el monto base es 0. Cargá un contrato para que el recibo refleje el sueldo del empleado.')
+  }
+
+  if (contratoTerminadoDentro && datos.contrato) {
+    advertencias.push(`El contrato terminó el ${datos.contrato.fecha_fin}, dentro del período. Verificá que el monto refleje sólo los días trabajados antes de la baja.`)
   }
 
   // ─── 3. Aplicar conceptos automáticos del contrato ───
@@ -192,7 +234,69 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       fecha_programada: q.fecha_programada,
     }))
 
-  // ─── 5. Totales ───
+  // ─── 5. Licencias del contrato que solapan con el período ───
+  //
+  // Por cada licencia:
+  //   - Calculamos los días dentro del período (intersección de rangos).
+  //   - Si goce_sueldo=true: solo informativa, no afecta totales.
+  //   - Si goce_sueldo=false: el monto del prorrateo de esos días se
+  //     descuenta del subtotal de descuentos. Para `por_dia`, además se
+  //     emite advertencia: las asistencias ya excluyen los días no
+  //     trabajados, así que el motor no descuenta dos veces — la
+  //     licencia sin goce es informativa también, salvo que figure
+  //     fichaje (caso raro).
+  //
+  // Limitación V1: no detectamos solapamiento entre licencias (lo
+  // enforza la BD con EXCLUDE constraint).
+  const licencias_aplicadas: LicenciaAplicada[] = []
+  let descuentoPorLicencias = 0
+  if (datos.contrato) {
+    const modalidad = datos.contrato.modalidad_calculo
+    const montoBaseContrato = Number(datos.contrato.monto_base)
+    const diasNaturalesPorModalidad: Record<ModalidadCalculo, number> = {
+      por_hora: 1,
+      por_dia: 1,
+      fijo_semanal: 7,
+      fijo_quincenal: 15,
+      fijo_mensual: 30,
+    }
+    for (const lic of datos.licencias) {
+      const inicio = lic.fecha_inicio > datos.periodo_inicio ? lic.fecha_inicio : datos.periodo_inicio
+      const finLic = lic.fecha_fin ?? datos.periodo_fin
+      const fin = finLic < datos.periodo_fin ? finLic : datos.periodo_fin
+      if (fin < inicio) continue  // no se solapan
+      const dias_en_periodo = diferenciaEnDias(inicio, fin) + 1
+      let monto_descontado = 0
+      if (!lic.goce_sueldo) {
+        // Sin goce → descontamos los días de licencia del prorrateo.
+        // En modalidades fijas: monto_base × dias / días_naturales.
+        // En `por_dia`: los días suelen estar afuera por asistencia ya,
+        // pero si por error figura fichaje, descontamos el valor del día.
+        // En `por_hora`: el motor no puede saber cuántas horas hubiese
+        // trabajado; advertimos y dejamos en 0 (operador ajusta a mano).
+        if (modalidad === 'por_hora') {
+          advertencias.push(`Licencia sin goce (${lic.tipo}) entre ${inicio} y ${fin}: en modalidad por hora el motor no descuenta automáticamente, ajustá el monto a mano.`)
+        } else if (modalidad === 'por_dia') {
+          monto_descontado = redondear(montoBaseContrato * dias_en_periodo)
+        } else {
+          const dn = diasNaturalesPorModalidad[modalidad]
+          monto_descontado = redondear((montoBaseContrato / dn) * dias_en_periodo)
+        }
+        descuentoPorLicencias += monto_descontado
+      }
+      licencias_aplicadas.push({
+        licencia_id: lic.id,
+        tipo: lic.tipo,
+        goce_sueldo: lic.goce_sueldo,
+        fecha_inicio: lic.fecha_inicio,
+        fecha_fin: lic.fecha_fin,
+        dias_en_periodo,
+        monto_descontado,
+      })
+    }
+  }
+
+  // ─── 6. Totales ───
   const haberesConceptos = conceptos_aplicados
     .filter(c => c.tipo === 'haber')
     .reduce((sum, c) => sum + c.monto, 0)
@@ -202,7 +306,7 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   const totalAdelantos = adelantos_aplicados.reduce((sum, a) => sum + a.monto, 0)
 
   const subtotal_haberes = redondear(monto_base_calculado + haberesConceptos)
-  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantos)
+  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantos + descuentoPorLicencias)
   const neto = redondear(subtotal_haberes - subtotal_descuentos)
 
   // ─── 6. Snapshot del contrato ───
@@ -235,6 +339,7 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     conceptos_aplicados,
     conceptos_sugeridos,
     adelantos_aplicados,
+    licencias_aplicadas,
     subtotal_haberes,
     subtotal_descuentos,
     neto,
@@ -502,6 +607,21 @@ export async function calcularReciboDesdeBD(
     .lte('fecha_programada', periodoFin)
     .eq('estado', 'pendiente')
 
+  // ─── Licencias del contrato que solapan con el período ───
+  // Solo tiene sentido si hay contrato. Una licencia solapa si:
+  //   fecha_inicio <= periodoFin Y (fecha_fin >= periodoInicio O fecha_fin IS NULL)
+  let licencias: LicenciaInput[] = []
+  if (contrato) {
+    const { data: licsRaw } = await admin
+      .from('licencias_contrato')
+      .select('id, tipo, fecha_inicio, fecha_fin, goce_sueldo')
+      .eq('empresa_id', empresaId)
+      .eq('contrato_id', contrato.id)
+      .lte('fecha_inicio', periodoFin)
+      .or(`fecha_fin.is.null,fecha_fin.gte.${periodoInicio}`)
+    licencias = (licsRaw ?? []) as LicenciaInput[]
+  }
+
   // ─── Sector / turno para snapshot ───
   let sector: { id: string; nombre: string } | null = null
   let turno: { id: string; nombre: string } | null = null
@@ -538,6 +658,7 @@ export async function calcularReciboDesdeBD(
       fecha_programada: c.fecha_programada,
       estado: c.estado,
     })),
+    licencias,
     sector,
     turno,
   })

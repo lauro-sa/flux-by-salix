@@ -119,6 +119,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ─── Setting de visibilidad de empleados terminados ───
+    // Default false: si el contrato del miembro terminó antes del período,
+    // no aparece en el listado. Si la empresa activa el setting, sí aparece
+    // (en gris con $0 — la UI lo decide).
+    const { data: configNomina } = await admin
+      .from('configuracion_nomina_empresa')
+      .select('mostrar_empleados_terminados')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+    const mostrarTerminados = !!configNomina?.mostrar_empleados_terminados
+
     // ─── Miembros con datos de compensación + canales de notificación ───
     let queryMiembros = admin
       .from('miembros')
@@ -128,7 +139,38 @@ export async function GET(request: NextRequest) {
 
     if (empleadosFiltro) queryMiembros = queryMiembros.in('id', empleadosFiltro)
 
-    const { data: miembrosData } = await queryMiembros
+    const { data: miembrosDataRaw } = await queryMiembros
+
+    // ─── Filtrar empleados con contrato terminado antes del período ───
+    // Cargamos el último contrato (por fecha_inicio desc) de cada miembro y,
+    // si no está vigente y `fecha_fin < desde`, lo consideramos "terminado
+    // antes". Lo excluimos del listado salvo que el setting esté en true.
+    const miembroIds = (miembrosDataRaw || []).map((m: Record<string, unknown>) => m.id as string)
+    let miembrosTerminadosAntes = new Set<string>()
+    if (miembroIds.length > 0) {
+      const { data: contratosRaw } = await admin
+        .from('contratos_laborales')
+        .select('miembro_id, vigente, fecha_fin, fecha_inicio')
+        .eq('empresa_id', empresaId)
+        .in('miembro_id', miembroIds)
+        .order('fecha_inicio', { ascending: false })
+      const ultimoPorMiembro = new Map<string, { vigente: boolean; fecha_fin: string | null }>()
+      for (const c of (contratosRaw || []) as Array<{ miembro_id: string; vigente: boolean; fecha_fin: string | null }>) {
+        if (!ultimoPorMiembro.has(c.miembro_id)) {
+          ultimoPorMiembro.set(c.miembro_id, { vigente: c.vigente, fecha_fin: c.fecha_fin })
+        }
+      }
+      for (const [mid, c] of ultimoPorMiembro) {
+        if (!c.vigente && c.fecha_fin && c.fecha_fin < desde) {
+          miembrosTerminadosAntes.add(mid)
+        }
+      }
+    }
+    const miembrosData = mostrarTerminados
+      ? miembrosDataRaw
+      : (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
+          !miembrosTerminadosAntes.has(m.id as string),
+        )
 
     // Identidad consolidada (perfil para miembros con cuenta Flux, contacto-equipo
     // para los cargados a mano). Reemplaza las dos queries previas a `perfiles` y
@@ -577,6 +619,10 @@ export async function GET(request: NextRequest) {
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
           - (saldoAnteriorPorMiembro.get(m.id as string) || 0) // restar si pagó de más antes
         ) * 100) / 100,
+        // Flag para que la UI muestre en gris los empleados terminados.
+        // Solo aparece como true cuando el setting `mostrar_empleados_terminados`
+        // está activo y el último contrato del miembro terminó antes del período.
+        contrato_terminado_antes: miembrosTerminadosAntes.has(m.id as string),
       }
     })
 

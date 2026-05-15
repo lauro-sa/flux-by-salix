@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag } from 'lucide-react'
+import { ChevronLeft, ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
@@ -33,6 +33,7 @@ import { ContratoVigente } from '@/app/(flux)/nominas/_componentes/ContratoVigen
 import { TimelineContratos } from '@/app/(flux)/nominas/_componentes/TimelineContratos'
 import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato'
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
+import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
@@ -86,7 +87,7 @@ export default function PaginaFichaLaboral() {
 // Tipos auxiliares
 // ────────────────────────────────────────────────────────────────
 
-type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'conceptos'
+type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos'
 
 interface PerfilMini {
   nombre: string
@@ -125,6 +126,7 @@ function ContenidoFicha() {
     { clave: 'historial',     etiqueta: 'Historial',        icono: <History size={15} /> },
     { clave: 'liquidaciones', etiqueta: 'Liquidaciones',    icono: <Banknote size={15} /> },
     { clave: 'adelantos',     etiqueta: 'Adelantos',        icono: <Wallet size={15} /> },
+    { clave: 'licencias',     etiqueta: 'Licencias',        icono: <CalendarOff size={15} /> },
     { clave: 'conceptos',     etiqueta: 'Conceptos',        icono: <Tag size={15} /> },
   ]
   const [tab, setTab] = useState<TabClave>(
@@ -306,6 +308,7 @@ function ContenidoFicha() {
           turnoNombre={turnoVigente}
           puedeEditar={puedeEditar}
           onNuevoContrato={() => setEditorAbierto(true)}
+          onContratoTerminado={cargarTodo}
         />
       )}
 
@@ -325,6 +328,26 @@ function ContenidoFicha() {
           titulo="Adelantos — en construcción"
           descripcion="Pronto vas a poder ver y administrar los adelantos vigentes de este empleado desde acá. Por ahora se gestionan en la liquidación."
         />
+      )}
+
+      {tab === 'licencias' && (
+        contratoVigente ? (
+          <SeccionLicencias
+            contratoId={contratoVigente.id}
+            puedeEditar={puedeEditar}
+          />
+        ) : (
+          <EstadoVacio
+            icono={<CalendarOff size={48} strokeWidth={1.5} />}
+            titulo="Sin contrato vigente"
+            descripcion="Las licencias se registran sobre un contrato. Primero creá un contrato laboral desde la pestaña Contrato vigente."
+            accion={puedeEditar ? (
+              <Boton icono={<FileText size={14} />} onClick={() => { setTab('contrato'); setEditorAbierto(true) }}>
+                Crear contrato
+              </Boton>
+            ) : undefined}
+          />
+        )
       )}
 
       {tab === 'conceptos' && (

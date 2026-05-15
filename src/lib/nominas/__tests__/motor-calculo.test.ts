@@ -45,6 +45,8 @@ function contrato(p: Partial<ContratoLaboral> = {}): ContratoLaboral {
     pdf_url: null,
     motivo_cambio: null,
     notas: null,
+    motivo_fin: null,
+    nota_fin: null,
     creado_en: '2026-01-01T00:00:00Z',
     creado_por: null,
     actualizado_en: '2026-01-01T00:00:00Z',
@@ -103,6 +105,7 @@ function datosBase(p: Partial<DatosCalculoRecibo> = {}): DatosCalculoRecibo {
     asistencias: [],
     conceptos_contrato: [],
     cuotas_adelanto: [],
+    licencias: [],
     sector: null,
     turno: null,
     ...p,
@@ -412,5 +415,128 @@ describe('calcularReciboPuro — casos del plan', () => {
     const r = calcularReciboPuro(datosBase({ contrato: c, conceptos_contrato: [cc] }))
     expect(r.conceptos_aplicados).toHaveLength(0)
     expect(r.conceptos_sugeridos).toHaveLength(1)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Contratos terminados y licencias (PR contratos-terminar-y-licencias)
+// ════════════════════════════════════════════════════════════════
+
+describe('calcularReciboPuro — contrato terminado', () => {
+  it('contrato terminado ANTES del período → monto base 0 + advertencia', () => {
+    const c = contrato({
+      fecha_fin: '2026-03-15',
+      vigente: false,
+      motivo_fin: 'renuncia',
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    expect(r.monto_base_calculado).toBe(0)
+    expect(r.advertencias.some(a => a.includes('contrato terminó el 2026-03-15'))).toBe(true)
+    expect(r.neto).toBe(0)
+  })
+
+  it('contrato terminado DENTRO del período → calcula normal + advertencia para revisar manualmente', () => {
+    const c = contrato({
+      fecha_fin: '2026-04-15',
+      vigente: false,
+      motivo_fin: 'despido_sin_causa',
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    // Modalidad fijo_mensual con 30 días naturales → 400.000 * (30/30) = 400.000
+    expect(r.monto_base_calculado).toBe(400000)
+    expect(r.advertencias.some(a => a.includes('dentro del período'))).toBe(true)
+  })
+
+  it('contrato vigente sin fecha_fin → sin advertencia de terminado', () => {
+    const r = calcularReciboPuro(datosBase())
+    expect(r.advertencias.some(a => a.includes('terminó'))).toBe(false)
+  })
+})
+
+describe('calcularReciboPuro — licencias', () => {
+  it('licencia con goce_sueldo=true: informativa, no descuenta nada', () => {
+    const r = calcularReciboPuro(datosBase({
+      licencias: [{
+        id: 'lic-1',
+        tipo: 'maternidad',
+        fecha_inicio: '2026-04-05',
+        fecha_fin: '2026-04-15',
+        goce_sueldo: true,
+      }],
+    }))
+    expect(r.licencias_aplicadas).toHaveLength(1)
+    expect(r.licencias_aplicadas[0].dias_en_periodo).toBe(11)
+    expect(r.licencias_aplicadas[0].monto_descontado).toBe(0)
+    expect(r.neto).toBe(400000) // sin cambios
+  })
+
+  it('licencia SIN goce en modalidad fijo_mensual: descuenta proporcional', () => {
+    const r = calcularReciboPuro(datosBase({
+      licencias: [{
+        id: 'lic-1',
+        tipo: 'suspension_economica',
+        fecha_inicio: '2026-04-10',
+        fecha_fin: '2026-04-19',
+        goce_sueldo: false,
+      }],
+    }))
+    // 10 días sobre 30 naturales: 400.000 / 30 * 10 = 133.333,33
+    expect(r.licencias_aplicadas[0].dias_en_periodo).toBe(10)
+    expect(r.licencias_aplicadas[0].monto_descontado).toBeCloseTo(133333.33, 2)
+    expect(r.subtotal_descuentos).toBeCloseTo(133333.33, 2)
+    expect(r.neto).toBeCloseTo(266666.67, 2)
+  })
+
+  it('licencia abierta (sin fecha_fin) cuenta hasta el fin del período', () => {
+    const r = calcularReciboPuro(datosBase({
+      licencias: [{
+        id: 'lic-1',
+        tipo: 'medica',
+        fecha_inicio: '2026-04-20',
+        fecha_fin: null,
+        goce_sueldo: false,
+      }],
+    }))
+    // De 20 al 30 = 11 días → 400.000 / 30 * 11 = 146.666,67
+    expect(r.licencias_aplicadas[0].dias_en_periodo).toBe(11)
+    expect(r.licencias_aplicadas[0].monto_descontado).toBeCloseTo(146666.67, 2)
+  })
+
+  it('licencia anterior al período no se incluye (queda fuera del rango)', () => {
+    const r = calcularReciboPuro(datosBase({
+      licencias: [{
+        id: 'lic-1',
+        tipo: 'medica',
+        fecha_inicio: '2026-03-01',
+        fecha_fin: '2026-03-15',
+        goce_sueldo: false,
+      }],
+    }))
+    // El motor recibe la licencia pero la intersección con el período abril es vacía.
+    expect(r.licencias_aplicadas).toHaveLength(0)
+  })
+
+  it('licencia SIN goce en modalidad por_hora: emite advertencia, no descuenta', () => {
+    const c = contrato({ modalidad_calculo: 'por_hora', monto_base: 5000 })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      licencias: [{
+        id: 'lic-1',
+        tipo: 'suspension_disciplinaria',
+        fecha_inicio: '2026-04-10',
+        fecha_fin: '2026-04-12',
+        goce_sueldo: false,
+      }],
+    }))
+    expect(r.licencias_aplicadas[0].monto_descontado).toBe(0)
+    expect(r.advertencias.some(a => a.includes('por hora'))).toBe(true)
   })
 })

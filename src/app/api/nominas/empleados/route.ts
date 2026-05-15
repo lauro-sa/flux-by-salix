@@ -8,6 +8,11 @@
  *   - turno_id    (csv de uuids)
  *   - modalidad   (csv de ModalidadCalculo)
  *   - regimen     (csv de RegimenContrato)
+ *   - estado      'activos' (default) | 'terminados' | 'todos'
+ *                 Activos = miembros con contrato vigente.
+ *                 Terminados = el último contrato del miembro está
+ *                              cerrado (vigente=false + fecha_fin).
+ *                 Todos = no filtra; ambos casos coexisten.
  *
  * Pensado para alimentar la pestaña "Empleados" de /nominas (PR 5).
  * Sin paginación por ahora — el volumen típico (decenas de empleados
@@ -29,6 +34,9 @@ interface ContratoVista {
   regimen: string
   condicion: string
   fecha_inicio: string
+  fecha_fin: string | null
+  vigente: boolean
+  motivo_fin: string | null
   sector_id: string | null
   turno_id: string | null
 }
@@ -38,10 +46,15 @@ interface FilaEmpleado {
   nombre: string
   apellido: string
   numero_empleado: number | null
+  /** Último contrato del miembro (vigente o terminado). */
   contrato: ContratoVista | null
+  /** true si el último contrato no está vigente. La UI lo usa para badge. */
+  terminado: boolean
   sector: { id: string; nombre: string; color: string } | null
   turno: { id: string; nombre: string } | null
 }
+
+type FiltroEstado = 'activos' | 'terminados' | 'todos'
 
 export async function GET(request: NextRequest) {
   const { user } = await obtenerUsuarioRuta()
@@ -58,6 +71,10 @@ export async function GET(request: NextRequest) {
   const filtroTurno = params.get('turno_id')?.split(',').filter(Boolean) ?? []
   const filtroModalidad = params.get('modalidad')?.split(',').filter(Boolean) ?? []
   const filtroRegimen = params.get('regimen')?.split(',').filter(Boolean) ?? []
+  const estadoRaw = (params.get('estado') ?? 'activos').toLowerCase()
+  const filtroEstado: FiltroEstado =
+    estadoRaw === 'terminados' ? 'terminados' :
+    estadoRaw === 'todos' ? 'todos' : 'activos'
 
   const admin = crearClienteAdmin()
 
@@ -101,20 +118,28 @@ export async function GET(request: NextRequest) {
     empresaId,
   )
 
-  // ─── Contratos vigentes ───
+  // ─── Último contrato por miembro ───
+  // Traemos todos los contratos del miembro y nos quedamos con el más
+  // reciente por fecha_inicio. Esto cubre los 3 casos:
+  //   - vigente=true → es el contrato vigente.
+  //   - vigente=false con fecha_fin → último terminado.
+  //   - no tiene contratos → caso edge, queda null.
   let queryContratos = admin
     .from('contratos_laborales')
-    .select('id, miembro_id, modalidad_calculo, monto_base, frecuencia_pago, regimen, condicion, fecha_inicio, sector_id, turno_id')
+    .select('id, miembro_id, modalidad_calculo, monto_base, frecuencia_pago, regimen, condicion, fecha_inicio, fecha_fin, vigente, motivo_fin, sector_id, turno_id')
     .eq('empresa_id', empresaId)
     .in('miembro_id', miembroIds)
-    .eq('vigente', true)
+    .order('fecha_inicio', { ascending: false })
   if (filtroSector.length > 0) queryContratos = queryContratos.in('sector_id', filtroSector)
   if (filtroTurno.length > 0) queryContratos = queryContratos.in('turno_id', filtroTurno)
   if (filtroModalidad.length > 0) queryContratos = queryContratos.in('modalidad_calculo', filtroModalidad)
   if (filtroRegimen.length > 0) queryContratos = queryContratos.in('regimen', filtroRegimen)
 
   const { data: contratos } = await queryContratos
-  const mapaContratos = new Map((contratos ?? []).map(c => [c.miembro_id, c as ContratoVista]))
+  const mapaContratos = new Map<string, ContratoVista>()
+  for (const c of (contratos ?? []) as ContratoVista[]) {
+    if (!mapaContratos.has(c.miembro_id)) mapaContratos.set(c.miembro_id, c)
+  }
 
   // ─── Sector y turno (catálogos) ───
   const sectorIds = (contratos ?? []).map(c => c.sector_id).filter((s): s is string => !!s)
@@ -146,13 +171,20 @@ export async function GET(request: NextRequest) {
         apellido: id?.apellido ?? '',
         numero_empleado: m.numero_empleado,
         contrato,
+        terminado: !!contrato && !contrato.vigente,
         sector,
         turno,
       }
     })
-    // Si hay filtros de contrato, esconder empleados sin contrato vigente
-    // (la consulta de contratos ya devolvió solo los que matchean).
+    // Filtros: si hay filtros de contrato necesitamos uno asociado;
+    // estado decide qué subconjunto entra.
     .filter(e => (hayFiltrosDeContrato ? !!e.contrato : true))
+    .filter(e => {
+      if (filtroEstado === 'todos') return true
+      if (filtroEstado === 'terminados') return e.terminado
+      // activos (default): empleado con contrato vigente.
+      return !!e.contrato && !e.terminado
+    })
 
   return NextResponse.json({ empleados })
 }

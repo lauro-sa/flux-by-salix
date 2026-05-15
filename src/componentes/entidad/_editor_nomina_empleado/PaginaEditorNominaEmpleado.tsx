@@ -17,6 +17,7 @@ import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
   ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
+  Ban,
 } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
@@ -272,6 +273,10 @@ export function PaginaEditorNominaEmpleado({
   const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
   const [pagos, setPagos] = useState<Record<string, unknown>[]>([])
 
+  // Último contrato del miembro: si está terminado, mostramos banner
+  // persistente arriba del recibo. Se carga al cambiar de empleado.
+  const [contratoTerminado, setContratoTerminado] = useState<{ fecha_fin: string } | null>(null)
+
   // Compensación editable
   const [compTipo, setCompTipo] = useState(empleadoInicial.compensacion_tipo)
   const [compMonto, setCompMonto] = useState(String(empleadoInicial.compensacion_monto))
@@ -331,6 +336,28 @@ export function PaginaEditorNominaEmpleado({
       .then(({ data }) => {
         if (data) setCompDias((data as Record<string, unknown>).dias_trabajo as number || 5)
       })
+  }, [datosEmpleado.miembro_id, supabase])
+
+  // Verificar si el último contrato del miembro está terminado para
+  // mostrar el banner persistente. Pide solo el más reciente.
+  useEffect(() => {
+    let cancelado = false
+    supabase
+      .from('contratos_laborales')
+      .select('vigente, fecha_fin')
+      .eq('miembro_id', datosEmpleado.miembro_id)
+      .order('fecha_inicio', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelado) return
+        if (data && !data.vigente && data.fecha_fin) {
+          setContratoTerminado({ fecha_fin: data.fecha_fin as string })
+        } else {
+          setContratoTerminado(null)
+        }
+      })
+    return () => { cancelado = true }
   }, [datosEmpleado.miembro_id, supabase])
 
   // Cargar pagos y adelantos del período actual
@@ -905,6 +932,27 @@ export function PaginaEditorNominaEmpleado({
         banner={banner}
       >
         <div className="max-w-6xl mx-auto space-y-5">
+
+          {/* ── BANNER PERSISTENTE: contrato terminado ── */}
+          {/*
+            Aparece cuando el último contrato del miembro quedó cerrado.
+            No bloquea acciones (el operador puede liquidar períodos
+            retroactivos), solo deja claro el estado para que no se
+            confunda con un empleado activo sin asistencias.
+          */}
+          {contratoTerminado && (
+            <div className="rounded-card border border-insignia-peligro/30 bg-insignia-peligro/10 px-4 py-3 flex items-start gap-3">
+              <Ban size={16} className="text-insignia-peligro shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-insignia-peligro">
+                  Contrato terminado el {contratoTerminado.fecha_fin}
+                </p>
+                <p className="text-xs text-texto-secundario mt-0.5">
+                  El empleado ya no tiene contrato vigente. Podés revisar este recibo histórico o liquidar un período retroactivo, pero ya no se generan más liquidaciones automáticamente.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── CABEZAL DEL EMPLEADO ── */}
           <CabezaloPersona

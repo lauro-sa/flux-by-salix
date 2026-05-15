@@ -288,6 +288,7 @@ interface ConfigPlantillas {
   plantilla_correo_default_id: string | null
   canal_whatsapp_default_id: string | null
   plantilla_whatsapp_default_id: string | null
+  mostrar_empleados_terminados: boolean
 }
 
 function PanelPlantillasEnvio() {
@@ -322,6 +323,7 @@ function PanelPlantillasEnvio() {
           plantilla_correo_default_id: null,
           canal_whatsapp_default_id: null,
           plantilla_whatsapp_default_id: null,
+          mostrar_empleados_terminados: false,
         })
 
         // Canales: tomamos id y un nombre legible. La estructura puede
@@ -365,6 +367,10 @@ function PanelPlantillasEnvio() {
 
   const actualizar = (campo: keyof ConfigPlantillas, valor: string | null) => {
     setConfig(prev => prev ? { ...prev, [campo]: valor || null } : prev)
+  }
+
+  const actualizarBool = (campo: keyof ConfigPlantillas, valor: boolean) => {
+    setConfig(prev => prev ? { ...prev, [campo]: valor } : prev)
   }
 
   const guardar = async () => {
@@ -479,6 +485,31 @@ function PanelPlantillasEnvio() {
             {' '}al cuerpo de la plantilla.
           </p>
         )}
+      </section>
+
+      {/* Bloque visibilidad: empleados con contrato terminado */}
+      <section className="rounded-card border border-borde-sutil p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-medium text-texto-primario">Empleados terminados</h3>
+          <p className="text-[11px] text-texto-terciario mt-1">
+            Cuando un empleado tiene un contrato cerrado (renuncia, despido, fin de plazo, etc.), por default desaparece de Liquidaciones. Si querés verlo igual en gris con $0 — útil para cierre de mes o auditoría — activá esta opción.
+          </p>
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.mostrar_empleados_terminados}
+            onChange={e => actualizarBool('mostrar_empleados_terminados', e.target.checked)}
+            disabled={!puedeEditar}
+            className="mt-1 size-4 accent-texto-marca"
+          />
+          <div>
+            <p className="text-sm text-texto-primario">Mostrar empleados con contrato terminado en Liquidaciones</p>
+            <p className="text-[11px] text-texto-terciario mt-0.5">
+              Igual van a aparecer en la pestaña Empleados con el filtro &quot;Terminados&quot;.
+            </p>
+          </div>
+        </label>
       </section>
 
       {puedeEditar && (

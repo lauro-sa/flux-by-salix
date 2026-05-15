@@ -24,14 +24,23 @@ interface ConfigEnvio {
   plantilla_correo_default_id: string | null
   canal_whatsapp_default_id: string | null
   plantilla_whatsapp_default_id: string | null
+  /**
+   * Si true, los empleados con contrato terminado antes del período
+   * aparecen en gris con $0 en Liquidaciones. Si false (default), se
+   * ocultan. En cualquier caso siguen visibles en la pestaña Empleados
+   * con filtro "Terminados".
+   */
+  mostrar_empleados_terminados: boolean
 }
 
-const CAMPOS: (keyof ConfigEnvio)[] = [
+const CAMPOS_TEXTO: (keyof ConfigEnvio)[] = [
   'canal_correo_default_id',
   'plantilla_correo_default_id',
   'canal_whatsapp_default_id',
   'plantilla_whatsapp_default_id',
 ]
+
+const CAMPOS_BOOL: (keyof ConfigEnvio)[] = ['mostrar_empleados_terminados']
 
 // ════════════════════════════════════════════════════════════════
 // GET
@@ -64,6 +73,7 @@ export async function GET(_request: NextRequest) {
     plantilla_correo_default_id: data?.plantilla_correo_default_id ?? null,
     canal_whatsapp_default_id: data?.canal_whatsapp_default_id ?? null,
     plantilla_whatsapp_default_id: data?.plantilla_whatsapp_default_id ?? null,
+    mostrar_empleados_terminados: !!data?.mostrar_empleados_terminados,
   }
 
   return NextResponse.json({ configuracion: config })
@@ -85,10 +95,15 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
   }
 
-  // Solo aceptamos los campos conocidos.
-  const update: Record<string, string | null | Date> = {}
-  for (const campo of CAMPOS) {
-    if (campo in body) update[campo] = body[campo] ?? null
+  // Solo aceptamos los campos conocidos. Separamos texto (IDs nulleables)
+  // de booleanos para que los booleanos no se conviertan accidentalmente
+  // a null por el `?? null`.
+  const update: Record<string, string | boolean | null | Date> = {}
+  for (const campo of CAMPOS_TEXTO) {
+    if (campo in body) update[campo] = (body[campo] as string | null) ?? null
+  }
+  for (const campo of CAMPOS_BOOL) {
+    if (campo in body) update[campo] = !!body[campo]
   }
 
   if (Object.keys(update).length === 0) {

@@ -54,6 +54,8 @@ interface ResultadoNomina {
   cuotas_adelanto: number
   saldo_anterior: number
   monto_neto: number
+  /** Flag del backend: el último contrato del miembro terminó antes del período. */
+  contrato_terminado_antes?: boolean
 }
 
 type TipoPeriodo = 'semana' | 'quincena' | 'mes'
@@ -306,7 +308,9 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
           {/* Filas */}
           <div className="divide-y divide-white/[0.04]">
-            {resultados.map(r => (
+            {resultados.map(r => {
+              const terminado = !!r.contrato_terminado_antes
+              return (
               <div
                 key={r.miembro_id}
                 onClick={() => {
@@ -316,11 +320,20 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                   const p = calcularPeriodo(new Date(), tipoEmpleado)
                   router.push(`/nominas/empleado/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
                 }}
-                className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                className={`grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group ${
+                  terminado ? 'opacity-60' : ''
+                }`}
               >
                 {/* Nombre */}
                 <div>
-                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors">{r.nombre}</p>
+                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors flex items-center gap-2">
+                    <span className="truncate">{r.nombre}</span>
+                    {terminado && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide">
+                        Terminado
+                      </span>
+                    )}
+                  </p>
                   <p className="text-[11px] text-texto-terciario mt-0.5">{r.monto_detalle}</p>
                 </div>
 
@@ -352,7 +365,8 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                 {/* Neto */}
                 <p className="text-[14px] font-bold text-insignia-exito text-right">{fmtMonto(r.monto_neto)}</p>
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Footer totales */}
