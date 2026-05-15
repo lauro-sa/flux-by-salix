@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Crown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Crown, Clock } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
@@ -22,6 +22,8 @@ interface PropsNodoSector {
   miembrosPorSector: Map<string, number>
   miembros: MiembroSimple[]
   asignaciones: AsignacionMiembroSector[]
+  /** Map id→nombre de los turnos de la empresa, para mostrar el turno asignado al sector. */
+  turnosMap?: Map<string, string>
   onEditar: (sector: Sector) => void
   onEliminar: (sector: Sector) => void
   onAgregarHijo: (padreId: string) => void
@@ -38,6 +40,7 @@ export function NodoSector({
   miembrosPorSector,
   miembros,
   asignaciones,
+  turnosMap,
   onEditar,
   onEliminar,
   onAgregarHijo,
@@ -50,6 +53,11 @@ export function NodoSector({
   const jefe = sector.jefe_id ? miembros.find(m => m.usuario_id === sector.jefe_id) : null
   const personasSector = mostrarPersonas ? obtenerMiembrosDeSector(sector.id, asignaciones, miembros) : []
   const IconoSector = obtenerIcono(sector.icono || 'Building')
+  // Nombre del turno predeterminado del sector. Aparece como chip al
+  // lado del jefe. Si no hay turno asignado no se muestra nada — la
+  // ausencia se entiende como "hereda del general o el miembro tiene
+  // uno propio".
+  const turnoNombre = sector.turno_id && turnosMap ? turnosMap.get(sector.turno_id) ?? null : null
 
   return (
     <div className="relative">
@@ -58,9 +66,9 @@ export function NodoSector({
         <div
           className="absolute border-l-2 border-borde-fuerte"
           style={{
-            left: (nivel - 1) * 28 + 14,
+            left: (nivel - 1) * 32 + 16,
             top: 0,
-            height: esUltimo ? 20 : '100%',
+            height: esUltimo ? 28 : '100%',
           }}
         />
       )}
@@ -70,17 +78,17 @@ export function NodoSector({
         <div
           className="absolute border-t-2 border-borde-fuerte"
           style={{
-            left: (nivel - 1) * 28 + 14,
-            top: 20,
-            width: 14,
+            left: (nivel - 1) * 32 + 16,
+            top: 28,
+            width: 16,
           }}
         />
       )}
 
       {/* Nodo */}
       <div
-        className="group relative flex items-center gap-2.5 py-1.5 pr-2 rounded-card hover:bg-superficie-hover/50 transition-colors"
-        style={{ paddingLeft: nivel * 28 + 4 }}
+        className="group relative flex items-center gap-3 py-2.5 pr-3 my-0.5 rounded-card hover:bg-superficie-hover/60 transition-colors"
+        style={{ paddingLeft: nivel * 32 + 6 }}
       >
         <Boton
           variante="fantasma"
@@ -90,17 +98,17 @@ export function NodoSector({
           onClick={() => tieneHijos ? setExpandido(!expandido) : setMostrarPersonas(!mostrarPersonas)}
           icono={
             (tieneHijos || cantidadMiembros > 0)
-              ? (expandido || mostrarPersonas ? <ChevronDown size={13} /> : <ChevronRight size={13} />)
+              ? (expandido || mostrarPersonas ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
               : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />
           }
-          className="!w-5 !h-5 shrink-0"
+          className="!w-6 !h-6 shrink-0"
         />
 
         <div
-          className="w-8 h-8 rounded-card flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-card flex items-center justify-center shrink-0"
           style={{ backgroundColor: sector.color + '20', color: sector.color }}
         >
-          {IconoSector && <IconoSector size={16} />}
+          {IconoSector && <IconoSector size={18} />}
         </div>
 
         <Boton
@@ -108,7 +116,7 @@ export function NodoSector({
           onClick={() => setMostrarPersonas(!mostrarPersonas)}
           className="!p-0 min-w-0 !justify-start !text-left"
         >
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-0.5 min-w-0">
             <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
               {sector.nombre}
             </span>
@@ -116,26 +124,41 @@ export function NodoSector({
               {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
               {cantidadMiembros > 0 && tieneHijos && ' · '}
               {tieneHijos && `${sector.hijos.length} sub-sector${sector.hijos.length > 1 ? 'es' : ''}`}
+              {cantidadMiembros === 0 && !tieneHijos && (
+                <span className="italic text-texto-terciario/70">Sin miembros</span>
+              )}
             </span>
           </div>
         </Boton>
 
-        {jefe && (
-          <div
-            className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: sector.color + '20', color: sector.color }}
-          >
-            <Crown size={10} />
-            <span className="truncate max-w-24">{jefe.nombre} {jefe.apellido}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 ml-1">
+          {turnoNombre && (
+            <div
+              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
+              title="Turno predeterminado del sector"
+            >
+              <Clock size={10} />
+              <span className="truncate max-w-32">{turnoNombre}</span>
+            </div>
+          )}
+          {jefe && (
+            <div
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: sector.color + '20', color: sector.color }}
+              title="Jefe del sector"
+            >
+              <Crown size={10} />
+              <span className="truncate max-w-24">{jefe.nombre} {jefe.apellido}</span>
+            </div>
+          )}
+        </div>
 
         <div className="flex-1" />
 
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar" icono={<Plus size={12} />} onClick={() => onAgregarHijo(sector.id)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar sub-sector" icono={<Plus size={13} />} onClick={() => onAgregarHijo(sector.id)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={13} />} onClick={() => onEditar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={13} />} onClick={() => onEliminar(sector)} />
         </div>
       </div>
 
@@ -151,23 +174,23 @@ export function NodoSector({
             {personasSector.map((persona, idx) => (
               <div
                 key={persona.id}
-                className="relative flex items-center gap-2 py-1 text-xs text-texto-secundario"
-                style={{ paddingLeft: (nivel + 1) * 28 + 4 }}
+                className="relative flex items-center gap-2 py-1.5 text-xs text-texto-secundario"
+                style={{ paddingLeft: (nivel + 1) * 32 + 6 }}
               >
                 <div
                   className="absolute border-l border-dashed border-borde-fuerte/60"
                   style={{
-                    left: nivel * 28 + 14,
+                    left: nivel * 32 + 16,
                     top: 0,
-                    height: idx === personasSector.length - 1 ? 14 : '100%',
+                    height: idx === personasSector.length - 1 ? 16 : '100%',
                   }}
                 />
                 <div
                   className="absolute border-t border-dashed border-borde-fuerte/60"
                   style={{
-                    left: nivel * 28 + 14,
-                    top: 14,
-                    width: 10,
+                    left: nivel * 32 + 16,
+                    top: 16,
+                    width: 12,
                   }}
                 />
                 <Avatar nombre={`${persona.nombre} ${persona.apellido}`} tamano="xs" />
@@ -195,6 +218,7 @@ export function NodoSector({
                 miembrosPorSector={miembrosPorSector}
                 miembros={miembros}
                 asignaciones={asignaciones}
+                turnosMap={turnosMap}
                 onEditar={onEditar}
                 onEliminar={onEliminar}
                 onAgregarHijo={onAgregarHijo}

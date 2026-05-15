@@ -137,6 +137,8 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
 
   const arbol = useMemo(() => construirArbol(sectores), [sectores])
   const miembrosPorSector = useMemo(() => contarMiembrosPorSector(asignaciones), [asignaciones])
+  /** Map id→nombre de turnos para mostrar el turno asignado en cada nodo del organigrama. */
+  const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
 
   const totalAsignados = new Set(asignaciones.map(a => a.miembro_id)).size
   const sinAsignar = miembros.length - totalAsignados
@@ -375,7 +377,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
             ) : arbol.length === 0 ? (
               <EstadoVacio titulo="No hay sectores" descripcion="Creá el primero para armar tu organigrama." />
             ) : (
-              <div className="py-2">
+              <div className="py-3 px-2">
                 {arbol.map((sector, idx) => (
                   <NodoSector
                     key={sector.id}
@@ -385,6 +387,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
                     miembrosPorSector={miembrosPorSector}
                     miembros={miembros}
                     asignaciones={asignaciones}
+                    turnosMap={turnosMap}
                     onEditar={abrirEditar}
                     onEliminar={(s) => setModalEliminar(s)}
                     onAgregarHijo={(padreId) => abrirNuevo(padreId)}
