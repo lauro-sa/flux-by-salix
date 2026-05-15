@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { Shield as ShieldIcon } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -62,14 +63,34 @@ const OPCIONES_MODO: { valor: ModoCalculoConcepto; etiqueta: string; descripcion
   { valor: 'manual',             etiqueta: 'Manual',             descripcion: 'El usuario carga el monto en cada recibo' },
 ]
 
-const TIPOS_CONDICION = [
-  { valor: 'sin_ausencias',      etiqueta: 'Sin ausencias en el período' },
-  { valor: 'sin_tardanzas',      etiqueta: 'Sin tardanzas en el período' },
-  { valor: 'antiguedad_minima',  etiqueta: 'Antigüedad mínima (meses)' },
-  { valor: 'siempre',            etiqueta: 'Siempre' },
-] as const
+/**
+ * Etiquetas de cada condición, parametrizadas por periodicidad.
+ * Cuando el concepto es mensual, la condición evalúa el MES entero;
+ * cuando es por_periodo, evalúa la quincena/semana del recibo.
+ */
+function etiquetasCondicion(periodicidad: 'mensual' | 'por_periodo'): Array<{ valor: TipoCondicion; etiqueta: string }> {
+  const alcance = periodicidad === 'mensual' ? 'el mes' : 'el período'
+  return [
+    { valor: 'sin_ausencias',       etiqueta: `Sin ausencias en ${alcance}` },
+    { valor: 'sin_tardanzas',       etiqueta: `Sin tardanzas en ${alcance}` },
+    { valor: 'asistencia_perfecta', etiqueta: `Asistencia perfecta (${alcance})` },
+    { valor: 'minimo_dias',         etiqueta: `Trabajó al menos N días en ${alcance}` },
+    { valor: 'trabajo_feriado',     etiqueta: `Trabajó al menos N feriados en ${alcance}` },
+    { valor: 'horas_minimas',       etiqueta: `Acumuló al menos N horas en ${alcance}` },
+    { valor: 'antiguedad_minima',   etiqueta: 'Antigüedad mínima (meses)' },
+    { valor: 'siempre',             etiqueta: 'Siempre' },
+  ]
+}
 
-type TipoCondicion = typeof TIPOS_CONDICION[number]['valor']
+type TipoCondicion =
+  | 'sin_ausencias'
+  | 'sin_tardanzas'
+  | 'asistencia_perfecta'
+  | 'minimo_dias'
+  | 'trabajo_feriado'
+  | 'horas_minimas'
+  | 'antiguedad_minima'
+  | 'siempre'
 
 export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Props) {
   const toast = useToast()
@@ -84,8 +105,20 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
   const [automatico, setAutomatico] = useState(true)
   const [tipoCondicion, setTipoCondicion] = useState<TipoCondicion>('siempre')
   const [mesesAntiguedad, setMesesAntiguedad] = useState('12')
-  const [recurrente, setRecurrente] = useState(true)
+  // Valor numérico genérico para condiciones tipo "al menos N…". Lo
+  // reutilizan minimo_dias (días), trabajo_feriado (cantidad de feriados)
+  // y horas_minimas (horas). El campo se renombra visualmente según el tipo.
+  const [valorCondicion, setValorCondicion] = useState('1')
   const [activo, setActivo] = useState(true)
+  /**
+   * Periodicidad de aplicación. Reemplazó al toggle "Recurrente" legacy
+   * (que sólo se persistía pero no afectaba el cálculo):
+   *   'mensual'     → solo en la última liquidación del mes (default
+   *                   para premios), calculado sobre el básico mensual.
+   *   'por_periodo' → cada vez que se liquida (descuentos, plus por turno).
+   *   'unico'       → reservado.
+   */
+  const [periodicidad, setPeriodicidad] = useState<'mensual' | 'por_periodo'>('mensual')
   const [guardando, setGuardando] = useState(false)
 
   // ─── Init form cuando se abre ───
@@ -105,8 +138,14 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
       setMesesAntiguedad(
         String((concepto.condicion_jsonb as { meses?: number } | null)?.meses ?? 12),
       )
-      setRecurrente(concepto.recurrente)
+      // Cargar el valor de la condición según el tipo (días, feriados, horas).
+      const cond = concepto.condicion_jsonb as Record<string, unknown> | null
+      const valorN = (cond?.dias as number) ?? (cond?.feriados as number) ?? (cond?.horas as number) ?? 1
+      setValorCondicion(String(valorN))
       setActivo(concepto.activo)
+      setPeriodicidad(
+        concepto.periodicidad === 'por_periodo' ? 'por_periodo' : 'mensual',
+      )
     } else {
       setNombre('')
       setDescripcion('')
@@ -117,8 +156,9 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
       setAutomatico(true)
       setTipoCondicion('siempre')
       setMesesAntiguedad('12')
-      setRecurrente(true)
+      setValorCondicion('1')
       setActivo(true)
+      setPeriodicidad('mensual')
     }
   }, [abierto, concepto])
 
@@ -138,7 +178,7 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
       return toast.mostrar('error', 'Valor inválido')
     }
 
-    const condicion = construirCondicion(tipoCondicion, mesesAntiguedad, automatico)
+    const condicion = construirCondicion(tipoCondicion, mesesAntiguedad, valorCondicion, automatico)
 
     setGuardando(true)
     try {
@@ -156,8 +196,12 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
           valor: valorNum,
           automatico,
           condicion_jsonb: condicion,
-          recurrente,
+          // `recurrente` quedó como metadato legacy: el comportamiento
+          // real lo define `periodicidad`. Lo mandamos en true por
+          // default para no romper consumidores antiguos que aún lo leen.
+          recurrente: true,
           activo,
+          periodicidad,
         }),
       })
       const data = await res.json()
@@ -186,6 +230,25 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
       accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
     >
       <div className="space-y-5">
+
+        {/* ─── Banner informativo para predefinidos del sistema ─── */}
+        {concepto?.es_predefinido && (
+          <div className="rounded-card border border-texto-marca/30 bg-texto-marca/10 p-3">
+            <div className="flex items-start gap-2 mb-1.5">
+              <ShieldIcon size={14} className="text-texto-marca shrink-0 mt-0.5" />
+              <p className="text-xs font-medium text-texto-marca">
+                Concepto predefinido del sistema
+              </p>
+            </div>
+            <p className="text-xs text-texto-secundario">
+              {explicacionConcepto(concepto.categoria)}
+            </p>
+            <p className="text-[11px] text-texto-terciario mt-1.5">
+              Podés editar el monto, la condición o desactivarlo, pero no eliminarlo.
+              Si necesitás variantes (por sector, por puesto), duplicá este concepto desde el listado.
+            </p>
+          </div>
+        )}
 
         {/* ─── Identidad ─── */}
         <section>
@@ -272,7 +335,7 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
                 <Select
                   etiqueta="Condición"
                   valor={tipoCondicion}
-                  opciones={TIPOS_CONDICION.map(c => ({ valor: c.valor, etiqueta: c.etiqueta }))}
+                  opciones={etiquetasCondicion(periodicidad).map(c => ({ valor: c.valor, etiqueta: c.etiqueta }))}
                   onChange={(v) => setTipoCondicion(v as TipoCondicion)}
                 />
                 {tipoCondicion === 'antiguedad_minima' && (
@@ -283,17 +346,68 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
                     placeholder="12"
                   />
                 )}
+                {tipoCondicion === 'minimo_dias' && (
+                  <Input
+                    etiqueta="Días trabajados mínimos"
+                    value={valorCondicion}
+                    onChange={e => setValorCondicion(e.target.value)}
+                    placeholder="20"
+                  />
+                )}
+                {tipoCondicion === 'trabajo_feriado' && (
+                  <Input
+                    etiqueta="Feriados trabajados mínimos"
+                    value={valorCondicion}
+                    onChange={e => setValorCondicion(e.target.value)}
+                    placeholder="1"
+                  />
+                )}
+                {tipoCondicion === 'horas_minimas' && (
+                  <Input
+                    etiqueta="Horas trabajadas mínimas"
+                    value={valorCondicion}
+                    onChange={e => setValorCondicion(e.target.value)}
+                    placeholder="160"
+                  />
+                )}
               </div>
             )}
 
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm text-texto-primario">Recurrente</div>
-                <div className="text-xs text-texto-terciario">
-                  Se aplica en cada recibo donde se cumpla la condición.
-                </div>
+            {/* Periodicidad: cuándo aparece el concepto. */}
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
+              <div className="text-sm text-texto-primario">Cuándo se aplica</div>
+              <div className="text-xs text-texto-terciario mb-2">
+                Define en qué liquidación aparece el concepto.
               </div>
-              <Interruptor activo={recurrente} onChange={setRecurrente} />
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setPeriodicidad('mensual')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    periodicidad === 'mensual'
+                      ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                      : 'border-borde-sutil text-texto-terciario hover:text-texto-primario'
+                  }`}
+                >
+                  Mensual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodicidad('por_periodo')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    periodicidad === 'por_periodo'
+                      ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                      : 'border-borde-sutil text-texto-terciario hover:text-texto-primario'
+                  }`}
+                >
+                  Cada liquidación
+                </button>
+              </div>
+              <p className="text-[11px] text-texto-terciario mt-2">
+                {periodicidad === 'mensual'
+                  ? 'Solo aparece en la última liquidación del mes (segunda quincena o última semana). El monto se calcula sobre el básico mensual del empleado. Ideal para Presentismo, Antigüedad, premios.'
+                  : 'Aparece en todas las liquidaciones (cada quincena, semana o mes). Ideal para descuentos por cuotas o adicionales por período (turno noche, etc).'}
+              </p>
             </div>
 
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5 flex items-center justify-between gap-3">
@@ -319,6 +433,7 @@ export function EditorConcepto({ abierto, concepto, onCerrar, onGuardado }: Prop
 function construirCondicion(
   tipo: TipoCondicion,
   mesesAntiguedadStr: string,
+  valorCondicionStr: string,
   automatico: boolean,
 ): Record<string, unknown> | null {
   if (!automatico) return null
@@ -326,6 +441,19 @@ function construirCondicion(
     const meses = Number(mesesAntiguedadStr) || 0
     return { tipo, meses }
   }
+  if (tipo === 'minimo_dias') {
+    const dias = Number(valorCondicionStr) || 0
+    return { tipo, dias }
+  }
+  if (tipo === 'trabajo_feriado') {
+    const feriados = Number(valorCondicionStr) || 1
+    return { tipo, feriados }
+  }
+  if (tipo === 'horas_minimas') {
+    const horas = Number(valorCondicionStr) || 0
+    return { tipo, horas }
+  }
+  // siempre, sin_ausencias, sin_tardanzas, asistencia_perfecta → no parámetros.
   return { tipo }
 }
 
@@ -346,4 +474,30 @@ function PillTipo({
       <span className="text-xs opacity-80">{descripcion}</span>
     </button>
   )
+}
+
+/**
+ * Devuelve una explicación clara y corta de qué significa cada
+ * concepto predefinido del sistema. Se muestra en el editor para que
+ * el operador entienda para qué sirve antes de tocar valores.
+ */
+function explicacionConcepto(categoria: CategoriaConcepto | null): string {
+  switch (categoria) {
+    case 'presentismo':
+      return 'Premio que se le otorga al empleado por NO haber faltado en el período (mes o quincena según configuración). Se suele calcular como un porcentaje del básico o un monto fijo, y se paga junto al sueldo.'
+    case 'premio':
+      return 'Premio extra por algún logro o conducta (puntualidad, productividad, asistencia perfecta, etc.). Configurá la condición que tiene que cumplir el empleado para que el motor lo aplique automáticamente.'
+    case 'antiguedad':
+      return 'Adicional por la cantidad de años o meses que el empleado lleva en la empresa. Se calcula como un porcentaje del básico o un monto fijo creciente. Normalmente se paga todos los meses.'
+    case 'descuento_uniforme':
+      return 'Descuento por uniforme entregado al empleado, generalmente en cuotas mensuales. Se descuenta del neto a cobrar hasta cubrir el costo total.'
+    case 'bono':
+      return 'Bono adicional por logros puntuales o por temporadas específicas. Normalmente se paga una vez o en eventos especiales (fin de año, cumplimiento de objetivos).'
+    case 'adicional':
+      return 'Adicional por una característica del puesto: turno noche, zona desfavorable, manejo de valores, etc. Suele aplicarse en cada período.'
+    case 'descuento_otro':
+      return 'Descuento no atado a un concepto típico (multa, faltante de caja, anticipo no devuelto, etc.). Se resta del neto a cobrar.'
+    default:
+      return 'Concepto del sistema que se aplica automáticamente al recibo según la condición y la periodicidad configuradas.'
+  }
 }

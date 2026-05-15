@@ -18,9 +18,10 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
-import { Plus, Pencil, Trash2, EyeOff, Tag, Loader2, Mail, MessageSquare, Save } from 'lucide-react'
+import { Plus, Pencil, Trash2, EyeOff, Eye, Tag, Loader2, Mail, MessageSquare, Save, Copy, Shield } from 'lucide-react'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Select } from '@/componentes/ui/Select'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EditorConcepto } from './EditorConcepto'
 import type { ConceptoNomina, TipoConcepto } from '@/tipos/nominas'
 
@@ -85,15 +86,26 @@ function PanelConceptos() {
   const puedeEditar = tienePermiso('nomina', 'editar')
 
   const [conceptos, setConceptos] = useState<ConceptoNomina[]>([])
-  const [cargando, setCargando] = useState(true)
+  // `primeraCarga` solo se usa para mostrar el spinner inicial centrado.
+  // Los refrescos post-acción (crear/duplicar/eliminar/etc.) NO tocan
+  // esta bandera para que la lista se actualice en su lugar sin parpadeo.
+  const [primeraCarga, setPrimeraCarga] = useState(true)
   const [filtroTipo, setFiltroTipo] = useState<'' | TipoConcepto>('')
   const [incluirInactivos, setIncluirInactivos] = useState(false)
 
   const [editorAbierto, setEditorAbierto] = useState(false)
   const [editando, setEditando] = useState<ConceptoNomina | null>(null)
 
+  // Confirmaciones: usamos ModalConfirmacion en vez de confirm() nativo
+  // porque algunos navegadores permiten al usuario suprimir los confirms
+  // y se "comen" sin avisar. Estado: concepto a accionar + tipo de acción.
+  const [confirmacion, setConfirmacion] = useState<{
+    concepto: ConceptoNomina
+    accion: 'eliminar' | 'desactivar'
+  } | null>(null)
+  const [procesandoConfirmacion, setProcesandoConfirmacion] = useState(false)
+
   const cargar = async () => {
-    setCargando(true)
     try {
       const res = await fetch(`/api/nominas/conceptos?incluirInactivos=${incluirInactivos}`)
       const data = await res.json()
@@ -101,7 +113,7 @@ function PanelConceptos() {
     } catch (err) {
       console.error('[VistaConfiguracion] error', err)
     } finally {
-      setCargando(false)
+      setPrimeraCarga(false)
     }
   }
 
@@ -109,15 +121,83 @@ function PanelConceptos() {
 
   const filtrados = conceptos.filter(c => !filtroTipo || c.tipo === filtroTipo)
 
-  const eliminar = async (c: ConceptoNomina) => {
-    if (!confirm(`¿Desactivar "${c.nombre}"? Va a desaparecer del catálogo pero los contratos que ya lo usan no se rompen.`)) return
+  /**
+   * Ejecuta la acción confirmada (eliminar o desactivar). Llamado desde
+   * el modal de confirmación cuando el usuario aprieta el botón rojo.
+   */
+  const ejecutarConfirmacion = async () => {
+    if (!confirmacion) return
+    const { concepto: c, accion } = confirmacion
+    setProcesandoConfirmacion(true)
     try {
-      const res = await fetch(`/api/nominas/conceptos/${c.id}`, { method: 'DELETE' })
+      if (accion === 'eliminar') {
+        const res = await fetch(`/api/nominas/conceptos/${c.id}`, { method: 'DELETE' })
+        const data = await res.json()
+        if (!res.ok) {
+          return toast.mostrar('error', data.error || 'No se pudo eliminar')
+        }
+        toast.mostrar('exito', data.modo === 'eliminado' ? 'Concepto eliminado' : 'Concepto desactivado (estaba en uso)')
+      } else {
+        const res = await fetch(`/api/nominas/conceptos/${c.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activo: false }),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          return toast.mostrar('error', data.error || 'No se pudo desactivar')
+        }
+        toast.mostrar('exito', 'Concepto desactivado')
+      }
+      setConfirmacion(null)
+      cargar()
+    } catch {
+      toast.mostrar('error', 'Error de red')
+    } finally {
+      setProcesandoConfirmacion(false)
+    }
+  }
+
+  /**
+   * Reactivar es no destructivo, lo hacemos directo sin modal. Si en
+   * algún momento queremos consistencia visual igual podríamos abrir
+   * un toast con undo, pero por ahora un PATCH directo basta.
+   */
+  const reactivar = async (c: ConceptoNomina) => {
+    try {
+      const res = await fetch(`/api/nominas/conceptos/${c.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: true }),
+      })
       if (!res.ok) {
         const data = await res.json()
-        return toast.mostrar('error', data.error || 'No se pudo desactivar')
+        return toast.mostrar('error', data.error || 'No se pudo reactivar')
       }
-      toast.mostrar('exito', 'Concepto desactivado')
+      toast.mostrar('exito', 'Concepto reactivado')
+      cargar()
+    } catch {
+      toast.mostrar('error', 'Error de red')
+    }
+  }
+
+  /**
+   * Duplica un concepto. Útil para crear variantes (ej. "Presentismo
+   * Taller" vs "Presentismo Administración") sin re-tipear. El duplicado
+   * NUNCA queda como predefinido, así que se puede borrar libremente.
+   */
+  const duplicar = async (c: ConceptoNomina) => {
+    try {
+      const res = await fetch('/api/nominas/conceptos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duplicar_de: c.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        return toast.mostrar('error', data.error || 'No se pudo duplicar')
+      }
+      toast.mostrar('exito', `Duplicado como "${(data.concepto as ConceptoNomina).nombre}"`)
       cargar()
     } catch {
       toast.mostrar('error', 'Error de red')
@@ -162,8 +242,12 @@ function PanelConceptos() {
         </div>
       </div>
 
-      {/* Listado */}
-      {cargando ? (
+      {/* Listado.
+          El spinner grande solo aparece en la PRIMERA carga (cuando aún
+          no hay datos para mostrar). En refrescos posteriores —después
+          de crear, duplicar, eliminar, etc.— la lista se actualiza en
+          su lugar sin parpadear. */}
+      {primeraCarga && conceptos.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-texto-terciario">
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -197,9 +281,18 @@ function PanelConceptos() {
             >
               {/* Nombre + categoría */}
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
                   <span className="text-sm text-texto-primario truncate">{c.nombre}</span>
+                  {c.es_predefinido && (
+                    <span
+                      title="Concepto predefinido del sistema. Editable pero no eliminable."
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-texto-marca/15 text-texto-marca"
+                    >
+                      <Shield size={10} />
+                      Predefinido
+                    </span>
+                  )}
                   {!c.activo && <Insignia color="neutro">Inactivo</Insignia>}
                 </div>
                 {c.categoria && (
@@ -222,10 +315,14 @@ function PanelConceptos() {
                 {formatearValor(c)}
               </div>
 
-              {/* Acciones */}
+              {/* Acciones — 4 slots fijos para que las columnas queden
+                  alineadas entre filas (Editar | Duplicar | Toggle | Borrar).
+                  Si un botón no aplica para esa fila, renderizamos un
+                  placeholder invisible del mismo tamaño. */}
               <div className="flex items-center justify-end gap-1">
-                {puedeEditar && (
+                {puedeEditar ? (
                   <>
+                    {/* Slot 1: Editar */}
                     <button
                       type="button"
                       title="Editar"
@@ -234,18 +331,56 @@ function PanelConceptos() {
                     >
                       <Pencil size={14} />
                     </button>
-                    {c.activo && (
+
+                    {/* Slot 2: Duplicar */}
+                    <button
+                      type="button"
+                      title="Duplicar (crea una copia editable)"
+                      className="p-1.5 rounded hover:bg-superficie-elevada text-texto-terciario hover:text-texto-primario"
+                      onClick={() => duplicar(c)}
+                    >
+                      <Copy size={14} />
+                    </button>
+
+                    {/* Slot 3: Toggle activo (Desactivar si está activo, Reactivar si está inactivo) */}
+                    {c.activo ? (
                       <button
                         type="button"
-                        title="Desactivar"
+                        title={c.es_predefinido ? 'Desactivar (los predefinidos no se pueden borrar)' : 'Desactivar'}
                         className="p-1.5 rounded hover:bg-superficie-elevada text-texto-terciario hover:text-insignia-peligro"
-                        onClick={() => eliminar(c)}
+                        onClick={() => setConfirmacion({ concepto: c, accion: 'desactivar' })}
                       >
-                        {c.modo_calculo === 'manual' ? <EyeOff size={14} /> : <Trash2 size={14} />}
+                        <EyeOff size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Reactivar"
+                        className="p-1.5 rounded hover:bg-superficie-elevada text-texto-terciario hover:text-insignia-exito"
+                        onClick={() => reactivar(c)}
+                      >
+                        <Eye size={14} />
                       </button>
                     )}
+
+                    {/* Slot 4: Eliminar (solo para NO predefinidos; placeholder
+                        invisible para los del sistema, para mantener la grilla). */}
+                    {!c.es_predefinido ? (
+                      <button
+                        type="button"
+                        title="Eliminar"
+                        className="p-1.5 rounded hover:bg-superficie-elevada text-texto-terciario hover:text-insignia-peligro"
+                        onClick={() => setConfirmacion({ concepto: c, accion: 'eliminar' })}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    ) : (
+                      <span className="p-1.5 inline-block" aria-hidden="true">
+                        <span className="block size-[14px]" />
+                      </span>
+                    )}
                   </>
-                )}
+                ) : null}
               </div>
             </div>
           ))}
@@ -257,6 +392,34 @@ function PanelConceptos() {
         concepto={editando}
         onCerrar={() => setEditorAbierto(false)}
         onGuardado={cargar}
+      />
+
+      {/* Modal de confirmación reutilizado para eliminar y desactivar.
+          Es propio (no confirm() nativo) para que el usuario no pueda
+          suprimirlo accidentalmente desde el navegador. */}
+      <ModalConfirmacion
+        abierto={confirmacion !== null}
+        onCerrar={() => !procesandoConfirmacion && setConfirmacion(null)}
+        onConfirmar={ejecutarConfirmacion}
+        cargando={procesandoConfirmacion}
+        tipo={confirmacion?.accion === 'eliminar' ? 'peligro' : 'advertencia'}
+        titulo={
+          confirmacion?.accion === 'eliminar'
+            ? `Eliminar "${confirmacion.concepto.nombre}"`
+            : `Desactivar "${confirmacion?.concepto.nombre ?? ''}"`
+        }
+        descripcion={
+          confirmacion?.accion === 'eliminar' ? (
+            <span>
+              Si está asignado a algún contrato, queda inactivo para no romper recibos viejos. Si no se usa en ningún lado, se borra <strong>definitivamente</strong>.
+            </span>
+          ) : (
+            <span>
+              Va a desaparecer del listado. Para volver a verlo o reactivarlo, tildá <strong>&quot;Mostrar inactivos&quot;</strong> arriba a la derecha.
+            </span>
+          )
+        }
+        etiquetaConfirmar={confirmacion?.accion === 'eliminar' ? 'Eliminar' : 'Desactivar'}
       />
     </div>
   )
