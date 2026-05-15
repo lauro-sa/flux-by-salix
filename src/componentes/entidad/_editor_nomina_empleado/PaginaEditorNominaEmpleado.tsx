@@ -17,7 +17,16 @@ import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
   ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
+  AlertTriangle, Sparkles, FileSignature, TrendingUp,
 } from 'lucide-react'
+import type {
+  DetalleReciboCalculado,
+  ConceptoAplicadoCalculado,
+  MetricasAsistencia,
+  ModalidadCalculo,
+  RegimenContrato,
+  ModoCalculoConcepto,
+} from '@/tipos/nominas'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { CabezaloPersona } from '@/componentes/entidad/CabezaloPersona'
@@ -127,6 +136,62 @@ const fmtHoras = (h: number) => {
   const hrs = Math.floor(h)
   const min = Math.round((h - hrs) * 60)
   return min > 0 ? `${hrs}h ${min}m` : `${hrs}h`
+}
+
+// ─── Helpers de etiquetas del motor (PR 7c) ───
+
+/** Etiqueta legible de la modalidad de cálculo del contrato. */
+function etiquetaModalidad(m: ModalidadCalculo): string {
+  switch (m) {
+    case 'por_hora': return 'Por hora'
+    case 'por_dia': return 'Por día'
+    case 'fijo_semanal': return 'Fijo semanal'
+    case 'fijo_quincenal': return 'Fijo quincenal'
+    case 'fijo_mensual': return 'Fijo mensual'
+  }
+}
+
+/** Sufijo del monto base según modalidad (ej "/día", "/hora", "/mes"). */
+function sufijoModalidad(m: ModalidadCalculo): string {
+  switch (m) {
+    case 'por_hora': return '/hora'
+    case 'por_dia': return '/día'
+    case 'fijo_semanal': return '/semana'
+    case 'fijo_quincenal': return '/quincena'
+    case 'fijo_mensual': return '/mes'
+  }
+}
+
+/** Etiqueta legible del régimen del contrato. */
+function etiquetaRegimen(r: RegimenContrato): string {
+  switch (r) {
+    case 'informal': return 'Informal'
+    case 'monotributo': return 'Monotributo'
+    case 'relacion_dependencia': return 'Relación de dependencia'
+  }
+}
+
+/** Describe cómo el motor calculó el monto base (días × valor, prorrateo, etc). */
+function describirCalculoBase(d: DetalleReciboCalculado): string {
+  const snap = d.contrato.snapshot
+  if (!snap) return 'Sin contrato laboral cargado'
+  const monto = snap.monto_base
+  const a = d.asistencia
+  switch (snap.modalidad_calculo) {
+    case 'por_hora':
+      return `${a.horas_netas.toFixed(2)} h × ${monto.toLocaleString('es-AR')}/h`
+    case 'por_dia':
+      return `${a.dias_trabajados} día${a.dias_trabajados === 1 ? '' : 's'} × ${monto.toLocaleString('es-AR')}/día`
+    case 'fijo_semanal':
+    case 'fijo_quincenal':
+    case 'fijo_mensual': {
+      const diasNaturales = snap.modalidad_calculo === 'fijo_semanal' ? 7
+        : snap.modalidad_calculo === 'fijo_quincenal' ? 15
+        : 30
+      const factor = (a.dias_periodo / diasNaturales) * 100
+      return `${monto.toLocaleString('es-AR')} prorrateado al ${factor.toFixed(0)}% del período`
+    }
+  }
 }
 
 // ─── Tipos y helpers de período ───
@@ -308,6 +373,35 @@ export function PaginaEditorNominaEmpleado({
   // Envío de recibo
   const [modalEnvio, setModalEnvio] = useState(false)
 
+  // ─── Motor de cálculo (PR 7c) ───
+  //
+  // Mientras el endpoint legacy /api/nominas todavía alimenta el bloque
+  // "Asistencia" y el saldo entre períodos, el desglose del recibo se
+  // calcula con el motor: conceptos automáticos aplicados con su detalle
+  // humano, sugerencias del contrato vigente y cuotas de adelanto.
+  //
+  // `detalleMotor` se recalcula al cambiar empleado o período. Si el motor
+  // todavía no respondió, la tarjeta de desglose cae al cálculo legacy
+  // (compatibilidad hacia atrás durante la carga inicial).
+  const [detalleMotor, setDetalleMotor] = useState<DetalleReciboCalculado | null>(null)
+  const [cargandoMotor, setCargandoMotor] = useState(false)
+
+  /**
+   * Conceptos que el operador agrega manualmente al recibo (haberes
+   * extra, descuentos puntuales o sugeridos del contrato que cumplen
+   * pero no son automáticos). Se mandan como `conceptos_extra` al pagar.
+   * Si `concepto_id` está presente, sirve para ocultar ese sugerido de
+   * la lista (ya fue aplicado).
+   */
+  type ConceptoExtra = {
+    nombre: string
+    tipo: 'haber' | 'descuento'
+    monto: number
+    detalle?: string | null
+    concepto_id?: string
+  }
+  const [conceptosExtras, setConceptosExtras] = useState<ConceptoExtra[]>([])
+
   // Si el usuario pierde el permiso `nomina:editar` en vivo (ej. admin se lo
   // saca), cerramos cualquier formulario de edición abierto para que no pueda
   // completar la operación sin autorización. Reactivo gracias al contexto.
@@ -365,6 +459,32 @@ export function PaginaEditorNominaEmpleado({
     cargarPagosYAdelantos(empleadoInicial.miembro_id, periodoInicial.desde, periodoInicial.hasta)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Carga el detalle del motor cada vez que cambia empleado o período.
+  // Borramos `conceptosExtras` para evitar arrastrar manuales de otro
+  // empleado/período (cada recibo es independiente).
+  useEffect(() => {
+    let cancelado = false
+    setCargandoMotor(true)
+    setConceptosExtras([])
+    fetch('/api/nominas/calcular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        miembro_id: datosEmpleado.miembro_id,
+        periodo_inicio: periodoActual.desde,
+        periodo_fin: periodoActual.hasta,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelado) return
+        setDetalleMotor((data?.detalle as DetalleReciboCalculado | null) ?? null)
+      })
+      .catch(() => { if (!cancelado) setDetalleMotor(null) })
+      .finally(() => { if (!cancelado) setCargandoMotor(false) })
+    return () => { cancelado = true }
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta])
 
   // Aplicar un nuevo período (llamado al navegar con ← Hoy → o al cambiar Semana/Quincena/Mes)
   const aplicarPeriodo = useCallback(async (nuevaFecha: Date, nuevoTipo: TipoPeriodo) => {
@@ -505,7 +625,9 @@ export function PaginaEditorNominaEmpleado({
 
   const handleConfirmarPago = async () => {
     setPagando(true)
-    const montoReal = parseFloat(montoAPagar) || emp.monto_neto
+    // Si el motor ya respondió usamos su neto; sino caemos al legacy.
+    const netoFuente = detalleMotor ? netoEfectivo : emp.monto_neto
+    const montoReal = parseFloat(montoAPagar) || netoFuente
 
     try {
       const res = await fetch('/api/nominas/pagos', {
@@ -518,6 +640,14 @@ export function PaginaEditorNominaEmpleado({
           monto_abonado: montoReal,
           concepto: periodoActual.etiqueta,
           notas: notasPago || null,
+          conceptos_extra: conceptosExtras.length > 0
+            ? conceptosExtras.map(e => ({
+                nombre: e.nombre,
+                tipo: e.tipo,
+                monto: e.monto,
+                detalle: e.detalle ?? null,
+              }))
+            : undefined,
         }),
       })
       if (!res.ok) {
@@ -687,10 +817,103 @@ export function PaginaEditorNominaEmpleado({
     })
   }, [adelantos])
 
+  // ─── Totales del motor (combinando aplicados + manuales + adelantos + saldo) ───
+  //
+  // Cuando el motor todavía no respondió, `detalleMotor` es null y el desglose
+  // cae al modelo legacy (emp.monto_*). Cuando responde, todos los totales que
+  // se muestran y el modal de pago salen del motor.
+  const extrasHaberes = useMemo(
+    () => conceptosExtras.filter(e => e.tipo === 'haber').reduce((s, e) => s + e.monto, 0),
+    [conceptosExtras],
+  )
+  const extrasDescuentos = useMemo(
+    () => conceptosExtras.filter(e => e.tipo === 'descuento').reduce((s, e) => s + e.monto, 0),
+    [conceptosExtras],
+  )
+
+  /** Subtotal de haberes mostrado en el desglose: base + automáticos + extras. */
+  const haberesTotales = useMemo(() => {
+    if (!detalleMotor) return emp.monto_pagar
+    return detalleMotor.subtotal_haberes + extrasHaberes
+  }, [detalleMotor, emp.monto_pagar, extrasHaberes])
+
+  /**
+   * Subtotal de descuentos: del motor (conceptos descuento + adelantos) +
+   * extras manuales descuento + saldo anterior si es positivo (favor del
+   * empleado del período pasado, se descuenta este período).
+   */
+  const descuentosTotales = useMemo(() => {
+    if (!detalleMotor) return emp.descuento_adelanto + Math.max(0, emp.saldo_anterior)
+    return detalleMotor.subtotal_descuentos + extrasDescuentos + Math.max(0, emp.saldo_anterior)
+  }, [detalleMotor, emp.descuento_adelanto, emp.saldo_anterior, extrasDescuentos])
+
+  /**
+   * Neto efectivo: si hay motor lo usamos como fuente; sino el legacy.
+   * El saldo en contra del período anterior (negativo) se suma al neto.
+   */
+  const netoEfectivo = useMemo(() => {
+    if (!detalleMotor) return emp.monto_neto
+    const baseConSaldo = haberesTotales - descuentosTotales
+    // saldo_anterior < 0 = el empleado quedó debiendo del período pasado
+    // → se suma a este período.
+    return baseConSaldo + (emp.saldo_anterior < 0 ? Math.abs(emp.saldo_anterior) : 0)
+  }, [detalleMotor, emp.monto_neto, emp.saldo_anterior, haberesTotales, descuentosTotales])
+
   const pagoDelPeriodo = pagos.length > 0 ? pagos[0] : null
   const montoAbonadoPeriodo = pagoDelPeriodo ? parseFloat(pagoDelPeriodo.monto_abonado as string) : 0
   const hayPago = pagoDelPeriodo != null
-  const diferenciaPago = hayPago ? montoAbonadoPeriodo - emp.monto_neto : 0
+  const diferenciaPago = hayPago ? montoAbonadoPeriodo - netoEfectivo : 0
+
+  // ─── Sugeridos visibles (los que el operador todavía no aplicó) ───
+  const sugeridosDisponibles = useMemo<ConceptoAplicadoCalculado[]>(() => {
+    if (!detalleMotor) return []
+    const yaAplicados = new Set(
+      conceptosExtras.map(e => e.concepto_id).filter((id): id is string => !!id),
+    )
+    return detalleMotor.conceptos_sugeridos.filter(s => !yaAplicados.has(s.concepto_id))
+  }, [detalleMotor, conceptosExtras])
+
+  /**
+   * Calcula el monto que tendría un concepto sugerido si se aplicara
+   * manualmente. Espeja `calcularMontoConcepto` del motor — duplicado
+   * para no arrastrar el módulo del servidor al bundle del cliente.
+   */
+  const calcularMontoSugerido = useCallback(
+    (modo: ModoCalculoConcepto, valor: number | null, base: number, asistencia: MetricasAsistencia): number => {
+      if (valor === null) return 0
+      if (modo === 'monto_fijo') return valor
+      if (modo === 'porcentaje_basico') return Math.round(base * (valor / 100) * 100) / 100
+      if (modo === 'por_dia') return valor * asistencia.dias_trabajados
+      if (modo === 'por_evento') return valor
+      return 0
+    },
+    [],
+  )
+
+  /** Aplica un sugerido al recibo: lo agrega a `conceptosExtras`. */
+  const aplicarSugerido = useCallback((s: ConceptoAplicadoCalculado) => {
+    if (!detalleMotor) return
+    const monto = calcularMontoSugerido(
+      s.modo_calculo,
+      s.valor,
+      detalleMotor.monto_base_calculado,
+      detalleMotor.asistencia,
+    )
+    setConceptosExtras(prev => [
+      ...prev,
+      {
+        nombre: s.nombre,
+        tipo: s.tipo,
+        monto,
+        detalle: s.detalle,
+        concepto_id: s.concepto_id,
+      },
+    ])
+  }, [detalleMotor, calcularMontoSugerido])
+
+  const quitarExtra = useCallback((idx: number) => {
+    setConceptosExtras(prev => prev.filter((_, i) => i !== idx))
+  }, [])
 
   // Clave común para re-disparar la animación de los números en cada cambio de
   // período o empleado (aunque el valor visible sea el mismo).
@@ -824,16 +1047,16 @@ export function PaginaEditorNominaEmpleado({
             : <>Quedó debiendo <strong className="text-texto-primario">{fmtMonto(Math.abs(diferenciaPago))}</strong>. Se suma al próximo período.</>,
       }
     }
-    if (emp.monto_neto < 0) {
+    if (netoEfectivo < 0) {
       return {
         tono: 'advertencia',
         etiqueta: 'A favor de la empresa',
         subtitulo: 'Pendiente de cierre',
         titulo: 'Este período no corresponde pago',
-        descripcion: <>El empleado quedó <strong className="text-insignia-advertencia">{fmtMonto(Math.abs(emp.monto_neto))}</strong> en contra. Podés arrastrar el saldo al próximo período o cancelarlo con trabajo extra.</>,
+        descripcion: <>El empleado quedó <strong className="text-insignia-advertencia">{fmtMonto(Math.abs(netoEfectivo))}</strong> en contra. Podés arrastrar el saldo al próximo período o cancelarlo con trabajo extra.</>,
       }
     }
-    if (emp.monto_neto === 0) {
+    if (netoEfectivo === 0) {
       return {
         tono: 'info',
         etiqueta: 'Sin saldo',
@@ -846,13 +1069,40 @@ export function PaginaEditorNominaEmpleado({
       tono: 'neutro',
       etiqueta: 'Pendiente',
       subtitulo: 'Sin pago registrado',
-      titulo: `Corresponde pagar ${fmtMonto(emp.monto_neto)}`,
+      titulo: `Corresponde pagar ${fmtMonto(netoEfectivo)}`,
       descripcion: 'Confirmá la información de la derecha y registrá el pago cuando esté listo.',
     }
   })()
 
-  /** Términos de la fórmula: Bruto − Adelanto − Saldo ant. = Neto */
+  /**
+   * Términos de la fórmula. Si el motor respondió usamos sus subtotales
+   * para reflejar el desglose real (haberes − descuentos − saldo). Si
+   * todavía no respondió, cae al modelo legacy.
+   */
   const formulaCalculo: TerminoFormula[] = (() => {
+    if (detalleMotor) {
+      const terminos: TerminoFormula[] = [
+        { etiqueta: 'Haberes', valor: fmtMonto(haberesTotales) },
+      ]
+      const descuentosMotorYExtras = detalleMotor.subtotal_descuentos + extrasDescuentos
+      if (descuentosMotorYExtras > 0) {
+        terminos.push({ etiqueta: 'Descuentos', valor: fmtMonto(descuentosMotorYExtras), operador: '−', tono: 'advertencia' })
+      }
+      if (emp.saldo_anterior > 0) {
+        terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(emp.saldo_anterior), operador: '−', tono: 'info' })
+      } else if (emp.saldo_anterior < 0) {
+        terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(Math.abs(emp.saldo_anterior)), operador: '+', tono: 'peligro' })
+      }
+      terminos.push({
+        etiqueta: 'Neto',
+        valor: fmtMonto(netoEfectivo),
+        operador: '=',
+        tono: netoEfectivo < 0 ? 'advertencia' : netoEfectivo === 0 ? 'neutro' : 'exito',
+        esResultado: true,
+      })
+      return terminos
+    }
+    // Fallback legacy mientras el motor no respondió.
     const terminos: TerminoFormula[] = [
       { etiqueta: 'Bruto', valor: fmtMonto(emp.monto_pagar) },
     ]
@@ -860,10 +1110,8 @@ export function PaginaEditorNominaEmpleado({
       terminos.push({ etiqueta: 'Adelanto', valor: fmtMonto(emp.descuento_adelanto), operador: '−', tono: 'advertencia' })
     }
     if (emp.saldo_anterior > 0) {
-      // Positivo = pagó de más antes → se descuenta
       terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(emp.saldo_anterior), operador: '−', tono: 'info' })
     } else if (emp.saldo_anterior < 0) {
-      // Negativo = debe del anterior → se suma
       terminos.push({ etiqueta: 'Saldo ant.', valor: fmtMonto(Math.abs(emp.saldo_anterior)), operador: '+', tono: 'peligro' })
     }
     terminos.push({
@@ -899,7 +1147,7 @@ export function PaginaEditorNominaEmpleado({
             etiqueta: 'Registrar pago',
             icono: <Banknote size={14} />,
             variante: 'primario' as const,
-            onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
+            onClick: () => { setMontoAPagar(String(netoEfectivo)); setConfirmandoPago(true) },
           }] : []),
         ]}
         banner={banner}
@@ -1016,103 +1264,398 @@ export function PaginaEditorNominaEmpleado({
               )}
 
               {/* ─── DESGLOSE DEL CÁLCULO ─── */}
+              {/*
+                Desglose principal del recibo. Cuando el motor respondió
+                usamos su desglose autoritativo (monto base + conceptos
+                automáticos + adelantos). Mientras carga, mostramos un
+                fallback al modelo legacy para que la UI no parpadee.
+              */}
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
-                accion={emp.compensacion_tipo === 'por_dia' && puedeEditarNomina && (
+                accion={cargandoMotor ? (
+                  <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />
+                ) : emp.compensacion_tipo === 'por_dia' && puedeEditarNomina ? (
                   <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
+                    onClick={() => { setMontoAPagar(String(netoEfectivo)); setConfirmandoPago(true) }}>
                     Ajustar manualmente
                   </Boton>
-                )}
+                ) : undefined}
               >
-                <div className="space-y-3">
-                  {/* ─── BRUTO — protagonista: lo que realmente generó el empleado ─── */}
-                  <div className="pb-3 border-b border-white/[0.07]">
-                    <p className="text-[11px] text-texto-terciario uppercase tracking-wider">Bruto del período</p>
-                    <p className="text-3xl font-bold tabular-nums mt-1 text-texto-primario">
-                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
-                    </p>
-                    <p className="text-[11px] text-texto-terciario mt-1">
-                      {emp.monto_detalle}
-                      {emp.horas_netas > 0 ? ` · ${fmtHoras(emp.horas_netas)} trabajadas` : ''}
-                    </p>
-                  </div>
+                {detalleMotor ? (
+                  <div className="space-y-3">
 
-                  {/* ─── DESCUENTOS Y AJUSTES — desglose línea por línea ─── */}
-                  <div className="space-y-2 text-sm">
-                    {(emp.descuento_adelanto > 0 || emp.saldo_anterior > 0) && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-insignia-advertencia">Descuentos del período</p>
-                          <span className="text-insignia-advertencia font-medium tabular-nums">
-                            −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
-                          </span>
-                        </div>
-                        <div className="space-y-1 ml-1.5 pl-2 border-l border-insignia-advertencia/20">
-                          {emp.saldo_anterior > 0 && (
-                            <div className="flex items-start justify-between gap-3 text-[11px]">
-                              <p className="text-texto-terciario">A favor del período anterior</p>
-                              <span className="text-texto-secundario tabular-nums shrink-0">
-                                −{fmtMonto(emp.saldo_anterior)}
-                              </span>
-                            </div>
-                          )}
-                          {cuotasInfoPeriodo.map((c, idx) => (
-                            <div key={idx} className="flex items-start justify-between gap-3 text-[11px]">
-                              <p className="text-texto-terciario truncate flex items-center gap-1.5">
-                                {c.tipo === 'descuento' && (
-                                  <span className="inline-flex items-center px-1 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide shrink-0">
-                                    Descuento
-                                  </span>
-                                )}
-                                <span className="truncate">
-                                  {c.notas || (c.tipo === 'descuento' ? `Descuento ${idx + 1}` : `Adelanto ${idx + 1}`)}
-                                  {c.tipo === 'adelanto' && c.cuotasTotales > 1 ? ` · cuota ${c.numeroCuota}/${c.cuotasTotales}` : ''}
-                                  {c.fechaSolicitud ? ` · ${fmtFecha(c.fechaSolicitud)}` : ''}
-                                </span>
-                              </p>
-                              <span className="text-texto-secundario tabular-nums shrink-0">
-                                −{fmtMonto(c.monto)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Advertencias del motor (ej. "Sin contrato cargado") */}
+                    {detalleMotor.advertencias.length > 0 && (
+                      <div className="rounded-card border border-insignia-advertencia/30 bg-insignia-advertencia/10 p-2.5 space-y-1">
+                        {detalleMotor.advertencias.map((adv, i) => (
+                          <p key={i} className="text-[11px] text-insignia-advertencia flex items-start gap-1.5">
+                            <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                            <span>{adv}</span>
+                          </p>
+                        ))}
                       </div>
                     )}
 
-                    {/* Saldo en contra del período anterior (se suma al bruto) */}
-                    {emp.saldo_anterior < 0 && (
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-insignia-peligro">Quedó debiendo el período anterior</p>
-                          <p className="text-[11px] text-texto-terciario mt-0.5">Se suma a este período</p>
+                    {/* MONTO BASE — protagonista */}
+                    <div className="pb-3 border-b border-white/[0.07]">
+                      <p className="text-[11px] text-texto-terciario uppercase tracking-wider">Monto base</p>
+                      <p className="text-3xl font-bold tabular-nums mt-1 text-texto-primario">
+                        <NumeroAnimado claveAnim={animKey}>{fmtMonto(detalleMotor.monto_base_calculado)}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-1">
+                        {describirCalculoBase(detalleMotor)}
+                      </p>
+                    </div>
+
+                    {/* CONCEPTOS AUTOMÁTICOS APLICADOS */}
+                    {detalleMotor.conceptos_aplicados.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                          Conceptos automáticos · {detalleMotor.conceptos_aplicados.length}
+                        </p>
+                        {detalleMotor.conceptos_aplicados.map(c => (
+                          <div key={c.concepto_id} className="flex items-start justify-between gap-3 text-sm py-1">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                {c.tipo === 'haber' ? (
+                                  <TrendingUp size={11} className="text-insignia-exito shrink-0" />
+                                ) : (
+                                  <TrendingDown size={11} className="text-insignia-advertencia shrink-0" />
+                                )}
+                                <p className="text-texto-primario truncate">{c.nombre}</p>
+                              </div>
+                              {c.detalle && (
+                                <p className="text-[11px] text-texto-terciario mt-0.5 ml-4">{c.detalle}</p>
+                              )}
+                            </div>
+                            <span className={`font-medium tabular-nums shrink-0 ${c.tipo === 'haber' ? 'text-insignia-exito' : 'text-insignia-advertencia'}`}>
+                              {c.tipo === 'haber' ? '+' : '−'}{fmtMonto(c.monto)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* CONCEPTOS MANUALES (aplicados desde sugeridos o agregados libres) */}
+                    {conceptosExtras.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-white/[0.05]">
+                        <p className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                          Aplicados manualmente · {conceptosExtras.length}
+                        </p>
+                        {conceptosExtras.map((c, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3 text-sm py-1 group">
+                            <div className="min-w-0 flex-1 flex items-start gap-1.5">
+                              {puedeEditarNomina && (
+                                <button
+                                  type="button"
+                                  onClick={() => quitarExtra(i)}
+                                  title="Quitar concepto"
+                                  className="text-texto-terciario hover:text-insignia-peligro mt-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X size={11} />
+                                </button>
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-texto-primario truncate">{c.nombre}</p>
+                                {c.detalle && (
+                                  <p className="text-[11px] text-texto-terciario mt-0.5">{c.detalle}</p>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`font-medium tabular-nums shrink-0 ${c.tipo === 'haber' ? 'text-insignia-exito' : 'text-insignia-advertencia'}`}>
+                              {c.tipo === 'haber' ? '+' : '−'}{fmtMonto(c.monto)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ADELANTOS DESCONTADOS (cuotas vencidas) */}
+                    {detalleMotor.adelantos_aplicados.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-white/[0.05]">
+                        <p className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                          Adelantos descontados · {detalleMotor.adelantos_aplicados.length}
+                        </p>
+                        {detalleMotor.adelantos_aplicados.map(a => (
+                          <div key={a.cuota_id} className="flex items-start justify-between gap-3 text-sm py-1">
+                            <div className="min-w-0 flex items-center gap-1.5">
+                              <Receipt size={11} className="text-insignia-advertencia shrink-0" />
+                              <p className="text-texto-primario truncate">
+                                Cuota {a.numero_cuota}
+                                {a.fecha_programada < periodoActual.desde && (
+                                  <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide">
+                                    Atrasada
+                                  </span>
+                                )}
+                                <span className="text-texto-terciario text-[11px] ml-1.5">{fmtFecha(a.fecha_programada)}</span>
+                              </p>
+                            </div>
+                            <span className="font-medium tabular-nums shrink-0 text-insignia-advertencia">
+                              −{fmtMonto(a.monto)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* SALDO PERÍODO ANTERIOR (de la lógica inter-períodos del legacy) */}
+                    {emp.saldo_anterior !== 0 && (
+                      <div className="pt-2 border-t border-white/[0.05] flex items-start justify-between gap-3 text-sm py-1">
+                        <div className="min-w-0">
+                          <p className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                            {emp.saldo_anterior > 0 ? 'A favor del período anterior' : 'Quedó debiendo el período anterior'}
+                          </p>
+                          <p className="text-[11px] text-texto-terciario mt-0.5">
+                            {emp.saldo_anterior > 0 ? 'Se descuenta este período' : 'Se suma a este período'}
+                          </p>
                         </div>
-                        <span className="text-insignia-peligro font-medium tabular-nums">
-                          +{fmtMonto(Math.abs(emp.saldo_anterior))}
+                        <span className={`font-medium tabular-nums shrink-0 ${emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                          {emp.saldo_anterior > 0 ? '−' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
                         </span>
                       </div>
                     )}
-                  </div>
 
-                  {/* ─── NETO — resultado final (cierre del cálculo) ─── */}
-                  <div className="flex items-start justify-between gap-3 pt-3 border-t border-white/[0.07]">
-                    <div>
-                      <p className="text-texto-primario font-semibold">Neto a transferir</p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">
-                        Asistencia del {pctAsistencia}%{emp.monto_neto < 0 ? ' · se arrastra al próximo período' : ''}
+                    {/* SUBTOTALES */}
+                    <div className="pt-3 border-t border-white/[0.07] space-y-1 text-xs text-texto-terciario">
+                      <div className="flex justify-between">
+                        <span>Subtotal haberes</span>
+                        <span className="tabular-nums">{fmtMonto(haberesTotales)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Subtotal descuentos</span>
+                        <span className="tabular-nums">−{fmtMonto(descuentosTotales)}</span>
+                      </div>
+                    </div>
+
+                    {/* NETO — resultado final */}
+                    <div className="flex items-start justify-between gap-3 pt-3 border-t border-white/[0.07]">
+                      <div>
+                        <p className="text-texto-primario font-semibold">Neto a transferir</p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          Asistencia del {pctAsistencia}%{netoEfectivo < 0 ? ' · se arrastra al próximo período' : ''}
+                        </p>
+                      </div>
+                      <span className={`text-xl font-bold tabular-nums ${netoEfectivo < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
+                        <NumeroAnimado claveAnim={animKey}>{fmtMonto(netoEfectivo)}</NumeroAnimado>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  // Fallback legacy: mientras el motor no respondió, mostramos
+                  // el desglose viejo (basado en `emp.monto_pagar`).
+                  <div className="space-y-3">
+                    <div className="pb-3 border-b border-white/[0.07]">
+                      <p className="text-[11px] text-texto-terciario uppercase tracking-wider">Bruto del período</p>
+                      <p className="text-3xl font-bold tabular-nums mt-1 text-texto-primario">
+                        <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_pagar)}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-1">
+                        {emp.monto_detalle}
+                        {emp.horas_netas > 0 ? ` · ${fmtHoras(emp.horas_netas)} trabajadas` : ''}
                       </p>
                     </div>
-                    <span className={`text-xl font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
-                      <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
-                    </span>
+
+                    <div className="space-y-2 text-sm">
+                      {(emp.descuento_adelanto > 0 || emp.saldo_anterior > 0) && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-insignia-advertencia">Descuentos del período</p>
+                            <span className="text-insignia-advertencia font-medium tabular-nums">
+                              −{fmtMonto(emp.descuento_adelanto + Math.max(0, emp.saldo_anterior))}
+                            </span>
+                          </div>
+                          <div className="space-y-1 ml-1.5 pl-2 border-l border-insignia-advertencia/20">
+                            {emp.saldo_anterior > 0 && (
+                              <div className="flex items-start justify-between gap-3 text-[11px]">
+                                <p className="text-texto-terciario">A favor del período anterior</p>
+                                <span className="text-texto-secundario tabular-nums shrink-0">
+                                  −{fmtMonto(emp.saldo_anterior)}
+                                </span>
+                              </div>
+                            )}
+                            {cuotasInfoPeriodo.map((c, idx) => (
+                              <div key={idx} className="flex items-start justify-between gap-3 text-[11px]">
+                                <p className="text-texto-terciario truncate flex items-center gap-1.5">
+                                  {c.tipo === 'descuento' && (
+                                    <span className="inline-flex items-center px-1 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide shrink-0">
+                                      Descuento
+                                    </span>
+                                  )}
+                                  <span className="truncate">
+                                    {c.notas || (c.tipo === 'descuento' ? `Descuento ${idx + 1}` : `Adelanto ${idx + 1}`)}
+                                    {c.tipo === 'adelanto' && c.cuotasTotales > 1 ? ` · cuota ${c.numeroCuota}/${c.cuotasTotales}` : ''}
+                                    {c.fechaSolicitud ? ` · ${fmtFecha(c.fechaSolicitud)}` : ''}
+                                  </span>
+                                </p>
+                                <span className="text-texto-secundario tabular-nums shrink-0">
+                                  −{fmtMonto(c.monto)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {emp.saldo_anterior < 0 && (
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-insignia-peligro">Quedó debiendo el período anterior</p>
+                            <p className="text-[11px] text-texto-terciario mt-0.5">Se suma a este período</p>
+                          </div>
+                          <span className="text-insignia-peligro font-medium tabular-nums">
+                            +{fmtMonto(Math.abs(emp.saldo_anterior))}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-start justify-between gap-3 pt-3 border-t border-white/[0.07]">
+                      <div>
+                        <p className="text-texto-primario font-semibold">Neto a transferir</p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          Asistencia del {pctAsistencia}%{emp.monto_neto < 0 ? ' · se arrastra al próximo período' : ''}
+                        </p>
+                      </div>
+                      <span className={`text-xl font-bold tabular-nums ${emp.monto_neto < 0 ? 'text-insignia-advertencia' : 'text-insignia-exito'}`}>
+                        <NumeroAnimado claveAnim={animKey}>{fmtMonto(emp.monto_neto)}</NumeroAnimado>
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </TarjetaPanel>
             </div>
 
             {/* ═══════ COLUMNA DERECHA ═══════ */}
             <div className="space-y-4">
+
+              {/* ─── CONTRATO VIGENTE (PR 7c) ─── */}
+              {/*
+                Muestra el snapshot del contrato vigente en el período como
+                contexto del cálculo: modalidad, monto base, frecuencia y
+                régimen. Si no hay contrato, salimos sin renderizar — el
+                banner de advertencias del desglose ya avisa.
+              */}
+              {detalleMotor?.contrato.snapshot && (
+                <TarjetaPanel
+                  titulo="Contrato vigente"
+                  subtitulo="contexto del cálculo"
+                  icono={<FileSignature size={13} />}
+                >
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-texto-terciario">Modalidad</span>
+                      <span className="text-texto-primario font-medium">
+                        {etiquetaModalidad(detalleMotor.contrato.snapshot.modalidad_calculo)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-texto-terciario">Monto base</span>
+                      <span className="text-texto-primario font-medium tabular-nums">
+                        {fmtMonto(detalleMotor.contrato.snapshot.monto_base)}
+                        <span className="text-[11px] text-texto-terciario ml-1">
+                          {sufijoModalidad(detalleMotor.contrato.snapshot.modalidad_calculo)}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-texto-terciario">Frecuencia de pago</span>
+                      <span className="text-texto-primario">
+                        {detalleMotor.contrato.snapshot.frecuencia_pago.charAt(0).toUpperCase() +
+                          detalleMotor.contrato.snapshot.frecuencia_pago.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-texto-terciario">Régimen</span>
+                      <span className="text-texto-primario">
+                        {etiquetaRegimen(detalleMotor.contrato.snapshot.regimen)}
+                      </span>
+                    </div>
+                    {detalleMotor.contrato.snapshot.sector && (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-texto-terciario">Sector</span>
+                        <span className="text-texto-primario">{detalleMotor.contrato.snapshot.sector.nombre}</span>
+                      </div>
+                    )}
+                    {detalleMotor.contrato.snapshot.turno && (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-texto-terciario">Turno</span>
+                        <span className="text-texto-primario">{detalleMotor.contrato.snapshot.turno.nombre}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-3 pt-1.5 border-t border-white/[0.05]">
+                      <span className="text-texto-terciario">Desde</span>
+                      <span className="text-texto-primario">{fmtFecha(detalleMotor.contrato.snapshot.fecha_inicio)}</span>
+                    </div>
+                    {detalleMotor.contrato.snapshot.fecha_fin && (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-texto-terciario">Hasta</span>
+                        <span className="text-texto-primario">{fmtFecha(detalleMotor.contrato.snapshot.fecha_fin)}</span>
+                      </div>
+                    )}
+                  </div>
+                </TarjetaPanel>
+              )}
+
+              {/* ─── CONCEPTOS SUGERIDOS (PR 7c) ─── */}
+              {/*
+                Conceptos del contrato que NO se aplicaron automáticamente
+                (eran manuales, o la condición no se cumplió). El operador
+                puede aplicarlos al recibo con un click. Al aplicar, se
+                agregan a `conceptosExtras` y desaparecen de esta lista.
+              */}
+              {sugeridosDisponibles.length > 0 && (
+                <TarjetaPanel
+                  titulo="Conceptos sugeridos"
+                  subtitulo="del contrato vigente"
+                  icono={<Sparkles size={13} />}
+                  accion={
+                    <span className="text-[11px] text-texto-terciario">
+                      {sugeridosDisponibles.length} disponible{sugeridosDisponibles.length === 1 ? '' : 's'}
+                    </span>
+                  }
+                >
+                  <div className="space-y-1.5">
+                    {sugeridosDisponibles.map(s => (
+                      <div
+                        key={s.concepto_id}
+                        className="flex items-start gap-2 py-2 px-2.5 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {s.tipo === 'haber' ? (
+                              <TrendingUp size={11} className="text-insignia-exito shrink-0" />
+                            ) : (
+                              <TrendingDown size={11} className="text-insignia-advertencia shrink-0" />
+                            )}
+                            <p className="text-sm text-texto-primario truncate">{s.nombre}</p>
+                            <Insignia
+                              color={s.tipo === 'haber' ? 'exito' : 'peligro'}
+                              tamano="sm"
+                            >
+                              {s.tipo === 'haber' ? 'Haber' : 'Descuento'}
+                            </Insignia>
+                          </div>
+                          {s.detalle && (
+                            <p className="text-[11px] text-texto-terciario mt-0.5 ml-4">{s.detalle}</p>
+                          )}
+                        </div>
+                        {puedeEditarNomina && (
+                          <Boton
+                            variante="fantasma"
+                            tamano="xs"
+                            icono={<Plus size={11} />}
+                            onClick={() => aplicarSugerido(s)}
+                            titulo="Aplicar al recibo"
+                          >
+                            Aplicar
+                          </Boton>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </TarjetaPanel>
+              )}
 
               {/* ─── COMPENSACIÓN BASE ─── */}
               <TarjetaPanel
@@ -1503,13 +2046,13 @@ export function PaginaEditorNominaEmpleado({
                     </div>
                     <p className="text-sm text-texto-primario font-medium">Sin pagos registrados</p>
                     <p className="text-xs text-texto-terciario mt-1 max-w-xs">
-                      {emp.monto_neto < 0
+                      {netoEfectivo < 0
                         ? 'El neto quedó en negativo, así que no se registra pago. El saldo se arrastra.'
-                        : emp.monto_neto === 0
+                        : netoEfectivo === 0
                           ? 'No hay monto a transferir. Podés cerrar el período sin pago.'
                           : 'Cuando confirmes el pago, aparecerá acá con todo el historial.'}
                     </p>
-                    {emp.monto_neto < 0 && puedeEditarNomina && (
+                    {netoEfectivo < 0 && puedeEditarNomina && (
                       <Boton variante="secundario" tamano="sm" className="mt-3"
                         onClick={() => { setMontoAPagar('0'); setConfirmandoPago(true) }}>
                         Cerrar sin pago
@@ -1602,12 +2145,24 @@ export function PaginaEditorNominaEmpleado({
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-texto-terciario">Neto sugerido</span>
-            <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_neto)}</span>
+            <span className="text-texto-primario font-medium">{fmtMonto(netoEfectivo)}</span>
           </div>
-          {emp.descuento_adelanto > 0 && (
+          {detalleMotor && detalleMotor.subtotal_descuentos + extrasDescuentos > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-texto-terciario">Incluye descuentos</span>
+              <span className="text-insignia-advertencia">-{fmtMonto(detalleMotor.subtotal_descuentos + extrasDescuentos)}</span>
+            </div>
+          )}
+          {!detalleMotor && emp.descuento_adelanto > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-texto-terciario">Incluye descuento adelanto</span>
               <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+            </div>
+          )}
+          {conceptosExtras.length > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-texto-terciario">Conceptos manuales</span>
+              <span className="text-texto-primario">{conceptosExtras.length}</span>
             </div>
           )}
           <InputMoneda
@@ -1616,12 +2171,12 @@ export function PaginaEditorNominaEmpleado({
             onChange={setMontoAPagar}
             moneda="ARS"
           />
-          {parseFloat(montoAPagar) !== emp.monto_neto && parseFloat(montoAPagar) > 0 && (
+          {parseFloat(montoAPagar) !== netoEfectivo && parseFloat(montoAPagar) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-texto-terciario">Diferencia</span>
-              <span className={parseFloat(montoAPagar) > emp.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
-                {parseFloat(montoAPagar) > emp.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - emp.monto_neto)}
-                {parseFloat(montoAPagar) > emp.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
+              <span className={parseFloat(montoAPagar) > netoEfectivo ? 'text-insignia-exito' : 'text-insignia-peligro'}>
+                {parseFloat(montoAPagar) > netoEfectivo ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - netoEfectivo)}
+                {parseFloat(montoAPagar) > netoEfectivo ? ' (a favor del empleado)' : ' (queda debiendo)'}
               </span>
             </div>
           )}
