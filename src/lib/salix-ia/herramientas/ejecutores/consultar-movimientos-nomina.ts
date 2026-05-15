@@ -15,7 +15,7 @@
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { verificarPermiso } from '@/lib/permisos-servidor'
 import type { Rol } from '@/tipos/miembro'
-import { normalizarBusqueda } from '@/lib/validaciones'
+import { buscarMiembroPorTexto } from '@/lib/salix-ia/buscar-miembro'
 
 interface CuotaVista {
   numero: number
@@ -75,54 +75,20 @@ export async function ejecutarConsultarMovimientosNomina(
     if (miembroIdParam) {
       miembroIdFiltro = miembroIdParam
     } else if (busquedaMiembro) {
-      // Buscar miembro por nombre/apellido (en perfiles vinculados)
-      const palabras = busquedaMiembro.split(/\s+/).filter(p => p.length >= 2)
-      if (palabras.length === 0) {
-        return { exito: false, error: 'La búsqueda del empleado es muy corta.' }
-      }
-      // miembros + perfiles en dos queries (la FK miembros→perfiles no está
-      // declarada en Drizzle; el patrón "perfiles:perfil_id(...)" no funciona).
-      const { data: miembros } = await ctx.admin
-        .from('miembros')
-        .select('id, usuario_id')
-        .eq('empresa_id', ctx.empresa_id)
-        .eq('activo', true)
-        .limit(200)
-
-      const lista = (miembros || []) as Array<{ id: string; usuario_id: string | null }>
-      const usuarioIds = lista.map(m => m.usuario_id).filter(Boolean) as string[]
-
-      const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
-      if (usuarioIds.length > 0) {
-        const { data: perfilesData } = await ctx.admin
-          .from('perfiles')
-          .select('id, nombre, apellido')
-          .in('id', usuarioIds)
-        for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
-          perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
-        }
-      }
-
-      const palabrasNorm = palabras.map(normalizarBusqueda)
-      const candidatos = lista
-        .map(m => ({ miembro: m, perfil: m.usuario_id ? perfilesMap.get(m.usuario_id) : null }))
-        .filter(c => {
-          const nombreCompleto = normalizarBusqueda(`${c.perfil?.nombre || ''} ${c.perfil?.apellido || ''}`)
-          return palabrasNorm.every(p => nombreCompleto.includes(p))
-        })
+      const candidatos = await buscarMiembroPorTexto(ctx.admin, ctx.empresa_id, busquedaMiembro)
 
       if (candidatos.length === 0) {
         return { exito: false, error: `No encontré un empleado con "${busquedaMiembro}".` }
       }
       if (candidatos.length > 1) {
-        const nombres = candidatos.map(c => `${c.perfil?.nombre} ${c.perfil?.apellido || ''}`).join(', ')
+        const nombres = candidatos.map(c => c.nombre_completo).join(', ')
         return {
           exito: false,
           error: `Encontré ${candidatos.length} empleados que coinciden con "${busquedaMiembro}": ${nombres}. Especificá nombre y apellido.`,
         }
       }
-      miembroIdFiltro = candidatos[0].miembro.id
-      miembroNombreFiltro = [candidatos[0].perfil?.nombre, candidatos[0].perfil?.apellido].filter(Boolean).join(' ')
+      miembroIdFiltro = candidatos[0].miembro_id
+      miembroNombreFiltro = candidatos[0].nombre_completo
     }
     // Sin filtro → trae movimientos de todos los empleados (visión gerencial)
   }
@@ -194,24 +160,36 @@ export async function ejecutarConsultarMovimientosNomina(
     })
   }
 
-  // Nombres por miembro: cargar perfiles en query separada vía usuario_id.
+  // Nombres por miembro: perfiles (con cuenta Flux) + contactos vinculados
+  // (sin cuenta Flux) en queries paralelas.
   const miembrosList = (miembrosData || []) as Array<{ id: string; usuario_id: string | null }>
   const usuarioIdsList = miembrosList.map(m => m.usuario_id).filter(Boolean) as string[]
+
+  const [perfilesRes, contactosRes] = await Promise.all([
+    usuarioIdsList.length > 0
+      ? ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIdsList)
+      : Promise.resolve({ data: [] as Array<{ id: string; nombre: string; apellido: string | null }> }),
+    ctx.admin
+      .from('contactos')
+      .select('miembro_id, nombre, apellido')
+      .eq('empresa_id', ctx.empresa_id)
+      .in('miembro_id', miembrosList.map(m => m.id)),
+  ])
+
   const perfilesMap = new Map<string, { nombre: string; apellido: string | null }>()
-  if (usuarioIdsList.length > 0) {
-    const { data: perfilesData } = await ctx.admin
-      .from('perfiles')
-      .select('id, nombre, apellido')
-      .in('id', usuarioIdsList)
-    for (const p of (perfilesData || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
-      perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
-    }
+  for (const p of (perfilesRes.data || []) as Array<{ id: string; nombre: string; apellido: string | null }>) {
+    perfilesMap.set(p.id, { nombre: p.nombre, apellido: p.apellido })
+  }
+  const contactosMap = new Map<string, { nombre: string; apellido: string | null }>()
+  for (const c of (contactosRes.data || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
+    if (c.miembro_id) contactosMap.set(c.miembro_id, { nombre: c.nombre || '', apellido: c.apellido })
   }
 
   const nombresPorMiembro = new Map<string, string>()
   for (const m of miembrosList) {
     const perfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
-    nombresPorMiembro.set(m.id, [perfil?.nombre, perfil?.apellido].filter(Boolean).join(' '))
+    const fuente = perfil && (perfil.nombre || perfil.apellido) ? perfil : contactosMap.get(m.id)
+    nombresPorMiembro.set(m.id, [fuente?.nombre, fuente?.apellido].filter(Boolean).join(' '))
   }
 
   // ─── Calcular es_editable + motivo por cada movimiento ───
