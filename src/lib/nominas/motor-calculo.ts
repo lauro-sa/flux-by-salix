@@ -209,8 +209,10 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       continue
     }
 
-    // Calcular monto según modo_calculo.
-    const monto = calcularMontoConcepto(c.modo_calculo, valor, monto_base_calculado, asistencia)
+    // Calcular monto según modo_calculo. Pasamos también la condición
+    // para que `por_evento` pueda multiplicar por la cantidad real de
+    // ocurrencias (ej: feriados trabajados).
+    const monto = calcularMontoConcepto(c.modo_calculo, valor, monto_base_calculado, asistencia, condicion)
     conceptos_aplicados.push(armarConcepto(c, valor, monto, evaluacion.detalle))
   }
 
@@ -447,7 +449,13 @@ export function calcularMontoBase(
  *   - `monto_fijo`         → valor
  *   - `porcentaje_basico`  → monto_base × (valor / 100)
  *   - `por_dia`            → valor × dias_trabajados
- *   - `por_evento`         → valor (lo aplica el operador manualmente, el motor solo lo sugiere)
+ *   - `por_evento`         → valor × cantidad_de_ocurrencias. La cantidad
+ *                            depende de la condición: si la condición es
+ *                            `trabajo_feriado`, multiplica por la cantidad
+ *                            real de feriados trabajados (típico pago doble
+ *                            de feriado: valor = jornal, ocurrencias = N
+ *                            feriados). Para otras condiciones se aplica
+ *                            una sola vez.
  *   - `manual`             → 0 (siempre sugerencia, el operador escribe el monto)
  */
 export function calcularMontoConcepto(
@@ -455,13 +463,84 @@ export function calcularMontoConcepto(
   valor: number | null,
   montoBase: number,
   asistencia: MetricasAsistencia,
+  condicion?: CondicionConcepto | null,
 ): number {
   if (valor === null) return 0
   if (modo === 'monto_fijo') return valor
   if (modo === 'porcentaje_basico') return montoBase * (valor / 100)
   if (modo === 'por_dia') return valor * asistencia.dias_trabajados
-  if (modo === 'por_evento') return valor
+  if (modo === 'por_evento') {
+    // Si la condición cuenta feriados trabajados, escalamos por esa cantidad.
+    // Esto soporta naturalmente el caso "pago doble por feriado": el valor
+    // del concepto es el jornal y se multiplica por cuántos feriados se
+    // trabajaron en el período.
+    if (condicion?.tipo === 'trabajo_feriado') {
+      const cantidad = asistencia.dias_feriados_trabajados ?? 0
+      return valor * cantidad
+    }
+    return valor
+  }
   return 0
+}
+
+/**
+ * Determina si el período `[inicio, fin]` es la ÚLTIMA liquidación que
+ * cubre el mes calendario al que pertenece.
+ *
+ * Reglas:
+ *   - El período se considera "última del mes" si el último día del
+ *     mes de `fin` está dentro de `[inicio, fin]`. Eso cubre:
+ *       - Mes entero (1-30/31): siempre incluye el último día.
+ *       - Segunda quincena (16-30/31): incluye el último día.
+ *       - Última semana cuyo rango toca el día 30/31.
+ *   - Primera quincena (1-15) o semanas anteriores: el último día del
+ *     mes queda fuera del rango → no es la última.
+ *
+ * Si el período cruza dos meses (ej. una semana 27/abr-3/may), se toma
+ * el mes de `fin`. Se considera "última de ese mes" si incluye el
+ * último día de abril (en el ejemplo, sí lo incluye → aplica para abril).
+ * El recibo de la primera semana de mayo NO la aplica para mayo (esa
+ * vendrá en la última semana de mayo).
+ */
+export function esUltimaLiquidacionDelMes(periodoInicio: string, periodoFin: string): boolean {
+  const [yi, mi, di] = periodoInicio.split('-').map(Number)
+  const [yf, mf, df] = periodoFin.split('-').map(Number)
+  // Tomamos el mes del fin para decidir "última del mes".
+  const ultimoDiaMesFin = new Date(yf, mf, 0).getDate() // mes (1-12) → último día
+  const ultimoIso = `${yf}-${String(mf).padStart(2, '0')}-${String(ultimoDiaMesFin).padStart(2, '0')}`
+  // Útil: si el inicio está en un mes posterior al fin, algo está mal.
+  void yi; void mi; void di
+  return periodoInicio <= ultimoIso && periodoFin >= ultimoIso
+}
+
+/**
+ * Calcula el básico MENSUAL del contrato, independientemente del
+ * período de pago. Lo usan los conceptos `periodicidad='mensual'` para
+ * calcular sobre la base correcta cuando el empleado cobra quincenal o
+ * semanal.
+ *
+ * Aproximaciones:
+ *   - `fijo_mensual`:    monto_base.
+ *   - `fijo_quincenal`:  monto_base × 2.
+ *   - `fijo_semanal`:    monto_base × 30 / 7  (≈4.286).
+ *   - `por_dia`:         monto_base × diasLaboralesDelMes.
+ *   - `por_hora`:        monto_base × horasLaboralesDelMes (≈8h × días).
+ *
+ * `diasLaboralesDelMes` se pasa desde afuera porque depende del turno
+ * del miembro (que ya calcula el caller, ej. /api/nominas).
+ */
+export function calcularBasicoMensual(
+  modalidad: ModalidadCalculo,
+  montoBase: number,
+  diasLaboralesDelMes: number,
+  horasPorDiaPromedio: number = 8,
+): number {
+  if (modalidad === 'fijo_mensual') return montoBase
+  if (modalidad === 'fijo_quincenal') return montoBase * 2
+  if (modalidad === 'fijo_semanal') return montoBase * (30 / 7)
+  if (modalidad === 'por_dia') return montoBase * diasLaboralesDelMes
+  if (modalidad === 'por_hora') return montoBase * horasPorDiaPromedio * diasLaboralesDelMes
+  return montoBase
 }
 
 /**
@@ -492,10 +571,37 @@ export function evaluarCondicion(
         ? { cumple: true, detalle: 'Cumplió: sin tardanzas en el período.' }
         : { cumple: false, detalle: `No cumplió: ${asistencia.tardanzas} tardanza(s) en el período.` }
 
+    case 'asistencia_perfecta': {
+      // Combinación: ni ausencias ni tardanzas. Útil para premios
+      // "asistencia perfecta del mes".
+      const cumpleAusencias = asistencia.dias_ausentes === 0
+      const cumpleTardanzas = asistencia.tardanzas === 0
+      if (cumpleAusencias && cumpleTardanzas) {
+        return { cumple: true, detalle: 'Cumplió: asistencia perfecta (sin ausencias ni tardanzas).' }
+      }
+      const motivos: string[] = []
+      if (!cumpleAusencias) motivos.push(`${asistencia.dias_ausentes} ausencia(s)`)
+      if (!cumpleTardanzas) motivos.push(`${asistencia.tardanzas} tardanza(s)`)
+      return { cumple: false, detalle: `No cumplió asistencia perfecta: ${motivos.join(' y ')}.` }
+    }
+
     case 'minimo_dias':
       return asistencia.dias_trabajados >= condicion.dias
         ? { cumple: true, detalle: `Cumplió: ${asistencia.dias_trabajados}/${condicion.dias} días.` }
         : { cumple: false, detalle: `No cumplió: ${asistencia.dias_trabajados}/${condicion.dias} días.` }
+
+    case 'trabajo_feriado': {
+      const feriadosTrabajados = asistencia.dias_feriados_trabajados ?? 0
+      const requeridos = condicion.feriados ?? 1
+      return feriadosTrabajados >= requeridos
+        ? { cumple: true, detalle: `Cumplió: trabajó ${feriadosTrabajados} feriado(s).` }
+        : { cumple: false, detalle: `No cumplió: ${feriadosTrabajados}/${requeridos} feriado(s) trabajados.` }
+    }
+
+    case 'horas_minimas':
+      return asistencia.horas_netas >= condicion.horas
+        ? { cumple: true, detalle: `Cumplió: ${asistencia.horas_netas}/${condicion.horas} horas trabajadas.` }
+        : { cumple: false, detalle: `No cumplió: ${asistencia.horas_netas}/${condicion.horas} horas trabajadas.` }
 
     case 'antiguedad_minima': {
       if (!contrato) return { cumple: false, detalle: 'Sin contrato: no se puede calcular antigüedad.' }
@@ -517,8 +623,15 @@ export function parsearCondicion(json: Record<string, unknown> | null): Condicio
   if (tipo === 'siempre') return { tipo: 'siempre' }
   if (tipo === 'sin_ausencias') return { tipo: 'sin_ausencias' }
   if (tipo === 'sin_tardanzas') return { tipo: 'sin_tardanzas' }
+  if (tipo === 'asistencia_perfecta') return { tipo: 'asistencia_perfecta' }
   if (tipo === 'minimo_dias' && typeof json.dias === 'number') {
     return { tipo: 'minimo_dias', dias: json.dias }
+  }
+  if (tipo === 'trabajo_feriado') {
+    return { tipo: 'trabajo_feriado', feriados: typeof json.feriados === 'number' ? json.feriados : 1 }
+  }
+  if (tipo === 'horas_minimas' && typeof json.horas === 'number') {
+    return { tipo: 'horas_minimas', horas: json.horas }
   }
   if (tipo === 'antiguedad_minima' && typeof json.meses === 'number') {
     return { tipo: 'antiguedad_minima', meses: json.meses }
