@@ -223,6 +223,9 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         hoyDeshabilitado={enPeriodoActual}
         slotTabs={slotTabs}
         slotControles={
+          // Segmented control: el activo usa el color marca para
+          // distinguirlo claramente del inactivo (el patrón anterior con
+          // bg-superficie-hover era casi invisible sobre el fondo del hero).
           <GrupoBotones>
             {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
               <Boton
@@ -230,7 +233,11 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                 variante="secundario"
                 tamano="sm"
                 onClick={() => setTipoPeriodo(t)}
-                className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+                className={
+                  tipoPeriodo === t
+                    ? '!bg-texto-marca/15 !border-texto-marca/40 !text-texto-marca font-semibold'
+                    : 'text-texto-terciario'
+                }
               >
                 {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
               </Boton>

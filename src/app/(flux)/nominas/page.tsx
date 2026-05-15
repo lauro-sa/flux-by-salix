@@ -46,9 +46,21 @@ function ContenidoNominas() {
     TABS.some(t => t.clave === tabUrl) ? tabUrl! : 'liquidaciones',
   )
 
+  /**
+   * Tabs que el usuario visitó alguna vez en la sesión. Las renderizamos
+   * en el DOM aunque no estén activas (las ocultamos con `hidden`), así
+   * cada vista preserva su estado interno entre cambios de pestaña: el
+   * período seleccionado, el cache de resultados, scroll, etc. La primera
+   * tab visitada se monta, y las demás se montan recién al visitarlas.
+   */
+  const [tabsVisitadas, setTabsVisitadas] = useState<Set<TabClave>>(() => new Set([
+    TABS.some(t => t.clave === tabUrl) ? tabUrl! : 'liquidaciones',
+  ]))
+
   const cambiarTab = (claveStr: string) => {
     const clave = claveStr as TabClave
     setTab(clave)
+    setTabsVisitadas(prev => (prev.has(clave) ? prev : new Set([...prev, clave])))
     const params = new URLSearchParams(window.location.search)
     if (clave === 'liquidaciones') params.delete('tab')
     else params.set('tab', clave)
@@ -73,14 +85,35 @@ function ContenidoNominas() {
         </button>
       </div>
 
-      {/* Contenido por pestaña */}
-      {tab === 'liquidaciones' && <VistaNomina />}
+      {/*
+        Contenido por pestaña. Cada tab visitada queda montada y se
+        oculta con `hidden` cuando no está activa para preservar su
+        estado. Las que nunca se visitaron no se montan, así no pagamos
+        carga inicial por tabs que el usuario quizá nunca abra.
+      */}
+      {tabsVisitadas.has('liquidaciones') && (
+        <div hidden={tab !== 'liquidaciones'}>
+          <VistaNomina />
+        </div>
+      )}
 
-      {tab === 'adelantos' && <VistaAdelantos />}
+      {tabsVisitadas.has('adelantos') && (
+        <div hidden={tab !== 'adelantos'}>
+          <VistaAdelantos />
+        </div>
+      )}
 
-      {tab === 'empleados' && <VistaEmpleados />}
+      {tabsVisitadas.has('empleados') && (
+        <div hidden={tab !== 'empleados'}>
+          <VistaEmpleados />
+        </div>
+      )}
 
-      {tab === 'configuracion' && <VistaConfiguracion />}
+      {tabsVisitadas.has('configuracion') && (
+        <div hidden={tab !== 'configuracion'}>
+          <VistaConfiguracion />
+        </div>
+      )}
     </>
   )
 }
