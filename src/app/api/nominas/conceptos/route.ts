@@ -80,6 +80,7 @@ interface PayloadCrearConcepto {
   recurrente?: boolean
   activo?: boolean
   orden?: number
+  periodicidad?: 'mensual' | 'por_periodo' | 'unico'
 }
 
 const TIPOS: TipoConcepto[] = ['haber', 'descuento']
@@ -88,14 +89,61 @@ const CATEGORIAS: CategoriaConcepto[] = [
   'descuento_uniforme', 'descuento_otro', 'otro',
 ]
 const MODOS: ModoCalculoConcepto[] = ['monto_fijo', 'porcentaje_basico', 'por_dia', 'por_evento', 'manual']
+const PERIODICIDADES: Array<'mensual' | 'por_periodo' | 'unico'> = ['mensual', 'por_periodo', 'unico']
 
 export async function POST(request: NextRequest) {
   const guard = await requerirPermisoAPI('nomina', 'editar')
   if ('respuesta' in guard) return guard.respuesta
   const { user, empresaId } = guard
 
-  let body: PayloadCrearConcepto
+  let body: PayloadCrearConcepto & { duplicar_de?: string }
   try { body = await request.json() } catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
+
+  // ─── Acción duplicar ───
+  // Permite que la empresa cree variantes de un concepto existente
+  // (incluso si es predefinido) sin tener que re-tipear todo. El nuevo
+  // concepto queda con `es_predefinido = false` y nombre "<original> (copia)".
+  if (body.duplicar_de) {
+    const admin = crearClienteAdmin()
+    const { data: fuente } = await admin
+      .from('conceptos_nomina')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('id', body.duplicar_de)
+      .maybeSingle()
+    if (!fuente) return NextResponse.json({ error: 'Concepto a duplicar no encontrado' }, { status: 404 })
+
+    const { data: nuevo, error: errDup } = await admin
+      .from('conceptos_nomina')
+      .insert({
+        empresa_id: empresaId,
+        nombre: body.nombre?.trim() || `${fuente.nombre} (copia)`,
+        descripcion: fuente.descripcion,
+        icono: fuente.icono,
+        color: fuente.color,
+        tipo: fuente.tipo,
+        categoria: fuente.categoria,
+        modo_calculo: fuente.modo_calculo,
+        valor: fuente.valor,
+        automatico: fuente.automatico,
+        condicion_jsonb: fuente.condicion_jsonb,
+        recurrente: fuente.recurrente,
+        activo: true,
+        orden: fuente.orden,
+        periodicidad: fuente.periodicidad,
+        // Los duplicados NUNCA son predefinidos — la empresa es dueña.
+        es_predefinido: false,
+        creado_por: user.id,
+        actualizado_por: user.id,
+      })
+      .select()
+      .single()
+    if (errDup || !nuevo) {
+      console.error('[conceptos] POST duplicar error:', errDup)
+      return NextResponse.json({ error: 'No se pudo duplicar el concepto' }, { status: 500 })
+    }
+    return NextResponse.json({ concepto: nuevo as ConceptoNomina }, { status: 201 })
+  }
 
   if (!body.nombre || !body.nombre.trim()) {
     return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
@@ -138,6 +186,9 @@ export async function POST(request: NextRequest) {
       recurrente: body.recurrente ?? true,
       activo: body.activo ?? true,
       orden: body.orden ?? 0,
+      periodicidad: body.periodicidad && PERIODICIDADES.includes(body.periodicidad)
+        ? body.periodicidad
+        : 'mensual',
       creado_por: user.id,
       actualizado_por: user.id,
     })

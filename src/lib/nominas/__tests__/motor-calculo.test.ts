@@ -72,6 +72,8 @@ function concepto(p: Partial<ConceptoNomina> = {}): ConceptoNomina {
     recurrente: true,
     activo: true,
     orden: 0,
+    periodicidad: 'mensual',
+    es_predefinido: false,
     creado_en: '2026-01-01T00:00:00Z',
     creado_por: null,
     actualizado_en: '2026-01-01T00:00:00Z',
