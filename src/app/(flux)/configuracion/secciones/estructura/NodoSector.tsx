@@ -62,14 +62,16 @@ export function NodoSector({
 
   return (
     <div className="relative">
-      {/* Línea vertical del padre (si no es raíz) */}
+      {/* Línea vertical del padre (si no es raíz).
+          El alto total del nodo es ~68px (py-3.5 del button interno + icono 40px),
+          el centro vertical donde la línea L se conecta queda en ~36px. */}
       {nivel > 0 && (
         <div
           className="absolute border-l-2 border-borde-fuerte"
           style={{
-            left: (nivel - 1) * 32 + 16,
+            left: (nivel - 1) * 32 + 18,
             top: 0,
-            height: esUltimo ? 28 : '100%',
+            height: esUltimo ? 36 : '100%',
           }}
         />
       )}
@@ -79,8 +81,8 @@ export function NodoSector({
         <div
           className="absolute border-t-2 border-borde-fuerte"
           style={{
-            left: (nivel - 1) * 32 + 16,
-            top: 28,
+            left: (nivel - 1) * 32 + 18,
+            top: 36,
             width: 16,
           }}
         />
@@ -88,40 +90,39 @@ export function NodoSector({
 
       {/* Nodo */}
       <div
-        className="group relative flex items-center gap-3 py-3 pr-3 my-1 mx-1 rounded-lg hover:bg-superficie-hover/60 transition-colors"
-        style={{ paddingLeft: nivel * 32 + 10 }}
+        className="group relative flex items-stretch gap-3 my-1.5 mx-2 rounded-xl hover:bg-superficie-hover/60 transition-colors"
+        style={{ paddingLeft: nivel * 32 + 12, paddingRight: 12 }}
       >
-        <Boton
-          variante="fantasma"
-          tamano="xs"
-          soloIcono
-          titulo="Expandir"
+        {/* Chevron expandir/contraer */}
+        <button
+          type="button"
           onClick={() => tieneHijos ? setExpandido(!expandido) : setMostrarPersonas(!mostrarPersonas)}
-          icono={
-            (tieneHijos || cantidadMiembros > 0)
-              ? (expandido || mostrarPersonas ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
-              : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />
-          }
-          className="!w-6 !h-6 shrink-0"
-        />
-
-        <div
-          className="w-9 h-9 rounded-card flex items-center justify-center shrink-0"
-          style={{ backgroundColor: sector.color + '20', color: sector.color }}
+          title="Expandir"
+          aria-label="Expandir"
+          className="self-center w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-elevada transition-colors"
         >
-          {IconoSector && <IconoSector size={18} />}
-        </div>
+          {(tieneHijos || cantidadMiembros > 0)
+            ? (expandido || mostrarPersonas ? <ChevronDown size={15} /> : <ChevronRight size={15} />)
+            : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />}
+        </button>
 
-        <Boton
-          variante="fantasma"
+        {/* Identidad del sector (icono + nombre + meta) — clickeable para mostrar/ocultar personas */}
+        <button
+          type="button"
           onClick={() => setMostrarPersonas(!mostrarPersonas)}
-          className="!p-0 min-w-0 !justify-start !text-left"
+          className="flex items-center gap-3 py-3.5 min-w-0 text-left"
         >
-          <div className="flex flex-col gap-0.5 min-w-0">
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: sector.color + '20', color: sector.color }}
+          >
+            {IconoSector && <IconoSector size={19} />}
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
             <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
               {sector.nombre}
             </span>
-            <span className="text-xs text-texto-terciario">
+            <span className="text-xs text-texto-terciario leading-none">
               {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
               {cantidadMiembros > 0 && tieneHijos && ' · '}
               {tieneHijos && `${sector.hijos.length} sub-sector${sector.hijos.length > 1 ? 'es' : ''}`}
@@ -130,12 +131,13 @@ export function NodoSector({
               )}
             </span>
           </div>
-        </Boton>
+        </button>
 
-        <div className="flex items-center gap-2 ml-1">
+        {/* Chips de turno + jefe */}
+        <div className="self-center flex items-center gap-2 ml-1">
           {turno && (
             <div
-              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
+              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
               title="Turno predeterminado del sector"
             >
               <Clock size={11} className="text-texto-terciario shrink-0" />
@@ -150,7 +152,7 @@ export function NodoSector({
           )}
           {jefe && (
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
               style={{ backgroundColor: sector.color + '20', color: sector.color }}
               title="Jefe del sector"
             >
@@ -162,10 +164,11 @@ export function NodoSector({
 
         <div className="flex-1" />
 
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar sub-sector" icono={<Plus size={13} />} onClick={() => onAgregarHijo(sector.id)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={13} />} onClick={() => onEditar(sector)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={13} />} onClick={() => onEliminar(sector)} />
+        {/* Acciones (aparecen al hacer hover en el nodo) */}
+        <div className="self-center flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar sub-sector" icono={<Plus size={14} />} onClick={() => onAgregarHijo(sector.id)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={14} />} onClick={() => onEditar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={14} />} onClick={() => onEliminar(sector)} />
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Building2, Globe, Users2, Sparkles, Trash2, BellRing } from 'lucide-react'
+import { Building2, Globe, Network, Sparkles, Trash2, BellRing } from 'lucide-react'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -35,7 +35,7 @@ export default function PaginaConfiguracion() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Building2 size={16} /> },
-    { id: 'estructura', etiqueta: 'Estructura', icono: <Users2 size={16} /> },
+    { id: 'estructura', etiqueta: 'Estructura', icono: <Network size={16} /> },
     { id: 'regional', etiqueta: 'Regionalización', icono: <Globe size={16} /> },
     { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <BellRing size={16} /> },
     { id: 'ia', etiqueta: 'Inteligencia Artificial', icono: <Sparkles size={16} /> },
