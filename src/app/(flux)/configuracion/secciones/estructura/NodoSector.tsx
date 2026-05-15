@@ -122,8 +122,8 @@ export function NodoSector({
 
       {/* Nodo */}
       <div
-        className="group relative flex items-stretch gap-3 my-1.5 mx-2 rounded-xl hover:bg-superficie-hover/60 transition-colors"
-        style={{ paddingLeft: nivel * 32 + 12, paddingRight: 12 }}
+        className="group relative flex items-stretch gap-4 my-2 mx-2 rounded-xl hover:bg-superficie-hover/60 transition-colors flex-wrap md:flex-nowrap"
+        style={{ paddingLeft: nivel * 32 + 14, paddingRight: 14 }}
       >
         {/* Chevron principal: expande/contrae sub-sectores. Solo aparece
             si el sector tiene hijos — si no, queda como un punto inerte. */}
@@ -149,7 +149,7 @@ export function NodoSector({
           title={cantidadMiembros > 0
             ? (mostrarPersonas ? 'Ocultar empleados' : 'Mostrar empleados')
             : undefined}
-          className="flex items-center gap-3 py-3.5 min-w-0 text-left disabled:cursor-default"
+          className="flex items-center gap-3 py-3.5 flex-1 min-w-0 text-left disabled:cursor-default"
         >
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
@@ -157,13 +157,15 @@ export function NodoSector({
           >
             {IconoSector && <IconoSector size={19} />}
           </div>
-          <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex flex-col gap-1.5 min-w-0">
             <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
               {sector.nombre}
             </span>
-            <span className="text-xs text-texto-terciario leading-none flex items-center gap-1">
+            {/* Meta: envuelve por chunks (cada chunk con whitespace-nowrap)
+                para evitar que "1 sub-sector" se rompa por palabras. */}
+            <span className="text-xs text-texto-terciario leading-none inline-flex flex-wrap items-center gap-x-2 gap-y-1">
               {cantidadMiembros > 0 && (
-                <span className="inline-flex items-center gap-1 hover:text-texto-primario transition-colors">
+                <span className="inline-flex items-center gap-1 hover:text-texto-primario transition-colors whitespace-nowrap">
                   <Users size={11} />
                   {cantidadMiembros} miembro{cantidadMiembros > 1 ? 's' : ''}
                   {mostrarPersonas
@@ -171,9 +173,10 @@ export function NodoSector({
                     : <ChevronRight size={11} />}
                 </span>
               )}
-              {cantidadMiembros > 0 && tieneHijos && <span className="text-texto-terciario/40">·</span>}
               {tieneHijos && (
-                <span>{sector.hijos.length} sub-sector{sector.hijos.length > 1 ? 'es' : ''}</span>
+                <span className="whitespace-nowrap">
+                  {sector.hijos.length} sub-sector{sector.hijos.length > 1 ? 'es' : ''}
+                </span>
               )}
               {cantidadMiembros === 0 && !tieneHijos && (
                 <span className="italic text-texto-terciario/70">Sin miembros</span>
@@ -182,26 +185,30 @@ export function NodoSector({
           </div>
         </button>
 
-        {/* Chips de turno + jefe */}
-        <div className="self-center flex items-center gap-2 ml-1">
+        {/* Chips de turno + jefe. En pantallas estrechas se ocultan vía
+            hidden md:/sm:inline-flex — no compiten con el nombre.
+            shrink-0 evita que el chip se aplaste contra el botón nombre. */}
+        <div className="self-center flex items-center gap-2 shrink-0">
           {turno && (
             <div
-              className="hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
+              className="hidden md:inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-2xl border border-borde-sutil bg-superficie-tarjeta whitespace-nowrap"
               title="Turno predeterminado del sector"
             >
               <Clock size={11} className="text-texto-terciario shrink-0" />
-              <span className="truncate max-w-28 text-texto-primario">{turno.nombre}</span>
-              {turnoHorario && (
-                <>
-                  <span className="text-texto-terciario">·</span>
-                  <span className="text-texto-terciario truncate">{turnoHorario}</span>
-                </>
-              )}
+              {/* Nombre arriba, resumen del horario abajo — chip de dos
+                  líneas cuando el horario existe. Mantenemos el chip
+                  compacto cuando solo hay nombre. */}
+              <div className="flex flex-col leading-tight">
+                <span className="text-texto-primario">{turno.nombre}</span>
+                {turnoHorario && (
+                  <span className="text-texto-terciario text-[10px]">{turnoHorario}</span>
+                )}
+              </div>
             </div>
           )}
           {jefe && (
             <div
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap"
               style={{ backgroundColor: sector.color + '20', color: sector.color }}
               title="Jefe del sector"
             >
@@ -210,8 +217,6 @@ export function NodoSector({
             </div>
           )}
         </div>
-
-        <div className="flex-1" />
 
         {/* Acciones (aparecen al hacer hover en el nodo) */}
         <div className="self-center flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
@@ -233,27 +238,27 @@ export function NodoSector({
             {personasSector.map((persona, idx) => (
               <div
                 key={persona.id}
-                className="relative flex items-center gap-2 py-1.5 text-xs text-texto-secundario"
-                style={{ paddingLeft: (nivel + 1) * 32 + 6 }}
+                className="relative flex items-center gap-2.5 py-2 text-xs text-texto-secundario"
+                style={{ paddingLeft: (nivel + 1) * 32 + 14 }}
               >
                 <div
                   className="absolute border-l border-dashed border-borde-fuerte/60"
                   style={{
-                    left: nivel * 32 + 16,
+                    left: nivel * 32 + 18,
                     top: 0,
-                    height: idx === personasSector.length - 1 ? 16 : '100%',
+                    height: idx === personasSector.length - 1 ? 20 : '100%',
                   }}
                 />
                 <div
                   className="absolute border-t border-dashed border-borde-fuerte/60"
                   style={{
-                    left: nivel * 32 + 16,
-                    top: 16,
-                    width: 12,
+                    left: nivel * 32 + 18,
+                    top: 20,
+                    width: 14,
                   }}
                 />
                 <Avatar nombre={`${persona.nombre} ${persona.apellido}`} tamano="xs" />
-                <span>{persona.nombre} {persona.apellido}</span>
+                <span className="text-texto-primario">{persona.nombre} {persona.apellido}</span>
               </div>
             ))}
           </motion.div>
