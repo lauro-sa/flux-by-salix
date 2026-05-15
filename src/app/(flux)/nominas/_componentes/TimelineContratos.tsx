@@ -22,6 +22,12 @@ interface Props {
   sectoresMap: Map<string, string>
   /** Mapa turno_id → nombre. */
   turnosMap: Map<string, string>
+  /**
+   * Mapa sector_id → turno_id predeterminado del sector. Se usa para
+   * resolver el turno efectivo del contrato: si el contrato no tiene
+   * `turno_id` propio, hereda el del sector.
+   */
+  sectorTurnoMap?: Map<string, string | null>
   locale?: string
   monedaSimbolo?: string
 }
@@ -49,7 +55,7 @@ function formatearFecha(iso: string, locale = 'es-AR') {
   return new Date(y, m - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function TimelineContratos({ contratos, sectoresMap, turnosMap, locale = 'es-AR', monedaSimbolo = '$' }: Props) {
+export function TimelineContratos({ contratos, sectoresMap, turnosMap, sectorTurnoMap, locale = 'es-AR', monedaSimbolo = '$' }: Props) {
   if (contratos.length === 0) {
     return (
       <div className="px-4 md:px-6 py-8 text-sm text-texto-terciario text-center">
@@ -58,37 +64,58 @@ export function TimelineContratos({ contratos, sectoresMap, turnosMap, locale = 
     )
   }
 
+  /** Turno efectivo del contrato (propio o heredado del sector). */
+  const turnoEfectivo = (c: ContratoLaboral): { nombre: string; heredado: boolean } | null => {
+    if (c.turno_id) {
+      const nombre = turnosMap.get(c.turno_id)
+      if (nombre) return { nombre, heredado: false }
+    }
+    if (c.sector_id && sectorTurnoMap) {
+      const turnoSector = sectorTurnoMap.get(c.sector_id)
+      if (turnoSector) {
+        const nombre = turnosMap.get(turnoSector)
+        if (nombre) return { nombre, heredado: true }
+      }
+    }
+    return null
+  }
+
   return (
     <div className="px-4 md:px-6 py-4">
       <ol className="relative">
         {/* Línea vertical que une los puntos */}
         <div className="absolute left-[7px] top-2 bottom-2 w-px bg-borde-sutil" aria-hidden="true" />
 
-        {contratos.map((c, idx) => (
-          <ItemTimeline
-            key={c.id}
-            contrato={c}
-            esVigente={c.vigente}
-            esUltimo={idx === contratos.length - 1}
-            sectorNombre={c.sector_id ? sectoresMap.get(c.sector_id) ?? null : null}
-            turnoNombre={c.turno_id ? turnosMap.get(c.turno_id) ?? null : null}
-            locale={locale}
-            monedaSimbolo={monedaSimbolo}
-          />
-        ))}
+        {contratos.map((c, idx) => {
+          const turno = turnoEfectivo(c)
+          return (
+            <ItemTimeline
+              key={c.id}
+              contrato={c}
+              esVigente={c.vigente}
+              esUltimo={idx === contratos.length - 1}
+              sectorNombre={c.sector_id ? sectoresMap.get(c.sector_id) ?? null : null}
+              turnoNombre={turno?.nombre ?? null}
+              turnoHeredado={turno?.heredado ?? false}
+              locale={locale}
+              monedaSimbolo={monedaSimbolo}
+            />
+          )
+        })}
       </ol>
     </div>
   )
 }
 
 function ItemTimeline({
-  contrato, esVigente, sectorNombre, turnoNombre, locale, monedaSimbolo,
+  contrato, esVigente, sectorNombre, turnoNombre, turnoHeredado, locale, monedaSimbolo,
 }: {
   contrato: ContratoLaboral
   esVigente: boolean
   esUltimo: boolean
   sectorNombre: string | null
   turnoNombre: string | null
+  turnoHeredado: boolean
   locale: string
   monedaSimbolo: string
 }) {
@@ -145,7 +172,16 @@ function ItemTimeline({
         {abierto && (
           <div className="mt-3 pt-3 border-t border-borde-sutil grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
             <KV etiqueta="Sector" valor={sectorNombre ?? '—'} />
-            <KV etiqueta="Turno" valor={turnoNombre ?? '—'} />
+            <KV
+              etiqueta="Turno"
+              valor={
+                turnoNombre
+                  ? turnoHeredado
+                    ? `${turnoNombre} (heredado del sector)`
+                    : turnoNombre
+                  : '—'
+              }
+            />
             <KV etiqueta="Condición" valor={contrato.condicion.replace(/_/g, ' ')} />
             <KV etiqueta="Régimen" valor={contrato.regimen.replace(/_/g, ' ')} />
             {contrato.motivo_cambio && (
