@@ -57,6 +57,44 @@ function periodoMesActual(): { desde: string; hasta: string } {
   }
 }
 
+/** Quincena actual según la fecha de hoy: 1-15 o 16-fin de mes. */
+function periodoQuincenaActual(): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const mes = hoy.getMonth()
+  const anio = hoy.getFullYear()
+  const dia = hoy.getDate()
+  const mm = String(mes + 1).padStart(2, '0')
+  if (dia <= 15) return { desde: `${anio}-${mm}-01`, hasta: `${anio}-${mm}-15` }
+  const ultimo = new Date(anio, mes + 1, 0).getDate()
+  return { desde: `${anio}-${mm}-16`, hasta: `${anio}-${mm}-${String(ultimo).padStart(2, '0')}` }
+}
+
+/** Semana actual lunes-domingo según la fecha de hoy. */
+function periodoSemanaActual(): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const diaSemana = hoy.getDay() // 0 = dom, 1 = lun, ...
+  const lunes = new Date(hoy)
+  lunes.setDate(hoy.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1))
+  const domingo = new Date(lunes)
+  domingo.setDate(lunes.getDate() + 6)
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { desde: fmt(lunes), hasta: fmt(domingo) }
+}
+
+/**
+ * Período inicial sugerido según la frecuencia de pago del contrato:
+ *   - 'semanal'   → semana actual (lun-dom).
+ *   - 'quincenal' → quincena actual (1-15 o 16-fin).
+ *   - 'mensual' u otra → mes calendario actual.
+ * Cuando el empleado se liquida quincenal, abrir directo en mes
+ * confunde y obliga a hacer un click extra. Esto respeta su contrato.
+ */
+function periodoPorFrecuencia(frecuencia?: string): { desde: string; hasta: string } {
+  if (frecuencia === 'semanal' || frecuencia === 'diaria') return periodoSemanaActual()
+  if (frecuencia === 'quincenal') return periodoQuincenaActual()
+  return periodoMesActual()
+}
+
 function etiquetaPeriodo(desde: string, hasta: string): string {
   const d = new Date(desde + 'T12:00:00')
   const h = new Date(hasta + 'T12:00:00')
@@ -520,7 +558,10 @@ function ContenidoFicha() {
 
       {tabsVisitadas.has('liquidaciones') && (
         <div hidden={tab !== 'liquidaciones'}>
-          <SeccionLiquidaciones miembroId={miembroId} />
+          <SeccionLiquidaciones
+            miembroId={miembroId}
+            frecuenciaContrato={contratoVigente?.frecuencia_pago}
+          />
         </div>
       )}
 
@@ -632,7 +673,18 @@ function ContenidoFicha() {
  * Cuando PR 7 (motor de cálculo) integre `contratos_laborales`, este
  * wrapper se reescribirá para consumir ContratoSnapshot.
  */
-function SeccionLiquidaciones({ miembroId }: { miembroId: string }) {
+function SeccionLiquidaciones({
+  miembroId, frecuenciaContrato,
+}: {
+  miembroId: string
+  /**
+   * Frecuencia de pago del contrato vigente. Se usa para abrir la
+   * pestaña en el período natural del empleado: quincenal en quincena,
+   * semanal en semana, mensual en mes. Si no se conoce (sin contrato
+   * o todavía cargando) cae al mes por defecto.
+   */
+  frecuenciaContrato?: string
+}) {
   const search = useSearchParams()
   const [cargando, setCargando] = useState(true)
   const [empleado, setEmpleado] = useState<ResultadoNomina | null>(null)
@@ -643,7 +695,7 @@ function SeccionLiquidaciones({ miembroId }: { miembroId: string }) {
   const [fechasIniciales] = useState(() => {
     const desdeQuery = search.get('desde')
     const hastaQuery = search.get('hasta')
-    const { desde: desdeDefault, hasta: hastaDefault } = periodoMesActual()
+    const { desde: desdeDefault, hasta: hastaDefault } = periodoPorFrecuencia(frecuenciaContrato)
     return { desde: desdeQuery || desdeDefault, hasta: hastaQuery || hastaDefault }
   })
   const { desde, hasta } = fechasIniciales

@@ -5,6 +5,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 import {
   parsearCondicion,
   evaluarCondicion,
@@ -54,12 +55,18 @@ export async function GET(request: NextRequest) {
     // ─── Datos de la empresa ───
     const { data: empresaData } = await admin
       .from('empresas')
-      .select('nombre, pais')
+      .select('nombre, pais, zona_horaria')
       .eq('id', empresaId)
       .single()
 
     const nombreEmpresa = (empresaData?.nombre as string) || ''
     const paisEmpresa = (empresaData?.pais as string) || 'AR'
+    // Zona horaria de la empresa (default Buenos Aires). El server de
+    // Vercel corre en UTC, así que cualquier "hoy" calculado debe
+    // pasar por esta zona — sino días futuros del período en curso
+    // se cuentan mal como ausentes pasadas.
+    const zonaHorariaEmpresa = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const hoyISO = formatearFechaISO(new Date(), zonaHorariaEmpresa)
 
     // ─── Feriados y días no laborables ───
     // Distinguimos DOS conjuntos porque la legislación argentina los
@@ -550,8 +557,15 @@ export async function GET(request: NextRequest) {
       // Total trabajados = normales + feriados
       const diasTrabajados = diasTrabajadosNormales + diasTrabajadosEnFeriado
 
-      // Ausencias = días laborales donde no fichó (feriados no generan ausencia)
-      const diasAusentes = Math.max(0, diasLaborales - diasTrabajadosNormales)
+      // Ausencias = días laborales PASADOS donde no fichó.
+      // Los días futuros del período (todavía no llegaron) NO son
+      // ausentes — son pendientes. Sin este filtro, una liquidación
+      // del mes en curso al día 15 mostraba los lun-vie del 16 al 31
+      // como ausentes, dando un conteo absurdo.
+      const fechasLaboralesPasadas = diasPeriodo.fechasLaborales.filter(f => f <= hoyISO)
+      const diasTrabajadosPasados = [...fechasConPresencia]
+        .filter(f => fechasLaboralesSet.has(f) && f <= hoyISO).length
+      const diasAusentes = Math.max(0, fechasLaboralesPasadas.length - diasTrabajadosPasados)
 
       // Feriados en el período (solo los que caen en días activos del turno)
       const diasFeriadoCount = diasPeriodo.fechasFeriado.length
@@ -709,9 +723,32 @@ export async function GET(request: NextRequest) {
         : 0
 
       // ─── Calcular monto a pagar ───
-      const compTipo = (m.compensacion_tipo as string) || 'fijo'
-      const compMonto = parseFloat(m.compensacion_monto as string) || 0
-      const compFrecuencia = (m.compensacion_frecuencia as string) || 'mensual'
+      // Fuente de verdad: el contrato laboral vigente. La columna
+      // legacy `miembros.compensacion_*` queda como fallback solo
+      // cuando el empleado no tiene contrato cargado todavía. Esto
+      // arregla el caso clásico: contrato renovado con monto nuevo
+      // pero `miembros.compensacion_monto` sin actualizar — la UI
+      // mostraba el viejo y el cálculo era incorrecto.
+      const contratoCompMiembro = contratoVigentePorMiembro.get(m.id as string) ?? null
+      let compTipo: string
+      let compMonto: number
+      let compFrecuencia: string
+      if (contratoCompMiembro) {
+        // Modalidad del contrato → tipo de compensación de la UI:
+        //   por_hora → 'por_hora'
+        //   por_dia  → 'por_dia'
+        //   fijo_*   → 'fijo' (mensual/quincenal/semanal)
+        const mod = contratoCompMiembro.modalidad_calculo
+        compTipo = mod === 'por_hora' ? 'por_hora'
+          : mod === 'por_dia' ? 'por_dia'
+          : 'fijo'
+        compMonto = Number(contratoCompMiembro.monto_base) || 0
+        compFrecuencia = contratoCompMiembro.frecuencia_pago || 'mensual'
+      } else {
+        compTipo = (m.compensacion_tipo as string) || 'fijo'
+        compMonto = parseFloat(m.compensacion_monto as string) || 0
+        compFrecuencia = (m.compensacion_frecuencia as string) || 'mensual'
+      }
       const diasEsperados = (m.dias_trabajo as number) || 5
 
       let montoPagar = 0
@@ -761,7 +798,8 @@ export async function GET(request: NextRequest) {
       const conceptosAplicados: ConceptoAplicadoCalculado[] = []
       let totalHaberes = 0
       let totalDescuentosConceptos = 0
-      const contratoVigenteMiembro = contratoVigentePorMiembro.get(m.id as string) ?? null
+      // Reusamos el lookup que hicimos arriba para resolver compensación.
+      const contratoVigenteMiembro = contratoCompMiembro
       const conceptosDelMiembro = conceptosPorMiembro.get(m.id as string) ?? []
 
       if (conceptosDelMiembro.length > 0) {
