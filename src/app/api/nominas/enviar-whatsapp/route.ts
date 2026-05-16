@@ -19,7 +19,7 @@ import {
   resolverParametrosCuerpo,
   resolverTextoPlantilla,
 } from '@/lib/whatsapp/variables'
-import { formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
 import {
   asegurarConversacionEmpleado,
   registrarMensajeEmpleado,
@@ -147,19 +147,17 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Cargar ajustes del período (adelantos / descuentos / bonos)
-      // y armarlos en dos listas separadas:
-      //   - `detalle_descuentos` / `descuentos_lista`: lo que RESTA al
-      //     neto (adelantos + descuentos puntuales + saldo a favor del
-      //     período anterior). Mantiene el contrato legacy para
-      //     plantillas que ya lo usan.
-      //   - `detalle_bonos` / `bonos_lista`: lo que SUMA al neto
-      //     (bonos one-off del período). Variable nueva para que
-      //     plantillas WA puedan incluir un bloque de pagos extra.
+      // Cargar ajustes del período (adelantos / descuentos / bonos) usando
+      // el helper compartido. Devuelve dos listas separadas:
+      //   - `descuentos`: lo que RESTA al neto (adelantos + descuentos
+      //     puntuales + saldo a favor del período anterior). Compat con
+      //     plantillas legacy que usan `detalle_descuentos`.
+      //   - `bonos`: lo que SUMA al neto (bonos one-off del período).
+      //     Variable nueva para plantillas WA con bloque de pagos extra.
       let detalleDescuentos = ''
       let detalleBonos = ''
-      const lineasDescuentos: string[] = []
-      const lineasBonos: string[] = []
+      let lineasDescuentos: string[] = []
+      let lineasBonos: string[] = []
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         const { data: adelantos } = await admin
           .from('adelantos_nomina')
@@ -167,43 +165,14 @@ export async function POST(request: NextRequest) {
           .eq('miembro_id', emp.miembro_id)
           .eq('empresa_id', empresaId)
           .eq('eliminado', false)
-        type Item = { tipo: 'adelanto' | 'descuento' | 'bono'; notas: string; numCuota: number; cuotasTot: number; monto: number; fecha: string }
-        const items: Item[] = []
-        for (const a of (adelantos || []) as Array<Record<string, unknown>>) {
-          if (a.estado === 'cancelado') continue
-          const cuotas = (a.adelantos_cuotas || []) as Array<Record<string, unknown>>
-          const cuota = cuotas.find(c => {
-            const f = c.fecha_programada as string
-            return f >= periodo_desde && f <= periodo_hasta
-          })
-          if (!cuota) continue
-          const tipo = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento' | 'bono'
-          const fallback = tipo === 'bono' ? 'Bono' : tipo === 'descuento' ? 'Descuento' : 'Adelanto'
-          items.push({
-            tipo,
-            notas: (a.notas as string) || fallback,
-            numCuota: cuota.numero_cuota as number,
-            cuotasTot: a.cuotas_totales as number,
-            monto: parseFloat(cuota.monto_cuota as string),
-            fecha: a.fecha_solicitud as string,
-          })
-        }
-        items.sort((x, y) => x.fecha.localeCompare(y.fecha))
-        const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-        const saldo = Number(emp.saldo_anterior || 0)
-        // Saldo a favor del empleado en el período anterior = se le
-        // descuenta este período. Lo agregamos como una "fila virtual"
-        // de descuento.
-        if (saldo > 0) lineasDescuentos.push(`• A favor del período anterior · −${fmt(saldo)}`)
-        for (const it of items) {
-          const cuotaInfo = it.cuotasTot > 1 ? ` · cuota ${it.numCuota}/${it.cuotasTot}` : ''
-          const fechaCorta = it.fecha ? ` · ${formatoFechaCortaPeriodo(it.fecha)}` : ''
-          if (it.tipo === 'bono') {
-            lineasBonos.push(`• ${it.notas}${fechaCorta} · +${fmt(it.monto)}`)
-          } else {
-            lineasDescuentos.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
-          }
-        }
+        const { descuentos, bonos } = construirLineasAjustes(
+          adelantos || [],
+          periodo_desde,
+          periodo_hasta,
+          { saldoAnterior: Number(emp.saldo_anterior || 0) },
+        )
+        lineasDescuentos = descuentos
+        lineasBonos = bonos
         detalleDescuentos = lineasDescuentos.join('\n') || '_Sin adelantos ni descuentos en el período._'
         detalleBonos = lineasBonos.join('\n') || '_Sin bonos ni pagos extra en el período._'
       }

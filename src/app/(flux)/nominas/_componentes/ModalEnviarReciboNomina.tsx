@@ -20,7 +20,7 @@ import {
   construirDatosPlantilla,
   resolverTextoPlantilla,
 } from '@/lib/whatsapp/variables'
-import { formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
 import {
   ASUNTO_RECIBO_NOMINA,
   HTML_RECIBO_NOMINA,
@@ -176,7 +176,7 @@ function formatearTextoWA(texto: string): string {
  * basado en el `mapeo_variables` de la plantilla — soporta cualquier número y
  * orden de variables sin hardcodeo.
  *
- * `lineasDescuentos` se construye fuera (con `construirLineasDescuentos`)
+ * `lineasDescuentos` se construye fuera (con `construirLineasAjustes`)
  * porque requiere fetch de adelantos del empleado.
  */
 function resolverPreviewWA(
@@ -245,55 +245,9 @@ function resolverPreviewWA(
   return { encabezado, cuerpo, pie }
 }
 
-/**
- * Construye las líneas (bullets) de descuentos del período a partir de los
- * adelantos cargados desde `/api/adelantos`. Orden cronológico ascendente.
- *
- * Devuelve un array porque la plantilla WA tiene 6 slots fijos
- * (`descuento_1..descuento_6`) — el resolver de variables se encarga del
- * padding/concat. Para previews que necesiten texto plano: `lineas.join('\n')`.
- */
-function construirLineasDescuentos(
-  adelantos: Array<Record<string, unknown>>,
-  saldoAnterior: number,
-  periodoDesde: string,
-  periodoHasta: string,
-  locale = 'es-AR',
-): string[] {
-  type Item = {
-    notas: string;
-    numeroCuota: number; cuotasTotales: number;
-    monto: number; fechaSolicitud: string;
-  }
-  const items: Item[] = []
-  for (const a of adelantos) {
-    if (a.estado === 'cancelado') continue
-    const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
-    const cuota = cuotas.find(c => {
-      const f = c.fecha_programada as string
-      return f >= periodoDesde && f <= periodoHasta
-    })
-    if (!cuota) continue
-    items.push({
-      notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
-      numeroCuota: cuota.numero_cuota as number,
-      cuotasTotales: a.cuotas_totales as number,
-      monto: parseFloat(cuota.monto_cuota as string),
-      fechaSolicitud: a.fecha_solicitud as string,
-    })
-  }
-  items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
-
-  const fmt = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-  const lineas: string[] = []
-  if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmt(saldoAnterior)}`)
-  for (const it of items) {
-    const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
-    const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
-    lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
-  }
-  return lineas
-}
+// Las líneas de descuentos y bonos del período se arman con el helper
+// compartido `construirLineasAjustes` (src/lib/nominas/lineas-ajustes.ts).
+// Antes vivía duplicado acá y en el backend de WhatsApp — drift garantizado.
 
 // ─── Estado del envío en lote ────────────────────────────────
 
@@ -462,10 +416,15 @@ export function ModalEnviarReciboNomina({
       fetch(`/api/adelantos?miembro_id=${empleadoPreview.miembro_id}`)
         .then(r => r.json())
         .then(data => {
-          const adelantos = (data?.adelantos || []) as Array<Record<string, unknown>>
+          const adelantos = data?.adelantos || []
           const saldo = empleadoPreview.saldo_anterior ?? 0
-          const lineas = construirLineasDescuentos(adelantos, saldo, periodoDesde, periodoHasta)
-          setLineasDescuentosPreview(lineas)
+          // Mismo helper que usa el backend WA → lo que se ve en el preview
+          // es exactamente lo que va a recibir el empleado. Tomamos solo
+          // `descuentos` para mantener compat con la plantilla actual.
+          const { descuentos } = construirLineasAjustes(adelantos, periodoDesde, periodoHasta, {
+            saldoAnterior: saldo,
+          })
+          setLineasDescuentosPreview(descuentos)
         })
         .catch(() => setLineasDescuentosPreview([]))
     } else {

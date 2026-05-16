@@ -41,7 +41,8 @@ import {
   type EntidadPlantillaWA,
 } from '@/lib/whatsapp/variables'
 import { MODULOS_PLANTILLA_WA } from '@/lib/whatsapp/modulos-plantilla'
-import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { periodoActual } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -315,49 +316,21 @@ export function PaginaEditorPlantillaMeta({
 
       const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
       const dataAdel = await resAdel.json()
-      const adelantos = (dataAdel?.adelantos || []) as Array<Record<string, unknown>>
+      const adelantos = dataAdel?.adelantos || []
 
-      type CuotaPeriodo = {
-        tipo: string; notas: string;
-        numeroCuota: number; cuotasTotales: number;
-        monto: number; fechaSolicitud: string;
-      }
-      const items: CuotaPeriodo[] = []
-      for (const a of adelantos) {
-        if (a.estado === 'cancelado') continue
-        const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
-        const cuota = cuotas.find(c => {
-          const f = c.fecha_programada as string
-          return f >= periodo.desde && f <= periodo.hasta
-        })
-        if (!cuota) continue
-        items.push({
-          tipo: ((a.tipo as string) || 'adelanto'),
-          notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
-          numeroCuota: cuota.numero_cuota as number,
-          cuotasTotales: a.cuotas_totales as number,
-          monto: parseFloat(cuota.monto_cuota as string),
-          fechaSolicitud: a.fecha_solicitud as string,
-        })
-      }
-      // Orden cronológico ascendente: más viejo arriba, más nuevo abajo.
-      items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
-
-      const fmtMonto = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-      const lineas: string[] = []
-      const saldoAnterior = Number(resultado.saldo_anterior || 0)
-      if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmtMonto(saldoAnterior)}`)
-      for (const it of items) {
-        const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
-        const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
-        lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmtMonto(it.monto)}`)
-      }
+      // Misma lógica que el modal de envío y el backend WA, vía helper
+      // compartido — así el preview del editor de plantillas coincide
+      // exactamente con lo que se manda al empleado en producción.
+      const { descuentos } = construirLineasAjustes(adelantos, periodo.desde, periodo.hasta, {
+        saldoAnterior: Number(resultado.saldo_anterior || 0),
+        locale,
+      })
 
       setNominaPreview({
         ...resultado,
         periodo: periodo.etiqueta,
-        detalle_descuentos: lineas.join('\n'),
-        descuentos_lista: lineas,
+        detalle_descuentos: descuentos.join('\n'),
+        descuentos_lista: descuentos,
       })
     } catch { /* silenciar */ }
   }, [locale])
