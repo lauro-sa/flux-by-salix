@@ -598,14 +598,13 @@ export function ModalEnviarReciboNomina({
   }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta])
 
   const enviarEnLote = useCallback(() => {
-    // Modo individual correo: abrir editor completo
-    if (canalTipo === 'correo' && esIndividualCorreo) {
-      setModalIndividualAbierto(true)
-      return
-    }
+    // Default unificado: tanto modo individual como lote mandan directo
+    // con el preview que ya se muestra. El editor avanzado de correo
+    // (ModalEnviarDocumento — CC/CCO/editor rico/adjuntos) se activa
+    // explícitamente con el botón "Personalizar mensaje" abajo del preview.
     if (canalTipo === 'correo') return enviarCorreoEnLote(undefined, forzarReenvio)
     return enviarWAEnLote(undefined, forzarReenvio)
-  }, [canalTipo, esIndividualCorreo, enviarCorreoEnLote, enviarWAEnLote, forzarReenvio])
+  }, [canalTipo, enviarCorreoEnLote, enviarWAEnLote, forzarReenvio])
 
   // Reintentar solo los empleados que fallaron en el último envío.
   // Usa `forzar_reenvio: true` porque los fallos pueden incluir el caso
@@ -883,6 +882,20 @@ export function ModalEnviarReciboNomina({
                   className="text-sm bg-superficie-elevada/20 border border-borde-sutil rounded-card px-4 py-3 max-h-[300px] overflow-y-auto prose prose-sm prose-invert"
                 />
               </div>
+
+              {/* Editor avanzado disponible solo para envío individual: para
+                  lote no tiene sentido porque editaría un mensaje base que
+                  se manda a varios. Permite CC/CCO, ajustar asunto y cuerpo,
+                  adjuntar transferencia bancaria, etc. */}
+              {esIndividualCorreo && (
+                <button
+                  type="button"
+                  onClick={() => setModalIndividualAbierto(true)}
+                  className="text-xs text-texto-marca hover:underline cursor-pointer"
+                >
+                  Personalizar mensaje (CC, adjuntos, editar cuerpo)…
+                </button>
+              )}
             </div>
           )}
 
