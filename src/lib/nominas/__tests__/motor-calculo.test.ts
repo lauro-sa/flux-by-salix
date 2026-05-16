@@ -554,6 +554,109 @@ describe('calcularReciboPuro — vigencia de conceptos', () => {
 })
 
 // ════════════════════════════════════════════════════════════════
+// Periodicidad de conceptos (mensual / por_periodo / unico)
+// ════════════════════════════════════════════════════════════════
+
+describe('calcularReciboPuro — periodicidad de conceptos', () => {
+  it('concepto MENSUAL en primera quincena (1-15) → NO se aplica, va a sugerencias', () => {
+    // Empleado quincenal con Presentismo mensual del 10%. Período 1-15
+    // (NO incluye el último día del mes) → el motor no lo aplica acá,
+    // lo deja como sugerencia con explicación.
+    const c = contrato({ modalidad_calculo: 'fijo_quincenal', monto_base: 200000 })
+    const presentismo = asignacion({
+      concepto: concepto({
+        nombre: 'Presentismo',
+        periodicidad: 'mensual',
+        condicion_jsonb: { tipo: 'sin_ausencias' },
+      }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-15',
+      asistencias: Array.from({ length: 11 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+    expect(r.conceptos_sugeridos).toHaveLength(1)
+    expect(r.conceptos_sugeridos[0].detalle).toMatch(/última liquidación del mes/)
+  })
+
+  it('concepto MENSUAL en segunda quincena (16-30) → SÍ se aplica sobre el básico mensual completo', () => {
+    // Mismo empleado, segunda quincena. Como es la última del mes,
+    // el Presentismo del 10% se aplica. Importante: el monto se
+    // calcula sobre el básico MENSUAL (200k × 2 = 400k → 10% = 40k),
+    // no sobre el básico de la quincena (200k → 10% = 20k).
+    const c = contrato({ modalidad_calculo: 'fijo_quincenal', monto_base: 200000 })
+    const presentismo = asignacion({
+      concepto: concepto({
+        nombre: 'Presentismo',
+        periodicidad: 'mensual',
+        condicion_jsonb: { tipo: 'sin_ausencias' },
+      }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      periodo_inicio: '2026-04-16',
+      periodo_fin: '2026-04-30',
+      asistencias: Array.from({ length: 11 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 16).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].monto).toBe(40000) // 10% de 400.000 (mensual)
+  })
+
+  it('concepto POR_PERIODO (no mensual) se aplica en CADA quincena', () => {
+    // Concepto recurrente por período (ej. descuento de uniforme en
+    // cuotas) tiene que aplicarse en TODAS las liquidaciones, no solo
+    // la última del mes. Acá un haber por_periodo en primera quincena
+    // que sí debe aparecer.
+    const c = contrato({ modalidad_calculo: 'fijo_quincenal', monto_base: 200000 })
+    const recurrente = asignacion({
+      concepto: concepto({
+        nombre: 'Bono recurrente',
+        periodicidad: 'por_periodo',
+        modo_calculo: 'monto_fijo',
+        valor: 5000,
+        condicion_jsonb: { tipo: 'siempre' },
+      }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [recurrente],
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-15',
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].monto).toBe(5000)
+  })
+
+  it('concepto UNICO nunca se aplica automáticamente, siempre va a sugerencias', () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const unico = asignacion({
+      concepto: concepto({
+        nombre: 'Aguinaldo',
+        periodicidad: 'unico',
+        modo_calculo: 'monto_fijo',
+        valor: 100000,
+        condicion_jsonb: { tipo: 'siempre' },
+      }),
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [unico],
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+    expect(r.conceptos_sugeridos).toHaveLength(1)
+    expect(r.conceptos_sugeridos[0].detalle).toMatch(/único/i)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
 // Contratos terminados y licencias (PR contratos-terminar-y-licencias)
 // ════════════════════════════════════════════════════════════════
 

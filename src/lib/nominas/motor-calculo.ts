@@ -139,6 +139,14 @@ export interface DatosCalculoRecibo {
   asistencias: AsistenciaInput[]
   conceptos_contrato: ConceptoContratoInput[]
   cuotas_adelanto: CuotaInput[]
+  /**
+   * Días laborales del mes completo (no del período). Se usa para
+   * calcular el básico mensual de modalidades `por_dia` y `por_hora`,
+   * que es la base de los conceptos `periodicidad='mensual'` (ej.
+   * Presentismo 10% del básico mensual). Si no se pasa, se asume 22
+   * (≈ días hábiles típicos lunes-viernes).
+   */
+  dias_laborales_mes?: number
   /** Licencias del contrato que solapan con el período. */
   licencias: LicenciaInput[]
   /** Info de sector/turno para armar el snapshot. */
@@ -206,8 +214,25 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   }
 
   // ─── 3. Aplicar conceptos automáticos del contrato ───
+  // Los conceptos `mensual` (Presentismo, Antigüedad, etc.) solo se
+  // aplican en la ÚLTIMA liquidación del mes, sin importar la
+  // frecuencia del contrato. Si el empleado cobra quincenal, recibe
+  // el bono solo en la segunda quincena. Esto evita el doble pago
+  // que ocurría antes de este filtro.
+  //
+  // Cuando son mensuales Y aplican, el monto se calcula sobre el
+  // básico MENSUAL (no el del período): un "10% del básico" para un
+  // jornalero quincenal debe ser 10% de su sueldo mensual completo,
+  // no del que cobra esa quincena. `dias_laborales_mes` lo necesita
+  // `calcularBasicoMensual` para modalidades por_dia/por_hora;
+  // default 22 (≈ días hábiles típicos) si el caller no lo pasa.
   const conceptos_aplicados: ConceptoAplicadoCalculado[] = []
   const conceptos_sugeridos: ConceptoAplicadoCalculado[] = []
+  const periodoEsUltimaDelMes = esUltimaLiquidacionDelMes(datos.periodo_inicio, datos.periodo_fin)
+  const diasLaboralesMes = datos.dias_laborales_mes ?? 22
+  const basicoMensual = datos.contrato
+    ? calcularBasicoMensual(datos.contrato.modalidad_calculo, Number(datos.contrato.monto_base), diasLaboralesMes)
+    : 0
 
   for (const cc of datos.conceptos_contrato) {
     const c = cc.concepto
@@ -232,6 +257,21 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       continue
     }
 
+    // Conceptos `unico` no se aplican automáticamente: el operador
+    // decide en qué período se incluye.
+    if (c.periodicidad === 'unico') {
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, 'Concepto único — el operador decide en qué período aplicarlo.'))
+      continue
+    }
+
+    // Conceptos `mensual` solo se aplican en la última liquidación
+    // del mes. En las anteriores quedan como sugerencia para que el
+    // operador vea por qué no se sumaron.
+    if (c.periodicidad === 'mensual' && !periodoEsUltimaDelMes) {
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, 'Concepto mensual: se aplica en la última liquidación del mes (no esta).'))
+      continue
+    }
+
     // Evaluar condición.
     const condicion = parsearCondicion(c.condicion_jsonb)
     const evaluacion = evaluarCondicion(condicion, asistencia, datos.contrato, datos.periodo_fin)
@@ -242,10 +282,13 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       continue
     }
 
-    // Calcular monto según modo_calculo. Pasamos también la condición
-    // para que `por_evento` pueda multiplicar por la cantidad real de
-    // ocurrencias (ej: feriados trabajados).
-    const monto = calcularMontoConcepto(c.modo_calculo, valor, monto_base_calculado, asistencia, condicion)
+    // Calcular monto según modo_calculo. Para conceptos mensuales el
+    // base es el sueldo MENSUAL completo (los porcentaje_basico se
+    // calculan sobre eso, no sobre el básico del período). Pasamos
+    // también la condición para que `por_evento` pueda multiplicar
+    // por la cantidad real de ocurrencias (ej: feriados trabajados).
+    const baseDelConcepto = c.periodicidad === 'mensual' ? basicoMensual : monto_base_calculado
+    const monto = calcularMontoConcepto(c.modo_calculo, valor, baseDelConcepto, asistencia, condicion)
     conceptos_aplicados.push(armarConcepto(c, valor, monto, evaluacion.detalle))
   }
 
