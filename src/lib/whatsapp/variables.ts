@@ -147,6 +147,10 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
   { valor: 'descuento_4', etiqueta: 'Nómina — Descuento 4', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229', modulos: ['asistencias'] },
   { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
+  // Link firmado al PDF del recibo (expira 30 días). El server lo arma
+  // desde `pagos_nomina.comprobante_url` cuando hay pago grabado; si no
+  // hay pago aún, queda string vacío.
+  { valor: 'enlace_recibo', etiqueta: 'Nómina — Enlace al recibo (PDF)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'https://flux.salixweb.com/r/abc123', modulos: ['asistencias'] },
 
   // Empresa (siempre disponible)
   { valor: 'empresa_nombre', etiqueta: 'Empresa — Nombre', grupo: 'Empresa', entidad: 'empresa', ejemplo: 'Mi Empresa S.A.' },
@@ -351,6 +355,12 @@ export function construirDatosPlantilla(
     }
 
     if (nomina.monto_detalle) datos['compensacion_detalle'] = String(nomina.monto_detalle)
+
+    // Link firmado al PDF del recibo. Si el productor no lo manda,
+    // queda string vacío en lugar del ejemplo del catálogo — así
+    // queda explícito en el preview que todavía no se generó el PDF
+    // (típicamente porque no hay pago grabado del período).
+    datos['enlace_recibo'] = String(nomina.enlace_recibo || '')
   }
 
   // Empresa
