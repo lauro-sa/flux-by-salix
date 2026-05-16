@@ -70,7 +70,18 @@ export interface AsistenciaInput {
   vuelta_particular: string | null
 }
 
-/** Fila mínima de cuota de adelanto que el motor consume. */
+/**
+ * Fila mínima de cuota de adelanto que el motor consume.
+ *
+ * `tipo` viene del adelanto padre (`adelantos_nomina.tipo`) y decide
+ * el signo en el cálculo del neto:
+ *   - 'adelanto'  → resta (préstamo en cuotas)
+ *   - 'descuento' → resta (multa puntual)
+ *   - 'bono'      → SUMA (pago extra one-off)
+ *
+ * Si llega `undefined` (rows pre-migración o callers viejos), se asume
+ * 'adelanto' por compatibilidad — el comportamiento histórico era restar.
+ */
 export interface CuotaInput {
   id: string
   adelanto_id: string
@@ -78,6 +89,7 @@ export interface CuotaInput {
   monto_cuota: number | string
   fecha_programada: string
   estado: string
+  tipo?: 'adelanto' | 'descuento' | 'bono'
 }
 
 /**
@@ -255,6 +267,9 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       numero_cuota: q.numero_cuota,
       monto: Number(q.monto_cuota),
       fecha_programada: q.fecha_programada,
+      // Sin tipo explícito asumimos 'adelanto' por compatibilidad
+      // con datos previos a la migración 092.
+      tipo: q.tipo ?? 'adelanto',
     }))
 
   // ─── 5. Licencias del contrato que solapan con el período ───
@@ -326,10 +341,19 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   const descuentosConceptos = conceptos_aplicados
     .filter(c => c.tipo === 'descuento')
     .reduce((sum, c) => sum + c.monto, 0)
-  const totalAdelantos = adelantos_aplicados.reduce((sum, a) => sum + a.monto, 0)
+  // Discriminamos por tipo: bonos SUMAN (van como haberes), adelantos
+  // y descuentos RESTAN (van como descuentos). Esto refleja la
+  // semántica del modelo nuevo (sql/092) sin romper recibos viejos:
+  // si un movimiento llega sin `tipo` se asume 'adelanto' (comportamiento histórico).
+  const totalBonos = adelantos_aplicados
+    .filter(a => a.tipo === 'bono')
+    .reduce((sum, a) => sum + a.monto, 0)
+  const totalAdelantosResta = adelantos_aplicados
+    .filter(a => a.tipo !== 'bono')
+    .reduce((sum, a) => sum + a.monto, 0)
 
-  const subtotal_haberes = redondear(monto_base_calculado + haberesConceptos)
-  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantos + descuentoPorLicencias)
+  const subtotal_haberes = redondear(monto_base_calculado + haberesConceptos + totalBonos)
+  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantosResta + descuentoPorLicencias)
   const neto = redondear(subtotal_haberes - subtotal_descuentos)
 
   // ─── 6. Snapshot del contrato ───
@@ -738,13 +762,15 @@ export async function calcularReciboDesdeBD(
     }))
   }
 
-  // ─── Cuotas de adelanto vencidas ───
+  // ─── Cuotas de adelanto / descuento / bono vencidas ───
   // Traemos cuotas pendientes con fecha <= periodoFin. Incluye atrasadas
   // de períodos anteriores, que se acumulan en este recibo. El core puro
-  // hace el filtro final por estado y fecha.
+  // hace el filtro final por estado y fecha. Joineamos con
+  // `adelantos_nomina` para arrastrar el `tipo` (adelanto/descuento/bono),
+  // que decide el SIGNO en el cálculo del neto.
   const { data: cuotas } = await admin
     .from('adelantos_cuotas')
-    .select('id, adelanto_id, numero_cuota, monto_cuota, fecha_programada, estado')
+    .select('id, adelanto_id, numero_cuota, monto_cuota, fecha_programada, estado, adelanto:adelantos_nomina!inner(tipo)')
     .eq('empresa_id', empresaId)
     .eq('miembro_id', miembroId)
     .lte('fecha_programada', periodoFin)
@@ -793,14 +819,21 @@ export async function calcularReciboDesdeBD(
     contrato,
     asistencias: (asistencias ?? []) as AsistenciaInput[],
     conceptos_contrato,
-    cuotas_adelanto: (cuotas ?? []).map(c => ({
-      id: c.id,
-      adelanto_id: c.adelanto_id,
-      numero_cuota: c.numero_cuota,
-      monto_cuota: c.monto_cuota,
-      fecha_programada: c.fecha_programada,
-      estado: c.estado,
-    })),
+    // El select anidado de Supabase devuelve `adelanto` como objeto
+    // (con la FK NOT NULL del !inner garantiza que existe) pero TS lo
+    // infiere como array. Normalizamos antes de leer `.tipo`.
+    cuotas_adelanto: (cuotas ?? []).map(c => {
+      const adelantoRaw = c.adelanto as unknown as { tipo: 'adelanto' | 'descuento' | 'bono' } | null
+      return {
+        id: c.id,
+        adelanto_id: c.adelanto_id,
+        numero_cuota: c.numero_cuota,
+        monto_cuota: c.monto_cuota,
+        fecha_programada: c.fecha_programada,
+        estado: c.estado,
+        tipo: adelantoRaw?.tipo ?? 'adelanto',
+      }
+    }),
     licencias,
     sector,
     turno,

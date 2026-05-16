@@ -58,6 +58,14 @@ export type ClasificacionDiaNomina =
 export interface DiaDetalleNomina {
   fecha: string
   clasificacion: ClasificacionDiaNomina
+  /**
+   * Horas netas trabajadas ese día (descontando almuerzo y salidas
+   * particulares). Solo se completa para días con fichaje real
+   * (`completa`, `media`, `parcial`, `feriado_trabajado`). Días sin
+   * fichaje (`ausente`, `feriado` no trabajado, `no_laboral`) lo
+   * dejan en `null`. Se usa para el tooltip del mini-calendario.
+   */
+  horas_netas?: number | null
 }
 
 /** Concepto aplicado a la liquidación de un miembro en un período. */
@@ -120,6 +128,12 @@ export interface ResultadoNomina {
   total_descuentos_conceptos?: number
   descuento_adelanto: number
   cuotas_adelanto: number
+  /**
+   * Bonos / pagos extra one-off del período (sql/092). SUMAN al neto.
+   * Vienen del mismo `adelantos_nomina` con tipo='bono'.
+   */
+  bonos_periodo?: number
+  cuotas_bonos?: number
   saldo_anterior: number
   monto_neto: number
 }
@@ -325,7 +339,7 @@ export function PaginaEditorNominaEmpleado({
 
   // Adelanto/descuento nuevo
   const [mostrarFormAdelanto, setMostrarFormAdelanto] = useState(false)
-  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento'>('adelanto')
+  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento' | 'bono'>('adelanto')
   const [adelantoMonto, setAdelantoMonto] = useState('')
   const [adelantoCuotas, setAdelantoCuotas] = useState('1')
   const [adelantoNotas, setAdelantoNotas] = useState('')
@@ -659,8 +673,9 @@ export function PaginaEditorNominaEmpleado({
     // La fecha del campo es la fecha real del adelanto/descuento: define cuándo ocurrió
     // y desde dónde se descuenta (con 1 cuota cae en ese mismo período).
     const fechaAdelanto = adelantoFecha || new Date().toISOString().split('T')[0]
-    // Los descuentos puntuales son siempre de 1 cuota (no se entregó dinero al empleado).
-    const cuotasTotales = adelantoTipo === 'descuento' ? 1 : (parseInt(adelantoCuotas) || 1)
+    // Solo el adelanto se prorratea en cuotas; descuentos y bonos
+    // son one-off (1 cuota en el período).
+    const cuotasTotales = adelantoTipo === 'adelanto' ? (parseInt(adelantoCuotas) || 1) : 1
     await fetch('/api/adelantos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -726,14 +741,14 @@ export function PaginaEditorNominaEmpleado({
       )
       if (!cuotaDelPeriodo) return null
       return {
-        tipo: ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento',
+        tipo: ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento' | 'bono',
         numeroCuota: cuotaDelPeriodo.numero_cuota as number,
         cuotasTotales: a.cuotas_totales as number,
         monto: parseFloat(cuotaDelPeriodo.monto_cuota as string),
         notas: a.notas as string,
         fechaSolicitud: a.fecha_solicitud as string,
       }
-    }).filter(Boolean) as { tipo: 'adelanto' | 'descuento'; numeroCuota: number; cuotasTotales: number; monto: number; notas: string; fechaSolicitud: string }[]
+    }).filter(Boolean) as { tipo: 'adelanto' | 'descuento' | 'bono'; numeroCuota: number; cuotasTotales: number; monto: number; notas: string; fechaSolicitud: string }[]
     // Orden cronológico ascendente: más viejo arriba, más reciente abajo.
     return items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
   }, [adelantos, periodoActual.desde, periodoActual.hasta])
@@ -839,6 +854,13 @@ export function PaginaEditorNominaEmpleado({
   const mapaDiasEstado = useMemo(() => {
     const mapa: Record<string, string> = {}
     for (const d of (emp.dias_detalle || [])) mapa[d.fecha] = d.clasificacion
+    return mapa
+  }, [emp.dias_detalle])
+
+  /** Mapa fecha → horas netas trabajadas, para el tooltip del mini-calendario. */
+  const mapaHorasPorDia = useMemo(() => {
+    const mapa: Record<string, number | null | undefined> = {}
+    for (const d of (emp.dias_detalle || [])) mapa[d.fecha] = d.horas_netas
     return mapa
   }, [emp.dias_detalle])
 
@@ -1052,12 +1074,75 @@ export function PaginaEditorNominaEmpleado({
                   </div>
                 </div>
 
-                {/* Mini-calendario del período */}
+                {/* ─── Horas del período ───
+                    Total + promedio diario. El color del promedio
+                    refleja si está fuera del rango "normal" para
+                    detectar sobreesfuerzo de un vistazo:
+                      ≤ 9h    → texto secundario (normal)
+                      9-11h   → advertencia (largo)
+                      > 11h   → peligro (muy largo, considerar bono)
+                    Solo se muestra si el empleado trabajó al menos un
+                    día en el período (evita "0h promedio: 0h" en
+                    períodos sin actividad). */}
+                {emp.dias_trabajados > 0 && emp.horas_netas > 0 && (
+                  <div className="mb-4 rounded-lg border border-borde-sutil bg-superficie-elevada/40 px-3 py-2.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-texto-terciario mb-1.5">
+                      Horas del período
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-texto-primario tabular-nums leading-tight">
+                          {fmtHoras(emp.horas_netas)}
+                        </p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          Total trabajado
+                        </p>
+                      </div>
+                      <div>
+                        {(() => {
+                          const prom = emp.promedio_horas_diario
+                          const colorPromedio = prom > 11
+                            ? 'text-insignia-peligro'
+                            : prom > 9
+                              ? 'text-insignia-advertencia'
+                              : 'text-texto-primario'
+                          return (
+                            <>
+                              <p className={`text-base font-semibold tabular-nums leading-tight ${colorPromedio}`}>
+                                {fmtHoras(prom)}
+                                {prom > 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    muy alto
+                                  </span>
+                                )}
+                                {prom > 9 && prom <= 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    alto
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[11px] text-texto-terciario mt-0.5">
+                                Promedio diario
+                              </p>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mini-calendario del período: cada celda muestra el
+                    estado del día con color y, al hover, un tooltip con
+                    "DD MMM — Estado · Xh Ym" para detectar de un
+                    vistazo días con jornadas largas y decidir si
+                    corresponde un bono extra. */}
                 {(emp.dias_detalle && emp.dias_detalle.length > 0) && (
                   <CalendarioPeriodoMini
                     desde={periodoActual.desde}
                     hasta={periodoActual.hasta}
                     diasEstado={mapaDiasEstado}
+                    horasPorDia={mapaHorasPorDia}
                     estados={ESTADOS_DIAS_NOMINA}
                   />
                 )}
@@ -1101,9 +1186,10 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
-                accion={emp.compensacion_tipo === 'por_dia' && puedeEditarNomina && (
+                accion={puedeEditarNomina && (
                   <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
+                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}
+                    titulo="Forzar el monto a pagar de este período (no toca el contrato ni los conceptos)">
                     Ajustar manualmente
                   </Boton>
                 )}
@@ -1113,7 +1199,13 @@ export function PaginaEditorNominaEmpleado({
                   const descuentosConceptos = emp.conceptos_aplicados?.filter(c => c.tipo === 'descuento') ?? []
                   const totalHaberes = emp.total_haberes ?? 0
                   const totalDescuentosConceptos = emp.total_descuentos_conceptos ?? 0
-                  const subtotalHaberes = emp.monto_pagar + totalHaberes
+                  const totalBonos = emp.bonos_periodo ?? 0
+                  // Cuotas del período separadas por signo: las que
+                  // restan (adelanto/descuento) van a la sección
+                  // Descuentos; los bonos van a Haberes.
+                  const cuotasDescuentoPeriodo = cuotasInfoPeriodo.filter(c => c.tipo !== 'bono')
+                  const bonosPeriodo = cuotasInfoPeriodo.filter(c => c.tipo === 'bono')
+                  const subtotalHaberes = emp.monto_pagar + totalHaberes + totalBonos
                   const saldoEnContra = emp.saldo_anterior < 0 ? Math.abs(emp.saldo_anterior) : 0
                   const saldoAFavor = emp.saldo_anterior > 0 ? emp.saldo_anterior : 0
                   const totalDescuentos = totalDescuentosConceptos + emp.descuento_adelanto + saldoAFavor
@@ -1127,7 +1219,7 @@ export function PaginaEditorNominaEmpleado({
                             Haberes
                           </p>
                           <span className="text-[11px] text-texto-terciario">
-                            {1 + haberes.length} {haberes.length === 0 ? 'concepto' : 'conceptos'}
+                            {1 + haberes.length + bonosPeriodo.length} {(1 + haberes.length + bonosPeriodo.length) === 1 ? 'concepto' : 'conceptos'}
                           </span>
                         </header>
 
@@ -1146,7 +1238,7 @@ export function PaginaEditorNominaEmpleado({
                             </span>
                           </div>
 
-                          {/* Conceptos haber */}
+                          {/* Conceptos haber del contrato */}
                           {haberes.map(c => (
                             <div key={c.concepto_id} className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
@@ -1157,6 +1249,23 @@ export function PaginaEditorNominaEmpleado({
                               </div>
                               <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
                                 +{fmtMonto(c.monto)}
+                              </span>
+                            </div>
+                          ))}
+
+                          {/* Bonos / pagos extra del período */}
+                          {bonosPeriodo.map((b, idx) => (
+                            <div key={`bono-${idx}`} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                  Bono extra
+                                </p>
+                                <p className="text-[11px] text-texto-terciario truncate">
+                                  {b.notas || (b.fechaSolicitud ? fmtFecha(b.fechaSolicitud) : '')}
+                                </p>
+                              </div>
+                              <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
+                                +{fmtMonto(b.monto)}
                               </span>
                             </div>
                           ))}
@@ -1193,7 +1302,7 @@ export function PaginaEditorNominaEmpleado({
                               Descuentos
                             </p>
                             <span className="text-[11px] text-texto-terciario">
-                              {descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)} {(descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)) === 1 ? 'concepto' : 'conceptos'}
+                              {descuentosConceptos.length + cuotasDescuentoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)} {(descuentosConceptos.length + cuotasDescuentoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)) === 1 ? 'concepto' : 'conceptos'}
                             </span>
                           </header>
 
@@ -1226,8 +1335,9 @@ export function PaginaEditorNominaEmpleado({
                               </div>
                             )}
 
-                            {/* Adelantos y descuentos manuales del período */}
-                            {cuotasInfoPeriodo.map((c, idx) => (
+                            {/* Adelantos y descuentos puntuales del período (los bonos
+                                ya se mostraron arriba como haberes). */}
+                            {cuotasDescuentoPeriodo.map((c, idx) => (
                               <div key={`cuota-${idx}`} className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm text-texto-primario flex items-center gap-1.5">
@@ -1417,23 +1527,30 @@ export function PaginaEditorNominaEmpleado({
                 )}
               </TarjetaPanel>
 
-              {/* ─── ADELANTOS DEL PERÍODO ─── */}
+              {/* ─── AJUSTES DEL PERÍODO ───
+                  Movimientos one-off del recibo que no son parte del
+                  contrato (ese vive aparte): adelantos a descontar en
+                  cuotas, descuentos puntuales (multas, daños), y
+                  bonos / pagos extra. La tabla en BD se llama
+                  `adelantos_nomina` (legado), pero la UX los muestra
+                  agrupados como "ajustes del período" para reflejar
+                  cómo lo manejan las empresas reales. */}
               <TarjetaPanel
-                titulo="Adelantos del período"
+                titulo="Ajustes del período"
                 icono={<TrendingDown size={13} />}
                 accion={!mostrarFormAdelanto ? (
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
                         {[
-                          adelantos.length > 0 ? `${adelantos.length} adelanto${adelantos.length === 1 ? '' : 's'}` : null,
-                          emp.saldo_anterior !== 0 ? '1 ajuste' : null,
+                          adelantos.length > 0 ? `${adelantos.length} ajuste${adelantos.length === 1 ? '' : 's'}` : null,
+                          emp.saldo_anterior !== 0 ? '1 saldo previo' : null,
                         ].filter(Boolean).join(' · ')}
                       </span>
                     )}
                     {puedeEditarNomina && (
                       <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                        onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+                        onClick={() => setMostrarFormAdelanto(true)}>Nuevo ajuste</Boton>
                     )}
                   </div>
                 ) : undefined}
@@ -1465,14 +1582,15 @@ export function PaginaEditorNominaEmpleado({
                 )}
 
                 {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
-                  <p className="text-xs text-texto-terciario py-3 text-center">Sin descuentos en este período</p>
+                  <p className="text-xs text-texto-terciario py-3 text-center">Sin ajustes en este período</p>
                 )}
 
                 <div className="space-y-2">
                   {adelantosOrdenados.map(a => {
                     const aid = a.id as string
-                    const tipoItem = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento'
+                    const tipoItem = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento' | 'bono'
                     const esDescuento = tipoItem === 'descuento'
+                    const esBono = tipoItem === 'bono'
                     const cuotasT = a.cuotas_totales as number
                     const cuotasD = a.cuotas_descontadas as number
                     const saldo = parseFloat(a.saldo_pendiente as string)
@@ -1517,20 +1635,35 @@ export function PaginaEditorNominaEmpleado({
                       )
                     }
 
+                    // Color del icono y título por defecto según tipo:
+                    //   descuento → peligro (rojo, resta)
+                    //   bono      → éxito  (verde, suma)
+                    //   adelanto  → advertencia (naranja, resta en cuotas)
+                    const claseIcono = esDescuento ? 'text-insignia-peligro'
+                      : esBono ? 'text-insignia-exito'
+                      : 'text-insignia-advertencia'
+                    const tituloPorDefecto = esBono ? `Bono ${fmtMonto(total)}`
+                      : esDescuento ? `Descuento ${fmtMonto(total)}`
+                      : `Adelanto ${fmtMonto(total)}`
+                    // Signo en el monto: bono SUMA al neto (+), el resto resta (−).
+                    const signo = esBono ? '+' : '-'
+
                     return (
                       <div key={aid} className="flex items-start gap-3 py-2.5 px-3 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors">
-                        <Receipt size={14} className={`shrink-0 mt-0.5 ${esDescuento ? 'text-insignia-peligro' : 'text-insignia-advertencia'}`} />
+                        <Receipt size={14} className={`shrink-0 mt-0.5 ${claseIcono}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <p className="text-sm font-medium text-texto-primario truncate">
-                              {(a.notas as string) || (esDescuento ? `Descuento ${fmtMonto(total)}` : `Adelanto ${fmtMonto(total)}`)}
+                              {(a.notas as string) || tituloPorDefecto}
                             </p>
-                            <span className="text-sm font-semibold text-texto-primario tabular-nums">
-                              -{fmtMonto(montoCuotaPeriodo || total)}
+                            <span className={`text-sm font-semibold tabular-nums ${esBono ? 'text-insignia-exito' : 'text-texto-primario'}`}>
+                              {signo}{fmtMonto(montoCuotaPeriodo || total)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {esDescuento ? (
+                            {esBono ? (
+                              <Insignia color="exito" tamano="sm">Bono</Insignia>
+                            ) : esDescuento ? (
                               <Insignia color="peligro" tamano="sm">Descuento</Insignia>
                             ) : numeroCuotaPeriodo ? (
                               <Insignia color="advertencia" tamano="sm">
@@ -1592,8 +1725,15 @@ export function PaginaEditorNominaEmpleado({
                 {/* Formulario nuevo adelanto/descuento */}
                 {mostrarFormAdelanto && (
                   <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
-                    {/* Toggle tipo: adelanto (dinero entregado) vs descuento (multa/daño/falta) */}
-                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
+                    {/* Toggle tipo (3 opciones):
+                          - Adelanto:  préstamo, descuenta en cuotas (resta).
+                          - Descuento: multa/daño one-off (resta).
+                          - Bono:      pago extra del patrón one-off (suma).
+                        El color refleja el efecto en el neto:
+                          marca (azul) = neutro/configurable,
+                          peligro (rojo) = resta,
+                          éxito (verde) = suma. */}
+                    <div className="grid grid-cols-3 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
                       <button
                         type="button"
                         onClick={() => setAdelantoTipo('adelanto')}
@@ -1616,10 +1756,22 @@ export function PaginaEditorNominaEmpleado({
                       >
                         Descuento
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdelantoTipo('bono')}
+                        className={`text-xs py-1.5 rounded transition-colors ${
+                          adelantoTipo === 'bono'
+                            ? 'bg-insignia-exito/15 text-insignia-exito font-medium'
+                            : 'text-texto-terciario hover:text-texto-secundario'
+                        }`}
+                      >
+                        Bono
+                      </button>
                     </div>
                     <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
                     <div className="grid grid-cols-2 gap-2">
-                      {/* Las cuotas solo aplican a adelantos. Descuentos siempre son 1 cuota. */}
+                      {/* Las cuotas solo aplican a adelantos. Descuentos
+                          y bonos son siempre one-off (1 cuota = el período). */}
                       {adelantoTipo === 'adelanto' ? (
                         <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
                           className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
@@ -1635,14 +1787,22 @@ export function PaginaEditorNominaEmpleado({
                       <SelectorFecha
                         valor={adelantoFecha || null}
                         onChange={v => setAdelantoFecha(v || '')}
-                        placeholder={adelantoTipo === 'adelanto' ? 'Fecha del adelanto' : 'Fecha del descuento'}
+                        placeholder={
+                          adelantoTipo === 'adelanto' ? 'Fecha del adelanto'
+                          : adelantoTipo === 'bono' ? 'Fecha del bono'
+                          : 'Fecha del descuento'
+                        }
                       />
                     </div>
                     <Input
                       tipo="text"
                       value={adelantoNotas}
                       onChange={e => setAdelantoNotas(e.target.value)}
-                      placeholder={adelantoTipo === 'adelanto' ? 'Nota (opcional)' : 'Motivo del descuento'}
+                      placeholder={
+                        adelantoTipo === 'adelanto' ? 'Nota (opcional)'
+                        : adelantoTipo === 'bono' ? 'Motivo del bono (ej: sobreesfuerzo, premio puntual)'
+                        : 'Motivo del descuento'
+                      }
                     />
                     <div className="flex gap-2">
                       <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}

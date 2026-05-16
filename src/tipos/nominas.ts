@@ -433,13 +433,26 @@ export interface ConceptoAplicadoCalculado {
   detalle: string | null
 }
 
-/** Cuota de adelanto vencida en el período → descontada en el recibo. */
+/**
+ * Movimiento one-off del período (vive en `adelantos_nomina`).
+ *
+ * Aunque el nombre histórico es "CuotaAdelanto", representa los tres
+ * tipos que comparten la misma tabla:
+ *   - 'adelanto'  → préstamo a descontar en cuotas (resta al neto).
+ *   - 'descuento' → multa o daño puntual (resta al neto).
+ *   - 'bono'      → pago extra del patrón en este período (suma al neto).
+ *
+ * Si `tipo` está ausente (datos pre-migración), se asume 'adelanto'
+ * por compatibilidad. La UI los presenta agrupados bajo "Ajustes
+ * del período".
+ */
 export interface CuotaAdelantoAplicada {
   cuota_id: string
   adelanto_id: string
   numero_cuota: number
   monto: number
   fecha_programada: string
+  tipo?: 'adelanto' | 'descuento' | 'bono'
 }
 
 /**

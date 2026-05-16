@@ -384,6 +384,44 @@ describe('calcularReciboPuro — casos del plan', () => {
     expect(r.neto).toBe(400000)
   })
 
+  it('CASO 6d: bono del período SUMA al neto (no resta como adelanto)', () => {
+    // Bono one-off de $80.000 sobre un básico de $400.000 → neto $480.000.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      cuotas_adelanto: [{
+        id: 'bono-1',
+        adelanto_id: 'aj-bono',
+        numero_cuota: 1,
+        monto_cuota: 80000,
+        fecha_programada: '2026-04-15',
+        estado: 'pendiente',
+        tipo: 'bono',
+      }],
+    }))
+    expect(r.adelantos_aplicados).toHaveLength(1)
+    expect(r.adelantos_aplicados[0].tipo).toBe('bono')
+    expect(r.subtotal_descuentos).toBe(0)
+    expect(r.subtotal_haberes).toBe(480000)
+    expect(r.neto).toBe(480000)
+  })
+
+  it('CASO 6e: bono + adelanto en el mismo período (suma uno, resta el otro)', () => {
+    // Básico $400.000, bono $80.000 (suma), adelanto $50.000 (resta).
+    // Neto esperado: 400.000 + 80.000 − 50.000 = 430.000.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      cuotas_adelanto: [
+        { id: 'bono-1', adelanto_id: 'aj-b', numero_cuota: 1, monto_cuota: 80000, fecha_programada: '2026-04-15', estado: 'pendiente', tipo: 'bono' },
+        { id: 'cuota-1', adelanto_id: 'aj-a', numero_cuota: 1, monto_cuota: 50000, fecha_programada: '2026-04-15', estado: 'pendiente', tipo: 'adelanto' },
+      ],
+    }))
+    expect(r.subtotal_haberes).toBe(480000)
+    expect(r.subtotal_descuentos).toBe(50000)
+    expect(r.neto).toBe(430000)
+  })
+
   it('CASO 7: cambio de contrato a mitad de período (toma el más reciente que cubre fin)', () => {
     // El motor solo recibe UN contrato — la responsabilidad de elegirlo
     // es del loader. Acá probamos que con un contrato que arrancó dentro

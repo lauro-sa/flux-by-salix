@@ -418,26 +418,42 @@ export async function GET(request: NextRequest) {
       return { fechasLaborales: fechasLab, fechasFeriado: fechasFer }
     }
 
-    // ─── Adelantos: cuotas pendientes por miembro ───
-    // Cuotas del período: pendientes Y descontadas (para mostrar desglose completo)
+    // ─── Ajustes del período: cuotas (adelanto/descuento/bono) ───
+    // Joineamos con adelantos_nomina para arrastrar el `tipo`, que
+    // decide si la cuota RESTA al neto (adelanto/descuento) o lo SUMA
+    // (bono). Filtramos pendientes y descontadas para mostrar el
+    // desglose completo del período.
     const { data: cuotasDelPeriodoData } = await admin
       .from('adelantos_cuotas')
-      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota, estado, fecha_programada')
+      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota, estado, fecha_programada, adelanto:adelantos_nomina!inner(tipo)')
       .eq('empresa_id', empresaId)
       .in('estado', ['pendiente', 'descontada'])
       .gte('fecha_programada', desde)
       .lte('fecha_programada', hasta)
 
-    // Agrupar cuotas por miembro (solo pendientes afectan el monto neto)
+    // Agrupamos por miembro separando descuentos (adelanto + descuento)
+    // de bonos. Si llega una cuota sin tipo (legacy), se asume
+    // 'adelanto' por compatibilidad — comportamiento histórico.
     const cuotasPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
+    const bonosPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
     for (const c of (cuotasDelPeriodoData || []) as Record<string, unknown>[]) {
       const mid = c.miembro_id as string
-      if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
-      const entry = cuotasPorMiembro.get(mid)!
-      // Todas las cuotas del período se descuentan (pendientes y ya descontadas)
-      entry.monto += parseFloat(c.monto_cuota as string)
-      entry.cantidad++
-      entry.detalle.push(c)
+      const adelantoRaw = c.adelanto as { tipo?: 'adelanto' | 'descuento' | 'bono' } | null | undefined
+      const tipo = adelantoRaw?.tipo ?? 'adelanto'
+      const monto = parseFloat(c.monto_cuota as string)
+      if (tipo === 'bono') {
+        if (!bonosPorMiembro.has(mid)) bonosPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
+        const entry = bonosPorMiembro.get(mid)!
+        entry.monto += monto
+        entry.cantidad++
+        entry.detalle.push(c)
+      } else {
+        if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
+        const entry = cuotasPorMiembro.get(mid)!
+        entry.monto += monto
+        entry.cantidad++
+        entry.detalle.push(c)
+      }
     }
 
     // ─── Saldo anterior: pagos del período anterior por miembro ───
@@ -579,6 +595,10 @@ export async function GET(request: NextRequest) {
 
       // Clasificación concreta por fecha (para armar dias_detalle al final)
       const clasificacionPorFecha = new Map<string, 'completa' | 'media' | 'parcial'>()
+      // Minutos netos efectivamente trabajados por fecha. Lo usa el
+      // mini-calendario de la UI para mostrar "8h 30m" en el tooltip
+      // del día sin tener que recalcular en el cliente.
+      const minutosNetosPorFecha = new Map<string, number>()
 
       for (const r of registros) {
         if (!r.hora_entrada || r.estado === 'ausente') continue
@@ -610,6 +630,7 @@ export async function GET(request: NextRequest) {
 
         // Minutos netos del día (lo mismo que se descuenta en el total)
         const minNetosDia = Math.max(0, minBrutos - (descontarAlmuerzo ? minAlmDia : 0) - minPartDia)
+        if (minNetosDia > 0) minutosNetosPorFecha.set(r.fecha as string, minNetosDia)
 
         // Clasificar según porcentaje respecto a los minutos esperados del turno
         const esperadosDia = minutosEsperadosDia(r.fecha as string)
@@ -670,7 +691,9 @@ export async function GET(request: NextRequest) {
         else if (esLaboral) clasificacion = 'ausente'
         else clasificacion = 'no_laboral'
 
-        return { fecha: f, clasificacion }
+        const min = minutosNetosPorFecha.get(f)
+        const horas_netas = min !== undefined ? min / 60 : null
+        return { fecha: f, clasificacion, horas_netas }
       })
 
       const minutosDescontados = (descontarAlmuerzo ? minutosAlmuerzo : 0) + minutosParticular
@@ -922,15 +945,19 @@ export async function GET(request: NextRequest) {
         conceptos_aplicados: conceptosAplicados,
         total_haberes: totalHaberes,
         total_descuentos_conceptos: totalDescuentosConceptos,
-        // Adelantos
+        // Adelantos / descuentos del período (RESTAN del neto)
         descuento_adelanto: Math.round((cuotasPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
         cuotas_adelanto: cuotasPorMiembro.get(m.id as string)?.cantidad || 0,
+        // Bonos del período (SUMAN al neto)
+        bonos_periodo: Math.round((bonosPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
+        cuotas_bonos: bonosPorMiembro.get(m.id as string)?.cantidad || 0,
         // Saldo anterior (positivo = a favor del empleado, negativo = le deben descontar)
         saldo_anterior: Math.round((saldoAnteriorPorMiembro.get(m.id as string) || 0) * 100) / 100,
-        // Neto = bruto + haberes - descuentos conceptos - adelantos - saldo
+        // Neto = bruto + haberes + bonos - descuentos conceptos - adelantos - saldo
         monto_neto: Math.round((
           montoPagar
           + totalHaberes
+          + (bonosPorMiembro.get(m.id as string)?.monto || 0)
           - totalDescuentosConceptos
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
           - (saldoAnteriorPorMiembro.get(m.id as string) || 0)
