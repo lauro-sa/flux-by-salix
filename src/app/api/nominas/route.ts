@@ -1045,6 +1045,24 @@ export async function GET(request: NextRequest) {
         recibo_correo_enviado_a: reciboPorMiembro.get(m.id as string)?.correo_enviado_a ?? null,
         recibo_whatsapp_enviado_en: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_en ?? null,
         recibo_whatsapp_enviado_a: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_a ?? null,
+        // Snapshot del contrato vigente — lo usa la generación del PDF
+        // borrador cuando se manda el recibo antes de registrar el pago.
+        // Para pagos ya grabados se ignora (prevalece el snapshot guardado
+        // en `pagos_nomina.contrato_snapshot`).
+        contrato_snapshot: contratoCompMiembro
+          ? {
+              contrato_id: contratoCompMiembro.id,
+              fecha_inicio: contratoCompMiembro.fecha_inicio,
+              fecha_fin: contratoCompMiembro.fecha_fin,
+              condicion: contratoCompMiembro.condicion,
+              modalidad_calculo: contratoCompMiembro.modalidad_calculo,
+              monto_base: Number(contratoCompMiembro.monto_base),
+              frecuencia_pago: contratoCompMiembro.frecuencia_pago,
+              regimen: contratoCompMiembro.regimen,
+              sector: null,
+              turno: null,
+            }
+          : null,
       }
     })
 

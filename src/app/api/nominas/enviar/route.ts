@@ -5,7 +5,7 @@ import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { resolverVariables } from '@/lib/variables/resolver'
 import { construirContextoNomina, type DatosNominaCorreo } from '@/lib/plantilla-correo-nomina'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
-import { generarPdfRecibo } from '@/lib/nominas/generar-pdf-recibo'
+import { generarPdfRecibo, generarPdfReciboCalculado } from '@/lib/nominas/generar-pdf-recibo'
 // Importar entidades para que el registro de variables esté disponible
 import '@/lib/variables/entidades'
 
@@ -105,9 +105,13 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // ─── Adjuntar PDF del recibo (si existe pago en el período) ───
-      // Guardamos el id del pago para marcar `recibo_correo_enviado_*`
-      // si el envío termina OK — así la UI puede mostrar "ya enviado".
+      // ─── Adjuntar PDF del recibo ───
+      // 1) Si ya hay pago grabado: PDF definitivo desde la fila de pagos.
+      // 2) Si no hay pago: PDF "borrador" generado on-the-fly desde la
+      //    liquidación calculada — el operador no debería tener que
+      //    registrar el pago primero para mandar el recibo.
+      // Si el envío termina OK marcamos `recibo_correo_enviado_*` SOLO
+      // cuando hay pago grabado (la trazabilidad arranca desde ahí).
       let pdfUrl: string | null = null
       let pdfNombre: string | null = null
       let pagoIdActual: string | null = null
@@ -125,8 +129,21 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .maybeSingle()
           if (pago) {
+            // Caso 1: hay pago grabado → PDF definitivo
             pagoIdActual = pago.id as string
             const { url } = await generarPdfRecibo(admin, pago.id, empresaId)
+            pdfUrl = url
+            pdfNombre = `Recibo_${empleado.nombre_empleado.replace(/\s+/g, '_')}_${periodo_desde}_${periodo_hasta}.pdf`
+          } else if (empleado.datos_calculo_pdf) {
+            // Caso 2: no hay pago → PDF borrador desde datos calculados.
+            // El frontend manda `datos_calculo_pdf` con el snapshot del
+            // contrato + métricas del período → no hace falta recalcular.
+            const { url } = await generarPdfReciboCalculado(admin, empresaId, {
+              miembro_id: empleado.miembro_id,
+              fecha_inicio_periodo: periodo_desde,
+              fecha_fin_periodo: periodo_hasta,
+              ...empleado.datos_calculo_pdf,
+            })
             pdfUrl = url
             pdfNombre = `Recibo_${empleado.nombre_empleado.replace(/\s+/g, '_')}_${periodo_desde}_${periodo_hasta}.pdf`
           }

@@ -76,6 +76,19 @@ interface ResultadoNominaConCorreo {
   bonos_periodo?: number
   /** Conceptos del contrato aplicados al período (Presentismo, Antigüedad, etc.). */
   conceptos_aplicados?: { tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }[]
+  /** Snapshot del contrato vigente — habilita PDF borrador sin pago grabado. */
+  contrato_snapshot?: {
+    contrato_id: string
+    fecha_inicio: string
+    fecha_fin: string | null
+    condicion: string
+    modalidad_calculo: string
+    monto_base: number
+    frecuencia_pago: string
+    regimen: string
+    sector: { id: string; nombre: string } | null
+    turno: { id: string; nombre: string } | null
+  } | null
 }
 
 interface PlantillaWA {
@@ -156,6 +169,27 @@ function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: st
     adelanto_total: r.descuento_adelanto ?? 0,
     saldo_anterior: r.saldo_anterior ?? 0,
     monto_neto: r.monto_neto,
+    // Datos para PDF borrador cuando no hay pago grabado todavía. Solo
+    // se manda si tenemos snapshot — sin snapshot el backend no podría
+    // armar el template.
+    datos_calculo_pdf: r.contrato_snapshot ? {
+      concepto: etiquetaPeriodo,
+      contrato_snapshot: r.contrato_snapshot,
+      dias_habiles: r.dias_laborales,
+      dias_trabajados: r.dias_trabajados,
+      dias_ausentes: r.dias_ausentes,
+      tardanzas: r.dias_tardanza,
+      monto_sugerido: r.monto_neto ?? r.monto_pagar,
+      monto_abonado: r.monto_neto ?? r.monto_pagar,
+      conceptos: (r.conceptos_aplicados ?? []).map(c => ({
+        nombre: c.nombre,
+        tipo: c.tipo,
+        monto: c.monto,
+        detalle: c.detalle ?? null,
+        automatico: true,
+      })),
+      notas: null,
+    } : undefined,
   }) as DatosNominaCorreo
 }
 

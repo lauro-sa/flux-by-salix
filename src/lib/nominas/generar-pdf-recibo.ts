@@ -47,6 +47,147 @@ interface OpcionesGenerar {
 const BUCKET = 'comprobantes-pago'
 const EXPIRACION_DEFAULT_SEGUNDOS = 60 * 60 * 24 * 7 // 7 días
 
+// ─── Modo "sin pago grabado" ───────────────────────────────────────
+//
+// Cuando el operador manda el recibo ANTES de registrar el pago, no
+// tenemos fila en `pagos_nomina` para leer. La función
+// `generarPdfReciboCalculado` arma el PDF desde los datos calculados
+// (resultado de /api/nominas) y lo sube a Storage con una clave
+// `borradores/<empresa>/<miembro>-<desde>-<hasta>.pdf` que se
+// sobreescribe en cada llamada. Cuando después se registra el pago,
+// `generarPdfRecibo` regenera el archivo en su path definitivo
+// (`<empresa>/nominas/<año>/<pago_id>.pdf`).
+//
+// El PDF "borrador" no queda vinculado a una fila de pagos_nomina, por
+// lo que no se puede listar desde la UI de historial — es de uso
+// efímero (adjunto al correo del momento). Si querés conservarlo,
+// registrá el pago.
+
+export interface DatosCalculadosPdf {
+  /** Identificador del miembro empleado (usado como clave en Storage). */
+  miembro_id: string
+  fecha_inicio_periodo: string
+  fecha_fin_periodo: string
+  /** Etiqueta legible del período: "Quincena 1-15 de abril 2026". */
+  concepto: string
+  contrato_snapshot: import('@/tipos/nominas').ContratoSnapshot | null
+  dias_habiles: number
+  dias_trabajados: number
+  dias_ausentes: number
+  tardanzas: number
+  monto_sugerido: number
+  /** Cuánto se transferirá realmente — para borradores coincide con sugerido. */
+  monto_abonado: number
+  /** Mismo shape que `conceptos_aplicados_pago` en BD, pero sin `automatico` boolean al final. */
+  conceptos: LineaConceptoRecibo[]
+  notas?: string | null
+}
+
+/**
+ * Genera el PDF del recibo en modo "borrador" (sin pago grabado).
+ * Lo sube a Storage en una clave sobreescribible para que el operador
+ * pueda mandarlo por correo. Devuelve la URL firmada para adjuntar.
+ */
+export async function generarPdfReciboCalculado(
+  admin: SupabaseClient,
+  empresaId: string,
+  datos: DatosCalculadosPdf,
+  opciones: OpcionesGenerar = {},
+): Promise<ResultadoPdfRecibo> {
+  const expiracion = opciones.expiracionSegundos ?? EXPIRACION_DEFAULT_SEGUNDOS
+
+  // Datos de empresa + identidad del empleado, igual que en el flujo normal.
+  const [{ data: empresa }, { data: miembro }] = await Promise.all([
+    admin.from('empresas')
+      .select('nombre, logo_url, datos_fiscales, telefono, correo, ubicacion')
+      .eq('id', empresaId)
+      .maybeSingle(),
+    admin.from('miembros')
+      .select('id, usuario_id, numero_empleado')
+      .eq('id', datos.miembro_id)
+      .maybeSingle(),
+  ])
+  if (!empresa) throw new Error('Empresa no encontrada')
+  if (!miembro) throw new Error('Miembro no encontrado')
+
+  const identidad = await obtenerIdentidadMiembro(
+    admin,
+    { id: miembro.id, usuario_id: miembro.usuario_id },
+    empresaId,
+  )
+
+  const empresaRecibo: DatosEmpresaRecibo = {
+    nombre: empresa.nombre,
+    logo_url: empresa.logo_url ?? null,
+    datos_fiscales: (empresa.datos_fiscales as Record<string, unknown> | null) ?? null,
+    telefono: empresa.telefono ?? null,
+    correo: empresa.correo ?? null,
+    ubicacion: empresa.ubicacion ?? null,
+  }
+  const empleadoRecibo: DatosEmpleadoRecibo = {
+    nombre: identidad?.nombre ?? '—',
+    apellido: identidad?.apellido ?? null,
+    numero_empleado: miembro.numero_empleado ?? null,
+    documento_tipo: identidad?.documento_tipo ?? null,
+    documento_numero: identidad?.documento_numero ?? null,
+    banco: null,
+  }
+
+  const montoBase = calcularMontoBaseDesdeSnapshot(datos.contrato_snapshot, {
+    dias_periodo: datos.dias_habiles,
+    dias_trabajados: datos.dias_trabajados,
+  })
+
+  const datosPdf: DatosReciboPdf = {
+    // ID sintético — el operador todavía no registró el pago. Se usa
+    // solo para mostrar el "número de recibo" en el pie del documento.
+    pago_id: `borrador-${datos.miembro_id.slice(0, 8)}-${datos.fecha_inicio_periodo}`,
+    concepto: datos.concepto,
+    periodo_inicio: datos.fecha_inicio_periodo,
+    periodo_fin: datos.fecha_fin_periodo,
+    empresa: empresaRecibo,
+    empleado: empleadoRecibo,
+    contrato: datos.contrato_snapshot,
+    asistencia: {
+      dias_periodo: datos.dias_habiles,
+      dias_trabajados: datos.dias_trabajados,
+      dias_ausentes: datos.dias_ausentes,
+      tardanzas: datos.tardanzas,
+    },
+    monto_base: montoBase,
+    conceptos: datos.conceptos,
+    monto_abonado: datos.monto_abonado,
+    monto_sugerido: datos.monto_sugerido,
+    fecha_emision: new Date().toISOString().slice(0, 10),
+    notas: datos.notas ?? null,
+  }
+
+  const html = renderizarHtmlRecibo(datosPdf)
+  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
+
+  // Storage path "borradores/" — sobreescribible por (empresa, miembro, período).
+  // Cuando después se registra el pago real, queda este archivo huérfano:
+  // un cleanup programado puede borrar borradores con +30 días en futuro PR.
+  const storagePath = `${empresaId}/borradores/${datos.miembro_id}-${datos.fecha_inicio_periodo}-${datos.fecha_fin_periodo}.pdf`
+
+  await admin.storage.from(BUCKET).remove([storagePath]).catch(() => {})
+  const { error: errUpload } = await admin.storage
+    .from(BUCKET)
+    .upload(storagePath, pdf, {
+      contentType: 'application/pdf',
+      upsert: true,
+      cacheControl: 'private, no-cache',
+    })
+  if (errUpload) throw new Error(`Error al subir PDF borrador: ${errUpload.message}`)
+
+  const { data: signed, error: errSigned } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, expiracion)
+  if (errSigned || !signed) throw new Error(`Error al firmar URL: ${errSigned?.message}`)
+
+  return { url: signed.signedUrl, storagePath, tamano: pdf.length }
+}
+
 /**
  * Genera (o regenera) el PDF de un recibo y lo deja persistido en Storage.
  * Si el archivo ya existe en la ruta destino, se sobreescribe (upsert).

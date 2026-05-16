@@ -100,6 +100,32 @@ export interface DatosNominaCorreo {
   saldo_anterior?: number
   /** Monto neto que efectivamente se transfiere. */
   monto_neto?: number
+  /**
+   * Datos necesarios para generar el PDF del recibo en modo "borrador"
+   * (cuando el operador manda antes de registrar el pago). Si está
+   * presente y NO hay pago grabado, el backend arma el PDF al vuelo y
+   * lo adjunta al correo. Si no está, el correo se manda sin adjunto.
+   * Cuando hay pago grabado, este campo se ignora — siempre prevalece
+   * el PDF definitivo del pago.
+   */
+  datos_calculo_pdf?: {
+    concepto: string
+    contrato_snapshot: import('@/tipos/nominas').ContratoSnapshot | null
+    dias_habiles: number
+    dias_trabajados: number
+    dias_ausentes: number
+    tardanzas: number
+    monto_sugerido: number
+    monto_abonado: number
+    conceptos: Array<{
+      nombre: string
+      tipo: 'haber' | 'descuento'
+      monto: number
+      detalle: string | null
+      automatico: boolean
+    }>
+    notas?: string | null
+  }
 }
 
 // ─── Helpers para generar bloques HTML condicionales ───
