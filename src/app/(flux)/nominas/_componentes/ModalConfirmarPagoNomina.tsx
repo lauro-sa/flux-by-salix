@@ -25,12 +25,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Check, Wallet, Building2, Banknote, FileSignature, Upload,
-  FileText, X as IconX, Loader2, Plus,
+  Wallet, Building2, Banknote, FileSignature, Upload,
+  FileText, X as IconX, Loader2,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
-import { Input } from '@/componentes/ui/Input'
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -244,7 +243,8 @@ export function ModalConfirmarPagoNomina({
 
   const montoNum = parseFloat(monto) || 0
   const diff = montoNum - netoSugerido
-  const labelConfirmar = montoNum > 0 ? `Confirmar pago de ${formatearMonto(montoNum)}` : 'Confirmar pago'
+  const labelConfirmar = montoNum > 0 ? `Confirmar ${formatearMonto(montoNum)}` : 'Confirmar pago'
+  const requiereReferencia = metodo === 'transferencia' || metodo === 'cuenta_digital' || metodo === 'cheque'
 
   return (
     <Modal
@@ -259,7 +259,6 @@ export function ModalConfirmarPagoNomina({
           </Boton>
           <Boton
             tamano="sm"
-            icono={<Check size={14} />}
             onClick={handleConfirmar}
             cargando={confirmando}
             disabled={!monto || montoNum <= 0 || subiendoComprobante}
@@ -269,34 +268,30 @@ export function ModalConfirmarPagoNomina({
         </div>
       }
     >
-      <div className="space-y-5">
-        {/* ─── Resumen del cálculo ─── */}
-        <section className="rounded-lg bg-superficie-elevada/40 border border-borde-sutil px-4 py-3 space-y-1.5">
-          <div className="flex justify-between text-sm">
-            <span className="text-texto-terciario">Neto sugerido</span>
-            <span className="text-texto-primario font-medium tabular-nums">{formatearMonto(netoSugerido)}</span>
-          </div>
-          {descuentoAdelanto > 0 && (
-            <div className="flex justify-between text-xs">
-              <span className="text-texto-terciario">Incluye descuento adelanto</span>
-              <span className="text-insignia-advertencia tabular-nums">-{formatearMonto(descuentoAdelanto)}</span>
-            </div>
-          )}
-          {montoNum > 0 && Math.abs(diff) > 0.01 && (
-            <div className="flex justify-between text-xs pt-1 border-t border-borde-sutil mt-1.5">
-              <span className="text-texto-terciario">Diferencia</span>
-              <span className={diff > 0 ? 'text-insignia-exito tabular-nums' : 'text-insignia-peligro tabular-nums'}>
-                {diff > 0 ? '+' : ''}{formatearMonto(diff)}
-                {diff > 0 ? ' (a favor del empleado)' : ' (queda debiendo)'}
+      <div className="space-y-4">
+        {/* ─── Resumen del cálculo: 1 fila compacta ─── */}
+        <div className="flex items-baseline justify-between gap-4 px-3 py-2 rounded-lg bg-superficie-elevada/40 border border-borde-sutil">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="text-[11px] uppercase tracking-wider text-texto-terciario">Neto sugerido</span>
+            <span className="text-base font-semibold text-texto-primario tabular-nums">{formatearMonto(netoSugerido)}</span>
+            {descuentoAdelanto > 0 && (
+              <span className="text-[11px] text-texto-terciario truncate">
+                incluye <span className="text-insignia-advertencia">-{formatearMonto(descuentoAdelanto)}</span> de adelanto
               </span>
-            </div>
+            )}
+          </div>
+          {montoNum > 0 && Math.abs(diff) > 0.01 && (
+            <span className={`text-xs tabular-nums shrink-0 ${diff > 0 ? 'text-insignia-exito' : 'text-insignia-peligro'}`}>
+              {diff > 0 ? '+' : ''}{formatearMonto(diff)}
+              <span className="opacity-70 ml-1">{diff > 0 ? '(a favor)' : '(queda debiendo)'}</span>
+            </span>
           )}
-        </section>
+        </div>
 
-        {/* ─── Método de pago ─── */}
-        <section>
-          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Método de pago</p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5">
+        {/* ─── Método de pago: pills compactas en una fila ─── */}
+        <div>
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Método</p>
+          <div className="flex gap-1.5 flex-wrap">
             {METODOS.map(m => {
               const activo = metodo === m.valor
               return (
@@ -306,74 +301,65 @@ export function ModalConfirmarPagoNomina({
                   onClick={() => setMetodo(m.valor)}
                   disabled={confirmando}
                   title={m.descripcion}
-                  className={`flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-lg border text-xs transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     activo
-                      ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
-                      : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+                      ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                      : 'border-borde-sutil text-texto-terciario hover:text-texto-primario'
                   }`}
                 >
                   {m.icono}
-                  <span className="font-medium">{m.etiqueta}</span>
+                  {m.etiqueta}
                 </button>
               )
             })}
           </div>
-        </section>
+        </div>
 
-        {/* ─── Cuenta destino (solo para transferencia / digital) ─── */}
+        {/* ─── Cuenta destino (compacta, una sola línea por cuenta) ─── */}
         {requiereCuenta && (
-          <section>
-            <div className="flex items-baseline justify-between gap-2 mb-2">
+          <div>
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
               <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
                 Cuenta destino
               </p>
-              {cargandoCuentas && <Loader2 size={12} className="animate-spin text-texto-terciario" />}
+              {cargandoCuentas && <Loader2 size={11} className="animate-spin text-texto-terciario" />}
             </div>
             {cuentasFiltradas.length === 0 && !cargandoCuentas ? (
-              <div className="rounded-lg border border-dashed border-borde-sutil px-4 py-3 text-xs text-texto-terciario">
-                Este empleado no tiene cuentas {metodo === 'transferencia' ? 'bancarias' : 'digitales'} cargadas. Podés
-                seguir registrando el pago y cargarle la cuenta más tarde desde su ficha.
+              <div className="rounded-lg border border-dashed border-borde-sutil px-3 py-2 text-xs text-texto-terciario">
+                Sin cuentas {metodo === 'transferencia' ? 'bancarias' : 'digitales'} cargadas. Podés seguir y cargarlas
+                desde la ficha del empleado más tarde.
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {cuentasFiltradas.map(c => {
                   const seleccionada = cuentaId === c.id
+                  const titulo = c.etiqueta || c.banco || (c.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')
                   return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => setCuentaId(c.id)}
                       disabled={confirmando}
-                      className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-colors ${
                         seleccionada
-                          ? 'border-texto-marca/50 bg-texto-marca/10'
+                          ? 'border-texto-marca/40 bg-texto-marca/[0.08]'
                           : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte'
                       }`}
                     >
-                      <div className={`shrink-0 w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center ${
+                      <div className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
                         seleccionada ? 'border-texto-marca' : 'border-borde-fuerte'
                       }`}>
-                        {seleccionada && <div className="w-2 h-2 rounded-full bg-texto-marca" />}
+                        {seleccionada && <div className="w-1.5 h-1.5 rounded-full bg-texto-marca" />}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-texto-primario font-medium truncate">
-                            {c.etiqueta || c.banco || (c.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')}
-                          </span>
-                          {c.banco && c.etiqueta && (
-                            <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{c.banco}</span>
-                          )}
-                          {c.tipo_cuenta && (
-                            <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{c.tipo_cuenta}</span>
-                          )}
-                        </div>
-                        {(c.alias || c.numero_cuenta) && (
-                          <p className="text-xs text-texto-terciario mt-0.5 font-mono">
-                            {c.alias || c.numero_cuenta}
-                          </p>
+                      <div className="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
+                        <span className="text-sm text-texto-primario font-medium truncate">{titulo}</span>
+                        {c.banco && c.etiqueta && (
+                          <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{c.banco}</span>
                         )}
-                        {c.titular_nombre && (
-                          <p className="text-xs text-texto-terciario mt-0.5">Titular: {c.titular_nombre}</p>
+                        {(c.alias || c.numero_cuenta) && (
+                          <span className="text-xs text-texto-terciario font-mono truncate">
+                            · {c.alias || c.numero_cuenta}
+                          </span>
                         )}
                       </div>
                     </button>
@@ -381,13 +367,15 @@ export function ModalConfirmarPagoNomina({
                 })}
               </div>
             )}
-          </section>
+          </div>
         )}
 
-        {/* ─── Grid: monto + fecha ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* ─── Grid principal: monto + fecha + referencia ───
+             Aprovecha el ancho del modal 2xl para meter todo en una
+             sola fila en desktop. En mobile baja a 1 columna. */}
+        <div className={`grid grid-cols-1 gap-3 ${requiereReferencia ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           <InputMoneda
-            etiqueta="Monto a pagar"
+            etiqueta="Monto"
             value={monto}
             onChange={setMonto}
             moneda="ARS"
@@ -400,75 +388,82 @@ export function ModalConfirmarPagoNomina({
             anioMin={2020}
             anioMax={new Date().getFullYear() + 1}
           />
+          {requiereReferencia && (
+            <div>
+              <label className="block text-sm text-texto-secundario mb-1.5">
+                {metodo === 'cheque' ? 'N° cheque' : 'N° operación'}
+                <span className="text-texto-terciario font-normal"> (opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={referencia}
+                onChange={e => setReferencia(e.target.value)}
+                placeholder={metodo === 'cheque' ? 'Ej: 00012345' : 'Ej: 102938475610'}
+                disabled={confirmando}
+                className="w-full rounded-md bg-superficie-tarjeta border border-borde-sutil px-3 py-2 text-sm text-texto-primario placeholder:text-texto-terciario/60 focus:outline-none focus:border-texto-marca/50"
+              />
+            </div>
+          )}
         </div>
 
-        {/* ─── Referencia (solo transferencia / digital / cheque) ─── */}
-        {(metodo === 'transferencia' || metodo === 'cuenta_digital' || metodo === 'cheque') && (
-          <Input
-            tipo="text"
-            etiqueta={
-              metodo === 'cheque' ? 'Número de cheque (opcional)' : 'Número de operación / comprobante (opcional)'
-            }
-            value={referencia}
-            onChange={e => setReferencia(e.target.value)}
-            placeholder={metodo === 'cheque' ? 'Ej: 00012345' : 'Ej: 102938475610'}
-          />
-        )}
-
-        {/* ─── Comprobante ─── */}
-        <section>
-          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">
-            Comprobante (opcional)
-          </p>
-          {comprobanteUrl ? (
-            <div className="flex items-center gap-3 rounded-lg border border-borde-sutil bg-superficie-tarjeta px-3 py-2.5">
-              <FileText size={16} className="text-texto-terciario shrink-0" />
-              <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
-                 className="text-sm text-texto-marca hover:underline truncate flex-1">
-                {comprobanteNombre || 'Comprobante'}
-              </a>
+        {/* ─── Comprobante + notas en grid ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Comprobante */}
+          <div>
+            <p className="text-sm text-texto-secundario mb-1.5">Comprobante <span className="text-texto-terciario font-normal">(opcional)</span></p>
+            {comprobanteUrl ? (
+              <div className="flex items-center gap-2 rounded-md border border-borde-sutil bg-superficie-tarjeta px-2.5 py-2">
+                <FileText size={14} className="text-texto-terciario shrink-0" />
+                <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                   className="text-xs text-texto-marca hover:underline truncate flex-1">
+                  {comprobanteNombre || 'Comprobante'}
+                </a>
+                <button
+                  type="button"
+                  onClick={quitarComprobante}
+                  disabled={confirmando}
+                  className="shrink-0 text-texto-terciario hover:text-texto-primario p-0.5"
+                  title="Quitar"
+                >
+                  <IconX size={12} />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={quitarComprobante}
-                disabled={confirmando}
-                className="shrink-0 text-texto-terciario hover:text-texto-primario p-1"
-                title="Quitar comprobante"
+                onClick={() => inputArchivo.current?.click()}
+                disabled={subiendoComprobante || confirmando}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-borde-fuerte bg-superficie-tarjeta text-sm text-texto-terciario hover:border-texto-marca hover:text-texto-marca transition-colors disabled:opacity-50"
               >
-                <IconX size={14} />
+                {subiendoComprobante
+                  ? <><Loader2 size={13} className="animate-spin" /> Subiendo…</>
+                  : <><Upload size={13} /> Subir PDF o imagen</>}
               </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => inputArchivo.current?.click()}
-              disabled={subiendoComprobante || confirmando}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-borde-fuerte bg-superficie-tarjeta text-sm text-texto-secundario hover:border-texto-marca hover:text-texto-marca transition-colors disabled:opacity-50"
-            >
-              {subiendoComprobante
-                ? <><Loader2 size={14} className="animate-spin" /> Subiendo...</>
-                : <><Upload size={14} /> Subir PDF o imagen del comprobante</>}
-            </button>
-          )}
-          <input
-            ref={inputArchivo}
-            type="file"
-            accept={TIPOS_ACEPTADOS}
-            onChange={onSeleccionarArchivo}
-            className="hidden"
-          />
-          <p className="text-[10px] text-texto-terciario mt-1.5">
-            PDF, JPG, PNG o WEBP. Máximo {TAMANO_MAXIMO_MB} MB. Recomendado para transferencias y cheques.
-          </p>
-        </section>
+            )}
+            <input
+              ref={inputArchivo}
+              type="file"
+              accept={TIPOS_ACEPTADOS}
+              onChange={onSeleccionarArchivo}
+              className="hidden"
+            />
+          </div>
 
-        {/* ─── Notas ─── */}
-        <Input
-          tipo="text"
-          etiqueta="Notas (opcional)"
-          value={notas}
-          onChange={e => setNotas(e.target.value)}
-          placeholder="Observaciones del pago..."
-        />
+          {/* Notas */}
+          <div>
+            <label className="block text-sm text-texto-secundario mb-1.5">
+              Notas <span className="text-texto-terciario font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              value={notas}
+              onChange={e => setNotas(e.target.value)}
+              placeholder="Observaciones del pago…"
+              disabled={confirmando}
+              className="w-full rounded-md bg-superficie-tarjeta border border-borde-sutil px-3 py-2 text-sm text-texto-primario placeholder:text-texto-terciario/60 focus:outline-none focus:border-texto-marca/50"
+            />
+          </div>
+        </div>
       </div>
     </Modal>
   )
