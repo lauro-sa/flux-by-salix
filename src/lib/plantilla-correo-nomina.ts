@@ -37,6 +37,10 @@ export const HTML_RECIBO_NOMINA = `<p>Hola <strong>{{nomina.nombre_empleado}}</s
   <!-- Horas (generado condicionalmente) -->
   {{nomina.seccion_horas}}
 
+  <!-- Desglose del recibo: conceptos del contrato + bonos + adelantos + neto.
+       Vacío si no hay nada que detallar. -->
+  {{nomina.seccion_conceptos}}
+
   <!-- Nota almuerzo (solo si hubo fichaje de almuerzo) -->
   {{nomina.seccion_nota}}
 
@@ -81,6 +85,21 @@ export interface DatosNominaCorreo {
   compensacion_tipo: string
   compensacion_detalle: string
   monto_bruto: number
+  /**
+   * Conceptos aplicados al recibo (haberes y descuentos) del motor:
+   * Presentismo, Antigüedad, descuentos por uniforme, etc. Se listan
+   * en una sección dedicada del correo. Vacío si el contrato no
+   * tiene conceptos asignados o no se cumplió ninguna condición.
+   */
+  conceptos_recibo?: { tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }[]
+  /** Bonos extra del período (suman al neto). */
+  bono_total?: number
+  /** Adelantos / descuentos puntuales (restan del neto). */
+  adelanto_total?: number
+  /** Saldo del período anterior: positivo = a favor del empleado (resta), negativo = en contra (suma). */
+  saldo_anterior?: number
+  /** Monto neto que efectivamente se transfiere. */
+  monto_neto?: number
 }
 
 // ─── Helpers para generar bloques HTML condicionales ───
@@ -169,6 +188,73 @@ function construirSeccionHoras(datos: DatosNominaCorreo): string {
   </td></tr>`
 }
 
+/**
+ * Sección con el desglose completo del recibo: conceptos del motor
+ * (Presentismo, Antigüedad, etc.), bonos del período, adelantos,
+ * descuentos puntuales, saldo anterior y neto a transferir.
+ *
+ * Se omite por completo si no hay nada que mostrar (el contrato no
+ * tiene conceptos asignados, no hay ajustes, ni saldo). En ese caso
+ * el correo cae al monto bruto de siempre.
+ */
+function construirSeccionConceptos(datos: DatosNominaCorreo): string {
+  const conceptos = datos.conceptos_recibo ?? []
+  const haberes = conceptos.filter(c => c.tipo === 'haber')
+  const descuentos = conceptos.filter(c => c.tipo === 'descuento')
+  const bono = datos.bono_total ?? 0
+  const adelanto = datos.adelanto_total ?? 0
+  const saldo = datos.saldo_anterior ?? 0
+  const neto = datos.monto_neto ?? datos.monto_bruto
+
+  // Si no hay nada que detallar, no rendereamos la sección entera
+  // — el correo se lee más limpio cuando no hay desglose.
+  const hayDetalle = haberes.length > 0 || descuentos.length > 0 || bono > 0 || adelanto > 0 || saldo !== 0
+  if (!hayDetalle) return ''
+
+  const fmtMoneda = (n: number) =>
+    `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+
+  const filas: string[] = []
+
+  // Sueldo base como punto de referencia.
+  filas.push(FILA('Sueldo base del período', fmtMoneda(datos.monto_bruto)))
+
+  for (const h of haberes) {
+    filas.push(FILA(`+ ${h.nombre}`, fmtMoneda(h.monto), 'color:#16a34a;'))
+  }
+
+  if (bono > 0) {
+    filas.push(FILA('+ Bono / pago extra', fmtMoneda(bono), 'color:#16a34a;'))
+  }
+
+  for (const d of descuentos) {
+    filas.push(FILA(`− ${d.nombre}`, fmtMoneda(d.monto), 'color:#dc2626;'))
+  }
+
+  if (adelanto > 0) {
+    filas.push(FILA('− Adelantos / descuentos del período', fmtMoneda(adelanto), 'color:#dc2626;'))
+  }
+
+  if (saldo > 0) {
+    filas.push(FILA('− Saldo a favor del período anterior', fmtMoneda(saldo), 'color:#dc2626;'))
+  } else if (saldo < 0) {
+    filas.push(FILA('+ Saldo en contra del período anterior', fmtMoneda(Math.abs(saldo)), 'color:#16a34a;'))
+  }
+
+  filas.push(FILA_TOTAL('Neto a transferir', fmtMoneda(neto)))
+
+  return `<tr><td style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;">
+    <p style="margin:0 0 10px;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Desglose del recibo</p>
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:#475569;">
+      ${filas.join('\n      ')}
+    </table>
+    <p style="margin:10px 0 0;font-size:11px;color:#64748b;font-style:italic;">
+      Conceptos como Presentismo o Antigüedad se aplican una vez al mes,
+      en la última liquidación del período mensual.
+    </p>
+  </td></tr>`
+}
+
 function construirSeccionNota(datos: DatosNominaCorreo): string {
   const huboAlmuerzo = datos.dias_con_almuerzo > 0
   const huboParticular = datos.dias_con_salida_particular > 0
@@ -238,6 +324,7 @@ export function construirContextoNomina(
       // Bloques HTML condicionales
       seccion_asistencia: construirSeccionAsistencia(datos),
       seccion_horas: construirSeccionHoras(datos),
+      seccion_conceptos: construirSeccionConceptos(datos),
       seccion_nota: construirSeccionNota(datos),
       // Compensación
       compensacion_tipo: etiquetaTipo,

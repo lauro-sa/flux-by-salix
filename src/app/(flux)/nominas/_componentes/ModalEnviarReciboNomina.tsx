@@ -72,6 +72,10 @@ interface ResultadoNominaConCorreo {
   monto_neto?: number
   descuento_adelanto?: number
   saldo_anterior?: number
+  /** Bonos one-off del período (sql/092). Suman al neto. */
+  bonos_periodo?: number
+  /** Conceptos del contrato aplicados al período (Presentismo, Antigüedad, etc.). */
+  conceptos_aplicados?: { tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }[]
 }
 
 interface PlantillaWA {
@@ -137,6 +141,21 @@ function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: st
     compensacion_tipo: r.compensacion_tipo,
     compensacion_detalle: r.monto_detalle,
     monto_bruto: r.monto_pagar,
+    // Desglose del recibo para la sección de conceptos del correo:
+    // los conceptos del motor (Presentismo, Antigüedad, etc.) + los
+    // ajustes one-off del período (bonos, adelantos, descuentos) +
+    // el saldo anterior + el neto. Si no hay conceptos ni ajustes,
+    // la sección se omite del correo.
+    conceptos_recibo: (r.conceptos_aplicados ?? []).map(c => ({
+      tipo: c.tipo,
+      nombre: c.nombre,
+      monto: c.monto,
+      detalle: c.detalle ?? null,
+    })),
+    bono_total: r.bonos_periodo ?? 0,
+    adelanto_total: r.descuento_adelanto ?? 0,
+    saldo_anterior: r.saldo_anterior ?? 0,
+    monto_neto: r.monto_neto,
   }) as DatosNominaCorreo
 }
 
@@ -167,6 +186,15 @@ function resolverPreviewWA(
   lineasDescuentos: string[],
 ): { encabezado: string; cuerpo: string; pie: string } {
   const detalleLegacy = lineasDescuentos.join('\n')
+  // Conceptos del recibo formateados como una lista de líneas legibles
+  // — la plantilla de WhatsApp suele meterlos como variable
+  // {{nomina.detalle_haberes}} / {{nomina.detalle_descuentos}}.
+  const haberes = (r.conceptos_aplicados ?? []).filter(c => c.tipo === 'haber')
+  const descuentos = (r.conceptos_aplicados ?? []).filter(c => c.tipo === 'descuento')
+  const fmtMoneda = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  const lineasHaberes = haberes.map(h => `+ ${h.nombre}: ${fmtMoneda(h.monto)}`)
+  const lineasConceptosDesc = descuentos.map(d => `- ${d.nombre}: ${fmtMoneda(d.monto)}`)
+
   const datos = construirDatosPlantilla({
     nomina: {
       nombre: r.nombre,
@@ -181,6 +209,15 @@ function resolverPreviewWA(
       monto_detalle: r.monto_detalle,
       detalle_descuentos: detalleLegacy,
       descuentos_lista: lineasDescuentos,
+      // Conceptos del contrato (Presentismo, Antigüedad, etc.) +
+      // bonos/adelantos del período. Las plantillas WA pueden
+      // pintarlos con {{nomina.detalle_haberes}} y
+      // {{nomina.detalle_descuentos_conceptos}}.
+      bono_total: r.bonos_periodo ?? 0,
+      detalle_haberes: lineasHaberes.join('\n'),
+      haberes_lista: lineasHaberes,
+      detalle_descuentos_conceptos: lineasConceptosDesc.join('\n'),
+      descuentos_conceptos_lista: lineasConceptosDesc,
     },
   })
 

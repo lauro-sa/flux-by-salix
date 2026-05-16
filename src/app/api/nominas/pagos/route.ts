@@ -155,10 +155,31 @@ export async function POST(request: NextRequest) {
 
   // ─── 3) Insertar conceptos_aplicados_pago ───
   //
-  // Snapshot inmutable: aunque después se borre el concepto del catálogo,
-  // este registro mantiene los valores históricos. Tabla: ver sql/075.
+  // Snapshot inmutable: aunque después se borre el concepto del catálogo
+  // o el adelanto, este registro mantiene los valores históricos.
+  //
+  // Para los ajustes one-off del período (adelantos, descuentos, bonos)
+  // resolvemos su `tipo` y `notas` desde `adelantos_nomina` antes de
+  // snappear. Así el PDF muestra los bonos como haberes y los
+  // adelantos/descuentos como descuentos, sin necesidad de joins
+  // futuros que podrían fallar si se borra el adelanto.
+  const adelantoIds = Array.from(new Set(detalle.adelantos_aplicados.map(a => a.adelanto_id)))
+  const ajustesMeta = new Map<string, { tipo: 'adelanto' | 'descuento' | 'bono'; notas: string | null }>()
+  if (adelantoIds.length > 0) {
+    const { data: ajustes } = await admin
+      .from('adelantos_nomina')
+      .select('id, tipo, notas')
+      .in('id', adelantoIds)
+    for (const a of ajustes ?? []) {
+      ajustesMeta.set(a.id as string, {
+        tipo: ((a.tipo as string) ?? 'adelanto') as 'adelanto' | 'descuento' | 'bono',
+        notas: (a.notas as string) ?? null,
+      })
+    }
+  }
+
   const filasConceptos = [
-    // Conceptos automáticos del motor
+    // Conceptos automáticos del motor (vienen del contrato)
     ...detalle.conceptos_aplicados.map(c => ({
       empresa_id: empresaId,
       pago_nomina_id: pago.id,
@@ -169,6 +190,29 @@ export async function POST(request: NextRequest) {
       automatico: true,
       detalle: c.detalle,
     })),
+    // Ajustes del período (adelantos / descuentos / bonos):
+    //   - bono       → snapshot como tipo 'haber' (suma al neto).
+    //   - adelanto / descuento → snapshot como tipo 'descuento' (resta).
+    // El nombre_snapshot describe el origen para que el recibo lo
+    // muestre como una línea más.
+    ...detalle.adelantos_aplicados.map(a => {
+      const meta = ajustesMeta.get(a.adelanto_id)
+      const esBono = meta?.tipo === 'bono'
+      const esDesc = meta?.tipo === 'descuento'
+      const nombreBase = esBono ? 'Bono extra'
+        : esDesc ? 'Descuento manual'
+        : `Adelanto · cuota ${a.numero_cuota}`
+      return {
+        empresa_id: empresaId,
+        pago_nomina_id: pago.id,
+        concepto_id: null,
+        nombre_snapshot: meta?.notas?.trim() || nombreBase,
+        tipo: esBono ? 'haber' : 'descuento',
+        monto: a.monto,
+        automatico: true,
+        detalle: meta?.notas?.trim() && nombreBase !== meta.notas.trim() ? nombreBase : null,
+      }
+    }),
     // Conceptos extra agregados manualmente desde la UI
     ...conceptosExtra.map(c => ({
       empresa_id: empresaId,
