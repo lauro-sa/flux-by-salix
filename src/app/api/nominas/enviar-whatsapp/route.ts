@@ -53,13 +53,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta } = body as {
+    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta, forzar_reenvio } = body as {
       canal_id: string
       plantilla_id: string
       // Rango de fechas del período — usado para filtrar las cuotas de adelantos
       // que entran en el recibo. Si no llega, no se incluye `detalle_descuentos`.
       periodo_desde?: string
       periodo_hasta?: string
+      /**
+       * Igual que en /api/nominas/enviar: salta el guard anti-duplicado
+       * de 5 minutos. Si false/no viene, los empleados que recibieron
+       * recibo WA recientemente se reportan como omitidos.
+       */
+      forzar_reenvio?: boolean
       empleados: {
         miembro_id?: string
         nombre: string
@@ -145,6 +151,36 @@ export async function POST(request: NextRequest) {
         // del miembro (canal_notif_telefono). Si está vacío, no se envía.
         resultados.push({ telefono: '', nombre: emp.nombre, ok: false, error: 'Sin teléfono en el canal elegido' })
         continue
+      }
+
+      // Guard anti-duplicado: rechaza envíos al mismo empleado dentro
+      // de los 5 minutos posteriores al último envío WA. Bypasseable
+      // con `forzar_reenvio: true`.
+      if (emp.miembro_id && periodo_desde && periodo_hasta && !forzar_reenvio) {
+        const { data: pagoExistente } = await admin
+          .from('pagos_nomina')
+          .select('id, recibo_whatsapp_enviado_en')
+          .eq('empresa_id', empresaId)
+          .eq('miembro_id', emp.miembro_id)
+          .eq('fecha_inicio_periodo', periodo_desde)
+          .eq('fecha_fin_periodo', periodo_hasta)
+          .eq('eliminado', false)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pagoExistente?.recibo_whatsapp_enviado_en) {
+          const ultimoEnvio = new Date(pagoExistente.recibo_whatsapp_enviado_en).getTime()
+          const ahora = Date.now()
+          if (ahora - ultimoEnvio < 5 * 60 * 1000) {
+            resultados.push({
+              telefono: emp.telefono,
+              nombre: emp.nombre,
+              ok: false,
+              error: 'Recibo ya enviado recientemente. Usar "Reenviar" si es intencional.',
+            })
+            continue
+          }
+        }
       }
 
       // Cargar ajustes del período (adelantos / descuentos / bonos) usando

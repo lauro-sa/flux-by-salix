@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       adjuntos_ids,
       periodo_desde,
       periodo_hasta,
+      forzar_reenvio,
     } = body as {
       canal_id: string
       asunto_plantilla: string
@@ -60,6 +61,15 @@ export async function POST(request: NextRequest) {
        *  del empleado y adjunta el PDF del recibo. */
       periodo_desde?: string
       periodo_hasta?: string
+      /**
+       * Si true, salta el guard anti-duplicado (que rechaza envíos al
+       * mismo empleado dentro de los 5 minutos posteriores al último
+       * envío exitoso). Útil para reintentar fallidos o reenviar
+       * intencionalmente. Cuando false/no viene, los envíos a empleados
+       * que recibieron su recibo recién se reportan como "omitido" sin
+       * llegar al canal real.
+       */
+      forzar_reenvio?: boolean
     }
 
     if (!canal_id) return NextResponse.json({ error: 'canal_id requerido' }, { status: 400 })
@@ -104,6 +114,37 @@ export async function POST(request: NextRequest) {
           sitioWeb: empresa?.sitio_web as string | null,
         },
       })
+
+      // ─── Guard anti-duplicado ───
+      // Si el recibo ya se mandó por correo en los últimos 5 minutos al
+      // mismo empleado en este período, asumimos que es un doble click o
+      // un refresh accidental y devolvemos "omitido". El operador puede
+      // forzar el reenvío explícitamente vía `forzar_reenvio: true`.
+      if (empleado.miembro_id && periodo_desde && periodo_hasta && !forzar_reenvio) {
+        const { data: pagoExistente } = await admin
+          .from('pagos_nomina')
+          .select('id, recibo_correo_enviado_en')
+          .eq('empresa_id', empresaId)
+          .eq('miembro_id', empleado.miembro_id)
+          .eq('fecha_inicio_periodo', periodo_desde)
+          .eq('fecha_fin_periodo', periodo_hasta)
+          .eq('eliminado', false)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pagoExistente?.recibo_correo_enviado_en) {
+          const ultimoEnvio = new Date(pagoExistente.recibo_correo_enviado_en).getTime()
+          const ahora = Date.now()
+          if (ahora - ultimoEnvio < 5 * 60 * 1000) {
+            resultados.push({
+              correo: empleado.correo_empleado,
+              ok: false,
+              error: 'Recibo ya enviado recientemente. Usar "Reenviar" si es intencional.',
+            })
+            continue
+          }
+        }
+      }
 
       // ─── Adjuntar PDF del recibo ───
       // 1) Si ya hay pago grabado: PDF definitivo desde la fila de pagos.

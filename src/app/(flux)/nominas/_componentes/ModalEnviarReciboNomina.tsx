@@ -76,6 +76,10 @@ interface ResultadoNominaConCorreo {
   bonos_periodo?: number
   /** Conceptos del contrato aplicados al período (Presentismo, Antigüedad, etc.). */
   conceptos_aplicados?: { tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }[]
+  /** Timestamp del último envío exitoso por correo. NULL = nunca enviado. */
+  recibo_correo_enviado_en?: string | null
+  /** Timestamp del último envío exitoso por WhatsApp. */
+  recibo_whatsapp_enviado_en?: string | null
   /** Snapshot del contrato vigente — habilita PDF borrador sin pago grabado. */
   contrato_snapshot?: {
     contrato_id: string
@@ -328,6 +332,10 @@ export function ModalEnviarReciboNomina({
   // Para modo individual correo: abrir ModalEnviarDocumento
   const [modalIndividualAbierto, setModalIndividualAbierto] = useState(false)
 
+  // Bypass del guard anti-duplicado server-side. Solo se prende cuando
+  // el operador marca explícitamente "reenviar igual" en la advertencia.
+  const [forzarReenvio, setForzarReenvio] = useState(false)
+
   // Empleados filtrados según canal
   const empleadosConCorreo = useMemo(() => resultados.filter(r => r.correo), [resultados])
   const empleadosSinCorreo = useMemo(() => resultados.filter(r => !r.correo), [resultados])
@@ -336,6 +344,13 @@ export function ModalEnviarReciboNomina({
 
   const empleadosDisponibles = canalTipo === 'correo' ? empleadosConCorreo : empleadosConTelefono
   const empleadosNoDisponibles = canalTipo === 'correo' ? empleadosSinCorreo : empleadosSinTelefono
+
+  // Empleados que ya recibieron su recibo por el canal seleccionado en este
+  // período (basado en `recibo_correo_enviado_en` / `recibo_whatsapp_enviado_en`
+  // del backend). Si hay alguno, mostramos el banner anti-duplicado.
+  const empleadosYaEnviados = useMemo(() => empleadosDisponibles.filter(r =>
+    canalTipo === 'correo' ? r.recibo_correo_enviado_en : r.recibo_whatsapp_enviado_en
+  ), [empleadosDisponibles, canalTipo])
 
   const esIndividualCorreo = resultados.length === 1 && empleadosConCorreo.length === 1
 
@@ -490,11 +505,21 @@ export function ModalEnviarReciboNomina({
   }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview])
 
   // ─── Enviar correo en lote ───
-  const enviarCorreoEnLote = useCallback(async () => {
-    if (!canalCorreoSeleccionado || !empleadosConCorreo.length) return
+  // `subconjuntoMiembroIds` permite reintentar solo los empleados que
+  // fallaron en un envío previo. Si no viene, manda a todos los con correo.
+  // `forzarReenvio` salta el guard de duplicado server-side.
+  const enviarCorreoEnLote = useCallback(async (
+    subconjuntoMiembroIds?: Set<string>,
+    forzarReenvio = false,
+  ) => {
+    if (!canalCorreoSeleccionado) return
+    const objetivo = subconjuntoMiembroIds
+      ? empleadosConCorreo.filter(r => subconjuntoMiembroIds.has(r.miembro_id))
+      : empleadosConCorreo
+    if (!objetivo.length) return
     setEstadoEnvio('enviando')
 
-    const empleadosData = empleadosConCorreo.map(r => construirDatosEmpleado(r, etiquetaPeriodo))
+    const empleadosData = objetivo.map(r => construirDatosEmpleado(r, etiquetaPeriodo))
 
     try {
       const res = await fetch('/api/nominas/enviar', {
@@ -506,10 +531,9 @@ export function ModalEnviarReciboNomina({
           html_plantilla: htmlNomina,
           empleados: empleadosData,
           nombre_empresa: nombreEmpresa,
-          // Período del recibo: el backend lo usa para buscar el pago
-          // grabado del empleado y adjuntar el PDF del recibo si existe.
           periodo_desde: periodoDesde,
           periodo_hasta: periodoHasta,
+          forzar_reenvio: forzarReenvio,
         }),
       })
       const data = await res.json()
@@ -517,19 +541,23 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
     } catch {
       setEstadoEnvio('completado')
-      setResultadoLote({ enviados: 0, fallidos: empleadosConCorreo.length, total: empleadosConCorreo.length, resultados: [] })
+      setResultadoLote({ enviados: 0, fallidos: objetivo.length, total: objetivo.length, resultados: [] })
     }
   }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa, asuntoNomina, htmlNomina, periodoDesde, periodoHasta])
 
   // ─── Enviar WhatsApp en lote ───
-  const enviarWAEnLote = useCallback(async () => {
-    if (!canalWASeleccionado || !plantillaWA || !empleadosConTelefono.length) return
+  const enviarWAEnLote = useCallback(async (
+    subconjuntoMiembroIds?: Set<string>,
+    forzarReenvio = false,
+  ) => {
+    if (!canalWASeleccionado || !plantillaWA) return
+    const objetivo = subconjuntoMiembroIds
+      ? empleadosConTelefono.filter(r => subconjuntoMiembroIds.has(r.miembro_id))
+      : empleadosConTelefono
+    if (!objetivo.length) return
     setEstadoEnvio('enviando')
 
-    // Mandamos todos los campos brutos al backend; las variables a Meta se
-    // resuelven server-side usando el `mapeo_variables` de la plantilla
-    // aprobada — así sumar/quitar variables sólo requiere editar la plantilla.
-    const empleadosData = empleadosConTelefono.map(r => ({
+    const empleadosData = objetivo.map(r => ({
       miembro_id: r.miembro_id,
       nombre: r.nombre,
       telefono: r.telefono,
@@ -554,11 +582,10 @@ export function ModalEnviarReciboNomina({
         body: JSON.stringify({
           canal_id: canalWASeleccionado,
           plantilla_id: plantillaWA.id,
-          // Necesario para que el backend filtre adelantos del período al
-          // armar `detalle_descuentos`.
           periodo_desde: periodoDesde,
           periodo_hasta: periodoHasta,
           empleados: empleadosData,
+          forzar_reenvio: forzarReenvio,
         }),
       })
       const data = await res.json()
@@ -566,7 +593,7 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
     } catch {
       setEstadoEnvio('completado')
-      setResultadoLote({ enviados: 0, fallidos: empleadosConTelefono.length, total: empleadosConTelefono.length, resultados: [] })
+      setResultadoLote({ enviados: 0, fallidos: objetivo.length, total: objetivo.length, resultados: [] })
     }
   }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta])
 
@@ -576,9 +603,32 @@ export function ModalEnviarReciboNomina({
       setModalIndividualAbierto(true)
       return
     }
-    if (canalTipo === 'correo') return enviarCorreoEnLote()
-    return enviarWAEnLote()
-  }, [canalTipo, esIndividualCorreo, enviarCorreoEnLote, enviarWAEnLote])
+    if (canalTipo === 'correo') return enviarCorreoEnLote(undefined, forzarReenvio)
+    return enviarWAEnLote(undefined, forzarReenvio)
+  }, [canalTipo, esIndividualCorreo, enviarCorreoEnLote, enviarWAEnLote, forzarReenvio])
+
+  // Reintentar solo los empleados que fallaron en el último envío.
+  // Usa `forzar_reenvio: true` porque los fallos pueden incluir el caso
+  // "ya enviado recientemente" (el guard server-side) — si el operador
+  // explícitamente le da reintentar, está pidiendo bypass.
+  const reintentarFallidos = useCallback(() => {
+    if (!resultadoLote) return
+    // Mapear correos/teléfonos fallidos back a miembro_ids.
+    const fallidos = resultadoLote.resultados.filter(r => !r.ok)
+    const idsFallidos = new Set<string>()
+    for (const f of fallidos) {
+      if (canalTipo === 'correo') {
+        const emp = empleadosConCorreo.find(e => e.correo === f.correo)
+        if (emp) idsFallidos.add(emp.miembro_id)
+      } else {
+        const emp = empleadosConTelefono.find(e => e.telefono === f.telefono)
+        if (emp) idsFallidos.add(emp.miembro_id)
+      }
+    }
+    if (idsFallidos.size === 0) return
+    if (canalTipo === 'correo') enviarCorreoEnLote(idsFallidos, true)
+    else enviarWAEnLote(idsFallidos, true)
+  }, [resultadoLote, canalTipo, empleadosConCorreo, empleadosConTelefono, enviarCorreoEnLote, enviarWAEnLote])
 
   // ─── Envío individual correo ───
   const handleEnviarIndividual = useCallback(async (datos: {
@@ -670,7 +720,14 @@ export function ModalEnviarReciboNomina({
       tamano="lg"
       acciones={
         estadoEnvio === 'completado' ? (
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cerrar</Boton>
+          <div className="flex items-center justify-end w-full gap-2">
+            {resultadoLote && resultadoLote.fallidos > 0 && (
+              <Boton variante="secundario" tamano="sm" onClick={reintentarFallidos}>
+                Reintentar {resultadoLote.fallidos} fallido{resultadoLote.fallidos !== 1 ? 's' : ''}
+              </Boton>
+            )}
+            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cerrar</Boton>
+          </div>
         ) : (
           <div className="flex items-center justify-between w-full">
             <p className="text-xs text-texto-terciario">
@@ -774,6 +831,29 @@ export function ModalEnviarReciboNomina({
               )}
             </button>
           </div>
+
+          {/* Banner anti-duplicado: hay empleados que ya recibieron el recibo
+              por este canal en este período. Sin el toggle, el server los
+              omite. Con el toggle, los reenvía. */}
+          {empleadosYaEnviados.length > 0 && (
+            <div className="flex items-start gap-2 text-xs rounded-card px-3 py-2.5 bg-insignia-advertencia/10 text-insignia-advertencia">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium">
+                  {empleadosYaEnviados.length} de {empleadosDisponibles.length} empleado{empleadosYaEnviados.length !== 1 ? 's' : ''} ya recibieron su recibo por {canalTipo === 'correo' ? 'correo' : 'WhatsApp'} en este período.
+                </p>
+                <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-texto-terciario hover:text-texto-secundario">
+                  <input
+                    type="checkbox"
+                    checked={forzarReenvio}
+                    onChange={e => setForzarReenvio(e.target.checked)}
+                    className="size-3.5 accent-insignia-advertencia cursor-pointer"
+                  />
+                  <span>Reenviar igual a los que ya recibieron</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* ─── Contenido CORREO ─── */}
           {canalTipo === 'correo' && (
