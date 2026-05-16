@@ -548,6 +548,7 @@ export function ModalEnviarReciboNomina({
       monto_bruto: fmtMonto(r.monto_pagar),
       monto_neto: r.monto_neto ?? r.monto_pagar,
       descuento_adelanto: r.descuento_adelanto ?? 0,
+      bonos_periodo: r.bonos_periodo ?? 0,
       saldo_anterior: r.saldo_anterior ?? 0,
       compensacion_detalle: r.monto_detalle,
       periodo: etiquetaPeriodo,
