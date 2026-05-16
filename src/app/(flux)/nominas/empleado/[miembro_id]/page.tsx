@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase } from 'lucide-react'
+import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase, CreditCard } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
@@ -35,6 +35,7 @@ import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato
 import { ModalEditarContrato } from '@/app/(flux)/nominas/_componentes/ModalEditarContrato'
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
 import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
+import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
@@ -126,7 +127,7 @@ export default function PaginaFichaLaboral() {
 // Tipos auxiliares
 // ────────────────────────────────────────────────────────────────
 
-type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos'
+type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos' | 'cuentas'
 
 interface PerfilMini {
   nombre: string
@@ -168,6 +169,7 @@ function ContenidoFicha() {
     { clave: 'adelantos',     etiqueta: 'Adelantos',        icono: <Wallet size={15} /> },
     { clave: 'licencias',     etiqueta: 'Licencias',        icono: <CalendarOff size={15} /> },
     { clave: 'conceptos',     etiqueta: 'Conceptos',        icono: <Tag size={15} /> },
+    { clave: 'cuentas',       etiqueta: 'Cuentas',          icono: <CreditCard size={15} /> },
   ]
   const [tab, setTab] = useState<TabClave>(
     TABS.some(t => t.clave === tabUrl) ? tabUrl! : 'contrato',
@@ -619,6 +621,15 @@ function ContenidoFicha() {
               ) : undefined}
             />
           )}
+        </div>
+      )}
+
+      {tabsVisitadas.has('cuentas') && (
+        <div hidden={tab !== 'cuentas'}>
+          <SeccionDatosBancarios
+            miembroId={miembroId}
+            puedeEditar={puedeEditar}
+          />
         </div>
       )}
 

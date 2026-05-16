@@ -33,6 +33,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
+import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -333,8 +334,9 @@ export function PaginaEditorNominaEmpleado({
 
   // Confirmación de pago (ahora en ModalAdaptable)
   const [confirmandoPago, setConfirmandoPago] = useState(false)
-  const [montoAPagar, setMontoAPagar] = useState('')
-  const [notasPago, setNotasPago] = useState('')
+  // (Los inputs de monto y notas viven ahora dentro de
+  // `ModalConfirmarPagoNomina`, que también maneja método, fecha,
+  // cuenta destino, referencia y comprobante.)
   const [pagando, setPagando] = useState(false)
 
   // Adelanto/descuento nuevo
@@ -577,10 +579,22 @@ export function PaginaEditorNominaEmpleado({
   // /api/adelantos/descontar, lo que dejaba los pagos sin snapshot del
   // contrato ni desglose de conceptos.
 
-  const handleConfirmarPago = async () => {
+  /**
+   * Confirma un pago de nómina con los datos completos del nuevo
+   * modal `ModalConfirmarPagoNomina`: método, fecha, cuenta destino,
+   * referencia, comprobante y notas. El monto y los campos vienen
+   * desde el modal, que arma el payload final.
+   */
+  const handleConfirmarPago = async (datos: {
+    monto_abonado: number
+    metodo_pago: 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+    fecha_pago: string
+    referencia: string | null
+    info_bancaria_id: string | null
+    comprobante_url: string | null
+    notas: string | null
+  }) => {
     setPagando(true)
-    const montoReal = parseFloat(montoAPagar) || emp.monto_neto
-
     try {
       const res = await fetch('/api/nominas/pagos', {
         method: 'POST',
@@ -589,9 +603,8 @@ export function PaginaEditorNominaEmpleado({
           miembro_id: datosEmpleado.miembro_id,
           periodo_inicio: periodoActual.desde,
           periodo_fin: periodoActual.hasta,
-          monto_abonado: montoReal,
           concepto: periodoActual.etiqueta,
-          notas: notasPago || null,
+          ...datos,
         }),
       })
       if (!res.ok) {
@@ -605,8 +618,6 @@ export function PaginaEditorNominaEmpleado({
     await recargarDatos()
     setPagando(false)
     setConfirmandoPago(false)
-    setMontoAPagar('')
-    setNotasPago('')
   }
 
   // Editar / eliminar pago — registra auditoría de editor
@@ -977,7 +988,7 @@ export function PaginaEditorNominaEmpleado({
       etiqueta: 'Registrar pago',
       icono: <Banknote size={14} />,
       variante: 'primario' as const,
-      onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
+      onClick: () => setConfirmandoPago(true),
     }] : []),
   ]
 
@@ -1188,7 +1199,7 @@ export function PaginaEditorNominaEmpleado({
                 icono={<TrendingDown size={13} />}
                 accion={puedeEditarNomina && (
                   <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}
+                    onClick={() => setConfirmandoPago(true)}
                     titulo="Forzar el monto a pagar de este período (no toca el contrato ni los conceptos)">
                     Ajustar manualmente
                   </Boton>
@@ -1838,7 +1849,7 @@ export function PaginaEditorNominaEmpleado({
                     </p>
                     {emp.monto_neto < 0 && puedeEditarNomina && (
                       <Boton variante="secundario" tamano="sm" className="mt-3"
-                        onClick={() => { setMontoAPagar('0'); setConfirmandoPago(true) }}>
+                        onClick={() => setConfirmandoPago(true)}>
                         Cerrar sin pago
                       </Boton>
                     )}
@@ -1945,57 +1956,17 @@ export function PaginaEditorNominaEmpleado({
         </PlantillaEditor>
       )}
 
-      {/* Modal de confirmación de pago */}
-      <Modal
+      {/* Modal de confirmación de pago: método, fecha, cuenta
+          destino, referencia, comprobante y notas. */}
+      <ModalConfirmarPagoNomina
         abierto={confirmandoPago}
         onCerrar={() => { if (!pagando) setConfirmandoPago(false) }}
-        titulo="Confirmar pago"
-        tamano="md"
-        acciones={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Boton variante="fantasma" tamano="sm" onClick={() => setConfirmandoPago(false)} disabled={pagando}>Cancelar</Boton>
-            <Boton tamano="sm" icono={<Check size={14} />} onClick={handleConfirmarPago} cargando={pagando}
-              disabled={!montoAPagar || parseFloat(montoAPagar) <= 0}>
-              Confirmar pago de {montoAPagar ? fmtMonto(parseFloat(montoAPagar)) : '...'}
-            </Boton>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-texto-terciario">Neto sugerido</span>
-            <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_neto)}</span>
-          </div>
-          {emp.descuento_adelanto > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-texto-terciario">Incluye descuento adelanto</span>
-              <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
-            </div>
-          )}
-          <InputMoneda
-            etiqueta="Monto a pagar"
-            value={montoAPagar}
-            onChange={setMontoAPagar}
-            moneda="ARS"
-          />
-          {parseFloat(montoAPagar) !== emp.monto_neto && parseFloat(montoAPagar) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-texto-terciario">Diferencia</span>
-              <span className={parseFloat(montoAPagar) > emp.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
-                {parseFloat(montoAPagar) > emp.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - emp.monto_neto)}
-                {parseFloat(montoAPagar) > emp.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
-              </span>
-            </div>
-          )}
-          <Input
-            tipo="text"
-            etiqueta="Notas (opcional)"
-            value={notasPago}
-            onChange={e => setNotasPago(e.target.value)}
-            placeholder="Observaciones del pago..."
-          />
-        </div>
-      </Modal>
+        miembroId={datosEmpleado.miembro_id}
+        netoSugerido={emp.monto_neto}
+        descuentoAdelanto={emp.descuento_adelanto}
+        confirmando={pagando}
+        onConfirmar={handleConfirmarPago}
+      />
 
       {/* Modal de envío de recibo */}
       <ModalEnviarReciboNomina

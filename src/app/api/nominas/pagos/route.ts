@@ -10,6 +10,11 @@
  *     concepto?:      string,             // opcional, ej "Quincena 1-15"
  *     notas?:         string | null,
  *     comprobante_url?: string | null,
+ *     // Datos del cobro real (sql/092):
+ *     metodo_pago?:      'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro',
+ *     fecha_pago?:       'YYYY-MM-DD',    // default: hoy
+ *     referencia?:       string | null,    // nro de operación / cheque
+ *     info_bancaria_id?: string | null,    // cuenta destino (si no es efectivo)
  *     conceptos_extra?: Array<{           // conceptos manuales agregados desde la UI
  *       nombre: string,
  *       tipo: 'haber' | 'descuento',
@@ -46,6 +51,8 @@ interface ConceptoExtra {
   detalle?: string | null
 }
 
+type MetodoPago = 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+
 interface Payload {
   miembro_id: string
   periodo_inicio: string
@@ -54,8 +61,14 @@ interface Payload {
   concepto?: string
   notas?: string | null
   comprobante_url?: string | null
+  metodo_pago?: MetodoPago
+  fecha_pago?: string
+  referencia?: string | null
+  info_bancaria_id?: string | null
   conceptos_extra?: ConceptoExtra[]
 }
+
+const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cuenta_digital', 'cheque', 'otro']
 
 export async function POST(request: NextRequest) {
   const guard = await requerirPermisoAPI('nomina', 'editar')
@@ -89,6 +102,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'concepto_extra inválido' }, { status: 400 })
     }
   }
+
+  // Método de pago: default 'efectivo' si no viene. La UI debería
+  // mandarlo siempre, pero contemplamos el caso para no romper
+  // consumidores viejos durante el rollout.
+  const metodoPago: MetodoPago = METODOS_VALIDOS.includes(body.metodo_pago as MetodoPago)
+    ? (body.metodo_pago as MetodoPago)
+    : 'efectivo'
+
+  // Fecha de pago: default a hoy. Aceptamos `YYYY-MM-DD` o vacío.
+  const fechaPago = body.fecha_pago && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha_pago)
+    ? body.fecha_pago
+    : new Date().toISOString().slice(0, 10)
+
+  // Coherencia: si el método es efectivo o cheque, info_bancaria_id no
+  // tiene sentido; lo limpiamos para no guardar referencias absurdas.
+  // Si es transferencia o cuenta_digital, lo dejamos pasar tal cual
+  // (la validación de que la cuenta exista la hace el FK).
+  const infoBancariaId =
+    metodoPago === 'efectivo' || metodoPago === 'cheque'
+      ? null
+      : body.info_bancaria_id ?? null
 
   const admin = crearClienteAdmin()
 
@@ -140,6 +174,10 @@ export async function POST(request: NextRequest) {
       tardanzas: detalle.asistencia.tardanzas,
       comprobante_url: body.comprobante_url ?? null,
       notas: body.notas ?? null,
+      metodo_pago: metodoPago,
+      fecha_pago: fechaPago,
+      referencia: body.referencia?.trim() || null,
+      info_bancaria_id: infoBancariaId,
       contrato_id: detalle.contrato.id,
       contrato_snapshot: detalle.contrato.snapshot,
       creado_por: user.id,
