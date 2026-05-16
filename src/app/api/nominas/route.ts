@@ -486,6 +486,40 @@ export async function GET(request: NextRequest) {
       if (diferencia !== 0) saldoAnteriorPorMiembro.set(mid, diferencia)
     }
 
+    // ─── Pago del período actual + estado de envío del recibo ───
+    // Necesario para que la UI muestre el badge "ya enviado por correo/WA"
+    // junto a cada empleado y bloquee duplicados — sin tener que hacer un
+    // fetch extra por empleado al abrir la lista. Tomamos el pago más
+    // reciente del rango exacto (puede haber históricos eliminados/no
+    // eliminados; preferimos el activo más nuevo).
+    const { data: pagosActualesData } = await admin
+      .from('pagos_nomina')
+      .select('miembro_id, recibo_correo_enviado_en, recibo_correo_enviado_a, recibo_whatsapp_enviado_en, recibo_whatsapp_enviado_a, creado_en')
+      .eq('empresa_id', empresaId)
+      .eq('eliminado', false)
+      .eq('fecha_inicio_periodo', desde)
+      .eq('fecha_fin_periodo', hasta)
+      .order('creado_en', { ascending: false })
+
+    interface EstadoReciboMiembro {
+      correo_enviado_en: string | null
+      correo_enviado_a: string | null
+      whatsapp_enviado_en: string | null
+      whatsapp_enviado_a: string | null
+    }
+    const reciboPorMiembro = new Map<string, EstadoReciboMiembro>()
+    for (const p of (pagosActualesData || []) as Record<string, unknown>[]) {
+      const mid = p.miembro_id as string
+      // Solo nos quedamos con el más reciente por miembro (ya viene ordenado DESC).
+      if (reciboPorMiembro.has(mid)) continue
+      reciboPorMiembro.set(mid, {
+        correo_enviado_en: (p.recibo_correo_enviado_en as string | null) || null,
+        correo_enviado_a: (p.recibo_correo_enviado_a as string | null) || null,
+        whatsapp_enviado_en: (p.recibo_whatsapp_enviado_en as string | null) || null,
+        whatsapp_enviado_a: (p.recibo_whatsapp_enviado_a as string | null) || null,
+      })
+    }
+
     // ─── Calcular por cada miembro ───
     const resultados = (miembrosData || []).map((miembro) => {
       const m = miembro as Record<string, unknown>
@@ -1004,6 +1038,13 @@ export async function GET(request: NextRequest) {
         // Solo aparece como true cuando el setting `mostrar_empleados_terminados`
         // está activo y el último contrato del miembro terminó antes del período.
         contrato_terminado_antes: miembrosTerminadosAntes.has(m.id as string),
+        // Estado de envío del recibo del período. NULL si nunca se envió o
+        // si no hay pago grabado todavía (la trazabilidad arranca cuando
+        // se registra el pago, no antes).
+        recibo_correo_enviado_en: reciboPorMiembro.get(m.id as string)?.correo_enviado_en ?? null,
+        recibo_correo_enviado_a: reciboPorMiembro.get(m.id as string)?.correo_enviado_a ?? null,
+        recibo_whatsapp_enviado_en: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_en ?? null,
+        recibo_whatsapp_enviado_a: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_a ?? null,
       }
     })
 

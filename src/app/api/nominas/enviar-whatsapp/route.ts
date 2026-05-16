@@ -181,7 +181,10 @@ export async function POST(request: NextRequest) {
       // El destinatario abre el WhatsApp y desde ahí puede tocar el link y
       // ver el recibo en el navegador. URL firmada con expiración larga
       // (30 días) porque el empleado puede tardar en revisar el mensaje.
+      // Guardamos `pagoIdActual` para marcar `recibo_whatsapp_enviado_*`
+      // si el envío termina OK.
       let enlaceRecibo = ''
+      let pagoIdActual: string | null = null
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         try {
           const { data: pago } = await admin
@@ -196,6 +199,7 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .maybeSingle()
           if (pago) {
+            pagoIdActual = pago.id as string
             const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
               expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
             })
@@ -311,6 +315,21 @@ export async function POST(request: NextRequest) {
             plantilla_id,
             estado: 'enviado',
           })
+        }
+
+        // Marcar el pago como "recibo enviado por WhatsApp" — habilita el
+        // badge en la UI y la lógica anti-duplicado. Igual que correo:
+        // solo se marca si el operador ya registró el pago.
+        if (pagoIdActual) {
+          await admin
+            .from('pagos_nomina')
+            .update({
+              recibo_whatsapp_enviado_en: new Date().toISOString(),
+              recibo_whatsapp_enviado_a: telCanonico,
+              recibo_whatsapp_enviado_por: user.id,
+            })
+            .eq('id', pagoIdActual)
+            .eq('empresa_id', empresaId)
         }
 
         resultados.push({ telefono: telCanonico, nombre: emp.nombre, ok: true })

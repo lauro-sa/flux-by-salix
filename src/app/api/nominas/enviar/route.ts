@@ -106,8 +106,11 @@ export async function POST(request: NextRequest) {
       })
 
       // ─── Adjuntar PDF del recibo (si existe pago en el período) ───
+      // Guardamos el id del pago para marcar `recibo_correo_enviado_*`
+      // si el envío termina OK — así la UI puede mostrar "ya enviado".
       let pdfUrl: string | null = null
       let pdfNombre: string | null = null
+      let pagoIdActual: string | null = null
       if (empleado.miembro_id && periodo_desde && periodo_hasta) {
         try {
           const { data: pago } = await admin
@@ -122,6 +125,7 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .maybeSingle()
           if (pago) {
+            pagoIdActual = pago.id as string
             const { url } = await generarPdfRecibo(admin, pago.id, empresaId)
             pdfUrl = url
             pdfNombre = `Recibo_${empleado.nombre_empleado.replace(/\s+/g, '_')}_${periodo_desde}_${periodo_hasta}.pdf`
@@ -155,6 +159,22 @@ export async function POST(request: NextRequest) {
         })
 
         if (respuesta.ok) {
+          // Marcar el pago como "recibo enviado por correo" para que la UI
+          // muestre el badge y bloquee envíos duplicados. Si no hay pago
+          // grabado todavía (operador mandó antes de "Registrar pago"),
+          // no podemos marcar — el badge solo aparece desde el momento
+          // que existe la fila de pago.
+          if (pagoIdActual) {
+            await admin
+              .from('pagos_nomina')
+              .update({
+                recibo_correo_enviado_en: new Date().toISOString(),
+                recibo_correo_enviado_a: empleado.correo_empleado,
+                recibo_correo_enviado_por: user.id,
+              })
+              .eq('id', pagoIdActual)
+              .eq('empresa_id', empresaId)
+          }
           resultados.push({ correo: empleado.correo_empleado, ok: true })
         } else {
           const err = await respuesta.json().catch(() => ({}))
