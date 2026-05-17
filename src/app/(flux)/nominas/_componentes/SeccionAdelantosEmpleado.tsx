@@ -20,16 +20,14 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Wallet, Plus, X as IconX, TrendingDown, TrendingUp, Loader2, Banknote, Ban,
+  Wallet, Plus, TrendingDown, TrendingUp, Loader2, Banknote, Ban,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
-import { Input } from '@/componentes/ui/Input'
-import { InputMoneda } from '@/componentes/ui/InputMoneda'
-import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
 
 interface Props {
   miembroId: string
@@ -101,16 +99,8 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
   const [primeraCarga, setPrimeraCarga] = useState(true)
   const [adelantos, setAdelantos] = useState<AdelantoUI[]>([])
   const [filtro, setFiltro] = useState<FiltroVista>('activos')
-  const [mostrarForm, setMostrarForm] = useState(false)
+  const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false)
   const [confirmacionCancelar, setConfirmacionCancelar] = useState<AdelantoUI | null>(null)
-
-  // ─── Form crear movimiento ───
-  const [tipo, setTipo] = useState<TipoMovimiento>('adelanto')
-  const [monto, setMonto] = useState('')
-  const [cuotas, setCuotas] = useState('1')
-  const [fechaSolicitud, setFechaSolicitud] = useState(() => new Date().toISOString().slice(0, 10))
-  const [notas, setNotas] = useState('')
-  const [creando, setCreando] = useState(false)
   const [cancelando, setCancelando] = useState(false)
 
   const cargar = async () => {
@@ -170,50 +160,6 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
     .filter(a => (a.estado === 'activo' || a.estado === 'pendiente') && a.tipo === 'adelanto')
     .reduce((s, a) => s + a.saldo_pendiente, 0)
 
-  // ─── Crear ───
-  const resetForm = () => {
-    setTipo('adelanto')
-    setMonto('')
-    setCuotas('1')
-    setFechaSolicitud(new Date().toISOString().slice(0, 10))
-    setNotas('')
-  }
-
-  const crear = async () => {
-    const montoNum = parseFloat(monto)
-    if (!Number.isFinite(montoNum) || montoNum <= 0) {
-      toast.mostrar('advertencia', 'Ingresá un monto válido')
-      return
-    }
-    setCreando(true)
-    try {
-      const res = await fetch('/api/adelantos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          miembro_id: miembroId,
-          tipo,
-          monto_total: montoNum,
-          // Los bonos y descuentos siempre son one-off.
-          cuotas_totales: tipo === 'adelanto' ? Math.max(1, parseInt(cuotas) || 1) : 1,
-          fecha_solicitud: fechaSolicitud,
-          notas: notas.trim() || null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.mostrar('error', data.error || 'No se pudo crear el movimiento')
-        return
-      }
-      toast.mostrar('exito', tipo === 'bono' ? 'Bono registrado' : tipo === 'descuento' ? 'Descuento registrado' : 'Adelanto registrado')
-      resetForm()
-      setMostrarForm(false)
-      await cargar()
-    } finally {
-      setCreando(false)
-    }
-  }
-
   // ─── Cancelar ───
   const cancelar = async () => {
     if (!confirmacionCancelar) return
@@ -256,8 +202,8 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
             Historial completo del empleado: adelantos, bonos extra y descuentos puntuales.
           </p>
         </div>
-        {puedeEditar && !mostrarForm && (
-          <Boton tamano="sm" icono={<Plus size={14} />} onClick={() => setMostrarForm(true)}>
+        {puedeEditar && (
+          <Boton tamano="sm" icono={<Plus size={14} />} onClick={() => setModalNuevoAbierto(true)}>
             Nuevo movimiento
           </Boton>
         )}
@@ -276,25 +222,6 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Form crear */}
-      {mostrarForm && (
-        <FormularioNuevoMovimiento
-          tipo={tipo}
-          setTipo={setTipo}
-          monto={monto}
-          setMonto={setMonto}
-          cuotas={cuotas}
-          setCuotas={setCuotas}
-          fechaSolicitud={fechaSolicitud}
-          setFechaSolicitud={setFechaSolicitud}
-          notas={notas}
-          setNotas={setNotas}
-          creando={creando}
-          onCancelar={() => { setMostrarForm(false); resetForm() }}
-          onCrear={crear}
-        />
       )}
 
       {/* Filtros */}
@@ -329,7 +256,7 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
               : 'No hay registros que coincidan con este filtro.'
           }
           accion={puedeEditar && filtro === 'activos' ? (
-            <Boton tamano="sm" icono={<Plus size={14} />} onClick={() => setMostrarForm(true)}>
+            <Boton tamano="sm" icono={<Plus size={14} />} onClick={() => setModalNuevoAbierto(true)}>
               Registrar movimiento
             </Boton>
           ) : undefined}
@@ -361,6 +288,14 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
         tipo="peligro"
         etiquetaConfirmar="Cancelar"
         cargando={cancelando}
+      />
+
+      {/* Modal nuevo movimiento — reutilizado en card "Ajustes" del editor */}
+      <ModalNuevoMovimientoNomina
+        abierto={modalNuevoAbierto}
+        onCerrar={() => setModalNuevoAbierto(false)}
+        miembroId={miembroId}
+        onCreado={cargar}
       />
     </div>
   )
@@ -517,123 +452,3 @@ function FilaMovimiento({
   )
 }
 
-function FormularioNuevoMovimiento({
-  tipo, setTipo, monto, setMonto, cuotas, setCuotas, fechaSolicitud, setFechaSolicitud,
-  notas, setNotas, creando, onCancelar, onCrear,
-}: {
-  tipo: TipoMovimiento
-  setTipo: (t: TipoMovimiento) => void
-  monto: string
-  setMonto: (v: string) => void
-  cuotas: string
-  setCuotas: (v: string) => void
-  fechaSolicitud: string
-  setFechaSolicitud: (v: string) => void
-  notas: string
-  setNotas: (v: string) => void
-  creando: boolean
-  onCancelar: () => void
-  onCrear: () => void
-}) {
-  return (
-    <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-texto-terciario">
-          Nuevo movimiento
-        </p>
-        <button
-          type="button"
-          onClick={onCancelar}
-          className="text-texto-terciario hover:text-texto-primario p-0.5"
-          aria-label="Cerrar"
-        >
-          <IconX size={14} />
-        </button>
-      </div>
-
-      {/* Tipo */}
-      <div className="grid grid-cols-3 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
-        <TipoToggle activo={tipo === 'adelanto'} color="advertencia" onClick={() => setTipo('adelanto')}>
-          Adelanto
-        </TipoToggle>
-        <TipoToggle activo={tipo === 'descuento'} color="peligro" onClick={() => setTipo('descuento')}>
-          Descuento
-        </TipoToggle>
-        <TipoToggle activo={tipo === 'bono'} color="exito" onClick={() => setTipo('bono')}>
-          Bono
-        </TipoToggle>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <InputMoneda value={monto} onChange={setMonto} moneda="ARS" placeholder="Monto" />
-        <SelectorFecha
-          valor={fechaSolicitud}
-          onChange={v => setFechaSolicitud(v || new Date().toISOString().slice(0, 10))}
-          limpiable={false}
-        />
-      </div>
-
-      {tipo === 'adelanto' && (
-        <div>
-          <label className="block text-xs text-texto-secundario mb-1">Cuotas</label>
-          <select
-            value={cuotas}
-            onChange={e => setCuotas(e.target.value)}
-            className="w-full text-sm bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-              <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <Input
-        tipo="text"
-        value={notas}
-        onChange={e => setNotas(e.target.value)}
-        placeholder={
-          tipo === 'adelanto' ? 'Motivo del adelanto (opcional)'
-          : tipo === 'bono' ? 'Motivo del bono (ej: sobreesfuerzo)'
-          : 'Motivo del descuento (ej: rotura herramienta)'
-        }
-      />
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Boton variante="fantasma" tamano="sm" onClick={onCancelar} disabled={creando}>
-          Cancelar
-        </Boton>
-        <Boton tamano="sm" onClick={onCrear} cargando={creando}
-          disabled={!monto || parseFloat(monto) <= 0}>
-          Registrar
-        </Boton>
-      </div>
-    </div>
-  )
-}
-
-function TipoToggle({
-  activo, color, onClick, children,
-}: {
-  activo: boolean
-  color: 'advertencia' | 'peligro' | 'exito'
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  const colorActivo =
-    color === 'advertencia' ? 'bg-insignia-advertencia/15 text-insignia-advertencia'
-    : color === 'peligro' ? 'bg-insignia-peligro/15 text-insignia-peligro'
-    : 'bg-insignia-exito/15 text-insignia-exito'
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-xs py-1.5 rounded transition-colors font-medium ${
-        activo ? colorActivo : 'text-texto-terciario hover:text-texto-secundario'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}

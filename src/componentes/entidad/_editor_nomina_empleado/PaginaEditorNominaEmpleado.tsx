@@ -34,6 +34,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
+import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
 import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
 import { SelectorConceptoCatalogo } from '@/app/(flux)/nominas/_componentes/SelectorConceptoCatalogo'
 import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
@@ -385,14 +386,10 @@ export function PaginaEditorNominaEmpleado({
   // cuenta destino, referencia y comprobante.)
   const [pagando, setPagando] = useState(false)
 
-  // Adelanto/descuento nuevo
-  const [mostrarFormAdelanto, setMostrarFormAdelanto] = useState(false)
-  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento' | 'bono'>('adelanto')
-  const [adelantoMonto, setAdelantoMonto] = useState('')
-  const [adelantoCuotas, setAdelantoCuotas] = useState('1')
-  const [adelantoNotas, setAdelantoNotas] = useState('')
-  const [adelantoFecha, setAdelantoFecha] = useState('')
-  const [creandoAdelanto, setCreandoAdelanto] = useState(false)
+  // Modal de nuevo movimiento (adelanto/descuento/bono).
+  // El formulario completo vive en ModalNuevoMovimientoNomina y se reutiliza
+  // también desde el tab "Adelantos" de la ficha del empleado.
+  const [modalNuevoMovimientoAbierto, setModalNuevoMovimientoAbierto] = useState(false)
 
   // Edición de pago
   const [editandoPago, setEditandoPago] = useState<string | null>(null)
@@ -416,7 +413,7 @@ export function PaginaEditorNominaEmpleado({
   useEffect(() => {
     if (puedeEditarNomina) return
     setCompEditando(false)
-    setMostrarFormAdelanto(false)
+    setModalNuevoMovimientoAbierto(false)
     setEditandoAdelanto(null)
     setEditandoPago(null)
     setConfirmandoPago(false)
@@ -643,7 +640,7 @@ export function PaginaEditorNominaEmpleado({
         // Reset de estados de UI transitorios
         setCompEditando(false)
         setConfirmandoPago(false)
-        setMostrarFormAdelanto(false)
+        setModalNuevoMovimientoAbierto(false)
         setEditandoPago(null)
         setEditandoAdelanto(null)
         // días_trabajo se recarga automáticamente por el useEffect que observa datosEmpleado.miembro_id
@@ -792,38 +789,9 @@ export function PaginaEditorNominaEmpleado({
   }
 
   // Crear / editar / cancelar adelantos
-  const handleCrearAdelanto = async () => {
-    const monto = parseFloat(adelantoMonto)
-    if (!monto || monto <= 0) return
-    setCreandoAdelanto(true)
-
-    const frecuencia = compFrecuencia === 'eventual' ? 'mensual' : compFrecuencia
-    // La fecha del campo es la fecha real del adelanto/descuento: define cuándo ocurrió
-    // y desde dónde se descuenta (con 1 cuota cae en ese mismo período).
-    const fechaAdelanto = adelantoFecha || new Date().toISOString().split('T')[0]
-    // Solo el adelanto se prorratea en cuotas; descuentos y bonos
-    // son one-off (1 cuota en el período).
-    const cuotasTotales = adelantoTipo === 'adelanto' ? (parseInt(adelantoCuotas) || 1) : 1
-    await fetch('/api/adelantos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        miembro_id: datosEmpleado.miembro_id,
-        tipo: adelantoTipo,
-        monto_total: monto,
-        cuotas_totales: cuotasTotales,
-        fecha_solicitud: fechaAdelanto,
-        fecha_inicio_descuento: fechaAdelanto,
-        frecuencia_descuento: frecuencia,
-        notas: adelantoNotas || null,
-      }),
-    })
-
-    await recargarDatos()
-    setCreandoAdelanto(false)
-    setMostrarFormAdelanto(false)
-    setAdelantoTipo('adelanto'); setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
-  }
+  // (la creación vive ahora en ModalNuevoMovimientoNomina, que pega
+  // contra /api/adelantos por sí solo y nos avisa con onCreado para
+  // recargar los datos del período.)
 
   const handleEditarAdelanto = async (id: string) => {
     setGuardandoEditAdelanto(true)
@@ -1782,7 +1750,7 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Ajustes del período"
                 icono={<TrendingDown size={13} />}
-                accion={!mostrarFormAdelanto && !mostrarSelectorConcepto ? (
+                accion={!mostrarSelectorConcepto ? (
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
@@ -1795,7 +1763,7 @@ export function PaginaEditorNominaEmpleado({
                     {puedeEditarNomina && (
                       <>
                         <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                          onClick={() => setMostrarFormAdelanto(true)}>
+                          onClick={() => setModalNuevoMovimientoAbierto(true)}>
                           Bono / Adelanto
                         </Boton>
                         <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
@@ -1833,7 +1801,7 @@ export function PaginaEditorNominaEmpleado({
                   </div>
                 )}
 
-                {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
+                {adelantos.length === 0 && emp.saldo_anterior === 0 && (
                   <p className="text-xs text-texto-terciario py-3 text-center">Sin ajustes en este período</p>
                 )}
 
@@ -1974,95 +1942,9 @@ export function PaginaEditorNominaEmpleado({
                   })}
                 </div>
 
-                {/* Formulario nuevo adelanto/descuento */}
-                {mostrarFormAdelanto && (
-                  <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
-                    {/* Toggle tipo (3 opciones):
-                          - Adelanto:  préstamo, descuenta en cuotas (resta).
-                          - Descuento: multa/daño one-off (resta).
-                          - Bono:      pago extra del patrón one-off (suma).
-                        El color refleja el efecto en el neto:
-                          marca (azul) = neutro/configurable,
-                          peligro (rojo) = resta,
-                          éxito (verde) = suma. */}
-                    <div className="grid grid-cols-3 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
-                      <button
-                        type="button"
-                        onClick={() => setAdelantoTipo('adelanto')}
-                        className={`text-xs py-1.5 rounded transition-colors ${
-                          adelantoTipo === 'adelanto'
-                            ? 'bg-texto-marca/15 text-texto-marca font-medium'
-                            : 'text-texto-terciario hover:text-texto-secundario'
-                        }`}
-                      >
-                        Adelanto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAdelantoTipo('descuento')}
-                        className={`text-xs py-1.5 rounded transition-colors ${
-                          adelantoTipo === 'descuento'
-                            ? 'bg-insignia-peligro/15 text-insignia-peligro font-medium'
-                            : 'text-texto-terciario hover:text-texto-secundario'
-                        }`}
-                      >
-                        Descuento
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAdelantoTipo('bono')}
-                        className={`text-xs py-1.5 rounded transition-colors ${
-                          adelantoTipo === 'bono'
-                            ? 'bg-insignia-exito/15 text-insignia-exito font-medium'
-                            : 'text-texto-terciario hover:text-texto-secundario'
-                        }`}
-                      >
-                        Bono
-                      </button>
-                    </div>
-                    <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Las cuotas solo aplican a adelantos. Descuentos
-                          y bonos son siempre one-off (1 cuota = el período). */}
-                      {adelantoTipo === 'adelanto' ? (
-                        <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
-                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                            <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-[11px] text-texto-terciario flex items-center px-2 py-1.5 rounded-card bg-superficie-elevada/50 border border-borde-sutil">
-                          Único · 1 cuota
-                        </div>
-                      )}
-                      <SelectorFecha
-                        valor={adelantoFecha || null}
-                        onChange={v => setAdelantoFecha(v || '')}
-                        placeholder={
-                          adelantoTipo === 'adelanto' ? 'Fecha del adelanto'
-                          : adelantoTipo === 'bono' ? 'Fecha del bono'
-                          : 'Fecha del descuento'
-                        }
-                      />
-                    </div>
-                    <Input
-                      tipo="text"
-                      value={adelantoNotas}
-                      onChange={e => setAdelantoNotas(e.target.value)}
-                      placeholder={
-                        adelantoTipo === 'adelanto' ? 'Nota (opcional)'
-                        : adelantoTipo === 'bono' ? 'Motivo del bono (ej: sobreesfuerzo, premio puntual)'
-                        : 'Motivo del descuento'
-                      }
-                    />
-                    <div className="flex gap-2">
-                      <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
-                        disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
-                      <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
-                    </div>
-                  </div>
-                )}
+                {/* Formulario nuevo adelanto/descuento/bono — vive en
+                    ModalNuevoMovimientoNomina (renderizado al pie del
+                    componente, junto a los demás modales). */}
 
                 {/* Form alternativo: agregar concepto del catálogo solo a
                     este período. Crea un ajuste tipo 'agregar' que el
@@ -2323,6 +2205,19 @@ export function PaginaEditorNominaEmpleado({
         periodoDesde={periodoActual.desde}
         periodoHasta={periodoActual.hasta}
         nombreEmpresa={nombreEmpresa}
+      />
+
+      {/* Modal "Nuevo movimiento" — adelanto/descuento/bono one-off.
+          Mismo componente que el tab "Adelantos" de la ficha, así un
+          solo flujo guía la creación en cualquiera de los dos lugares.
+          fechaInicial = inicio del período abierto para que la cuota
+          caiga adentro sin que el operador tenga que ajustarla. */}
+      <ModalNuevoMovimientoNomina
+        abierto={modalNuevoMovimientoAbierto}
+        onCerrar={() => setModalNuevoMovimientoAbierto(false)}
+        miembroId={datosEmpleado.miembro_id}
+        fechaInicial={periodoActual.desde}
+        onCreado={recargarDatos}
       />
 
       {/* Modal "Ver recibo" — preview del PDF + acciones unificadas.
