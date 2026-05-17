@@ -84,7 +84,7 @@ SET
   -- que Meta apruebe la nueva versión. El editor tiene el botón
   -- "Re-enviar a Meta" que dispara la aprobación.
   estado_meta = 'BORRADOR',
-  editado_en = now()
+  actualizado_en = now()
 WHERE nombre_api = 'recibo_haberes_nomina';
 
 -- Para rollback (vuelta a la versión APPROVED actual de 11 vars):
