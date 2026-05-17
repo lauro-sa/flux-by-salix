@@ -16,6 +16,7 @@
  * Ver PLAN_MODULO_NOMINAS.md (PR 8).
  */
 
+import { createHash } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { htmlAPdf } from '@/lib/pdf/html-a-pdf'
 import { obtenerIdentidadMiembro } from '@/lib/miembros/identidad'
@@ -333,15 +334,42 @@ export async function generarPdfRecibo(
     cobro,
   }
 
-  const html = renderizarHtmlRecibo(datos)
-
-  // ─── 3) Convertir a PDF ───
-  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
-
-  // ─── 4) Subir a Storage ───
+  // ─── 3) Hash de inputs: skip de Puppeteer si nada cambió ───
+  // Si el hash actual coincide con el guardado en BD y el archivo
+  // existe en Storage, NO regeneramos el PDF — solo firmamos una
+  // URL nueva. Esto evita el costo de Puppeteer (~3-5s) cuando el
+  // operador abre el modal "Ver recibo" varias veces sin cambios.
+  const hashActual = calcularHashRecibo(datos)
   const anio = pago.fecha_inicio_periodo.slice(0, 4)
   const storagePath = `${empresaId}/nominas/${anio}/${pagoId}.pdf`
 
+  const hashGuardado = (pago.comprobante_hash as string | null) ?? null
+  const pathGuardado = (pago.comprobante_path as string | null) ?? storagePath
+  if (hashGuardado === hashActual) {
+    // Confirmar que el archivo todavía existe (puede haberse borrado
+    // por limpieza manual o un cron). Si existe, devolvemos la URL
+    // firmada sin tocar Puppeteer.
+    const { data: signedExistente } = await admin.storage
+      .from(BUCKET)
+      .createSignedUrl(pathGuardado, expiracion)
+    if (signedExistente?.signedUrl) {
+      // Actualizar la URL almacenada por si algún consumer la lee
+      // sin pasar por el endpoint.
+      await admin
+        .from('pagos_nomina')
+        .update({ comprobante_url: signedExistente.signedUrl })
+        .eq('id', pagoId)
+        .eq('empresa_id', empresaId)
+      return { url: signedExistente.signedUrl, storagePath: pathGuardado, tamano: 0 }
+    }
+    // Si la URL falló (archivo no existe), seguimos abajo y regeneramos.
+  }
+
+  // ─── 4) Regenerar PDF con Puppeteer ───
+  const html = renderizarHtmlRecibo(datos)
+  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
+
+  // ─── 5) Subir a Storage ───
   // Borramos cualquier versión previa para evitar drift de caché del CDN.
   await admin.storage.from(BUCKET).remove([storagePath]).catch(() => {})
 
@@ -365,16 +393,32 @@ export async function generarPdfRecibo(
     throw new Error(`Error al firmar URL: ${errSigned?.message}`)
   }
 
-  // ─── 5) Actualizar comprobante_url + storage_path ───
+  // ─── 6) Actualizar comprobante_url + path + hash en BD ───
   await admin
     .from('pagos_nomina')
     .update({
       comprobante_url: signed.signedUrl,
+      comprobante_path: storagePath,
+      comprobante_hash: hashActual,
     })
     .eq('id', pagoId)
     .eq('empresa_id', empresaId)
 
   return { url: signed.signedUrl, storagePath, tamano: pdf.length }
+}
+
+/**
+ * Calcula un hash SHA-256 de los inputs del PDF. Cualquier cambio en
+ * los datos visibles del recibo (snapshot del contrato, conceptos
+ * aplicados, datos del cobro, empresa, empleado, asistencia, monto)
+ * cambia el hash y dispara una regeneración. La fecha de emisión
+ * SE EXCLUYE porque cambia en cada call y no aporta valor al recibo.
+ */
+function calcularHashRecibo(datos: DatosReciboPdf): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { fecha_emision: _fechaEmision, ...significativo } = datos
+  const json = JSON.stringify(significativo, Object.keys(significativo).sort())
+  return createHash('sha256').update(json).digest('hex')
 }
 
 /**

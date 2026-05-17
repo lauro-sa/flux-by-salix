@@ -186,43 +186,87 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     margin: 0;
     padding: 0;
   }
+  /* ─── Cabezal editorial: marca a la izq, recibo a la der ─── */
   .header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding-bottom: 12mm;
-    border-bottom: 2px solid #111827;
+    gap: 10mm;
     margin-bottom: 8mm;
   }
-  .header .empresa { flex: 1; }
-  .header .empresa h1 {
-    margin: 0 0 2mm 0;
-    font-size: 14pt;
+  .header .marca {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 5mm;
+    min-width: 0;
+  }
+  .header .marca .logo {
+    width: 18mm;
+    height: 18mm;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .header .marca .razon {
+    min-width: 0;
+  }
+  .header .marca .razon h1 {
+    margin: 0;
+    font-size: 16pt;
     font-weight: 700;
     color: #111827;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
   }
-  .header .empresa p {
-    margin: 0;
-    font-size: 9pt;
+  .header .marca .razon .tag {
+    display: inline-block;
+    margin-top: 1.5mm;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: #6b7280;
-    line-height: 1.5;
-  }
-  .header .logo {
-    max-height: 18mm;
-    max-width: 40mm;
-    object-fit: contain;
+    font-weight: 600;
   }
   .header .recibo-meta {
     text-align: right;
-    font-size: 9pt;
-    color: #6b7280;
+    min-width: 50mm;
   }
   .header .recibo-meta .titulo {
-    font-size: 11pt;
+    font-size: 8pt;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 1mm;
+  }
+  .header .recibo-meta .numero {
+    font-size: 14pt;
     font-weight: 700;
     color: #111827;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .header .recibo-meta .fecha {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-top: 0.5mm;
+  }
+  /* Línea inferior fina con datos fiscales (CUIT, dirección, contacto) */
+  .header-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 6mm;
+    padding: 2.5mm 0 6mm 0;
+    border-bottom: 1.5px solid #111827;
+    margin-bottom: 8mm;
+    font-size: 8.5pt;
+    color: #6b7280;
+  }
+  .header-foot .item { white-space: nowrap; }
+  .header-foot .item strong {
+    color: #374151;
+    font-weight: 600;
+    margin-right: 1mm;
   }
   .grid-info {
     display: grid;
@@ -295,6 +339,28 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     color: #374151;
     font-weight: 700;
   }
+  /* Insignia para conceptos con ajuste puntual del período: override
+     de monto o concepto agregado solo para este recibo. Discreta pero
+     visible al lado del nombre. */
+  .pill {
+    display: inline-block;
+    margin-left: 2mm;
+    padding: 0.5mm 1.5mm;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 1mm;
+    vertical-align: 1mm;
+  }
+  .pill-override {
+    color: #1e40af;
+    background: #dbeafe;
+  }
+  .pill-agregar {
+    color: #6b21a8;
+    background: #f3e8ff;
+  }
   .neto {
     margin-top: 8mm;
     padding: 5mm 6mm;
@@ -352,22 +418,32 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
 </head>
 <body>
 
-  <!-- ─── Encabezado ─── -->
+  <!-- ─── Encabezado editorial ───
+       Logo + razón social a la izquierda, "Recibo de haberes" con número
+       y fecha a la derecha. Línea fina debajo con CUIT/dirección/contacto. -->
   <div class="header">
-    <div class="empresa">
-      <h1>${escaparHtml(razonSocial)}</h1>
-      <p>
-        ${cuit ? `CUIT: ${escaparHtml(cuit)}<br>` : ''}
-        ${direccionEmpresa ? `${escaparHtml(direccionEmpresa)}<br>` : ''}
-        ${datos.empresa.telefono ? `Tel: ${escaparHtml(datos.empresa.telefono)} · ` : ''}${datos.empresa.correo ? escaparHtml(datos.empresa.correo) : ''}
-      </p>
+    <div class="marca">
+      ${datos.empresa.logo_url
+        ? `<img class="logo" src="${escaparHtml(datos.empresa.logo_url)}" alt="${escaparHtml(datos.empresa.nombre)}">`
+        : ''}
+      <div class="razon">
+        <h1>${escaparHtml(razonSocial)}</h1>
+        <span class="tag">Liquidación de haberes</span>
+      </div>
     </div>
-    ${datos.empresa.logo_url ? `<img class="logo" src="${escaparHtml(datos.empresa.logo_url)}" alt="${escaparHtml(datos.empresa.nombre)}">` : ''}
     <div class="recibo-meta">
-      <div class="titulo">Recibo de haberes</div>
-      <div>Nº ${escaparHtml(datos.pago_id.slice(0, 8).toUpperCase())}</div>
-      <div>Emitido: ${formatearFecha(datos.fecha_emision)}</div>
+      <div class="titulo">Recibo Nº</div>
+      <div class="numero">${escaparHtml(datos.pago_id.slice(0, 8).toUpperCase())}</div>
+      <div class="fecha">Emitido el ${formatearFecha(datos.fecha_emision)}</div>
     </div>
+  </div>
+
+  <!-- ─── Datos fiscales en una línea fina ─── -->
+  <div class="header-foot">
+    ${cuit ? `<span class="item"><strong>CUIT</strong>${escaparHtml(cuit)}</span>` : ''}
+    ${direccionEmpresa ? `<span class="item"><strong>Dirección</strong>${escaparHtml(direccionEmpresa)}</span>` : ''}
+    ${datos.empresa.telefono ? `<span class="item"><strong>Tel</strong>${escaparHtml(datos.empresa.telefono)}</span>` : ''}
+    ${datos.empresa.correo ? `<span class="item"><strong>Email</strong>${escaparHtml(datos.empresa.correo)}</span>` : ''}
   </div>
 
   <!-- ─── Datos empleado + período ─── -->
@@ -412,7 +488,7 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
         <td class="monto">${formatearMonto(datos.monto_base)}</td>
       </tr>
       ${haberes.map(h => `<tr>
-        <td><strong>${escaparHtml(h.nombre)}</strong>${h.detalle ? `<span class="detalle">${escaparHtml(h.detalle)}</span>` : ''}</td>
+        <td><strong>${escaparHtml(h.nombre)}</strong>${renderizarPillAjuste(h.detalle)}${h.detalle ? `<span class="detalle">${escaparHtml(h.detalle)}</span>` : ''}</td>
         <td>${h.automatico ? 'Automático' : 'Manual'}</td>
         <td class="monto">${formatearMonto(h.monto)}</td>
       </tr>`).join('')}
@@ -438,7 +514,7 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     </thead>
     <tbody>
       ${descuentos.map(d => `<tr>
-        <td><strong>${escaparHtml(d.nombre)}</strong>${d.detalle ? `<span class="detalle">${escaparHtml(d.detalle)}</span>` : ''}</td>
+        <td><strong>${escaparHtml(d.nombre)}</strong>${renderizarPillAjuste(d.detalle)}${d.detalle ? `<span class="detalle">${escaparHtml(d.detalle)}</span>` : ''}</td>
         <td>${d.automatico ? 'Automático' : 'Manual'}</td>
         <td class="monto">−${formatearMonto(d.monto)}</td>
       </tr>`).join('')}
@@ -538,6 +614,23 @@ function renderizarBloqueCobro(c: DatosCobroRecibo): string {
     `).join('')}
   </table>
   `
+}
+
+/**
+ * Si el `detalle` indica que el concepto vino de un ajuste puntual
+ * del período (override o agregar), devuelve una pill de color para
+ * marcar la línea. Usa las cadenas exactas que escribe el motor en
+ * `armarConcepto` desde `motor-calculo.ts`. Mantener sincronizado.
+ */
+function renderizarPillAjuste(detalle: string | null): string {
+  if (!detalle) return ''
+  if (detalle.startsWith('Monto ajustado manualmente')) {
+    return '<span class="pill pill-override">Ajuste</span>'
+  }
+  if (detalle.startsWith('Concepto agregado al período')) {
+    return '<span class="pill pill-agregar">Solo este período</span>'
+  }
+  return ''
 }
 
 function escaparHtml(texto: string): string {
