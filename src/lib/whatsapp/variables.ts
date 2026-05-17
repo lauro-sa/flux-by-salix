@@ -73,15 +73,17 @@ export function expandirSlotsDescuentos(
   const placeholderPrimero = opciones.placeholderPrimerVacio ?? placeholderResto
   const resultado: string[] = []
   if (limpias.length <= slots) {
+    // El mensaje explicativo SOLO se muestra cuando la sección entera está
+    // vacía (cero items). Si hay al menos 1 item, los slots vacíos restantes
+    // van con `placeholderResto` (invisible) — evita texto "Sin más..."
+    // pegado a items reales que confunde visualmente.
+    const seccionEstaVacia = limpias.length === 0
     for (let i = 0; i < slots; i++) {
       if (limpias[i]) {
         resultado.push(limpias[i])
       } else {
-        // El PRIMER slot vacío de la sección lleva el mensaje explicativo
-        // ("Sin haberes…"); los demás van con un caracter invisible para
-        // no saturar visualmente con texto repetido.
-        const esElPrimeroVacio = i === limpias.length
-        resultado.push(esElPrimeroVacio ? placeholderPrimero : placeholderResto)
+        const esElPrimerSlot = i === 0
+        resultado.push(seccionEstaVacia && esElPrimerSlot ? placeholderPrimero : placeholderResto)
       }
     }
   } else {
@@ -422,10 +424,10 @@ export function construirDatosPlantilla(
     const lista = Array.isArray(nomina.descuentos_lista)
       ? (nomina.descuentos_lista as unknown[]).map(v => String(v || '').trim()).filter(Boolean)
       : detalle.split('\n').map(s => s.trim()).filter(Boolean)
-    const slotsValores = expandirSlotsDescuentos(lista, slots, {
-      placeholderPrimerVacio: '_Sin más adelantos en el período._',
-      placeholderRestoVacio: SLOT_INVISIBLE,
-    })
+    // Default `—` para slots vacíos: neutral, no confuso. Los textos
+    // "Sin..." en sub-secciones hermanas se contradecían visualmente
+    // cuando una sub-sección tenía items y la otra no.
+    const slotsValores = expandirSlotsDescuentos(lista, slots)
     for (let i = 0; i < slots; i++) {
       datos[`descuento_${i + 1}`] = slotsValores[i]
     }
@@ -456,10 +458,7 @@ export function construirDatosPlantilla(
       const det = h.detalle ? ` (${h.detalle})` : ''
       return `• *+${formatoMontoEntero(h.monto)}* · ${h.nombre}${det}`
     })
-    const slotsHaberes = expandirSlotsDescuentos(lineasHaberes, TOTAL_SLOTS_HABERES, {
-      placeholderPrimerVacio: '_Sin haberes extra del contrato._',
-      placeholderRestoVacio: SLOT_INVISIBLE,
-    })
+    const slotsHaberes = expandirSlotsDescuentos(lineasHaberes, TOTAL_SLOTS_HABERES)
     for (let i = 0; i < TOTAL_SLOTS_HABERES; i++) {
       datos[`haber_${i + 1}`] = slotsHaberes[i]
     }
@@ -472,10 +471,7 @@ export function construirDatosPlantilla(
       const det = d.detalle ? ` (${d.detalle})` : ''
       return `• *−${formatoMontoEntero(d.monto)}* · ${d.nombre}${det}`
     })
-    const slotsDescContrato = expandirSlotsDescuentos(lineasDescContrato, TOTAL_SLOTS_DESCUENTOS_CONTRATO, {
-      placeholderPrimerVacio: '_Sin descuentos del contrato._',
-      placeholderRestoVacio: SLOT_INVISIBLE,
-    })
+    const slotsDescContrato = expandirSlotsDescuentos(lineasDescContrato, TOTAL_SLOTS_DESCUENTOS_CONTRATO)
     for (let i = 0; i < TOTAL_SLOTS_DESCUENTOS_CONTRATO; i++) {
       datos[`descuento_contrato_${i + 1}`] = slotsDescContrato[i]
     }
@@ -489,10 +485,7 @@ export function construirDatosPlantilla(
     const bonos = Array.isArray(nomina.bonos_lista)
       ? (nomina.bonos_lista as unknown[]).map(v => String(v || '').trim()).filter(Boolean)
       : []
-    const slotsBonos = expandirSlotsDescuentos(bonos, TOTAL_SLOTS_BONOS, {
-      placeholderPrimerVacio: '_Sin bonos en este período._',
-      placeholderRestoVacio: SLOT_INVISIBLE,
-    })
+    const slotsBonos = expandirSlotsDescuentos(bonos, TOTAL_SLOTS_BONOS)
     for (let i = 0; i < TOTAL_SLOTS_BONOS; i++) {
       datos[`bono_${i + 1}`] = slotsBonos[i]
     }
