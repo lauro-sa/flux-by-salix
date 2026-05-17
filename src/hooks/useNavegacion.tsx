@@ -24,6 +24,13 @@ interface Migaja {
   modulo?: string // Para colorear con el token del módulo
 }
 
+// Rutas contenedoras sin `page.tsx` (solo agrupan subrutas dinámicas).
+// Se omiten al generar migajas: si aparecieran, al hacer click llevarían a un 404.
+// Ej: `/nominas/empleado/<uuid>` existe, pero `/nominas/empleado` no.
+const RUTAS_OMITIDAS_EN_MIGAJAS = new Set<string>([
+  '/nominas/empleado',
+])
+
 // Mapa de rutas a migajas estáticas (las dinámicas se agregan en runtime)
 const MIGAJAS_MODULOS: Record<string, Migaja> = {
   '/dashboard': { etiqueta: 'Inicio', ruta: '/dashboard', modulo: 'dashboard' },
@@ -78,6 +85,9 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
 
   for (const segmento of segmentos) {
     rutaAcumulada += `/${segmento}`
+
+    // Omitir rutas contenedoras sin page.tsx para evitar enlaces a 404
+    if (RUTAS_OMITIDAS_EN_MIGAJAS.has(rutaAcumulada)) continue
 
     // Buscar si el segmento tiene una migaja estática
     const estatica = MIGAJAS_MODULOS[rutaAcumulada]

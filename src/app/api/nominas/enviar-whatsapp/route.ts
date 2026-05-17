@@ -235,10 +235,13 @@ export async function POST(request: NextRequest) {
       // si el envío termina OK.
       //
       // Si `incluir_enlace_pdf === false`, saltamos la generación del PDF
-      // (operación cara con Puppeteer) y el enlace queda string vacío.
-      // El operador eligió no incluirlo en el modal de envío.
+      // (operación cara con Puppeteer) y el enlace queda como `—`.
+      // ¿Por qué `—` y no string vacío? Porque `resolverParametrosCuerpo`
+      // hace fallback al valor de ejemplo del catálogo (`https://flux.salixweb.com/r/abc123`)
+      // cuando el valor real es falsy — eso terminaba enviando un URL falso
+      // en el WhatsApp. `—` es truthy y se ve como slot vacío en el mensaje.
       const incluirPdf = incluir_enlace_pdf !== false // default true
-      let enlaceRecibo = ''
+      let enlaceRecibo = '—'
       let pagoIdActual: string | null = null
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         try {
@@ -256,7 +259,7 @@ export async function POST(request: NextRequest) {
           if (pago) {
             pagoIdActual = pago.id as string
             // Solo generamos el PDF si el operador lo pidió. Sin pdf, el
-            // enlace queda vacío y la plantilla lo muestra como — (slot vacío).
+            // enlace queda en `—` y la plantilla lo muestra como slot vacío.
             if (incluirPdf) {
               const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
                 expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
@@ -266,7 +269,7 @@ export async function POST(request: NextRequest) {
           }
         } catch (errPdf) {
           console.error('[nominas/enviar-whatsapp] error al generar PDF:', errPdf)
-          // Seguimos sin enlace: el cuerpo del mensaje todavía va.
+          // Seguimos sin enlace: el cuerpo del mensaje todavía va con `—`.
         }
       }
 

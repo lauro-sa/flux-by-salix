@@ -259,8 +259,10 @@ function resolverPreviewWA(
       descuentos_conceptos_lista: lineasConceptosDesc,
       // Preview del enlace al PDF — refleja el toggle del modal para que
       // el operador vea EXACTAMENTE cómo le va a llegar al empleado.
-      // Si está apagado, queda vacío y la plantilla lo muestra como — .
-      enlace_recibo: incluirEnlacePdf ? 'https://flux.salixweb.com/r/preview' : '',
+      // Si está apagado, va `—` (NO string vacío, porque eso hace fallback
+      // al ejemplo del catálogo `https://flux.salixweb.com/r/abc123` y queda
+      // un URL falso en el preview).
+      enlace_recibo: incluirEnlacePdf ? 'https://flux.salixweb.com/r/preview' : '—',
     },
   })
 
