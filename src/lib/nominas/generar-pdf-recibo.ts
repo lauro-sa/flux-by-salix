@@ -408,16 +408,33 @@ export async function generarPdfRecibo(
 }
 
 /**
+ * Versión del template del recibo. Bumpear cada vez que cambia la
+ * estructura visual del PDF (cabezal, layout, secciones nuevas) para
+ * forzar la regeneración de los PDFs cacheados. Los datos en sí no
+ * cambiaron pero el HTML/CSS sí, y el hash de inputs no lo captura.
+ *
+ *   v1 — cabezal con datos fiscales + recibo meta a la derecha
+ *   v2 — cabezal limpio (sin CUIT/dirección/contacto), firmas con
+ *        más espacio, layout compacto que entra en una sola página A4
+ */
+const VERSION_TEMPLATE_RECIBO = 'v2'
+
+/**
  * Calcula un hash SHA-256 de los inputs del PDF. Cualquier cambio en
  * los datos visibles del recibo (snapshot del contrato, conceptos
  * aplicados, datos del cobro, empresa, empleado, asistencia, monto)
  * cambia el hash y dispara una regeneración. La fecha de emisión
  * SE EXCLUYE porque cambia en cada call y no aporta valor al recibo.
+ * Incluimos `VERSION_TEMPLATE_RECIBO` para que el hash cambie cuando
+ * actualizamos el template aunque los datos no.
  */
 function calcularHashRecibo(datos: DatosReciboPdf): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { fecha_emision: _fechaEmision, ...significativo } = datos
-  const json = JSON.stringify(significativo, Object.keys(significativo).sort())
+  const json = JSON.stringify(
+    { __template: VERSION_TEMPLATE_RECIBO, ...significativo },
+    Object.keys({ __template: '', ...significativo }).sort(),
+  )
   return createHash('sha256').update(json).digest('hex')
 }
 

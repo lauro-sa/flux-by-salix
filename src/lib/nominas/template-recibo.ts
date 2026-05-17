@@ -167,9 +167,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
   const periodo = formatearPeriodo(datos.periodo_inicio, datos.periodo_fin)
   const nombreCompleto = `${datos.empleado.nombre}${datos.empleado.apellido ? ' ' + datos.empleado.apellido : ''}`.trim() || '—'
   const datosFiscales = datos.empresa.datos_fiscales ?? {}
+  // Razón social fiscal si está cargada, sino el nombre comercial.
   const razonSocial = (datosFiscales.razon_social as string) || datos.empresa.nombre
-  const cuit = (datosFiscales.cuit as string) || (datosFiscales.identificacion_fiscal as string) || ''
-  const direccionEmpresa = (datosFiscales.direccion as string) || datos.empresa.ubicacion || ''
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -186,13 +185,25 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     margin: 0;
     padding: 0;
   }
-  /* ─── Cabezal editorial: marca a la izq, recibo a la der ─── */
+  /* Override del padding-bottom default de htmlAPdf (25mm hardcoded
+     para PDFs paginados con header repetido). El recibo es de UNA
+     página y necesita ese espacio para que las firmas y el pie
+     quepan sin saltar a una segunda página. La doble selectividad
+     html body gana sobre el body con !important del wrapper. */
+  html body {
+    padding: 10mm 13mm 8mm 13mm !important;
+  }
+  /* ─── Cabezal editorial: marca a la izq, recibo a la der ───
+       Solo identidad — sin datos fiscales (intencionalmente). La
+       línea inferior gruesa marca el separador del cuerpo. */
   .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 10mm;
-    margin-bottom: 8mm;
+    padding-bottom: 5mm;
+    border-bottom: 1.5px solid #111827;
+    margin-bottom: 6mm;
   }
   .header .marca {
     flex: 1;
@@ -202,8 +213,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     min-width: 0;
   }
   .header .marca .logo {
-    width: 18mm;
-    height: 18mm;
+    width: 16mm;
+    height: 16mm;
     object-fit: contain;
     flex-shrink: 0;
   }
@@ -251,37 +262,20 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     color: #6b7280;
     margin-top: 0.5mm;
   }
-  /* Línea inferior fina con datos fiscales (CUIT, dirección, contacto) */
-  .header-foot {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 6mm;
-    padding: 2.5mm 0 6mm 0;
-    border-bottom: 1.5px solid #111827;
-    margin-bottom: 8mm;
-    font-size: 8.5pt;
-    color: #6b7280;
-  }
-  .header-foot .item { white-space: nowrap; }
-  .header-foot .item strong {
-    color: #374151;
-    font-weight: 600;
-    margin-right: 1mm;
-  }
   .grid-info {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6mm;
-    margin-bottom: 8mm;
+    gap: 4mm;
+    margin-bottom: 5mm;
   }
   .grid-info .bloque {
     border: 1px solid #e5e7eb;
     border-radius: 2mm;
-    padding: 4mm;
+    padding: 3mm 3.5mm;
   }
   .grid-info .bloque h2 {
-    margin: 0 0 2mm 0;
-    font-size: 8pt;
+    margin: 0 0 1.5mm 0;
+    font-size: 7.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #6b7280;
@@ -290,50 +284,52 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
   .grid-info .bloque .row {
     display: flex;
     justify-content: space-between;
-    margin: 1mm 0;
-    font-size: 9.5pt;
+    margin: 0.5mm 0;
+    font-size: 9pt;
+    line-height: 1.3;
   }
   .grid-info .bloque .row .label { color: #6b7280; }
   .grid-info .bloque .row .value { color: #111827; font-weight: 500; text-align: right; }
   table.lineas {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 6mm;
+    margin-bottom: 4mm;
     page-break-inside: avoid;
   }
   table.lineas thead th {
     text-align: left;
-    font-size: 8pt;
+    font-size: 7.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #6b7280;
     font-weight: 600;
-    padding: 2mm 3mm;
+    padding: 1.5mm 2.5mm;
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
   }
   table.lineas tbody td {
-    padding: 2.5mm 3mm;
+    padding: 1.8mm 2.5mm;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: top;
+    font-size: 9.5pt;
   }
   table.lineas tbody td.monto { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.lineas tbody td .detalle {
     display: block;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #6b7280;
-    margin-top: 0.5mm;
+    margin-top: 0.3mm;
   }
   table.lineas tfoot td {
-    padding: 3mm;
+    padding: 2.2mm 2.5mm;
     font-weight: 700;
     border-top: 2px solid #111827;
     background: #f9fafb;
   }
   table.lineas tfoot td.monto { text-align: right; font-variant-numeric: tabular-nums; }
   .seccion-titulo {
-    margin: 0 0 2mm 0;
-    font-size: 9pt;
+    margin: 0 0 1.5mm 0;
+    font-size: 8.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #374151;
@@ -362,8 +358,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     background: #f3e8ff;
   }
   .neto {
-    margin-top: 8mm;
-    padding: 5mm 6mm;
+    margin-top: 5mm;
+    padding: 4mm 5mm;
     background: #111827;
     color: #ffffff;
     display: flex;
@@ -382,23 +378,27 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
+  /* Firmas: bloque grande con respiración real, las dos líneas
+     dejan suficiente espacio arriba para firmar a mano. */
   .firmas {
-    margin-top: 16mm;
+    margin-top: 18mm;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16mm;
+    gap: 20mm;
     page-break-inside: avoid;
   }
   .firma {
-    border-top: 1px solid #d1d5db;
-    padding-top: 2mm;
+    border-top: 1px solid #9ca3af;
+    padding-top: 3mm;
     text-align: center;
     font-size: 9pt;
-    color: #6b7280;
+    color: #4b5563;
+    font-weight: 500;
+    min-height: 20mm;
   }
   .pie {
-    margin-top: 12mm;
-    padding-top: 4mm;
+    margin-top: 8mm;
+    padding-top: 3mm;
     border-top: 1px solid #e5e7eb;
     font-size: 7.5pt;
     color: #9ca3af;
@@ -406,8 +406,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     justify-content: space-between;
   }
   .notas {
-    margin-top: 6mm;
-    padding: 4mm;
+    margin-top: 4mm;
+    padding: 3mm 4mm;
     background: #fef9c3;
     border-left: 3px solid #facc15;
     font-size: 9pt;
@@ -419,8 +419,10 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
 <body>
 
   <!-- ─── Encabezado editorial ───
-       Logo + razón social a la izquierda, "Recibo de haberes" con número
-       y fecha a la derecha. Línea fina debajo con CUIT/dirección/contacto. -->
+       Identidad mínima: logo + razón social a la izquierda, "Recibo Nº"
+       con número y fecha a la derecha. Los datos fiscales (CUIT,
+       dirección, contacto) quedan en el pie del recibo si son
+       necesarios — el cabezal se mantiene limpio. -->
   <div class="header">
     <div class="marca">
       ${datos.empresa.logo_url
@@ -436,14 +438,6 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
       <div class="numero">${escaparHtml(datos.pago_id.slice(0, 8).toUpperCase())}</div>
       <div class="fecha">Emitido el ${formatearFecha(datos.fecha_emision)}</div>
     </div>
-  </div>
-
-  <!-- ─── Datos fiscales en una línea fina ─── -->
-  <div class="header-foot">
-    ${cuit ? `<span class="item"><strong>CUIT</strong>${escaparHtml(cuit)}</span>` : ''}
-    ${direccionEmpresa ? `<span class="item"><strong>Dirección</strong>${escaparHtml(direccionEmpresa)}</span>` : ''}
-    ${datos.empresa.telefono ? `<span class="item"><strong>Tel</strong>${escaparHtml(datos.empresa.telefono)}</span>` : ''}
-    ${datos.empresa.correo ? `<span class="item"><strong>Email</strong>${escaparHtml(datos.empresa.correo)}</span>` : ''}
   </div>
 
   <!-- ─── Datos empleado + período ─── -->
