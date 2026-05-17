@@ -329,5 +329,59 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ─── 5) Limpiar ajustes_concepto_periodo del período ───
+  //
+  // Los ajustes (override/excluir/agregar) son "intenciones del
+  // operador para el próximo cálculo". Cuando se graba el pago, esos
+  // ajustes ya quedaron snapshoteados en `conceptos_aplicados_pago`
+  // (snapshot inmutable que es lo que vale para auditoría). La fila
+  // de `ajustes_concepto_periodo` ya no aporta valor — peor: si
+  // queda, una próxima visualización del recibo NO pagado mostraría
+  // los ajustes como "pendientes de aplicar" cuando ya se aplicaron.
+  //
+  // Decisión: borrarlos al pagar. Si después el operador elimina el
+  // pago para corregir, los ajustes no se restauran — el motor vuelve
+  // a aplicar el cálculo del contrato sin ajustes. El operador puede
+  // volver a configurar lo que quiera.
+  //
+  // Cada ajuste borrado deja una entrada en `auditoria_ajustes_concepto_periodo`
+  // con accion='limpiar_al_pagar' para preservar la trazabilidad.
+  const { data: ajustesABorrar } = await admin
+    .from('ajustes_concepto_periodo')
+    .select('id, miembro_id, concepto_id, periodo_inicio, periodo_fin, tipo_ajuste, monto_override, motivo')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', body.miembro_id)
+    .eq('periodo_inicio', body.periodo_inicio)
+    .eq('periodo_fin', body.periodo_fin)
+
+  if (ajustesABorrar && ajustesABorrar.length > 0) {
+    const { error: errAjustes } = await admin
+      .from('ajustes_concepto_periodo')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('miembro_id', body.miembro_id)
+      .eq('periodo_inicio', body.periodo_inicio)
+      .eq('periodo_fin', body.periodo_fin)
+    if (errAjustes) {
+      console.error('[nominas/pagos] error al limpiar ajustes del período:', errAjustes)
+    } else {
+      // Auditoría best-effort: una entrada por ajuste limpiado.
+      await admin.from('auditoria_ajustes_concepto_periodo').insert(
+        ajustesABorrar.map(a => ({
+          empresa_id: empresaId,
+          ajuste_id: a.id,
+          miembro_id: a.miembro_id,
+          concepto_id: a.concepto_id,
+          periodo_inicio: a.periodo_inicio,
+          periodo_fin: a.periodo_fin,
+          editado_por: user.id,
+          accion: 'limpiar_al_pagar' as const,
+          estado_anterior: a,
+          estado_nuevo: null,
+        }))
+      )
+    }
+  }
+
   return NextResponse.json({ pago, detalle }, { status: 201 })
 }

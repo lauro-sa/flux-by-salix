@@ -195,6 +195,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (existente) {
+    // Snapshot del estado anterior para la auditoría.
+    const { data: anterior } = await admin
+      .from('ajustes_concepto_periodo')
+      .select('id, tipo_ajuste, monto_override, motivo')
+      .eq('id', existente.id)
+      .maybeSingle()
+
     const { data: actualizado, error } = await admin
       .from('ajustes_concepto_periodo')
       .update({ ...datosFila, actualizado_por: user.id })
@@ -205,6 +212,21 @@ export async function POST(request: NextRequest) {
       console.error('[ajustes-periodo] update error:', error)
       return NextResponse.json({ error: 'No se pudo actualizar el ajuste' }, { status: 500 })
     }
+
+    // Auditoría best-effort (no abortamos si falla).
+    await admin.from('auditoria_ajustes_concepto_periodo').insert({
+      empresa_id: empresaId,
+      ajuste_id: existente.id,
+      miembro_id: body.miembro_id,
+      concepto_id: body.concepto_id,
+      periodo_inicio: body.periodo_inicio,
+      periodo_fin: body.periodo_fin,
+      editado_por: user.id,
+      accion: 'actualizar',
+      estado_anterior: anterior,
+      estado_nuevo: { id: actualizado.id, ...datosFila },
+    })
+
     return NextResponse.json({ ajuste: actualizado, modo: 'actualizado' })
   }
 
@@ -227,5 +249,19 @@ export async function POST(request: NextRequest) {
     console.error('[ajustes-periodo] insert error:', error)
     return NextResponse.json({ error: 'No se pudo crear el ajuste' }, { status: 500 })
   }
+
+  await admin.from('auditoria_ajustes_concepto_periodo').insert({
+    empresa_id: empresaId,
+    ajuste_id: creado.id,
+    miembro_id: body.miembro_id,
+    concepto_id: body.concepto_id,
+    periodo_inicio: body.periodo_inicio,
+    periodo_fin: body.periodo_fin,
+    editado_por: user.id,
+    accion: 'crear',
+    estado_anterior: null,
+    estado_nuevo: { id: creado.id, ...datosFila },
+  })
+
   return NextResponse.json({ ajuste: creado, modo: 'creado' }, { status: 201 })
 }
