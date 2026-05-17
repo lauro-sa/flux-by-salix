@@ -22,7 +22,10 @@ import type { CuerpoPlantillaWA } from '@/tipos/whatsapp'
  * como N variables separadas. Si hay menos ítems, se rellena con SLOT_VACIO;
  * si hay más, los excedentes se concatenan en el último slot.
  */
-export const TOTAL_SLOTS_DESCUENTOS = 4
+// Slots para adelantos/descuentos puntuales (no del contrato). Bajado a 3
+// para alinear con la plantilla `recibo_haberes_nomina` v2 — el slot 3
+// concatena los excedentes con `·` si hay más de 3 adelantos en el período.
+export const TOTAL_SLOTS_DESCUENTOS = 3
 
 /** Slots para conceptos haber del contrato (Presentismo, Antigüedad, etc.). */
 export const TOTAL_SLOTS_HABERES = 3
@@ -153,8 +156,9 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   // excedentes se concatenan en el último.
   { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• A favor del período anterior · −$18.000', modulos: ['asistencias'] },
   { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Inyectores cuota 2/2 · 17 abr · −$58.000', modulos: ['asistencias'] },
-  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
-  { valor: 'descuento_4', etiqueta: 'Nómina — Descuento 4', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229', modulos: ['asistencias'] },
+  // El slot 3 muestra el tercer adelanto o concatena los excedentes
+  // (4to en adelante) separados por `·` cuando hay más de 3 en el período.
+  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3 (o concat. excedentes)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Retiro de cajero · 26 abr · −$50.000  ·  • Adelanto ML · 29 abr · −$30.229', modulos: ['asistencias'] },
   { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
   // Link firmado al PDF del recibo (expira 30 días). El server lo arma
   // desde `pagos_nomina.comprobante_url` cuando hay pago grabado; si no
