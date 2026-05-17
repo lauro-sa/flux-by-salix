@@ -2069,104 +2069,108 @@ export function PaginaEditorNominaEmpleado({
     <>
       {embed ? (
         // ─── Modo embed: dentro de la ficha del empleado ───
-        // Jerarquía: ARRIBA las acciones del período a la izquierda y
-        // el navegador ‹ Hoy › a la derecha; ABAJO el hero del período
-        // (1 — 15 MAYO · estado). El selector de tipo de período
-        // (Mes/Quincena/Semana) queda como toolbar secundario al pie.
+        // Cabezal en dos columnas dentro de la misma franja:
+        //   IZQUIERDA: acciones primarias del período (Ver/Enviar/Pagar).
+        //   DERECHA:   hero del período (1 — 15 MAYO · estado) + cluster
+        //              de controles (‹ Hoy › y Mes/Quincena/Semana)
+        //              alineados a la derecha y agrupados verticalmente.
+        // Así toda la información del período "convive" como un solo
+        // bloque coherente en vez de fragmentarse en filas separadas.
         <div className="px-4 md:px-6 py-4 space-y-5">
-          <div className="flex flex-col gap-3">
-            {/* ── Fila 1: acciones primarias (izquierda) + navegador (derecha) ── */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              {accionesPago.length > 0 ? (
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            {/* ── Acciones primarias (izquierda) ── */}
+            {accionesPago.length > 0 ? (
+              <GrupoBotones>
+                {accionesPago.map(a => (
+                  <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
+                    {a.etiqueta}
+                  </Boton>
+                ))}
+              </GrupoBotones>
+            ) : <span />}
+
+            {/* ── Cluster período (derecha): hero + navegación + selector ── */}
+            <div className="flex flex-col items-stretch md:items-end gap-2.5">
+              <HeroRango
+                desde={desdeDate}
+                hasta={hastaDate}
+                periodo={tipoPeriodo}
+                subtitulo={
+                  <span className="flex items-center justify-end gap-2 flex-wrap">
+                    <span>
+                      {hastaDate.getFullYear()}
+                      {tipoPeriodo === 'quincena' && <> · Quincena {desdeDate.getDate() <= 15 ? 1 : 2}</>}
+                      {tipoPeriodo === 'semana' && <> · Semana</>}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 font-semibold ${
+                        bannerEstado.tono === 'exito'
+                          ? 'text-insignia-exito'
+                          : bannerEstado.tono === 'advertencia'
+                            ? 'text-insignia-advertencia'
+                            : bannerEstado.tono === 'peligro'
+                              ? 'text-insignia-peligro'
+                              : 'text-texto-terciario'
+                      }`}
+                    >
+                      <span className="size-1.5 rounded-full bg-current" />
+                      {bannerEstado.etiqueta}
+                    </span>
+                  </span>
+                }
+              />
+
+              {/* Toolbar de controles: navegador ‹ Hoy › y selector de tipo
+                  de período, juntos en una sola fila para que el cluster
+                  quede compacto. */}
+              <div className="flex items-center justify-end gap-2 flex-wrap">
                 <GrupoBotones>
-                  {accionesPago.map(a => (
-                    <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
-                      {a.etiqueta}
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
+                    title="Período anterior"
+                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(new Date(), tipoPeriodo)}
+                    disabled={enPeriodoActual}
+                    title="Volver al período actual"
+                    className={`h-8 px-3 rounded-boton border text-sm font-medium transition-colors ${
+                      enPeriodoActual
+                        ? 'border-borde-sutil text-texto-terciario/50 cursor-default'
+                        : 'border-texto-marca/40 text-texto-marca hover:bg-texto-marca/10'
+                    }`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
+                    title="Período siguiente"
+                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </GrupoBotones>
+
+                <GrupoBotones>
+                  {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
+                    <Boton
+                      key={t}
+                      variante="secundario"
+                      tamano="sm"
+                      onClick={() => aplicarPeriodo(fechaRef, t)}
+                      className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+                    >
+                      {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
                     </Boton>
                   ))}
                 </GrupoBotones>
-              ) : <span />}
-
-              <GrupoBotones>
-                <button
-                  type="button"
-                  onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
-                  title="Período anterior"
-                  className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => aplicarPeriodo(new Date(), tipoPeriodo)}
-                  disabled={enPeriodoActual}
-                  title="Volver al período actual"
-                  className={`h-8 px-3 rounded-boton border text-sm font-medium transition-colors ${
-                    enPeriodoActual
-                      ? 'border-borde-sutil text-texto-terciario/50 cursor-default'
-                      : 'border-texto-marca/40 text-texto-marca hover:bg-texto-marca/10'
-                  }`}
-                >
-                  Hoy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
-                  title="Período siguiente"
-                  className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </GrupoBotones>
+              </div>
             </div>
-
-            {/* ── Fila 2: hero del período + estado ── */}
-            <HeroRango
-              desde={desdeDate}
-              hasta={hastaDate}
-              periodo={tipoPeriodo}
-              subtitulo={
-                <span className="flex items-center gap-2 flex-wrap">
-                  <span>
-                    {hastaDate.getFullYear()}
-                    {tipoPeriodo === 'quincena' && <> · Quincena {desdeDate.getDate() <= 15 ? 1 : 2}</>}
-                    {tipoPeriodo === 'semana' && <> · Semana</>}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1 font-semibold ${
-                      bannerEstado.tono === 'exito'
-                        ? 'text-insignia-exito'
-                        : bannerEstado.tono === 'advertencia'
-                          ? 'text-insignia-advertencia'
-                          : bannerEstado.tono === 'peligro'
-                            ? 'text-insignia-peligro'
-                            : 'text-texto-terciario'
-                    }`}
-                  >
-                    <span className="size-1.5 rounded-full bg-current" />
-                    {bannerEstado.etiqueta}
-                  </span>
-                </span>
-              }
-            />
-
-            {/* ── Separador sutil ── */}
-            <div className="h-px bg-borde-sutil/60" />
-
-            {/* ── Fila 3: selector de tipo de período (Mes/Quincena/Semana) ── */}
-            <GrupoBotones>
-              {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
-                <Boton
-                  key={t}
-                  variante="secundario"
-                  tamano="sm"
-                  onClick={() => aplicarPeriodo(fechaRef, t)}
-                  className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
-                >
-                  {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
-                </Boton>
-              ))}
-            </GrupoBotones>
           </div>
           {contenidoPrincipal}
         </div>
