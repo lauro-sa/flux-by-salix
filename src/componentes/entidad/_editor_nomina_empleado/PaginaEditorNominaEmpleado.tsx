@@ -34,6 +34,8 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
+import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
+import { SelectorConceptoCatalogo } from '@/app/(flux)/nominas/_componentes/SelectorConceptoCatalogo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -320,6 +322,49 @@ export function PaginaEditorNominaEmpleado({
   // Adelantos y pagos del período
   const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
   const [pagos, setPagos] = useState<Record<string, unknown>[]>([])
+  /**
+   * Ajustes puntuales de conceptos para este período (override,
+   * excluir o agregar) — ver sql/095 y `MenuAjusteConcepto`. Se
+   * cargan junto con los datos del período y se re-fetchean cada vez
+   * que el operador toca el menú •••.
+   */
+  type AjustePeriodoUI = {
+    id: string
+    concepto_id: string
+    tipo_ajuste: 'override' | 'excluir' | 'agregar'
+    monto_override: number | null
+    motivo: string | null
+  }
+  const [ajustesPeriodo, setAjustesPeriodo] = useState<AjustePeriodoUI[]>([])
+  /** Toggle del form de "agregar concepto del catálogo" en panel Ajustes. */
+  const [mostrarSelectorConcepto, setMostrarSelectorConcepto] = useState(false)
+  /**
+   * Detalle del recibo recalculado por el motor unificado
+   * (`/api/nominas/calcular`). El endpoint del listado `/api/nominas`
+   * no respeta `ajustes_concepto_periodo` todavía, así que para que
+   * el desglose refleje los overrides/exclusiones/agregados al toque,
+   * pedimos un cálculo dedicado. Si está presente, sobreescribe
+   * `emp.conceptos_aplicados` y `emp.monto_neto`. Incluye también
+   * `conceptos_sugeridos` para mostrar los excluidos manualmente.
+   */
+  type DetalleMotorUI = {
+    conceptos_aplicados: Array<{
+      concepto_id: string
+      nombre: string
+      tipo: 'haber' | 'descuento'
+      monto: number
+      detalle: string | null
+    }>
+    conceptos_sugeridos: Array<{
+      concepto_id: string
+      nombre: string
+      tipo: 'haber' | 'descuento'
+      monto: number
+      detalle: string | null
+    }>
+    neto: number
+  }
+  const [detalleMotor, setDetalleMotor] = useState<DetalleMotorUI | null>(null)
 
   // Último contrato del miembro: si está terminado, mostramos banner
   // persistente arriba del recibo. Se carga al cambiar de empleado.
@@ -468,6 +513,71 @@ export function PaginaEditorNominaEmpleado({
   }, [datosEmpleado.miembro_id, cargarPagosYAdelantos])
 
   // Recargar datos del período actual tras una acción (pagar, adelanto, etc.)
+  /**
+   * Recarga solo los ajustes puntuales del período desde la API. Se
+   * usa después de crear/eliminar un ajuste para refrescar el
+   * indicador del menú •••. El recálculo del recibo lo dispara aparte
+   * `recargarDatos`.
+   */
+  const recargarAjustes = useCallback(async () => {
+    try {
+      const url = `/api/nominas/ajustes-periodo?miembro_id=${datosEmpleado.miembro_id}&desde=${periodoActual.desde}&hasta=${periodoActual.hasta}`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (res.ok) {
+        setAjustesPeriodo((data.ajustes ?? []).map((a: Record<string, unknown>) => ({
+          id: a.id as string,
+          concepto_id: a.concepto_id as string,
+          tipo_ajuste: a.tipo_ajuste as 'override' | 'excluir' | 'agregar',
+          monto_override: a.monto_override === null ? null : Number(a.monto_override),
+          motivo: (a.motivo as string | null) ?? null,
+        })))
+      }
+    } catch { /* silenciar */ }
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta])
+
+  /**
+   * Llama al motor unificado `/api/nominas/calcular` para obtener el
+   * detalle del recibo con TODOS los ajustes aplicados (overrides,
+   * exclusiones, conceptos agregados). El listado `/api/nominas`
+   * todavía no respeta los ajustes — este endpoint sí. Lo usamos para
+   * sobreescribir `conceptos_aplicados` y `monto_neto` en el desglose.
+   */
+  const recalcularConMotor = useCallback(async () => {
+    try {
+      const res = await fetch('/api/nominas/calcular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          miembro_id: datosEmpleado.miembro_id,
+          periodo_inicio: periodoActual.desde,
+          periodo_fin: periodoActual.hasta,
+        }),
+      })
+      if (!res.ok) { setDetalleMotor(null); return }
+      const data = await res.json()
+      const d = data.detalle as Record<string, unknown> | null
+      if (!d) { setDetalleMotor(null); return }
+      setDetalleMotor({
+        conceptos_aplicados: ((d.conceptos_aplicados as Array<Record<string, unknown>>) ?? []).map(c => ({
+          concepto_id: c.concepto_id as string,
+          nombre: c.nombre as string,
+          tipo: c.tipo as 'haber' | 'descuento',
+          monto: Number(c.monto),
+          detalle: (c.detalle as string | null) ?? null,
+        })),
+        conceptos_sugeridos: ((d.conceptos_sugeridos as Array<Record<string, unknown>>) ?? []).map(c => ({
+          concepto_id: c.concepto_id as string,
+          nombre: c.nombre as string,
+          tipo: c.tipo as 'haber' | 'descuento',
+          monto: Number(c.monto),
+          detalle: (c.detalle as string | null) ?? null,
+        })),
+        neto: Number(d.neto),
+      })
+    } catch { setDetalleMotor(null) }
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta])
+
   const recargarDatos = useCallback(async () => {
     setRecalculando(true)
     try {
@@ -477,8 +587,12 @@ export function PaginaEditorNominaEmpleado({
       if (resultado) setDatosEmpleado(resultado)
     } catch { /* silenciar */ }
     finally { setRecalculando(false) }
-    await cargarPagosYAdelantos(datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta)
-  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta, cargarPagosYAdelantos])
+    await Promise.all([
+      cargarPagosYAdelantos(datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta),
+      recargarAjustes(),
+      recalcularConMotor(),
+    ])
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta, cargarPagosYAdelantos, recargarAjustes, recalcularConMotor])
 
   // ─── Navegación entre empleados ───
 
@@ -1206,8 +1320,16 @@ export function PaginaEditorNominaEmpleado({
                 )}
               >
                 {(() => {
-                  const haberes = emp.conceptos_aplicados?.filter(c => c.tipo === 'haber') ?? []
-                  const descuentosConceptos = emp.conceptos_aplicados?.filter(c => c.tipo === 'descuento') ?? []
+                  // Si tenemos el detalle del motor unificado (con ajustes
+                  // de período aplicados), lo usamos. Sino fallback al
+                  // listado `/api/nominas` que no respeta ajustes.
+                  const conceptosFuente = detalleMotor?.conceptos_aplicados ?? emp.conceptos_aplicados ?? []
+                  const haberes = conceptosFuente.filter(c => c.tipo === 'haber')
+                  const descuentosConceptos = conceptosFuente.filter(c => c.tipo === 'descuento')
+                  const sugeridosMotor = detalleMotor?.conceptos_sugeridos ?? []
+                  // Helper para encontrar el ajuste vigente de un concepto.
+                  const ajusteDe = (conceptoId: string) =>
+                    ajustesPeriodo.find(a => a.concepto_id === conceptoId) ?? null
                   const totalHaberes = emp.total_haberes ?? 0
                   const totalDescuentosConceptos = emp.total_descuentos_conceptos ?? 0
                   const totalBonos = emp.bonos_periodo ?? 0
@@ -1250,19 +1372,42 @@ export function PaginaEditorNominaEmpleado({
                           </div>
 
                           {/* Conceptos haber del contrato */}
-                          {haberes.map(c => (
-                            <div key={c.concepto_id} className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-texto-primario">{c.nombre}</p>
-                                {c.detalle && (
-                                  <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                          {haberes.map(c => {
+                            const ajuste = ajusteDe(c.concepto_id)
+                            return (
+                              <div key={c.concepto_id} className="flex items-start justify-between gap-3 group">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                    {c.nombre}
+                                    {ajuste?.tipo_ajuste === 'override' && (
+                                      <Insignia color="info" tamano="sm">Ajustado</Insignia>
+                                    )}
+                                    {ajuste?.tipo_ajuste === 'agregar' && (
+                                      <Insignia color="info" tamano="sm">Solo este período</Insignia>
+                                    )}
+                                  </p>
+                                  {c.detalle && (
+                                    <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                  )}
+                                </div>
+                                <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
+                                  +{fmtMonto(c.monto)}
+                                </span>
+                                {puedeEditarNomina && (
+                                  <MenuAjusteConcepto
+                                    miembroId={datosEmpleado.miembro_id}
+                                    conceptoId={c.concepto_id}
+                                    conceptoNombre={c.nombre}
+                                    periodoInicio={periodoActual.desde}
+                                    periodoFin={periodoActual.hasta}
+                                    montoCalculado={c.monto}
+                                    ajusteActual={ajuste}
+                                    onCambio={recargarDatos}
+                                  />
                                 )}
                               </div>
-                              <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
-                                +{fmtMonto(c.monto)}
-                              </span>
-                            </div>
-                          ))}
+                            )
+                          })}
 
                           {/* Bonos / pagos extra del período */}
                           {bonosPeriodo.map((b, idx) => (
@@ -1319,19 +1464,42 @@ export function PaginaEditorNominaEmpleado({
 
                           <div className="space-y-2">
                             {/* Conceptos descuento del contrato */}
-                            {descuentosConceptos.map(c => (
-                              <div key={c.concepto_id} className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm text-texto-primario">{c.nombre}</p>
-                                  {c.detalle && (
-                                    <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                            {descuentosConceptos.map(c => {
+                              const ajuste = ajusteDe(c.concepto_id)
+                              return (
+                                <div key={c.concepto_id} className="flex items-start justify-between gap-3 group">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                      {c.nombre}
+                                      {ajuste?.tipo_ajuste === 'override' && (
+                                        <Insignia color="info" tamano="sm">Ajustado</Insignia>
+                                      )}
+                                      {ajuste?.tipo_ajuste === 'agregar' && (
+                                        <Insignia color="info" tamano="sm">Solo este período</Insignia>
+                                      )}
+                                    </p>
+                                    {c.detalle && (
+                                      <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
+                                    −{fmtMonto(c.monto)}
+                                  </span>
+                                  {puedeEditarNomina && (
+                                    <MenuAjusteConcepto
+                                      miembroId={datosEmpleado.miembro_id}
+                                      conceptoId={c.concepto_id}
+                                      conceptoNombre={c.nombre}
+                                      periodoInicio={periodoActual.desde}
+                                      periodoFin={periodoActual.hasta}
+                                      montoCalculado={c.monto}
+                                      ajusteActual={ajuste}
+                                      onCambio={recargarDatos}
+                                    />
                                   )}
                                 </div>
-                                <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
-                                  −{fmtMonto(c.monto)}
-                                </span>
-                              </div>
-                            ))}
+                              )
+                            })}
 
                             {/* Saldo a favor del período anterior (se descuenta del bruto) */}
                             {saldoAFavor > 0 && (
@@ -1375,6 +1543,59 @@ export function PaginaEditorNominaEmpleado({
                             <span className="text-sm font-semibold tabular-nums text-insignia-advertencia">
                               −{fmtMonto(totalDescuentos)}
                             </span>
+                          </div>
+                        </section>
+                      )}
+
+                      {/* ───── NO APLICADOS / SUGERIDOS ─────
+                          Conceptos del contrato que el motor evaluó pero
+                          no aplicó: el operador los excluyó manualmente,
+                          no cumplieron la condición (ej. presentismo
+                          con ausencias), o son conceptos manuales sin
+                          haber sido agregados. El operador puede
+                          restaurar los excluidos desde el menú •••. */}
+                      {sugeridosMotor.length > 0 && (
+                        <section className="py-4 border-t border-dashed border-white/[0.08]">
+                          <header className="flex items-center justify-between mb-3">
+                            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+                              No aplicados este período
+                            </p>
+                            <span className="text-[11px] text-texto-terciario">
+                              {sugeridosMotor.length}
+                            </span>
+                          </header>
+                          <div className="space-y-2">
+                            {sugeridosMotor.map(c => {
+                              const ajuste = ajusteDe(c.concepto_id)
+                              const esExcluido = ajuste?.tipo_ajuste === 'excluir'
+                              return (
+                                <div key={c.concepto_id} className="flex items-start justify-between gap-3 opacity-70">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-texto-secundario flex items-center gap-1.5">
+                                      <span className="line-through">{c.nombre}</span>
+                                      {esExcluido && (
+                                        <Insignia color="advertencia" tamano="sm">Excluido</Insignia>
+                                      )}
+                                    </p>
+                                    {c.detalle && (
+                                      <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                    )}
+                                  </div>
+                                  {puedeEditarNomina && esExcluido && (
+                                    <MenuAjusteConcepto
+                                      miembroId={datosEmpleado.miembro_id}
+                                      conceptoId={c.concepto_id}
+                                      conceptoNombre={c.nombre}
+                                      periodoInicio={periodoActual.desde}
+                                      periodoFin={periodoActual.hasta}
+                                      montoCalculado={0}
+                                      ajusteActual={ajuste}
+                                      onCambio={recargarDatos}
+                                    />
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                         </section>
                       )}
@@ -1549,7 +1770,7 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Ajustes del período"
                 icono={<TrendingDown size={13} />}
-                accion={!mostrarFormAdelanto ? (
+                accion={!mostrarFormAdelanto && !mostrarSelectorConcepto ? (
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
@@ -1560,8 +1781,16 @@ export function PaginaEditorNominaEmpleado({
                       </span>
                     )}
                     {puedeEditarNomina && (
-                      <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                        onClick={() => setMostrarFormAdelanto(true)}>Nuevo ajuste</Boton>
+                      <>
+                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                          onClick={() => setMostrarFormAdelanto(true)}>
+                          Bono / Adelanto
+                        </Boton>
+                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                          onClick={() => setMostrarSelectorConcepto(true)}>
+                          Concepto del catálogo
+                        </Boton>
+                      </>
                     )}
                   </div>
                 ) : undefined}
@@ -1821,6 +2050,27 @@ export function PaginaEditorNominaEmpleado({
                       <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
                     </div>
                   </div>
+                )}
+
+                {/* Form alternativo: agregar concepto del catálogo solo a
+                    este período. Crea un ajuste tipo 'agregar' que el
+                    motor aplica al recalcular. */}
+                {mostrarSelectorConcepto && (
+                  <SelectorConceptoCatalogo
+                    miembroId={datosEmpleado.miembro_id}
+                    periodoInicio={periodoActual.desde}
+                    periodoFin={periodoActual.hasta}
+                    conceptosEnContratoIds={new Set([
+                      ...(emp.conceptos_aplicados ?? []).map(c => c.concepto_id),
+                      ...(detalleMotor?.conceptos_aplicados ?? []).map(c => c.concepto_id),
+                      ...(detalleMotor?.conceptos_sugeridos ?? []).map(c => c.concepto_id),
+                    ])}
+                    onCancelar={() => setMostrarSelectorConcepto(false)}
+                    onGuardado={async () => {
+                      setMostrarSelectorConcepto(false)
+                      await recargarDatos()
+                    }}
+                  />
                 )}
               </TarjetaPanel>
 
