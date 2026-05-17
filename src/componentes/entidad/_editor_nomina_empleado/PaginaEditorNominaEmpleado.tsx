@@ -1321,17 +1321,15 @@ export function PaginaEditorNominaEmpleado({
                 </TarjetaPanel>
               )}
 
-              {/* ─── DESGLOSE DEL CÁLCULO (recibo) ─── */}
+              {/* ─── DESGLOSE DEL CÁLCULO (recibo) ───
+                  Solo lectura: los ajustes del período (override, excluir,
+                  agregar, +Bono/+Adelanto, +Concepto del catálogo) se hacen
+                  desde la card "Ajustes del período" y desde el menú "···"
+                  de cada concepto. El botón "Registrar pago" del cabezal
+                  cubre el forzado manual del monto a transferir. */}
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
-                accion={puedeEditarNomina && (
-                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => setConfirmandoPago(true)}
-                    titulo="Forzar el monto a pagar de este período (no toca el contrato ni los conceptos)">
-                    Ajustar manualmente
-                  </Boton>
-                )}
               >
                 {(() => {
                   // Si tenemos el detalle del motor unificado (con ajustes
@@ -2190,20 +2188,72 @@ export function PaginaEditorNominaEmpleado({
       {embed ? (
         // ─── Modo embed: dentro de la ficha del empleado ───
         // El header de la ficha (foto + nombre + sector·turno·modalidad
-        // + tabs) ya identifica al empleado. Acá solo mostramos las
-        // acciones de pago, el banner del período (selector con hero) y
-        // el contenido principal — sin envolver con PlantillaEditor.
+        // + tabs) ya identifica al empleado. Cabezal cohesivo estilo
+        // Presupuestos: período + estado + acciones primarias todo en
+        // una sola franja, sin botones flotando sueltos a la derecha.
         <div className="px-4 md:px-6 py-4 space-y-5">
-          {accionesPago.length > 0 && (
-            <div className="flex items-center justify-end gap-2">
-              {accionesPago.map(a => (
-                <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
-                  {a.etiqueta}
-                </Boton>
-              ))}
-            </div>
-          )}
-          {banner}
+          <CabezaloHero
+            titulo={
+              <HeroRango
+                desde={desdeDate}
+                hasta={hastaDate}
+                periodo={tipoPeriodo}
+                subtitulo={
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <span>
+                      {hastaDate.getFullYear()}
+                      {tipoPeriodo === 'quincena' && <> · Quincena {desdeDate.getDate() <= 15 ? 1 : 2}</>}
+                      {tipoPeriodo === 'semana' && <> · Semana</>}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 font-semibold ${
+                        bannerEstado.tono === 'exito'
+                          ? 'text-insignia-exito'
+                          : bannerEstado.tono === 'advertencia'
+                            ? 'text-insignia-advertencia'
+                            : bannerEstado.tono === 'peligro'
+                              ? 'text-insignia-peligro'
+                              : 'text-texto-terciario'
+                      }`}
+                    >
+                      <span className="size-1.5 rounded-full bg-current" />
+                      {bannerEstado.etiqueta}
+                    </span>
+                  </span>
+                }
+              />
+            }
+            onAnterior={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
+            onSiguiente={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
+            onHoy={() => aplicarPeriodo(new Date(), tipoPeriodo)}
+            hoyDeshabilitado={enPeriodoActual}
+            slotAcciones={
+              accionesPago.length > 0 ? (
+                <GrupoBotones>
+                  {accionesPago.map(a => (
+                    <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
+                      {a.etiqueta}
+                    </Boton>
+                  ))}
+                </GrupoBotones>
+              ) : undefined
+            }
+            slotControles={
+              <GrupoBotones>
+                {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
+                  <Boton
+                    key={t}
+                    variante="secundario"
+                    tamano="sm"
+                    onClick={() => aplicarPeriodo(fechaRef, t)}
+                    className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+                  >
+                    {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
+                  </Boton>
+                ))}
+              </GrupoBotones>
+            }
+          />
           {contenidoPrincipal}
         </div>
       ) : (

@@ -121,10 +121,43 @@ export async function GET(request: NextRequest) {
         .in('adelanto_id', adelantoIds)
         .order('numero_cuota', { ascending: true })
 
-      for (const c of (cuotas || []) as Record<string, unknown>[]) {
+      // Para las cuotas ya descontadas, enriquecemos con el período del
+      // pago de nómina donde se aplicaron. Así el tab "Adelantos" puede
+      // mostrar "Cuota 1/3 descontada en quincena 1 mayo 2026" y dejar
+      // visible la conexión bidireccional adelantos ↔ liquidación.
+      const cuotasList = (cuotas || []) as Record<string, unknown>[]
+      const pagoIds = Array.from(
+        new Set(
+          cuotasList
+            .map(c => c.pago_nomina_id as string | null)
+            .filter((id): id is string => !!id),
+        ),
+      )
+      const pagosMap = new Map<string, { periodo_inicio: string; periodo_fin: string }>()
+      if (pagoIds.length > 0) {
+        const { data: pagos } = await admin
+          .from('pagos_nomina')
+          .select('id, periodo_inicio, periodo_fin')
+          .in('id', pagoIds)
+        for (const p of (pagos || []) as Record<string, unknown>[]) {
+          pagosMap.set(p.id as string, {
+            periodo_inicio: p.periodo_inicio as string,
+            periodo_fin: p.periodo_fin as string,
+          })
+        }
+      }
+
+      for (const c of cuotasList) {
+        const pagoId = c.pago_nomina_id as string | null
+        const periodo = pagoId ? pagosMap.get(pagoId) : null
         const aid = c.adelanto_id as string
         if (!cuotasMap.has(aid)) cuotasMap.set(aid, [])
-        cuotasMap.get(aid)!.push(c)
+        cuotasMap.get(aid)!.push({
+          ...c,
+          periodo_pago: periodo
+            ? { inicio: periodo.periodo_inicio, fin: periodo.periodo_fin }
+            : null,
+        })
       }
     }
 

@@ -39,6 +39,15 @@ interface Props {
 type TipoMovimiento = 'adelanto' | 'descuento' | 'bono'
 type EstadoMovimiento = 'pendiente' | 'activo' | 'pagado' | 'cancelado'
 
+interface CuotaUI {
+  numero_cuota: number
+  monto_cuota: number
+  fecha_programada: string
+  estado: 'pendiente' | 'descontada' | 'cancelada'
+  /** Si la cuota fue descontada, qué período de liquidación la absorbió. */
+  periodo_pago: { inicio: string; fin: string } | null
+}
+
 interface AdelantoUI {
   id: string
   tipo: TipoMovimiento
@@ -51,6 +60,7 @@ interface AdelantoUI {
   estado: EstadoMovimiento
   creado_por_nombre: string | null
   creado_en: string
+  cuotas: CuotaUI[]
 }
 
 type FiltroVista = 'activos' | 'pagados' | 'cancelados' | 'todos'
@@ -64,6 +74,26 @@ function fmtFecha(iso: string): string {
   if (!y || !m || !d) return iso
   const dt = new Date(y, m - 1, d)
   return dt.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/**
+ * Resume un rango de fechas como texto legible:
+ *   - Mismo mes: "1 — 15 mayo 2026"
+ *   - Distinto mes: "28 abr — 4 may 2026"
+ *   - Mismo día: "15 mayo 2026"
+ */
+function fmtRangoFechas(inicio: string, fin: string): string {
+  const partes = (iso: string) => {
+    const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+    return { y, m, d, dt: new Date(y, (m || 1) - 1, d) }
+  }
+  const a = partes(inicio)
+  const b = partes(fin)
+  const mesA = a.dt.toLocaleDateString('es-AR', { month: 'short' })
+  const mesB = b.dt.toLocaleDateString('es-AR', { month: 'short' })
+  if (a.y === b.y && a.m === b.m && a.d === b.d) return `${a.d} ${mesA} ${a.y}`
+  if (a.y === b.y && a.m === b.m) return `${a.d}—${b.d} ${mesA} ${a.y}`
+  return `${a.d} ${mesA} — ${b.d} ${mesB} ${b.y}`
 }
 
 export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
@@ -103,6 +133,13 @@ export function SeccionAdelantosEmpleado({ miembroId, puedeEditar }: Props) {
         estado: (a.estado as EstadoMovimiento) || 'activo',
         creado_por_nombre: (a.creado_por_nombre as string | null) ?? null,
         creado_en: a.creado_en as string,
+        cuotas: ((a.cuotas as Array<Record<string, unknown>>) ?? []).map(c => ({
+          numero_cuota: Number(c.numero_cuota),
+          monto_cuota: Number(c.monto_cuota),
+          fecha_programada: c.fecha_programada as string,
+          estado: (c.estado as 'pendiente' | 'descontada' | 'cancelada') ?? 'pendiente',
+          periodo_pago: (c.periodo_pago as { inicio: string; fin: string } | null) ?? null,
+        })),
       })))
     } catch (err) {
       console.error('[SeccionAdelantosEmpleado] error:', err)
@@ -378,6 +415,13 @@ function FilaMovimiento({
     : adelanto.estado === 'activo' ? 'Activo'
     : 'Pendiente'
 
+  // Detalle de cuotas: solo lo mostramos cuando aporta info — adelantos
+  // multi-cuota, o cuando ya hay al menos una cuota descontada. Para
+  // bonos/descuentos one-off sin descontar, sería ruido.
+  const mostrarCuotas = adelanto.cuotas.length > 0 && (
+    adelanto.cuotas_totales > 1 || adelanto.cuotas.some(c => c.estado === 'descontada')
+  )
+
   return (
     <article className={`rounded-card border border-borde-sutil bg-superficie-tarjeta px-4 py-3 ${
       adelanto.estado === 'cancelado' ? 'opacity-60' : ''
@@ -429,6 +473,46 @@ function FilaMovimiento({
           )}
         </div>
       </div>
+
+      {mostrarCuotas && (
+        <div className="mt-3 pt-3 border-t border-borde-sutil/60 space-y-1">
+          {adelanto.cuotas.map(c => {
+            const descontada = c.estado === 'descontada'
+            const cancelada = c.estado === 'cancelada'
+            return (
+              <div
+                key={c.numero_cuota}
+                className="flex items-center justify-between gap-3 text-[11px]"
+              >
+                <span className={`flex items-center gap-1.5 min-w-0 ${
+                  cancelada ? 'text-texto-terciario line-through' : 'text-texto-secundario'
+                }`}>
+                  <span className={`shrink-0 size-1.5 rounded-full ${
+                    descontada ? 'bg-insignia-exito'
+                    : cancelada ? 'bg-texto-terciario/40'
+                    : 'bg-insignia-advertencia/60'
+                  }`} />
+                  <span className="font-medium">
+                    Cuota {c.numero_cuota}/{adelanto.cuotas_totales}
+                  </span>
+                  <span className="text-texto-terciario truncate">
+                    {descontada && c.periodo_pago
+                      ? `· descontada en ${fmtRangoFechas(c.periodo_pago.inicio, c.periodo_pago.fin)}`
+                      : descontada
+                        ? '· descontada'
+                        : cancelada
+                          ? '· cancelada'
+                          : `· prevista ${fmtFecha(c.fecha_programada)}`}
+                  </span>
+                </span>
+                <span className="shrink-0 tabular-nums text-texto-terciario">
+                  {fmtMonto(c.monto_cuota)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </article>
   )
 }
