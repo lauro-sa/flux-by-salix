@@ -29,7 +29,6 @@ import {
   FileText, X as IconX, Loader2,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
-import { Boton } from '@/componentes/ui/Boton'
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -252,21 +251,13 @@ export function ModalConfirmarPagoNomina({
       onCerrar={() => { if (!confirmando) onCerrar() }}
       titulo="Registrar pago"
       tamano="2xl"
-      acciones={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar} disabled={confirmando}>
-            Cancelar
-          </Boton>
-          <Boton
-            tamano="sm"
-            onClick={handleConfirmar}
-            cargando={confirmando}
-            disabled={!monto || montoNum <= 0 || subiendoComprobante}
-          >
-            {labelConfirmar}
-          </Boton>
-        </div>
-      }
+      accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
+      accionPrimaria={{
+        etiqueta: labelConfirmar,
+        onClick: handleConfirmar,
+        cargando: confirmando,
+        disabled: !monto || montoNum <= 0 || subiendoComprobante,
+      }}
     >
       <div className="space-y-4">
         {/* ─── Resumen del cálculo: 1 fila compacta ─── */}

@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react'
 import {
   Plus, Building2, Wallet, Pencil, Trash2, ToggleLeft, ToggleRight, Loader2,
-  Check, User,
+  User,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -384,14 +384,12 @@ function EditorCuenta({
       onCerrar={() => { if (!guardando) onCerrar() }}
       titulo={esEdicion ? 'Editar cuenta' : 'Agregar cuenta'}
       tamano="lg"
-      acciones={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar} disabled={guardando}>Cancelar</Boton>
-          <Boton tamano="sm" icono={<Check size={14} />} onClick={guardar} cargando={guardando}>
-            {esEdicion ? 'Guardar cambios' : 'Crear cuenta'}
-          </Boton>
-        </div>
-      }
+      accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
+      accionPrimaria={{
+        etiqueta: esEdicion ? 'Guardar cambios' : 'Crear cuenta',
+        onClick: guardar,
+        cargando: guardando,
+      }}
     >
       <div className="space-y-4">
         {/* Tipo de pago */}
