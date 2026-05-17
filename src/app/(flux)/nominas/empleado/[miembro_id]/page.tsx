@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase, CreditCard } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -36,6 +37,7 @@ import { ModalEditarContrato } from '@/app/(flux)/nominas/_componentes/ModalEdit
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
 import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
 import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
+import { SeccionAdelantosEmpleado } from '@/app/(flux)/nominas/_componentes/SeccionAdelantosEmpleado'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
@@ -153,6 +155,7 @@ function ContenidoFicha() {
   const searchParams = useSearchParams()
   const miembroId = String(params?.miembro_id || '')
   const toast = useToast()
+  const nav = useNavegacion()
 
   // ─── ver_propio: redirect si está mirando una ficha que no es la suya ───
   useEffect(() => {
@@ -303,6 +306,13 @@ function ContenidoFicha() {
   }, [miembroId])
 
   useEffect(() => { cargarTodo() }, [cargarTodo])
+
+  // Reemplaza la migaja "Detalle" (UUID) por el nombre del empleado en el breadcrumb
+  useEffect(() => {
+    if (!perfil) return
+    const nombreCompleto = `${perfil.nombre} ${perfil.apellido}`.trim()
+    if (nombreCompleto) nav.setMigajaDinamica(`/nominas/empleado/${miembroId}`, nombreCompleto)
+  }, [perfil, miembroId, nav])
 
   const sectoresMap = useMemo(() => new Map(sectores.map(s => [s.id, s.nombre])), [sectores])
   const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
@@ -569,10 +579,9 @@ function ContenidoFicha() {
 
       {tabsVisitadas.has('adelantos') && (
         <div hidden={tab !== 'adelantos'}>
-          <EstadoVacio
-            icono={<Wallet size={48} strokeWidth={1.5} />}
-            titulo="Adelantos — en construcción"
-            descripcion="Pronto vas a poder ver y administrar los adelantos vigentes de este empleado desde acá. Por ahora se gestionan en la liquidación."
+          <SeccionAdelantosEmpleado
+            miembroId={miembroId}
+            puedeEditar={puedeEditar}
           />
         </div>
       )}
