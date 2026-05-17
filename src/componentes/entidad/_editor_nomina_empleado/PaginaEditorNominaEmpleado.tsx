@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
-  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
+  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight, Eye,
   ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
   Ban,
 } from 'lucide-react'
@@ -36,6 +36,7 @@ import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/Modal
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
 import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
 import { SelectorConceptoCatalogo } from '@/app/(flux)/nominas/_componentes/SelectorConceptoCatalogo'
+import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -406,6 +407,8 @@ export function PaginaEditorNominaEmpleado({
 
   // Envío de recibo
   const [modalEnvio, setModalEnvio] = useState(false)
+  /** Modal "Ver recibo" — preview del PDF embebido con acciones. */
+  const [modalVerRecibo, setModalVerRecibo] = useState(false)
 
   // Si el usuario pierde el permiso `nomina:editar` en vivo (ej. admin se lo
   // saca), cerramos cualquier formulario de edición abierto para que no pueda
@@ -1090,6 +1093,17 @@ export function PaginaEditorNominaEmpleado({
   // como `acciones` de `PlantillaEditor` cuando es pantalla completa, o
   // renderizadas inline arriba del banner cuando es embed.
   const accionesPago = [
+    // "Ver recibo" siempre primero: el usuario puede previsualizar el
+    // PDF antes de enviar o pagar. Incluye Regenerar/Descargar/Enviar/
+    // Pagar como acciones del modal — es el flujo unificado de
+    // liquidación.
+    {
+      id: 'ver-recibo',
+      etiqueta: 'Ver recibo',
+      icono: <Eye size={14} />,
+      variante: 'secundario' as const,
+      onClick: () => setModalVerRecibo(true),
+    },
     ...(puedeEnviarNomina ? [{
       id: 'enviar-recibo',
       etiqueta: 'Enviar recibo',
@@ -2227,6 +2241,26 @@ export function PaginaEditorNominaEmpleado({
         periodoDesde={periodoActual.desde}
         periodoHasta={periodoActual.hasta}
         nombreEmpresa={nombreEmpresa}
+      />
+
+      {/* Modal "Ver recibo" — preview del PDF + acciones unificadas.
+          Si ya hay pago grabado del período, usa el PDF definitivo;
+          sino genera un borrador con los datos calculados en vivo. */}
+      <ModalVerRecibo
+        abierto={modalVerRecibo}
+        onCerrar={() => setModalVerRecibo(false)}
+        miembroId={datosEmpleado.miembro_id}
+        periodoInicio={periodoActual.desde}
+        periodoFin={periodoActual.hasta}
+        pagoId={(pagoDelPeriodo?.id as string) ?? null}
+        onEnviar={() => {
+          setModalVerRecibo(false)
+          if (puedeEnviarNomina) setModalEnvio(true)
+        }}
+        onRegistrarPago={puedeEditarNomina ? () => {
+          setModalVerRecibo(false)
+          setConfirmandoPago(true)
+        } : undefined}
       />
     </>
   )

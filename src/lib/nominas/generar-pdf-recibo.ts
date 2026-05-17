@@ -25,6 +25,7 @@ import {
   type DatosEmpresaRecibo,
   type DatosEmpleadoRecibo,
   type LineaConceptoRecibo,
+  type DatosCobroRecibo,
 } from './template-recibo'
 import type { ContratoSnapshot } from '@/tipos/nominas'
 
@@ -246,13 +247,47 @@ export async function generarPdfRecibo(
     ubicacion: empresa.ubicacion ?? null,
   }
 
+  // Si el pago tiene cuenta destino (sql/092), traemos los datos
+  // completos de info_bancaria para "Datos del cobro" + popular el
+  // campo `banco` legacy del empleado.
+  let cobro: DatosCobroRecibo | null = null
+  let bancoLegacy: string | null = null
+  if (pago.metodo_pago) {
+    let cuentaDestino: DatosCobroRecibo['cuenta_destino'] = null
+    if (pago.info_bancaria_id) {
+      const { data: cuenta } = await admin
+        .from('info_bancaria')
+        .select('tipo_pago, etiqueta, banco, tipo_cuenta, numero_cuenta, alias, titular_nombre')
+        .eq('id', pago.info_bancaria_id)
+        .maybeSingle()
+      if (cuenta) {
+        cuentaDestino = {
+          tipo_pago: cuenta.tipo_pago as 'banco' | 'digital',
+          etiqueta: cuenta.etiqueta ?? null,
+          banco: cuenta.banco ?? null,
+          tipo_cuenta: cuenta.tipo_cuenta ?? null,
+          numero_cuenta: cuenta.numero_cuenta ?? null,
+          alias: cuenta.alias ?? null,
+          titular_nombre: cuenta.titular_nombre ?? null,
+        }
+        bancoLegacy = [cuenta.banco, cuenta.alias].filter(Boolean).join(' · ') || null
+      }
+    }
+    cobro = {
+      metodo_pago: pago.metodo_pago as DatosCobroRecibo['metodo_pago'],
+      fecha_pago: pago.fecha_pago ?? (pago.creado_en as string).slice(0, 10),
+      referencia: pago.referencia ?? null,
+      cuenta_destino: cuentaDestino,
+    }
+  }
+
   const empleadoRecibo: DatosEmpleadoRecibo = {
     nombre: identidad?.nombre ?? '—',
     apellido: identidad?.apellido ?? null,
     numero_empleado: miembro.numero_empleado ?? null,
     documento_tipo: identidad?.documento_tipo ?? null,
     documento_numero: identidad?.documento_numero ?? null,
-    banco: null,
+    banco: bancoLegacy,
   }
 
   const lineas: LineaConceptoRecibo[] = (conceptos ?? []).map(c => ({
@@ -295,6 +330,7 @@ export async function generarPdfRecibo(
     monto_sugerido: Number(pago.monto_sugerido),
     fecha_emision: new Date().toISOString().slice(0, 10),
     notas: pago.notas ?? null,
+    cobro,
   }
 
   const html = renderizarHtmlRecibo(datos)

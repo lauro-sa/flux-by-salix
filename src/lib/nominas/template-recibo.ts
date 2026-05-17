@@ -44,6 +44,32 @@ export interface DatosEmpleadoRecibo {
   banco: string | null
 }
 
+/**
+ * Datos del cobro real (sql/092). Solo presentes cuando el recibo
+ * proviene de un pago ya grabado — los borradores (preview) no lo
+ * tienen porque aún no se decidió el método.
+ */
+export interface DatosCobroRecibo {
+  metodo_pago: 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+  /** Fecha real del pago, YYYY-MM-DD. */
+  fecha_pago: string
+  /** Nro de operación / cheque / referencia externa. */
+  referencia: string | null
+  /**
+   * Cuenta destino del pago si fue transferencia o cuenta digital.
+   * Tomada de info_bancaria. Para efectivo/cheque es null.
+   */
+  cuenta_destino: {
+    tipo_pago: 'banco' | 'digital'
+    etiqueta: string | null
+    banco: string | null
+    tipo_cuenta: string | null
+    numero_cuenta: string | null
+    alias: string | null
+    titular_nombre: string | null
+  } | null
+}
+
 export interface LineaConceptoRecibo {
   nombre: string
   tipo: 'haber' | 'descuento'
@@ -91,6 +117,12 @@ export interface DatosReciboPdf {
   fecha_emision: string
 
   notas: string | null
+
+  /**
+   * Datos del cobro real. Solo presente cuando el recibo proviene
+   * de un pago grabado (no en borrador / preview).
+   */
+  cobro?: DatosCobroRecibo | null
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -427,6 +459,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
   </div>
   ${datos.monto_abonado !== datos.monto_sugerido ? `<p style="margin-top:2mm;font-size:8pt;color:#6b7280;text-align:right;">Sugerido por el sistema: ${formatearMonto(datos.monto_sugerido)} · Diferencia: ${formatearMonto(datos.monto_abonado - datos.monto_sugerido)}</p>` : ''}
 
+  ${datos.cobro ? renderizarBloqueCobro(datos.cobro) : ''}
+
   ${datos.notas ? `<div class="notas"><strong>Notas:</strong> ${escaparHtml(datos.notas)}</div>` : ''}
 
   <!-- ─── Firmas ─── -->
@@ -448,6 +482,63 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
 // ════════════════════════════════════════════════════════════════
 // Helpers
 // ════════════════════════════════════════════════════════════════
+
+/**
+ * Bloque "Datos del cobro" — solo presente en recibos con pago
+ * grabado. Muestra cómo se hizo efectivamente el pago: método,
+ * fecha real, número de operación y cuenta destino si corresponde.
+ *
+ * El estilo es discreto (no compite con el neto a transferir, que
+ * sigue siendo lo más destacado del recibo) y queda como prueba de
+ * cobro al pie del recibo.
+ */
+function renderizarBloqueCobro(c: DatosCobroRecibo): string {
+  const ETIQUETAS_METODO: Record<DatosCobroRecibo['metodo_pago'], string> = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia bancaria',
+    cuenta_digital: 'Cuenta digital',
+    cheque: 'Cheque',
+    otro: 'Otro',
+  }
+  const filas: Array<{ label: string; valor: string }> = [
+    { label: 'Método de pago', valor: ETIQUETAS_METODO[c.metodo_pago] },
+    { label: 'Fecha del pago', valor: formatearFecha(c.fecha_pago) },
+  ]
+  if (c.referencia) {
+    filas.push({
+      label: c.metodo_pago === 'cheque' ? 'Nº de cheque' : 'Nº de operación',
+      valor: c.referencia,
+    })
+  }
+  if (c.cuenta_destino) {
+    const cd = c.cuenta_destino
+    const titulo = cd.etiqueta || cd.banco || (cd.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')
+    const partesTitulo = [titulo]
+    if (cd.banco && cd.etiqueta) partesTitulo.push(cd.banco)
+    if (cd.tipo_cuenta) partesTitulo.push(cd.tipo_cuenta)
+    filas.push({ label: 'Cuenta destino', valor: partesTitulo.join(' · ') })
+    if (cd.alias) filas.push({ label: 'Alias', valor: cd.alias })
+    if (cd.numero_cuenta) {
+      filas.push({
+        label: cd.tipo_pago === 'digital' ? 'CVU' : 'CBU',
+        valor: cd.numero_cuenta,
+      })
+    }
+    if (cd.titular_nombre) filas.push({ label: 'Titular', valor: cd.titular_nombre })
+  }
+
+  return `
+  <h3 class="seccion-titulo" style="margin-top:6mm;">Datos del cobro</h3>
+  <table style="width:100%;font-size:9pt;border-collapse:collapse;">
+    ${filas.map(f => `
+      <tr>
+        <td style="padding:1mm 0;color:#6b7280;width:40%;">${escaparHtml(f.label)}</td>
+        <td style="padding:1mm 0;color:#111827;font-weight:500;">${escaparHtml(f.valor)}</td>
+      </tr>
+    `).join('')}
+  </table>
+  `
+}
 
 function escaparHtml(texto: string): string {
   return texto
