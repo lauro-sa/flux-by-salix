@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta, forzar_reenvio } = body as {
+    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta, forzar_reenvio, incluir_enlace_pdf } = body as {
       canal_id: string
       plantilla_id: string
       // Rango de fechas del período — usado para filtrar las cuotas de adelantos
@@ -66,6 +66,13 @@ export async function POST(request: NextRequest) {
        * recibo WA recientemente se reportan como omitidos.
        */
       forzar_reenvio?: boolean
+      /**
+       * Si false, NO se genera el PDF del recibo ni se incluye su enlace
+       * en el mensaje. Default true. Útil cuando el operador solo quiere
+       * notificar (ej: aviso rápido) sin gastar la generación de PDF /
+       * expirar URLs firmadas.
+       */
+      incluir_enlace_pdf?: boolean
       empleados: {
         miembro_id?: string
         nombre: string
@@ -226,6 +233,11 @@ export async function POST(request: NextRequest) {
       // (30 días) porque el empleado puede tardar en revisar el mensaje.
       // Guardamos `pagoIdActual` para marcar `recibo_whatsapp_enviado_*`
       // si el envío termina OK.
+      //
+      // Si `incluir_enlace_pdf === false`, saltamos la generación del PDF
+      // (operación cara con Puppeteer) y el enlace queda string vacío.
+      // El operador eligió no incluirlo en el modal de envío.
+      const incluirPdf = incluir_enlace_pdf !== false // default true
       let enlaceRecibo = ''
       let pagoIdActual: string | null = null
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
@@ -243,10 +255,14 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
           if (pago) {
             pagoIdActual = pago.id as string
-            const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
-              expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
-            })
-            enlaceRecibo = url
+            // Solo generamos el PDF si el operador lo pidió. Sin pdf, el
+            // enlace queda vacío y la plantilla lo muestra como — (slot vacío).
+            if (incluirPdf) {
+              const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
+                expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
+              })
+              enlaceRecibo = url
+            }
           }
         } catch (errPdf) {
           console.error('[nominas/enviar-whatsapp] error al generar PDF:', errPdf)

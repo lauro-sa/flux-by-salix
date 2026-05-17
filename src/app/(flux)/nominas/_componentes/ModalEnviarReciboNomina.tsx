@@ -222,6 +222,7 @@ function resolverPreviewWA(
   r: ResultadoNominaConCorreo,
   etiquetaPeriodo: string,
   lineasDescuentos: string[],
+  incluirEnlacePdf: boolean,
 ): { encabezado: string; cuerpo: string; pie: string } {
   const detalleLegacy = lineasDescuentos.join('\n')
   // Conceptos del recibo formateados como una lista de líneas legibles
@@ -256,6 +257,10 @@ function resolverPreviewWA(
       haberes_lista: lineasHaberes,
       detalle_descuentos_conceptos: lineasConceptosDesc.join('\n'),
       descuentos_conceptos_lista: lineasConceptosDesc,
+      // Preview del enlace al PDF — refleja el toggle del modal para que
+      // el operador vea EXACTAMENTE cómo le va a llegar al empleado.
+      // Si está apagado, queda vacío y la plantilla lo muestra como — .
+      enlace_recibo: incluirEnlacePdf ? 'https://flux.salixweb.com/r/preview' : '',
     },
   })
 
@@ -335,6 +340,13 @@ export function ModalEnviarReciboNomina({
   // Bypass del guard anti-duplicado server-side. Solo se prende cuando
   // el operador marca explícitamente "reenviar igual" en la advertencia.
   const [forzarReenvio, setForzarReenvio] = useState(false)
+
+  // Incluir el enlace al PDF del recibo en el mensaje de WhatsApp. Default
+  // encendido — el empleado normalmente espera el comprobante adjunto.
+  // El operador puede apagarlo si solo quiere notificar (ej: aviso rápido
+  // sin generar/expirar URLs firmadas en empleados que igual ya tienen
+  // el recibo por correo).
+  const [incluirEnlacePdfWA, setIncluirEnlacePdfWA] = useState(true)
 
   // Empleados filtrados según canal
   const empleadosConCorreo = useMemo(() => resultados.filter(r => r.correo), [resultados])
@@ -501,8 +513,8 @@ export function ModalEnviarReciboNomina({
   const empleadoParaPreview = empleadosConTelefono[0] || resultados[0] || null
   const previewWA = useMemo(() => {
     if (!plantillaWA || !empleadoParaPreview) return null
-    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview)
-  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview])
+    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview, incluirEnlacePdfWA)
+  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview, incluirEnlacePdfWA])
 
   // ─── Enviar correo en lote ───
   // `subconjuntoMiembroIds` permite reintentar solo los empleados que
@@ -590,6 +602,7 @@ export function ModalEnviarReciboNomina({
           periodo_hasta: periodoHasta,
           empleados: empleadosData,
           forzar_reenvio: forzarReenvio,
+          incluir_enlace_pdf: incluirEnlacePdfWA,
         }),
       })
       const data = await res.json()
@@ -599,7 +612,7 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
       setResultadoLote({ enviados: 0, fallidos: objetivo.length, total: objetivo.length, resultados: [] })
     }
-  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta])
+  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta, incluirEnlacePdfWA])
 
   const enviarEnLote = useCallback(() => {
     // Default unificado: tanto modo individual como lote mandan directo
@@ -951,6 +964,21 @@ export function ModalEnviarReciboNomina({
                   onChange={setCanalWASeleccionado}
                 />
               )}
+
+              {/* Toggle: incluir enlace al PDF del recibo. Si está apagado,
+                  el bullet "📎 Ver recibo completo: …" se manda con un
+                  link vacío y la plantilla lo oculta visualmente (slot
+                  invisible). El operador puede preferir solo notificar
+                  sin generar/expirar URLs firmadas. */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-texto-secundario hover:text-texto-primario">
+                <input
+                  type="checkbox"
+                  checked={incluirEnlacePdfWA}
+                  onChange={e => setIncluirEnlacePdfWA(e.target.checked)}
+                  className="size-3.5 accent-[#25D366] cursor-pointer"
+                />
+                <span>Incluir enlace al PDF del recibo</span>
+              </label>
 
               {/* Preview WhatsApp */}
               {previewWA && (
