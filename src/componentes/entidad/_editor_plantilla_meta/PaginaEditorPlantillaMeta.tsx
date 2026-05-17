@@ -309,57 +309,56 @@ export function PaginaEditorPlantillaMeta({
   }, [])
 
   // Carga datos de nómina del último período TERMINADO según la frecuencia
-  // del empleado + adelantos del miembro, y arma un objeto listo para
-  // resolver las variables `nomina.*` de la plantilla.
+  // del empleado + adelantos, y arma un objeto listo para resolver las
+  // variables `nomina.*` de la plantilla.
   //
-  // Flujo:
-  //   1) Fetch /api/miembros para validar que existe el empleado.
-  //   2) Probe a /api/nominas con período mensual del mes anterior — sirve
-  //      para descubrir la frecuencia real del contrato vigente.
-  //   3) Si la frecuencia ≠ 'mensual', recalculamos el período anterior
-  //      terminado correcto (semana/quincena) y re-fetch.
-  //   4) Adelantos y armado de líneas con el helper compartido.
+  // Flujo (optimizado vs versión anterior):
+  //   1) /api/nominas (probe mensual) + /api/adelantos en PARALELO.
+  //   2) Si frecuencia ≠ 'mensual': re-fetch /api/nominas con período correcto.
+  //   3) /api/miembros se pide SOLO si no hubo resultado (fallback para nombre).
   //
-  // Doble fetch solo en empleados no-mensuales. Para mensuales (mayoría),
-  // 1 sola llamada.
+  // Mejor caso (mensual): 1 par de fetches paralelos.
+  // Peor caso (semanal/quincenal): par paralelo + 1 fetch extra.
   const cargarNominaPreview = useCallback(async (miembroId: string) => {
     try {
-      const resMiembros = await fetch('/api/miembros')
-      const dataMiembros = await resMiembros.json()
-      const miembros = (dataMiembros?.miembros || []) as Array<Record<string, unknown>>
-      const miembro = miembros.find(m => m.id === miembroId)
-      if (!miembro) return
-
       // Probe inicial: período del mes anterior. Si el empleado es mensual,
-      // este ES el período correcto; si no, lo usamos solo para descubrir
-      // la frecuencia real desde la respuesta del backend.
+      // este ES el período correcto. Si no, se usa solo para descubrir la
+      // frecuencia real desde la respuesta del backend. Adelantos en paralelo
+      // — son independientes del período del recibo.
       let periodo = periodoAnteriorTerminado('mensual', locale)
-      let resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+      const [resNomina, resAdel] = await Promise.all([
+        fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`),
+        fetch(`/api/adelantos?miembro_id=${miembroId}`),
+      ])
       let dataNomina = await resNomina.json()
       let resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
         .find(r => r.miembro_id === miembroId)
+      const dataAdel = await resAdel.json()
+      const adelantos = dataAdel?.adelantos || []
 
       // Si encontramos resultado y la frecuencia real no es mensual,
-      // re-fetch con el período correcto del empleado.
+      // re-fetch nómina con el período correcto del empleado.
       const frecuenciaReal = resultado?.compensacion_frecuencia as string | undefined
       if (resultado && frecuenciaReal && frecuenciaReal !== 'mensual') {
         periodo = periodoAnteriorTerminado(frecuenciaReal, locale)
-        resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
-        dataNomina = await resNomina.json()
+        const resNomina2 = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+        dataNomina = await resNomina2.json()
         resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
           .find(r => r.miembro_id === miembroId)
       }
 
       if (!resultado) {
-        const perfil = (miembro.perfil as Record<string, unknown> | null) || null
+        // Fallback: el empleado existe pero no tiene asistencias/contrato.
+        // Pedimos /api/miembros solo acá para mostrar al menos el nombre.
+        const resMiembros = await fetch('/api/miembros')
+        const dataMiembros = await resMiembros.json()
+        const miembros = (dataMiembros?.miembros || []) as Array<Record<string, unknown>>
+        const miembro = miembros.find(m => m.id === miembroId)
+        const perfil = (miembro?.perfil as Record<string, unknown> | null) || null
         const nombre = `${String(perfil?.nombre || '')} ${String(perfil?.apellido || '')}`.trim()
         setNominaPreview({ nombre, periodo: periodo.etiqueta })
         return
       }
-
-      const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
-      const dataAdel = await resAdel.json()
-      const adelantos = dataAdel?.adelantos || []
 
       // Misma lógica que el modal de envío y el backend WA, vía helper
       // compartido — así el preview del editor de plantillas coincide
