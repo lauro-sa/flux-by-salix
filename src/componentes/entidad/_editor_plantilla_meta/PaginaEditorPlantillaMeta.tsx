@@ -41,8 +41,26 @@ import {
   type EntidadPlantillaWA,
 } from '@/lib/whatsapp/variables'
 import { MODULOS_PLANTILLA_WA } from '@/lib/whatsapp/modulos-plantilla'
-import { periodoActual } from '@/lib/asistencias/periodo-actual'
+import { calcularPeriodo, tipoPeriodoPorFrecuencia, type RangoPeriodo } from '@/lib/asistencias/periodo-actual'
 import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
+
+/**
+ * Último período TERMINADO según la frecuencia del empleado. Para el
+ * preview de plantillas usamos siempre un período cerrado (no el
+ * actual en curso) — así el operador ve cómo queda el recibo con datos
+ * completos en lugar de uno a mitad de mes con números incompletos.
+ *
+ * Cálculo: tomamos el período actual y retrocedemos 1 día → eso cae
+ * en el período anterior. Pasamos esa fecha a `calcularPeriodo` y
+ * obtenemos el rango cerrado.
+ */
+function periodoAnteriorTerminado(frecuencia: string | null, locale: string): RangoPeriodo {
+  const tipo = tipoPeriodoPorFrecuencia(frecuencia)
+  const periodoActualRange = calcularPeriodo(new Date(), tipo, locale)
+  const diaAntesDelActual = new Date(periodoActualRange.desde + 'T12:00:00')
+  diaAntesDelActual.setDate(diaAntesDelActual.getDate() - 1)
+  return calcularPeriodo(diaAntesDelActual, tipo, locale)
+}
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -290,8 +308,20 @@ export function PaginaEditorPlantillaMeta({
     } catch { /* silenciar */ }
   }, [])
 
-  // Carga datos de nómina del período actual + adelantos del miembro y arma
-  // un objeto listo para resolver las variables `nomina.*` de la plantilla.
+  // Carga datos de nómina del último período TERMINADO según la frecuencia
+  // del empleado + adelantos del miembro, y arma un objeto listo para
+  // resolver las variables `nomina.*` de la plantilla.
+  //
+  // Flujo:
+  //   1) Fetch /api/miembros para validar que existe el empleado.
+  //   2) Probe a /api/nominas con período mensual del mes anterior — sirve
+  //      para descubrir la frecuencia real del contrato vigente.
+  //   3) Si la frecuencia ≠ 'mensual', recalculamos el período anterior
+  //      terminado correcto (semana/quincena) y re-fetch.
+  //   4) Adelantos y armado de líneas con el helper compartido.
+  //
+  // Doble fetch solo en empleados no-mensuales. Para mensuales (mayoría),
+  // 1 sola llamada.
   const cargarNominaPreview = useCallback(async (miembroId: string) => {
     try {
       const resMiembros = await fetch('/api/miembros')
@@ -300,13 +330,26 @@ export function PaginaEditorPlantillaMeta({
       const miembro = miembros.find(m => m.id === miembroId)
       if (!miembro) return
 
-      // Período actual (asumimos quincenal: /api/miembros no expone frecuencia).
-      const periodo = periodoActual(null, locale)
-
-      const resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
-      const dataNomina = await resNomina.json()
-      const resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
+      // Probe inicial: período del mes anterior. Si el empleado es mensual,
+      // este ES el período correcto; si no, lo usamos solo para descubrir
+      // la frecuencia real desde la respuesta del backend.
+      let periodo = periodoAnteriorTerminado('mensual', locale)
+      let resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+      let dataNomina = await resNomina.json()
+      let resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
         .find(r => r.miembro_id === miembroId)
+
+      // Si encontramos resultado y la frecuencia real no es mensual,
+      // re-fetch con el período correcto del empleado.
+      const frecuenciaReal = resultado?.compensacion_frecuencia as string | undefined
+      if (resultado && frecuenciaReal && frecuenciaReal !== 'mensual') {
+        periodo = periodoAnteriorTerminado(frecuenciaReal, locale)
+        resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+        dataNomina = await resNomina.json()
+        resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
+          .find(r => r.miembro_id === miembroId)
+      }
+
       if (!resultado) {
         const perfil = (miembro.perfil as Record<string, unknown> | null) || null
         const nombre = `${String(perfil?.nombre || '')} ${String(perfil?.apellido || '')}`.trim()
@@ -321,7 +364,7 @@ export function PaginaEditorPlantillaMeta({
       // Misma lógica que el modal de envío y el backend WA, vía helper
       // compartido — así el preview del editor de plantillas coincide
       // exactamente con lo que se manda al empleado en producción.
-      const { descuentos } = construirLineasAjustes(adelantos, periodo.desde, periodo.hasta, {
+      const { descuentos, bonos } = construirLineasAjustes(adelantos, periodo.desde, periodo.hasta, {
         saldoAnterior: Number(resultado.saldo_anterior || 0),
         locale,
       })
@@ -331,6 +374,8 @@ export function PaginaEditorPlantillaMeta({
         periodo: periodo.etiqueta,
         detalle_descuentos: descuentos.join('\n'),
         descuentos_lista: descuentos,
+        detalle_bonos: bonos.join('\n'),
+        bonos_lista: bonos,
       })
     } catch { /* silenciar */ }
   }, [locale])
