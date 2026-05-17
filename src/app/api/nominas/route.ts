@@ -293,6 +293,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ─── Ajustes puntuales del período (sql/095) ───
+    //
+    // Indexa por miembro_id → Map<concepto_id, ajuste>. Se cargan UNA
+    // sola vez para todos los miembros del listado, filtrando por
+    // período EXACTO (mismo desde y hasta). El motor unificado los
+    // respeta en `/api/nominas/calcular` y `/api/nominas/pagos`; acá
+    // los aplicamos a mano dentro del loop de conceptos para que el
+    // listado de la grilla principal refleje los overrides /
+    // exclusiones / agregados sin esperar a que se grabe el pago.
+    type AjustePeriodoLite = {
+      tipo_ajuste: 'override' | 'excluir' | 'agregar'
+      monto_override: number | null
+      motivo: string | null
+      concepto: ConceptoNomina | null
+    }
+    const ajustesPorMiembro = new Map<string, Map<string, AjustePeriodoLite>>()
+    if (miembrosFinalesIds.length > 0) {
+      const { data: ajustesRaw } = await admin
+        .from('ajustes_concepto_periodo')
+        .select('miembro_id, concepto_id, tipo_ajuste, monto_override, motivo, concepto:conceptos_nomina(*)')
+        .eq('empresa_id', empresaId)
+        .in('miembro_id', miembrosFinalesIds)
+        .eq('periodo_inicio', desde)
+        .eq('periodo_fin', hasta)
+      for (const a of ((ajustesRaw ?? []) as unknown as Array<{
+        miembro_id: string
+        concepto_id: string
+        tipo_ajuste: 'override' | 'excluir' | 'agregar'
+        monto_override: number | string | null
+        motivo: string | null
+        concepto: ConceptoNomina
+      }>)) {
+        if (!ajustesPorMiembro.has(a.miembro_id)) ajustesPorMiembro.set(a.miembro_id, new Map())
+        ajustesPorMiembro.get(a.miembro_id)!.set(a.concepto_id, {
+          tipo_ajuste: a.tipo_ajuste,
+          monto_override: a.monto_override === null ? null : Number(a.monto_override),
+          motivo: a.motivo,
+          concepto: a.concepto,
+        })
+      }
+    }
+
     // Identidad consolidada (perfil para miembros con cuenta Flux, contacto-equipo
     // para los cargados a mano). Reemplaza las dos queries previas a `perfiles` y
     // `contactos`. Ver src/lib/miembros/identidad.ts.
@@ -835,8 +877,13 @@ export async function GET(request: NextRequest) {
       // Reusamos el lookup que hicimos arriba para resolver compensación.
       const contratoVigenteMiembro = contratoCompMiembro
       const conceptosDelMiembro = conceptosPorMiembro.get(m.id as string) ?? []
+      const ajustesDelMiembro = ajustesPorMiembro.get(m.id as string) ?? new Map<string, AjustePeriodoLite>()
 
-      if (conceptosDelMiembro.length > 0) {
+      // Entramos al loop si hay conceptos del contrato O si hay
+      // ajustes puntuales del período (override/excluir/agregar).
+      // El caso 'agregar' aplica incluso para miembros sin conceptos
+      // asignados al contrato.
+      if (conceptosDelMiembro.length > 0 || ajustesDelMiembro.size > 0) {
         // ─── Métricas del PERÍODO (para conceptos por_periodo) ───
         const metricasPeriodo: MetricasAsistencia = {
           dias_periodo: todasLasFechas.length,
@@ -909,9 +956,43 @@ export async function GET(request: NextRequest) {
           )
         }
 
+        // Reusamos `ajustesDelMiembro` que ya cargamos arriba: el
+        // mapa concepto_id → {override / excluir / agregar}.
+
         for (const cc of conceptosDelMiembro) {
           const c = cc.concepto
           if (!c.activo) continue
+
+          // ─── Ajuste puntual del período: corta antes que las reglas del motor ───
+          const ajuste = ajustesDelMiembro.get(c.id)
+          if (ajuste?.tipo_ajuste === 'excluir') {
+            // El operador decidió no aplicarlo este período. No suma
+            // ni resta nada, ni aparece en `conceptos_aplicados`.
+            continue
+          }
+          if (ajuste?.tipo_ajuste === 'override' && ajuste.monto_override !== null) {
+            const monto = Number(ajuste.monto_override)
+            const valorBase = cc.valor_override !== null && cc.valor_override !== undefined
+              ? Number(cc.valor_override)
+              : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
+            const detalle = ajuste.motivo?.trim()
+              ? `Monto ajustado manualmente: ${ajuste.motivo.trim()}`
+              : 'Monto ajustado manualmente para este período.'
+            conceptosAplicados.push({
+              concepto_id: c.id,
+              nombre: c.nombre,
+              tipo: c.tipo,
+              modo_calculo: c.modo_calculo,
+              valor: valorBase,
+              monto: Math.round(monto * 100) / 100,
+              automatico: c.automatico,
+              detalle,
+            })
+            if (c.tipo === 'haber') totalHaberes += monto
+            else totalDescuentosConceptos += monto
+            continue
+          }
+
           if (!c.automatico) continue
 
           // Decidir si este concepto aplica AHORA según su periodicidad
@@ -954,6 +1035,37 @@ export async function GET(request: NextRequest) {
           })
           if (c.tipo === 'haber') totalHaberes += montoConcepto
           else totalDescuentosConceptos += montoConcepto
+        }
+
+        // ─── Ajustes 'agregar' del período ───
+        // Conceptos del catálogo que NO están en el contrato del
+        // miembro pero el operador agregó solo a este recibo. Vienen
+        // con el monto final en `monto_override` y el detalle del
+        // catálogo en `concepto`. Los que tienen 'agregar' apuntando
+        // a un concepto SÍ del contrato ya se procesaron como
+        // override arriba.
+        const conceptosDelMiembroIds = new Set(conceptosDelMiembro.map(cc => cc.concepto.id))
+        for (const [conceptoId, ajuste] of ajustesDelMiembro) {
+          if (ajuste.tipo_ajuste !== 'agregar') continue
+          if (conceptosDelMiembroIds.has(conceptoId)) continue
+          if (!ajuste.concepto || ajuste.monto_override === null) continue
+          const monto = Number(ajuste.monto_override)
+          const c = ajuste.concepto
+          const detalle = ajuste.motivo?.trim()
+            ? `Concepto agregado al período: ${ajuste.motivo.trim()}`
+            : 'Concepto agregado al período por ajuste manual.'
+          conceptosAplicados.push({
+            concepto_id: c.id,
+            nombre: c.nombre,
+            tipo: c.tipo,
+            modo_calculo: c.modo_calculo,
+            valor: monto,
+            monto: Math.round(monto * 100) / 100,
+            automatico: true,
+            detalle,
+          })
+          if (c.tipo === 'haber') totalHaberes += monto
+          else totalDescuentosConceptos += monto
         }
         totalHaberes = Math.round(totalHaberes * 100) / 100
         totalDescuentosConceptos = Math.round(totalDescuentosConceptos * 100) / 100
