@@ -75,12 +75,12 @@ export default function PaginaPerfilUsuario() {
   const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false)
   const [accionCargando, setAccionCargando] = useState<string | null>(null)
 
-  /* ── Estado sectores, puestos, info bancaria ── */
+  /* ── Estado sectores y puestos ──
+      La info bancaria se gestiona dentro de TabInformacion mediante
+      SeccionDatosBancarios (modelo multi-cuenta unificado con Nóminas). */
   const [sectores, setSectores] = useState<{ id: string; nombre: string }[]>([])
   const [puestos, setPuestos] = useState<{ id: string; nombre: string }[]>([])
   const [sectorActualId, setSectorActualId] = useState<string>('')
-  const [infoBancaria, setInfoBancaria] = useState<Record<string, unknown> | null>(null)
-  const [bancosEmpresa, setBancosEmpresa] = useState<{ id: string; nombre: string }[]>([])
 
   /* ── Estado contacto emergencia y documentos ── */
   const [contactoEmergencia, setContactoEmergencia] = useState<Record<string, unknown> | null>(null)
@@ -244,16 +244,8 @@ export default function PaginaPerfilUsuario() {
         if (sectorData?.sector_id) setSectorActualId(sectorData.sector_id)
       }
 
-      // Info bancaria
-      const { data: bancariaData } = await supabase
-        .from('info_bancaria')
-        .select('*')
-        .eq('miembro_id', miembroId)
-        .maybeSingle()
-      if (bancariaData) setInfoBancaria(bancariaData)
-
-      // Catálogo de bancos
-      fetch('/api/bancos').then(r => r.ok ? r.json() : []).then(setBancosEmpresa).catch(() => {})
+      // La info bancaria y el catálogo de bancos los carga SeccionDatosBancarios
+      // (modelo multi-cuenta unificado con Nóminas) en su propio useEffect.
 
       // Contacto de emergencia
       const emergenciaRes = await fetch(`/api/miembros/${miembroId}/emergencia`)
@@ -460,22 +452,6 @@ export default function PaginaPerfilUsuario() {
     await supabase.from('miembros').update({ puesto_id: puestoId || null }).eq('id', miembroId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembroId])
-
-  /* ── Guardar info bancaria ── */
-  const guardarInfoBancaria = useCallback(async (campo: string, valor: string) => {
-    const datos = { ...infoBancaria, [campo]: valor || null }
-    setInfoBancaria(datos)
-    if (infoBancaria?.id) {
-      await supabase.from('info_bancaria').update({ [campo]: valor || null }).eq('id', infoBancaria.id)
-    } else {
-      const { data } = await supabase.from('info_bancaria').insert({
-        miembro_id: miembroId,
-        [campo]: valor || null,
-      }).select().single()
-      if (data) setInfoBancaria(data)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [miembroId, infoBancaria])
 
   /* ── Guardar contacto de emergencia ── */
   const guardarEmergencia = useCallback(async (campo: string, valor: string | Record<string, unknown>) => {
@@ -1170,11 +1146,6 @@ export default function PaginaPerfilUsuario() {
               sectorActualId={sectorActualId}
               guardarSector={guardarSector}
               guardarPuesto={guardarPuesto}
-              infoBancaria={infoBancaria}
-              setInfoBancaria={setInfoBancaria}
-              guardarInfoBancaria={guardarInfoBancaria}
-              bancosEmpresa={bancosEmpresa}
-              setBancosEmpresa={setBancosEmpresa}
               contactoEmergencia={contactoEmergencia}
               setContactoEmergencia={setContactoEmergencia}
               guardarEmergencia={guardarEmergencia}

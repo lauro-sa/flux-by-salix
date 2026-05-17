@@ -34,9 +34,16 @@ interface Props {
    * permiso de edición, por ejemplo).
    */
   puedeEditar: boolean
+  /**
+   * Modo embebido para la ficha de Usuarios: oculta el encabezado
+   * propio (título + descripción) y el padding exterior, porque la
+   * sección ya viene envuelta en su propio <section>+SeccionEncabezado
+   * dentro de TabInformacion.
+   */
+  compacto?: boolean
 }
 
-export function SeccionDatosBancarios({ miembroId, puedeEditar }: Props) {
+export function SeccionDatosBancarios({ miembroId, puedeEditar, compacto = false }: Props) {
   const toast = useToast()
   const [cuentas, setCuentas] = useState<InfoBancaria[]>([])
   const [primeraCarga, setPrimeraCarga] = useState(true)
@@ -127,21 +134,33 @@ export function SeccionDatosBancarios({ miembroId, puedeEditar }: Props) {
   }
 
   return (
-    <div className="px-4 md:px-6 py-4 space-y-4">
-      {/* ─── Header ─── */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-texto-primario">Cuentas para pagos</h2>
-          <p className="text-xs text-texto-terciario mt-0.5">
-            Bancarias y billeteras virtuales del empleado. Se usan al registrar el pago de la liquidación.
-          </p>
+    <div className={compacto ? 'space-y-3' : 'px-4 md:px-6 py-4 space-y-4'}>
+      {/* ─── Header propio (solo en modo no compacto) ─── */}
+      {!compacto && (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-texto-primario">Cuentas para pagos</h2>
+            <p className="text-xs text-texto-terciario mt-0.5">
+              Bancarias y billeteras virtuales del empleado. Se usan al registrar el pago de la liquidación.
+            </p>
+          </div>
+          {puedeEditar && (
+            <Boton tamano="sm" icono={<Plus size={14} />} onClick={abrirNueva}>
+              Agregar cuenta
+            </Boton>
+          )}
         </div>
-        {puedeEditar && (
-          <Boton tamano="sm" icono={<Plus size={14} />} onClick={abrirNueva}>
+      )}
+
+      {/* En modo compacto, el botón "Agregar" va arriba a la derecha alineado con
+          el SeccionEncabezado del padre (que ya muestra el título). */}
+      {compacto && puedeEditar && cuentas.length > 0 && (
+        <div className="flex justify-end -mt-2">
+          <Boton tamano="sm" variante="fantasma" icono={<Plus size={14} />} onClick={abrirNueva}>
             Agregar cuenta
           </Boton>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ─── Listado ─── */}
       {cuentas.length === 0 ? (
