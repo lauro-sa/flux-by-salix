@@ -112,6 +112,30 @@ export interface ConceptoContratoInput {
 }
 
 /**
+ * Ajuste puntual de un concepto para este período. Tres tipos:
+ *   • `override` → reemplaza el monto calculado por el motor con
+ *     `monto_override`. El concepto sigue apareciendo como aplicado,
+ *     pero con el monto manual y nota explicativa.
+ *   • `excluir`  → el concepto NO se aplica en este período aunque
+ *     esté vigente en el contrato. Se mueve a `conceptos_sugeridos`
+ *     con la razón.
+ *   • `agregar`  → aplica un concepto del catálogo que NO está
+ *     asignado al contrato, solo para este período.
+ *
+ * Coherencia: para override/excluir el concepto debe estar en
+ * `conceptos_contrato`. Para `agregar` NO. El endpoint que crea
+ * ajustes valida esto; el motor asume datos consistentes.
+ */
+export interface AjusteConceptoPeriodoInput {
+  concepto_id: string
+  tipo_ajuste: 'override' | 'excluir' | 'agregar'
+  monto_override: number | string | null
+  motivo: string | null
+  /** Solo necesario para `tipo_ajuste='agregar'` (sino se toma del contrato). */
+  concepto?: ConceptoNomina
+}
+
+/**
  * Licencia mínima que el motor consume. Solo trae lo necesario para
  * calcular el efecto en el recibo (tipo, fechas, goce). El caller debe
  * pasar SOLO las licencias del contrato que solapan con el período;
@@ -138,6 +162,12 @@ export interface DatosCalculoRecibo {
   contrato: ContratoLaboral | null
   asistencias: AsistenciaInput[]
   conceptos_contrato: ConceptoContratoInput[]
+  /**
+   * Ajustes puntuales del período (override/excluir/agregar). Opcional;
+   * si el caller no los pasa el motor liquida con la plantilla normal.
+   * Ver `AjusteConceptoPeriodoInput`.
+   */
+  ajustes_periodo?: AjusteConceptoPeriodoInput[]
   cuotas_adelanto: CuotaInput[]
   /**
    * Días laborales del mes completo (no del período). Se usa para
@@ -234,6 +264,14 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     ? calcularBasicoMensual(datos.contrato.modalidad_calculo, Number(datos.contrato.monto_base), diasLaboralesMes)
     : 0
 
+  // Indice O(1) de ajustes puntuales del período (override/excluir/
+  // agregar) por concepto_id. Vamos a consultarlo en cada concepto
+  // del contrato y al final para los `agregar` que no son del contrato.
+  const ajustesPorConcepto = new Map<string, AjusteConceptoPeriodoInput>()
+  for (const a of datos.ajustes_periodo ?? []) {
+    ajustesPorConcepto.set(a.concepto_id, a)
+  }
+
   for (const cc of datos.conceptos_contrato) {
     const c = cc.concepto
     if (!c.activo) continue
@@ -250,6 +288,28 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     const valor = cc.valor_override !== null && cc.valor_override !== undefined
       ? Number(cc.valor_override)
       : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
+
+    // ─── Ajuste puntual del período ───
+    // Antes de evaluar reglas del motor, miramos si el operador
+    // configuró un ajuste manual para este concepto en este período.
+    // 'excluir' lo saca aunque cumpliera la condición.
+    // 'override' usa directamente el monto manual (saltea el cálculo).
+    const ajuste = ajustesPorConcepto.get(cc.concepto_id)
+    if (ajuste?.tipo_ajuste === 'excluir') {
+      const detalle = ajuste.motivo?.trim()
+        ? `Excluido del período: ${ajuste.motivo.trim()}`
+        : 'Excluido del período por ajuste manual.'
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, detalle))
+      continue
+    }
+    if (ajuste?.tipo_ajuste === 'override' && ajuste.monto_override !== null) {
+      const montoManual = Number(ajuste.monto_override)
+      const detalle = ajuste.motivo?.trim()
+        ? `Monto ajustado manualmente: ${ajuste.motivo.trim()}`
+        : 'Monto ajustado manualmente para este período.'
+      conceptos_aplicados.push(armarConcepto(c, valor, montoManual, detalle))
+      continue
+    }
 
     // No automático → siempre sugerencia (el operador decide).
     if (!c.automatico) {
@@ -290,6 +350,27 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     const baseDelConcepto = c.periodicidad === 'mensual' ? basicoMensual : monto_base_calculado
     const monto = calcularMontoConcepto(c.modo_calculo, valor, baseDelConcepto, asistencia, condicion)
     conceptos_aplicados.push(armarConcepto(c, valor, monto, evaluacion.detalle))
+  }
+
+  // ─── Ajustes 'agregar' del período ───
+  // Conceptos del catálogo que NO están en el contrato pero el
+  // operador quiso aplicarlos puntualmente este período. El monto
+  // viene en `monto_override` (es el monto final, sin recalcular).
+  const conceptosContratoIds = new Set(datos.conceptos_contrato.map(cc => cc.concepto_id))
+  for (const ajuste of datos.ajustes_periodo ?? []) {
+    if (ajuste.tipo_ajuste !== 'agregar') continue
+    // Si el concepto está en el contrato, ya se procesó arriba — un
+    // 'agregar' sobre concepto del contrato es inválido (debería ser
+    // 'override'), pero por las dudas lo ignoramos aquí.
+    if (conceptosContratoIds.has(ajuste.concepto_id)) continue
+    if (!ajuste.concepto) continue // sin detalle del catálogo no podemos snapshotear
+    if (ajuste.monto_override === null) continue
+
+    const monto = Number(ajuste.monto_override)
+    const detalle = ajuste.motivo?.trim()
+      ? `Concepto agregado al período: ${ajuste.motivo.trim()}`
+      : 'Concepto agregado al período por ajuste manual.'
+    conceptos_aplicados.push(armarConcepto(ajuste.concepto, monto, monto, detalle))
   }
 
   // ─── 4. Cuotas de adelanto vencidas en el período ───
@@ -854,6 +935,32 @@ export async function calcularReciboDesdeBD(
     turno = t ?? null
   }
 
+  // ─── Ajustes puntuales del período ───
+  // Filtramos por período EXACTO (mismo desde y hasta): los ajustes
+  // están atados a una liquidación específica, si el operador cambia
+  // de período no se aplican. Traemos el catálogo del concepto para
+  // que el motor pueda armar el snapshot completo de los 'agregar'.
+  const { data: ajustesRaw } = await admin
+    .from('ajustes_concepto_periodo')
+    .select('concepto_id, tipo_ajuste, monto_override, motivo, concepto:conceptos_nomina(*)')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', miembroId)
+    .eq('periodo_inicio', periodoInicio)
+    .eq('periodo_fin', periodoFin)
+  const ajustes_periodo: AjusteConceptoPeriodoInput[] = ((ajustesRaw ?? []) as unknown as Array<{
+    concepto_id: string
+    tipo_ajuste: 'override' | 'excluir' | 'agregar'
+    monto_override: number | string | null
+    motivo: string | null
+    concepto: ConceptoNomina
+  }>).map(a => ({
+    concepto_id: a.concepto_id,
+    tipo_ajuste: a.tipo_ajuste,
+    monto_override: a.monto_override,
+    motivo: a.motivo,
+    concepto: a.concepto,
+  }))
+
   return calcularReciboPuro({
     miembro_id: miembroId,
     empresa_id: empresaId,
@@ -862,6 +969,7 @@ export async function calcularReciboDesdeBD(
     contrato,
     asistencias: (asistencias ?? []) as AsistenciaInput[],
     conceptos_contrato,
+    ajustes_periodo,
     // El select anidado de Supabase devuelve `adelanto` como objeto
     // (con la FK NOT NULL del !inner garantiza que existe) pero TS lo
     // infiere como array. Normalizamos antes de leer `.tipo`.

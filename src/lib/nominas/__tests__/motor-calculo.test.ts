@@ -16,6 +16,7 @@ import {
   type DatosCalculoRecibo,
   type AsistenciaInput,
   type ConceptoContratoInput,
+  type AjusteConceptoPeriodoInput,
 } from '../motor-calculo'
 import type {
   ContratoLaboral,
@@ -776,5 +777,139 @@ describe('calcularReciboPuro — licencias', () => {
     }))
     expect(r.licencias_aplicadas[0].monto_descontado).toBe(0)
     expect(r.advertencias.some(a => a.includes('por hora'))).toBe(true)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// Ajustes puntuales del período (sql/095)
+// ════════════════════════════════════════════════════════════════
+
+describe('calcularReciboPuro — ajustes puntuales del período', () => {
+  it("ajuste 'excluir' saca un concepto del contrato aunque cumpla la condición", () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const presentismo = asignacion({
+      concepto: concepto({ nombre: 'Presentismo', condicion_jsonb: { tipo: 'sin_ausencias' } }),
+    })
+    const ajuste: AjusteConceptoPeriodoInput = {
+      concepto_id: presentismo.concepto_id,
+      tipo_ajuste: 'excluir',
+      monto_override: null,
+      motivo: 'Llegó tarde 3 veces',
+    }
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      ajustes_periodo: [ajuste],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+    expect(r.conceptos_sugeridos).toHaveLength(1)
+    expect(r.conceptos_sugeridos[0].detalle).toContain('Excluido del período')
+    expect(r.conceptos_sugeridos[0].detalle).toContain('Llegó tarde 3 veces')
+  })
+
+  it("ajuste 'override' usa el monto manual en lugar del calculado", () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const presentismo = asignacion({
+      concepto: concepto({ nombre: 'Presentismo', valor: 10, condicion_jsonb: { tipo: 'sin_ausencias' } }),
+    })
+    // El motor normalmente calcula 10% de 400k = 40k. Lo overrideamos a 25k.
+    const ajuste: AjusteConceptoPeriodoInput = {
+      concepto_id: presentismo.concepto_id,
+      tipo_ajuste: 'override',
+      monto_override: 25000,
+      motivo: 'Pago proporcional por baja a mitad de mes',
+    }
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      ajustes_periodo: [ajuste],
+      asistencias: Array.from({ length: 22 }, (_, i) =>
+        asistenciaTrabajada(`2026-04-${String(i + 1).padStart(2, '0')}`),
+      ),
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].monto).toBe(25000)
+    expect(r.conceptos_aplicados[0].detalle).toContain('Monto ajustado manualmente')
+    expect(r.conceptos_aplicados[0].detalle).toContain('proporcional')
+  })
+
+  it("ajuste 'agregar' aplica concepto del catálogo no asignado al contrato", () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const bonoNavideno = concepto({
+      id: 'concepto-bono-navideno',
+      nombre: 'Bono navideño',
+      valor: null,
+      condicion_jsonb: { tipo: 'siempre' },
+    })
+    const ajuste: AjusteConceptoPeriodoInput = {
+      concepto_id: bonoNavideno.id,
+      tipo_ajuste: 'agregar',
+      monto_override: 150000,
+      motivo: 'Aguinaldo de fin de año',
+      concepto: bonoNavideno,
+    }
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      // El contrato NO tiene este concepto asignado.
+      conceptos_contrato: [],
+      ajustes_periodo: [ajuste],
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].nombre).toBe('Bono navideño')
+    expect(r.conceptos_aplicados[0].monto).toBe(150000)
+    expect(r.subtotal_haberes).toBe(400000 + 150000)
+  })
+
+  it("ajuste 'agregar' sobre concepto que YA está en el contrato se ignora (debería ser override)", () => {
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const presentismo = asignacion({
+      concepto: concepto({ nombre: 'Presentismo', condicion_jsonb: { tipo: 'siempre' } }),
+    })
+    const ajusteInvalido: AjusteConceptoPeriodoInput = {
+      concepto_id: presentismo.concepto_id,
+      tipo_ajuste: 'agregar',
+      monto_override: 99999,
+      motivo: 'Esto debería haber sido override',
+      concepto: presentismo.concepto,
+    }
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      ajustes_periodo: [ajusteInvalido],
+    }))
+    // Solo aparece UNA vez (la del contrato, calculada normal).
+    expect(r.conceptos_aplicados).toHaveLength(1)
+    expect(r.conceptos_aplicados[0].monto).toBe(40000) // 10% de 400k, no 99999
+  })
+
+  it("'excluir' funciona aunque el concepto fuera mensual y no fuera la última liquidación", () => {
+    // Quincena 1-15: un concepto mensual normalmente NO se aplicaría
+    // (queda como sugerencia). Pero el 'excluir' debe ganar igual.
+    const c = contrato({ modalidad_calculo: 'fijo_mensual', monto_base: 400000 })
+    const presentismo = asignacion({
+      concepto: concepto({
+        nombre: 'Presentismo',
+        periodicidad: 'mensual',
+        condicion_jsonb: { tipo: 'siempre' },
+      }),
+    })
+    const ajuste: AjusteConceptoPeriodoInput = {
+      concepto_id: presentismo.concepto_id,
+      tipo_ajuste: 'excluir',
+      monto_override: null,
+      motivo: null,
+    }
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      conceptos_contrato: [presentismo],
+      ajustes_periodo: [ajuste],
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-15',
+    }))
+    expect(r.conceptos_aplicados).toHaveLength(0)
+    expect(r.conceptos_sugeridos[0].detalle).toContain('Excluido del período')
   })
 })
