@@ -1,5 +1,5 @@
 -- ──────────────────────────────────────────────────────────────────
--- Plantilla recibo_haberes_nomina v2 — extendida con link al PDF.
+-- Plantilla recibo_haberes_nomina v2 — desglose completo + link al PDF.
 -- ──────────────────────────────────────────────────────────────────
 --
 -- IMPORTANTE: esta migración cambia el cuerpo de una plantilla
@@ -7,33 +7,22 @@
 -- y los envíos por WhatsApp QUEDAN BLOQUEADOS hasta que la plantilla
 -- sea re-aprobada por Meta (24-48 hs aprox).
 --
+-- Cambios respecto del cuerpo aprobado actual (12 vars):
+--   - Sumamos secciones de Haberes (Presentismo, Antigüedad, etc.) y
+--     Bonos del período, además de los Descuentos del contrato
+--     (Uniforme, Cuota sindical) separados de los adelantos puntuales.
+--   - Reordenamos cada bullet con monto-adelante-bold para escaneo rápido:
+--     `• *±$X* · Descripción · cuota X/Y · DD-mmm`
+--   - Bajamos slots de adelantos puntuales de 4 a 3 (el slot 3 concatena
+--     excedentes), por eso el cuerpo tiene 18 variables en total.
+--   - Sumamos `enlace_recibo` (link firmado al PDF, 30 días).
+--
 -- Pasos para activar:
---   1. Aplicar este SQL (ver más abajo cómo).
+--   1. Aplicar este SQL (vía MCP supabase o psql).
 --   2. Ir a Inbox → Configuración → Plantillas WhatsApp → "Recibo de
---      haberes" → "Enviar a Meta para aprobación".
---   3. Esperar el cambio de estado a APPROVED (notificación de Meta).
+--      haberes" → "Re-enviar a Meta".
+--   3. Esperar el cambio a APPROVED (notificación de Meta).
 --   4. Mientras tanto, los envíos por correo siguen funcionando.
---
--- Cambios respecto del cuerpo actual:
---   - Mantenemos el estilo (emojis, secciones, asteriscos para bold)
---     y los 11 slots originales (nombre, días, horario, tardanzas,
---     bruto, descuento_1..4, neto).
---   - Agregamos UN slot nuevo `enlace_recibo` al pie del mensaje:
---     "📎 Ver recibo completo: {{12}}". El backend ya resuelve la
---     variable contra `pagos_nomina.comprobante_url` (firmada 30 días).
---   - Conceptos de contrato (Presentismo/Antigüedad) y bonos siguen
---     fuera del WhatsApp — viven en el PDF al que apunta el link. Ver
---     `seccion_conceptos` del correo y la tabla de haberes del PDF.
---
--- Decisión de scope: NO sumamos slots para haberes/bonos visibles en
--- el WA porque cada slot vacío se rellena con "—" y queda feo en los
--- recibos sin conceptos extra (mayoría). El PDF es la fuente formal,
--- WA es solo la notificación.
-
--- Asumimos UN solo empresa_id en flux-dev — si se replica a varios
--- tenants, el operador debe ejecutar este UPDATE para cada empresa_id
--- que tenga la plantilla cargada. El WHERE por nombre_api es seguro:
--- si la empresa no tiene la plantilla, no afecta nada.
 
 UPDATE plantillas_whatsapp
 SET
@@ -45,7 +34,7 @@ SET
       'mapeo_variable', 'periodo'
     ),
     'cuerpo', jsonb_build_object(
-      'texto', E'Hola *{{1}}*, te compartimos tu recibo de haberes 📄\n\n📊 *Asistencia del período*\n\n✅ Días trabajados: *{{2}} de {{3}}*\n🕘 A horario: {{4}}\n⏰ Tardanzas: {{5}}\n\n*Bruto del período*\n*{{6}}*\n\n➖ *Adelantos y descuentos*\n{{7}}\n{{8}}\n{{9}}\n{{10}}\n\n*Neto a transferir:* {{11}}\n\n📎 Ver recibo completo: {{12}}\n\nCualquier consulta, escribinos 🙌',
+      'texto', E'Hola *{{1}}*, te compartimos tu recibo de haberes 📄\n\n📊 *Asistencia del período*\n\n✅ Días trabajados: *{{2}} de {{3}}*\n🕘 A horario: {{4}}\n⏰ Tardanzas: {{5}}\n\n💰 *Haberes*\nBruto base: *{{6}}*\n{{7}}\n{{8}}\n{{9}}\n\n🎁 *Bonos del período*\n{{10}}\n{{11}}\n\n➖ *Adelantos y descuentos*\n{{12}}\n{{13}}\n{{14}}\n{{15}}\n{{16}}\n\n*Neto a transferir:* {{17}}\n\n📎 Ver recibo completo: {{18}}\n\nCualquier consulta, escribinos 🙌',
       'ejemplos', jsonb_build_array(
         'José Luis Romero',
         '9',
@@ -53,11 +42,17 @@ SET
         '6',
         '3',
         '$340.000',
-        '• A favor del período anterior · −$18.000',
-        '• Inyectores cuota 2/2 · 17 abr · −$58.000',
-        '• Retiro de cajero · 26 abr · −$50.000',
-        '• Adelanto compra ML · 29 abr · −$30.229',
-        '$183.771',
+        '• *+$15.200* · Presentismo (10/11 días)',
+        '• *+$12.000* · Antigüedad (3 años)',
+        '—',
+        '• *+$25.000* · Bono producción · 30-abr',
+        '—',
+        '• *−$8.500* · Uniforme cuota 2/3',
+        '• *−$3.500* · Cuota sindical',
+        '• *−$18.000* · A favor del período anterior',
+        '• *−$58.000* · Inyectores cuota 2/2 · 17-abr',
+        '• *−$50.000* · Retiro de cajero · 26-abr',
+        '$235.971',
         'https://flux.salixweb.com/r/abc123'
       ),
       'mapeo_variables', jsonb_build_array(
@@ -67,10 +62,16 @@ SET
         'dias_a_horario',
         'dias_tardanza',
         'monto_bruto',
+        'haber_1',
+        'haber_2',
+        'haber_3',
+        'bono_1',
+        'bono_2',
+        'descuento_contrato_1',
+        'descuento_contrato_2',
         'descuento_1',
         'descuento_2',
         'descuento_3',
-        'descuento_4',
         'monto_neto',
         'enlace_recibo'
       )
@@ -80,21 +81,11 @@ SET
     )
   ),
   -- Devuelve la plantilla a BORRADOR — los envíos WA se bloquean hasta
-  -- que Meta apruebe la nueva versión. El editor de plantillas tiene
-  -- el botón "Enviar a Meta" que dispara la aprobación.
+  -- que Meta apruebe la nueva versión. El editor tiene el botón
+  -- "Re-enviar a Meta" que dispara la aprobación.
   estado_meta = 'BORRADOR',
   editado_en = now()
 WHERE nombre_api = 'recibo_haberes_nomina';
 
--- Para deshacer (rollback a la versión APPROVED actual):
---   UPDATE plantillas_whatsapp
---   SET estado_meta = 'APPROVED',
---       componentes = '<JSON de la versión vieja>'::jsonb
---   WHERE nombre_api = 'recibo_haberes_nomina';
---
--- La versión vieja queda registrada en `auditoria_plantillas_whatsapp`
--- (triggerada automáticamente). Para recuperarla:
---   SELECT cambios_antes FROM auditoria_plantillas_whatsapp
---   WHERE tabla = 'plantillas_whatsapp'
---     AND registro_id IN (SELECT id FROM plantillas_whatsapp WHERE nombre_api = 'recibo_haberes_nomina')
---   ORDER BY creado_en DESC LIMIT 1;
+-- Para rollback (vuelta a la versión APPROVED actual de 11 vars):
+--   ver `auditoria_plantillas_whatsapp` con el ultimo cambios_antes.

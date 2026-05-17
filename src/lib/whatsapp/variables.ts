@@ -148,17 +148,19 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'monto_bruto', etiqueta: 'Nómina — Monto bruto', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$340.000', modulos: ['asistencias'] },
   { valor: 'monto_descuentos', etiqueta: 'Nómina — Total de descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$156.229', modulos: ['asistencias'] },
   { valor: 'monto_neto', etiqueta: 'Nómina — Neto a transferir', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$183.771', modulos: ['asistencias'] },
-  { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adelanto compra ML · 29 abr · −$30.229\n• Retiro de cajero · 26 abr · −$50.000', modulos: ['asistencias'] },
+  // Detalle textual (multi-línea) — útil cuando la plantilla puede usar
+  // `\n` (no es el caso de Meta, pero sí del preview interno o del correo).
+  { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$30.229* · Adelanto compra ML · 29-abr\n• *−$50.000* · Retiro de cajero · 26-abr', modulos: ['asistencias'] },
   // Slots fijos para listar adelantos/descuentos como variables separadas en
   // plantillas WA. Necesario porque Meta no respeta `\n` dentro de un valor de
   // variable: cada bullet va a su propio slot y el `\n` queda en el cuerpo
-  // aprobado. Si hay menos de 4 ítems se rellenan con "—"; si hay más, los
-  // excedentes se concatenan en el último.
-  { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• A favor del período anterior · −$18.000', modulos: ['asistencias'] },
-  { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Inyectores cuota 2/2 · 17 abr · −$58.000', modulos: ['asistencias'] },
+  // aprobado. Si hay menos de 3 ítems se rellenan con "—"; si hay más, los
+  // excedentes se concatenan en el último. Formato: monto-adelante-bold.
+  { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$18.000* · A favor del período anterior', modulos: ['asistencias'] },
+  { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$58.000* · Inyectores cuota 2/2 · 17-abr', modulos: ['asistencias'] },
   // El slot 3 muestra el tercer adelanto o concatena los excedentes
   // (4to en adelante) separados por `·` cuando hay más de 3 en el período.
-  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3 (o concat. excedentes)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Retiro de cajero · 26 abr · −$50.000  ·  • Adelanto ML · 29 abr · −$30.229', modulos: ['asistencias'] },
+  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3 (o concat. excedentes)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$50.000* · Retiro de cajero · 26-abr · *−$30.229* · Adelanto ML · 29-abr', modulos: ['asistencias'] },
   { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
   // Link firmado al PDF del recibo (expira 30 días). El server lo arma
   // desde `pagos_nomina.comprobante_url` cuando hay pago grabado; si no
@@ -168,27 +170,28 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   // ─── Conceptos HABER del contrato (Presentismo, Antigüedad, etc.) ───
   // Slots fijos — cada empresa nombra sus conceptos distinto, así que
   // exponemos slots genéricos en lugar de variables hardcoded. Mismo
-  // patrón que `descuento_1..4`: los excedentes se concatenan al último.
-  { valor: 'haber_1', etiqueta: 'Nómina — Haber 1 (Presentismo, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Presentismo (10/11 días) · +$15.200', modulos: ['asistencias'] },
-  { valor: 'haber_2', etiqueta: 'Nómina — Haber 2 (Antigüedad, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Antigüedad (3 años) · +$12.000', modulos: ['asistencias'] },
-  { valor: 'haber_3', etiqueta: 'Nómina — Haber 3 (Adicional zona, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Adicional zona · +$8.000', modulos: ['asistencias'] },
+  // patrón que `descuento_*`: los excedentes se concatenan al último.
+  // Formato: monto-adelante-bold (`• *+$X* · Nombre`).
+  { valor: 'haber_1', etiqueta: 'Nómina — Haber 1 (Presentismo, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo (10/11 días)', modulos: ['asistencias'] },
+  { valor: 'haber_2', etiqueta: 'Nómina — Haber 2 (Antigüedad, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$12.000* · Antigüedad (3 años)', modulos: ['asistencias'] },
+  { valor: 'haber_3', etiqueta: 'Nómina — Haber 3 (Adicional zona, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$8.000* · Adicional zona', modulos: ['asistencias'] },
   { valor: 'total_haberes_extra', etiqueta: 'Nómina — Total haberes del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.200', modulos: ['asistencias'] },
-  { valor: 'detalle_haberes', etiqueta: 'Nómina — Detalle haberes (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Presentismo · +$15.200\n• Antigüedad · +$12.000', modulos: ['asistencias'] },
+  { valor: 'detalle_haberes', etiqueta: 'Nómina — Detalle haberes (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo\n• *+$12.000* · Antigüedad', modulos: ['asistencias'] },
 
   // ─── Descuentos del CONTRATO (Uniforme, Cuota sindical) ───
   // Distintos a los `descuento_*` que son adelantos puntuales del período.
   // Estos son recurrentes y los aplica el motor automáticamente.
-  { valor: 'descuento_contrato_1', etiqueta: 'Nómina — Descuento contrato 1 (Uniforme, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Uniforme cuota 2/3 · −$8.500', modulos: ['asistencias'] },
-  { valor: 'descuento_contrato_2', etiqueta: 'Nómina — Descuento contrato 2 (Cuota sindical, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Cuota sindical · −$3.500', modulos: ['asistencias'] },
+  { valor: 'descuento_contrato_1', etiqueta: 'Nómina — Descuento contrato 1 (Uniforme, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$8.500* · Uniforme cuota 2/3', modulos: ['asistencias'] },
+  { valor: 'descuento_contrato_2', etiqueta: 'Nómina — Descuento contrato 2 (Cuota sindical, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$3.500* · Cuota sindical', modulos: ['asistencias'] },
   { valor: 'total_descuentos_contrato', etiqueta: 'Nómina — Total descuentos del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$12.000', modulos: ['asistencias'] },
 
   // ─── Bonos one-off del período (Bono producción, etc.) ───
   // Suman al neto. Los configura el operador desde adelantos_nomina
   // con tipo='bono'. Pueden ser 0, 1, 2+; los excedentes al último slot.
-  { valor: 'bono_1', etiqueta: 'Nómina — Bono 1 (producción, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Bono producción · 30 abr · +$25.000', modulos: ['asistencias'] },
-  { valor: 'bono_2', etiqueta: 'Nómina — Bono 2 (extra, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Bono fin de mes · 30 abr · +$10.000', modulos: ['asistencias'] },
+  { valor: 'bono_1', etiqueta: 'Nómina — Bono 1 (producción, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['asistencias'] },
+  { valor: 'bono_2', etiqueta: 'Nómina — Bono 2 (extra, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$10.000* · Bono fin de mes · 30-abr', modulos: ['asistencias'] },
   { valor: 'total_bonos_periodo', etiqueta: 'Nómina — Total bonos del período (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.000', modulos: ['asistencias'] },
-  { valor: 'detalle_bonos', etiqueta: 'Nómina — Detalle bonos (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• Bono producción · 30 abr · +$25.000', modulos: ['asistencias'] },
+  { valor: 'detalle_bonos', etiqueta: 'Nómina — Detalle bonos (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['asistencias'] },
 
   // Empresa (siempre disponible)
   { valor: 'empresa_nombre', etiqueta: 'Empresa — Nombre', grupo: 'Empresa', entidad: 'empresa', ejemplo: 'Mi Empresa S.A.' },
@@ -411,9 +414,12 @@ export function construirDatosPlantilla(
     const haberes = conceptos.filter(c => c.tipo === 'haber')
     const descuentosContrato = conceptos.filter(c => c.tipo === 'descuento')
 
+    // Formato monto-adelante-bold (mismo que `construirLineasAjustes`):
+    //   • *+$X* · Nombre (detalle)
+    // El bold de WhatsApp se aplica con asteriscos.
     const lineasHaberes = haberes.map(h => {
       const det = h.detalle ? ` (${h.detalle})` : ''
-      return `• ${h.nombre}${det} · +${formatoMontoEntero(h.monto)}`
+      return `• *+${formatoMontoEntero(h.monto)}* · ${h.nombre}${det}`
     })
     const slotsHaberes = expandirSlotsDescuentos(lineasHaberes, TOTAL_SLOTS_HABERES)
     for (let i = 0; i < TOTAL_SLOTS_HABERES; i++) {
@@ -426,7 +432,7 @@ export function construirDatosPlantilla(
 
     const lineasDescContrato = descuentosContrato.map(d => {
       const det = d.detalle ? ` (${d.detalle})` : ''
-      return `• ${d.nombre}${det} · −${formatoMontoEntero(d.monto)}`
+      return `• *−${formatoMontoEntero(d.monto)}* · ${d.nombre}${det}`
     })
     const slotsDescContrato = expandirSlotsDescuentos(lineasDescContrato, TOTAL_SLOTS_DESCUENTOS_CONTRATO)
     for (let i = 0; i < TOTAL_SLOTS_DESCUENTOS_CONTRATO; i++) {

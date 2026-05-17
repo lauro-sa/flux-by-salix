@@ -43,7 +43,7 @@ describe('construirLineasAjustes', () => {
 
   it('un adelanto de cuota única no incluye sufijo "cuota X/Y"', () => {
     const { descuentos } = construirLineasAjustes([adelanto()], PERIODO_DESDE, PERIODO_HASTA)
-    expect(descuentos).toEqual(['• Adelanto compra ML · 29-abr · −$30.229'])
+    expect(descuentos).toEqual(['• *−$30.229* · Adelanto compra ML · 29-abr'])
   })
 
   it('un adelanto en cuotas múltiples incluye "cuota X/Y"', () => {
@@ -54,14 +54,14 @@ describe('construirLineasAjustes', () => {
       cuotas: [{ numero_cuota: 2, fecha_programada: '2026-04-17', monto_cuota: '58000' }],
     })]
     const { descuentos } = construirLineasAjustes(items, PERIODO_DESDE, PERIODO_HASTA)
-    expect(descuentos).toEqual(['• Inyectores · cuota 2/2 · 17-abr · −$58.000'])
+    expect(descuentos).toEqual(['• *−$58.000* · Inyectores · cuota 2/2 · 17-abr'])
   })
 
   it('agrega saldo a favor del período anterior al inicio de descuentos', () => {
     const { descuentos } = construirLineasAjustes([adelanto()], PERIODO_DESDE, PERIODO_HASTA, {
       saldoAnterior: 18000,
     })
-    expect(descuentos[0]).toBe('• A favor del período anterior · −$18.000')
+    expect(descuentos[0]).toBe('• *−$18.000* · A favor del período anterior')
     expect(descuentos).toHaveLength(2)
   })
 
@@ -79,8 +79,8 @@ describe('construirLineasAjustes', () => {
       adelanto(),
     ]
     const { descuentos, bonos } = construirLineasAjustes(items, PERIODO_DESDE, PERIODO_HASTA)
-    expect(bonos).toEqual(['• Bono producción · 30-abr · +$25.000'])
-    expect(descuentos).toEqual(['• Adelanto compra ML · 29-abr · −$30.229'])
+    expect(bonos).toEqual(['• *+$25.000* · Bono producción · 30-abr'])
+    expect(descuentos).toEqual(['• *−$30.229* · Adelanto compra ML · 29-abr'])
   })
 
   it('respeta el alias adelantos_cuotas (shape de Supabase join)', () => {
@@ -93,7 +93,7 @@ describe('construirLineasAjustes', () => {
       adelantos_cuotas: [{ numero_cuota: 1, fecha_programada: '2026-04-20', monto_cuota: '10000' }],
     }] as ItemAdelantoBruto[]
     const { descuentos } = construirLineasAjustes(items, PERIODO_DESDE, PERIODO_HASTA)
-    expect(descuentos).toEqual(['• Test join · 20-abr · −$10.000'])
+    expect(descuentos).toEqual(['• *−$10.000* · Test join · 20-abr'])
   })
 
   it('omite adelantos cancelados', () => {
@@ -120,7 +120,9 @@ describe('construirLineasAjustes', () => {
         cuotas: [{ numero_cuota: 1, fecha_programada: '2026-04-26', monto_cuota: '3000' }] }),
     ]
     const { descuentos } = construirLineasAjustes(items, PERIODO_DESDE, PERIODO_HASTA)
-    expect(descuentos.map(l => l.split(' · ')[0])).toEqual(['• Primero', '• Segundo', '• Tercero'])
+    // Con el formato monto-adelante-bold (`• *−$X* · Descripción · …`),
+    // el nombre queda en el segundo segmento del split por ' · '.
+    expect(descuentos.map(l => l.split(' · ')[1])).toEqual(['Primero', 'Segundo', 'Tercero'])
   })
 
   it('respeta tipos descuento vs adelanto en el fallback del nombre', () => {

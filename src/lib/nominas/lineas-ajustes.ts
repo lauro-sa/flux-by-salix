@@ -124,17 +124,21 @@ export function construirLineasAjustes(
   const descuentos: string[] = []
   const bonos: string[] = []
 
+  // Formato monto-adelante-bold: el monto va primero (con signo + WA-bold)
+  // para que el ojo lo escanee rápido. Después la descripción y los
+  // metadatos (cuota, fecha). Patrón:
+  //   • *±$X* · Descripción · cuota X/Y · DD-mmm
   if (saldoAnterior > 0) {
-    descuentos.push(`• A favor del período anterior · −${fmtMonto(saldoAnterior, locale)}`)
+    descuentos.push(`• *−${fmtMonto(saldoAnterior, locale)}* · A favor del período anterior`)
   }
 
   for (const it of items) {
     const cuotaInfo = it.cuotasTot > 1 ? ` · cuota ${it.numCuota}/${it.cuotasTot}` : ''
     const fechaCorta = it.fecha ? ` · ${formatoFechaCortaPeriodo(it.fecha, locale)}` : ''
     if (it.tipo === 'bono') {
-      bonos.push(`• ${it.notas}${fechaCorta} · +${fmtMonto(it.monto, locale)}`)
+      bonos.push(`• *+${fmtMonto(it.monto, locale)}* · ${it.notas}${fechaCorta}`)
     } else {
-      descuentos.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmtMonto(it.monto, locale)}`)
+      descuentos.push(`• *−${fmtMonto(it.monto, locale)}* · ${it.notas}${cuotaInfo}${fechaCorta}`)
     }
   }
 
