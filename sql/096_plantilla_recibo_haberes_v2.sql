@@ -34,7 +34,7 @@ SET
       'mapeo_variable', 'periodo'
     ),
     'cuerpo', jsonb_build_object(
-      'texto', E'Hola *{{1}}*, te compartimos tu recibo de haberes 📄\n\n📊 *Asistencia del período*\n\n✅ Días trabajados: *{{2}} de {{3}}*\n🕘 A horario: {{4}}\n⏰ Tardanzas: {{5}}\n\n💰 *Haberes*\nBruto base: *{{6}}*\n{{7}}\n{{8}}\n{{9}}\n\n🎁 *Bonos del período*\n{{10}}\n{{11}}\n\n➖ *Adelantos y descuentos*\n{{12}}\n{{13}}\n{{14}}\n{{15}}\n{{16}}\n\n*Neto a transferir:* {{17}}\n\n📎 Ver recibo completo: {{18}}\n\nCualquier consulta, escribinos 🙌',
+      'texto', E'Hola *{{1}}*, te compartimos tu recibo de haberes 📄\n\n📊 *Asistencia del período*\n\n✅ Días trabajados: *{{2}} de {{3}}*\n🕘 A horario: {{4}}\n⏰ Tardanzas: {{5}}\n\n💰 *Haberes*\n• *{{6}}* · Bruto base\n{{7}}\n{{8}}\n{{9}}\n\n🎁 *Bonos del período*\n{{10}}\n{{11}}\n\n➖ *Adelantos y descuentos*\n{{12}}\n{{13}}\n{{14}}\n{{15}}\n{{16}}\n\n*Neto a transferir:* {{17}}\n\n📎 Ver recibo completo: {{18}}\n\nCualquier consulta, escribinos 🙌',
       'ejemplos', jsonb_build_array(
         'José Luis Romero',
         '9',

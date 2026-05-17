@@ -40,18 +40,50 @@ export const TOTAL_SLOTS_BONOS = 2
 export const SLOT_VACIO_DESCUENTO = '—'
 
 /**
+ * Caracter zero-width — visible para Meta (que rechaza valores vacíos) pero
+ * invisible para el usuario final. Se usa para slots vacíos cuando ya hay
+ * un mensaje "Sin X" en el primer slot vacío de la sección.
+ */
+export const SLOT_INVISIBLE = '​'
+
+/**
  * Expande una lista variable de bullets a exactamente `slots` posiciones:
- *  - Si hay menos: rellena con `SLOT_VACIO_DESCUENTO`.
+ *  - Si hay menos: rellena con el placeholder configurado.
  *  - Si hay más: el último slot concatena los excedentes con `  ·  `.
  *
- * Exportado para que los callers (backend de envío, preview del modal) usen
- * el mismo padding/concat que el resolver de variables.
+ * Por defecto los slots vacíos usan `SLOT_VACIO_DESCUENTO` ('—').
+ * Para una UX más limpia, los callers pueden pasar `placeholderPrimerVacio`
+ * con texto explicativo ("_Sin haberes extra._") y `placeholderRestoVacio`
+ * con `SLOT_INVISIBLE` para que solo el primer slot vacío lleve mensaje.
  */
-export function expandirSlotsDescuentos(lineas: string[], slots = TOTAL_SLOTS_DESCUENTOS): string[] {
+export interface OpcionesExpandirSlots {
+  /** Texto del PRIMER slot vacío de la sección (default: `placeholderRestoVacio`). */
+  placeholderPrimerVacio?: string
+  /** Texto del RESTO de slots vacíos (default: `SLOT_VACIO_DESCUENTO`). */
+  placeholderRestoVacio?: string
+}
+
+export function expandirSlotsDescuentos(
+  lineas: string[],
+  slots = TOTAL_SLOTS_DESCUENTOS,
+  opciones: OpcionesExpandirSlots = {},
+): string[] {
   const limpias = lineas.map(l => String(l || '').trim()).filter(Boolean)
+  const placeholderResto = opciones.placeholderRestoVacio ?? SLOT_VACIO_DESCUENTO
+  const placeholderPrimero = opciones.placeholderPrimerVacio ?? placeholderResto
   const resultado: string[] = []
   if (limpias.length <= slots) {
-    for (let i = 0; i < slots; i++) resultado.push(limpias[i] || SLOT_VACIO_DESCUENTO)
+    for (let i = 0; i < slots; i++) {
+      if (limpias[i]) {
+        resultado.push(limpias[i])
+      } else {
+        // El PRIMER slot vacío de la sección lleva el mensaje explicativo
+        // ("Sin haberes…"); los demás van con un caracter invisible para
+        // no saturar visualmente con texto repetido.
+        const esElPrimeroVacio = i === limpias.length
+        resultado.push(esElPrimeroVacio ? placeholderPrimero : placeholderResto)
+      }
+    }
   } else {
     for (let i = 0; i < slots - 1; i++) resultado.push(limpias[i])
     const sobrantes = limpias.slice(slots - 1).join('  ·  ')
@@ -139,59 +171,59 @@ export const CATALOGO_VARIABLES: DefinicionVariable[] = [
   { valor: 'actividad_estado', etiqueta: 'Actividad — Estado', grupo: 'Actividad', entidad: 'actividad', ejemplo: 'Pendiente', modulos: ['actividades'] },
 
   // Nómina (recibos de haberes — módulo asistencias)
-  { valor: 'nombre_empleado', etiqueta: 'Nómina — Nombre del empleado', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'José Luis Romero', modulos: ['asistencias'] },
-  { valor: 'periodo', etiqueta: 'Nómina — Período (etiqueta)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'Quincena 16-30 Abril 2026', modulos: ['asistencias'] },
-  { valor: 'dias_trabajados', etiqueta: 'Nómina — Días trabajados', grupo: 'Nómina', entidad: 'nomina', ejemplo: '9', modulos: ['asistencias'] },
-  { valor: 'dias_laborales', etiqueta: 'Nómina — Días laborales del período', grupo: 'Nómina', entidad: 'nomina', ejemplo: '11', modulos: ['asistencias'] },
-  { valor: 'dias_a_horario', etiqueta: 'Nómina — Días llegados a horario', grupo: 'Nómina', entidad: 'nomina', ejemplo: '6', modulos: ['asistencias'] },
-  { valor: 'dias_tardanza', etiqueta: 'Nómina — Días con tardanza', grupo: 'Nómina', entidad: 'nomina', ejemplo: '3', modulos: ['asistencias'] },
-  { valor: 'monto_bruto', etiqueta: 'Nómina — Monto bruto', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$340.000', modulos: ['asistencias'] },
-  { valor: 'monto_descuentos', etiqueta: 'Nómina — Total de descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$156.229', modulos: ['asistencias'] },
-  { valor: 'monto_neto', etiqueta: 'Nómina — Neto a transferir', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$183.771', modulos: ['asistencias'] },
+  { valor: 'nombre_empleado', etiqueta: 'Nómina — Nombre del empleado', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'José Luis Romero', modulos: ['nominas'] },
+  { valor: 'periodo', etiqueta: 'Nómina — Período (etiqueta)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'Quincena 16-30 Abril 2026', modulos: ['nominas'] },
+  { valor: 'dias_trabajados', etiqueta: 'Nómina — Días trabajados', grupo: 'Nómina', entidad: 'nomina', ejemplo: '9', modulos: ['nominas'] },
+  { valor: 'dias_laborales', etiqueta: 'Nómina — Días laborales del período', grupo: 'Nómina', entidad: 'nomina', ejemplo: '11', modulos: ['nominas'] },
+  { valor: 'dias_a_horario', etiqueta: 'Nómina — Días llegados a horario', grupo: 'Nómina', entidad: 'nomina', ejemplo: '6', modulos: ['nominas'] },
+  { valor: 'dias_tardanza', etiqueta: 'Nómina — Días con tardanza', grupo: 'Nómina', entidad: 'nomina', ejemplo: '3', modulos: ['nominas'] },
+  { valor: 'monto_bruto', etiqueta: 'Nómina — Monto bruto', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$340.000', modulos: ['nominas'] },
+  { valor: 'monto_descuentos', etiqueta: 'Nómina — Total de descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$156.229', modulos: ['nominas'] },
+  { valor: 'monto_neto', etiqueta: 'Nómina — Neto a transferir', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$183.771', modulos: ['nominas'] },
   // Detalle textual (multi-línea) — útil cuando la plantilla puede usar
   // `\n` (no es el caso de Meta, pero sí del preview interno o del correo).
-  { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$30.229* · Adelanto compra ML · 29-abr\n• *−$50.000* · Retiro de cajero · 26-abr', modulos: ['asistencias'] },
+  { valor: 'detalle_descuentos', etiqueta: 'Nómina — Detalle de adelantos y descuentos', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$30.229* · Adelanto compra ML · 29-abr\n• *−$50.000* · Retiro de cajero · 26-abr', modulos: ['nominas'] },
   // Slots fijos para listar adelantos/descuentos como variables separadas en
   // plantillas WA. Necesario porque Meta no respeta `\n` dentro de un valor de
   // variable: cada bullet va a su propio slot y el `\n` queda en el cuerpo
   // aprobado. Si hay menos de 3 ítems se rellenan con "—"; si hay más, los
   // excedentes se concatenan en el último. Formato: monto-adelante-bold.
-  { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$18.000* · A favor del período anterior', modulos: ['asistencias'] },
-  { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$58.000* · Inyectores cuota 2/2 · 17-abr', modulos: ['asistencias'] },
+  { valor: 'descuento_1', etiqueta: 'Nómina — Descuento 1', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$18.000* · A favor del período anterior', modulos: ['nominas'] },
+  { valor: 'descuento_2', etiqueta: 'Nómina — Descuento 2', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$58.000* · Inyectores cuota 2/2 · 17-abr', modulos: ['nominas'] },
   // El slot 3 muestra el tercer adelanto o concatena los excedentes
   // (4to en adelante) separados por `·` cuando hay más de 3 en el período.
-  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3 (o concat. excedentes)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$50.000* · Retiro de cajero · 26-abr · *−$30.229* · Adelanto ML · 29-abr', modulos: ['asistencias'] },
-  { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['asistencias'] },
+  { valor: 'descuento_3', etiqueta: 'Nómina — Descuento 3 (o concat. excedentes)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$50.000* · Retiro de cajero · 26-abr · *−$30.229* · Adelanto ML · 29-abr', modulos: ['nominas'] },
+  { valor: 'compensacion_detalle', etiqueta: 'Nómina — Detalle de compensación', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$40.000 × 8.5 días', modulos: ['nominas'] },
   // Link firmado al PDF del recibo (expira 30 días). El server lo arma
   // desde `pagos_nomina.comprobante_url` cuando hay pago grabado; si no
   // hay pago aún, queda string vacío.
-  { valor: 'enlace_recibo', etiqueta: 'Nómina — Enlace al recibo (PDF)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'https://flux.salixweb.com/r/abc123', modulos: ['asistencias'] },
+  { valor: 'enlace_recibo', etiqueta: 'Nómina — Enlace al recibo (PDF)', grupo: 'Nómina', entidad: 'nomina', ejemplo: 'https://flux.salixweb.com/r/abc123', modulos: ['nominas'] },
 
   // ─── Conceptos HABER del contrato (Presentismo, Antigüedad, etc.) ───
   // Slots fijos — cada empresa nombra sus conceptos distinto, así que
   // exponemos slots genéricos en lugar de variables hardcoded. Mismo
   // patrón que `descuento_*`: los excedentes se concatenan al último.
   // Formato: monto-adelante-bold (`• *+$X* · Nombre`).
-  { valor: 'haber_1', etiqueta: 'Nómina — Haber 1 (Presentismo, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo (10/11 días)', modulos: ['asistencias'] },
-  { valor: 'haber_2', etiqueta: 'Nómina — Haber 2 (Antigüedad, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$12.000* · Antigüedad (3 años)', modulos: ['asistencias'] },
-  { valor: 'haber_3', etiqueta: 'Nómina — Haber 3 (Adicional zona, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$8.000* · Adicional zona', modulos: ['asistencias'] },
-  { valor: 'total_haberes_extra', etiqueta: 'Nómina — Total haberes del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.200', modulos: ['asistencias'] },
-  { valor: 'detalle_haberes', etiqueta: 'Nómina — Detalle haberes (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo\n• *+$12.000* · Antigüedad', modulos: ['asistencias'] },
+  { valor: 'haber_1', etiqueta: 'Nómina — Haber 1 (Presentismo, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo (10/11 días)', modulos: ['nominas'] },
+  { valor: 'haber_2', etiqueta: 'Nómina — Haber 2 (Antigüedad, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$12.000* · Antigüedad (3 años)', modulos: ['nominas'] },
+  { valor: 'haber_3', etiqueta: 'Nómina — Haber 3 (Adicional zona, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$8.000* · Adicional zona', modulos: ['nominas'] },
+  { valor: 'total_haberes_extra', etiqueta: 'Nómina — Total haberes del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.200', modulos: ['nominas'] },
+  { valor: 'detalle_haberes', etiqueta: 'Nómina — Detalle haberes (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$15.200* · Presentismo\n• *+$12.000* · Antigüedad', modulos: ['nominas'] },
 
   // ─── Descuentos del CONTRATO (Uniforme, Cuota sindical) ───
   // Distintos a los `descuento_*` que son adelantos puntuales del período.
   // Estos son recurrentes y los aplica el motor automáticamente.
-  { valor: 'descuento_contrato_1', etiqueta: 'Nómina — Descuento contrato 1 (Uniforme, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$8.500* · Uniforme cuota 2/3', modulos: ['asistencias'] },
-  { valor: 'descuento_contrato_2', etiqueta: 'Nómina — Descuento contrato 2 (Cuota sindical, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$3.500* · Cuota sindical', modulos: ['asistencias'] },
-  { valor: 'total_descuentos_contrato', etiqueta: 'Nómina — Total descuentos del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$12.000', modulos: ['asistencias'] },
+  { valor: 'descuento_contrato_1', etiqueta: 'Nómina — Descuento contrato 1 (Uniforme, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$8.500* · Uniforme cuota 2/3', modulos: ['nominas'] },
+  { valor: 'descuento_contrato_2', etiqueta: 'Nómina — Descuento contrato 2 (Cuota sindical, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *−$3.500* · Cuota sindical', modulos: ['nominas'] },
+  { valor: 'total_descuentos_contrato', etiqueta: 'Nómina — Total descuentos del contrato (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$12.000', modulos: ['nominas'] },
 
   // ─── Bonos one-off del período (Bono producción, etc.) ───
   // Suman al neto. Los configura el operador desde adelantos_nomina
   // con tipo='bono'. Pueden ser 0, 1, 2+; los excedentes al último slot.
-  { valor: 'bono_1', etiqueta: 'Nómina — Bono 1 (producción, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['asistencias'] },
-  { valor: 'bono_2', etiqueta: 'Nómina — Bono 2 (extra, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$10.000* · Bono fin de mes · 30-abr', modulos: ['asistencias'] },
-  { valor: 'total_bonos_periodo', etiqueta: 'Nómina — Total bonos del período (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.000', modulos: ['asistencias'] },
-  { valor: 'detalle_bonos', etiqueta: 'Nómina — Detalle bonos (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['asistencias'] },
+  { valor: 'bono_1', etiqueta: 'Nómina — Bono 1 (producción, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['nominas'] },
+  { valor: 'bono_2', etiqueta: 'Nómina — Bono 2 (extra, etc.)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$10.000* · Bono fin de mes · 30-abr', modulos: ['nominas'] },
+  { valor: 'total_bonos_periodo', etiqueta: 'Nómina — Total bonos del período (suma)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '$35.000', modulos: ['nominas'] },
+  { valor: 'detalle_bonos', etiqueta: 'Nómina — Detalle bonos (texto unificado)', grupo: 'Nómina', entidad: 'nomina', ejemplo: '• *+$25.000* · Bono producción · 30-abr', modulos: ['nominas'] },
 
   // Empresa (siempre disponible)
   { valor: 'empresa_nombre', etiqueta: 'Empresa — Nombre', grupo: 'Empresa', entidad: 'empresa', ejemplo: 'Mi Empresa S.A.' },
@@ -390,7 +422,10 @@ export function construirDatosPlantilla(
     const lista = Array.isArray(nomina.descuentos_lista)
       ? (nomina.descuentos_lista as unknown[]).map(v => String(v || '').trim()).filter(Boolean)
       : detalle.split('\n').map(s => s.trim()).filter(Boolean)
-    const slotsValores = expandirSlotsDescuentos(lista, slots)
+    const slotsValores = expandirSlotsDescuentos(lista, slots, {
+      placeholderPrimerVacio: '_Sin más adelantos en el período._',
+      placeholderRestoVacio: SLOT_INVISIBLE,
+    })
     for (let i = 0; i < slots; i++) {
       datos[`descuento_${i + 1}`] = slotsValores[i]
     }
@@ -421,7 +456,10 @@ export function construirDatosPlantilla(
       const det = h.detalle ? ` (${h.detalle})` : ''
       return `• *+${formatoMontoEntero(h.monto)}* · ${h.nombre}${det}`
     })
-    const slotsHaberes = expandirSlotsDescuentos(lineasHaberes, TOTAL_SLOTS_HABERES)
+    const slotsHaberes = expandirSlotsDescuentos(lineasHaberes, TOTAL_SLOTS_HABERES, {
+      placeholderPrimerVacio: '_Sin haberes extra del contrato._',
+      placeholderRestoVacio: SLOT_INVISIBLE,
+    })
     for (let i = 0; i < TOTAL_SLOTS_HABERES; i++) {
       datos[`haber_${i + 1}`] = slotsHaberes[i]
     }
@@ -434,7 +472,10 @@ export function construirDatosPlantilla(
       const det = d.detalle ? ` (${d.detalle})` : ''
       return `• *−${formatoMontoEntero(d.monto)}* · ${d.nombre}${det}`
     })
-    const slotsDescContrato = expandirSlotsDescuentos(lineasDescContrato, TOTAL_SLOTS_DESCUENTOS_CONTRATO)
+    const slotsDescContrato = expandirSlotsDescuentos(lineasDescContrato, TOTAL_SLOTS_DESCUENTOS_CONTRATO, {
+      placeholderPrimerVacio: '_Sin descuentos del contrato._',
+      placeholderRestoVacio: SLOT_INVISIBLE,
+    })
     for (let i = 0; i < TOTAL_SLOTS_DESCUENTOS_CONTRATO; i++) {
       datos[`descuento_contrato_${i + 1}`] = slotsDescContrato[i]
     }
@@ -448,7 +489,10 @@ export function construirDatosPlantilla(
     const bonos = Array.isArray(nomina.bonos_lista)
       ? (nomina.bonos_lista as unknown[]).map(v => String(v || '').trim()).filter(Boolean)
       : []
-    const slotsBonos = expandirSlotsDescuentos(bonos, TOTAL_SLOTS_BONOS)
+    const slotsBonos = expandirSlotsDescuentos(bonos, TOTAL_SLOTS_BONOS, {
+      placeholderPrimerVacio: '_Sin bonos en este período._',
+      placeholderRestoVacio: SLOT_INVISIBLE,
+    })
     for (let i = 0; i < TOTAL_SLOTS_BONOS; i++) {
       datos[`bono_${i + 1}`] = slotsBonos[i]
     }

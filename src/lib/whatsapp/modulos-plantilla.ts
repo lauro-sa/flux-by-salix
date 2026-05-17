@@ -34,7 +34,11 @@ export const MODULOS_PLANTILLA_WA: ModuloPlantillaWA[] = [
   { valor: 'actividades', etiqueta: 'Actividades', entidad: 'actividad' },
   { valor: 'visitas', etiqueta: 'Visitas', entidad: 'visita' },
   { valor: 'recorrido', etiqueta: 'Recorrido', entidad: 'visita' },
-  { valor: 'asistencias', etiqueta: 'Asistencias', entidad: 'nomina' },
+  // Asistencias y Nóminas viven como módulos separados: Asistencias puede
+  // tener sus propias plantillas (avisos de tardanza, recordatorios de
+  // fichaje), Nóminas tiene las suyas (recibo de haberes, comprobante).
+  { valor: 'asistencias', etiqueta: 'Asistencias' },
+  { valor: 'nominas', etiqueta: 'Nóminas', entidad: 'nomina' },
 ]
 
 /** Etiqueta legible a partir del slug guardado en BD. Si el slug no está en
@@ -56,10 +60,10 @@ export function moduloDesdeEntidadTipo(entidadTipo: string | null | undefined): 
     case 'orden_trabajo': return 'ordenes'
     case 'actividad': return 'actividades'
     case 'visita': return 'visitas'
+    case 'asistencia': return 'asistencias'
     case 'nomina':
-    case 'asistencia':
     case 'adelanto_nomina':
-    case 'pago_nomina': return 'asistencias'
+    case 'pago_nomina': return 'nominas'
     case 'conversacion': return 'inbox'
     default: return null
   }

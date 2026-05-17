@@ -385,7 +385,7 @@ export function ModalEnviarReciboNomina({
       .catch(() => { configNomina = null })
 
     // Canales de correo
-    promesaConfig.then(() => fetch('/api/correo/canales?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/correo/canales?modulo=nominas')
       .then(r => r.json())
       .then(data => {
         const mapped: CanalCorreoEmpresa[] = ((data.canales || []) as Record<string, unknown>[])
@@ -432,7 +432,7 @@ export function ModalEnviarReciboNomina({
       .catch(() => {}))
 
     // Plantilla de WhatsApp para nómina
-    promesaConfig.then(() => fetch('/api/whatsapp/plantillas?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/whatsapp/plantillas?modulo=nominas')
       .then(r => r.json())
       .then(data => {
         const plantillas = (data.plantillas || []) as PlantillaWA[]
