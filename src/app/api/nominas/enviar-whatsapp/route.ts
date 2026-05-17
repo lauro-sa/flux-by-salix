@@ -83,6 +83,13 @@ export async function POST(request: NextRequest) {
         saldo_anterior?: number
         compensacion_detalle: string
         periodo: string
+        /**
+         * Conceptos del contrato aplicados al período (haberes y descuentos
+         * automáticos del motor). El resolver los distribuye en los slots
+         * `haber_*` y `descuento_contrato_*` de la plantilla WA. Si la
+         * empresa no tiene conceptos cargados, llega `[]`.
+         */
+        conceptos_aplicados?: Array<{ tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }>
       }[]
     }
 
@@ -272,6 +279,18 @@ export async function POST(request: NextRequest) {
           // Disponible para que las plantillas WA incluyan {{nomina.enlace_recibo}}.
           // Si no hay pago grabado en el período, queda string vacío.
           enlace_recibo: enlaceRecibo,
+          // Conceptos del contrato (Presentismo, Antigüedad, Uniforme, etc.)
+          // — el resolver los distribuye en los slots haber_* y
+          // descuento_contrato_*. Los totales se calculan ahí.
+          conceptos_aplicados: emp.conceptos_aplicados ?? [],
+          // Totales del contrato (haberes y descuentos), si vienen del
+          // motor. Si no, el resolver los calcula sumando conceptos_aplicados.
+          total_haberes: (emp.conceptos_aplicados ?? [])
+            .filter(c => c.tipo === 'haber')
+            .reduce((s, c) => s + Number(c.monto || 0), 0),
+          total_descuentos_conceptos: (emp.conceptos_aplicados ?? [])
+            .filter(c => c.tipo === 'descuento')
+            .reduce((s, c) => s + Number(c.monto || 0), 0),
         },
       })
 

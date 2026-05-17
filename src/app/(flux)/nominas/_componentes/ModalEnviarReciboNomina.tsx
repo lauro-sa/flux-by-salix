@@ -573,6 +573,10 @@ export function ModalEnviarReciboNomina({
       saldo_anterior: r.saldo_anterior ?? 0,
       compensacion_detalle: r.monto_detalle,
       periodo: etiquetaPeriodo,
+      // Conceptos del contrato (Presentismo, Antigüedad, Uniforme, etc.) —
+      // el backend los distribuye en los slots `haber_*` y
+      // `descuento_contrato_*` de la plantilla WA.
+      conceptos_aplicados: r.conceptos_aplicados ?? [],
     }))
 
     try {
