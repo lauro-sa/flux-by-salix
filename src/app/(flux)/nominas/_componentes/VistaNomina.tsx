@@ -29,6 +29,7 @@ import {
 } from './BarraFiltrosNomina'
 import { CardEmpleadoNomina } from './CardEmpleadoNomina'
 import { ModalPagarBulk, type EmpleadoPagable } from './ModalPagarBulk'
+import { ModalVerRecibo } from './ModalVerRecibo'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
@@ -329,6 +330,12 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [accionEnCurso, setAccionEnCurso] = useState<null | 'liquidar' | 'cerrar'>(null)
   const [confirmarCierre, setConfirmarCierre] = useState(false)
   const [empleadosPagables, setEmpleadosPagables] = useState<EmpleadoPagable[] | null>(null)
+  // ── Modal "Ver recibo" abierto desde las cards del dashboard ──
+  // Permite ver el PDF de un pago grabado sin navegar al detalle.
+  const [verReciboCtx, setVerReciboCtx] = useState<{
+    miembroId: string
+    pagoId: string | null
+  } | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
@@ -646,6 +653,9 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                 const p = calcularPeriodo(new Date(), tipoEmpleado)
                 router.push(`/nominas/empleado/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
               }}
+              onVerRecibo={(pagoId) => {
+                setVerReciboCtx({ miembroId: r.miembro_id, pagoId })
+              }}
             />
           ))}
 
@@ -699,6 +709,17 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         periodoInicio={periodo.desde}
         periodoFin={periodo.hasta}
         onFinalizado={refrescarPeriodo}
+      />
+
+      {/* Modal "Ver recibo" abierto desde las cards (empleados pagados).
+          Permite ver el PDF del pago real sin navegar al detalle. */}
+      <ModalVerRecibo
+        abierto={!!verReciboCtx}
+        onCerrar={() => setVerReciboCtx(null)}
+        miembroId={verReciboCtx?.miembroId ?? ''}
+        periodoInicio={periodo.desde}
+        periodoFin={periodo.hasta}
+        pagoId={verReciboCtx?.pagoId ?? null}
       />
     </div>
   )

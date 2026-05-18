@@ -25,6 +25,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 export interface ResultadoNominaCard {
   miembro_id: string
+  pago_nomina_id?: string | null
   nombre: string
   compensacion_tipo: string
   compensacion_monto: number
@@ -64,6 +65,12 @@ interface Props {
   /** Vista compacta: oculta sub-texto secundario para escaneo rápido con 15+ empleados. */
   compacta: boolean
   onClick?: () => void
+  /**
+   * Callback opcional para abrir el modal de "Ver recibo" desde el dashboard
+   * sin navegar al detalle. Si está definido y la card está en estado
+   * 'pagado', la CTA "Ver recibo" lo llama en vez de redirigir.
+   */
+  onVerRecibo?: (pagoId: string) => void
 }
 
 function fmtMonto(v: number): string {
@@ -176,16 +183,29 @@ function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoF
   }
 }
 
-export function CardEmpleadoNomina({ resultado: r, compacta, onClick }: Props) {
+export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecibo }: Props) {
   const router = useRouter()
   const terminado = !!r.contrato_terminado_antes
   const estado = r.estado_liquidacion ?? 'borrador'
   const info = useMemo(() => infoEstadoFila(estado, terminado), [estado, terminado])
   const ringClase = useMemo(() => colorRingPorId(r.miembro_id), [r.miembro_id])
 
+  // Click general de la card → siempre redirige al detalle del empleado.
   const handleClick = onClick ?? (() => {
     router.push(`/nominas/empleado/${r.miembro_id}`)
   })
+
+  // CTA de la fila → si está en pagado y hay handler de "Ver recibo",
+  // abre el PDF en modal sin navegar. Sino, comportamiento default
+  // (click general → detalle).
+  const handleCta = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (estado === 'pagado' && r.pago_nomina_id && onVerRecibo) {
+      onVerRecibo(r.pago_nomina_id)
+      return
+    }
+    handleClick()
+  }
 
   // Barra de cumplimiento de jornada (10 cuadritos `▢▢▢░░`).
   const totalDias = Math.max(r.dias_laborales, 1)
@@ -335,7 +355,7 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick }: Props) {
           {!compacta && (
             <button
               type="button"
-              onClick={e => { e.stopPropagation(); handleClick() }}
+              onClick={handleCta}
               className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
             >
               {info.ctaIcono}
