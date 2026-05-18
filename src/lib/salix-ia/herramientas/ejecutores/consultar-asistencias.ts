@@ -85,33 +85,21 @@ export async function ejecutarConsultarAsistencias(
   if (miembroIds.length > 0) {
     const { data: miembros } = await ctx.admin
       .from('miembros')
-      .select('id, usuario_id, puesto_id')
+      .select('id, puesto_id')
       .in('id', miembroIds)
 
     if (miembros) {
-      const usuarioIds = miembros.map((m: { usuario_id: string | null }) => m.usuario_id).filter((x: string | null): x is string => !!x)
-      const { data: perfiles } = usuarioIds.length > 0
-        ? await ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIds)
-        : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null }> }
-
-      const perfilesMap = new Map<string, string>()
-      for (const p of (perfiles || [])) {
-        perfilesMap.set(p.id, [p.nombre, p.apellido].filter(Boolean).join(' '))
-      }
-
-      // Fallback contacto equipo para miembros sin cuenta Flux
-      const miembrosIdsArr = miembros.map((m: { id: string }) => m.id)
-      const { data: contactosEq } = miembrosIdsArr.length > 0
-        ? await ctx.admin
-            .from('contactos')
-            .select('miembro_id, nombre, apellido')
-            .in('miembro_id', miembrosIdsArr)
-            .eq('en_papelera', false)
-        : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> }
-      const contactoEqMap = new Map<string, string>()
-      for (const c of (contactosEq || [])) {
+      // Nombre desde contactos (todo miembro tiene su contacto vinculado).
+      const { data: contactos } = await ctx.admin
+        .from('contactos')
+        .select('miembro_id, nombre, apellido')
+        .eq('empresa_id', ctx.empresa_id)
+        .in('miembro_id', miembros.map((m: { id: string }) => m.id))
+        .eq('en_papelera', false)
+      const nombrePorMiembro = new Map<string, string>()
+      for (const c of (contactos || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
         if (!c.miembro_id) continue
-        contactoEqMap.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
+        nombrePorMiembro.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
       }
 
       const etiquetas = await cargarEtiquetasMiembros(
@@ -120,9 +108,8 @@ export async function ejecutarConsultarAsistencias(
       )
 
       for (const m of miembros) {
-        const desdePerfil = m.usuario_id ? perfilesMap.get(m.usuario_id) : null
         nombresMap.set(m.id, {
-          nombre: desdePerfil || contactoEqMap.get(m.id) || 'Sin nombre',
+          nombre: nombrePorMiembro.get(m.id) || 'Sin nombre',
           puesto: etiquetas.get(m.id)?.puesto ?? null,
         })
       }
@@ -149,31 +136,17 @@ export async function ejecutarConsultarAsistencias(
     )
 
     if (miembrosSinRegistro.length > 0) {
-      const usuarioIdsAusentes = miembrosSinRegistro
-        .map((m: { usuario_id: string | null }) => m.usuario_id)
-        .filter((x: string | null): x is string => !!x)
-      const { data: perfilesAusentes } = usuarioIdsAusentes.length > 0
-        ? await ctx.admin.from('perfiles').select('id, nombre, apellido').in('id', usuarioIdsAusentes)
-        : { data: [] as Array<{ id: string; nombre: string | null; apellido: string | null }> }
-
-      const perfilesAusentesMap = new Map<string, string>()
-      for (const p of (perfilesAusentes || [])) {
-        perfilesAusentesMap.set(p.id, [p.nombre, p.apellido].filter(Boolean).join(' '))
-      }
-
-      // Fallback contacto equipo para ausentes sin cuenta Flux
       const idsAusentes = miembrosSinRegistro.map((m: { id: string }) => m.id)
-      const { data: contactosAus } = idsAusentes.length > 0
-        ? await ctx.admin
-            .from('contactos')
-            .select('miembro_id, nombre, apellido')
-            .in('miembro_id', idsAusentes)
-            .eq('en_papelera', false)
-        : { data: [] as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }> }
-      const contactoAusMap = new Map<string, string>()
-      for (const c of (contactosAus || [])) {
+      const { data: contactosAus } = await ctx.admin
+        .from('contactos')
+        .select('miembro_id, nombre, apellido')
+        .eq('empresa_id', ctx.empresa_id)
+        .in('miembro_id', idsAusentes)
+        .eq('en_papelera', false)
+      const nombrePorMiembroAus = new Map<string, string>()
+      for (const c of (contactosAus || []) as Array<{ miembro_id: string | null; nombre: string | null; apellido: string | null }>) {
         if (!c.miembro_id) continue
-        contactoAusMap.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
+        nombrePorMiembroAus.set(c.miembro_id, [c.nombre, c.apellido].filter(Boolean).join(' '))
       }
 
       const etiquetasAusentes = await cargarEtiquetasMiembros(
@@ -181,13 +154,10 @@ export async function ejecutarConsultarAsistencias(
         miembrosSinRegistro.map((m: { id: string; puesto_id: string | null }) => ({ id: m.id, puesto_id: m.puesto_id ?? null })),
       )
 
-      ausentes = miembrosSinRegistro.map((m: { id: string; usuario_id: string | null }) => {
-        const desdePerfil = m.usuario_id ? perfilesAusentesMap.get(m.usuario_id) : null
-        return {
-          nombre: desdePerfil || contactoAusMap.get(m.id) || 'Sin nombre',
-          puesto: etiquetasAusentes.get(m.id)?.puesto ?? null,
-        }
-      })
+      ausentes = miembrosSinRegistro.map((m: { id: string }) => ({
+        nombre: nombrePorMiembroAus.get(m.id) || 'Sin nombre',
+        puesto: etiquetasAusentes.get(m.id)?.puesto ?? null,
+      }))
     }
   }
 
