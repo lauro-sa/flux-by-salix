@@ -31,6 +31,13 @@ interface ConfigEnvio {
    * con filtro "Terminados".
    */
   mostrar_empleados_terminados: boolean
+  /**
+   * Si true, la transición de liquidaciones_empleado_periodo de
+   * 'liquidado' a 'pagado' queda bloqueada hasta pasar por 'enviado'.
+   * Persistido en `empresas.nominas_envio_obligatorio` (no en esta
+   * tabla) porque es política de la empresa, no solo de nómina.
+   */
+  envio_obligatorio: boolean
 }
 
 const CAMPOS_TEXTO: (keyof ConfigEnvio)[] = [
@@ -57,11 +64,22 @@ export async function GET(_request: NextRequest) {
   if (!vis) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
   const admin = crearClienteAdmin()
-  const { data, error } = await admin
-    .from('configuracion_nomina_empresa')
-    .select('*')
-    .eq('empresa_id', empresaId)
-    .maybeSingle()
+  // Dos fuentes: configuracion_nomina_empresa (settings específicos de
+  // nómina) + empresas (nominas_envio_obligatorio que es policy global).
+  // Los exponemos unificados en el mismo objeto para que el cliente no
+  // tenga que coordinar dos endpoints.
+  const [{ data, error }, { data: emp }] = await Promise.all([
+    admin
+      .from('configuracion_nomina_empresa')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .maybeSingle(),
+    admin
+      .from('empresas')
+      .select('nominas_envio_obligatorio')
+      .eq('id', empresaId)
+      .single(),
+  ])
 
   if (error) {
     console.error('[nominas/configuracion] GET error:', error)
@@ -74,6 +92,7 @@ export async function GET(_request: NextRequest) {
     canal_whatsapp_default_id: data?.canal_whatsapp_default_id ?? null,
     plantilla_whatsapp_default_id: data?.plantilla_whatsapp_default_id ?? null,
     mostrar_empleados_terminados: !!data?.mostrar_empleados_terminados,
+    envio_obligatorio: !!emp?.nominas_envio_obligatorio,
   }
 
   return NextResponse.json({ configuracion: config })
@@ -106,27 +125,48 @@ export async function PUT(request: NextRequest) {
     if (campo in body) update[campo] = !!body[campo]
   }
 
-  if (Object.keys(update).length === 0) {
+  // envio_obligatorio vive en empresas (policy global), no en esta tabla.
+  // Lo extraemos del body antes de upsertear configuracion_nomina_empresa.
+  const cambiaEnvioObligatorio = 'envio_obligatorio' in body
+  const nuevoEnvioObligatorio = !!body.envio_obligatorio
+
+  if (Object.keys(update).length === 0 && !cambiaEnvioObligatorio) {
     return NextResponse.json({ error: 'No se envió ningún campo editable' }, { status: 400 })
   }
 
-  update.actualizado_en = new Date().toISOString()
-  update.actualizado_por = user.id
-
   const admin = crearClienteAdmin()
-  const { error } = await admin
-    .from('configuracion_nomina_empresa')
-    .upsert(
-      {
-        empresa_id: empresaId,
-        ...update,
-      },
-      { onConflict: 'empresa_id' },
-    )
 
-  if (error) {
-    console.error('[nominas/configuracion] PUT error:', error)
-    return NextResponse.json({ error: 'No se pudo guardar la configuración' }, { status: 500 })
+  // Upsert sobre configuracion_nomina_empresa solo si hay campos para ella.
+  if (Object.keys(update).length > 0) {
+    update.actualizado_en = new Date().toISOString()
+    update.actualizado_por = user.id
+
+    const { error } = await admin
+      .from('configuracion_nomina_empresa')
+      .upsert(
+        {
+          empresa_id: empresaId,
+          ...update,
+        },
+        { onConflict: 'empresa_id' },
+      )
+
+    if (error) {
+      console.error('[nominas/configuracion] PUT error:', error)
+      return NextResponse.json({ error: 'No se pudo guardar la configuración' }, { status: 500 })
+    }
+  }
+
+  // Update sobre empresas si cambió envio_obligatorio.
+  if (cambiaEnvioObligatorio) {
+    const { error } = await admin
+      .from('empresas')
+      .update({ nominas_envio_obligatorio: nuevoEnvioObligatorio })
+      .eq('id', empresaId)
+    if (error) {
+      console.error('[nominas/configuracion] PUT empresas error:', error)
+      return NextResponse.json({ error: 'No se pudo actualizar envío obligatorio' }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true })
