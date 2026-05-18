@@ -18,7 +18,8 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useRol } from '@/hooks/useRol'
-import { Plus, Pencil, Trash2, EyeOff, Eye, Tag, Loader2, Mail, MessageSquare, Save, Copy, Shield } from 'lucide-react'
+import { Plus, Pencil, Trash2, EyeOff, Eye, Tag, Loader2, Mail, MessageSquare, Save, Copy, Shield, ShieldCheck } from 'lucide-react'
+import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Select } from '@/componentes/ui/Select'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -50,11 +51,12 @@ function formatearValor(c: ConceptoNomina): string {
   return `$ ${Number(c.valor).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
-type SubTab = 'conceptos' | 'plantillas'
+type SubTab = 'conceptos' | 'plantillas' | 'politica'
 
 const SUB_TABS = [
   { clave: 'conceptos', etiqueta: 'Conceptos', icono: <Tag size={14} /> },
   { clave: 'plantillas', etiqueta: 'Plantillas de envío', icono: <Mail size={14} /> },
+  { clave: 'politica', etiqueta: 'Política', icono: <ShieldCheck size={14} /> },
 ]
 
 export function VistaConfiguracion() {
@@ -72,6 +74,107 @@ export function VistaConfiguracion() {
 
       {subTab === 'conceptos' && <PanelConceptos />}
       {subTab === 'plantillas' && <PanelPlantillasEnvio />}
+      {subTab === 'politica' && <PanelPolitica />}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// Panel: Política
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Settings de política de la empresa para el flujo de liquidación.
+ * Por ahora solo el toggle "requerir envío del recibo antes de pagar"
+ * (sql/107). En próximos PRs pueden sumarse: días de gracia para
+ * registrar asistencias retroactivas, forma de redondeo, etc.
+ */
+function PanelPolitica() {
+  const toast = useToast()
+  const { tienePermiso } = useRol()
+  const puedeEditar = tienePermiso('nomina', 'editar')
+
+  const [envioObligatorio, setEnvioObligatorio] = useState(false)
+  const [primeraCarga, setPrimeraCarga] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    let cancelado = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/nominas/configuracion')
+        const data = await res.json()
+        if (!cancelado) setEnvioObligatorio(!!data?.configuracion?.envio_obligatorio)
+      } catch {
+        if (!cancelado) toast.mostrar('error', 'No se pudo cargar la configuración')
+      } finally {
+        if (!cancelado) setPrimeraCarga(false)
+      }
+    })()
+    return () => { cancelado = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const guardar = async (nuevo: boolean) => {
+    setGuardando(true)
+    const anterior = envioObligatorio
+    setEnvioObligatorio(nuevo) // optimistic
+    try {
+      const res = await fetch('/api/nominas/configuracion', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ envio_obligatorio: nuevo }),
+      })
+      if (!res.ok) {
+        setEnvioObligatorio(anterior) // revert
+        const data = await res.json().catch(() => ({}))
+        toast.mostrar('error', data.error || 'No se pudo guardar')
+        return
+      }
+      toast.mostrar('exito', nuevo ? 'Envío obligatorio activado' : 'Envío obligatorio desactivado')
+    } catch {
+      setEnvioObligatorio(anterior)
+      toast.mostrar('error', 'Error de red')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (primeraCarga) {
+    return (
+      <div className="flex items-center justify-center py-16 text-texto-terciario">
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <div className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-texto-primario flex items-center gap-2">
+              <Shield size={14} className="text-texto-marca" />
+              Requerir envío del recibo antes de pagar
+            </h3>
+            <p className="text-xs text-texto-terciario mt-1">
+              Si está activo, el pago de la liquidación queda bloqueado hasta que
+              el operador haya enviado el recibo al empleado por WhatsApp o correo.
+              Útil para empresas que necesitan trazabilidad explícita del envío
+              antes de transferir.
+            </p>
+            <p className="text-[11px] text-texto-terciario/70 mt-1.5">
+              Default desactivado. Cambiarlo afecta solo a las próximas
+              liquidaciones — las ya pagadas no se tocan.
+            </p>
+          </div>
+          <Interruptor
+            activo={envioObligatorio}
+            onChange={guardar}
+            deshabilitado={!puedeEditar || guardando}
+          />
+        </div>
+      </div>
     </div>
   )
 }
