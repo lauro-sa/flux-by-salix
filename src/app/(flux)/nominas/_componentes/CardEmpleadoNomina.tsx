@@ -302,7 +302,10 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
               </div>
             )}
 
-            {/* Detalle de asistencia + barra cumplimiento (vista no compacta) */}
+            {/* Detalle de asistencia + barra cumplimiento + acciones (vista no compacta).
+                El cluster de acciones (Adjuntar + CTA) vive acá al pie a la derecha,
+                separado del precio que está arriba — la card respira y tiene
+                composición arriba/abajo balanceada. */}
             {!compacta && (
               <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-3 flex-wrap text-[11px] text-texto-terciario">
                 <span className="tabular-nums">
@@ -337,8 +340,10 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
                     </span>
                   </span>
                 )}
-                {/* Barra cumplimiento jornada (Raycast progress vibe) */}
-                <span className="inline-flex items-center gap-[2px] ml-auto" aria-hidden>
+                {/* Barra cumplimiento jornada (Raycast progress vibe). Va antes
+                    de las acciones, no a `ml-auto`, para que las acciones queden
+                    siempre ancladas a la derecha. */}
+                <span className="inline-flex items-center gap-[2px]" aria-hidden>
                   {Array.from({ length: llenos }).map((_, i) => (
                     <span
                       key={`l-${i}`}
@@ -349,48 +354,60 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
                     <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
                   ))}
                 </span>
+
+                {/* Cluster de acciones al pie a la derecha. Si está pagado y hay
+                    handler, sumamos el ícono de adjuntar comprobante. */}
+                <div className="ml-auto flex items-center gap-1.5">
+                  {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAdjuntarComprobante(r.pago_nomina_id!)
+                      }}
+                      title={r.comprobante_url ? 'Comprobante adjunto · ver o reemplazar' : 'Adjuntar comprobante'}
+                      className={`inline-flex items-center justify-center size-7 rounded-md border transition-colors ${
+                        r.comprobante_url
+                          ? 'border-insignia-exito/30 text-insignia-exito hover:bg-insignia-exito/10'
+                          : 'border-white/[0.08] text-texto-terciario hover:text-texto-marca hover:border-texto-marca/30 hover:bg-texto-marca/5'
+                      }`}
+                    >
+                      {r.comprobante_url ? <FileCheck2 size={12} /> : <Paperclip size={12} />}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleCta}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
+                  >
+                    {info.ctaIcono}
+                    {info.ctaEtiqueta}
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Cifra + CTA ── */}
-        <div className="flex md:flex-col items-end md:items-end gap-2 md:gap-1 shrink-0">
+        {/* ── Cifra (arriba a la derecha) ──
+            En vista compacta el botón CTA viaja al lado del precio (la card
+            colapsa a una sola fila). En vista expandida el precio queda solo
+            acá arriba y el cluster de acciones está al pie a la derecha. */}
+        <div className="flex items-center gap-2 shrink-0">
           <p className={`text-lg md:text-xl font-bold tabular-nums leading-none ${
             estado === 'pagado' ? 'text-insignia-exito' : 'text-texto-primario'
           }`}>
             {fmtMonto(r.monto_neto)}
           </p>
-          {!compacta && (
-            <div className="flex items-center gap-1.5">
-              {/* Acción secundaria: adjuntar comprobante. Solo si está pagado
-                  y hay handler. Cambia ícono según haya o no comprobante. */}
-              {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAdjuntarComprobante(r.pago_nomina_id!)
-                  }}
-                  title={r.comprobante_url ? 'Comprobante adjunto · ver o reemplazar' : 'Adjuntar comprobante'}
-                  className={`inline-flex items-center justify-center size-7 rounded-md border transition-colors ${
-                    r.comprobante_url
-                      ? 'border-insignia-exito/30 text-insignia-exito hover:bg-insignia-exito/10'
-                      : 'border-white/[0.08] text-texto-terciario hover:text-texto-marca hover:border-texto-marca/30 hover:bg-texto-marca/5'
-                  }`}
-                >
-                  {r.comprobante_url ? <FileCheck2 size={12} /> : <Paperclip size={12} />}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleCta}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
-              >
-                {info.ctaIcono}
-                {info.ctaEtiqueta}
-              </button>
-            </div>
+          {compacta && (
+            <button
+              type="button"
+              onClick={handleCta}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
+            >
+              {info.ctaIcono}
+              {info.ctaEtiqueta}
+            </button>
           )}
         </div>
       </div>
