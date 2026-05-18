@@ -255,32 +255,44 @@ export async function GET(request: NextRequest) {
           !miembrosNoIniciados.has(m.id as string),
         )
 
-    // ─── Contratos vigentes + conceptos aplicables ───
-    // Cargamos en dos pasos:
-    //   1) El contrato vigente de cada miembro (con fecha_inicio para
-    //      evaluar condiciones tipo "antigüedad ≥ N años").
-    //   2) Los conceptos asignados (activos) a esos contratos, con el
-    //      detalle completo del catálogo (modo_calculo, condicion_jsonb,
-    //      tipo, etc) para que el motor pueda evaluarlos.
-    // Se aplican luego en el loop por miembro, sumando haberes y
-    // restando descuentos sobre el monto base.
+    // ─── Contratos que aplican al período + conceptos ───
+    // Cargamos el contrato relevante para el período consultado, NO el
+    // que está vigente hoy. Un contrato aplica al período si:
+    //   fecha_inicio <= hasta  AND  (fecha_fin IS NULL OR fecha_fin >= desde)
+    // Esto permite liquidar a empleados cuyo contrato terminó dentro del
+    // período (ej: contrato 1 ene → 15 feb, consultamos feb: el motor
+    // recibe ese contrato y calcula proporcional con advertencia).
+    //
+    // Si un miembro tiene MÚLTIPLES contratos que aplican (cambio a
+    // mitad de período), usamos el más reciente por fecha_inicio. El
+    // operador puede ajustar manualmente con conceptos_extra al pagar.
+    //
+    // Después cargamos los conceptos asignados (activos) a esos
+    // contratos para que el motor los evalúe.
     const contratoVigentePorMiembro = new Map<string, ContratoLaboral>()
     const conceptosPorMiembro = new Map<string, Array<{ valor_override: number | string | null; concepto: ConceptoNomina }>>()
     const miembrosFinalesIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
 
     if (miembrosFinalesIds.length > 0) {
-      const { data: contratosVigentes } = await admin
+      // Traemos todos los contratos que solapan con [desde, hasta] y
+      // dejamos UN contrato por miembro: el más reciente. El ORDER BY
+      // fecha_inicio DESC + el `if (!has)` se encarga de eso.
+      const { data: contratosDelPeriodo } = await admin
         .from('contratos_laborales')
         .select('*')
         .eq('empresa_id', empresaId)
         .in('miembro_id', miembrosFinalesIds)
-        .eq('vigente', true)
+        .lte('fecha_inicio', hasta)
+        .or(`fecha_fin.is.null,fecha_fin.gte.${desde}`)
+        .order('fecha_inicio', { ascending: false })
 
-      for (const c of (contratosVigentes ?? []) as ContratoLaboral[]) {
-        contratoVigentePorMiembro.set(c.miembro_id, c)
+      for (const c of (contratosDelPeriodo ?? []) as ContratoLaboral[]) {
+        if (!contratoVigentePorMiembro.has(c.miembro_id)) {
+          contratoVigentePorMiembro.set(c.miembro_id, c)
+        }
       }
 
-      const contratoIds = (contratosVigentes ?? []).map(c => (c as ContratoLaboral).id)
+      const contratoIds = Array.from(contratoVigentePorMiembro.values()).map(c => c.id)
       if (contratoIds.length > 0) {
         const { data: asignaciones } = await admin
           .from('conceptos_contrato')
