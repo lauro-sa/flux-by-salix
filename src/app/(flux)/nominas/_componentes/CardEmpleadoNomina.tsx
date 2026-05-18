@@ -20,7 +20,7 @@
 
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle } from 'lucide-react'
+import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 export interface ResultadoNominaCard {
@@ -46,6 +46,17 @@ export interface ResultadoNominaCard {
   recibo_whatsapp_enviado_a?: string | null
   estado_liquidacion?: 'borrador' | 'liquidado' | 'enviado' | 'pagado'
   pagado_en?: string | null
+  // ── Datos de identidad rica (sql/044 + 052 + 100). NULL si el miembro
+  // no tiene foto / sector primario / cuenta predeterminada cargada. ──
+  avatar_url?: string | null
+  sector?: { id: string; nombre: string; color: string | null } | null
+  cuenta_destino?: {
+    tipo_pago: string
+    banco: string | null
+    etiqueta: string | null
+    alias: string | null
+  } | null
+  saldo_adelantos_vigentes?: number
 }
 
 interface Props {
@@ -192,11 +203,21 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
         {/* ── Identidad + datos ── */}
         <div className="flex items-start gap-3 min-w-0">
-          {/* Avatar con ring */}
-          <div className={`shrink-0 size-10 rounded-full bg-white/[0.04] flex items-center justify-center ring-2 ${ringClase}`}>
-            <span className="text-xs font-semibold text-texto-secundario tracking-wider">
-              {iniciales(r.nombre)}
-            </span>
+          {/* Avatar con ring de color hash. Si hay foto, la muestra; sino iniciales. */}
+          <div className={`relative shrink-0 size-10 rounded-full bg-white/[0.04] flex items-center justify-center ring-2 ${ringClase} overflow-hidden`}>
+            {r.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={r.avatar_url}
+                alt={r.nombre}
+                className="absolute inset-0 size-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-xs font-semibold text-texto-secundario tracking-wider">
+                {iniciales(r.nombre)}
+              </span>
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -227,12 +248,27 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick }: Props) {
               )}
             </div>
 
-            {/* Pills modalidad — solo si NO es compacta */}
+            {/* Pills modalidad + sector + monto_detalle — solo si NO es compacta */}
             {!compacta && (
               <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-medium text-texto-secundario bg-white/[0.04]">
                   {etiquetaModalidad(r.compensacion_tipo, r.compensacion_frecuencia)}
                 </span>
+                {r.sector && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-white/[0.04]"
+                    style={r.sector.color ? { color: r.sector.color } : undefined}
+                  >
+                    {r.sector.color && (
+                      <span
+                        className="block size-1.5 rounded-full"
+                        style={{ background: r.sector.color }}
+                        aria-hidden
+                      />
+                    )}
+                    {r.sector.nombre}
+                  </span>
+                )}
                 <span className="text-[11px] text-texto-terciario truncate">{r.monto_detalle}</span>
               </div>
             )}
@@ -254,6 +290,22 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick }: Props) {
                   <span className="text-insignia-advertencia">
                     Adelanto −{fmtMonto(r.descuento_adelanto)}
                     {r.cuotas_adelanto > 1 && ` · ${r.cuotas_adelanto} cuotas`}
+                    {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0
+                      ? ` · saldo ${fmtMonto(r.saldo_adelantos_vigentes)}`
+                      : ''}
+                  </span>
+                )}
+                {!r.descuento_adelanto && r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 && (
+                  <span className="text-texto-terciario">
+                    Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
+                  </span>
+                )}
+                {r.cuenta_destino && (
+                  <span className="inline-flex items-center gap-1 text-texto-terciario/80">
+                    {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
+                    <span className="truncate max-w-[140px]">
+                      {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+                    </span>
                   </span>
                 )}
                 {/* Barra cumplimiento jornada (Raycast progress vibe) */}
