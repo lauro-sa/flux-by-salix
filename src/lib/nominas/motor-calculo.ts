@@ -206,10 +206,15 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   )
 
   // ─── 2. Estado del contrato vs el período ───
-  // Si el contrato terminó ANTES del inicio del período, el empleado
-  // ya no estaba bajo ese contrato — no se genera recibo.
-  // Si terminó DENTRO del período, igual se calcula proporcional pero
-  // dejamos una advertencia para que el operador lo vea.
+  // Cuatro casos posibles según las fechas del contrato vs el período:
+  //   a) terminado ANTES del inicio del período → no corresponde liquidar
+  //      (el empleado ya no estaba bajo ese contrato).
+  //   b) terminado DENTRO del período → se liquida proporcional con
+  //      advertencia.
+  //   c) inicio DESPUÉS del fin del período → no corresponde liquidar
+  //      (el empleado todavía no estaba bajo ese contrato).
+  //   d) inicio DENTRO del período → se liquida proporcional con
+  //      advertencia.
   const contratoTerminadoAntes =
     !!datos.contrato &&
     !datos.contrato.vigente &&
@@ -223,9 +228,18 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     datos.contrato.fecha_fin >= datos.periodo_inicio &&
     datos.contrato.fecha_fin <= datos.periodo_fin
 
+  const contratoInicioDespues =
+    !!datos.contrato &&
+    datos.contrato.fecha_inicio > datos.periodo_fin
+
+  const contratoInicioDentro =
+    !!datos.contrato &&
+    datos.contrato.fecha_inicio > datos.periodo_inicio &&
+    datos.contrato.fecha_inicio <= datos.periodo_fin
+
   // ─── 3. Monto base según modalidad del contrato ───
   let monto_base_calculado = 0
-  if (datos.contrato && !contratoTerminadoAntes) {
+  if (datos.contrato && !contratoTerminadoAntes && !contratoInicioDespues) {
     monto_base_calculado = calcularMontoBase(
       datos.contrato.modalidad_calculo,
       Number(datos.contrato.monto_base),
@@ -235,12 +249,17 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     )
   } else if (contratoTerminadoAntes && datos.contrato) {
     advertencias.push(`El contrato terminó el ${datos.contrato.fecha_fin} (antes del inicio del período). No corresponde liquidar este período.`)
+  } else if (contratoInicioDespues && datos.contrato) {
+    advertencias.push(`El contrato inicia el ${datos.contrato.fecha_inicio} (después del fin del período). No corresponde liquidar este período.`)
   } else {
     advertencias.push('Sin contrato laboral cargado: el monto base es 0. Cargá un contrato para que el recibo refleje el sueldo del empleado.')
   }
 
   if (contratoTerminadoDentro && datos.contrato) {
     advertencias.push(`El contrato terminó el ${datos.contrato.fecha_fin}, dentro del período. Verificá que el monto refleje sólo los días trabajados antes de la baja.`)
+  }
+  if (contratoInicioDentro && datos.contrato) {
+    advertencias.push(`El contrato inicia el ${datos.contrato.fecha_inicio}, dentro del período. Verificá que el monto refleje sólo los días trabajados desde el alta.`)
   }
 
   // ─── 3. Aplicar conceptos automáticos del contrato ───
@@ -264,6 +283,12 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     ? calcularBasicoMensual(datos.contrato.modalidad_calculo, Number(datos.contrato.monto_base), diasLaboralesMes)
     : 0
 
+  // Si el contrato no estaba activo dentro del período (terminó antes o
+  // inicia después), saltamos toda la aplicación de conceptos, adelantos
+  // y licencias. El empleado simplemente no tiene liquidación posible
+  // para este período.
+  const contratoActivoEnPeriodo = !contratoTerminadoAntes && !contratoInicioDespues
+
   // Indice O(1) de ajustes puntuales del período (override/excluir/
   // agregar) por concepto_id. Vamos a consultarlo en cada concepto
   // del contrato y al final para los `agregar` que no son del contrato.
@@ -272,7 +297,7 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
     ajustesPorConcepto.set(a.concepto_id, a)
   }
 
-  for (const cc of datos.conceptos_contrato) {
+  for (const cc of contratoActivoEnPeriodo ? datos.conceptos_contrato : []) {
     const c = cc.concepto
     if (!c.activo) continue
 
@@ -382,7 +407,7 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   //      le pagó nada el período pasado, ahora se acumulan).
   // Las cuotas ya descontadas en pagos previos no se vuelven a aplicar
   // (el filtro de estado='pendiente' las excluye).
-  const adelantos_aplicados: CuotaAdelantoAplicada[] = datos.cuotas_adelanto
+  const adelantos_aplicados: CuotaAdelantoAplicada[] = (contratoActivoEnPeriodo ? datos.cuotas_adelanto : [])
     .filter(q => q.estado === 'pendiente')
     .filter(q => q.fecha_programada <= datos.periodo_fin)
     .map(q => ({
@@ -412,7 +437,7 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   // enforza la BD con EXCLUDE constraint).
   const licencias_aplicadas: LicenciaAplicada[] = []
   let descuentoPorLicencias = 0
-  if (datos.contrato) {
+  if (datos.contrato && contratoActivoEnPeriodo) {
     const modalidad = datos.contrato.modalidad_calculo
     const montoBaseContrato = Number(datos.contrato.monto_base)
     const diasNaturalesPorModalidad: Record<ModalidadCalculo, number> = {

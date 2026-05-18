@@ -72,6 +72,8 @@ interface ResultadoNomina {
   monto_neto: number
   /** Flag del backend: el último contrato del miembro terminó antes del período. */
   contrato_terminado_antes?: boolean
+  /** Flag del backend: el primer contrato del miembro arranca después del fin del período. */
+  contrato_no_iniciado?: boolean
   /** Timestamp ISO del último envío exitoso del recibo por correo. NULL = nunca enviado. */
   recibo_correo_enviado_en?: string | null
   /** Dirección de correo a la que se envió el último recibo. */

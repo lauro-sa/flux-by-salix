@@ -698,6 +698,39 @@ describe('calcularReciboPuro — contrato terminado', () => {
     const r = calcularReciboPuro(datosBase())
     expect(r.advertencias.some(a => a.includes('terminó'))).toBe(false)
   })
+
+  it('contrato inicia DESPUÉS del fin del período → monto base 0 + advertencia', () => {
+    const c = contrato({
+      fecha_inicio: '2026-05-05',
+      fecha_fin: null,
+      vigente: true,
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    expect(r.monto_base_calculado).toBe(0)
+    expect(r.advertencias.some(a => a.includes('contrato inicia el 2026-05-05'))).toBe(true)
+    expect(r.neto).toBe(0)
+  })
+
+  it('contrato inicia DENTRO del período → calcula normal + advertencia para revisar manualmente', () => {
+    const c = contrato({
+      fecha_inicio: '2026-04-15',
+      fecha_fin: null,
+      vigente: true,
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    // Modalidad fijo_mensual: calcula completo, el operador debe ajustar manualmente.
+    expect(r.monto_base_calculado).toBe(400000)
+    expect(r.advertencias.some(a => a.includes('contrato inicia el 2026-04-15'))).toBe(true)
+    expect(r.advertencias.some(a => a.includes('dentro del período'))).toBe(true)
+  })
 })
 
 describe('calcularReciboPuro — licencias', () => {

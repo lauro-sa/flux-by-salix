@@ -203,12 +203,19 @@ export async function GET(request: NextRequest) {
 
     const { data: miembrosDataRaw } = await queryMiembros
 
-    // ─── Filtrar empleados con contrato terminado antes del período ───
-    // Cargamos el último contrato (por fecha_inicio desc) de cada miembro y,
-    // si no está vigente y `fecha_fin < desde`, lo consideramos "terminado
-    // antes". Lo excluimos del listado salvo que el setting esté en true.
+    // ─── Filtrar empleados fuera de la vigencia del período ───
+    // Cargamos los contratos de cada miembro y los clasificamos según
+    // su relación con el período:
+    //   • "terminado antes": último contrato no vigente y fecha_fin < desde
+    //     → el empleado ya no estaba bajo ese contrato.
+    //   • "no iniciado": el contrato MÁS TEMPRANO del miembro tiene
+    //     fecha_inicio > hasta → todavía no estaba contratado.
+    // Ambos grupos se excluyen del listado salvo que `mostrarTerminados`
+    // esté activo (el setting cubre ambos casos: empleados fuera de la
+    // ventana de liquidación, antes o después).
     const miembroIds = (miembrosDataRaw || []).map((m: Record<string, unknown>) => m.id as string)
     let miembrosTerminadosAntes = new Set<string>()
+    let miembrosNoIniciados = new Set<string>()
     if (miembroIds.length > 0) {
       const { data: contratosRaw } = await admin
         .from('contratos_laborales')
@@ -216,22 +223,36 @@ export async function GET(request: NextRequest) {
         .eq('empresa_id', empresaId)
         .in('miembro_id', miembroIds)
         .order('fecha_inicio', { ascending: false })
+      // Para "terminado antes" miramos el ÚLTIMO contrato (el más reciente).
       const ultimoPorMiembro = new Map<string, { vigente: boolean; fecha_fin: string | null }>()
-      for (const c of (contratosRaw || []) as Array<{ miembro_id: string; vigente: boolean; fecha_fin: string | null }>) {
+      // Para "no iniciado" miramos el contrato MÁS TEMPRANO — si el primero
+      // empieza después del fin del período, el miembro no tenía contrato
+      // vigente al momento del período.
+      const primeroPorMiembro = new Map<string, { fecha_inicio: string }>()
+      for (const c of (contratosRaw || []) as Array<{ miembro_id: string; vigente: boolean; fecha_fin: string | null; fecha_inicio: string }>) {
         if (!ultimoPorMiembro.has(c.miembro_id)) {
           ultimoPorMiembro.set(c.miembro_id, { vigente: c.vigente, fecha_fin: c.fecha_fin })
         }
+        // El ORDER BY fecha_inicio DESC nos da el último primero. Para el
+        // más temprano necesitamos quedarnos con el último iterado.
+        primeroPorMiembro.set(c.miembro_id, { fecha_inicio: c.fecha_inicio })
       }
       for (const [mid, c] of ultimoPorMiembro) {
         if (!c.vigente && c.fecha_fin && c.fecha_fin < desde) {
           miembrosTerminadosAntes.add(mid)
         }
       }
+      for (const [mid, c] of primeroPorMiembro) {
+        if (c.fecha_inicio > hasta) {
+          miembrosNoIniciados.add(mid)
+        }
+      }
     }
     const miembrosData = mostrarTerminados
       ? miembrosDataRaw
       : (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
-          !miembrosTerminadosAntes.has(m.id as string),
+          !miembrosTerminadosAntes.has(m.id as string) &&
+          !miembrosNoIniciados.has(m.id as string),
         )
 
     // ─── Contratos vigentes + conceptos aplicables ───
@@ -1146,10 +1167,12 @@ export async function GET(request: NextRequest) {
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
           - (saldoAnteriorPorMiembro.get(m.id as string) || 0)
         ) * 100) / 100,
-        // Flag para que la UI muestre en gris los empleados terminados.
-        // Solo aparece como true cuando el setting `mostrar_empleados_terminados`
-        // está activo y el último contrato del miembro terminó antes del período.
+        // Flags para que la UI muestre en gris empleados fuera del período.
+        // Solo aparecen como true cuando el setting `mostrar_empleados_terminados`
+        // está activo y el último contrato del miembro terminó antes del período,
+        // o el primer contrato del miembro aún no había iniciado al cierre.
         contrato_terminado_antes: miembrosTerminadosAntes.has(m.id as string),
+        contrato_no_iniciado: miembrosNoIniciados.has(m.id as string),
         // Estado de envío del recibo del período. NULL si nunca se envió o
         // si no hay pago grabado todavía (la trazabilidad arranca cuando
         // se registra el pago, no antes).

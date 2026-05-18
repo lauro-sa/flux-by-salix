@@ -20,7 +20,7 @@
 
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet, Paperclip, FileCheck2 } from 'lucide-react'
+import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet, Paperclip, FileCheck2, Hourglass } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 export interface ResultadoNominaCard {
@@ -41,6 +41,7 @@ export interface ResultadoNominaCard {
   cuotas_adelanto: number
   monto_neto: number
   contrato_terminado_antes?: boolean
+  contrato_no_iniciado?: boolean
   recibo_correo_enviado_en?: string | null
   recibo_correo_enviado_a?: string | null
   recibo_whatsapp_enviado_en?: string | null
@@ -145,12 +146,21 @@ interface InfoEstadoFila {
   ctaIcono: React.ReactNode
 }
 
-function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoFila {
+function infoEstadoFila(estado: string, contratoTerminado: boolean, contratoNoIniciado: boolean): InfoEstadoFila {
   if (contratoTerminado) {
     return {
       etiqueta: 'Terminado',
       colorChip: 'text-insignia-peligro',
       iconoChip: AlertTriangle,
+      ctaEtiqueta: 'Ver',
+      ctaIcono: <Eye size={12} />,
+    }
+  }
+  if (contratoNoIniciado) {
+    return {
+      etiqueta: 'Aún no inicia',
+      colorChip: 'text-texto-terciario',
+      iconoChip: Hourglass,
       ctaEtiqueta: 'Ver',
       ctaIcono: <Eye size={12} />,
     }
@@ -195,8 +205,10 @@ function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoF
 export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecibo, onAdjuntarComprobante }: Props) {
   const router = useRouter()
   const terminado = !!r.contrato_terminado_antes
+  const noIniciado = !!r.contrato_no_iniciado
+  const fueraDePeriodo = terminado || noIniciado
   const estado = r.estado_liquidacion ?? 'borrador'
-  const info = useMemo(() => infoEstadoFila(estado, terminado), [estado, terminado])
+  const info = useMemo(() => infoEstadoFila(estado, terminado, noIniciado), [estado, terminado, noIniciado])
   const ringClase = useMemo(() => colorRingPorId(r.miembro_id), [r.miembro_id])
 
   // Click general de la card → siempre redirige al detalle del empleado.
@@ -226,7 +238,7 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
     <article
       onClick={handleClick}
       className={`group cursor-pointer rounded-2xl border border-white/[0.05] bg-white/[0.025] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all px-4 py-3.5 ${
-        terminado ? 'opacity-60' : ''
+        fueraDePeriodo ? 'opacity-60' : ''
       }`}
     >
       <div className="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-3 items-stretch">
