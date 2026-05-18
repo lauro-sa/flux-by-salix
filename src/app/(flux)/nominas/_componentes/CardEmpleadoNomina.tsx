@@ -20,7 +20,7 @@
 
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet } from 'lucide-react'
+import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet, Paperclip, FileCheck2 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 export interface ResultadoNominaCard {
@@ -47,6 +47,9 @@ export interface ResultadoNominaCard {
   recibo_whatsapp_enviado_a?: string | null
   estado_liquidacion?: 'borrador' | 'liquidado' | 'enviado' | 'pagado'
   pagado_en?: string | null
+  /** URL del comprobante adjunto al pago (si ya se subió uno). Solo aplica
+   *  cuando estado_liquidacion=='pagado'. */
+  comprobante_url?: string | null
   // ── Datos de identidad rica (sql/044 + 052 + 100). NULL si el miembro
   // no tiene foto / sector primario / cuenta predeterminada cargada. ──
   avatar_url?: string | null
@@ -71,6 +74,12 @@ interface Props {
    * 'pagado', la CTA "Ver recibo" lo llama en vez de redirigir.
    */
   onVerRecibo?: (pagoId: string) => void
+  /**
+   * Callback opcional para abrir el modal de "Adjuntar comprobante" cuando
+   * el empleado está pagado. Se muestra como acción secundaria al lado de
+   * "Ver recibo". Si no se provee, no aparece el botón.
+   */
+  onAdjuntarComprobante?: (pagoId: string) => void
 }
 
 function fmtMonto(v: number): string {
@@ -183,7 +192,7 @@ function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoF
   }
 }
 
-export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecibo }: Props) {
+export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecibo, onAdjuntarComprobante }: Props) {
   const router = useRouter()
   const terminado = !!r.contrato_terminado_antes
   const estado = r.estado_liquidacion ?? 'borrador'
@@ -353,14 +362,35 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
             {fmtMonto(r.monto_neto)}
           </p>
           {!compacta && (
-            <button
-              type="button"
-              onClick={handleCta}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
-            >
-              {info.ctaIcono}
-              {info.ctaEtiqueta}
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Acción secundaria: adjuntar comprobante. Solo si está pagado
+                  y hay handler. Cambia ícono según haya o no comprobante. */}
+              {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAdjuntarComprobante(r.pago_nomina_id!)
+                  }}
+                  title={r.comprobante_url ? 'Comprobante adjunto · ver o reemplazar' : 'Adjuntar comprobante'}
+                  className={`inline-flex items-center justify-center size-7 rounded-md border transition-colors ${
+                    r.comprobante_url
+                      ? 'border-insignia-exito/30 text-insignia-exito hover:bg-insignia-exito/10'
+                      : 'border-white/[0.08] text-texto-terciario hover:text-texto-marca hover:border-texto-marca/30 hover:bg-texto-marca/5'
+                  }`}
+                >
+                  {r.comprobante_url ? <FileCheck2 size={12} /> : <Paperclip size={12} />}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCta}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
+              >
+                {info.ctaIcono}
+                {info.ctaEtiqueta}
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -1336,17 +1336,22 @@ export async function GET(request: NextRequest) {
         .filter(e => e.pago_nomina_id)
         .map(e => e.pago_nomina_id as string),
     )
-    const pagoPorId = new Map<string, { monto_abonado: number; metodo_pago: string | null }>()
+    const pagoPorId = new Map<string, {
+      monto_abonado: number
+      metodo_pago: string | null
+      comprobante_url: string | null
+    }>()
     if (pagosIds.length > 0) {
       const { data } = await admin
         .from('pagos_nomina')
-        .select('id, monto_abonado, metodo_pago')
+        .select('id, monto_abonado, metodo_pago, comprobante_url')
         .in('id', pagosIds)
         .eq('eliminado', false)
       for (const p of data ?? []) {
         pagoPorId.set(p.id as string, {
           monto_abonado: parseFloat(p.monto_abonado as string),
           metodo_pago: (p.metodo_pago as string | null) ?? null,
+          comprobante_url: (p.comprobante_url as string | null) ?? null,
         })
       }
     }
@@ -1420,11 +1425,13 @@ export async function GET(request: NextRequest) {
       // 2. Pago (ledger financiero) sobreescribe el monto neto — es la
       //    única verdad sobre lo que se transfirió. El resto de métricas
       //    siguen del snapshot.
+      let comprobanteUrlFinal: string | null = null
       if (e?.pago_nomina_id) {
         const p = pagoPorId.get(e.pago_nomina_id)
         if (p) {
           montoNetoFinal = p.monto_abonado
           fuenteMonto = 'pago'
+          comprobanteUrlFinal = p.comprobante_url
         }
       }
 
@@ -1443,6 +1450,7 @@ export async function GET(request: NextRequest) {
         enviado_en: e?.enviado_en ?? null,
         pagado_en: e?.pagado_en ?? null,
         pago_nomina_id: e?.pago_nomina_id ?? null,
+        comprobante_url: comprobanteUrlFinal,
         avatar_url: usuarioId ? (avatarPorUsuario.get(usuarioId) ?? null) : null,
         sector: sectorPorMiembro.get(id) ?? null,
         cuenta_destino: cuentaPorMiembro.get(id) ?? null,
