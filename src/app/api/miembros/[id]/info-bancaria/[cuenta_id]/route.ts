@@ -56,6 +56,7 @@ const CAMPOS_EDITABLES = [
   'titular_nombre',
   'titular_documento',
   'activa',
+  'predeterminada',
 ] as const
 type CampoEditable = (typeof CAMPOS_EDITABLES)[number]
 
@@ -101,6 +102,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Validar tipo_pago si vino en el body.
   if ('tipo_pago' in cambios && cambios.tipo_pago !== 'banco' && cambios.tipo_pago !== 'digital') {
     return NextResponse.json({ error: "tipo_pago debe ser 'banco' o 'digital'" }, { status: 400 })
+  }
+
+  // Si se está marcando como predeterminada, desmarcar primero
+  // cualquier otra del mismo miembro para no chocar contra el UNIQUE
+  // parcial `info_bancaria_predeterminada_idx`.
+  if (cambios.predeterminada === true && !(actual as Record<string, unknown>).predeterminada) {
+    await admin
+      .from('info_bancaria')
+      .update({ predeterminada: false, actualizado_por: auth.userId })
+      .eq('empresa_id', auth.empresaId)
+      .eq('miembro_id', miembroId)
+      .eq('eliminada', false)
+      .eq('predeterminada', true)
+      .neq('id', cuentaId)
+  }
+
+  // Si se está desactivando la predeterminada, también desmarcamos
+  // `predeterminada` — no tiene sentido que sea default si no puede
+  // seleccionarse en pagos.
+  if (cambios.activa === false && (actual as Record<string, unknown>).predeterminada) {
+    cambios.predeterminada = false
   }
 
   cambios.actualizado_por = auth.userId
@@ -164,7 +186,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const admin = crearClienteAdmin()
   const { data: actualizada, error } = await admin
     .from('info_bancaria')
-    .update({ eliminada: true, activa: false, actualizado_por: auth.userId })
+    .update({ eliminada: true, activa: false, predeterminada: false, actualizado_por: auth.userId })
     .eq('id', cuentaId)
     .eq('empresa_id', auth.empresaId)
     .eq('miembro_id', miembroId)
@@ -177,6 +199,42 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'No se pudo eliminar la cuenta' }, { status: 500 })
   }
   if (!actualizada) return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 })
+
+  // Si esta era la predeterminada, intentar promover otra activa del
+  // mismo miembro para que el modal de pago siga teniendo preselección.
+  // Si no hay otra activa, el miembro queda sin predeterminada hasta
+  // que el operador marque manualmente.
+  if ((actualizada as Record<string, unknown>).predeterminada === false) {
+    // (acabamos de ponerla en false, pero quizá ya lo estaba antes —
+    // no importa: en cualquier caso queremos asegurarnos de que haya
+    // una predeterminada si hay candidatas)
+    const { data: candidata } = await admin
+      .from('info_bancaria')
+      .select('id')
+      .eq('empresa_id', auth.empresaId)
+      .eq('miembro_id', miembroId)
+      .eq('eliminada', false)
+      .eq('activa', true)
+      .eq('predeterminada', false)
+      .order('actualizado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (candidata?.id) {
+      const { count: yaHayPredet } = await admin
+        .from('info_bancaria')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', auth.empresaId)
+        .eq('miembro_id', miembroId)
+        .eq('eliminada', false)
+        .eq('predeterminada', true)
+      if ((yaHayPredet ?? 0) === 0) {
+        await admin
+          .from('info_bancaria')
+          .update({ predeterminada: true, actualizado_por: auth.userId })
+          .eq('id', candidata.id)
+      }
+    }
+  }
 
   await admin
     .from('auditoria_info_bancaria')

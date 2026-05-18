@@ -584,6 +584,8 @@ export interface InfoBancaria {
   titular_documento: string | null
   /** Si aparece en el selector de destino al registrar un pago. */
   activa: boolean
+  /** Cuenta sugerida al registrar un pago. Solo UNA por miembro a la vez. */
+  predeterminada: boolean
   /** Soft-delete: oculta la cuenta sin perder referencias históricas. */
   eliminada: boolean
   creado_por: string | null

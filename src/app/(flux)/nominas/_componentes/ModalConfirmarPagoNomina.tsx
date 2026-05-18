@@ -26,7 +26,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Wallet, Building2, Banknote, FileSignature, Upload,
-  FileText, X as IconX, Loader2,
+  FileText, X as IconX, Loader2, Star,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
@@ -117,13 +117,15 @@ export function ModalConfirmarPagoNomina({
         if (cancelado) return
         const lista = (data.cuentas ?? []) as InfoBancaria[]
         setCuentas(lista)
-        // Default: si hay alguna cuenta activa, sugerir transferencia o
-        // cuenta_digital según el tipo más común. Sino, efectivo.
+        // Default: priorizamos la cuenta predeterminada del empleado.
+        // Si no hay, caemos a la primera activa (ordenada por
+        // actualizado_en desc desde el backend). Sin cuentas activas
+        // → efectivo.
         const activas = lista.filter(c => c.activa)
-        if (activas.length > 0) {
-          const primera = activas[0]
-          setMetodo(primera.tipo_pago === 'digital' ? 'cuenta_digital' : 'transferencia')
-          setCuentaId(primera.id)
+        const sugerida = activas.find(c => c.predeterminada) ?? activas[0] ?? null
+        if (sugerida) {
+          setMetodo(sugerida.tipo_pago === 'digital' ? 'cuenta_digital' : 'transferencia')
+          setCuentaId(sugerida.id)
         } else {
           setMetodo('efectivo')
           setCuentaId(null)
@@ -174,8 +176,10 @@ export function ModalConfirmarPagoNomina({
       return
     }
     if (!cuentasFiltradas.some(c => c.id === cuentaId)) {
-      // Cuenta actual no aplica al nuevo método: preseleccionar la primera disponible.
-      setCuentaId(cuentasFiltradas[0]?.id ?? null)
+      // Cuenta actual no aplica al nuevo método: preseleccionar la
+      // predeterminada si aplica al método, sino la primera disponible.
+      const sugerida = cuentasFiltradas.find(c => c.predeterminada) ?? cuentasFiltradas[0]
+      setCuentaId(sugerida?.id ?? null)
     }
   }, [metodo, cuentaId, cuentasFiltradas])
 
@@ -344,6 +348,12 @@ export function ModalConfirmarPagoNomina({
                       </div>
                       <div className="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
                         <span className="text-sm text-texto-primario font-medium truncate">{titulo}</span>
+                        {c.predeterminada && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-texto-marca/15 text-texto-marca uppercase tracking-wider">
+                            <Star size={9} className="fill-current" />
+                            Por defecto
+                          </span>
+                        )}
                         {c.banco && c.etiqueta && (
                           <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{c.banco}</span>
                         )}

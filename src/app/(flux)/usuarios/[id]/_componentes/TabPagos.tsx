@@ -1,8 +1,14 @@
 'use client'
 
 /**
- * Tab Pagos — compensación (acordeón editable), período actual,
- * historial de pagos y modal de liquidación.
+ * Tab "Cuentas y pagos" — pestaña que concentra todo lo financiero del
+ * empleado en un solo lugar:
+ *   1. Cuentas para pagos (bancos + billeteras virtuales). Misma fuente
+ *      de verdad que la pestaña "Cuentas" de Nóminas (info_bancaria).
+ *   2. Compensación vigente (solo lectura, link a Nómina para editar).
+ *   3. Período actual con stats de asistencia.
+ *   4. Adelantos activos y registro de adelantos/descuentos puntuales.
+ *   5. Historial de pagos registrados.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -24,6 +30,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import type { Miembro, Perfil, CompensacionTipo, CompensacionFrecuencia } from '@/tipos'
+import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
 import {
   ETIQUETA_FRECUENCIA,
   navegarPeriodo, obtenerPeriodo,
@@ -31,6 +38,7 @@ import {
 } from './constantes'
 
 interface PropsTabPagos {
+  miembroId: string
   miembro: Miembro
   perfil: Perfil
   puedeEditar: boolean
@@ -88,7 +96,7 @@ interface PropsTabPagos {
 }
 
 export function TabPagos({
-  miembro, perfil, puedeEditar, esPropietario, esAdmin,
+  miembroId, miembro, perfil, puedeEditar, esPropietario, esAdmin,
   compensacionTipo, compensacionMonto, compensacionFrecuencia,
   diasTrabajo, proyeccionMensual, proyeccionPorFrecuencia, montoPagar,
   statsPeriodo,
@@ -248,6 +256,15 @@ export function TabPagos({
 
   return (
     <div className="space-y-6">
+
+      {/* ── CUENTAS PARA PAGOS ──
+          Misma fuente de datos que la pestaña "Cuentas" de Nóminas:
+          tabla info_bancaria, endpoint /api/miembros/[id]/info-bancaria,
+          mismo componente. Modo compacto: sin encabezado propio porque
+          la Tarjeta ya lo provee. */}
+      <Tarjeta titulo="Cuentas para pagos" subtitulo="Bancarias y billeteras virtuales del empleado. Se usan al registrar el pago de la liquidación.">
+        <SeccionDatosBancarios miembroId={miembroId} puedeEditar={puedeEditar} compacto />
+      </Tarjeta>
 
       {/* ── COMPENSACION — solo lectura ── */}
       <div ref={compensacionRef}>

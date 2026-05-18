@@ -2,7 +2,7 @@
 
 /**
  * Página de detalle de usuario — /usuarios/[id]
- * Tabs: Resumen | Información | Pagos | Permisos
+ * Tabs: Resumen | Información | Cuentas y pagos | Correo | Permisos | Métricas
  * Orquestador: carga datos, maneja estado global, delega render a sub-componentes.
  */
 
@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useTituloPestana } from '@/hooks/useTituloPestana'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, FileText, Wallet, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail, BarChart3 } from 'lucide-react'
+import { User, FileText, CreditCard, Shield, FileUp, Fingerprint, PowerOff, ChevronRight, Mail, BarChart3 } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -1015,7 +1015,7 @@ export default function PaginaPerfilUsuario() {
   const tabsConfig = [
     { clave: 'resumen', etiqueta: 'Resumen', icono: <User size={15} /> },
     { clave: 'informacion', etiqueta: 'Información', icono: <FileText size={15} /> },
-    { clave: 'pagos', etiqueta: 'Pagos', icono: <Wallet size={15} /> },
+    { clave: 'pagos', etiqueta: 'Cuentas y pagos', icono: <CreditCard size={15} /> },
     ...(miembro?.usuario_id ? [{ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={15} /> }] : []),
     { clave: 'permisos', etiqueta: 'Permisos', icono: <Shield size={15} /> },
     { clave: 'metricas', etiqueta: 'Métricas', icono: <BarChart3 size={15} /> },
@@ -1166,6 +1166,7 @@ export default function PaginaPerfilUsuario() {
 
           {tab === 'pagos' && (
             <TabPagos
+              miembroId={miembroId}
               miembro={miembro}
               perfil={perfil}
               puedeEditar={puedeEditar}

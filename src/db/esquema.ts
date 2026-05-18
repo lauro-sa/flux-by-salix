@@ -2952,16 +2952,55 @@ export const bancos = pgTable('bancos', {
   index('bancos_empresa_idx').on(tabla.empresa_id),
 ])
 
-// Información bancaria de miembros
+// Cuentas para pagos del empleado (bancarias + billeteras virtuales).
+// Multi-tenant + multi-cuenta + soft-delete + auditoría. Misma fuente
+// para Nóminas (pestaña "Cuentas") y Usuarios (pestaña "Cuentas y pagos").
+// Schema definido en sql/093 y backfill de tipo_pago en sql/098.
 export const info_bancaria = pgTable('info_bancaria', {
   id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // banco = institución tradicional (Galicia, Santander, etc.)
+  // digital = billetera virtual (Mercado Pago, Brubank, Ualá, etc.)
+  tipo_pago: text('tipo_pago').notNull().default('banco'),
   tipo_cuenta: text('tipo_cuenta'),
   banco: text('banco'),
   numero_cuenta: text('numero_cuenta'),
   alias: text('alias'),
+  etiqueta: text('etiqueta'),
+  // Titular distinto al empleado (esposa, padre, cuenta familiar).
+  titular_nombre: text('titular_nombre'),
+  titular_documento: text('titular_documento'),
+  // Si la cuenta aparece como opción al registrar pagos. Pueden haber varias activas.
+  activa: boolean('activa').notNull().default(true),
+  // Cuenta sugerida al registrar un pago de nómina. Solo UNA por miembro
+  // entre las no eliminadas (UNIQUE parcial info_bancaria_predeterminada_idx).
+  predeterminada: boolean('predeterminada').notNull().default(false),
+  // Soft-delete: oculta de selectores pero mantiene referencias históricas.
+  eliminada: boolean('eliminada').notNull().default(false),
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_por: uuid('actualizado_por'),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
-  index('info_bancaria_miembro_idx').on(tabla.miembro_id),
+  index('info_bancaria_miembro_activas_idx').on(tabla.empresa_id, tabla.miembro_id),
+])
+
+// Auditoría dedicada para cambios en cuentas bancarias.
+export const auditoria_info_bancaria = pgTable('auditoria_info_bancaria', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  info_bancaria_id: uuid('info_bancaria_id').notNull().references(() => info_bancaria.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  editado_por: uuid('editado_por').notNull(),
+  // crear, editar, eliminar, restaurar, activar, desactivar
+  accion: text('accion').notNull(),
+  campo_modificado: text('campo_modificado'),
+  valor_anterior: text('valor_anterior'),
+  valor_nuevo: text('valor_nuevo'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('auditoria_info_bancaria_cuenta_idx').on(tabla.empresa_id, tabla.info_bancaria_id, tabla.creado_en),
 ])
 
 // Preferencias de usuario — tema, sidebar, etc. por dispositivo
