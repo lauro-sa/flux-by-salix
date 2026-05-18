@@ -20,6 +20,13 @@ import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 import { KpiHeroAccionPrincipal } from './KpiHeroAccionPrincipal'
 import { KpisSoporteNomina } from './KpisSoporteNomina'
+import {
+  BarraFiltrosNomina,
+  aplicarFiltros,
+  contarPorEstado,
+  type FiltroEstado,
+  type FiltroAdelanto,
+} from './BarraFiltrosNomina'
 
 // ─── Tipos ───
 
@@ -307,6 +314,12 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [envioObligatorio, setEnvioObligatorio] = useState(false)
   const [modalEnvio, setModalEnvio] = useState(false)
 
+  // ── Filtros / búsqueda / vista compacta ──
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos')
+  const [filtroAdelanto, setFiltroAdelanto] = useState<FiltroAdelanto>('todos')
+  const [vistaCompacta, setVistaCompacta] = useState(false)
+
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
   // Fechas como Date para el hero editorial
@@ -366,11 +379,19 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
   useEffect(() => { cargarNomina() }, [cargarNomina])
 
-  // Totales
-  const totalBruto = resultados.reduce((s, r) => s + r.monto_pagar, 0)
-  const totalDescuento = resultados.reduce((s, r) => s + r.descuento_adelanto, 0)
-  const totalNeto = resultados.reduce((s, r) => s + r.monto_neto, 0)
-  const totalHoras = resultados.reduce((s, r) => s + r.horas_netas, 0)
+  // Filtrado en cliente (memoizado para no recalcular en cada render).
+  const resultadosFiltrados = useMemo(
+    () => aplicarFiltros(resultados, { busqueda, filtroEstado, filtroAdelanto }),
+    [resultados, busqueda, filtroEstado, filtroAdelanto],
+  )
+  const conteoEstados = useMemo(() => contarPorEstado(resultados), [resultados])
+
+  // Totales — siempre sobre la lista FILTRADA para que cierre con la
+  // tabla visible. Si el usuario quita filtros, vuelve al total real.
+  const totalBruto = resultadosFiltrados.reduce((s, r) => s + r.monto_pagar, 0)
+  const totalDescuento = resultadosFiltrados.reduce((s, r) => s + r.descuento_adelanto, 0)
+  const totalNeto = resultadosFiltrados.reduce((s, r) => s + r.monto_neto, 0)
+  const totalHoras = resultadosFiltrados.reduce((s, r) => s + r.horas_netas, 0)
 
   // Info del estado del período para el chip arriba del hero.
   const infoEstadoPeriodo = useMemo(
@@ -437,12 +458,31 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         </motion.div>
       )}
 
-      {/* ── Contador empleados ── */}
+      {/* ── Barra de filtros + búsqueda + vista compacta ── */}
+      {!cargando && resultados.length > 0 && (
+        <BarraFiltrosNomina
+          busqueda={busqueda}
+          onBusquedaChange={setBusqueda}
+          filtroEstado={filtroEstado}
+          onFiltroEstadoChange={setFiltroEstado}
+          filtroAdelanto={filtroAdelanto}
+          onFiltroAdelantoChange={setFiltroAdelanto}
+          vistaCompacta={vistaCompacta}
+          onVistaCompactaToggle={() => setVistaCompacta(v => !v)}
+          totalResultados={resultados.length}
+          conteo={conteoEstados}
+        />
+      )}
+
+      {/* ── Contador empleados (después de filtros: refleja el resultado) ── */}
       {!cargando && resultados.length > 0 && (
         <div className="flex items-center">
           <p className="text-xs text-texto-terciario">
             <Users size={12} className="inline mr-1" />
-            {resultados.length} empleado{resultados.length !== 1 ? 's' : ''}
+            {resultadosFiltrados.length} de {resultados.length} empleado{resultados.length !== 1 ? 's' : ''}
+            {resultadosFiltrados.length !== resultados.length && (
+              <span className="ml-1 text-texto-terciario/70">· filtrado</span>
+            )}
           </p>
         </div>
       )}
@@ -473,7 +513,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
           {/* Filas */}
           <div className="divide-y divide-white/[0.04]">
-            {resultados.map(r => {
+            {resultadosFiltrados.map(r => {
               const terminado = !!r.contrato_terminado_antes
               return (
               <div
