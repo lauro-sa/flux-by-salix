@@ -19,6 +19,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 import { KpiHeroAccionPrincipal } from './KpiHeroAccionPrincipal'
+import { KpisSoporteNomina } from './KpisSoporteNomina'
 
 // ─── Tipos ───
 
@@ -426,31 +427,13 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         />
       )}
 
-      {/* ── Resumen ── */}
+      {/* ── KPIs soporte (Costo / Adelantos / Progreso) ── */}
       {!cargando && resultados.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3"
         >
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
-            <p className="text-2xl font-bold text-texto-primario">{fmtMonto(totalBruto)}</p>
-            <p className="text-xxs text-texto-terciario uppercase mt-1">Costo empresa</p>
-          </div>
-          {totalDescuento > 0 && (
-            <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
-              <p className="text-2xl font-bold text-insignia-advertencia">-{fmtMonto(totalDescuento)}</p>
-              <p className="text-xxs text-texto-terciario uppercase mt-1">Adelantos</p>
-            </div>
-          )}
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
-            <p className="text-2xl font-bold text-insignia-exito">{fmtMonto(totalNeto)}</p>
-            <p className="text-xxs text-texto-terciario uppercase mt-1">A transferir</p>
-          </div>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card p-4 text-center">
-            <p className="text-2xl font-bold text-texto-secundario">{fmtHoras(totalHoras)}</p>
-            <p className="text-xxs text-texto-terciario uppercase mt-1">Horas totales</p>
-          </div>
+          <KpisSoporteNomina resultados={resultados} />
         </motion.div>
       )}
 
