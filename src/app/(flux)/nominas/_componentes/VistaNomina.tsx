@@ -28,6 +28,8 @@ import {
   type FiltroAdelanto,
 } from './BarraFiltrosNomina'
 import { CardEmpleadoNomina } from './CardEmpleadoNomina'
+import { useToast } from '@/componentes/feedback/Toast'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
 // ─── Tipos ───
 
@@ -321,6 +323,11 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [filtroAdelanto, setFiltroAdelanto] = useState<FiltroAdelanto>('todos')
   const [vistaCompacta, setVistaCompacta] = useState(false)
 
+  // ── Acciones en lote ──
+  const toast = useToast()
+  const [accionEnCurso, setAccionEnCurso] = useState<null | 'liquidar' | 'cerrar'>(null)
+  const [confirmarCierre, setConfirmarCierre] = useState(false)
+
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
   // Fechas como Date para el hero editorial
@@ -379,6 +386,103 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   }, [periodo.desde, periodo.hasta])
 
   useEffect(() => { cargarNomina() }, [cargarNomina])
+
+  // ── Forzar refresco invalidando la cache del período activo. ──
+  // Se llama después de transiciones bulk para que la UI refleje el
+  // nuevo estado_liquidacion de cada empleado sin esperar al usuario.
+  const refrescarPeriodo = useCallback(async () => {
+    cacheRef.current.delete(cacheKey)
+    await cargarNomina()
+  }, [cacheKey, cargarNomina])
+
+  // ── Acciones en lote ──
+  // El hero dispara estas según el modo activo (liquidar/enviar/pagar/cerrar).
+  // Cada una es batch sobre N empleados; mostramos resumen con éxitos/fallos.
+
+  const handleLiquidarBulk = useCallback(async (miembrosIds: string[]) => {
+    if (miembrosIds.length === 0) return
+    setAccionEnCurso('liquidar')
+    try {
+      const res = await fetch('/api/nominas/liquidar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodo_inicio: periodo.desde,
+          periodo_fin: periodo.hasta,
+          miembros_ids: miembrosIds,
+        }),
+      })
+      const data = await res.json()
+      const exitosos = (data.resultados ?? []).filter((r: { ok: boolean }) => r.ok).length
+      const fallidos = miembrosIds.length - exitosos
+      if (fallidos === 0) {
+        toast.mostrar('exito', `${exitosos} liquidacion${exitosos === 1 ? '' : 'es'} congelada${exitosos === 1 ? '' : 's'}`)
+      } else if (exitosos > 0) {
+        toast.mostrar('advertencia', `${exitosos} liquidadas, ${fallidos} fallaron`)
+      } else {
+        toast.mostrar('error', 'Ninguna liquidación se pudo completar')
+      }
+      await refrescarPeriodo()
+    } catch {
+      toast.mostrar('error', 'Error de red al liquidar')
+    } finally {
+      setAccionEnCurso(null)
+    }
+  }, [periodo.desde, periodo.hasta, refrescarPeriodo, toast])
+
+  const handleEnviarBulk = useCallback((miembrosIds: string[]) => {
+    // El envío masivo se hace desde el modal de envío existente, que ya
+    // soporta enviar a múltiples empleados con la plantilla configurada.
+    // No usamos /marcar-enviado directo porque ese endpoint solo cambia
+    // el estado — el envío real (WhatsApp/correo) lo hace el modal.
+    if (miembrosIds.length === 0) {
+      toast.mostrar('advertencia', 'No hay recibos para enviar')
+      return
+    }
+    setModalEnvio(true)
+  }, [toast])
+
+  const handlePagarBulk = useCallback((miembrosIds: string[]) => {
+    // El pago en lote requiere datos específicos por empleado (método,
+    // cuenta destino, comprobante) — eso vive en el modal de pago del
+    // detalle. Si hay varios pendientes, redirigimos al primero; el
+    // operador cierra ese pago y vuelve. Bulk real queda para v2.
+    const primero = miembrosIds[0]
+    if (!primero) {
+      toast.mostrar('advertencia', 'No hay pagos pendientes')
+      return
+    }
+    router.push(`/nominas/empleado/${primero}?desde=${periodo.desde}&hasta=${periodo.hasta}&accion=pagar`)
+  }, [router, periodo.desde, periodo.hasta, toast])
+
+  const handleCerrarPeriodo = useCallback(async () => {
+    setAccionEnCurso('cerrar')
+    try {
+      const res = await fetch('/api/nominas/cerrar-periodo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodo_inicio: periodo.desde,
+          periodo_fin: periodo.hasta,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const detalle = data.code === 'pendientes'
+          ? `Faltan ${data.pendientes?.length ?? 0} empleados por pagar`
+          : data.error || 'No se pudo cerrar'
+        toast.mostrar('error', detalle)
+        return
+      }
+      toast.mostrar('exito', 'Período cerrado')
+      setConfirmarCierre(false)
+      await refrescarPeriodo()
+    } catch {
+      toast.mostrar('error', 'Error de red al cerrar')
+    } finally {
+      setAccionEnCurso(null)
+    }
+  }, [periodo.desde, periodo.hasta, refrescarPeriodo, toast])
 
   // Filtrado en cliente (memoizado para no recalcular en cada render).
   const resultadosFiltrados = useMemo(
@@ -440,12 +544,10 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
           resultados={resultados}
           estadoPeriodo={estadoPeriodo?.estado ?? 'abierto'}
           envioObligatorio={envioObligatorio}
-          // Los handlers se conectan en el commit 6 (acciones en lote).
-          // Por ahora son no-op para validar el render visual.
-          onLiquidar={() => { /* TODO commit 6 */ }}
-          onEnviar={() => { /* TODO commit 6 */ }}
-          onPagar={() => { /* TODO commit 6 */ }}
-          onCerrarPeriodo={() => { /* TODO commit 6 */ }}
+          onLiquidar={handleLiquidarBulk}
+          onEnviar={handleEnviarBulk}
+          onPagar={handlePagarBulk}
+          onCerrarPeriodo={() => setConfirmarCierre(true)}
         />
       )}
 
@@ -542,6 +644,19 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         periodoDesde={periodo.desde}
         periodoHasta={periodo.hasta}
         nombreEmpresa={nombreEmpresa}
+      />
+
+      {/* Confirmación de cierre de período. Solo aparece cuando el operador
+          clickea "Cerrar período" en el hero (modo 'cerrar', todos pagados). */}
+      <ModalConfirmacion
+        abierto={confirmarCierre}
+        onCerrar={() => setConfirmarCierre(false)}
+        onConfirmar={handleCerrarPeriodo}
+        titulo="Cerrar período"
+        descripcion={`Vas a cerrar formalmente el período ${periodo.etiqueta}. No se podrán editar liquidaciones de empleados de este período hasta reabrirlo (que requiere motivo). ¿Confirmás?`}
+        tipo="peligro"
+        etiquetaConfirmar="Cerrar período"
+        cargando={accionEnCurso === 'cerrar'}
       />
     </div>
   )
