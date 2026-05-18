@@ -28,6 +28,7 @@ import {
   type FiltroAdelanto,
 } from './BarraFiltrosNomina'
 import { CardEmpleadoNomina } from './CardEmpleadoNomina'
+import { ModalPagarBulk, type EmpleadoPagable } from './ModalPagarBulk'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
@@ -327,6 +328,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const toast = useToast()
   const [accionEnCurso, setAccionEnCurso] = useState<null | 'liquidar' | 'cerrar'>(null)
   const [confirmarCierre, setConfirmarCierre] = useState(false)
+  const [empleadosPagables, setEmpleadosPagables] = useState<EmpleadoPagable[] | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
@@ -443,17 +445,24 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   }, [toast])
 
   const handlePagarBulk = useCallback((miembrosIds: string[]) => {
-    // El pago en lote requiere datos específicos por empleado (método,
-    // cuenta destino, comprobante) — eso vive en el modal de pago del
-    // detalle. Si hay varios pendientes, redirigimos al primero; el
-    // operador cierra ese pago y vuelve. Bulk real queda para v2.
-    const primero = miembrosIds[0]
-    if (!primero) {
+    if (miembrosIds.length === 0) {
       toast.mostrar('advertencia', 'No hay pagos pendientes')
       return
     }
-    router.push(`/nominas/empleado/${primero}?desde=${periodo.desde}&hasta=${periodo.hasta}&accion=pagar`)
-  }, [router, periodo.desde, periodo.hasta, toast])
+    // Construir lista de pagables con monto del cálculo actual y la cuenta
+    // destino predeterminada que ya viene en el listado. ModalPagarBulk
+    // hace el batch de POST /api/nominas/pagos con datos por fila.
+    const pagables: EmpleadoPagable[] = miembrosIds
+      .map(id => resultados.find(r => r.miembro_id === id))
+      .filter((r): r is typeof resultados[number] => !!r)
+      .map(r => ({
+        miembro_id: r.miembro_id,
+        nombre: r.nombre,
+        monto_neto: r.monto_neto,
+        cuenta_destino: (r as ResultadoNomina & { cuenta_destino?: EmpleadoPagable['cuenta_destino'] }).cuenta_destino ?? null,
+      }))
+    setEmpleadosPagables(pagables)
+  }, [resultados, toast])
 
   const handleCerrarPeriodo = useCallback(async () => {
     setAccionEnCurso('cerrar')
@@ -680,6 +689,16 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         tipo="peligro"
         etiquetaConfirmar="Cerrar período"
         cargando={accionEnCurso === 'cerrar'}
+      />
+
+      {/* Modal de pago en lote — se abre desde el CTA 'Pagar (N)' del hero. */}
+      <ModalPagarBulk
+        abierto={!!empleadosPagables}
+        onCerrar={() => setEmpleadosPagables(null)}
+        empleados={empleadosPagables ?? []}
+        periodoInicio={periodo.desde}
+        periodoFin={periodo.hasta}
+        onFinalizado={refrescarPeriodo}
       />
     </div>
   )
