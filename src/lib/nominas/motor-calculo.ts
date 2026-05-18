@@ -812,7 +812,7 @@ export function parsearCondicion(json: Record<string, unknown> | null): Condicio
 // Loader de BD + composición
 // ════════════════════════════════════════════════════════════════
 
-interface ParamsCalcularRecibo {
+export interface ParamsCalcularRecibo {
   miembroId: string
   empresaId: string
   periodoInicio: string

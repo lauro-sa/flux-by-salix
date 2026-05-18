@@ -1178,12 +1178,83 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // ─── Setting de empresa: envío de recibo obligatorio antes de pagar ───
+    // Necesario en el dashboard para que el KPI hero decida si el modo
+    // 'enviar' aparece como paso obligatorio del flujo o si se puede
+    // saltear directo a 'pagar'.
+    const { data: empresaSetting } = await admin
+      .from('empresas')
+      .select('nominas_envio_obligatorio')
+      .eq('id', empresaId)
+      .single()
+    const envioObligatorio = !!empresaSetting?.nominas_envio_obligatorio
+
+    // ─── Estado FSM del período (sql/104) ───
+    // Lee si la liquidación de este período está abierta o cerrada para
+    // que el cabezal del dashboard pueda mostrar el chip correcto. Si no
+    // existe la fila, el período se considera 'abierto' virtualmente
+    // (todavía nadie liquidó a ningún empleado).
+    const { data: periodoFila } = await admin
+      .from('liquidaciones_periodo')
+      .select('estado_clave, abierto_en, cerrado_en, cerrado_por_nombre')
+      .eq('empresa_id', empresaId)
+      .eq('periodo_inicio', desde)
+      .eq('periodo_fin', hasta)
+      .maybeSingle()
+    const estadoPeriodo = {
+      estado: (periodoFila?.estado_clave as string | undefined) ?? 'abierto',
+      abierto_en: periodoFila?.abierto_en ?? null,
+      cerrado_en: periodoFila?.cerrado_en ?? null,
+      cerrado_por_nombre: periodoFila?.cerrado_por_nombre ?? null,
+    }
+
+    // ─── Estado FSM por empleado (sql/105) ───
+    // Cruza con cada resultado para que la UI muestre el chip de estado
+    // (borrador virtual / liquidado / enviado / pagado) en cada fila.
+    const { data: estadosEmpleadoFilas } = await admin
+      .from('liquidaciones_empleado_periodo')
+      .select('miembro_id, estado_clave, liquidado_en, enviado_en, pagado_en, pago_nomina_id')
+      .eq('empresa_id', empresaId)
+      .eq('periodo_inicio', desde)
+      .eq('periodo_fin', hasta)
+    const estadosPorMiembro = new Map<string, {
+      estado: string
+      liquidado_en: string | null
+      enviado_en: string | null
+      pagado_en: string | null
+      pago_nomina_id: string | null
+    }>()
+    for (const f of estadosEmpleadoFilas ?? []) {
+      estadosPorMiembro.set(f.miembro_id as string, {
+        estado: f.estado_clave as string,
+        liquidado_en: (f.liquidado_en as string | null) ?? null,
+        enviado_en: (f.enviado_en as string | null) ?? null,
+        pagado_en: (f.pagado_en as string | null) ?? null,
+        pago_nomina_id: (f.pago_nomina_id as string | null) ?? null,
+      })
+    }
+
+    // Enriquece cada resultado con el estado de liquidación.
+    const resultadosConEstado = resultados.map(r => {
+      const e = estadosPorMiembro.get(r.miembro_id as string)
+      return {
+        ...r,
+        estado_liquidacion: e?.estado ?? 'borrador',
+        liquidado_en: e?.liquidado_en ?? null,
+        enviado_en: e?.enviado_en ?? null,
+        pagado_en: e?.pagado_en ?? null,
+        pago_nomina_id: e?.pago_nomina_id ?? null,
+      }
+    })
+
     return NextResponse.json({
       desde, hasta,
       dias_laborales: resultados[0]?.dias_laborales || 0,
       nombre_empresa: nombreEmpresa,
       feriados_periodo: diasLab_feriadosResumen(feriadosNombres, desde, hasta),
-      resultados: resultados.sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      estado_periodo: estadoPeriodo,
+      envio_obligatorio: envioObligatorio,
+      resultados: resultadosConEstado.sort((a, b) => a.nombre.localeCompare(b.nombre)),
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
