@@ -707,6 +707,58 @@ export function esUltimaLiquidacionDelMes(periodoInicio: string, periodoFin: str
   return periodoInicio <= ultimoIso && periodoFin >= ultimoIso
 }
 
+export type TipoPeriodoVista = 'mes' | 'quincena' | 'semana'
+export type FrecuenciaPago = 'mensual' | 'quincenal' | 'semanal' | string
+
+/**
+ * Determina si la frecuencia de pago de un empleado coincide con el período
+ * visualizado. Si NO aplica, el empleado se muestra en gris en la lista y no
+ * suma al total — su próximo pago caerá en otro período.
+ *
+ * Reglas (basadas en frecuencia_pago del contrato, no en modalidad_calculo):
+ *
+ *   frec   \ vista  |  mes        | quincena                    | semana
+ *   ──────────────────────────────────────────────────────────────────────
+ *   mensual         | aplica      | aplica solo si última qna   | gris
+ *   quincenal       | aplica      | aplica                      | gris
+ *   semanal         | aplica      | aplica                      | aplica
+ *
+ * La vista MES siempre incluye a todos (el mes contiene todos los ciclos
+ * de pago). En vistas más chicas que la frecuencia natural, el empleado
+ * no cobra "este período" — se le pagará al cierre de su frecuencia.
+ *
+ * Para mensuales en vista quincena, sólo aplican en la 2da quincena
+ * (la que termina con el último día del mes) — ahí es cuando cobran.
+ */
+export function aplicaFrecuenciaAlPeriodo(
+  frecuencia: FrecuenciaPago,
+  vista: TipoPeriodoVista,
+  periodoInicio: string,
+  periodoFin: string,
+): boolean {
+  // Vista mes incluye a todos.
+  if (vista === 'mes') return true
+
+  if (frecuencia === 'semanal') {
+    // Semanales aplican en cualquier vista (mes, quincena, semana).
+    return true
+  }
+
+  if (frecuencia === 'quincenal') {
+    // Aplican en mes y quincena. No en semana.
+    return vista === 'quincena'
+  }
+
+  if (frecuencia === 'mensual') {
+    // En quincena: solo la última del mes. En semana: nunca.
+    if (vista === 'quincena') return esUltimaLiquidacionDelMes(periodoInicio, periodoFin)
+    return false
+  }
+
+  // Frecuencia desconocida o legacy → asumimos que aplica (no romper datos viejos).
+  return true
+}
+
 /**
  * Calcula el básico MENSUAL del contrato, independientemente del
  * período de pago. Lo usan los conceptos `periodicidad='mensual'` para

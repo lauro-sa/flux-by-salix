@@ -13,6 +13,7 @@ import {
   calcularMetricasAsistencia,
   evaluarCondicion,
   parsearCondicion,
+  aplicaFrecuenciaAlPeriodo,
   type DatosCalculoRecibo,
   type AsistenciaInput,
   type ConceptoContratoInput,
@@ -944,5 +945,43 @@ describe('calcularReciboPuro — ajustes puntuales del período', () => {
     }))
     expect(r.conceptos_aplicados).toHaveLength(0)
     expect(r.conceptos_sugeridos[0].detalle).toContain('Excluido del período')
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// aplicaFrecuenciaAlPeriodo
+// ════════════════════════════════════════════════════════════════
+
+describe('aplicaFrecuenciaAlPeriodo', () => {
+  // Vista mes: aplican TODOS.
+  it('vista mes incluye a todas las frecuencias', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+  })
+
+  // Vista quincena: quincenales aplican, semanales aplican, mensuales solo en la 2da.
+  it('vista quincena: quincenal y semanal aplican siempre', () => {
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'quincena', '2026-05-16', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
+  })
+  it('vista quincena 1: mensual NO aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'quincena', '2026-05-01', '2026-05-15')).toBe(false)
+  })
+  it('vista quincena 2 (última del mes): mensual SÍ aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'quincena', '2026-05-16', '2026-05-31')).toBe(true)
+  })
+
+  // Vista semana: solo semanales.
+  it('vista semana: solo semanal aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'semana', '2026-05-04', '2026-05-10')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'semana', '2026-05-04', '2026-05-10')).toBe(false)
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'semana', '2026-05-04', '2026-05-10')).toBe(false)
+  })
+
+  // Frecuencia desconocida / legacy: aplica (no romper datos viejos).
+  it('frecuencia desconocida → aplica (legacy)', () => {
+    expect(aplicaFrecuenciaAlPeriodo('eventual', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
   })
 })

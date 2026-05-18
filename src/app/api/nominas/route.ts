@@ -12,6 +12,7 @@ import {
   calcularMontoConcepto,
   esUltimaLiquidacionDelMes,
   calcularBasicoMensual,
+  aplicaFrecuenciaAlPeriodo,
 } from '@/lib/nominas/motor-calculo'
 import type {
   ContratoLaboral,
@@ -49,6 +50,25 @@ export async function GET(request: NextRequest) {
     let empleadosFiltro = params.get('empleados')?.split(',').filter(Boolean) || null
     const diasFiltro = params.get('dias')?.split(',').filter(Boolean) || null
     if (!desde || !hasta) return NextResponse.json({ error: 'Parámetros desde y hasta requeridos' }, { status: 400 })
+
+    // Tipo de período visualizado por la UI: mes | quincena | semana.
+    // Se usa para clasificar a cada empleado como "aplica al período"
+    // según su frecuencia_pago. Si no viene, se infiere del rango por
+    // duración (compatibilidad con consumidores viejos).
+    const periodoParam = params.get('periodo')
+    const tipoPeriodo: 'mes' | 'quincena' | 'semana' =
+      periodoParam === 'semana' ? 'semana'
+      : periodoParam === 'quincena' ? 'quincena'
+      : periodoParam === 'mes' ? 'mes'
+      : (() => {
+          // Inferencia: duración en días → tipo más probable.
+          // <= 8 días → semana, 9-20 → quincena, > 20 → mes.
+          const ms = new Date(hasta).getTime() - new Date(desde).getTime()
+          const dias = Math.round(ms / 86_400_000) + 1
+          if (dias <= 8) return 'semana'
+          if (dias <= 20) return 'quincena'
+          return 'mes'
+        })()
 
     const admin = crearClienteAdmin()
 
@@ -1470,6 +1490,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // ── Aplica al período según frecuencia natural del empleado ──
+      // Si false, la UI lo muestra en gris y no lo suma al total. La
+      // frecuencia viene del contrato; si no hay contrato (legacy)
+      // usamos compensacion_frecuencia del miembro o asumimos 'mensual'.
+      const contratoMiembro = contratoVigentePorMiembro.get(id)
+      const freqContrato = (contratoMiembro?.frecuencia_pago as string | undefined)
+        ?? ((miembrosData?.find(m => (m as Record<string, unknown>).id === id) as Record<string, unknown> | undefined)?.compensacion_frecuencia as string | undefined)
+        ?? 'mensual'
+      const aplicaAlPeriodo = aplicaFrecuenciaAlPeriodo(freqContrato, tipoPeriodo, desde, hasta)
+
       return {
         ...r,
         monto_neto: montoNetoFinal,
@@ -1490,6 +1520,10 @@ export async function GET(request: NextRequest) {
         sector: sectorPorMiembro.get(id) ?? null,
         cuenta_destino: cuentaPorMiembro.get(id) ?? null,
         saldo_adelantos_vigentes: saldoAdelantosPorMiembro.get(id) ?? 0,
+        // Marca de visualización: cuando false, la card va en gris y el
+        // total agregado del período no la cuenta.
+        aplica_al_periodo: aplicaAlPeriodo,
+        frecuencia_pago: freqContrato,
       }
     })
 
