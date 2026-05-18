@@ -5,6 +5,7 @@ import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 import { normalizarTelefono } from '@/lib/validaciones'
 import { generarPdfRecibo } from '@/lib/nominas/generar-pdf-recibo'
+import { obtenerEnlaceCortoRecibo } from '@/lib/nominas/enlace-corto-recibo'
 import {
   diagnosticarCredencialesCanal,
   etiquetaFaltantesCanal,
@@ -234,12 +235,17 @@ export async function POST(request: NextRequest) {
       // Guardamos `pagoIdActual` para marcar `recibo_whatsapp_enviado_*`
       // si el envío termina OK.
       //
-      // Si `incluir_enlace_pdf === false`, saltamos la generación del PDF
-      // (operación cara con Puppeteer) y el enlace queda como `—`.
-      // ¿Por qué `—` y no string vacío? Porque `resolverParametrosCuerpo`
-      // hace fallback al valor de ejemplo del catálogo (`https://flux.salixweb.com/r/abc123`)
-      // cuando el valor real es falsy — eso terminaba enviando un URL falso
-      // en el WhatsApp. `—` es truthy y se ve como slot vacío en el mensaje.
+      // ─── Link CORTO al PDF del recibo ───
+      // En vez de mandar el signed URL de Supabase (800+ chars), generamos
+      // un short link `https://flux.salixweb.com/r/{token}` que vive en
+      // `recibo_enlaces_publicos` y redirige al PDF cuando el empleado lo
+      // abre. Beneficios: legible en WhatsApp, trackeable (accesos_count)
+      // y renovable (si caduca, el próximo envío genera uno nuevo).
+      //
+      // Si `incluir_enlace_pdf === false`, mandamos `—` para que la
+      // plantilla muestre slot vacío. NO usamos string vacío porque
+      // `resolverParametrosCuerpo` cae al ejemplo del catálogo y termina
+      // enviando un URL falso (https://flux.salixweb.com/r/abc123).
       const incluirPdf = incluir_enlace_pdf !== false // default true
       let enlaceRecibo = '—'
       let pagoIdActual: string | null = null
@@ -258,17 +264,32 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
           if (pago) {
             pagoIdActual = pago.id as string
-            // Solo generamos el PDF si el operador lo pidió. Sin pdf, el
-            // enlace queda en `—` y la plantilla lo muestra como slot vacío.
             if (incluirPdf) {
-              const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
-                expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
+              // Aseguramos que el PDF exista en Storage (genera o reusa
+              // según hash). El short link después sirve siempre porque
+              // la ruta /r/[token] genera signed URLs frescas en cada hit.
+              await generarPdfRecibo(admin, pago.id, empresaId, {
+                expiracionSegundos: 60 * 60 * 24, // 24h (no se usa, solo para warmup)
+              })
+              // baseUrl: SIEMPRE el dominio público de Flux. El empleado abre
+              // el link desde su teléfono — no podemos mandar `localhost:3000`
+              // (que es lo que `NEXT_PUBLIC_APP_URL` vale en dev) ni el preview
+              // de Vercel. Permitimos override con `PUBLIC_LINKS_BASE_URL` por
+              // si en el futuro la app vive en otro dominio.
+              const baseUrl = process.env.PUBLIC_LINKS_BASE_URL
+                || 'https://flux.salixweb.com'
+              const { url } = await obtenerEnlaceCortoRecibo(admin, baseUrl, {
+                pagoId: pago.id,
+                empresaId,
+                miembroId: emp.miembro_id,
+                creadoPor: user.id,
+                diasVigencia: 30, // 1 mes; se regenera al reenviar el recibo
               })
               enlaceRecibo = url
             }
           }
         } catch (errPdf) {
-          console.error('[nominas/enviar-whatsapp] error al generar PDF:', errPdf)
+          console.error('[nominas/enviar-whatsapp] error al generar PDF/enlace:', errPdf)
           // Seguimos sin enlace: el cuerpo del mensaje todavía va con `—`.
         }
       }
