@@ -336,29 +336,28 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
                         <span className="text-insignia-peligro/80 tabular-nums">{r.dias_ausentes} aus.</span>
                       </>
                     )}
-                    {/* Barra de asistencia + etiqueta legible. Siempre a la
-                        derecha — alineada con el borde del precio gracias al
-                        grid de ancho fijo. La etiqueta "Asistencia X%" explica
-                        qué es la barra sin necesidad de tooltip. */}
+                    {/* Bloque de asistencia: etiqueta + porcentaje arriba,
+                        puntitos día-por-día debajo. En columna, alineado a la
+                        derecha — la columna fija del precio garantiza misma
+                        posición en todas las cards. La etiqueta explica qué
+                        son los puntitos sin necesidad de tooltip. */}
                     <span
-                      className="ml-auto inline-flex items-center gap-2"
+                      className="ml-auto inline-flex flex-col items-end gap-1"
                       title={`${r.dias_trabajados} de ${r.dias_laborales} días trabajados`}
                     >
-                      <span className="text-texto-terciario/80">
+                      <span className="text-[10px] text-texto-terciario/80 leading-none">
                         Asistencia <span className="tabular-nums text-texto-secundario font-medium">{Math.round(ratio * 100)}%</span>
                       </span>
-                      <span
-                        className="relative block h-1.5 w-20 rounded-full bg-white/[0.05] overflow-hidden"
-                        aria-hidden
-                      >
-                        <span
-                          className={`absolute inset-y-0 left-0 rounded-full transition-all ${
-                            ratio >= 0.9 ? 'bg-insignia-exito/70'
-                            : ratio >= 0.6 ? 'bg-texto-secundario/50'
-                            : 'bg-insignia-advertencia/70'
-                          }`}
-                          style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }}
-                        />
+                      <span className="inline-flex items-center gap-[2px]" aria-hidden>
+                        {Array.from({ length: llenos }).map((_, i) => (
+                          <span
+                            key={`l-${i}`}
+                            className={`block size-1.5 rounded-sm ${ratio >= 0.9 ? 'bg-insignia-exito/70' : ratio >= 0.6 ? 'bg-texto-secundario/40' : 'bg-insignia-advertencia/70'}`}
+                          />
+                        ))}
+                        {Array.from({ length: vacios }).map((_, i) => (
+                          <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
+                        ))}
                       </span>
                     </span>
                   </div>
