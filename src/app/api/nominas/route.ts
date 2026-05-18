@@ -1178,6 +1178,93 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // ─── Datos extra de identidad por empleado ───
+    // Enriquecen las cards del dashboard sin queries N+1 — cada uno es un
+    // SELECT con .in() sobre miembros_ids y se mappea en memoria.
+    const miembrosIds = (miembrosData || []).map(m => (m as Record<string, unknown>).id as string)
+    const usuariosIds = (miembrosData || [])
+      .map(m => (m as Record<string, unknown>).usuario_id as string | null)
+      .filter((u): u is string => !!u)
+
+    // Avatares (de perfiles.avatar_url)
+    const avatarPorUsuario = new Map<string, string | null>()
+    if (usuariosIds.length > 0) {
+      const { data } = await admin
+        .from('perfiles')
+        .select('id, avatar_url')
+        .in('id', usuariosIds)
+      for (const p of data ?? []) {
+        avatarPorUsuario.set(p.id as string, (p.avatar_url as string | null) ?? null)
+      }
+    }
+
+    // Sector primario (vía junction miembros_sectores → sectores)
+    const sectorPorMiembro = new Map<string, { id: string; nombre: string; color: string | null }>()
+    if (miembrosIds.length > 0) {
+      const { data } = await admin
+        .from('miembros_sectores')
+        .select('miembro_id, sectores ( id, nombre, color )')
+        .in('miembro_id', miembrosIds)
+        .eq('es_primario', true)
+      // Supabase devuelve relaciones embebidas como array aunque sea uno-a-uno;
+      // tomamos el primero (es_primario garantiza una sola fila por miembro).
+      for (const row of (data ?? []) as unknown as Array<{
+        miembro_id: string
+        sectores: { id: string; nombre: string; color: string | null } | { id: string; nombre: string; color: string | null }[] | null
+      }>) {
+        const s = Array.isArray(row.sectores) ? row.sectores[0] : row.sectores
+        if (s) {
+          sectorPorMiembro.set(row.miembro_id, {
+            id: s.id,
+            nombre: s.nombre,
+            color: s.color,
+          })
+        }
+      }
+    }
+
+    // Cuenta destino predeterminada (info_bancaria.predeterminada=true)
+    const cuentaPorMiembro = new Map<string, {
+      tipo_pago: string
+      banco: string | null
+      etiqueta: string | null
+      alias: string | null
+    }>()
+    if (miembrosIds.length > 0) {
+      const { data } = await admin
+        .from('info_bancaria')
+        .select('miembro_id, tipo_pago, banco, etiqueta, alias')
+        .in('miembro_id', miembrosIds)
+        .eq('empresa_id', empresaId)
+        .eq('predeterminada', true)
+        .eq('eliminada', false)
+      for (const c of data ?? []) {
+        cuentaPorMiembro.set(c.miembro_id as string, {
+          tipo_pago: c.tipo_pago as string,
+          banco: (c.banco as string | null) ?? null,
+          etiqueta: (c.etiqueta as string | null) ?? null,
+          alias: (c.alias as string | null) ?? null,
+        })
+      }
+    }
+
+    // Saldo adelantos vigentes (suma de saldo_pendiente de adelantos activos)
+    const saldoAdelantosPorMiembro = new Map<string, number>()
+    if (miembrosIds.length > 0) {
+      const { data } = await admin
+        .from('adelantos_nomina')
+        .select('miembro_id, saldo_pendiente')
+        .in('miembro_id', miembrosIds)
+        .eq('empresa_id', empresaId)
+        .eq('estado_clave', 'activo')
+        .eq('eliminado', false)
+      for (const a of data ?? []) {
+        const id = a.miembro_id as string
+        const acc = saldoAdelantosPorMiembro.get(id) ?? 0
+        saldoAdelantosPorMiembro.set(id, acc + parseFloat(a.saldo_pendiente as string))
+      }
+    }
+
     // ─── Setting de empresa: envío de recibo obligatorio antes de pagar ───
     // Necesario en el dashboard para que el KPI hero decida si el modo
     // 'enviar' aparece como paso obligatorio del flujo o si se puede
@@ -1234,9 +1321,13 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Enriquece cada resultado con el estado de liquidación.
+    // Enriquece cada resultado con estado FSM + datos extra de identidad
+    // (avatar, sector primario, cuenta destino predeterminada, saldo de
+    // adelantos vigentes). Las cards del dashboard los muestran inline.
     const resultadosConEstado = resultados.map(r => {
-      const e = estadosPorMiembro.get(r.miembro_id as string)
+      const id = r.miembro_id as string
+      const usuarioId = (miembrosData?.find(m => (m as Record<string, unknown>).id === id) as Record<string, unknown> | undefined)?.usuario_id as string | null | undefined
+      const e = estadosPorMiembro.get(id)
       return {
         ...r,
         estado_liquidacion: e?.estado ?? 'borrador',
@@ -1244,6 +1335,10 @@ export async function GET(request: NextRequest) {
         enviado_en: e?.enviado_en ?? null,
         pagado_en: e?.pagado_en ?? null,
         pago_nomina_id: e?.pago_nomina_id ?? null,
+        avatar_url: usuarioId ? (avatarPorUsuario.get(usuarioId) ?? null) : null,
+        sector: sectorPorMiembro.get(id) ?? null,
+        cuenta_destino: cuentaPorMiembro.get(id) ?? null,
+        saldo_adelantos_vigentes: saldoAdelantosPorMiembro.get(id) ?? 0,
       }
     })
 
