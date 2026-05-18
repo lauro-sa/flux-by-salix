@@ -1368,28 +1368,75 @@ export async function GET(request: NextRequest) {
       const e = estadosPorMiembro.get(id)
       const estado = e?.estado ?? 'borrador'
 
-      // Selección de la fuente de verdad para el monto neto.
+      // Selección de la fuente de verdad para los datos del recibo.
+      // Para empleados ya liquidados/pagados respetamos lo que vieron
+      // al congelar — no solo el monto, también métricas auxiliares
+      // (días, horas, tardanzas) para que la card sea coherente con
+      // el recibo histórico. Si alguien edita una asistencia
+      // retroactivamente, las cards pagadas no se "mueven".
       let montoNetoFinal = r.monto_neto as number
+      let diasTrabajadosFinal = r.dias_trabajados as number
+      let diasAusentesFinal = r.dias_ausentes as number
+      let diasTardanzaFinal = r.dias_tardanza as number
+      let horasNetasFinal = r.horas_netas as number
+      let montoPagarFinal = r.monto_pagar as number
+      let descuentoAdelantoFinal = r.descuento_adelanto as number
       let fuenteMonto: 'vivo' | 'snapshot' | 'pago' = 'vivo'
 
+      // Helper: leer un campo numérico desde el snapshot, con fallbacks
+      // en la estructura del JSON guardado.
+      const leerSnapshot = (snap: Record<string, unknown>, ruta: string[]): number | null => {
+        let cursor: unknown = snap
+        for (const k of ruta) {
+          if (!cursor || typeof cursor !== 'object') return null
+          cursor = (cursor as Record<string, unknown>)[k]
+        }
+        return typeof cursor === 'number' ? cursor : null
+      }
+
+      // 1. Snapshot → respeta lo congelado al liquidar.
+      if (estado !== 'borrador' && e?.snapshot) {
+        const snap = e.snapshot
+        const netoSnap = leerSnapshot(snap, ['monto_neto']) ?? leerSnapshot(snap, ['detalle', 'neto'])
+        const diasTrabSnap = leerSnapshot(snap, ['detalle', 'asistencia', 'dias_trabajados'])
+        const diasAusSnap = leerSnapshot(snap, ['detalle', 'asistencia', 'dias_ausentes'])
+        const tardSnap = leerSnapshot(snap, ['detalle', 'asistencia', 'tardanzas'])
+        const horasSnap = leerSnapshot(snap, ['detalle', 'asistencia', 'horas_netas'])
+        const pagarSnap = leerSnapshot(snap, ['detalle', 'monto_base_calculado'])
+        const descSnap = leerSnapshot(snap, ['detalle', 'descuento_adelanto'])
+
+        if (netoSnap !== null) {
+          montoNetoFinal = netoSnap
+          fuenteMonto = 'snapshot'
+        }
+        if (diasTrabSnap !== null) diasTrabajadosFinal = diasTrabSnap
+        if (diasAusSnap !== null) diasAusentesFinal = diasAusSnap
+        if (tardSnap !== null) diasTardanzaFinal = tardSnap
+        if (horasSnap !== null) horasNetasFinal = horasSnap
+        if (pagarSnap !== null) montoPagarFinal = pagarSnap
+        if (descSnap !== null) descuentoAdelantoFinal = descSnap
+      }
+
+      // 2. Pago (ledger financiero) sobreescribe el monto neto — es la
+      //    única verdad sobre lo que se transfirió. El resto de métricas
+      //    siguen del snapshot.
       if (e?.pago_nomina_id) {
         const p = pagoPorId.get(e.pago_nomina_id)
         if (p) {
           montoNetoFinal = p.monto_abonado
           fuenteMonto = 'pago'
         }
-      } else if (estado !== 'borrador' && e?.snapshot) {
-        const snap = e.snapshot
-        const netoSnap = typeof snap.monto_neto === 'number' ? snap.monto_neto : null
-        if (netoSnap !== null) {
-          montoNetoFinal = netoSnap
-          fuenteMonto = 'snapshot'
-        }
       }
 
       return {
         ...r,
         monto_neto: montoNetoFinal,
+        dias_trabajados: diasTrabajadosFinal,
+        dias_ausentes: diasAusentesFinal,
+        dias_tardanza: diasTardanzaFinal,
+        horas_netas: horasNetasFinal,
+        monto_pagar: montoPagarFinal,
+        descuento_adelanto: descuentoAdelantoFinal,
         estado_liquidacion: estado,
         fuente_monto: fuenteMonto,
         liquidado_en: e?.liquidado_en ?? null,
