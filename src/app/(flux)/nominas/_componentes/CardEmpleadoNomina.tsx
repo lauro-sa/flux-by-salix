@@ -229,7 +229,7 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
         terminado ? 'opacity-60' : ''
       }`}
     >
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-3 items-stretch">
         {/* ── Identidad + datos ── */}
         <div className="flex items-start gap-3 min-w-0">
           {/* Avatar con ring de color hash. Si hay foto, la muestra; sino iniciales. */}
@@ -303,87 +303,93 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
             )}
 
             {/* Detalle de asistencia + barra cumplimiento (vista no compacta).
-                Organizado en clusters separados por puntos sutiles "·" para
-                jerarquizar grupos de información sin saturar la línea. */}
-            {!compacta && (
-              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-texto-terciario">
-                {/* Cluster 1: asistencia básica (días + horas trabajadas) */}
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="tabular-nums">
-                    <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong>
-                    <span className="ml-0.5 text-texto-terciario/70">días</span>
-                  </span>
-                  <span className="text-white/[0.12]">·</span>
-                  <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
-                </span>
-
-                {/* Cluster 2: incidencias (tardanzas, ausencias) — solo si las hay */}
-                {(r.dias_tardanza > 0 || r.dias_ausentes > 0) && (
-                  <>
-                    <span className="text-white/[0.12]">·</span>
-                    <span className="inline-flex items-center gap-1.5">
-                      {r.dias_tardanza > 0 && (
-                        <span className="text-insignia-advertencia tabular-nums">{r.dias_tardanza} tard.</span>
-                      )}
-                      {r.dias_ausentes > 0 && (
-                        <span className="text-insignia-peligro/80 tabular-nums">{r.dias_ausentes} aus.</span>
-                      )}
+                Estructura en dos sub-líneas para jerarquizar:
+                  Línea A: asistencia básica (días/horas/tardanzas/ausencias)
+                          + barra de cumplimiento a la derecha.
+                  Línea B (condicional): info financiera (adelanto + cuenta).
+                Si no hay nada financiero, la línea B se omite y la card
+                respira más. */}
+            {!compacta && (() => {
+              const hayFinanciero =
+                r.descuento_adelanto > 0 ||
+                (r.saldo_adelantos_vigentes ?? 0) > 0 ||
+                !!r.cuenta_destino
+              return (
+                <div className="mt-2 pt-2 border-t border-white/[0.04] space-y-1 text-[11px] text-texto-terciario">
+                  {/* ── Línea A: asistencia + barra ── */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="tabular-nums">
+                      <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong>
+                      <span className="ml-1 text-texto-terciario/70">días</span>
                     </span>
-                  </>
-                )}
+                    <span className="text-texto-terciario/40">·</span>
+                    <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
+                    {r.dias_tardanza > 0 && (
+                      <>
+                        <span className="text-texto-terciario/40">·</span>
+                        <span className="text-insignia-advertencia tabular-nums">{r.dias_tardanza} tard.</span>
+                      </>
+                    )}
+                    {r.dias_ausentes > 0 && (
+                      <>
+                        <span className="text-texto-terciario/40">·</span>
+                        <span className="text-insignia-peligro/80 tabular-nums">{r.dias_ausentes} aus.</span>
+                      </>
+                    )}
+                    {/* Barra cumplimiento siempre a la derecha — alineada con
+                        el borde del precio gracias al grid de ancho fijo. */}
+                    <span className="ml-auto inline-flex items-center gap-[2px]" aria-hidden>
+                      {Array.from({ length: llenos }).map((_, i) => (
+                        <span
+                          key={`l-${i}`}
+                          className={`block size-1.5 rounded-sm ${ratio >= 0.9 ? 'bg-insignia-exito/70' : ratio >= 0.6 ? 'bg-texto-secundario/40' : 'bg-insignia-advertencia/70'}`}
+                        />
+                      ))}
+                      {Array.from({ length: vacios }).map((_, i) => (
+                        <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
+                      ))}
+                    </span>
+                  </div>
 
-                {/* Cluster 3: adelantos (descuento aplicado o saldo vigente) */}
-                {r.descuento_adelanto > 0 ? (
-                  <>
-                    <span className="text-white/[0.12]">·</span>
-                    <span className="inline-flex items-center gap-1 text-insignia-advertencia">
-                      <span className="tabular-nums">Adelanto −{fmtMonto(r.descuento_adelanto)}</span>
-                      {r.cuotas_adelanto > 1 && (
-                        <span className="text-insignia-advertencia/70">({r.cuotas_adelanto} cuotas)</span>
-                      )}
-                      {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
-                        <span className="text-insignia-advertencia/70 tabular-nums">
-                          · saldo {fmtMonto(r.saldo_adelantos_vigentes)}
+                  {/* ── Línea B: financiero (solo si hay adelanto, saldo o cuenta) ── */}
+                  {hayFinanciero && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.descuento_adelanto > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-insignia-advertencia">
+                          <span className="tabular-nums">Adelanto −{fmtMonto(r.descuento_adelanto)}</span>
+                          {r.cuotas_adelanto > 1 && (
+                            <span className="text-insignia-advertencia/70">({r.cuotas_adelanto} cuotas)</span>
+                          )}
+                          {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                            <span className="text-insignia-advertencia/70 tabular-nums">
+                              · saldo {fmtMonto(r.saldo_adelantos_vigentes)}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                        <span className="tabular-nums">
+                          Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
                         </span>
                       ) : null}
-                    </span>
-                  </>
-                ) : r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
-                  <>
-                    <span className="text-white/[0.12]">·</span>
-                    <span className="tabular-nums">
-                      Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
-                    </span>
-                  </>
-                ) : null}
 
-                {/* Cluster 4: cuenta destino */}
-                {r.cuenta_destino && (
-                  <>
-                    <span className="text-white/[0.12]">·</span>
-                    <span className="inline-flex items-center gap-1 text-texto-terciario/80">
-                      {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
-                      <span className="truncate max-w-[140px]">
-                        {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
-                      </span>
-                    </span>
-                  </>
-                )}
-
-                {/* Barra cumplimiento jornada — siempre a la derecha (ml-auto). */}
-                <span className="ml-auto inline-flex items-center gap-[2px]" aria-hidden>
-                  {Array.from({ length: llenos }).map((_, i) => (
-                    <span
-                      key={`l-${i}`}
-                      className={`block size-1.5 rounded-sm ${ratio >= 0.9 ? 'bg-insignia-exito/70' : ratio >= 0.6 ? 'bg-texto-secundario/40' : 'bg-insignia-advertencia/70'}`}
-                    />
-                  ))}
-                  {Array.from({ length: vacios }).map((_, i) => (
-                    <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
-                  ))}
-                </span>
-              </div>
-            )}
+                      {r.cuenta_destino && (
+                        <>
+                          {(r.descuento_adelanto > 0 || (r.saldo_adelantos_vigentes ?? 0) > 0) && (
+                            <span className="text-texto-terciario/40">·</span>
+                          )}
+                          <span className="inline-flex items-center gap-1 text-texto-terciario/80">
+                            {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
+                            <span className="truncate max-w-[180px]">
+                              {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+                            </span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
 
