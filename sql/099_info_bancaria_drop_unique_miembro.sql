@@ -1,0 +1,24 @@
+-- 099 — Eliminar UNIQUE index legacy info_bancaria_miembro_idx
+--
+-- Contexto:
+-- La tabla `info_bancaria` se creó originalmente con un UNIQUE
+-- (miembro_id), pensada como 1 cuenta por miembro. En sql/093 se
+-- migró a modelo multi-cuenta (un miembro puede tener N cuentas:
+-- banco + Mercado Pago + Brubank), y se agregó un índice no-único
+-- `info_bancaria_miembro_activas_idx` sobre (empresa_id, miembro_id)
+-- WHERE eliminada=false para listados rápidos.
+--
+-- Pero la migración 093 sólo dropeó la CONSTRAINT
+-- `info_bancaria_miembro_id_key`. Existe además un INDEX UNIQUE con
+-- el nombre `info_bancaria_miembro_idx` (creado fuera de constraint)
+-- que sobrevivió y sigue impidiendo insertar más de una cuenta por
+-- miembro. Síntoma: POST /api/miembros/:id/info-bancaria devuelve 500
+-- con "duplicate key value violates unique constraint
+-- info_bancaria_miembro_idx" al cargar la segunda cuenta.
+--
+-- Este script:
+--   1. Dropea el índice UNIQUE legacy.
+--   2. (No hace falta recrear nada: el índice multi-tenant que sí
+--      queremos ya existe desde 093 — info_bancaria_miembro_activas_idx.)
+
+DROP INDEX IF EXISTS info_bancaria_miembro_idx;

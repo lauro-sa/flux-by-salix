@@ -2,14 +2,19 @@
 
 /**
  * Tab Información — datos personales, contacto, laborales, kiosco,
- * emergencia, bancaria, documentos.
+ * emergencia, documentos.
  * Formularios editables con autoguardado.
+ *
+ * La info bancaria se muestra en la pestaña "Cuentas y pagos"
+ * (TabPagos), porque la fuente de verdad son las cuentas para
+ * registrar liquidaciones — vive más cerca de pagos/nómina que de
+ * datos personales.
  */
 
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Mail, Phone, CreditCard,
+  Mail, Phone,
   Briefcase, FileText, KeyRound,
   User, Fingerprint,
   Upload, Eye, EyeOff,
@@ -29,7 +34,6 @@ import { RecortadorImagen } from '@/componentes/ui/RecortadorImagen'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Rol, Miembro, Perfil, HorarioTipo, MetodoFichaje } from '@/tipos'
 import { SeccionEncabezado } from './ComponentesComunes'
-import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
 import Image from 'next/image'
 import {
   ROLES_OPCIONES, ETIQUETA_ROL, OPCIONES_HORARIO, OPCIONES_FICHAJE,
@@ -735,17 +739,7 @@ export function TabInformacion({
         </div>
       </section>
 
-      {/* ── 5. INFORMACIÓN BANCARIA ──
-          Modelo multi-cuenta unificado con Nóminas: misma tabla, mismo
-          endpoint y misma UI. El operador puede cargar varias cuentas
-          (bancarias y billeteras virtuales) y la liquidación las usa al
-          registrar el pago. */}
-      <section>
-        <SeccionEncabezado icono={<CreditCard size={15} />} titulo="Información bancaria" />
-        <SeccionDatosBancarios miembroId={miembroId} puedeEditar={puedeEditar} compacto />
-      </section>
-
-      {/* ── 6. DOCUMENTOS ── */}
+      {/* ── 5. DOCUMENTOS ── */}
       <section id="seccion-documentos">
         <SeccionEncabezado icono={<FileText size={15} />} titulo="Documentos" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

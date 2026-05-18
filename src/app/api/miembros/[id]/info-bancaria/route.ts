@@ -78,12 +78,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!permitido) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
   const admin = crearClienteAdmin()
+  // Orden: predeterminada primero (la que se usa al pagar siempre
+  // arriba), después activas vs inactivas, después por última
+  // modificación. Así, después de cambiar la default, la nueva queda
+  // visualmente arriba sin que el operador tenga que buscarla.
   const { data, error } = await admin
     .from('info_bancaria')
     .select('*')
     .eq('empresa_id', auth.empresaId)
     .eq('miembro_id', miembroId)
     .eq('eliminada', false)
+    .order('predeterminada', { ascending: false })
     .order('activa', { ascending: false })
     .order('actualizado_en', { ascending: false })
 
@@ -108,6 +113,9 @@ interface PayloadCrear {
   titular_nombre?: string | null
   titular_documento?: string | null
   activa?: boolean
+  /** Si true, esta cuenta queda como predeterminada y las otras
+      del mismo miembro se desmarcan automáticamente. */
+  predeterminada?: boolean
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -130,6 +138,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const admin = crearClienteAdmin()
+
+  // Si el miembro no tiene ninguna cuenta predeterminada todavía, esta
+  // se elige como predeterminada por default (a menos que el cliente
+  // mande explícitamente predeterminada=false). Cuando ya hay una,
+  // respetamos la elección del operador.
+  const { count: countPredet } = await admin
+    .from('info_bancaria')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', auth.empresaId)
+    .eq('miembro_id', miembroId)
+    .eq('eliminada', false)
+    .eq('predeterminada', true)
+  const debePredeterminada = body.predeterminada === true
+    || (body.predeterminada === undefined && (countPredet ?? 0) === 0)
+
+  // Si esta cuenta va a ser predeterminada, desmarcamos cualquier otra
+  // del mismo miembro PRIMERO (el UNIQUE parcial rechazaría 2 a la vez).
+  if (debePredeterminada) {
+    await admin
+      .from('info_bancaria')
+      .update({ predeterminada: false, actualizado_por: auth.userId })
+      .eq('empresa_id', auth.empresaId)
+      .eq('miembro_id', miembroId)
+      .eq('eliminada', false)
+      .eq('predeterminada', true)
+  }
+
   const { data: cuenta, error } = await admin
     .from('info_bancaria')
     .insert({
@@ -144,6 +179,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       titular_nombre: body.titular_nombre ?? null,
       titular_documento: body.titular_documento ?? null,
       activa: body.activa ?? true,
+      predeterminada: debePredeterminada,
       eliminada: false,
       creado_por: auth.userId,
       actualizado_por: auth.userId,
