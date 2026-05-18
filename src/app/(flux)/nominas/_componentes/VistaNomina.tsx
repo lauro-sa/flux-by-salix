@@ -27,6 +27,7 @@ import {
   type FiltroEstado,
   type FiltroAdelanto,
 } from './BarraFiltrosNomina'
+import { CardEmpleadoNomina } from './CardEmpleadoNomina'
 
 // ─── Tipos ───
 
@@ -500,112 +501,36 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
           descripcion="No hay empleados con compensación configurada para este período."
         />
       ) : (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-card overflow-hidden">
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3 border-b border-white/[0.07]">
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">Empleado</span>
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-center">Días</span>
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Horas</span>
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Bruto</span>
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Adelanto</span>
-            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Neto</span>
-          </div>
+        <div className="space-y-2">
+          {resultadosFiltrados.map(r => (
+            <CardEmpleadoNomina
+              key={r.miembro_id}
+              resultado={r}
+              compacta={vistaCompacta}
+              onClick={() => {
+                const tipoEmpleado = tipoPeriodoPorFrecuencia(r.compensacion_frecuencia)
+                const p = calcularPeriodo(new Date(), tipoEmpleado)
+                router.push(`/nominas/empleado/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
+              }}
+            />
+          ))}
 
-          {/* Filas */}
-          <div className="divide-y divide-white/[0.04]">
-            {resultadosFiltrados.map(r => {
-              const terminado = !!r.contrato_terminado_antes
-              return (
-              <div
-                key={r.miembro_id}
-                onClick={() => {
-                  // Abre el detalle con el período natural del empleado (según su frecuencia)
-                  // centrado en HOY, no en el período que el usuario estaba viendo en la lista.
-                  const tipoEmpleado = tipoPeriodoPorFrecuencia(r.compensacion_frecuencia)
-                  const p = calcularPeriodo(new Date(), tipoEmpleado)
-                  router.push(`/nominas/empleado/${r.miembro_id}?desde=${p.desde}&hasta=${p.hasta}`)
-                }}
-                className={`grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group ${
-                  terminado ? 'opacity-60' : ''
-                }`}
-              >
-                {/* Nombre */}
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors flex items-center gap-2 flex-wrap">
-                    <span className="truncate">{r.nombre}</span>
-                    {terminado && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide">
-                        Terminado
-                      </span>
-                    )}
-                    {/* Badges de recibo enviado — verde si ya fue enviado por
-                        ese canal. Tooltip nativo muestra fecha + destinatario.
-                        Diseño minimalista (íconos chicos) para no saturar la fila. */}
-                    {r.recibo_correo_enviado_en && (
-                      <span
-                        title={`Recibo enviado por correo a ${r.recibo_correo_enviado_a || '—'} el ${new Date(r.recibo_correo_enviado_en).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-insignia-exito/15 text-insignia-exito text-[9px] font-medium"
-                      >
-                        <Mail size={9} /> Enviado
-                      </span>
-                    )}
-                    {r.recibo_whatsapp_enviado_en && (
-                      <span
-                        title={`Recibo enviado por WhatsApp a ${r.recibo_whatsapp_enviado_a || '—'} el ${new Date(r.recibo_whatsapp_enviado_en).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#25D366]/15 text-[#25D366] text-[9px] font-medium"
-                      >
-                        <IconoWhatsApp size={9} /> Enviado
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] text-texto-terciario mt-0.5">{r.monto_detalle}</p>
-                </div>
-
-                {/* Días */}
-                <div className="text-center">
-                  <p className="text-[13px] font-medium text-texto-primario">
-                    {r.dias_trabajados}<span className="text-texto-terciario font-normal">/{r.dias_laborales}</span>
-                  </p>
-                  {r.dias_tardanza > 0 && (
-                    <p className="text-[10px] text-insignia-advertencia mt-0.5">{r.dias_tardanza} tard.</p>
-                  )}
-                </div>
-
-                {/* Horas */}
-                <p className="text-[13px] text-texto-terciario text-right">{fmtHoras(r.horas_netas)}</p>
-
-                {/* Bruto */}
-                <p className="text-[13px] text-texto-secundario text-right">{fmtMonto(r.monto_pagar)}</p>
-
-                {/* Adelanto */}
-                <div className="text-right">
-                  {r.descuento_adelanto > 0 ? (
-                    <span className="text-[12px] font-medium text-insignia-advertencia">-{fmtMonto(r.descuento_adelanto)}</span>
-                  ) : (
-                    <span className="text-[11px] text-texto-terciario/40">—</span>
-                  )}
-                </div>
-
-                {/* Neto */}
-                <p className="text-[14px] font-bold text-insignia-exito text-right">{fmtMonto(r.monto_neto)}</p>
-              </div>
-              )
-            })}
-          </div>
-
-          {/* Footer totales */}
-          <div className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 border-t border-white/[0.1] bg-white/[0.02]">
-            <p className="text-[13px] font-bold text-texto-primario">Total</p>
-            <span />
-            <p className="text-[12px] text-texto-terciario text-right">{fmtHoras(totalHoras)}</p>
-            <p className="text-[13px] font-semibold text-texto-primario text-right">{fmtMonto(totalBruto)}</p>
-            <p className="text-[12px] font-medium text-insignia-advertencia text-right">
-              {totalDescuento > 0 ? `-${fmtMonto(totalDescuento)}` : '—'}
-            </p>
-            <p className="text-[15px] font-bold text-insignia-exito text-right">{fmtMonto(totalNeto)}</p>
+          {/* Footer totales — se mantiene como bloque al pie. */}
+          <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05] mt-3">
+            <div className="text-sm font-semibold text-texto-primario">
+              Total · {resultadosFiltrados.length} empleado{resultadosFiltrados.length !== 1 ? 's' : ''} · {fmtHoras(totalHoras)}
+            </div>
+            <div className="text-right text-sm">
+              <span className="text-texto-secundario tabular-nums">{fmtMonto(totalBruto)}</span>
+              {totalDescuento > 0 && (
+                <span className="ml-3 text-insignia-advertencia tabular-nums">−{fmtMonto(totalDescuento)}</span>
+              )}
+              <span className="ml-3 text-base font-bold text-insignia-exito tabular-nums">{fmtMonto(totalNeto)}</span>
+            </div>
           </div>
         </div>
       )}
+
       </div>
 
       {/* Modal envío de recibos */}
