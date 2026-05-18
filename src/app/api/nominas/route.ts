@@ -1298,9 +1298,13 @@ export async function GET(request: NextRequest) {
     // ─── Estado FSM por empleado (sql/105) ───
     // Cruza con cada resultado para que la UI muestre el chip de estado
     // (borrador virtual / liquidado / enviado / pagado) en cada fila.
+    // Para liquidaciones congeladas (estado != borrador) también traemos
+    // el snapshot_calculo para poder mostrar los montos del momento en
+    // que se liquidó, no el cálculo vivo (que podría haber cambiado si
+    // alguien edita conceptos o asistencias después de liquidar).
     const { data: estadosEmpleadoFilas } = await admin
       .from('liquidaciones_empleado_periodo')
-      .select('miembro_id, estado_clave, liquidado_en, enviado_en, pagado_en, pago_nomina_id')
+      .select('miembro_id, estado_clave, liquidado_en, enviado_en, pagado_en, pago_nomina_id, snapshot_calculo')
       .eq('empresa_id', empresaId)
       .eq('periodo_inicio', desde)
       .eq('periodo_fin', hasta)
@@ -1310,6 +1314,7 @@ export async function GET(request: NextRequest) {
       enviado_en: string | null
       pagado_en: string | null
       pago_nomina_id: string | null
+      snapshot: Record<string, unknown> | null
     }>()
     for (const f of estadosEmpleadoFilas ?? []) {
       estadosPorMiembro.set(f.miembro_id as string, {
@@ -1318,19 +1323,75 @@ export async function GET(request: NextRequest) {
         enviado_en: (f.enviado_en as string | null) ?? null,
         pagado_en: (f.pagado_en as string | null) ?? null,
         pago_nomina_id: (f.pago_nomina_id as string | null) ?? null,
+        snapshot: (f.snapshot_calculo as Record<string, unknown> | null) ?? null,
       })
+    }
+
+    // Para liquidaciones que ya tienen pago_nomina creado, traemos el
+    // monto_abonado real del ledger financiero. Es la verdad: lo que
+    // efectivamente se transfirió/pagó. Reemplaza al monto_neto calculado
+    // vivo en las cards pagadas para evitar inconsistencia visual.
+    const pagosIds = Array.from(
+      estadosPorMiembro.values()
+        .filter(e => e.pago_nomina_id)
+        .map(e => e.pago_nomina_id as string),
+    )
+    const pagoPorId = new Map<string, { monto_abonado: number; metodo_pago: string | null }>()
+    if (pagosIds.length > 0) {
+      const { data } = await admin
+        .from('pagos_nomina')
+        .select('id, monto_abonado, metodo_pago')
+        .in('id', pagosIds)
+        .eq('eliminado', false)
+      for (const p of data ?? []) {
+        pagoPorId.set(p.id as string, {
+          monto_abonado: parseFloat(p.monto_abonado as string),
+          metodo_pago: (p.metodo_pago as string | null) ?? null,
+        })
+      }
     }
 
     // Enriquece cada resultado con estado FSM + datos extra de identidad
     // (avatar, sector primario, cuenta destino predeterminada, saldo de
     // adelantos vigentes). Las cards del dashboard los muestran inline.
+    //
+    // Override de montos según fuente de verdad:
+    //  - Si tiene pago_nomina → usar monto_abonado del pago (ledger real).
+    //  - Sino, si tiene snapshot_calculo → usar el snapshot (congelado).
+    //  - Sino → cálculo vivo (como hoy, modo borrador).
+    // Esto garantiza que cards pagadas/liquidadas muestren EXACTAMENTE lo
+    // que se acordó al congelar/pagar, sin importar si alguien editó
+    // conceptos o asistencias después.
     const resultadosConEstado = resultados.map(r => {
       const id = r.miembro_id as string
       const usuarioId = (miembrosData?.find(m => (m as Record<string, unknown>).id === id) as Record<string, unknown> | undefined)?.usuario_id as string | null | undefined
       const e = estadosPorMiembro.get(id)
+      const estado = e?.estado ?? 'borrador'
+
+      // Selección de la fuente de verdad para el monto neto.
+      let montoNetoFinal = r.monto_neto as number
+      let fuenteMonto: 'vivo' | 'snapshot' | 'pago' = 'vivo'
+
+      if (e?.pago_nomina_id) {
+        const p = pagoPorId.get(e.pago_nomina_id)
+        if (p) {
+          montoNetoFinal = p.monto_abonado
+          fuenteMonto = 'pago'
+        }
+      } else if (estado !== 'borrador' && e?.snapshot) {
+        const snap = e.snapshot
+        const netoSnap = typeof snap.monto_neto === 'number' ? snap.monto_neto : null
+        if (netoSnap !== null) {
+          montoNetoFinal = netoSnap
+          fuenteMonto = 'snapshot'
+        }
+      }
+
       return {
         ...r,
-        estado_liquidacion: e?.estado ?? 'borrador',
+        monto_neto: montoNetoFinal,
+        estado_liquidacion: estado,
+        fuente_monto: fuenteMonto,
         liquidado_en: e?.liquidado_en ?? null,
         enviado_en: e?.enviado_en ?? null,
         pagado_en: e?.pagado_en ?? null,
