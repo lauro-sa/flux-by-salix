@@ -70,7 +70,18 @@ export interface AsistenciaInput {
   vuelta_particular: string | null
 }
 
-/** Fila mínima de cuota de adelanto que el motor consume. */
+/**
+ * Fila mínima de cuota de adelanto que el motor consume.
+ *
+ * `tipo` viene del adelanto padre (`adelantos_nomina.tipo`) y decide
+ * el signo en el cálculo del neto:
+ *   - 'adelanto'  → resta (préstamo en cuotas)
+ *   - 'descuento' → resta (multa puntual)
+ *   - 'bono'      → SUMA (pago extra one-off)
+ *
+ * Si llega `undefined` (rows pre-migración o callers viejos), se asume
+ * 'adelanto' por compatibilidad — el comportamiento histórico era restar.
+ */
 export interface CuotaInput {
   id: string
   adelanto_id: string
@@ -78,13 +89,50 @@ export interface CuotaInput {
   monto_cuota: number | string
   fecha_programada: string
   estado: string
+  tipo?: 'adelanto' | 'descuento' | 'bono'
 }
 
-/** Concepto asignado al contrato + detalle del catálogo. */
+/**
+ * Concepto asignado al contrato + detalle del catálogo.
+ *
+ * `fecha_alta` y `fecha_baja` permiten que el motor filtre conceptos
+ * por vigencia dentro del período: una asignación se aplica si
+ *   `fecha_alta <= periodo_fin AND (fecha_baja IS NULL OR fecha_baja >= periodo_inicio)`.
+ *
+ * El caller (cargador desde BD) ya filtra por vigencia, pero el core
+ * vuelve a chequear como red de seguridad — así los tests pueden
+ * pasar arrays con cualquier vigencia sin ensuciar fixtures.
+ */
 export interface ConceptoContratoInput {
   concepto_id: string
   valor_override: number | string | null
+  fecha_alta: string
+  fecha_baja: string | null
   concepto: ConceptoNomina
+}
+
+/**
+ * Ajuste puntual de un concepto para este período. Tres tipos:
+ *   • `override` → reemplaza el monto calculado por el motor con
+ *     `monto_override`. El concepto sigue apareciendo como aplicado,
+ *     pero con el monto manual y nota explicativa.
+ *   • `excluir`  → el concepto NO se aplica en este período aunque
+ *     esté vigente en el contrato. Se mueve a `conceptos_sugeridos`
+ *     con la razón.
+ *   • `agregar`  → aplica un concepto del catálogo que NO está
+ *     asignado al contrato, solo para este período.
+ *
+ * Coherencia: para override/excluir el concepto debe estar en
+ * `conceptos_contrato`. Para `agregar` NO. El endpoint que crea
+ * ajustes valida esto; el motor asume datos consistentes.
+ */
+export interface AjusteConceptoPeriodoInput {
+  concepto_id: string
+  tipo_ajuste: 'override' | 'excluir' | 'agregar'
+  monto_override: number | string | null
+  motivo: string | null
+  /** Solo necesario para `tipo_ajuste='agregar'` (sino se toma del contrato). */
+  concepto?: ConceptoNomina
 }
 
 /**
@@ -114,7 +162,21 @@ export interface DatosCalculoRecibo {
   contrato: ContratoLaboral | null
   asistencias: AsistenciaInput[]
   conceptos_contrato: ConceptoContratoInput[]
+  /**
+   * Ajustes puntuales del período (override/excluir/agregar). Opcional;
+   * si el caller no los pasa el motor liquida con la plantilla normal.
+   * Ver `AjusteConceptoPeriodoInput`.
+   */
+  ajustes_periodo?: AjusteConceptoPeriodoInput[]
   cuotas_adelanto: CuotaInput[]
+  /**
+   * Días laborales del mes completo (no del período). Se usa para
+   * calcular el básico mensual de modalidades `por_dia` y `por_hora`,
+   * que es la base de los conceptos `periodicidad='mensual'` (ej.
+   * Presentismo 10% del básico mensual). Si no se pasa, se asume 22
+   * (≈ días hábiles típicos lunes-viernes).
+   */
+  dias_laborales_mes?: number
   /** Licencias del contrato que solapan con el período. */
   licencias: LicenciaInput[]
   /** Info de sector/turno para armar el snapshot. */
@@ -182,20 +244,91 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   }
 
   // ─── 3. Aplicar conceptos automáticos del contrato ───
+  // Los conceptos `mensual` (Presentismo, Antigüedad, etc.) solo se
+  // aplican en la ÚLTIMA liquidación del mes, sin importar la
+  // frecuencia del contrato. Si el empleado cobra quincenal, recibe
+  // el bono solo en la segunda quincena. Esto evita el doble pago
+  // que ocurría antes de este filtro.
+  //
+  // Cuando son mensuales Y aplican, el monto se calcula sobre el
+  // básico MENSUAL (no el del período): un "10% del básico" para un
+  // jornalero quincenal debe ser 10% de su sueldo mensual completo,
+  // no del que cobra esa quincena. `dias_laborales_mes` lo necesita
+  // `calcularBasicoMensual` para modalidades por_dia/por_hora;
+  // default 22 (≈ días hábiles típicos) si el caller no lo pasa.
   const conceptos_aplicados: ConceptoAplicadoCalculado[] = []
   const conceptos_sugeridos: ConceptoAplicadoCalculado[] = []
+  const periodoEsUltimaDelMes = esUltimaLiquidacionDelMes(datos.periodo_inicio, datos.periodo_fin)
+  const diasLaboralesMes = datos.dias_laborales_mes ?? 22
+  const basicoMensual = datos.contrato
+    ? calcularBasicoMensual(datos.contrato.modalidad_calculo, Number(datos.contrato.monto_base), diasLaboralesMes)
+    : 0
+
+  // Indice O(1) de ajustes puntuales del período (override/excluir/
+  // agregar) por concepto_id. Vamos a consultarlo en cada concepto
+  // del contrato y al final para los `agregar` que no son del contrato.
+  const ajustesPorConcepto = new Map<string, AjusteConceptoPeriodoInput>()
+  for (const a of datos.ajustes_periodo ?? []) {
+    ajustesPorConcepto.set(a.concepto_id, a)
+  }
 
   for (const cc of datos.conceptos_contrato) {
     const c = cc.concepto
     if (!c.activo) continue
 
+    // Red de seguridad: aunque el caller debería filtrar por vigencia
+    // antes de pasarnos los conceptos, re-chequeamos contra el período
+    // para que los tests puedan pasar arrays sin pre-filtrar y para
+    // proteger contra cambios futuros del cargador.
+    const vigenteEnPeriodo =
+      cc.fecha_alta <= datos.periodo_fin &&
+      (cc.fecha_baja === null || cc.fecha_baja >= datos.periodo_inicio)
+    if (!vigenteEnPeriodo) continue
+
     const valor = cc.valor_override !== null && cc.valor_override !== undefined
       ? Number(cc.valor_override)
       : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
 
+    // ─── Ajuste puntual del período ───
+    // Antes de evaluar reglas del motor, miramos si el operador
+    // configuró un ajuste manual para este concepto en este período.
+    // 'excluir' lo saca aunque cumpliera la condición.
+    // 'override' usa directamente el monto manual (saltea el cálculo).
+    const ajuste = ajustesPorConcepto.get(cc.concepto_id)
+    if (ajuste?.tipo_ajuste === 'excluir') {
+      const detalle = ajuste.motivo?.trim()
+        ? `Excluido del período: ${ajuste.motivo.trim()}`
+        : 'Excluido del período por ajuste manual.'
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, detalle))
+      continue
+    }
+    if (ajuste?.tipo_ajuste === 'override' && ajuste.monto_override !== null) {
+      const montoManual = Number(ajuste.monto_override)
+      const detalle = ajuste.motivo?.trim()
+        ? `Monto ajustado manualmente: ${ajuste.motivo.trim()}`
+        : 'Monto ajustado manualmente para este período.'
+      conceptos_aplicados.push(armarConcepto(c, valor, montoManual, detalle))
+      continue
+    }
+
     // No automático → siempre sugerencia (el operador decide).
     if (!c.automatico) {
       conceptos_sugeridos.push(armarConcepto(c, valor, 0, 'Concepto manual: el operador decide si lo agrega.'))
+      continue
+    }
+
+    // Conceptos `unico` no se aplican automáticamente: el operador
+    // decide en qué período se incluye.
+    if (c.periodicidad === 'unico') {
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, 'Concepto único — el operador decide en qué período aplicarlo.'))
+      continue
+    }
+
+    // Conceptos `mensual` solo se aplican en la última liquidación
+    // del mes. En las anteriores quedan como sugerencia para que el
+    // operador vea por qué no se sumaron.
+    if (c.periodicidad === 'mensual' && !periodoEsUltimaDelMes) {
+      conceptos_sugeridos.push(armarConcepto(c, valor, 0, 'Concepto mensual: se aplica en la última liquidación del mes (no esta).'))
       continue
     }
 
@@ -209,11 +342,35 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       continue
     }
 
-    // Calcular monto según modo_calculo. Pasamos también la condición
-    // para que `por_evento` pueda multiplicar por la cantidad real de
-    // ocurrencias (ej: feriados trabajados).
-    const monto = calcularMontoConcepto(c.modo_calculo, valor, monto_base_calculado, asistencia, condicion)
+    // Calcular monto según modo_calculo. Para conceptos mensuales el
+    // base es el sueldo MENSUAL completo (los porcentaje_basico se
+    // calculan sobre eso, no sobre el básico del período). Pasamos
+    // también la condición para que `por_evento` pueda multiplicar
+    // por la cantidad real de ocurrencias (ej: feriados trabajados).
+    const baseDelConcepto = c.periodicidad === 'mensual' ? basicoMensual : monto_base_calculado
+    const monto = calcularMontoConcepto(c.modo_calculo, valor, baseDelConcepto, asistencia, condicion)
     conceptos_aplicados.push(armarConcepto(c, valor, monto, evaluacion.detalle))
+  }
+
+  // ─── Ajustes 'agregar' del período ───
+  // Conceptos del catálogo que NO están en el contrato pero el
+  // operador quiso aplicarlos puntualmente este período. El monto
+  // viene en `monto_override` (es el monto final, sin recalcular).
+  const conceptosContratoIds = new Set(datos.conceptos_contrato.map(cc => cc.concepto_id))
+  for (const ajuste of datos.ajustes_periodo ?? []) {
+    if (ajuste.tipo_ajuste !== 'agregar') continue
+    // Si el concepto está en el contrato, ya se procesó arriba — un
+    // 'agregar' sobre concepto del contrato es inválido (debería ser
+    // 'override'), pero por las dudas lo ignoramos aquí.
+    if (conceptosContratoIds.has(ajuste.concepto_id)) continue
+    if (!ajuste.concepto) continue // sin detalle del catálogo no podemos snapshotear
+    if (ajuste.monto_override === null) continue
+
+    const monto = Number(ajuste.monto_override)
+    const detalle = ajuste.motivo?.trim()
+      ? `Concepto agregado al período: ${ajuste.motivo.trim()}`
+      : 'Concepto agregado al período por ajuste manual.'
+    conceptos_aplicados.push(armarConcepto(ajuste.concepto, monto, monto, detalle))
   }
 
   // ─── 4. Cuotas de adelanto vencidas en el período ───
@@ -234,6 +391,9 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
       numero_cuota: q.numero_cuota,
       monto: Number(q.monto_cuota),
       fecha_programada: q.fecha_programada,
+      // Sin tipo explícito asumimos 'adelanto' por compatibilidad
+      // con datos previos a la migración 092.
+      tipo: q.tipo ?? 'adelanto',
     }))
 
   // ─── 5. Licencias del contrato que solapan con el período ───
@@ -305,10 +465,19 @@ export function calcularReciboPuro(datos: DatosCalculoRecibo): DetalleReciboCalc
   const descuentosConceptos = conceptos_aplicados
     .filter(c => c.tipo === 'descuento')
     .reduce((sum, c) => sum + c.monto, 0)
-  const totalAdelantos = adelantos_aplicados.reduce((sum, a) => sum + a.monto, 0)
+  // Discriminamos por tipo: bonos SUMAN (van como haberes), adelantos
+  // y descuentos RESTAN (van como descuentos). Esto refleja la
+  // semántica del modelo nuevo (sql/092) sin romper recibos viejos:
+  // si un movimiento llega sin `tipo` se asume 'adelanto' (comportamiento histórico).
+  const totalBonos = adelantos_aplicados
+    .filter(a => a.tipo === 'bono')
+    .reduce((sum, a) => sum + a.monto, 0)
+  const totalAdelantosResta = adelantos_aplicados
+    .filter(a => a.tipo !== 'bono')
+    .reduce((sum, a) => sum + a.monto, 0)
 
-  const subtotal_haberes = redondear(monto_base_calculado + haberesConceptos)
-  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantos + descuentoPorLicencias)
+  const subtotal_haberes = redondear(monto_base_calculado + haberesConceptos + totalBonos)
+  const subtotal_descuentos = redondear(descuentosConceptos + totalAdelantosResta + descuentoPorLicencias)
   const neto = redondear(subtotal_haberes - subtotal_descuentos)
 
   // ─── 6. Snapshot del contrato ───
@@ -691,30 +860,41 @@ export async function calcularReciboDesdeBD(
     .lte('fecha', periodoFin)
 
   // ─── Conceptos del contrato + catálogo ───
+  // Filtramos por vigencia EN EL PERÍODO (no por `activo`): una
+  // asignación se aplica si su rango [fecha_alta, fecha_baja] solapa
+  // con [periodoInicio, periodoFin]. Esto permite que un concepto
+  // que se dio de alta a mitad de período aparezca en este recibo, y
+  // que uno dado de baja siga apareciendo en recibos del período en
+  // que estuvo vigente (snapshot histórico).
   let conceptos_contrato: ConceptoContratoInput[] = []
   if (contrato) {
     const { data: cc } = await admin
       .from('conceptos_contrato')
-      .select('concepto_id, valor_override, activo, concepto:conceptos_nomina(*)')
+      .select('concepto_id, valor_override, fecha_alta, fecha_baja, concepto:conceptos_nomina(*)')
       .eq('empresa_id', empresaId)
       .eq('contrato_id', contrato.id)
-      .eq('activo', true)
+      .lte('fecha_alta', periodoFin)
+      .or(`fecha_baja.is.null,fecha_baja.gte.${periodoInicio}`)
     // El select anidado con Supabase devuelve `concepto` como objeto cuando
     // existe la relación, pero TS lo infiere como array. Normalizamos.
     conceptos_contrato = ((cc ?? []) as unknown as ConceptoContratoConDetalle[]).map(c => ({
       concepto_id: c.concepto_id,
       valor_override: c.valor_override,
+      fecha_alta: c.fecha_alta,
+      fecha_baja: c.fecha_baja,
       concepto: c.concepto as unknown as ConceptoNomina,
     }))
   }
 
-  // ─── Cuotas de adelanto vencidas ───
+  // ─── Cuotas de adelanto / descuento / bono vencidas ───
   // Traemos cuotas pendientes con fecha <= periodoFin. Incluye atrasadas
   // de períodos anteriores, que se acumulan en este recibo. El core puro
-  // hace el filtro final por estado y fecha.
+  // hace el filtro final por estado y fecha. Joineamos con
+  // `adelantos_nomina` para arrastrar el `tipo` (adelanto/descuento/bono),
+  // que decide el SIGNO en el cálculo del neto.
   const { data: cuotas } = await admin
     .from('adelantos_cuotas')
-    .select('id, adelanto_id, numero_cuota, monto_cuota, fecha_programada, estado')
+    .select('id, adelanto_id, numero_cuota, monto_cuota, fecha_programada, estado, adelanto:adelantos_nomina!inner(tipo)')
     .eq('empresa_id', empresaId)
     .eq('miembro_id', miembroId)
     .lte('fecha_programada', periodoFin)
@@ -755,6 +935,32 @@ export async function calcularReciboDesdeBD(
     turno = t ?? null
   }
 
+  // ─── Ajustes puntuales del período ───
+  // Filtramos por período EXACTO (mismo desde y hasta): los ajustes
+  // están atados a una liquidación específica, si el operador cambia
+  // de período no se aplican. Traemos el catálogo del concepto para
+  // que el motor pueda armar el snapshot completo de los 'agregar'.
+  const { data: ajustesRaw } = await admin
+    .from('ajustes_concepto_periodo')
+    .select('concepto_id, tipo_ajuste, monto_override, motivo, concepto:conceptos_nomina(*)')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', miembroId)
+    .eq('periodo_inicio', periodoInicio)
+    .eq('periodo_fin', periodoFin)
+  const ajustes_periodo: AjusteConceptoPeriodoInput[] = ((ajustesRaw ?? []) as unknown as Array<{
+    concepto_id: string
+    tipo_ajuste: 'override' | 'excluir' | 'agregar'
+    monto_override: number | string | null
+    motivo: string | null
+    concepto: ConceptoNomina
+  }>).map(a => ({
+    concepto_id: a.concepto_id,
+    tipo_ajuste: a.tipo_ajuste,
+    monto_override: a.monto_override,
+    motivo: a.motivo,
+    concepto: a.concepto,
+  }))
+
   return calcularReciboPuro({
     miembro_id: miembroId,
     empresa_id: empresaId,
@@ -763,14 +969,22 @@ export async function calcularReciboDesdeBD(
     contrato,
     asistencias: (asistencias ?? []) as AsistenciaInput[],
     conceptos_contrato,
-    cuotas_adelanto: (cuotas ?? []).map(c => ({
-      id: c.id,
-      adelanto_id: c.adelanto_id,
-      numero_cuota: c.numero_cuota,
-      monto_cuota: c.monto_cuota,
-      fecha_programada: c.fecha_programada,
-      estado: c.estado,
-    })),
+    ajustes_periodo,
+    // El select anidado de Supabase devuelve `adelanto` como objeto
+    // (con la FK NOT NULL del !inner garantiza que existe) pero TS lo
+    // infiere como array. Normalizamos antes de leer `.tipo`.
+    cuotas_adelanto: (cuotas ?? []).map(c => {
+      const adelantoRaw = c.adelanto as unknown as { tipo: 'adelanto' | 'descuento' | 'bono' } | null
+      return {
+        id: c.id,
+        adelanto_id: c.adelanto_id,
+        numero_cuota: c.numero_cuota,
+        monto_cuota: c.monto_cuota,
+        fecha_programada: c.fecha_programada,
+        estado: c.estado,
+        tipo: adelantoRaw?.tipo ?? 'adelanto',
+      }
+    }),
     licencias,
     sector,
     turno,

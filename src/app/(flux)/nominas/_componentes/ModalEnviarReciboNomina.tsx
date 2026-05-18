@@ -20,7 +20,7 @@ import {
   construirDatosPlantilla,
   resolverTextoPlantilla,
 } from '@/lib/whatsapp/variables'
-import { formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
 import {
   ASUNTO_RECIBO_NOMINA,
   HTML_RECIBO_NOMINA,
@@ -72,6 +72,27 @@ interface ResultadoNominaConCorreo {
   monto_neto?: number
   descuento_adelanto?: number
   saldo_anterior?: number
+  /** Bonos one-off del período (sql/092). Suman al neto. */
+  bonos_periodo?: number
+  /** Conceptos del contrato aplicados al período (Presentismo, Antigüedad, etc.). */
+  conceptos_aplicados?: { tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }[]
+  /** Timestamp del último envío exitoso por correo. NULL = nunca enviado. */
+  recibo_correo_enviado_en?: string | null
+  /** Timestamp del último envío exitoso por WhatsApp. */
+  recibo_whatsapp_enviado_en?: string | null
+  /** Snapshot del contrato vigente — habilita PDF borrador sin pago grabado. */
+  contrato_snapshot?: {
+    contrato_id: string
+    fecha_inicio: string
+    fecha_fin: string | null
+    condicion: string
+    modalidad_calculo: string
+    monto_base: number
+    frecuencia_pago: string
+    regimen: string
+    sector: { id: string; nombre: string } | null
+    turno: { id: string; nombre: string } | null
+  } | null
 }
 
 interface PlantillaWA {
@@ -137,6 +158,42 @@ function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: st
     compensacion_tipo: r.compensacion_tipo,
     compensacion_detalle: r.monto_detalle,
     monto_bruto: r.monto_pagar,
+    // Desglose del recibo para la sección de conceptos del correo:
+    // los conceptos del motor (Presentismo, Antigüedad, etc.) + los
+    // ajustes one-off del período (bonos, adelantos, descuentos) +
+    // el saldo anterior + el neto. Si no hay conceptos ni ajustes,
+    // la sección se omite del correo.
+    conceptos_recibo: (r.conceptos_aplicados ?? []).map(c => ({
+      tipo: c.tipo,
+      nombre: c.nombre,
+      monto: c.monto,
+      detalle: c.detalle ?? null,
+    })),
+    bono_total: r.bonos_periodo ?? 0,
+    adelanto_total: r.descuento_adelanto ?? 0,
+    saldo_anterior: r.saldo_anterior ?? 0,
+    monto_neto: r.monto_neto,
+    // Datos para PDF borrador cuando no hay pago grabado todavía. Solo
+    // se manda si tenemos snapshot — sin snapshot el backend no podría
+    // armar el template.
+    datos_calculo_pdf: r.contrato_snapshot ? {
+      concepto: etiquetaPeriodo,
+      contrato_snapshot: r.contrato_snapshot,
+      dias_habiles: r.dias_laborales,
+      dias_trabajados: r.dias_trabajados,
+      dias_ausentes: r.dias_ausentes,
+      tardanzas: r.dias_tardanza,
+      monto_sugerido: r.monto_neto ?? r.monto_pagar,
+      monto_abonado: r.monto_neto ?? r.monto_pagar,
+      conceptos: (r.conceptos_aplicados ?? []).map(c => ({
+        nombre: c.nombre,
+        tipo: c.tipo,
+        monto: c.monto,
+        detalle: c.detalle ?? null,
+        automatico: true,
+      })),
+      notas: null,
+    } : undefined,
   }) as DatosNominaCorreo
 }
 
@@ -157,7 +214,7 @@ function formatearTextoWA(texto: string): string {
  * basado en el `mapeo_variables` de la plantilla — soporta cualquier número y
  * orden de variables sin hardcodeo.
  *
- * `lineasDescuentos` se construye fuera (con `construirLineasDescuentos`)
+ * `lineasDescuentos` se construye fuera (con `construirLineasAjustes`)
  * porque requiere fetch de adelantos del empleado.
  */
 function resolverPreviewWA(
@@ -165,8 +222,18 @@ function resolverPreviewWA(
   r: ResultadoNominaConCorreo,
   etiquetaPeriodo: string,
   lineasDescuentos: string[],
+  incluirEnlacePdf: boolean,
 ): { encabezado: string; cuerpo: string; pie: string } {
   const detalleLegacy = lineasDescuentos.join('\n')
+  // Conceptos del recibo formateados como una lista de líneas legibles
+  // — la plantilla de WhatsApp suele meterlos como variable
+  // {{nomina.detalle_haberes}} / {{nomina.detalle_descuentos}}.
+  const haberes = (r.conceptos_aplicados ?? []).filter(c => c.tipo === 'haber')
+  const descuentos = (r.conceptos_aplicados ?? []).filter(c => c.tipo === 'descuento')
+  const fmtMoneda = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  const lineasHaberes = haberes.map(h => `+ ${h.nombre}: ${fmtMoneda(h.monto)}`)
+  const lineasConceptosDesc = descuentos.map(d => `- ${d.nombre}: ${fmtMoneda(d.monto)}`)
+
   const datos = construirDatosPlantilla({
     nomina: {
       nombre: r.nombre,
@@ -181,6 +248,21 @@ function resolverPreviewWA(
       monto_detalle: r.monto_detalle,
       detalle_descuentos: detalleLegacy,
       descuentos_lista: lineasDescuentos,
+      // Conceptos del contrato (Presentismo, Antigüedad, etc.) +
+      // bonos/adelantos del período. Las plantillas WA pueden
+      // pintarlos con {{nomina.detalle_haberes}} y
+      // {{nomina.detalle_descuentos_conceptos}}.
+      bono_total: r.bonos_periodo ?? 0,
+      detalle_haberes: lineasHaberes.join('\n'),
+      haberes_lista: lineasHaberes,
+      detalle_descuentos_conceptos: lineasConceptosDesc.join('\n'),
+      descuentos_conceptos_lista: lineasConceptosDesc,
+      // Preview del enlace al PDF — refleja el toggle del modal para que
+      // el operador vea EXACTAMENTE cómo le va a llegar al empleado.
+      // Si está apagado, va `—` (NO string vacío, porque eso hace fallback
+      // al ejemplo del catálogo `https://flux.salixweb.com/r/abc123` y queda
+      // un URL falso en el preview).
+      enlace_recibo: incluirEnlacePdf ? 'https://flux.salixweb.com/r/preview' : '—',
     },
   })
 
@@ -208,55 +290,9 @@ function resolverPreviewWA(
   return { encabezado, cuerpo, pie }
 }
 
-/**
- * Construye las líneas (bullets) de descuentos del período a partir de los
- * adelantos cargados desde `/api/adelantos`. Orden cronológico ascendente.
- *
- * Devuelve un array porque la plantilla WA tiene 6 slots fijos
- * (`descuento_1..descuento_6`) — el resolver de variables se encarga del
- * padding/concat. Para previews que necesiten texto plano: `lineas.join('\n')`.
- */
-function construirLineasDescuentos(
-  adelantos: Array<Record<string, unknown>>,
-  saldoAnterior: number,
-  periodoDesde: string,
-  periodoHasta: string,
-  locale = 'es-AR',
-): string[] {
-  type Item = {
-    notas: string;
-    numeroCuota: number; cuotasTotales: number;
-    monto: number; fechaSolicitud: string;
-  }
-  const items: Item[] = []
-  for (const a of adelantos) {
-    if (a.estado === 'cancelado') continue
-    const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
-    const cuota = cuotas.find(c => {
-      const f = c.fecha_programada as string
-      return f >= periodoDesde && f <= periodoHasta
-    })
-    if (!cuota) continue
-    items.push({
-      notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
-      numeroCuota: cuota.numero_cuota as number,
-      cuotasTotales: a.cuotas_totales as number,
-      monto: parseFloat(cuota.monto_cuota as string),
-      fechaSolicitud: a.fecha_solicitud as string,
-    })
-  }
-  items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
-
-  const fmt = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-  const lineas: string[] = []
-  if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmt(saldoAnterior)}`)
-  for (const it of items) {
-    const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
-    const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
-    lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
-  }
-  return lineas
-}
+// Las líneas de descuentos y bonos del período se arman con el helper
+// compartido `construirLineasAjustes` (src/lib/nominas/lineas-ajustes.ts).
+// Antes vivía duplicado acá y en el backend de WhatsApp — drift garantizado.
 
 // ─── Estado del envío en lote ────────────────────────────────
 
@@ -303,6 +339,17 @@ export function ModalEnviarReciboNomina({
   // Para modo individual correo: abrir ModalEnviarDocumento
   const [modalIndividualAbierto, setModalIndividualAbierto] = useState(false)
 
+  // Bypass del guard anti-duplicado server-side. Solo se prende cuando
+  // el operador marca explícitamente "reenviar igual" en la advertencia.
+  const [forzarReenvio, setForzarReenvio] = useState(false)
+
+  // Incluir el enlace al PDF del recibo en el mensaje de WhatsApp. Default
+  // encendido — el empleado normalmente espera el comprobante adjunto.
+  // El operador puede apagarlo si solo quiere notificar (ej: aviso rápido
+  // sin generar/expirar URLs firmadas en empleados que igual ya tienen
+  // el recibo por correo).
+  const [incluirEnlacePdfWA, setIncluirEnlacePdfWA] = useState(true)
+
   // Empleados filtrados según canal
   const empleadosConCorreo = useMemo(() => resultados.filter(r => r.correo), [resultados])
   const empleadosSinCorreo = useMemo(() => resultados.filter(r => !r.correo), [resultados])
@@ -311,6 +358,13 @@ export function ModalEnviarReciboNomina({
 
   const empleadosDisponibles = canalTipo === 'correo' ? empleadosConCorreo : empleadosConTelefono
   const empleadosNoDisponibles = canalTipo === 'correo' ? empleadosSinCorreo : empleadosSinTelefono
+
+  // Empleados que ya recibieron su recibo por el canal seleccionado en este
+  // período (basado en `recibo_correo_enviado_en` / `recibo_whatsapp_enviado_en`
+  // del backend). Si hay alguno, mostramos el banner anti-duplicado.
+  const empleadosYaEnviados = useMemo(() => empleadosDisponibles.filter(r =>
+    canalTipo === 'correo' ? r.recibo_correo_enviado_en : r.recibo_whatsapp_enviado_en
+  ), [empleadosDisponibles, canalTipo])
 
   const esIndividualCorreo = resultados.length === 1 && empleadosConCorreo.length === 1
 
@@ -345,7 +399,7 @@ export function ModalEnviarReciboNomina({
       .catch(() => { configNomina = null })
 
     // Canales de correo
-    promesaConfig.then(() => fetch('/api/correo/canales?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/correo/canales?modulo=nominas')
       .then(r => r.json())
       .then(data => {
         const mapped: CanalCorreoEmpresa[] = ((data.canales || []) as Record<string, unknown>[])
@@ -392,7 +446,7 @@ export function ModalEnviarReciboNomina({
       .catch(() => {}))
 
     // Plantilla de WhatsApp para nómina
-    promesaConfig.then(() => fetch('/api/whatsapp/plantillas?modulo=asistencias')
+    promesaConfig.then(() => fetch('/api/whatsapp/plantillas?modulo=nominas')
       .then(r => r.json())
       .then(data => {
         const plantillas = (data.plantillas || []) as PlantillaWA[]
@@ -425,10 +479,15 @@ export function ModalEnviarReciboNomina({
       fetch(`/api/adelantos?miembro_id=${empleadoPreview.miembro_id}`)
         .then(r => r.json())
         .then(data => {
-          const adelantos = (data?.adelantos || []) as Array<Record<string, unknown>>
+          const adelantos = data?.adelantos || []
           const saldo = empleadoPreview.saldo_anterior ?? 0
-          const lineas = construirLineasDescuentos(adelantos, saldo, periodoDesde, periodoHasta)
-          setLineasDescuentosPreview(lineas)
+          // Mismo helper que usa el backend WA → lo que se ve en el preview
+          // es exactamente lo que va a recibir el empleado. Tomamos solo
+          // `descuentos` para mantener compat con la plantilla actual.
+          const { descuentos } = construirLineasAjustes(adelantos, periodoDesde, periodoHasta, {
+            saldoAnterior: saldo,
+          })
+          setLineasDescuentosPreview(descuentos)
         })
         .catch(() => setLineasDescuentosPreview([]))
     } else {
@@ -456,15 +515,25 @@ export function ModalEnviarReciboNomina({
   const empleadoParaPreview = empleadosConTelefono[0] || resultados[0] || null
   const previewWA = useMemo(() => {
     if (!plantillaWA || !empleadoParaPreview) return null
-    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview)
-  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview])
+    return resolverPreviewWA(plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview, incluirEnlacePdfWA)
+  }, [plantillaWA, empleadoParaPreview, etiquetaPeriodo, lineasDescuentosPreview, incluirEnlacePdfWA])
 
   // ─── Enviar correo en lote ───
-  const enviarCorreoEnLote = useCallback(async () => {
-    if (!canalCorreoSeleccionado || !empleadosConCorreo.length) return
+  // `subconjuntoMiembroIds` permite reintentar solo los empleados que
+  // fallaron en un envío previo. Si no viene, manda a todos los con correo.
+  // `forzarReenvio` salta el guard de duplicado server-side.
+  const enviarCorreoEnLote = useCallback(async (
+    subconjuntoMiembroIds?: Set<string>,
+    forzarReenvio = false,
+  ) => {
+    if (!canalCorreoSeleccionado) return
+    const objetivo = subconjuntoMiembroIds
+      ? empleadosConCorreo.filter(r => subconjuntoMiembroIds.has(r.miembro_id))
+      : empleadosConCorreo
+    if (!objetivo.length) return
     setEstadoEnvio('enviando')
 
-    const empleadosData = empleadosConCorreo.map(r => construirDatosEmpleado(r, etiquetaPeriodo))
+    const empleadosData = objetivo.map(r => construirDatosEmpleado(r, etiquetaPeriodo))
 
     try {
       const res = await fetch('/api/nominas/enviar', {
@@ -476,10 +545,9 @@ export function ModalEnviarReciboNomina({
           html_plantilla: htmlNomina,
           empleados: empleadosData,
           nombre_empresa: nombreEmpresa,
-          // Período del recibo: el backend lo usa para buscar el pago
-          // grabado del empleado y adjuntar el PDF del recibo si existe.
           periodo_desde: periodoDesde,
           periodo_hasta: periodoHasta,
+          forzar_reenvio: forzarReenvio,
         }),
       })
       const data = await res.json()
@@ -487,19 +555,23 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
     } catch {
       setEstadoEnvio('completado')
-      setResultadoLote({ enviados: 0, fallidos: empleadosConCorreo.length, total: empleadosConCorreo.length, resultados: [] })
+      setResultadoLote({ enviados: 0, fallidos: objetivo.length, total: objetivo.length, resultados: [] })
     }
   }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa, asuntoNomina, htmlNomina, periodoDesde, periodoHasta])
 
   // ─── Enviar WhatsApp en lote ───
-  const enviarWAEnLote = useCallback(async () => {
-    if (!canalWASeleccionado || !plantillaWA || !empleadosConTelefono.length) return
+  const enviarWAEnLote = useCallback(async (
+    subconjuntoMiembroIds?: Set<string>,
+    forzarReenvio = false,
+  ) => {
+    if (!canalWASeleccionado || !plantillaWA) return
+    const objetivo = subconjuntoMiembroIds
+      ? empleadosConTelefono.filter(r => subconjuntoMiembroIds.has(r.miembro_id))
+      : empleadosConTelefono
+    if (!objetivo.length) return
     setEstadoEnvio('enviando')
 
-    // Mandamos todos los campos brutos al backend; las variables a Meta se
-    // resuelven server-side usando el `mapeo_variables` de la plantilla
-    // aprobada — así sumar/quitar variables sólo requiere editar la plantilla.
-    const empleadosData = empleadosConTelefono.map(r => ({
+    const empleadosData = objetivo.map(r => ({
       miembro_id: r.miembro_id,
       nombre: r.nombre,
       telefono: r.telefono,
@@ -511,9 +583,14 @@ export function ModalEnviarReciboNomina({
       monto_bruto: fmtMonto(r.monto_pagar),
       monto_neto: r.monto_neto ?? r.monto_pagar,
       descuento_adelanto: r.descuento_adelanto ?? 0,
+      bonos_periodo: r.bonos_periodo ?? 0,
       saldo_anterior: r.saldo_anterior ?? 0,
       compensacion_detalle: r.monto_detalle,
       periodo: etiquetaPeriodo,
+      // Conceptos del contrato (Presentismo, Antigüedad, Uniforme, etc.) —
+      // el backend los distribuye en los slots `haber_*` y
+      // `descuento_contrato_*` de la plantilla WA.
+      conceptos_aplicados: r.conceptos_aplicados ?? [],
     }))
 
     try {
@@ -523,11 +600,11 @@ export function ModalEnviarReciboNomina({
         body: JSON.stringify({
           canal_id: canalWASeleccionado,
           plantilla_id: plantillaWA.id,
-          // Necesario para que el backend filtre adelantos del período al
-          // armar `detalle_descuentos`.
           periodo_desde: periodoDesde,
           periodo_hasta: periodoHasta,
           empleados: empleadosData,
+          forzar_reenvio: forzarReenvio,
+          incluir_enlace_pdf: incluirEnlacePdfWA,
         }),
       })
       const data = await res.json()
@@ -535,19 +612,41 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
     } catch {
       setEstadoEnvio('completado')
-      setResultadoLote({ enviados: 0, fallidos: empleadosConTelefono.length, total: empleadosConTelefono.length, resultados: [] })
+      setResultadoLote({ enviados: 0, fallidos: objetivo.length, total: objetivo.length, resultados: [] })
     }
-  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta])
+  }, [canalWASeleccionado, plantillaWA, empleadosConTelefono, etiquetaPeriodo, periodoDesde, periodoHasta, incluirEnlacePdfWA])
 
   const enviarEnLote = useCallback(() => {
-    // Modo individual correo: abrir editor completo
-    if (canalTipo === 'correo' && esIndividualCorreo) {
-      setModalIndividualAbierto(true)
-      return
+    // Default unificado: tanto modo individual como lote mandan directo
+    // con el preview que ya se muestra. El editor avanzado de correo
+    // (ModalEnviarDocumento — CC/CCO/editor rico/adjuntos) se activa
+    // explícitamente con el botón "Personalizar mensaje" abajo del preview.
+    if (canalTipo === 'correo') return enviarCorreoEnLote(undefined, forzarReenvio)
+    return enviarWAEnLote(undefined, forzarReenvio)
+  }, [canalTipo, enviarCorreoEnLote, enviarWAEnLote, forzarReenvio])
+
+  // Reintentar solo los empleados que fallaron en el último envío.
+  // Usa `forzar_reenvio: true` porque los fallos pueden incluir el caso
+  // "ya enviado recientemente" (el guard server-side) — si el operador
+  // explícitamente le da reintentar, está pidiendo bypass.
+  const reintentarFallidos = useCallback(() => {
+    if (!resultadoLote) return
+    // Mapear correos/teléfonos fallidos back a miembro_ids.
+    const fallidos = resultadoLote.resultados.filter(r => !r.ok)
+    const idsFallidos = new Set<string>()
+    for (const f of fallidos) {
+      if (canalTipo === 'correo') {
+        const emp = empleadosConCorreo.find(e => e.correo === f.correo)
+        if (emp) idsFallidos.add(emp.miembro_id)
+      } else {
+        const emp = empleadosConTelefono.find(e => e.telefono === f.telefono)
+        if (emp) idsFallidos.add(emp.miembro_id)
+      }
     }
-    if (canalTipo === 'correo') return enviarCorreoEnLote()
-    return enviarWAEnLote()
-  }, [canalTipo, esIndividualCorreo, enviarCorreoEnLote, enviarWAEnLote])
+    if (idsFallidos.size === 0) return
+    if (canalTipo === 'correo') enviarCorreoEnLote(idsFallidos, true)
+    else enviarWAEnLote(idsFallidos, true)
+  }, [resultadoLote, canalTipo, empleadosConCorreo, empleadosConTelefono, enviarCorreoEnLote, enviarWAEnLote])
 
   // ─── Envío individual correo ───
   const handleEnviarIndividual = useCallback(async (datos: {
@@ -639,7 +738,14 @@ export function ModalEnviarReciboNomina({
       tamano="lg"
       acciones={
         estadoEnvio === 'completado' ? (
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cerrar</Boton>
+          <div className="flex items-center justify-end w-full gap-2">
+            {resultadoLote && resultadoLote.fallidos > 0 && (
+              <Boton variante="secundario" tamano="sm" onClick={reintentarFallidos}>
+                Reintentar {resultadoLote.fallidos} fallido{resultadoLote.fallidos !== 1 ? 's' : ''}
+              </Boton>
+            )}
+            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cerrar</Boton>
+          </div>
         ) : (
           <div className="flex items-center justify-between w-full">
             <p className="text-xs text-texto-terciario">
@@ -744,6 +850,29 @@ export function ModalEnviarReciboNomina({
             </button>
           </div>
 
+          {/* Banner anti-duplicado: hay empleados que ya recibieron el recibo
+              por este canal en este período. Sin el toggle, el server los
+              omite. Con el toggle, los reenvía. */}
+          {empleadosYaEnviados.length > 0 && (
+            <div className="flex items-start gap-2 text-xs rounded-card px-3 py-2.5 bg-insignia-advertencia/10 text-insignia-advertencia">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium">
+                  {empleadosYaEnviados.length} de {empleadosDisponibles.length} empleado{empleadosYaEnviados.length !== 1 ? 's' : ''} ya recibieron su recibo por {canalTipo === 'correo' ? 'correo' : 'WhatsApp'} en este período.
+                </p>
+                <label className="flex items-center gap-2 mt-1.5 cursor-pointer text-texto-terciario hover:text-texto-secundario">
+                  <input
+                    type="checkbox"
+                    checked={forzarReenvio}
+                    onChange={e => setForzarReenvio(e.target.checked)}
+                    className="size-3.5 accent-insignia-advertencia cursor-pointer"
+                  />
+                  <span>Reenviar igual a los que ya recibieron</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* ─── Contenido CORREO ─── */}
           {canalTipo === 'correo' && (
             <div className="space-y-4">
@@ -772,6 +901,20 @@ export function ModalEnviarReciboNomina({
                   className="text-sm bg-superficie-elevada/20 border border-borde-sutil rounded-card px-4 py-3 max-h-[300px] overflow-y-auto prose prose-sm prose-invert"
                 />
               </div>
+
+              {/* Editor avanzado disponible solo para envío individual: para
+                  lote no tiene sentido porque editaría un mensaje base que
+                  se manda a varios. Permite CC/CCO, ajustar asunto y cuerpo,
+                  adjuntar transferencia bancaria, etc. */}
+              {esIndividualCorreo && (
+                <button
+                  type="button"
+                  onClick={() => setModalIndividualAbierto(true)}
+                  className="text-xs text-texto-marca hover:underline cursor-pointer"
+                >
+                  Personalizar mensaje (CC, adjuntos, editar cuerpo)…
+                </button>
+              )}
             </div>
           )}
 
@@ -823,6 +966,21 @@ export function ModalEnviarReciboNomina({
                   onChange={setCanalWASeleccionado}
                 />
               )}
+
+              {/* Toggle: incluir enlace al PDF del recibo. Si está apagado,
+                  el bullet "📎 Ver recibo completo: …" se manda con un
+                  link vacío y la plantilla lo oculta visualmente (slot
+                  invisible). El operador puede preferir solo notificar
+                  sin generar/expirar URLs firmadas. */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-texto-secundario hover:text-texto-primario">
+                <input
+                  type="checkbox"
+                  checked={incluirEnlacePdfWA}
+                  onChange={e => setIncluirEnlacePdfWA(e.target.checked)}
+                  className="size-3.5 accent-[#25D366] cursor-pointer"
+                />
+                <span>Incluir enlace al PDF del recibo</span>
+              </label>
 
               {/* Preview WhatsApp */}
               {previewWA && (

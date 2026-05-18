@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
-  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
+  Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight, Eye,
   ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
   Ban,
 } from 'lucide-react'
@@ -33,6 +33,11 @@ import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
+import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
+import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
+import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
+import { SelectorConceptoCatalogo } from '@/app/(flux)/nominas/_componentes/SelectorConceptoCatalogo'
+import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -58,6 +63,14 @@ export type ClasificacionDiaNomina =
 export interface DiaDetalleNomina {
   fecha: string
   clasificacion: ClasificacionDiaNomina
+  /**
+   * Horas netas trabajadas ese día (descontando almuerzo y salidas
+   * particulares). Solo se completa para días con fichaje real
+   * (`completa`, `media`, `parcial`, `feriado_trabajado`). Días sin
+   * fichaje (`ausente`, `feriado` no trabajado, `no_laboral`) lo
+   * dejan en `null`. Se usa para el tooltip del mini-calendario.
+   */
+  horas_netas?: number | null
 }
 
 /** Concepto aplicado a la liquidación de un miembro en un período. */
@@ -120,6 +133,12 @@ export interface ResultadoNomina {
   total_descuentos_conceptos?: number
   descuento_adelanto: number
   cuotas_adelanto: number
+  /**
+   * Bonos / pagos extra one-off del período (sql/092). SUMAN al neto.
+   * Vienen del mismo `adelantos_nomina` con tipo='bono'.
+   */
+  bonos_periodo?: number
+  cuotas_bonos?: number
   saldo_anterior: number
   monto_neto: number
 }
@@ -305,6 +324,49 @@ export function PaginaEditorNominaEmpleado({
   // Adelantos y pagos del período
   const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
   const [pagos, setPagos] = useState<Record<string, unknown>[]>([])
+  /**
+   * Ajustes puntuales de conceptos para este período (override,
+   * excluir o agregar) — ver sql/095 y `MenuAjusteConcepto`. Se
+   * cargan junto con los datos del período y se re-fetchean cada vez
+   * que el operador toca el menú •••.
+   */
+  type AjustePeriodoUI = {
+    id: string
+    concepto_id: string
+    tipo_ajuste: 'override' | 'excluir' | 'agregar'
+    monto_override: number | null
+    motivo: string | null
+  }
+  const [ajustesPeriodo, setAjustesPeriodo] = useState<AjustePeriodoUI[]>([])
+  /** Toggle del form de "agregar concepto del catálogo" en panel Ajustes. */
+  const [mostrarSelectorConcepto, setMostrarSelectorConcepto] = useState(false)
+  /**
+   * Detalle del recibo recalculado por el motor unificado
+   * (`/api/nominas/calcular`). El endpoint del listado `/api/nominas`
+   * no respeta `ajustes_concepto_periodo` todavía, así que para que
+   * el desglose refleje los overrides/exclusiones/agregados al toque,
+   * pedimos un cálculo dedicado. Si está presente, sobreescribe
+   * `emp.conceptos_aplicados` y `emp.monto_neto`. Incluye también
+   * `conceptos_sugeridos` para mostrar los excluidos manualmente.
+   */
+  type DetalleMotorUI = {
+    conceptos_aplicados: Array<{
+      concepto_id: string
+      nombre: string
+      tipo: 'haber' | 'descuento'
+      monto: number
+      detalle: string | null
+    }>
+    conceptos_sugeridos: Array<{
+      concepto_id: string
+      nombre: string
+      tipo: 'haber' | 'descuento'
+      monto: number
+      detalle: string | null
+    }>
+    neto: number
+  }
+  const [detalleMotor, setDetalleMotor] = useState<DetalleMotorUI | null>(null)
 
   // Último contrato del miembro: si está terminado, mostramos banner
   // persistente arriba del recibo. Se carga al cambiar de empleado.
@@ -319,18 +381,15 @@ export function PaginaEditorNominaEmpleado({
 
   // Confirmación de pago (ahora en ModalAdaptable)
   const [confirmandoPago, setConfirmandoPago] = useState(false)
-  const [montoAPagar, setMontoAPagar] = useState('')
-  const [notasPago, setNotasPago] = useState('')
+  // (Los inputs de monto y notas viven ahora dentro de
+  // `ModalConfirmarPagoNomina`, que también maneja método, fecha,
+  // cuenta destino, referencia y comprobante.)
   const [pagando, setPagando] = useState(false)
 
-  // Adelanto/descuento nuevo
-  const [mostrarFormAdelanto, setMostrarFormAdelanto] = useState(false)
-  const [adelantoTipo, setAdelantoTipo] = useState<'adelanto' | 'descuento'>('adelanto')
-  const [adelantoMonto, setAdelantoMonto] = useState('')
-  const [adelantoCuotas, setAdelantoCuotas] = useState('1')
-  const [adelantoNotas, setAdelantoNotas] = useState('')
-  const [adelantoFecha, setAdelantoFecha] = useState('')
-  const [creandoAdelanto, setCreandoAdelanto] = useState(false)
+  // Modal de nuevo movimiento (adelanto/descuento/bono).
+  // El formulario completo vive en ModalNuevoMovimientoNomina y se reutiliza
+  // también desde el tab "Adelantos" de la ficha del empleado.
+  const [modalNuevoMovimientoAbierto, setModalNuevoMovimientoAbierto] = useState(false)
 
   // Edición de pago
   const [editandoPago, setEditandoPago] = useState<string | null>(null)
@@ -345,6 +404,8 @@ export function PaginaEditorNominaEmpleado({
 
   // Envío de recibo
   const [modalEnvio, setModalEnvio] = useState(false)
+  /** Modal "Ver recibo" — preview del PDF embebido con acciones. */
+  const [modalVerRecibo, setModalVerRecibo] = useState(false)
 
   // Si el usuario pierde el permiso `nomina:editar` en vivo (ej. admin se lo
   // saca), cerramos cualquier formulario de edición abierto para que no pueda
@@ -352,7 +413,7 @@ export function PaginaEditorNominaEmpleado({
   useEffect(() => {
     if (puedeEditarNomina) return
     setCompEditando(false)
-    setMostrarFormAdelanto(false)
+    setModalNuevoMovimientoAbierto(false)
     setEditandoAdelanto(null)
     setEditandoPago(null)
     setConfirmandoPago(false)
@@ -452,6 +513,71 @@ export function PaginaEditorNominaEmpleado({
   }, [datosEmpleado.miembro_id, cargarPagosYAdelantos])
 
   // Recargar datos del período actual tras una acción (pagar, adelanto, etc.)
+  /**
+   * Recarga solo los ajustes puntuales del período desde la API. Se
+   * usa después de crear/eliminar un ajuste para refrescar el
+   * indicador del menú •••. El recálculo del recibo lo dispara aparte
+   * `recargarDatos`.
+   */
+  const recargarAjustes = useCallback(async () => {
+    try {
+      const url = `/api/nominas/ajustes-periodo?miembro_id=${datosEmpleado.miembro_id}&desde=${periodoActual.desde}&hasta=${periodoActual.hasta}`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (res.ok) {
+        setAjustesPeriodo((data.ajustes ?? []).map((a: Record<string, unknown>) => ({
+          id: a.id as string,
+          concepto_id: a.concepto_id as string,
+          tipo_ajuste: a.tipo_ajuste as 'override' | 'excluir' | 'agregar',
+          monto_override: a.monto_override === null ? null : Number(a.monto_override),
+          motivo: (a.motivo as string | null) ?? null,
+        })))
+      }
+    } catch { /* silenciar */ }
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta])
+
+  /**
+   * Llama al motor unificado `/api/nominas/calcular` para obtener el
+   * detalle del recibo con TODOS los ajustes aplicados (overrides,
+   * exclusiones, conceptos agregados). El listado `/api/nominas`
+   * todavía no respeta los ajustes — este endpoint sí. Lo usamos para
+   * sobreescribir `conceptos_aplicados` y `monto_neto` en el desglose.
+   */
+  const recalcularConMotor = useCallback(async () => {
+    try {
+      const res = await fetch('/api/nominas/calcular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          miembro_id: datosEmpleado.miembro_id,
+          periodo_inicio: periodoActual.desde,
+          periodo_fin: periodoActual.hasta,
+        }),
+      })
+      if (!res.ok) { setDetalleMotor(null); return }
+      const data = await res.json()
+      const d = data.detalle as Record<string, unknown> | null
+      if (!d) { setDetalleMotor(null); return }
+      setDetalleMotor({
+        conceptos_aplicados: ((d.conceptos_aplicados as Array<Record<string, unknown>>) ?? []).map(c => ({
+          concepto_id: c.concepto_id as string,
+          nombre: c.nombre as string,
+          tipo: c.tipo as 'haber' | 'descuento',
+          monto: Number(c.monto),
+          detalle: (c.detalle as string | null) ?? null,
+        })),
+        conceptos_sugeridos: ((d.conceptos_sugeridos as Array<Record<string, unknown>>) ?? []).map(c => ({
+          concepto_id: c.concepto_id as string,
+          nombre: c.nombre as string,
+          tipo: c.tipo as 'haber' | 'descuento',
+          monto: Number(c.monto),
+          detalle: (c.detalle as string | null) ?? null,
+        })),
+        neto: Number(d.neto),
+      })
+    } catch { setDetalleMotor(null) }
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta])
+
   const recargarDatos = useCallback(async () => {
     setRecalculando(true)
     try {
@@ -461,8 +587,12 @@ export function PaginaEditorNominaEmpleado({
       if (resultado) setDatosEmpleado(resultado)
     } catch { /* silenciar */ }
     finally { setRecalculando(false) }
-    await cargarPagosYAdelantos(datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta)
-  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta, cargarPagosYAdelantos])
+    await Promise.all([
+      cargarPagosYAdelantos(datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta),
+      recargarAjustes(),
+      recalcularConMotor(),
+    ])
+  }, [datosEmpleado.miembro_id, periodoActual.desde, periodoActual.hasta, cargarPagosYAdelantos, recargarAjustes, recalcularConMotor])
 
   // ─── Navegación entre empleados ───
 
@@ -510,7 +640,7 @@ export function PaginaEditorNominaEmpleado({
         // Reset de estados de UI transitorios
         setCompEditando(false)
         setConfirmandoPago(false)
-        setMostrarFormAdelanto(false)
+        setModalNuevoMovimientoAbierto(false)
         setEditandoPago(null)
         setEditandoAdelanto(null)
         // días_trabajo se recarga automáticamente por el useEffect que observa datosEmpleado.miembro_id
@@ -563,10 +693,22 @@ export function PaginaEditorNominaEmpleado({
   // /api/adelantos/descontar, lo que dejaba los pagos sin snapshot del
   // contrato ni desglose de conceptos.
 
-  const handleConfirmarPago = async () => {
+  /**
+   * Confirma un pago de nómina con los datos completos del nuevo
+   * modal `ModalConfirmarPagoNomina`: método, fecha, cuenta destino,
+   * referencia, comprobante y notas. El monto y los campos vienen
+   * desde el modal, que arma el payload final.
+   */
+  const handleConfirmarPago = async (datos: {
+    monto_abonado: number
+    metodo_pago: 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+    fecha_pago: string
+    referencia: string | null
+    info_bancaria_id: string | null
+    comprobante_url: string | null
+    notas: string | null
+  }) => {
     setPagando(true)
-    const montoReal = parseFloat(montoAPagar) || emp.monto_neto
-
     try {
       const res = await fetch('/api/nominas/pagos', {
         method: 'POST',
@@ -575,9 +717,8 @@ export function PaginaEditorNominaEmpleado({
           miembro_id: datosEmpleado.miembro_id,
           periodo_inicio: periodoActual.desde,
           periodo_fin: periodoActual.hasta,
-          monto_abonado: montoReal,
           concepto: periodoActual.etiqueta,
-          notas: notasPago || null,
+          ...datos,
         }),
       })
       if (!res.ok) {
@@ -591,8 +732,6 @@ export function PaginaEditorNominaEmpleado({
     await recargarDatos()
     setPagando(false)
     setConfirmandoPago(false)
-    setMontoAPagar('')
-    setNotasPago('')
   }
 
   // Editar / eliminar pago — registra auditoría de editor
@@ -650,37 +789,9 @@ export function PaginaEditorNominaEmpleado({
   }
 
   // Crear / editar / cancelar adelantos
-  const handleCrearAdelanto = async () => {
-    const monto = parseFloat(adelantoMonto)
-    if (!monto || monto <= 0) return
-    setCreandoAdelanto(true)
-
-    const frecuencia = compFrecuencia === 'eventual' ? 'mensual' : compFrecuencia
-    // La fecha del campo es la fecha real del adelanto/descuento: define cuándo ocurrió
-    // y desde dónde se descuenta (con 1 cuota cae en ese mismo período).
-    const fechaAdelanto = adelantoFecha || new Date().toISOString().split('T')[0]
-    // Los descuentos puntuales son siempre de 1 cuota (no se entregó dinero al empleado).
-    const cuotasTotales = adelantoTipo === 'descuento' ? 1 : (parseInt(adelantoCuotas) || 1)
-    await fetch('/api/adelantos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        miembro_id: datosEmpleado.miembro_id,
-        tipo: adelantoTipo,
-        monto_total: monto,
-        cuotas_totales: cuotasTotales,
-        fecha_solicitud: fechaAdelanto,
-        fecha_inicio_descuento: fechaAdelanto,
-        frecuencia_descuento: frecuencia,
-        notas: adelantoNotas || null,
-      }),
-    })
-
-    await recargarDatos()
-    setCreandoAdelanto(false)
-    setMostrarFormAdelanto(false)
-    setAdelantoTipo('adelanto'); setAdelantoMonto(''); setAdelantoCuotas('1'); setAdelantoNotas(''); setAdelantoFecha('')
-  }
+  // (la creación vive ahora en ModalNuevoMovimientoNomina, que pega
+  // contra /api/adelantos por sí solo y nos avisa con onCreado para
+  // recargar los datos del período.)
 
   const handleEditarAdelanto = async (id: string) => {
     setGuardandoEditAdelanto(true)
@@ -726,14 +837,14 @@ export function PaginaEditorNominaEmpleado({
       )
       if (!cuotaDelPeriodo) return null
       return {
-        tipo: ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento',
+        tipo: ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento' | 'bono',
         numeroCuota: cuotaDelPeriodo.numero_cuota as number,
         cuotasTotales: a.cuotas_totales as number,
         monto: parseFloat(cuotaDelPeriodo.monto_cuota as string),
         notas: a.notas as string,
         fechaSolicitud: a.fecha_solicitud as string,
       }
-    }).filter(Boolean) as { tipo: 'adelanto' | 'descuento'; numeroCuota: number; cuotasTotales: number; monto: number; notas: string; fechaSolicitud: string }[]
+    }).filter(Boolean) as { tipo: 'adelanto' | 'descuento' | 'bono'; numeroCuota: number; cuotasTotales: number; monto: number; notas: string; fechaSolicitud: string }[]
     // Orden cronológico ascendente: más viejo arriba, más reciente abajo.
     return items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
   }, [adelantos, periodoActual.desde, periodoActual.hasta])
@@ -842,6 +953,13 @@ export function PaginaEditorNominaEmpleado({
     return mapa
   }, [emp.dias_detalle])
 
+  /** Mapa fecha → horas netas trabajadas, para el tooltip del mini-calendario. */
+  const mapaHorasPorDia = useMemo(() => {
+    const mapa: Record<string, number | null | undefined> = {}
+    for (const d of (emp.dias_detalle || [])) mapa[d.fecha] = d.horas_netas
+    return mapa
+  }, [emp.dias_detalle])
+
   /** Metadatos del cabezal de persona (puesto, fecha de ingreso, documento) */
   const metadatosEmpleado = useMemo(() => {
     const items: { id: string; etiqueta: string; valor: string }[] = []
@@ -943,6 +1061,17 @@ export function PaginaEditorNominaEmpleado({
   // como `acciones` de `PlantillaEditor` cuando es pantalla completa, o
   // renderizadas inline arriba del banner cuando es embed.
   const accionesPago = [
+    // "Ver recibo" siempre primero: el usuario puede previsualizar el
+    // PDF antes de enviar o pagar. Incluye Regenerar/Descargar/Enviar/
+    // Pagar como acciones del modal — es el flujo unificado de
+    // liquidación.
+    {
+      id: 'ver-recibo',
+      etiqueta: 'Ver recibo',
+      icono: <Eye size={14} />,
+      variante: 'secundario' as const,
+      onClick: () => setModalVerRecibo(true),
+    },
     ...(puedeEnviarNomina ? [{
       id: 'enviar-recibo',
       etiqueta: 'Enviar recibo',
@@ -955,7 +1084,7 @@ export function PaginaEditorNominaEmpleado({
       etiqueta: 'Registrar pago',
       icono: <Banknote size={14} />,
       variante: 'primario' as const,
-      onClick: () => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) },
+      onClick: () => setConfirmandoPago(true),
     }] : []),
   ]
 
@@ -1052,12 +1181,75 @@ export function PaginaEditorNominaEmpleado({
                   </div>
                 </div>
 
-                {/* Mini-calendario del período */}
+                {/* ─── Horas del período ───
+                    Total + promedio diario. El color del promedio
+                    refleja si está fuera del rango "normal" para
+                    detectar sobreesfuerzo de un vistazo:
+                      ≤ 9h    → texto secundario (normal)
+                      9-11h   → advertencia (largo)
+                      > 11h   → peligro (muy largo, considerar bono)
+                    Solo se muestra si el empleado trabajó al menos un
+                    día en el período (evita "0h promedio: 0h" en
+                    períodos sin actividad). */}
+                {emp.dias_trabajados > 0 && emp.horas_netas > 0 && (
+                  <div className="mb-4 rounded-lg border border-borde-sutil bg-superficie-elevada/40 px-3 py-2.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-texto-terciario mb-1.5">
+                      Horas del período
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-texto-primario tabular-nums leading-tight">
+                          {fmtHoras(emp.horas_netas)}
+                        </p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          Total trabajado
+                        </p>
+                      </div>
+                      <div>
+                        {(() => {
+                          const prom = emp.promedio_horas_diario
+                          const colorPromedio = prom > 11
+                            ? 'text-insignia-peligro'
+                            : prom > 9
+                              ? 'text-insignia-advertencia'
+                              : 'text-texto-primario'
+                          return (
+                            <>
+                              <p className={`text-base font-semibold tabular-nums leading-tight ${colorPromedio}`}>
+                                {fmtHoras(prom)}
+                                {prom > 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    muy alto
+                                  </span>
+                                )}
+                                {prom > 9 && prom <= 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    alto
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[11px] text-texto-terciario mt-0.5">
+                                Promedio diario
+                              </p>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mini-calendario del período: cada celda muestra el
+                    estado del día con color y, al hover, un tooltip con
+                    "DD MMM — Estado · Xh Ym" para detectar de un
+                    vistazo días con jornadas largas y decidir si
+                    corresponde un bono extra. */}
                 {(emp.dias_detalle && emp.dias_detalle.length > 0) && (
                   <CalendarioPeriodoMini
                     desde={periodoActual.desde}
                     hasta={periodoActual.hasta}
                     diasEstado={mapaDiasEstado}
+                    horasPorDia={mapaHorasPorDia}
                     estados={ESTADOS_DIAS_NOMINA}
                   />
                 )}
@@ -1097,23 +1289,36 @@ export function PaginaEditorNominaEmpleado({
                 </TarjetaPanel>
               )}
 
-              {/* ─── DESGLOSE DEL CÁLCULO (recibo) ─── */}
+              {/* ─── DESGLOSE DEL CÁLCULO (recibo) ───
+                  Solo lectura: los ajustes del período (override, excluir,
+                  agregar, +Bono/+Adelanto, +Concepto del catálogo) se hacen
+                  desde la card "Ajustes del período" y desde el menú "···"
+                  de cada concepto. El botón "Registrar pago" del cabezal
+                  cubre el forzado manual del monto a transferir. */}
               <TarjetaPanel
                 titulo="Desglose del cálculo"
                 icono={<TrendingDown size={13} />}
-                accion={emp.compensacion_tipo === 'por_dia' && puedeEditarNomina && (
-                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => { setMontoAPagar(String(emp.monto_neto)); setConfirmandoPago(true) }}>
-                    Ajustar manualmente
-                  </Boton>
-                )}
               >
                 {(() => {
-                  const haberes = emp.conceptos_aplicados?.filter(c => c.tipo === 'haber') ?? []
-                  const descuentosConceptos = emp.conceptos_aplicados?.filter(c => c.tipo === 'descuento') ?? []
+                  // Si tenemos el detalle del motor unificado (con ajustes
+                  // de período aplicados), lo usamos. Sino fallback al
+                  // listado `/api/nominas` que no respeta ajustes.
+                  const conceptosFuente = detalleMotor?.conceptos_aplicados ?? emp.conceptos_aplicados ?? []
+                  const haberes = conceptosFuente.filter(c => c.tipo === 'haber')
+                  const descuentosConceptos = conceptosFuente.filter(c => c.tipo === 'descuento')
+                  const sugeridosMotor = detalleMotor?.conceptos_sugeridos ?? []
+                  // Helper para encontrar el ajuste vigente de un concepto.
+                  const ajusteDe = (conceptoId: string) =>
+                    ajustesPeriodo.find(a => a.concepto_id === conceptoId) ?? null
                   const totalHaberes = emp.total_haberes ?? 0
                   const totalDescuentosConceptos = emp.total_descuentos_conceptos ?? 0
-                  const subtotalHaberes = emp.monto_pagar + totalHaberes
+                  const totalBonos = emp.bonos_periodo ?? 0
+                  // Cuotas del período separadas por signo: las que
+                  // restan (adelanto/descuento) van a la sección
+                  // Descuentos; los bonos van a Haberes.
+                  const cuotasDescuentoPeriodo = cuotasInfoPeriodo.filter(c => c.tipo !== 'bono')
+                  const bonosPeriodo = cuotasInfoPeriodo.filter(c => c.tipo === 'bono')
+                  const subtotalHaberes = emp.monto_pagar + totalHaberes + totalBonos
                   const saldoEnContra = emp.saldo_anterior < 0 ? Math.abs(emp.saldo_anterior) : 0
                   const saldoAFavor = emp.saldo_anterior > 0 ? emp.saldo_anterior : 0
                   const totalDescuentos = totalDescuentosConceptos + emp.descuento_adelanto + saldoAFavor
@@ -1127,7 +1332,7 @@ export function PaginaEditorNominaEmpleado({
                             Haberes
                           </p>
                           <span className="text-[11px] text-texto-terciario">
-                            {1 + haberes.length} {haberes.length === 0 ? 'concepto' : 'conceptos'}
+                            {1 + haberes.length + bonosPeriodo.length} {(1 + haberes.length + bonosPeriodo.length) === 1 ? 'concepto' : 'conceptos'}
                           </span>
                         </header>
 
@@ -1146,17 +1351,57 @@ export function PaginaEditorNominaEmpleado({
                             </span>
                           </div>
 
-                          {/* Conceptos haber */}
-                          {haberes.map(c => (
-                            <div key={c.concepto_id} className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-texto-primario">{c.nombre}</p>
-                                {c.detalle && (
-                                  <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                          {/* Conceptos haber del contrato */}
+                          {haberes.map(c => {
+                            const ajuste = ajusteDe(c.concepto_id)
+                            return (
+                              <div key={c.concepto_id} className="flex items-start justify-between gap-3 group">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                    {c.nombre}
+                                    {ajuste?.tipo_ajuste === 'override' && (
+                                      <Insignia color="info" tamano="sm">Ajustado</Insignia>
+                                    )}
+                                    {ajuste?.tipo_ajuste === 'agregar' && (
+                                      <Insignia color="info" tamano="sm">Solo este período</Insignia>
+                                    )}
+                                  </p>
+                                  {c.detalle && (
+                                    <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                  )}
+                                </div>
+                                <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
+                                  +{fmtMonto(c.monto)}
+                                </span>
+                                {puedeEditarNomina && (
+                                  <MenuAjusteConcepto
+                                    miembroId={datosEmpleado.miembro_id}
+                                    conceptoId={c.concepto_id}
+                                    conceptoNombre={c.nombre}
+                                    periodoInicio={periodoActual.desde}
+                                    periodoFin={periodoActual.hasta}
+                                    montoCalculado={c.monto}
+                                    ajusteActual={ajuste}
+                                    onCambio={recargarDatos}
+                                  />
                                 )}
                               </div>
+                            )
+                          })}
+
+                          {/* Bonos / pagos extra del período */}
+                          {bonosPeriodo.map((b, idx) => (
+                            <div key={`bono-${idx}`} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                  Bono extra
+                                </p>
+                                <p className="text-[11px] text-texto-terciario truncate">
+                                  {b.notas || (b.fechaSolicitud ? fmtFecha(b.fechaSolicitud) : '')}
+                                </p>
+                              </div>
                               <span className="text-sm tabular-nums text-insignia-exito font-medium shrink-0">
-                                +{fmtMonto(c.monto)}
+                                +{fmtMonto(b.monto)}
                               </span>
                             </div>
                           ))}
@@ -1193,25 +1438,48 @@ export function PaginaEditorNominaEmpleado({
                               Descuentos
                             </p>
                             <span className="text-[11px] text-texto-terciario">
-                              {descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)} {(descuentosConceptos.length + cuotasInfoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)) === 1 ? 'concepto' : 'conceptos'}
+                              {descuentosConceptos.length + cuotasDescuentoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)} {(descuentosConceptos.length + cuotasDescuentoPeriodo.length + (saldoAFavor > 0 ? 1 : 0)) === 1 ? 'concepto' : 'conceptos'}
                             </span>
                           </header>
 
                           <div className="space-y-2">
                             {/* Conceptos descuento del contrato */}
-                            {descuentosConceptos.map(c => (
-                              <div key={c.concepto_id} className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm text-texto-primario">{c.nombre}</p>
-                                  {c.detalle && (
-                                    <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                            {descuentosConceptos.map(c => {
+                              const ajuste = ajusteDe(c.concepto_id)
+                              return (
+                                <div key={c.concepto_id} className="flex items-start justify-between gap-3 group">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-texto-primario flex items-center gap-1.5">
+                                      {c.nombre}
+                                      {ajuste?.tipo_ajuste === 'override' && (
+                                        <Insignia color="info" tamano="sm">Ajustado</Insignia>
+                                      )}
+                                      {ajuste?.tipo_ajuste === 'agregar' && (
+                                        <Insignia color="info" tamano="sm">Solo este período</Insignia>
+                                      )}
+                                    </p>
+                                    {c.detalle && (
+                                      <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
+                                    −{fmtMonto(c.monto)}
+                                  </span>
+                                  {puedeEditarNomina && (
+                                    <MenuAjusteConcepto
+                                      miembroId={datosEmpleado.miembro_id}
+                                      conceptoId={c.concepto_id}
+                                      conceptoNombre={c.nombre}
+                                      periodoInicio={periodoActual.desde}
+                                      periodoFin={periodoActual.hasta}
+                                      montoCalculado={c.monto}
+                                      ajusteActual={ajuste}
+                                      onCambio={recargarDatos}
+                                    />
                                   )}
                                 </div>
-                                <span className="text-sm tabular-nums text-insignia-advertencia font-medium shrink-0">
-                                  −{fmtMonto(c.monto)}
-                                </span>
-                              </div>
-                            ))}
+                              )
+                            })}
 
                             {/* Saldo a favor del período anterior (se descuenta del bruto) */}
                             {saldoAFavor > 0 && (
@@ -1226,8 +1494,9 @@ export function PaginaEditorNominaEmpleado({
                               </div>
                             )}
 
-                            {/* Adelantos y descuentos manuales del período */}
-                            {cuotasInfoPeriodo.map((c, idx) => (
+                            {/* Adelantos y descuentos puntuales del período (los bonos
+                                ya se mostraron arriba como haberes). */}
+                            {cuotasDescuentoPeriodo.map((c, idx) => (
                               <div key={`cuota-${idx}`} className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm text-texto-primario flex items-center gap-1.5">
@@ -1254,6 +1523,59 @@ export function PaginaEditorNominaEmpleado({
                             <span className="text-sm font-semibold tabular-nums text-insignia-advertencia">
                               −{fmtMonto(totalDescuentos)}
                             </span>
+                          </div>
+                        </section>
+                      )}
+
+                      {/* ───── NO APLICADOS / SUGERIDOS ─────
+                          Conceptos del contrato que el motor evaluó pero
+                          no aplicó: el operador los excluyó manualmente,
+                          no cumplieron la condición (ej. presentismo
+                          con ausencias), o son conceptos manuales sin
+                          haber sido agregados. El operador puede
+                          restaurar los excluidos desde el menú •••. */}
+                      {sugeridosMotor.length > 0 && (
+                        <section className="py-4 border-t border-dashed border-white/[0.08]">
+                          <header className="flex items-center justify-between mb-3">
+                            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+                              No aplicados este período
+                            </p>
+                            <span className="text-[11px] text-texto-terciario">
+                              {sugeridosMotor.length}
+                            </span>
+                          </header>
+                          <div className="space-y-2">
+                            {sugeridosMotor.map(c => {
+                              const ajuste = ajusteDe(c.concepto_id)
+                              const esExcluido = ajuste?.tipo_ajuste === 'excluir'
+                              return (
+                                <div key={c.concepto_id} className="flex items-start justify-between gap-3 opacity-70">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm text-texto-secundario flex items-center gap-1.5">
+                                      <span className="line-through">{c.nombre}</span>
+                                      {esExcluido && (
+                                        <Insignia color="advertencia" tamano="sm">Excluido</Insignia>
+                                      )}
+                                    </p>
+                                    {c.detalle && (
+                                      <p className="text-[11px] text-texto-terciario truncate">{c.detalle}</p>
+                                    )}
+                                  </div>
+                                  {puedeEditarNomina && esExcluido && (
+                                    <MenuAjusteConcepto
+                                      miembroId={datosEmpleado.miembro_id}
+                                      conceptoId={c.concepto_id}
+                                      conceptoNombre={c.nombre}
+                                      periodoInicio={periodoActual.desde}
+                                      periodoFin={periodoActual.hasta}
+                                      montoCalculado={0}
+                                      ajusteActual={ajuste}
+                                      onCambio={recargarDatos}
+                                    />
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                         </section>
                       )}
@@ -1417,23 +1739,38 @@ export function PaginaEditorNominaEmpleado({
                 )}
               </TarjetaPanel>
 
-              {/* ─── ADELANTOS DEL PERÍODO ─── */}
+              {/* ─── AJUSTES DEL PERÍODO ───
+                  Movimientos one-off del recibo que no son parte del
+                  contrato (ese vive aparte): adelantos a descontar en
+                  cuotas, descuentos puntuales (multas, daños), y
+                  bonos / pagos extra. La tabla en BD se llama
+                  `adelantos_nomina` (legado), pero la UX los muestra
+                  agrupados como "ajustes del período" para reflejar
+                  cómo lo manejan las empresas reales. */}
               <TarjetaPanel
-                titulo="Adelantos del período"
+                titulo="Ajustes del período"
                 icono={<TrendingDown size={13} />}
-                accion={!mostrarFormAdelanto ? (
+                accion={!mostrarSelectorConcepto ? (
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
                         {[
-                          adelantos.length > 0 ? `${adelantos.length} adelanto${adelantos.length === 1 ? '' : 's'}` : null,
-                          emp.saldo_anterior !== 0 ? '1 ajuste' : null,
+                          adelantos.length > 0 ? `${adelantos.length} ajuste${adelantos.length === 1 ? '' : 's'}` : null,
+                          emp.saldo_anterior !== 0 ? '1 saldo previo' : null,
                         ].filter(Boolean).join(' · ')}
                       </span>
                     )}
                     {puedeEditarNomina && (
-                      <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                        onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
+                      <>
+                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                          onClick={() => setModalNuevoMovimientoAbierto(true)}>
+                          Bono / Adelanto
+                        </Boton>
+                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                          onClick={() => setMostrarSelectorConcepto(true)}>
+                          Concepto del catálogo
+                        </Boton>
+                      </>
                     )}
                   </div>
                 ) : undefined}
@@ -1464,15 +1801,16 @@ export function PaginaEditorNominaEmpleado({
                   </div>
                 )}
 
-                {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
-                  <p className="text-xs text-texto-terciario py-3 text-center">Sin descuentos en este período</p>
+                {adelantos.length === 0 && emp.saldo_anterior === 0 && (
+                  <p className="text-xs text-texto-terciario py-3 text-center">Sin ajustes en este período</p>
                 )}
 
                 <div className="space-y-2">
                   {adelantosOrdenados.map(a => {
                     const aid = a.id as string
-                    const tipoItem = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento'
+                    const tipoItem = ((a.tipo as string) || 'adelanto') as 'adelanto' | 'descuento' | 'bono'
                     const esDescuento = tipoItem === 'descuento'
+                    const esBono = tipoItem === 'bono'
                     const cuotasT = a.cuotas_totales as number
                     const cuotasD = a.cuotas_descontadas as number
                     const saldo = parseFloat(a.saldo_pendiente as string)
@@ -1517,20 +1855,35 @@ export function PaginaEditorNominaEmpleado({
                       )
                     }
 
+                    // Color del icono y título por defecto según tipo:
+                    //   descuento → peligro (rojo, resta)
+                    //   bono      → éxito  (verde, suma)
+                    //   adelanto  → advertencia (naranja, resta en cuotas)
+                    const claseIcono = esDescuento ? 'text-insignia-peligro'
+                      : esBono ? 'text-insignia-exito'
+                      : 'text-insignia-advertencia'
+                    const tituloPorDefecto = esBono ? `Bono ${fmtMonto(total)}`
+                      : esDescuento ? `Descuento ${fmtMonto(total)}`
+                      : `Adelanto ${fmtMonto(total)}`
+                    // Signo en el monto: bono SUMA al neto (+), el resto resta (−).
+                    const signo = esBono ? '+' : '-'
+
                     return (
                       <div key={aid} className="flex items-start gap-3 py-2.5 px-3 rounded-card border border-white/[0.05] hover:border-white/[0.1] transition-colors">
-                        <Receipt size={14} className={`shrink-0 mt-0.5 ${esDescuento ? 'text-insignia-peligro' : 'text-insignia-advertencia'}`} />
+                        <Receipt size={14} className={`shrink-0 mt-0.5 ${claseIcono}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <p className="text-sm font-medium text-texto-primario truncate">
-                              {(a.notas as string) || (esDescuento ? `Descuento ${fmtMonto(total)}` : `Adelanto ${fmtMonto(total)}`)}
+                              {(a.notas as string) || tituloPorDefecto}
                             </p>
-                            <span className="text-sm font-semibold text-texto-primario tabular-nums">
-                              -{fmtMonto(montoCuotaPeriodo || total)}
+                            <span className={`text-sm font-semibold tabular-nums ${esBono ? 'text-insignia-exito' : 'text-texto-primario'}`}>
+                              {signo}{fmtMonto(montoCuotaPeriodo || total)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {esDescuento ? (
+                            {esBono ? (
+                              <Insignia color="exito" tamano="sm">Bono</Insignia>
+                            ) : esDescuento ? (
                               <Insignia color="peligro" tamano="sm">Descuento</Insignia>
                             ) : numeroCuotaPeriodo ? (
                               <Insignia color="advertencia" tamano="sm">
@@ -1589,67 +1942,29 @@ export function PaginaEditorNominaEmpleado({
                   })}
                 </div>
 
-                {/* Formulario nuevo adelanto/descuento */}
-                {mostrarFormAdelanto && (
-                  <div className="space-y-2 p-3 rounded-card border border-white/[0.07] bg-white/[0.02] mt-2">
-                    {/* Toggle tipo: adelanto (dinero entregado) vs descuento (multa/daño/falta) */}
-                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-card bg-superficie-elevada border border-borde-sutil">
-                      <button
-                        type="button"
-                        onClick={() => setAdelantoTipo('adelanto')}
-                        className={`text-xs py-1.5 rounded transition-colors ${
-                          adelantoTipo === 'adelanto'
-                            ? 'bg-texto-marca/15 text-texto-marca font-medium'
-                            : 'text-texto-terciario hover:text-texto-secundario'
-                        }`}
-                      >
-                        Adelanto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAdelantoTipo('descuento')}
-                        className={`text-xs py-1.5 rounded transition-colors ${
-                          adelantoTipo === 'descuento'
-                            ? 'bg-insignia-peligro/15 text-insignia-peligro font-medium'
-                            : 'text-texto-terciario hover:text-texto-secundario'
-                        }`}
-                      >
-                        Descuento
-                      </button>
-                    </div>
-                    <InputMoneda value={adelantoMonto} onChange={setAdelantoMonto} moneda="ARS" placeholder="Monto" />
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Las cuotas solo aplican a adelantos. Descuentos siempre son 1 cuota. */}
-                      {adelantoTipo === 'adelanto' ? (
-                        <select value={adelantoCuotas} onChange={e => setAdelantoCuotas(e.target.value)}
-                          className="w-full text-xs bg-superficie-elevada border border-borde-sutil rounded-card px-2 py-1.5 text-texto-primario">
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                            <option key={n} value={n}>{n} cuota{n !== 1 ? 's' : ''}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-[11px] text-texto-terciario flex items-center px-2 py-1.5 rounded-card bg-superficie-elevada/50 border border-borde-sutil">
-                          Único · 1 cuota
-                        </div>
-                      )}
-                      <SelectorFecha
-                        valor={adelantoFecha || null}
-                        onChange={v => setAdelantoFecha(v || '')}
-                        placeholder={adelantoTipo === 'adelanto' ? 'Fecha del adelanto' : 'Fecha del descuento'}
-                      />
-                    </div>
-                    <Input
-                      tipo="text"
-                      value={adelantoNotas}
-                      onChange={e => setAdelantoNotas(e.target.value)}
-                      placeholder={adelantoTipo === 'adelanto' ? 'Nota (opcional)' : 'Motivo del descuento'}
-                    />
-                    <div className="flex gap-2">
-                      <Boton tamano="xs" onClick={handleCrearAdelanto} cargando={creandoAdelanto}
-                        disabled={!adelantoMonto || parseFloat(adelantoMonto) <= 0}>Registrar</Boton>
-                      <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarFormAdelanto(false)}>Cancelar</Boton>
-                    </div>
-                  </div>
+                {/* Formulario nuevo adelanto/descuento/bono — vive en
+                    ModalNuevoMovimientoNomina (renderizado al pie del
+                    componente, junto a los demás modales). */}
+
+                {/* Form alternativo: agregar concepto del catálogo solo a
+                    este período. Crea un ajuste tipo 'agregar' que el
+                    motor aplica al recalcular. */}
+                {mostrarSelectorConcepto && (
+                  <SelectorConceptoCatalogo
+                    miembroId={datosEmpleado.miembro_id}
+                    periodoInicio={periodoActual.desde}
+                    periodoFin={periodoActual.hasta}
+                    conceptosEnContratoIds={new Set([
+                      ...(emp.conceptos_aplicados ?? []).map(c => c.concepto_id),
+                      ...(detalleMotor?.conceptos_aplicados ?? []).map(c => c.concepto_id),
+                      ...(detalleMotor?.conceptos_sugeridos ?? []).map(c => c.concepto_id),
+                    ])}
+                    onCancelar={() => setMostrarSelectorConcepto(false)}
+                    onGuardado={async () => {
+                      setMostrarSelectorConcepto(false)
+                      await recargarDatos()
+                    }}
+                  />
                 )}
               </TarjetaPanel>
 
@@ -1678,7 +1993,7 @@ export function PaginaEditorNominaEmpleado({
                     </p>
                     {emp.monto_neto < 0 && puedeEditarNomina && (
                       <Boton variante="secundario" tamano="sm" className="mt-3"
-                        onClick={() => { setMontoAPagar('0'); setConfirmandoPago(true) }}>
+                        onClick={() => setConfirmandoPago(true)}>
                         Cerrar sin pago
                       </Boton>
                     )}
@@ -1754,21 +2069,109 @@ export function PaginaEditorNominaEmpleado({
     <>
       {embed ? (
         // ─── Modo embed: dentro de la ficha del empleado ───
-        // El header de la ficha (foto + nombre + sector·turno·modalidad
-        // + tabs) ya identifica al empleado. Acá solo mostramos las
-        // acciones de pago, el banner del período (selector con hero) y
-        // el contenido principal — sin envolver con PlantillaEditor.
+        // Cabezal en dos columnas dentro de la misma franja:
+        //   IZQUIERDA: acciones primarias del período (Ver/Enviar/Pagar).
+        //   DERECHA:   hero del período (1 — 15 MAYO · estado) + cluster
+        //              de controles (‹ Hoy › y Mes/Quincena/Semana)
+        //              alineados a la derecha y agrupados verticalmente.
+        // Así toda la información del período "convive" como un solo
+        // bloque coherente en vez de fragmentarse en filas separadas.
         <div className="px-4 md:px-6 py-4 space-y-5">
-          {accionesPago.length > 0 && (
-            <div className="flex items-center justify-end gap-2">
-              {accionesPago.map(a => (
-                <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
-                  {a.etiqueta}
-                </Boton>
-              ))}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            {/* ── Acciones primarias (izquierda) ── */}
+            {accionesPago.length > 0 ? (
+              <GrupoBotones>
+                {accionesPago.map(a => (
+                  <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
+                    {a.etiqueta}
+                  </Boton>
+                ))}
+              </GrupoBotones>
+            ) : <span />}
+
+            {/* ── Cluster período (derecha): hero + navegación + selector ── */}
+            <div className="flex flex-col items-stretch md:items-end gap-2.5">
+              <HeroRango
+                desde={desdeDate}
+                hasta={hastaDate}
+                periodo={tipoPeriodo}
+                subtitulo={
+                  <span className="flex items-center justify-end gap-2 flex-wrap">
+                    <span>
+                      {hastaDate.getFullYear()}
+                      {tipoPeriodo === 'quincena' && <> · Quincena {desdeDate.getDate() <= 15 ? 1 : 2}</>}
+                      {tipoPeriodo === 'semana' && <> · Semana</>}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 font-semibold ${
+                        bannerEstado.tono === 'exito'
+                          ? 'text-insignia-exito'
+                          : bannerEstado.tono === 'advertencia'
+                            ? 'text-insignia-advertencia'
+                            : bannerEstado.tono === 'peligro'
+                              ? 'text-insignia-peligro'
+                              : 'text-texto-terciario'
+                      }`}
+                    >
+                      <span className="size-1.5 rounded-full bg-current" />
+                      {bannerEstado.etiqueta}
+                    </span>
+                  </span>
+                }
+              />
+
+              {/* Toolbar de controles: navegador ‹ Hoy › y selector de tipo
+                  de período, juntos en una sola fila para que el cluster
+                  quede compacto. */}
+              <div className="flex items-center justify-end gap-2 flex-wrap">
+                <GrupoBotones>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
+                    title="Período anterior"
+                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(new Date(), tipoPeriodo)}
+                    disabled={enPeriodoActual}
+                    title="Volver al período actual"
+                    className={`h-8 px-3 rounded-boton border text-sm font-medium transition-colors ${
+                      enPeriodoActual
+                        ? 'border-borde-sutil text-texto-terciario/50 cursor-default'
+                        : 'border-texto-marca/40 text-texto-marca hover:bg-texto-marca/10'
+                    }`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
+                    title="Período siguiente"
+                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </GrupoBotones>
+
+                <GrupoBotones>
+                  {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
+                    <Boton
+                      key={t}
+                      variante="secundario"
+                      tamano="sm"
+                      onClick={() => aplicarPeriodo(fechaRef, t)}
+                      className={tipoPeriodo === t ? 'bg-superficie-hover text-texto-primario font-semibold' : 'text-texto-terciario'}
+                    >
+                      {t === 'semana' ? 'Semana' : t === 'quincena' ? 'Quincena' : 'Mes'}
+                    </Boton>
+                  ))}
+                </GrupoBotones>
+              </div>
             </div>
-          )}
-          {banner}
+          </div>
           {contenidoPrincipal}
         </div>
       ) : (
@@ -1785,57 +2188,17 @@ export function PaginaEditorNominaEmpleado({
         </PlantillaEditor>
       )}
 
-      {/* Modal de confirmación de pago */}
-      <Modal
+      {/* Modal de confirmación de pago: método, fecha, cuenta
+          destino, referencia, comprobante y notas. */}
+      <ModalConfirmarPagoNomina
         abierto={confirmandoPago}
         onCerrar={() => { if (!pagando) setConfirmandoPago(false) }}
-        titulo="Confirmar pago"
-        tamano="md"
-        acciones={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Boton variante="fantasma" tamano="sm" onClick={() => setConfirmandoPago(false)} disabled={pagando}>Cancelar</Boton>
-            <Boton tamano="sm" icono={<Check size={14} />} onClick={handleConfirmarPago} cargando={pagando}
-              disabled={!montoAPagar || parseFloat(montoAPagar) <= 0}>
-              Confirmar pago de {montoAPagar ? fmtMonto(parseFloat(montoAPagar)) : '...'}
-            </Boton>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-texto-terciario">Neto sugerido</span>
-            <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_neto)}</span>
-          </div>
-          {emp.descuento_adelanto > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-texto-terciario">Incluye descuento adelanto</span>
-              <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
-            </div>
-          )}
-          <InputMoneda
-            etiqueta="Monto a pagar"
-            value={montoAPagar}
-            onChange={setMontoAPagar}
-            moneda="ARS"
-          />
-          {parseFloat(montoAPagar) !== emp.monto_neto && parseFloat(montoAPagar) > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-texto-terciario">Diferencia</span>
-              <span className={parseFloat(montoAPagar) > emp.monto_neto ? 'text-insignia-exito' : 'text-insignia-peligro'}>
-                {parseFloat(montoAPagar) > emp.monto_neto ? '+' : ''}{fmtMonto(parseFloat(montoAPagar) - emp.monto_neto)}
-                {parseFloat(montoAPagar) > emp.monto_neto ? ' (a favor del empleado)' : ' (queda debiendo)'}
-              </span>
-            </div>
-          )}
-          <Input
-            tipo="text"
-            etiqueta="Notas (opcional)"
-            value={notasPago}
-            onChange={e => setNotasPago(e.target.value)}
-            placeholder="Observaciones del pago..."
-          />
-        </div>
-      </Modal>
+        miembroId={datosEmpleado.miembro_id}
+        netoSugerido={emp.monto_neto}
+        descuentoAdelanto={emp.descuento_adelanto}
+        confirmando={pagando}
+        onConfirmar={handleConfirmarPago}
+      />
 
       {/* Modal de envío de recibo */}
       <ModalEnviarReciboNomina
@@ -1846,6 +2209,39 @@ export function PaginaEditorNominaEmpleado({
         periodoDesde={periodoActual.desde}
         periodoHasta={periodoActual.hasta}
         nombreEmpresa={nombreEmpresa}
+      />
+
+      {/* Modal "Nuevo movimiento" — adelanto/descuento/bono one-off.
+          Mismo componente que el tab "Adelantos" de la ficha, así un
+          solo flujo guía la creación en cualquiera de los dos lugares.
+          fechaInicial = inicio del período abierto para que la cuota
+          caiga adentro sin que el operador tenga que ajustarla. */}
+      <ModalNuevoMovimientoNomina
+        abierto={modalNuevoMovimientoAbierto}
+        onCerrar={() => setModalNuevoMovimientoAbierto(false)}
+        miembroId={datosEmpleado.miembro_id}
+        fechaInicial={periodoActual.desde}
+        onCreado={recargarDatos}
+      />
+
+      {/* Modal "Ver recibo" — preview del PDF + acciones unificadas.
+          Si ya hay pago grabado del período, usa el PDF definitivo;
+          sino genera un borrador con los datos calculados en vivo. */}
+      <ModalVerRecibo
+        abierto={modalVerRecibo}
+        onCerrar={() => setModalVerRecibo(false)}
+        miembroId={datosEmpleado.miembro_id}
+        periodoInicio={periodoActual.desde}
+        periodoFin={periodoActual.hasta}
+        pagoId={(pagoDelPeriodo?.id as string) ?? null}
+        onEnviar={() => {
+          setModalVerRecibo(false)
+          if (puedeEnviarNomina) setModalEnvio(true)
+        }}
+        onRegistrarPago={puedeEditarNomina ? () => {
+          setModalVerRecibo(false)
+          setConfirmandoPago(true)
+        } : undefined}
       />
     </>
   )

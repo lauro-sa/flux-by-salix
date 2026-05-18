@@ -18,10 +18,11 @@
  * uno desde la primera tab.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase } from 'lucide-react'
+import { ArrowLeft, Loader2, Banknote, History, FileText, Wallet, Tag, CalendarOff, Building2, Clock, Briefcase, CreditCard } from 'lucide-react'
 import { GuardPagina } from '@/componentes/entidad/GuardPagina'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -35,12 +36,14 @@ import { EditorContrato } from '@/app/(flux)/nominas/_componentes/EditorContrato
 import { ModalEditarContrato } from '@/app/(flux)/nominas/_componentes/ModalEditarContrato'
 import { AsignadorConceptosContrato } from '@/app/(flux)/nominas/_componentes/AsignadorConceptosContrato'
 import { SeccionLicencias } from '@/app/(flux)/nominas/_componentes/SeccionLicencias'
+import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
+import { SeccionAdelantosEmpleado } from '@/app/(flux)/nominas/_componentes/SeccionAdelantosEmpleado'
 import {
   PaginaEditorNominaEmpleado,
   type ResultadoNomina,
   type EmpleadoLista,
 } from '@/componentes/entidad/_editor_nomina_empleado/PaginaEditorNominaEmpleado'
-import type { ContratoLaboral, ConceptoNomina } from '@/tipos/nominas'
+import type { ContratoLaboral, ConceptoNomina, ConceptoContratoConDetalle } from '@/tipos/nominas'
 
 // ────────────────────────────────────────────────────────────────
 // Helpers de período (mantenidos del archivo original)
@@ -55,6 +58,44 @@ function periodoMesActual(): { desde: string; hasta: string } {
     desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
     hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`,
   }
+}
+
+/** Quincena actual según la fecha de hoy: 1-15 o 16-fin de mes. */
+function periodoQuincenaActual(): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const mes = hoy.getMonth()
+  const anio = hoy.getFullYear()
+  const dia = hoy.getDate()
+  const mm = String(mes + 1).padStart(2, '0')
+  if (dia <= 15) return { desde: `${anio}-${mm}-01`, hasta: `${anio}-${mm}-15` }
+  const ultimo = new Date(anio, mes + 1, 0).getDate()
+  return { desde: `${anio}-${mm}-16`, hasta: `${anio}-${mm}-${String(ultimo).padStart(2, '0')}` }
+}
+
+/** Semana actual lunes-domingo según la fecha de hoy. */
+function periodoSemanaActual(): { desde: string; hasta: string } {
+  const hoy = new Date()
+  const diaSemana = hoy.getDay() // 0 = dom, 1 = lun, ...
+  const lunes = new Date(hoy)
+  lunes.setDate(hoy.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1))
+  const domingo = new Date(lunes)
+  domingo.setDate(lunes.getDate() + 6)
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { desde: fmt(lunes), hasta: fmt(domingo) }
+}
+
+/**
+ * Período inicial sugerido según la frecuencia de pago del contrato:
+ *   - 'semanal'   → semana actual (lun-dom).
+ *   - 'quincenal' → quincena actual (1-15 o 16-fin).
+ *   - 'mensual' u otra → mes calendario actual.
+ * Cuando el empleado se liquida quincenal, abrir directo en mes
+ * confunde y obliga a hacer un click extra. Esto respeta su contrato.
+ */
+function periodoPorFrecuencia(frecuencia?: string): { desde: string; hasta: string } {
+  if (frecuencia === 'semanal' || frecuencia === 'diaria') return periodoSemanaActual()
+  if (frecuencia === 'quincenal') return periodoQuincenaActual()
+  return periodoMesActual()
 }
 
 function etiquetaPeriodo(desde: string, hasta: string): string {
@@ -88,7 +129,7 @@ export default function PaginaFichaLaboral() {
 // Tipos auxiliares
 // ────────────────────────────────────────────────────────────────
 
-type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos'
+type TabClave = 'contrato' | 'historial' | 'liquidaciones' | 'adelantos' | 'licencias' | 'conceptos' | 'cuentas'
 
 interface PerfilMini {
   nombre: string
@@ -114,6 +155,7 @@ function ContenidoFicha() {
   const searchParams = useSearchParams()
   const miembroId = String(params?.miembro_id || '')
   const toast = useToast()
+  const nav = useNavegacion()
 
   // ─── ver_propio: redirect si está mirando una ficha que no es la suya ───
   useEffect(() => {
@@ -130,6 +172,7 @@ function ContenidoFicha() {
     { clave: 'adelantos',     etiqueta: 'Adelantos',        icono: <Wallet size={15} /> },
     { clave: 'licencias',     etiqueta: 'Licencias',        icono: <CalendarOff size={15} /> },
     { clave: 'conceptos',     etiqueta: 'Conceptos',        icono: <Tag size={15} /> },
+    { clave: 'cuentas',       etiqueta: 'Cuentas',          icono: <CreditCard size={15} /> },
   ]
   const [tab, setTab] = useState<TabClave>(
     TABS.some(t => t.clave === tabUrl) ? tabUrl! : 'contrato',
@@ -158,8 +201,21 @@ function ContenidoFicha() {
   const [sectores, setSectores] = useState<SectorOpcion[]>([])
   const [turnos, setTurnos] = useState<OpcionRef[]>([])
   const [conceptosCatalogo, setConceptosCatalogo] = useState<ConceptoNomina[]>([])
-  const [conceptosHeredados, setConceptosHeredados] = useState<string[]>([])
-  const [cargando, setCargando] = useState(true)
+  /**
+   * Asignaciones completas del contrato vigente (vigentes + cerradas).
+   * Las vigentes son las que tienen `fecha_baja === null`. Se usan
+   * para mostrar la lista en "Contrato vigente" y derivar
+   * `conceptosHeredados` (preselección al renovar).
+   */
+  const [conceptosAsignados, setConceptosAsignados] = useState<ConceptoContratoConDetalle[]>([])
+  /**
+   * `primeraCarga` controla si se muestra el spinner full-screen
+   * (que reemplaza header + tabs). Solo se muestra en la primera
+   * carga; las recargas posteriores (refrescar contratos al renovar,
+   * por ejemplo) no tocan este flag para que el header y las tabs
+   * permanezcan visibles, evitando la sensación de remontaje.
+   */
+  const [primeraCarga, setPrimeraCarga] = useState(true)
   const [editorAbierto, setEditorAbierto] = useState(false)
   /**
    * Cuando es true, el EditorContrato se abre en modo "Cambiar
@@ -170,9 +226,20 @@ function ContenidoFicha() {
   const [editorModoCambio, setEditorModoCambio] = useState(false)
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false)
 
+  /**
+   * Ref al `toast` para usarlo dentro de `cargarTodo` sin meterlo
+   * en sus dependencias. El value del context de Toast no está
+   * memoizado y cambia de referencia cada vez que el provider
+   * re-renderiza (por ejemplo, al aparecer/desaparecer cualquier
+   * toast en la app), lo que recreaba `cargarTodo` y disparaba
+   * un re-fetch espontáneo que reemplazaba toda la página por el
+   * spinner — borrando el header y las tabs visualmente.
+   */
+  const toastRef = useRef(toast)
+  useEffect(() => { toastRef.current = toast }, [toast])
+
   const cargarTodo = useCallback(async () => {
     if (!miembroId) return
-    setCargando(true)
     try {
       const supabase = crearClienteNavegador()
 
@@ -215,33 +282,54 @@ function ContenidoFicha() {
       setTurnos((turnosRes.data ?? []) as OpcionRef[])
       setConceptosCatalogo((conceptosRes.conceptos ?? []) as ConceptoNomina[])
 
-      // Cargar conceptos heredados del contrato vigente (si existe)
-      // para preseleccionarlos en el EditorContrato.
+      // Cargar las asignaciones del contrato vigente (si existe). Se
+      // usan para mostrar la lista en "Contrato vigente" y para
+      // preseleccionar conceptos al renovar/cambiar condiciones.
       const vigente = contratosLista.find(c => c.vigente)
       if (vigente) {
         try {
           const conceptosVigenteRes = await fetch(`/api/nominas/contratos/${vigente.id}/conceptos`)
           const conceptosVigenteData = await conceptosVigenteRes.json()
-          const asig = (conceptosVigenteData.asignaciones ?? []) as { concepto_id: string; activo: boolean }[]
-          setConceptosHeredados(asig.filter(a => a.activo).map(a => a.concepto_id))
+          setConceptosAsignados((conceptosVigenteData.asignaciones ?? []) as ConceptoContratoConDetalle[])
         } catch {
-          setConceptosHeredados([])
+          setConceptosAsignados([])
         }
       } else {
-        setConceptosHeredados([])
+        setConceptosAsignados([])
       }
     } catch (err) {
       console.error('[ficha] error', err)
-      toast.mostrar('error', 'No se pudo cargar la ficha laboral')
+      toastRef.current.mostrar('error', 'No se pudo cargar la ficha laboral')
     } finally {
-      setCargando(false)
+      setPrimeraCarga(false)
     }
-  }, [miembroId, toast])
+  }, [miembroId])
 
   useEffect(() => { cargarTodo() }, [cargarTodo])
 
+  // Reemplaza la migaja "Detalle" (UUID) por el nombre del empleado en el breadcrumb
+  useEffect(() => {
+    if (!perfil) return
+    const nombreCompleto = `${perfil.nombre} ${perfil.apellido}`.trim()
+    if (nombreCompleto) nav.setMigajaDinamica(`/nominas/empleado/${miembroId}`, nombreCompleto)
+  }, [perfil, miembroId, nav])
+
   const sectoresMap = useMemo(() => new Map(sectores.map(s => [s.id, s.nombre])), [sectores])
   const turnosMap = useMemo(() => new Map(turnos.map(t => [t.id, t.nombre])), [turnos])
+  /**
+   * IDs de conceptos vigentes hoy (para preselección al renovar el
+   * contrato). Derivado de `conceptosAsignados`: filas con
+   * `fecha_baja === null` son las activas.
+   */
+  const conceptosHeredados = useMemo(
+    () => conceptosAsignados.filter(a => a.fecha_baja === null).map(a => a.concepto_id),
+    [conceptosAsignados],
+  )
+  /** Asignaciones vigentes hoy (las que se muestran en Contrato vigente). */
+  const conceptosVigentes = useMemo(
+    () => conceptosAsignados.filter(a => a.fecha_baja === null),
+    [conceptosAsignados],
+  )
   /**
    * Mapa sector_id → turno_id del turno predeterminado del sector.
    * Sirve para resolver el "turno efectivo" del contrato: si el contrato
@@ -300,7 +388,11 @@ function ContenidoFicha() {
   const turnoEfectivo = resolverTurnoEfectivo(contratoMostrado)
   const turnoMostrado = turnoEfectivo?.nombre ?? null
 
-  if (cargando) {
+  // Spinner full-screen SOLO en la primera carga (cuando aún no
+  // tenemos datos del perfil). Las recargas posteriores (renovar
+  // contrato, refrescar conceptos, etc.) mantienen el header y las
+  // tabs visibles para que el usuario no vea la página parpadear.
+  if (primeraCarga && !perfil) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-texto-terciario">
         <Loader2 size={20} className="animate-spin" />
@@ -327,8 +419,14 @@ function ContenidoFicha() {
 
   return (
     <div className="flex flex-col">
-      {/* ─── Header ─── */}
-      <div className="border-b border-borde-sutil bg-superficie-app">
+      {/* ─── Header sticky ───
+          Se mantiene pegado arriba del área de scroll del módulo
+          (`<main>` de PlantillaApp) para que al scrollear dentro de
+          una pestaña — Contrato vigente, Conceptos, Liquidaciones — el
+          operador siempre vea de qué empleado se trata. El z-index lo
+          deja por arriba del contenido de la tab pero por debajo de
+          modales y popovers. */}
+      <div className="sticky top-0 z-20 border-b border-borde-sutil bg-superficie-app">
         {/* Bloque identidad: respira arriba y abajo para separarlo de
             las migajas (arriba) y de las tabs (abajo). */}
         <div className="px-4 md:px-6 pt-6 pb-5">
@@ -442,6 +540,7 @@ function ContenidoFicha() {
             sectoresMap={sectoresMap}
             turnosMap={turnosMap}
             sectorTurnoMap={sectorTurnoMap}
+            conceptosVigentes={conceptosVigentes}
             puedeEditar={puedeEditar}
             onNuevoContrato={() => {
               setEditorModoCambio(false)
@@ -452,6 +551,7 @@ function ContenidoFicha() {
               setEditorAbierto(true)
             }}
             onEditarContrato={() => setModalEditarAbierto(true)}
+            onIrAConceptos={() => setTab('conceptos')}
             onContratoActualizado={cargarTodo}
           />
         </div>
@@ -470,16 +570,18 @@ function ContenidoFicha() {
 
       {tabsVisitadas.has('liquidaciones') && (
         <div hidden={tab !== 'liquidaciones'}>
-          <SeccionLiquidaciones miembroId={miembroId} />
+          <SeccionLiquidaciones
+            miembroId={miembroId}
+            frecuenciaContrato={contratoVigente?.frecuencia_pago}
+          />
         </div>
       )}
 
       {tabsVisitadas.has('adelantos') && (
         <div hidden={tab !== 'adelantos'}>
-          <EstadoVacio
-            icono={<Wallet size={48} strokeWidth={1.5} />}
-            titulo="Adelantos — en construcción"
-            descripcion="Pronto vas a poder ver y administrar los adelantos vigentes de este empleado desde acá. Por ahora se gestionan en la liquidación."
+          <SeccionAdelantosEmpleado
+            miembroId={miembroId}
+            puedeEditar={puedeEditar}
           />
         </div>
       )}
@@ -528,6 +630,15 @@ function ContenidoFicha() {
               ) : undefined}
             />
           )}
+        </div>
+      )}
+
+      {tabsVisitadas.has('cuentas') && (
+        <div hidden={tab !== 'cuentas'}>
+          <SeccionDatosBancarios
+            miembroId={miembroId}
+            puedeEditar={puedeEditar}
+          />
         </div>
       )}
 
@@ -582,7 +693,18 @@ function ContenidoFicha() {
  * Cuando PR 7 (motor de cálculo) integre `contratos_laborales`, este
  * wrapper se reescribirá para consumir ContratoSnapshot.
  */
-function SeccionLiquidaciones({ miembroId }: { miembroId: string }) {
+function SeccionLiquidaciones({
+  miembroId, frecuenciaContrato,
+}: {
+  miembroId: string
+  /**
+   * Frecuencia de pago del contrato vigente. Se usa para abrir la
+   * pestaña en el período natural del empleado: quincenal en quincena,
+   * semanal en semana, mensual en mes. Si no se conoce (sin contrato
+   * o todavía cargando) cae al mes por defecto.
+   */
+  frecuenciaContrato?: string
+}) {
   const search = useSearchParams()
   const [cargando, setCargando] = useState(true)
   const [empleado, setEmpleado] = useState<ResultadoNomina | null>(null)
@@ -593,7 +715,7 @@ function SeccionLiquidaciones({ miembroId }: { miembroId: string }) {
   const [fechasIniciales] = useState(() => {
     const desdeQuery = search.get('desde')
     const hastaQuery = search.get('hasta')
-    const { desde: desdeDefault, hasta: hastaDefault } = periodoMesActual()
+    const { desde: desdeDefault, hasta: hastaDefault } = periodoPorFrecuencia(frecuenciaContrato)
     return { desde: desdeQuery || desdeDefault, hasta: hastaQuery || hastaDefault }
   })
   const { desde, hasta } = fechasIniciales

@@ -20,7 +20,6 @@ import {
 import { useToast } from '@/componentes/feedback/Toast'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
-import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -30,6 +29,7 @@ import { RecortadorImagen } from '@/componentes/ui/RecortadorImagen'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Rol, Miembro, Perfil, HorarioTipo, MetodoFichaje } from '@/tipos'
 import { SeccionEncabezado } from './ComponentesComunes'
+import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
 import Image from 'next/image'
 import {
   ROLES_OPCIONES, ETIQUETA_ROL, OPCIONES_HORARIO, OPCIONES_FICHAJE,
@@ -54,12 +54,6 @@ interface PropsTabInformacion {
   sectorActualId: string
   guardarSector: (sectorId: string) => void
   guardarPuesto: (puestoId: string) => void
-  /* Info bancaria */
-  infoBancaria: Record<string, unknown> | null
-  setInfoBancaria: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>
-  guardarInfoBancaria: (campo: string, valor: string) => void
-  bancosEmpresa: { id: string; nombre: string }[]
-  setBancosEmpresa: React.Dispatch<React.SetStateAction<{ id: string; nombre: string }[]>>
   /* Contacto emergencia */
   contactoEmergencia: Record<string, unknown> | null
   setContactoEmergencia: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>
@@ -157,8 +151,6 @@ export function TabInformacion({
   setPerfil, setMiembro,
   autoGuardarPerfil, guardarPerfil, guardarMiembroInmediato, guardarMiembro,
   sectores, puestos, sectorActualId, guardarSector, guardarPuesto,
-  infoBancaria, setInfoBancaria, guardarInfoBancaria,
-  bancosEmpresa, setBancosEmpresa,
   contactoEmergencia, setContactoEmergencia, guardarEmergencia,
   documentosUsuario, setDocumentosUsuario,
   archivosDocLocal, setArchivosDocLocal, setDocPreview,
@@ -743,57 +735,14 @@ export function TabInformacion({
         </div>
       </section>
 
-      {/* ── 5. INFORMACIÓN BANCARIA ── */}
+      {/* ── 5. INFORMACIÓN BANCARIA ──
+          Modelo multi-cuenta unificado con Nóminas: misma tabla, mismo
+          endpoint y misma UI. El operador puede cargar varias cuentas
+          (bancarias y billeteras virtuales) y la liquidación las usa al
+          registrar el pago. */}
       <section>
         <SeccionEncabezado icono={<CreditCard size={15} />} titulo="Información bancaria" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select etiqueta="Tipo de cuenta" opciones={[{ valor: '', etiqueta: 'No especificado' }, { valor: 'cbu', etiqueta: 'CBU — Cuenta bancaria' }, { valor: 'cvu', etiqueta: 'CVU — Cuenta virtual' }]} valor={(infoBancaria?.tipo_cuenta as string) || ''} onChange={(v) => guardarInfoBancaria('tipo_cuenta', v)} />
-          <SelectCreable
-            etiqueta={t('usuarios.banco')}
-            placeholder="Buscar banco..."
-            opciones={bancosEmpresa.map(b => ({ valor: b.nombre, etiqueta: b.nombre }))}
-            valor={(infoBancaria?.banco as string) || ''}
-            onChange={(v) => { setInfoBancaria(p => ({ ...p, banco: v })); guardarInfoBancaria('banco', v) }}
-            onCrear={async (nombre) => {
-              try {
-                const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
-                if (!res.ok) return false
-                const banco = await res.json()
-                setBancosEmpresa(prev => {
-                  if (prev.some(b => b.id === banco.id)) return prev
-                  return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
-                })
-                return banco.nombre
-              } catch { return false }
-            }}
-            onEditar={async (valorActual, nuevoNombre) => {
-              try {
-                const banco = bancosEmpresa.find(b => b.nombre === valorActual)
-                if (!banco) return false
-                const res = await fetch('/api/bancos', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id, nombre: nuevoNombre }) })
-                if (!res.ok) return false
-                const actualizado = await res.json()
-                setBancosEmpresa(prev => prev.map(b => b.id === banco.id ? actualizado : b).sort((a, b) => a.nombre.localeCompare(b.nombre)))
-                if ((infoBancaria?.banco as string) === valorActual) setInfoBancaria(p => ({ ...p, banco: actualizado.nombre }))
-                return actualizado.nombre
-              } catch { return false }
-            }}
-            onEliminar={async (valorBanco) => {
-              try {
-                const banco = bancosEmpresa.find(b => b.nombre === valorBanco)
-                if (!banco) return false
-                const res = await fetch('/api/bancos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id }) })
-                if (!res.ok) return false
-                setBancosEmpresa(prev => prev.filter(b => b.id !== banco.id))
-                if ((infoBancaria?.banco as string) === valorBanco) setInfoBancaria(p => ({ ...p, banco: null }))
-                return true
-              } catch { return false }
-            }}
-            textoCrear="Crear banco"
-          />
-          <Input tipo="text" etiqueta={t('usuarios.cbu')} value={(infoBancaria?.numero_cuenta as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, numero_cuenta: e.target.value }))} onBlur={(e) => guardarInfoBancaria('numero_cuenta', e.target.value)} placeholder="Número de cuenta" formato={null} disabled={!puedeEditar} />
-          <Input tipo="text" etiqueta={t('usuarios.alias_bancario')} value={(infoBancaria?.alias as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, alias: e.target.value }))} onBlur={(e) => guardarInfoBancaria('alias', e.target.value)} placeholder="mi.alias.mp" formato="minusculas" disabled={!puedeEditar} />
-        </div>
+        <SeccionDatosBancarios miembroId={miembroId} puedeEditar={puedeEditar} compacto />
       </section>
 
       {/* ── 6. DOCUMENTOS ── */}

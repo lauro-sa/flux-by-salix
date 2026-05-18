@@ -10,6 +10,11 @@
  *     concepto?:      string,             // opcional, ej "Quincena 1-15"
  *     notas?:         string | null,
  *     comprobante_url?: string | null,
+ *     // Datos del cobro real (sql/092):
+ *     metodo_pago?:      'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro',
+ *     fecha_pago?:       'YYYY-MM-DD',    // default: hoy
+ *     referencia?:       string | null,    // nro de operación / cheque
+ *     info_bancaria_id?: string | null,    // cuenta destino (si no es efectivo)
  *     conceptos_extra?: Array<{           // conceptos manuales agregados desde la UI
  *       nombre: string,
  *       tipo: 'haber' | 'descuento',
@@ -46,6 +51,8 @@ interface ConceptoExtra {
   detalle?: string | null
 }
 
+type MetodoPago = 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+
 interface Payload {
   miembro_id: string
   periodo_inicio: string
@@ -54,8 +61,14 @@ interface Payload {
   concepto?: string
   notas?: string | null
   comprobante_url?: string | null
+  metodo_pago?: MetodoPago
+  fecha_pago?: string
+  referencia?: string | null
+  info_bancaria_id?: string | null
   conceptos_extra?: ConceptoExtra[]
 }
+
+const METODOS_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia', 'cuenta_digital', 'cheque', 'otro']
 
 export async function POST(request: NextRequest) {
   const guard = await requerirPermisoAPI('nomina', 'editar')
@@ -89,6 +102,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'concepto_extra inválido' }, { status: 400 })
     }
   }
+
+  // Método de pago: default 'efectivo' si no viene. La UI debería
+  // mandarlo siempre, pero contemplamos el caso para no romper
+  // consumidores viejos durante el rollout.
+  const metodoPago: MetodoPago = METODOS_VALIDOS.includes(body.metodo_pago as MetodoPago)
+    ? (body.metodo_pago as MetodoPago)
+    : 'efectivo'
+
+  // Fecha de pago: default a hoy. Aceptamos `YYYY-MM-DD` o vacío.
+  const fechaPago = body.fecha_pago && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha_pago)
+    ? body.fecha_pago
+    : new Date().toISOString().slice(0, 10)
+
+  // Coherencia: si el método es efectivo o cheque, info_bancaria_id no
+  // tiene sentido; lo limpiamos para no guardar referencias absurdas.
+  // Si es transferencia o cuenta_digital, lo dejamos pasar tal cual
+  // (la validación de que la cuenta exista la hace el FK).
+  const infoBancariaId =
+    metodoPago === 'efectivo' || metodoPago === 'cheque'
+      ? null
+      : body.info_bancaria_id ?? null
 
   const admin = crearClienteAdmin()
 
@@ -140,6 +174,10 @@ export async function POST(request: NextRequest) {
       tardanzas: detalle.asistencia.tardanzas,
       comprobante_url: body.comprobante_url ?? null,
       notas: body.notas ?? null,
+      metodo_pago: metodoPago,
+      fecha_pago: fechaPago,
+      referencia: body.referencia?.trim() || null,
+      info_bancaria_id: infoBancariaId,
       contrato_id: detalle.contrato.id,
       contrato_snapshot: detalle.contrato.snapshot,
       creado_por: user.id,
@@ -155,10 +193,31 @@ export async function POST(request: NextRequest) {
 
   // ─── 3) Insertar conceptos_aplicados_pago ───
   //
-  // Snapshot inmutable: aunque después se borre el concepto del catálogo,
-  // este registro mantiene los valores históricos. Tabla: ver sql/075.
+  // Snapshot inmutable: aunque después se borre el concepto del catálogo
+  // o el adelanto, este registro mantiene los valores históricos.
+  //
+  // Para los ajustes one-off del período (adelantos, descuentos, bonos)
+  // resolvemos su `tipo` y `notas` desde `adelantos_nomina` antes de
+  // snappear. Así el PDF muestra los bonos como haberes y los
+  // adelantos/descuentos como descuentos, sin necesidad de joins
+  // futuros que podrían fallar si se borra el adelanto.
+  const adelantoIds = Array.from(new Set(detalle.adelantos_aplicados.map(a => a.adelanto_id)))
+  const ajustesMeta = new Map<string, { tipo: 'adelanto' | 'descuento' | 'bono'; notas: string | null }>()
+  if (adelantoIds.length > 0) {
+    const { data: ajustes } = await admin
+      .from('adelantos_nomina')
+      .select('id, tipo, notas')
+      .in('id', adelantoIds)
+    for (const a of ajustes ?? []) {
+      ajustesMeta.set(a.id as string, {
+        tipo: ((a.tipo as string) ?? 'adelanto') as 'adelanto' | 'descuento' | 'bono',
+        notas: (a.notas as string) ?? null,
+      })
+    }
+  }
+
   const filasConceptos = [
-    // Conceptos automáticos del motor
+    // Conceptos automáticos del motor (vienen del contrato)
     ...detalle.conceptos_aplicados.map(c => ({
       empresa_id: empresaId,
       pago_nomina_id: pago.id,
@@ -169,6 +228,29 @@ export async function POST(request: NextRequest) {
       automatico: true,
       detalle: c.detalle,
     })),
+    // Ajustes del período (adelantos / descuentos / bonos):
+    //   - bono       → snapshot como tipo 'haber' (suma al neto).
+    //   - adelanto / descuento → snapshot como tipo 'descuento' (resta).
+    // El nombre_snapshot describe el origen para que el recibo lo
+    // muestre como una línea más.
+    ...detalle.adelantos_aplicados.map(a => {
+      const meta = ajustesMeta.get(a.adelanto_id)
+      const esBono = meta?.tipo === 'bono'
+      const esDesc = meta?.tipo === 'descuento'
+      const nombreBase = esBono ? 'Bono extra'
+        : esDesc ? 'Descuento manual'
+        : `Adelanto · cuota ${a.numero_cuota}`
+      return {
+        empresa_id: empresaId,
+        pago_nomina_id: pago.id,
+        concepto_id: null,
+        nombre_snapshot: meta?.notas?.trim() || nombreBase,
+        tipo: esBono ? 'haber' : 'descuento',
+        monto: a.monto,
+        automatico: true,
+        detalle: meta?.notas?.trim() && nombreBase !== meta.notas.trim() ? nombreBase : null,
+      }
+    }),
     // Conceptos extra agregados manualmente desde la UI
     ...conceptosExtra.map(c => ({
       empresa_id: empresaId,
@@ -244,6 +326,60 @@ export async function POST(request: NextRequest) {
           editado_en: new Date().toISOString(),
         })
         .eq('id', adelantoId)
+    }
+  }
+
+  // ─── 5) Limpiar ajustes_concepto_periodo del período ───
+  //
+  // Los ajustes (override/excluir/agregar) son "intenciones del
+  // operador para el próximo cálculo". Cuando se graba el pago, esos
+  // ajustes ya quedaron snapshoteados en `conceptos_aplicados_pago`
+  // (snapshot inmutable que es lo que vale para auditoría). La fila
+  // de `ajustes_concepto_periodo` ya no aporta valor — peor: si
+  // queda, una próxima visualización del recibo NO pagado mostraría
+  // los ajustes como "pendientes de aplicar" cuando ya se aplicaron.
+  //
+  // Decisión: borrarlos al pagar. Si después el operador elimina el
+  // pago para corregir, los ajustes no se restauran — el motor vuelve
+  // a aplicar el cálculo del contrato sin ajustes. El operador puede
+  // volver a configurar lo que quiera.
+  //
+  // Cada ajuste borrado deja una entrada en `auditoria_ajustes_concepto_periodo`
+  // con accion='limpiar_al_pagar' para preservar la trazabilidad.
+  const { data: ajustesABorrar } = await admin
+    .from('ajustes_concepto_periodo')
+    .select('id, miembro_id, concepto_id, periodo_inicio, periodo_fin, tipo_ajuste, monto_override, motivo')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', body.miembro_id)
+    .eq('periodo_inicio', body.periodo_inicio)
+    .eq('periodo_fin', body.periodo_fin)
+
+  if (ajustesABorrar && ajustesABorrar.length > 0) {
+    const { error: errAjustes } = await admin
+      .from('ajustes_concepto_periodo')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('miembro_id', body.miembro_id)
+      .eq('periodo_inicio', body.periodo_inicio)
+      .eq('periodo_fin', body.periodo_fin)
+    if (errAjustes) {
+      console.error('[nominas/pagos] error al limpiar ajustes del período:', errAjustes)
+    } else {
+      // Auditoría best-effort: una entrada por ajuste limpiado.
+      await admin.from('auditoria_ajustes_concepto_periodo').insert(
+        ajustesABorrar.map(a => ({
+          empresa_id: empresaId,
+          ajuste_id: a.id,
+          miembro_id: a.miembro_id,
+          concepto_id: a.concepto_id,
+          periodo_inicio: a.periodo_inicio,
+          periodo_fin: a.periodo_fin,
+          editado_por: user.id,
+          accion: 'limpiar_al_pagar' as const,
+          estado_anterior: a,
+          estado_nuevo: null,
+        }))
+      )
     }
   }
 

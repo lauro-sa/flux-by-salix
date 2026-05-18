@@ -11,7 +11,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Users, Loader2, Banknote } from 'lucide-react'
+import { Users, Loader2, Banknote, Mail } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -56,6 +57,14 @@ interface ResultadoNomina {
   monto_neto: number
   /** Flag del backend: el último contrato del miembro terminó antes del período. */
   contrato_terminado_antes?: boolean
+  /** Timestamp ISO del último envío exitoso del recibo por correo. NULL = nunca enviado. */
+  recibo_correo_enviado_en?: string | null
+  /** Dirección de correo a la que se envió el último recibo. */
+  recibo_correo_enviado_a?: string | null
+  /** Timestamp ISO del último envío exitoso del recibo por WhatsApp. */
+  recibo_whatsapp_enviado_en?: string | null
+  /** Teléfono al que se envió el último recibo por WhatsApp. */
+  recibo_whatsapp_enviado_a?: string | null
 }
 
 type TipoPeriodo = 'semana' | 'quincena' | 'mes'
@@ -325,12 +334,31 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
                 }`}
               >
                 {/* Nombre */}
-                <div>
-                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors flex items-center gap-2">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors flex items-center gap-2 flex-wrap">
                     <span className="truncate">{r.nombre}</span>
                     {terminado && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-insignia-peligro/15 text-insignia-peligro text-[9px] font-medium uppercase tracking-wide">
                         Terminado
+                      </span>
+                    )}
+                    {/* Badges de recibo enviado — verde si ya fue enviado por
+                        ese canal. Tooltip nativo muestra fecha + destinatario.
+                        Diseño minimalista (íconos chicos) para no saturar la fila. */}
+                    {r.recibo_correo_enviado_en && (
+                      <span
+                        title={`Recibo enviado por correo a ${r.recibo_correo_enviado_a || '—'} el ${new Date(r.recibo_correo_enviado_en).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-insignia-exito/15 text-insignia-exito text-[9px] font-medium"
+                      >
+                        <Mail size={9} /> Enviado
+                      </span>
+                    )}
+                    {r.recibo_whatsapp_enviado_en && (
+                      <span
+                        title={`Recibo enviado por WhatsApp a ${r.recibo_whatsapp_enviado_a || '—'} el ${new Date(r.recibo_whatsapp_enviado_en).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#25D366]/15 text-[#25D366] text-[9px] font-medium"
+                      >
+                        <IconoWhatsApp size={9} /> Enviado
                       </span>
                     )}
                   </p>

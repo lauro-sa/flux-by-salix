@@ -24,8 +24,15 @@ const RUTAS_TRANSICION = ['/onboarding', '/esperando-activacion', '/selector-emp
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // API routes y portal público — sin auth ni redirecciones
-  if (pathname.startsWith('/api') || pathname.startsWith('/portal')) {
+  // API routes, portal público y short links de recibos — sin auth ni redirecciones.
+  // `/r/[token]` es el short link público para recibos de nómina enviados por
+  // WhatsApp: el empleado abre el link desde su teléfono (sin sesión en Flux)
+  // y la ruta lo redirige al PDF en Storage.
+  if (
+    pathname.startsWith('/api')
+    || pathname.startsWith('/portal')
+    || pathname.startsWith('/r/')
+  ) {
     return NextResponse.next()
   }
 

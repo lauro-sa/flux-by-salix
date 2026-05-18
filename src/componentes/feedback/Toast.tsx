@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, createContext, useContext, useRef, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, useMemo, createContext, useContext, useRef, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, AlertTriangle, Info } from 'lucide-react'
@@ -173,8 +173,19 @@ function ProveedorToast({ children }: { children: ReactNode }) {
     ? 'fixed top-4 left-4 right-4 flex flex-col gap-2.5 z-[var(--z-toast)] pointer-events-none md:left-auto md:right-6 md:top-6'
     : 'fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[var(--z-toast)] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4'
 
+  // Memoizamos el value del provider para que la referencia sea
+  // estable entre renders (las funciones internas ya están memoizadas
+  // con useCallback). Antes este objeto se recreaba en cada render
+  // del provider — por ejemplo al aparecer/desaparecer un toast — y
+  // todos los consumidores de useToast() recibían una referencia
+  // nueva, invalidando sus useCallback/useEffect aguas abajo.
+  const valorContexto = useMemo(
+    () => ({ mostrar, mostrarProgreso, actualizarProgreso, cerrarProgreso }),
+    [mostrar, mostrarProgreso, actualizarProgreso, cerrarProgreso],
+  )
+
   return (
-    <ContextoToastInterno.Provider value={{ mostrar, mostrarProgreso, actualizarProgreso, cerrarProgreso }}>
+    <ContextoToastInterno.Provider value={valorContexto}>
       {children}
       <div
         className={clasesPosicion}

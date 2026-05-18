@@ -41,7 +41,26 @@ import {
   type EntidadPlantillaWA,
 } from '@/lib/whatsapp/variables'
 import { MODULOS_PLANTILLA_WA } from '@/lib/whatsapp/modulos-plantilla'
-import { periodoActual, formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { calcularPeriodo, tipoPeriodoPorFrecuencia, type RangoPeriodo } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
+
+/**
+ * Último período TERMINADO según la frecuencia del empleado. Para el
+ * preview de plantillas usamos siempre un período cerrado (no el
+ * actual en curso) — así el operador ve cómo queda el recibo con datos
+ * completos en lugar de uno a mitad de mes con números incompletos.
+ *
+ * Cálculo: tomamos el período actual y retrocedemos 1 día → eso cae
+ * en el período anterior. Pasamos esa fecha a `calcularPeriodo` y
+ * obtenemos el rango cerrado.
+ */
+function periodoAnteriorTerminado(frecuencia: string | null, locale: string): RangoPeriodo {
+  const tipo = tipoPeriodoPorFrecuencia(frecuencia)
+  const periodoActualRange = calcularPeriodo(new Date(), tipo, locale)
+  const diaAntesDelActual = new Date(periodoActualRange.desde + 'T12:00:00')
+  diaAntesDelActual.setDate(diaAntesDelActual.getDate() - 1)
+  return calcularPeriodo(diaAntesDelActual, tipo, locale)
+}
 import type { CanalMensajeria } from '@/tipos/inbox'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -289,75 +308,73 @@ export function PaginaEditorPlantillaMeta({
     } catch { /* silenciar */ }
   }, [])
 
-  // Carga datos de nómina del período actual + adelantos del miembro y arma
-  // un objeto listo para resolver las variables `nomina.*` de la plantilla.
+  // Carga datos de nómina del último período TERMINADO según la frecuencia
+  // del empleado + adelantos, y arma un objeto listo para resolver las
+  // variables `nomina.*` de la plantilla.
+  //
+  // Flujo (optimizado vs versión anterior):
+  //   1) /api/nominas (probe mensual) + /api/adelantos en PARALELO.
+  //   2) Si frecuencia ≠ 'mensual': re-fetch /api/nominas con período correcto.
+  //   3) /api/miembros se pide SOLO si no hubo resultado (fallback para nombre).
+  //
+  // Mejor caso (mensual): 1 par de fetches paralelos.
+  // Peor caso (semanal/quincenal): par paralelo + 1 fetch extra.
   const cargarNominaPreview = useCallback(async (miembroId: string) => {
     try {
-      const resMiembros = await fetch('/api/miembros')
-      const dataMiembros = await resMiembros.json()
-      const miembros = (dataMiembros?.miembros || []) as Array<Record<string, unknown>>
-      const miembro = miembros.find(m => m.id === miembroId)
-      if (!miembro) return
-
-      // Período actual (asumimos quincenal: /api/miembros no expone frecuencia).
-      const periodo = periodoActual(null, locale)
-
-      const resNomina = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
-      const dataNomina = await resNomina.json()
-      const resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
+      // Probe inicial: período del mes anterior. Si el empleado es mensual,
+      // este ES el período correcto. Si no, se usa solo para descubrir la
+      // frecuencia real desde la respuesta del backend. Adelantos en paralelo
+      // — son independientes del período del recibo.
+      let periodo = periodoAnteriorTerminado('mensual', locale)
+      const [resNomina, resAdel] = await Promise.all([
+        fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`),
+        fetch(`/api/adelantos?miembro_id=${miembroId}`),
+      ])
+      let dataNomina = await resNomina.json()
+      let resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
         .find(r => r.miembro_id === miembroId)
+      const dataAdel = await resAdel.json()
+      const adelantos = dataAdel?.adelantos || []
+
+      // Si encontramos resultado y la frecuencia real no es mensual,
+      // re-fetch nómina con el período correcto del empleado.
+      const frecuenciaReal = resultado?.compensacion_frecuencia as string | undefined
+      if (resultado && frecuenciaReal && frecuenciaReal !== 'mensual') {
+        periodo = periodoAnteriorTerminado(frecuenciaReal, locale)
+        const resNomina2 = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&empleados=${miembroId}`)
+        dataNomina = await resNomina2.json()
+        resultado = ((dataNomina?.resultados || []) as Array<Record<string, unknown>>)
+          .find(r => r.miembro_id === miembroId)
+      }
+
       if (!resultado) {
-        const perfil = (miembro.perfil as Record<string, unknown> | null) || null
+        // Fallback: el empleado existe pero no tiene asistencias/contrato.
+        // Pedimos /api/miembros solo acá para mostrar al menos el nombre.
+        const resMiembros = await fetch('/api/miembros')
+        const dataMiembros = await resMiembros.json()
+        const miembros = (dataMiembros?.miembros || []) as Array<Record<string, unknown>>
+        const miembro = miembros.find(m => m.id === miembroId)
+        const perfil = (miembro?.perfil as Record<string, unknown> | null) || null
         const nombre = `${String(perfil?.nombre || '')} ${String(perfil?.apellido || '')}`.trim()
         setNominaPreview({ nombre, periodo: periodo.etiqueta })
         return
       }
 
-      const resAdel = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
-      const dataAdel = await resAdel.json()
-      const adelantos = (dataAdel?.adelantos || []) as Array<Record<string, unknown>>
-
-      type CuotaPeriodo = {
-        tipo: string; notas: string;
-        numeroCuota: number; cuotasTotales: number;
-        monto: number; fechaSolicitud: string;
-      }
-      const items: CuotaPeriodo[] = []
-      for (const a of adelantos) {
-        if (a.estado === 'cancelado') continue
-        const cuotas = (a.cuotas || []) as Array<Record<string, unknown>>
-        const cuota = cuotas.find(c => {
-          const f = c.fecha_programada as string
-          return f >= periodo.desde && f <= periodo.hasta
-        })
-        if (!cuota) continue
-        items.push({
-          tipo: ((a.tipo as string) || 'adelanto'),
-          notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
-          numeroCuota: cuota.numero_cuota as number,
-          cuotasTotales: a.cuotas_totales as number,
-          monto: parseFloat(cuota.monto_cuota as string),
-          fechaSolicitud: a.fecha_solicitud as string,
-        })
-      }
-      // Orden cronológico ascendente: más viejo arriba, más nuevo abajo.
-      items.sort((a, b) => a.fechaSolicitud.localeCompare(b.fechaSolicitud))
-
-      const fmtMonto = (n: number) => `$${n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-      const lineas: string[] = []
-      const saldoAnterior = Number(resultado.saldo_anterior || 0)
-      if (saldoAnterior > 0) lineas.push(`• A favor del período anterior · −${fmtMonto(saldoAnterior)}`)
-      for (const it of items) {
-        const cuotaInfo = it.cuotasTotales > 1 ? ` · cuota ${it.numeroCuota}/${it.cuotasTotales}` : ''
-        const fechaCorta = it.fechaSolicitud ? ` · ${formatoFechaCortaPeriodo(it.fechaSolicitud, locale)}` : ''
-        lineas.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmtMonto(it.monto)}`)
-      }
+      // Misma lógica que el modal de envío y el backend WA, vía helper
+      // compartido — así el preview del editor de plantillas coincide
+      // exactamente con lo que se manda al empleado en producción.
+      const { descuentos, bonos } = construirLineasAjustes(adelantos, periodo.desde, periodo.hasta, {
+        saldoAnterior: Number(resultado.saldo_anterior || 0),
+        locale,
+      })
 
       setNominaPreview({
         ...resultado,
         periodo: periodo.etiqueta,
-        detalle_descuentos: lineas.join('\n'),
-        descuentos_lista: lineas,
+        detalle_descuentos: descuentos.join('\n'),
+        descuentos_lista: descuentos,
+        detalle_bonos: bonos.join('\n'),
+        bonos_lista: bonos,
       })
     } catch { /* silenciar */ }
   }, [locale])

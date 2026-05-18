@@ -16,6 +16,7 @@
  * Ver PLAN_MODULO_NOMINAS.md (PR 8).
  */
 
+import { createHash } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { htmlAPdf } from '@/lib/pdf/html-a-pdf'
 import { obtenerIdentidadMiembro } from '@/lib/miembros/identidad'
@@ -25,6 +26,7 @@ import {
   type DatosEmpresaRecibo,
   type DatosEmpleadoRecibo,
   type LineaConceptoRecibo,
+  type DatosCobroRecibo,
 } from './template-recibo'
 import type { ContratoSnapshot } from '@/tipos/nominas'
 
@@ -46,6 +48,147 @@ interface OpcionesGenerar {
 
 const BUCKET = 'comprobantes-pago'
 const EXPIRACION_DEFAULT_SEGUNDOS = 60 * 60 * 24 * 7 // 7 días
+
+// ─── Modo "sin pago grabado" ───────────────────────────────────────
+//
+// Cuando el operador manda el recibo ANTES de registrar el pago, no
+// tenemos fila en `pagos_nomina` para leer. La función
+// `generarPdfReciboCalculado` arma el PDF desde los datos calculados
+// (resultado de /api/nominas) y lo sube a Storage con una clave
+// `borradores/<empresa>/<miembro>-<desde>-<hasta>.pdf` que se
+// sobreescribe en cada llamada. Cuando después se registra el pago,
+// `generarPdfRecibo` regenera el archivo en su path definitivo
+// (`<empresa>/nominas/<año>/<pago_id>.pdf`).
+//
+// El PDF "borrador" no queda vinculado a una fila de pagos_nomina, por
+// lo que no se puede listar desde la UI de historial — es de uso
+// efímero (adjunto al correo del momento). Si querés conservarlo,
+// registrá el pago.
+
+export interface DatosCalculadosPdf {
+  /** Identificador del miembro empleado (usado como clave en Storage). */
+  miembro_id: string
+  fecha_inicio_periodo: string
+  fecha_fin_periodo: string
+  /** Etiqueta legible del período: "Quincena 1-15 de abril 2026". */
+  concepto: string
+  contrato_snapshot: import('@/tipos/nominas').ContratoSnapshot | null
+  dias_habiles: number
+  dias_trabajados: number
+  dias_ausentes: number
+  tardanzas: number
+  monto_sugerido: number
+  /** Cuánto se transferirá realmente — para borradores coincide con sugerido. */
+  monto_abonado: number
+  /** Mismo shape que `conceptos_aplicados_pago` en BD, pero sin `automatico` boolean al final. */
+  conceptos: LineaConceptoRecibo[]
+  notas?: string | null
+}
+
+/**
+ * Genera el PDF del recibo en modo "borrador" (sin pago grabado).
+ * Lo sube a Storage en una clave sobreescribible para que el operador
+ * pueda mandarlo por correo. Devuelve la URL firmada para adjuntar.
+ */
+export async function generarPdfReciboCalculado(
+  admin: SupabaseClient,
+  empresaId: string,
+  datos: DatosCalculadosPdf,
+  opciones: OpcionesGenerar = {},
+): Promise<ResultadoPdfRecibo> {
+  const expiracion = opciones.expiracionSegundos ?? EXPIRACION_DEFAULT_SEGUNDOS
+
+  // Datos de empresa + identidad del empleado, igual que en el flujo normal.
+  const [{ data: empresa }, { data: miembro }] = await Promise.all([
+    admin.from('empresas')
+      .select('nombre, logo_url, datos_fiscales, telefono, correo, ubicacion')
+      .eq('id', empresaId)
+      .maybeSingle(),
+    admin.from('miembros')
+      .select('id, usuario_id, numero_empleado')
+      .eq('id', datos.miembro_id)
+      .maybeSingle(),
+  ])
+  if (!empresa) throw new Error('Empresa no encontrada')
+  if (!miembro) throw new Error('Miembro no encontrado')
+
+  const identidad = await obtenerIdentidadMiembro(
+    admin,
+    { id: miembro.id, usuario_id: miembro.usuario_id },
+    empresaId,
+  )
+
+  const empresaRecibo: DatosEmpresaRecibo = {
+    nombre: empresa.nombre,
+    logo_url: empresa.logo_url ?? null,
+    datos_fiscales: (empresa.datos_fiscales as Record<string, unknown> | null) ?? null,
+    telefono: empresa.telefono ?? null,
+    correo: empresa.correo ?? null,
+    ubicacion: empresa.ubicacion ?? null,
+  }
+  const empleadoRecibo: DatosEmpleadoRecibo = {
+    nombre: identidad?.nombre ?? '—',
+    apellido: identidad?.apellido ?? null,
+    numero_empleado: miembro.numero_empleado ?? null,
+    documento_tipo: identidad?.documento_tipo ?? null,
+    documento_numero: identidad?.documento_numero ?? null,
+    banco: null,
+  }
+
+  const montoBase = calcularMontoBaseDesdeSnapshot(datos.contrato_snapshot, {
+    dias_periodo: datos.dias_habiles,
+    dias_trabajados: datos.dias_trabajados,
+  })
+
+  const datosPdf: DatosReciboPdf = {
+    // ID sintético — el operador todavía no registró el pago. Se usa
+    // solo para mostrar el "número de recibo" en el pie del documento.
+    pago_id: `borrador-${datos.miembro_id.slice(0, 8)}-${datos.fecha_inicio_periodo}`,
+    concepto: datos.concepto,
+    periodo_inicio: datos.fecha_inicio_periodo,
+    periodo_fin: datos.fecha_fin_periodo,
+    empresa: empresaRecibo,
+    empleado: empleadoRecibo,
+    contrato: datos.contrato_snapshot,
+    asistencia: {
+      dias_periodo: datos.dias_habiles,
+      dias_trabajados: datos.dias_trabajados,
+      dias_ausentes: datos.dias_ausentes,
+      tardanzas: datos.tardanzas,
+    },
+    monto_base: montoBase,
+    conceptos: datos.conceptos,
+    monto_abonado: datos.monto_abonado,
+    monto_sugerido: datos.monto_sugerido,
+    fecha_emision: new Date().toISOString().slice(0, 10),
+    notas: datos.notas ?? null,
+  }
+
+  const html = renderizarHtmlRecibo(datosPdf)
+  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
+
+  // Storage path "borradores/" — sobreescribible por (empresa, miembro, período).
+  // Cuando después se registra el pago real, queda este archivo huérfano:
+  // un cleanup programado puede borrar borradores con +30 días en futuro PR.
+  const storagePath = `${empresaId}/borradores/${datos.miembro_id}-${datos.fecha_inicio_periodo}-${datos.fecha_fin_periodo}.pdf`
+
+  await admin.storage.from(BUCKET).remove([storagePath]).catch(() => {})
+  const { error: errUpload } = await admin.storage
+    .from(BUCKET)
+    .upload(storagePath, pdf, {
+      contentType: 'application/pdf',
+      upsert: true,
+      cacheControl: 'private, no-cache',
+    })
+  if (errUpload) throw new Error(`Error al subir PDF borrador: ${errUpload.message}`)
+
+  const { data: signed, error: errSigned } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, expiracion)
+  if (errSigned || !signed) throw new Error(`Error al firmar URL: ${errSigned?.message}`)
+
+  return { url: signed.signedUrl, storagePath, tamano: pdf.length }
+}
 
 /**
  * Genera (o regenera) el PDF de un recibo y lo deja persistido en Storage.
@@ -105,13 +248,47 @@ export async function generarPdfRecibo(
     ubicacion: empresa.ubicacion ?? null,
   }
 
+  // Si el pago tiene cuenta destino (sql/092), traemos los datos
+  // completos de info_bancaria para "Datos del cobro" + popular el
+  // campo `banco` legacy del empleado.
+  let cobro: DatosCobroRecibo | null = null
+  let bancoLegacy: string | null = null
+  if (pago.metodo_pago) {
+    let cuentaDestino: DatosCobroRecibo['cuenta_destino'] = null
+    if (pago.info_bancaria_id) {
+      const { data: cuenta } = await admin
+        .from('info_bancaria')
+        .select('tipo_pago, etiqueta, banco, tipo_cuenta, numero_cuenta, alias, titular_nombre')
+        .eq('id', pago.info_bancaria_id)
+        .maybeSingle()
+      if (cuenta) {
+        cuentaDestino = {
+          tipo_pago: cuenta.tipo_pago as 'banco' | 'digital',
+          etiqueta: cuenta.etiqueta ?? null,
+          banco: cuenta.banco ?? null,
+          tipo_cuenta: cuenta.tipo_cuenta ?? null,
+          numero_cuenta: cuenta.numero_cuenta ?? null,
+          alias: cuenta.alias ?? null,
+          titular_nombre: cuenta.titular_nombre ?? null,
+        }
+        bancoLegacy = [cuenta.banco, cuenta.alias].filter(Boolean).join(' · ') || null
+      }
+    }
+    cobro = {
+      metodo_pago: pago.metodo_pago as DatosCobroRecibo['metodo_pago'],
+      fecha_pago: pago.fecha_pago ?? (pago.creado_en as string).slice(0, 10),
+      referencia: pago.referencia ?? null,
+      cuenta_destino: cuentaDestino,
+    }
+  }
+
   const empleadoRecibo: DatosEmpleadoRecibo = {
     nombre: identidad?.nombre ?? '—',
     apellido: identidad?.apellido ?? null,
     numero_empleado: miembro.numero_empleado ?? null,
     documento_tipo: identidad?.documento_tipo ?? null,
     documento_numero: identidad?.documento_numero ?? null,
-    banco: null,
+    banco: bancoLegacy,
   }
 
   const lineas: LineaConceptoRecibo[] = (conceptos ?? []).map(c => ({
@@ -154,17 +331,45 @@ export async function generarPdfRecibo(
     monto_sugerido: Number(pago.monto_sugerido),
     fecha_emision: new Date().toISOString().slice(0, 10),
     notas: pago.notas ?? null,
+    cobro,
   }
 
-  const html = renderizarHtmlRecibo(datos)
-
-  // ─── 3) Convertir a PDF ───
-  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
-
-  // ─── 4) Subir a Storage ───
+  // ─── 3) Hash de inputs: skip de Puppeteer si nada cambió ───
+  // Si el hash actual coincide con el guardado en BD y el archivo
+  // existe en Storage, NO regeneramos el PDF — solo firmamos una
+  // URL nueva. Esto evita el costo de Puppeteer (~3-5s) cuando el
+  // operador abre el modal "Ver recibo" varias veces sin cambios.
+  const hashActual = calcularHashRecibo(datos)
   const anio = pago.fecha_inicio_periodo.slice(0, 4)
   const storagePath = `${empresaId}/nominas/${anio}/${pagoId}.pdf`
 
+  const hashGuardado = (pago.comprobante_hash as string | null) ?? null
+  const pathGuardado = (pago.comprobante_path as string | null) ?? storagePath
+  if (hashGuardado === hashActual) {
+    // Confirmar que el archivo todavía existe (puede haberse borrado
+    // por limpieza manual o un cron). Si existe, devolvemos la URL
+    // firmada sin tocar Puppeteer.
+    const { data: signedExistente } = await admin.storage
+      .from(BUCKET)
+      .createSignedUrl(pathGuardado, expiracion)
+    if (signedExistente?.signedUrl) {
+      // Actualizar la URL almacenada por si algún consumer la lee
+      // sin pasar por el endpoint.
+      await admin
+        .from('pagos_nomina')
+        .update({ comprobante_url: signedExistente.signedUrl })
+        .eq('id', pagoId)
+        .eq('empresa_id', empresaId)
+      return { url: signedExistente.signedUrl, storagePath: pathGuardado, tamano: 0 }
+    }
+    // Si la URL falló (archivo no existe), seguimos abajo y regeneramos.
+  }
+
+  // ─── 4) Regenerar PDF con Puppeteer ───
+  const html = renderizarHtmlRecibo(datos)
+  const { pdf } = await htmlAPdf(html, { generarMiniatura: false })
+
+  // ─── 5) Subir a Storage ───
   // Borramos cualquier versión previa para evitar drift de caché del CDN.
   await admin.storage.from(BUCKET).remove([storagePath]).catch(() => {})
 
@@ -188,16 +393,49 @@ export async function generarPdfRecibo(
     throw new Error(`Error al firmar URL: ${errSigned?.message}`)
   }
 
-  // ─── 5) Actualizar comprobante_url + storage_path ───
+  // ─── 6) Actualizar comprobante_url + path + hash en BD ───
   await admin
     .from('pagos_nomina')
     .update({
       comprobante_url: signed.signedUrl,
+      comprobante_path: storagePath,
+      comprobante_hash: hashActual,
     })
     .eq('id', pagoId)
     .eq('empresa_id', empresaId)
 
   return { url: signed.signedUrl, storagePath, tamano: pdf.length }
+}
+
+/**
+ * Versión del template del recibo. Bumpear cada vez que cambia la
+ * estructura visual del PDF (cabezal, layout, secciones nuevas) para
+ * forzar la regeneración de los PDFs cacheados. Los datos en sí no
+ * cambiaron pero el HTML/CSS sí, y el hash de inputs no lo captura.
+ *
+ *   v1 — cabezal con datos fiscales + recibo meta a la derecha
+ *   v2 — cabezal limpio (sin CUIT/dirección/contacto), firmas con
+ *        más espacio, layout compacto que entra en una sola página A4
+ */
+const VERSION_TEMPLATE_RECIBO = 'v2'
+
+/**
+ * Calcula un hash SHA-256 de los inputs del PDF. Cualquier cambio en
+ * los datos visibles del recibo (snapshot del contrato, conceptos
+ * aplicados, datos del cobro, empresa, empleado, asistencia, monto)
+ * cambia el hash y dispara una regeneración. La fecha de emisión
+ * SE EXCLUYE porque cambia en cada call y no aporta valor al recibo.
+ * Incluimos `VERSION_TEMPLATE_RECIBO` para que el hash cambie cuando
+ * actualizamos el template aunque los datos no.
+ */
+function calcularHashRecibo(datos: DatosReciboPdf): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { fecha_emision: _fechaEmision, ...significativo } = datos
+  const json = JSON.stringify(
+    { __template: VERSION_TEMPLATE_RECIBO, ...significativo },
+    Object.keys({ __template: '', ...significativo }).sort(),
+  )
+  return createHash('sha256').update(json).digest('hex')
 }
 
 /**

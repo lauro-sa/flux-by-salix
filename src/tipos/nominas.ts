@@ -278,7 +278,16 @@ export interface ConceptoNomina {
   actualizado_por: string | null
 }
 
-/** N:M entre contratos y conceptos. */
+/**
+ * N:M entre contratos y conceptos con vigencia temporal.
+ *
+ * Una asignación está vigente en un período si:
+ *   `fecha_alta <= periodo_fin AND (fecha_baja IS NULL OR fecha_baja >= periodo_inicio)`
+ *
+ * El campo `activo` se mantiene por compatibilidad y lo sincroniza un
+ * trigger de la BD: `activo = (fecha_baja IS NULL)`. Para lógica
+ * nueva, usar siempre `fecha_baja IS NULL` (= vigente hoy).
+ */
 export interface ConceptoContrato {
   id: string
   empresa_id: string
@@ -286,6 +295,11 @@ export interface ConceptoContrato {
   concepto_id: string
   /** Si presente, anula `ConceptoNomina.valor` para este contrato. */
   valor_override: number | null
+  /** Desde cuándo se aplica este concepto. */
+  fecha_alta: string
+  /** Desde cuándo deja de aplicarse. NULL = vigente. */
+  fecha_baja: string | null
+  /** Derivado: `fecha_baja IS NULL`. Mantenido por trigger. */
   activo: boolean
   creado_en: string
   creado_por: string | null
@@ -419,13 +433,26 @@ export interface ConceptoAplicadoCalculado {
   detalle: string | null
 }
 
-/** Cuota de adelanto vencida en el período → descontada en el recibo. */
+/**
+ * Movimiento one-off del período (vive en `adelantos_nomina`).
+ *
+ * Aunque el nombre histórico es "CuotaAdelanto", representa los tres
+ * tipos que comparten la misma tabla:
+ *   - 'adelanto'  → préstamo a descontar en cuotas (resta al neto).
+ *   - 'descuento' → multa o daño puntual (resta al neto).
+ *   - 'bono'      → pago extra del patrón en este período (suma al neto).
+ *
+ * Si `tipo` está ausente (datos pre-migración), se asume 'adelanto'
+ * por compatibilidad. La UI los presenta agrupados bajo "Ajustes
+ * del período".
+ */
 export interface CuotaAdelantoAplicada {
   cuota_id: string
   adelanto_id: string
   numero_cuota: number
   monto: number
   fecha_programada: string
+  tipo?: 'adelanto' | 'descuento' | 'bono'
 }
 
 /**
@@ -510,4 +537,93 @@ export interface DetalleReciboCalculado {
    * legacy de miembros"). La UI las muestra como banner amarillo.
    */
   advertencias: string[]
+}
+
+// ════════════════════════════════════════════════════════════════
+// Pagos de nómina y datos bancarios del empleado
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Cómo se realizó el pago. Distinguimos transferencia bancaria de
+ * cuenta digital (Mercado Pago, Brubank, etc.) porque el operador
+ * los maneja distinto: la cuenta destino y el formato de comprobante
+ * cambian. Mantenemos `otro` como fallback para casos puntuales.
+ */
+export type MetodoPagoNomina =
+  | 'efectivo'
+  | 'transferencia'
+  | 'cuenta_digital'
+  | 'cheque'
+  | 'otro'
+
+/**
+ * Cuenta bancaria o digital del empleado, donde se le pueden hacer
+ * pagos de nómina. Un mismo miembro puede tener N cuentas (banco
+ * + digital + caja de ahorro vieja, etc.). La UI usa `activa` para
+ * filtrar las que se ofrecen en el selector de destino.
+ */
+export interface InfoBancaria {
+  id: string
+  empresa_id: string
+  miembro_id: string
+  /** Banco tradicional o billetera virtual. Cambia el default de UI. */
+  tipo_pago: 'banco' | 'digital'
+  /** Para banco: ahorro/corriente/sueldo. Para digital: libre. */
+  tipo_cuenta: string | null
+  /** Banco o billetera ("Galicia", "Mercado Pago", "Brubank", etc.). */
+  banco: string | null
+  /** CBU (22 dígitos en banco), CVU (digital) o número interno. */
+  numero_cuenta: string | null
+  /** Alias CBU/CVU. Más fácil de copiar al pagar. */
+  alias: string | null
+  /** Etiqueta libre que el operador le pone ("Cuenta sueldo"). */
+  etiqueta: string | null
+  /** Nombre del titular si no es el empleado. */
+  titular_nombre: string | null
+  /** Documento del titular (DNI/CUIT). */
+  titular_documento: string | null
+  /** Si aparece en el selector de destino al registrar un pago. */
+  activa: boolean
+  /** Soft-delete: oculta la cuenta sin perder referencias históricas. */
+  eliminada: boolean
+  creado_por: string | null
+  creado_en: string
+  actualizado_por: string | null
+  actualizado_en: string
+}
+
+/**
+ * Pago de nómina ya registrado. Snapshot del recibo + datos del cobro
+ * real (método, fecha, cuenta destino, comprobante).
+ */
+export interface PagoNomina {
+  id: string
+  empresa_id: string
+  miembro_id: string
+  contrato_id: string | null
+  fecha_inicio_periodo: string
+  fecha_fin_periodo: string
+  concepto: string
+  monto_sugerido: number | null
+  monto_abonado: number
+  dias_habiles: number | null
+  dias_trabajados: number | null
+  dias_ausentes: number | null
+  tardanzas: number | null
+  /** Método con el que efectivamente se pagó. */
+  metodo_pago: MetodoPagoNomina
+  /** Fecha real del pago (puede diferir de creado_en). */
+  fecha_pago: string
+  /** Nro de operación / cheque / referencia externa. */
+  referencia: string | null
+  /** Cuenta destino del pago (NULL si fue efectivo o cheque al portador). */
+  info_bancaria_id: string | null
+  comprobante_url: string | null
+  notas: string | null
+  estado: string
+  estado_clave: string
+  creado_por: string
+  creado_por_nombre: string
+  creado_en: string
+  eliminado: boolean
 }

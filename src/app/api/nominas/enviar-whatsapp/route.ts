@@ -5,6 +5,7 @@ import { verificarPermiso, obtenerDatosMiembro } from '@/lib/permisos-servidor'
 import { enviarPlantillaWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 import { normalizarTelefono } from '@/lib/validaciones'
 import { generarPdfRecibo } from '@/lib/nominas/generar-pdf-recibo'
+import { obtenerEnlaceCortoRecibo } from '@/lib/nominas/enlace-corto-recibo'
 import {
   diagnosticarCredencialesCanal,
   etiquetaFaltantesCanal,
@@ -19,7 +20,7 @@ import {
   resolverParametrosCuerpo,
   resolverTextoPlantilla,
 } from '@/lib/whatsapp/variables'
-import { formatoFechaCortaPeriodo } from '@/lib/asistencias/periodo-actual'
+import { construirLineasAjustes } from '@/lib/nominas/lineas-ajustes'
 import {
   asegurarConversacionEmpleado,
   registrarMensajeEmpleado,
@@ -53,13 +54,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta } = body as {
+    const { canal_id, plantilla_id, empleados, periodo_desde, periodo_hasta, forzar_reenvio, incluir_enlace_pdf } = body as {
       canal_id: string
       plantilla_id: string
       // Rango de fechas del período — usado para filtrar las cuotas de adelantos
       // que entran en el recibo. Si no llega, no se incluye `detalle_descuentos`.
       periodo_desde?: string
       periodo_hasta?: string
+      /**
+       * Igual que en /api/nominas/enviar: salta el guard anti-duplicado
+       * de 5 minutos. Si false/no viene, los empleados que recibieron
+       * recibo WA recientemente se reportan como omitidos.
+       */
+      forzar_reenvio?: boolean
+      /**
+       * Si false, NO se genera el PDF del recibo ni se incluye su enlace
+       * en el mensaje. Default true. Útil cuando el operador solo quiere
+       * notificar (ej: aviso rápido) sin gastar la generación de PDF /
+       * expirar URLs firmadas.
+       */
+      incluir_enlace_pdf?: boolean
       empleados: {
         miembro_id?: string
         nombre: string
@@ -72,9 +86,18 @@ export async function POST(request: NextRequest) {
         monto_bruto: string
         monto_neto?: number
         descuento_adelanto?: number
+        /** Bonos del período (suman al neto). Variable nueva post sql/092. */
+        bonos_periodo?: number
         saldo_anterior?: number
         compensacion_detalle: string
         periodo: string
+        /**
+         * Conceptos del contrato aplicados al período (haberes y descuentos
+         * automáticos del motor). El resolver los distribuye en los slots
+         * `haber_*` y `descuento_contrato_*` de la plantilla WA. Si la
+         * empresa no tiene conceptos cargados, llega `[]`.
+         */
+        conceptos_aplicados?: Array<{ tipo: 'haber' | 'descuento'; nombre: string; monto: number; detalle?: string | null }>
       }[]
     }
 
@@ -145,12 +168,47 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Cargar adelantos del empleado y armar la lista de bullets de descuentos
-      // del período. Mantenemos `detalle_descuentos` (string multilínea, legacy
-      // para plantillas que aún usan un solo slot) y `descuentos_lista` (array
-      // que el resolver expande a `descuento_1..descuento_N`).
+      // Guard anti-duplicado: rechaza envíos al mismo empleado dentro
+      // de los 5 minutos posteriores al último envío WA. Bypasseable
+      // con `forzar_reenvio: true`.
+      if (emp.miembro_id && periodo_desde && periodo_hasta && !forzar_reenvio) {
+        const { data: pagoExistente } = await admin
+          .from('pagos_nomina')
+          .select('id, recibo_whatsapp_enviado_en')
+          .eq('empresa_id', empresaId)
+          .eq('miembro_id', emp.miembro_id)
+          .eq('fecha_inicio_periodo', periodo_desde)
+          .eq('fecha_fin_periodo', periodo_hasta)
+          .eq('eliminado', false)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pagoExistente?.recibo_whatsapp_enviado_en) {
+          const ultimoEnvio = new Date(pagoExistente.recibo_whatsapp_enviado_en).getTime()
+          const ahora = Date.now()
+          if (ahora - ultimoEnvio < 5 * 60 * 1000) {
+            resultados.push({
+              telefono: emp.telefono,
+              nombre: emp.nombre,
+              ok: false,
+              error: 'Recibo ya enviado recientemente. Usar "Reenviar" si es intencional.',
+            })
+            continue
+          }
+        }
+      }
+
+      // Cargar ajustes del período (adelantos / descuentos / bonos) usando
+      // el helper compartido. Devuelve dos listas separadas:
+      //   - `descuentos`: lo que RESTA al neto (adelantos + descuentos
+      //     puntuales + saldo a favor del período anterior). Compat con
+      //     plantillas legacy que usan `detalle_descuentos`.
+      //   - `bonos`: lo que SUMA al neto (bonos one-off del período).
+      //     Variable nueva para plantillas WA con bloque de pagos extra.
       let detalleDescuentos = ''
-      const lineasDescuentos: string[] = []
+      let detalleBonos = ''
+      let lineasDescuentos: string[] = []
+      let lineasBonos: string[] = []
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         const { data: adelantos } = await admin
           .from('adelantos_nomina')
@@ -158,41 +216,39 @@ export async function POST(request: NextRequest) {
           .eq('miembro_id', emp.miembro_id)
           .eq('empresa_id', empresaId)
           .eq('eliminado', false)
-        type Item = { notas: string; numCuota: number; cuotasTot: number; monto: number; fecha: string }
-        const items: Item[] = []
-        for (const a of (adelantos || []) as Array<Record<string, unknown>>) {
-          if (a.estado === 'cancelado') continue
-          const cuotas = (a.adelantos_cuotas || []) as Array<Record<string, unknown>>
-          const cuota = cuotas.find(c => {
-            const f = c.fecha_programada as string
-            return f >= periodo_desde && f <= periodo_hasta
-          })
-          if (!cuota) continue
-          items.push({
-            notas: (a.notas as string) || (a.tipo === 'descuento' ? 'Descuento' : 'Adelanto'),
-            numCuota: cuota.numero_cuota as number,
-            cuotasTot: a.cuotas_totales as number,
-            monto: parseFloat(cuota.monto_cuota as string),
-            fecha: a.fecha_solicitud as string,
-          })
-        }
-        items.sort((x, y) => x.fecha.localeCompare(y.fecha))
-        const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-        const saldo = Number(emp.saldo_anterior || 0)
-        if (saldo > 0) lineasDescuentos.push(`• A favor del período anterior · −${fmt(saldo)}`)
-        for (const it of items) {
-          const cuotaInfo = it.cuotasTot > 1 ? ` · cuota ${it.numCuota}/${it.cuotasTot}` : ''
-          const fechaCorta = it.fecha ? ` · ${formatoFechaCortaPeriodo(it.fecha)}` : ''
-          lineasDescuentos.push(`• ${it.notas}${cuotaInfo}${fechaCorta} · −${fmt(it.monto)}`)
-        }
+        const { descuentos, bonos } = construirLineasAjustes(
+          adelantos || [],
+          periodo_desde,
+          periodo_hasta,
+          { saldoAnterior: Number(emp.saldo_anterior || 0) },
+        )
+        lineasDescuentos = descuentos
+        lineasBonos = bonos
         detalleDescuentos = lineasDescuentos.join('\n') || '_Sin adelantos ni descuentos en el período._'
+        detalleBonos = lineasBonos.join('\n') || '_Sin bonos ni pagos extra en el período._'
       }
 
       // ─── Link al PDF del recibo (si hay pago grabado del período) ───
       // El destinatario abre el WhatsApp y desde ahí puede tocar el link y
       // ver el recibo en el navegador. URL firmada con expiración larga
       // (30 días) porque el empleado puede tardar en revisar el mensaje.
-      let enlaceRecibo = ''
+      // Guardamos `pagoIdActual` para marcar `recibo_whatsapp_enviado_*`
+      // si el envío termina OK.
+      //
+      // ─── Link CORTO al PDF del recibo ───
+      // En vez de mandar el signed URL de Supabase (800+ chars), generamos
+      // un short link `https://flux.salixweb.com/r/{token}` que vive en
+      // `recibo_enlaces_publicos` y redirige al PDF cuando el empleado lo
+      // abre. Beneficios: legible en WhatsApp, trackeable (accesos_count)
+      // y renovable (si caduca, el próximo envío genera uno nuevo).
+      //
+      // Si `incluir_enlace_pdf === false`, mandamos `—` para que la
+      // plantilla muestre slot vacío. NO usamos string vacío porque
+      // `resolverParametrosCuerpo` cae al ejemplo del catálogo y termina
+      // enviando un URL falso (https://flux.salixweb.com/r/abc123).
+      const incluirPdf = incluir_enlace_pdf !== false // default true
+      let enlaceRecibo = '—'
+      let pagoIdActual: string | null = null
       if (emp.miembro_id && periodo_desde && periodo_hasta) {
         try {
           const { data: pago } = await admin
@@ -207,14 +263,34 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .maybeSingle()
           if (pago) {
-            const { url } = await generarPdfRecibo(admin, pago.id, empresaId, {
-              expiracionSegundos: 60 * 60 * 24 * 30, // 30 días
-            })
-            enlaceRecibo = url
+            pagoIdActual = pago.id as string
+            if (incluirPdf) {
+              // Aseguramos que el PDF exista en Storage (genera o reusa
+              // según hash). El short link después sirve siempre porque
+              // la ruta /r/[token] genera signed URLs frescas en cada hit.
+              await generarPdfRecibo(admin, pago.id, empresaId, {
+                expiracionSegundos: 60 * 60 * 24, // 24h (no se usa, solo para warmup)
+              })
+              // baseUrl: SIEMPRE el dominio público de Flux. El empleado abre
+              // el link desde su teléfono — no podemos mandar `localhost:3000`
+              // (que es lo que `NEXT_PUBLIC_APP_URL` vale en dev) ni el preview
+              // de Vercel. Permitimos override con `PUBLIC_LINKS_BASE_URL` por
+              // si en el futuro la app vive en otro dominio.
+              const baseUrl = process.env.PUBLIC_LINKS_BASE_URL
+                || 'https://flux.salixweb.com'
+              const { url } = await obtenerEnlaceCortoRecibo(admin, baseUrl, {
+                pagoId: pago.id,
+                empresaId,
+                miembroId: emp.miembro_id,
+                creadoPor: user.id,
+                diasVigencia: 30, // 1 mes; se regenera al reenviar el recibo
+              })
+              enlaceRecibo = url
+            }
           }
         } catch (errPdf) {
-          console.error('[nominas/enviar-whatsapp] error al generar PDF:', errPdf)
-          // Seguimos sin enlace: el cuerpo del mensaje todavía va.
+          console.error('[nominas/enviar-whatsapp] error al generar PDF/enlace:', errPdf)
+          // Seguimos sin enlace: el cuerpo del mensaje todavía va con `—`.
         }
       }
 
@@ -230,13 +306,31 @@ export async function POST(request: NextRequest) {
           monto_pagar: emp.monto_pagar ?? (Number(String(emp.monto_bruto).replace(/[^\d.-]/g, '')) || 0),
           monto_neto: emp.monto_neto,
           descuento_adelanto: emp.descuento_adelanto || 0,
+          // Bonos del período (suman al neto). Se exponen también
+          // como `bonos_lista` y `detalle_bonos` para que plantillas
+          // WA armen un bloque de pagos extra.
+          bonos_periodo: emp.bonos_periodo || 0,
           saldo_anterior: emp.saldo_anterior || 0,
           monto_detalle: emp.compensacion_detalle,
           detalle_descuentos: detalleDescuentos,
           descuentos_lista: lineasDescuentos,
+          detalle_bonos: detalleBonos,
+          bonos_lista: lineasBonos,
           // Disponible para que las plantillas WA incluyan {{nomina.enlace_recibo}}.
           // Si no hay pago grabado en el período, queda string vacío.
           enlace_recibo: enlaceRecibo,
+          // Conceptos del contrato (Presentismo, Antigüedad, Uniforme, etc.)
+          // — el resolver los distribuye en los slots haber_* y
+          // descuento_contrato_*. Los totales se calculan ahí.
+          conceptos_aplicados: emp.conceptos_aplicados ?? [],
+          // Totales del contrato (haberes y descuentos), si vienen del
+          // motor. Si no, el resolver los calcula sumando conceptos_aplicados.
+          total_haberes: (emp.conceptos_aplicados ?? [])
+            .filter(c => c.tipo === 'haber')
+            .reduce((s, c) => s + Number(c.monto || 0), 0),
+          total_descuentos_conceptos: (emp.conceptos_aplicados ?? [])
+            .filter(c => c.tipo === 'descuento')
+            .reduce((s, c) => s + Number(c.monto || 0), 0),
         },
       })
 
@@ -316,6 +410,21 @@ export async function POST(request: NextRequest) {
             plantilla_id,
             estado: 'enviado',
           })
+        }
+
+        // Marcar el pago como "recibo enviado por WhatsApp" — habilita el
+        // badge en la UI y la lógica anti-duplicado. Igual que correo:
+        // solo se marca si el operador ya registró el pago.
+        if (pagoIdActual) {
+          await admin
+            .from('pagos_nomina')
+            .update({
+              recibo_whatsapp_enviado_en: new Date().toISOString(),
+              recibo_whatsapp_enviado_a: telCanonico,
+              recibo_whatsapp_enviado_por: user.id,
+            })
+            .eq('id', pagoIdActual)
+            .eq('empresa_id', empresaId)
         }
 
         resultados.push({ telefono: telCanonico, nombre: emp.nombre, ok: true })

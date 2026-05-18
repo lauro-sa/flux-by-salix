@@ -30,11 +30,12 @@
  */
 
 import { useState } from 'react'
-import type { ContratoLaboral, MotivoFinContrato } from '@/tipos/nominas'
+import type { ContratoLaboral, MotivoFinContrato, ConceptoContratoConDetalle } from '@/tipos/nominas'
 import { Boton } from '@/componentes/ui/Boton'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
   Plus, FileText, ExternalLink, FileQuestion, Ban, Power, RotateCw, SlidersHorizontal, History, Pencil,
+  Tag, ArrowRight, TrendingUp, TrendingDown,
 } from 'lucide-react'
 import { ModalTerminarContrato } from './ModalTerminarContrato'
 import { ModalRenovarContrato } from './ModalRenovarContrato'
@@ -69,6 +70,17 @@ interface Props {
    * pagos asociados.
    */
   onEditarContrato?: () => void
+  /**
+   * Lista de conceptos vigentes hoy en el contrato (filas con
+   * `fecha_baja === null`). Si está vacía, la sección "Conceptos
+   * asignados" muestra un EstadoVacio con CTA para configurarlos.
+   */
+  conceptosVigentes?: ConceptoContratoConDetalle[]
+  /**
+   * Cambia a la pestaña Conceptos. Se usa en el CTA "Editar conceptos"
+   * de la sección de conceptos read-only.
+   */
+  onIrAConceptos?: () => void
   /** Avisa al padre que la operación tuvo éxito para recargar la ficha. */
   onContratoActualizado?: () => void
 }
@@ -164,8 +176,9 @@ function calcularDuracion(inicio: string, fin?: string | null): string {
 
 export function ContratoVigente({
   contrato, contratosAnteriores = [], sectorNombre, turnoNombre, turnoHeredadoDelSector, sectoresMap, turnosMap, sectorTurnoMap,
+  conceptosVigentes = [],
   locale = 'es-AR', monedaSimbolo = '$',
-  puedeEditar, onNuevoContrato, onCambiarCondiciones, onEditarContrato, onContratoActualizado,
+  puedeEditar, onNuevoContrato, onCambiarCondiciones, onEditarContrato, onIrAConceptos, onContratoActualizado,
 }: Props) {
   const [modalTerminar, setModalTerminar] = useState(false)
   const [modalRenovar, setModalRenovar] = useState(false)
@@ -376,6 +389,20 @@ export function ContratoVigente({
         </div>
       </section>
 
+      {/* ─── Conceptos asignados (vigentes) ─── */}
+      {/* Solo se muestra para el contrato vigente (no terminados): los
+          conceptos cobrados en contratos cerrados se ven en cada recibo
+          generado durante su vigencia (snapshot inmutable). */}
+      {!estaTerminado && (
+        <ConceptosVigentesPanel
+          conceptos={conceptosVigentes}
+          locale={locale}
+          monedaSimbolo={monedaSimbolo}
+          puedeEditar={puedeEditar}
+          onIrAConceptos={onIrAConceptos}
+        />
+      )}
+
       {/* ─── Contratos anteriores ─── */}
       {contratosAnteriores.length > 0 && (
         <section>
@@ -443,6 +470,170 @@ export function ContratoVigente({
 // ────────────────────────────────────────────────────────────────
 // Sub-componentes
 // ────────────────────────────────────────────────────────────────
+
+/**
+ * Panel read-only que lista los conceptos vigentes hoy en el contrato.
+ * Muestra haberes y descuentos en grupos separados, con el monto base
+ * del catálogo (o el override si lo hay) y la fecha desde la que están
+ * activos. La edición real se hace en la pestaña "Conceptos" — acá solo
+ * informamos y damos un CTA para ir.
+ *
+ * Si no hay conceptos asignados, mostramos un EstadoVacio compacto
+ * con CTA para asignar los primeros.
+ */
+function ConceptosVigentesPanel({
+  conceptos, locale, monedaSimbolo, puedeEditar, onIrAConceptos,
+}: {
+  conceptos: ConceptoContratoConDetalle[]
+  locale: string
+  monedaSimbolo: string
+  puedeEditar: boolean
+  onIrAConceptos?: () => void
+}) {
+  const haberes = conceptos.filter(c => c.concepto.tipo === 'haber')
+  const descuentos = conceptos.filter(c => c.concepto.tipo === 'descuento')
+
+  return (
+    <section className="rounded-card border border-borde-sutil bg-superficie-tarjeta p-5">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Tag size={14} className="text-texto-terciario" />
+          <h3 className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+            Conceptos asignados ({conceptos.length})
+          </h3>
+        </div>
+        {puedeEditar && onIrAConceptos && (
+          <button
+            type="button"
+            onClick={onIrAConceptos}
+            className="inline-flex items-center gap-1 text-xs text-texto-marca hover:underline"
+          >
+            Editar conceptos <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+
+      {conceptos.length === 0 ? (
+        <p className="text-sm text-texto-terciario">
+          Sin conceptos asignados. Los conceptos como Presentismo, Antigüedad o
+          Descuento por uniforme se asignan desde la pestaña{' '}
+          {puedeEditar && onIrAConceptos ? (
+            <button
+              type="button"
+              onClick={onIrAConceptos}
+              className="text-texto-marca hover:underline"
+            >
+              Conceptos
+            </button>
+          ) : 'Conceptos'}.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {haberes.length > 0 && (
+            <ConceptosVigentesGrupo
+              titulo="Haberes"
+              icono={<TrendingUp size={12} />}
+              colorAcento="text-insignia-exito"
+              items={haberes}
+              locale={locale}
+              monedaSimbolo={monedaSimbolo}
+            />
+          )}
+          {descuentos.length > 0 && (
+            <ConceptosVigentesGrupo
+              titulo="Descuentos"
+              icono={<TrendingDown size={12} />}
+              colorAcento="text-insignia-peligro"
+              items={descuentos}
+              locale={locale}
+              monedaSimbolo={monedaSimbolo}
+            />
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ConceptosVigentesGrupo({
+  titulo, icono, colorAcento, items, locale, monedaSimbolo,
+}: {
+  titulo: string
+  icono: React.ReactNode
+  colorAcento: string
+  items: ConceptoContratoConDetalle[]
+  locale: string
+  monedaSimbolo: string
+}) {
+  return (
+    <div>
+      <div className={`flex items-center gap-1.5 mb-2 ${colorAcento}`}>
+        {icono}
+        <span className="text-[10px] font-medium uppercase tracking-wider">{titulo}</span>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map(c => (
+          <ConceptoVigenteFila
+            key={c.id}
+            asignacion={c}
+            locale={locale}
+            monedaSimbolo={monedaSimbolo}
+          />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ConceptoVigenteFila({
+  asignacion, locale, monedaSimbolo,
+}: {
+  asignacion: ConceptoContratoConDetalle
+  locale: string
+  monedaSimbolo: string
+}) {
+  const c = asignacion.concepto
+  // El valor que el motor va a usar: override si está, sino el del catálogo.
+  const valor = asignacion.valor_override !== null && asignacion.valor_override !== undefined
+    ? Number(asignacion.valor_override)
+    : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
+  const tieneOverride = asignacion.valor_override !== null && asignacion.valor_override !== undefined
+
+  // Etiqueta del modo de cálculo, condensada.
+  const etiquetaModo = c.modo_calculo === 'monto_fijo' ? 'monto fijo'
+    : c.modo_calculo === 'porcentaje_basico' ? '% del básico'
+    : c.modo_calculo === 'por_dia' ? 'por día'
+    : c.modo_calculo === 'por_evento' ? 'por evento'
+    : 'manual'
+
+  const valorTexto = valor === null
+    ? '—'
+    : c.modo_calculo === 'monto_fijo' || c.modo_calculo === 'por_evento'
+      ? `${monedaSimbolo} ${valor.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+      : `${valor}%`
+
+  return (
+    <li className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-superficie-elevada/40 border border-borde-sutil">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-texto-primario font-medium truncate">{c.nombre}</span>
+          <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{etiquetaModo}</span>
+          {tieneOverride && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-texto-marca/15 text-texto-marca uppercase tracking-wider">
+              Override
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-texto-terciario mt-0.5">
+          Activo desde {formatearFecha(asignacion.fecha_alta, locale)}
+        </p>
+      </div>
+      <span className="text-sm tabular-nums text-texto-primario shrink-0">
+        {valorTexto}
+      </span>
+    </li>
+  )
+}
 
 function Campo({ etiqueta, valor, multilinea = false }: { etiqueta: string; valor: string; multilinea?: boolean }) {
   return (

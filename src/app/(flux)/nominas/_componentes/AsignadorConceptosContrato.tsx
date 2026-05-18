@@ -174,6 +174,13 @@ function ModoContrato({ contratoId, vigente }: PropsContrato) {
   const [catalogo, setCatalogo] = useState<ConceptoNomina[]>([])
   const [seleccion, setSeleccion] = useState<Map<string, SeleccionItem>>(new Map())
   const [original, setOriginal] = useState<Map<string, SeleccionItem>>(new Map())
+  /**
+   * Fecha de alta de cada concepto vigente, indexada por concepto_id.
+   * Se usa para mostrar "Activo desde DD/MM/YYYY" en la fila. Solo se
+   * llena con datos del backend (cargar inicial); para conceptos
+   * recién toggleados localmente, se muestra "Se aplicará al guardar".
+   */
+  const [fechasAlta, setFechasAlta] = useState<Map<string, string>>(new Map())
 
   // ─── Carga inicial ───
   useEffect(() => {
@@ -192,17 +199,24 @@ function ModoContrato({ contratoId, vigente }: PropsContrato) {
         const asig = (data.asignaciones ?? []) as ConceptoContratoConDetalle[]
         setCatalogo(cat)
         const inicial = new Map<string, SeleccionItem>()
+        const fechas = new Map<string, string>()
         for (const a of asig) {
-          if (!a.activo) continue
+          // Solo nos interesan las VIGENTES (fecha_baja IS NULL).
+          // Las cerradas quedan como historia y la UI no las muestra
+          // como toggles activos — el operador puede reactivarlas
+          // tildando el toggle, lo que crea una alta nueva.
+          if (a.fecha_baja !== null) continue
           // Supabase devuelve numeric(14,4) como string; lo normalizamos
           // a number para que la comparación de cambios funcione.
           const overrideNum = a.valor_override === null || a.valor_override === undefined
             ? null
             : Number(a.valor_override)
           inicial.set(a.concepto_id, { concepto_id: a.concepto_id, valor_override: overrideNum })
+          fechas.set(a.concepto_id, a.fecha_alta)
         }
         setSeleccion(new Map(inicial))
         setOriginal(new Map(inicial))
+        setFechasAlta(fechas)
       } catch (err) {
         console.error('[AsignadorConceptos] error', err)
         toast.mostrar('error', 'Error de red al cargar conceptos')
@@ -334,6 +348,7 @@ function ModoContrato({ contratoId, vigente }: PropsContrato) {
           titulo="Haberes"
           conceptos={haberes}
           seleccion={seleccion}
+          fechasAlta={fechasAlta}
           puedeEditar={puedeEditar}
           onToggle={toggle}
           onOverride={cambiarOverride}
@@ -344,6 +359,7 @@ function ModoContrato({ contratoId, vigente }: PropsContrato) {
           titulo="Descuentos"
           conceptos={descuentos}
           seleccion={seleccion}
+          fechasAlta={fechasAlta}
           puedeEditar={puedeEditar}
           onToggle={toggle}
           onOverride={cambiarOverride}
@@ -353,12 +369,26 @@ function ModoContrato({ contratoId, vigente }: PropsContrato) {
   )
 }
 
+/** Formatea una fecha YYYY-MM-DD como "DD MMM YYYY" en español. */
+function formatearFechaCorta(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return dt.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 function ListaConceptos({
-  titulo, conceptos, seleccion, puedeEditar, onToggle, onOverride,
+  titulo, conceptos, seleccion, fechasAlta, puedeEditar, onToggle, onOverride,
 }: {
   titulo: string
   conceptos: ConceptoNomina[]
   seleccion: Map<string, SeleccionItem>
+  /**
+   * Mapa concepto_id → fecha_alta. Solo presente para asignaciones
+   * que ya están en BD (cargadas en el load inicial). Si un concepto
+   * está activo localmente pero no en este mapa, significa que el
+   * operador acaba de tildarlo y todavía no guardó.
+   */
+  fechasAlta: Map<string, string>
   puedeEditar: boolean
   onToggle: (c: ConceptoNomina) => void
   onOverride: (id: string, valor: string) => void
@@ -401,9 +431,22 @@ function ListaConceptos({
                     {ETIQUETAS_MODO[c.modo_calculo]}
                   </span>
                 </div>
-                {c.descripcion && (
+                {/* Vigencia: si tenemos fecha_alta del backend, mostramos
+                    "Activo desde DD MMM YYYY". Si está activo localmente
+                    pero no hay fecha (recién toggleado), mostramos un
+                    aviso que se aplicará al guardar. Si no está activo,
+                    caemos a la descripción del catálogo. */}
+                {activo && fechasAlta.has(c.id) ? (
+                  <p className="text-xs text-texto-terciario mt-0.5">
+                    Activo desde {formatearFechaCorta(fechasAlta.get(c.id)!)}
+                  </p>
+                ) : activo ? (
+                  <p className="text-xs text-texto-marca/80 mt-0.5">
+                    Se aplicará desde hoy al guardar
+                  </p>
+                ) : c.descripcion ? (
                   <p className="text-xs text-texto-terciario truncate mt-0.5">{c.descripcion}</p>
-                )}
+                ) : null}
               </div>
 
               {/* Valor del catálogo */}

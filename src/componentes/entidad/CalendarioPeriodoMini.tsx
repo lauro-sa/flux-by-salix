@@ -22,6 +22,9 @@ export interface DefinicionEstado {
 /** Mapa de fecha ISO (YYYY-MM-DD) → clave del estado */
 export type MapaEstadosDia = Record<string, EstadoDiaMini>
 
+/** Mapa de fecha ISO → horas trabajadas ese día (decimales). */
+export type MapaHorasDia = Record<string, number | null | undefined>
+
 /** Controla si se muestran los días alineados por semana o como una fila continua */
 export type LayoutCalendarioMini = 'auto' | 'fila' | 'grilla'
 
@@ -32,6 +35,13 @@ interface PropiedadesCalendarioPeriodoMini {
   hasta: string
   /** Estados de cada día (claves que deben existir en `estados`). Días sin clave se dejan neutros */
   diasEstado: MapaEstadosDia
+  /**
+   * Horas netas trabajadas por día (opcional). Si se provee, cada
+   * celda muestra al hacer hover "DD MMM — Estado · Xh Ym". Días sin
+   * fichaje real (clave ausente o valor null) muestran solo el estado.
+   * Formato decimal (ej: 8.5 = 8h 30m).
+   */
+  horasPorDia?: MapaHorasDia
   /** Catálogo de estados con su estilo y etiqueta de leyenda */
   estados: DefinicionEstado[]
   /**
@@ -86,10 +96,24 @@ const ETIQUETAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
  *  - Fila con los N días (layout 'fila') o grilla semanal (layout 'grilla').
  *  - Leyenda opcional debajo con los estados definidos.
  */
+/** Formatea horas decimales como "Xh Ym" (ej: 8.5 → "8h 30m"). */
+function formatearHorasTooltip(h: number): string {
+  const hrs = Math.floor(h)
+  const min = Math.round((h - hrs) * 60)
+  return min > 0 ? `${hrs}h ${min}m` : `${hrs}h`
+}
+
+/** Formatea una fecha ISO como "DD MMM" (sin punto). */
+function formatearFechaTooltip(iso: string): string {
+  const d = new Date(iso + 'T12:00:00')
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '')
+}
+
 function CalendarioPeriodoMini({
   desde,
   hasta,
   diasEstado,
+  horasPorDia,
   estados,
   layout = 'auto',
   mostrarLeyenda = true,
@@ -135,6 +159,19 @@ function CalendarioPeriodoMini({
       ? 'ring-2 ring-offset-2 ring-offset-superficie-tarjeta ring-texto-marca'
       : ''
 
+    // Tooltip enriquecido: "DD MMM — Estado · Xh Ym (hoy)".
+    // Si no hay horas para ese día, omite ese segmento. La fecha la
+    // mostramos como "DD MMM" en lugar del ISO para que sea legible
+    // de un vistazo.
+    const horas = horasPorDia?.[f]
+    const partesTitulo: string[] = [formatearFechaTooltip(f)]
+    if (def) partesTitulo.push(def.etiqueta)
+    if (typeof horas === 'number' && horas > 0) partesTitulo.push(formatearHorasTooltip(horas))
+    if (esHoy) partesTitulo.push('hoy')
+    const titulo = partesTitulo.length > 1
+      ? `${partesTitulo[0]} — ${partesTitulo.slice(1).join(' · ')}`
+      : partesTitulo[0]
+
     return (
       <button
         key={f}
@@ -147,7 +184,7 @@ function CalendarioPeriodoMini({
           ${claseFondo} ${claseTexto} ${claseHoy}
           ${interactivo ? 'cursor-pointer hover:ring-2 hover:ring-white/20 transition-all' : 'cursor-default'}
         `}
-        title={def ? `${f} — ${def.etiqueta}${esHoy ? ' (hoy)' : ''}` : f}
+        title={titulo}
       >
         {dia}
       </button>

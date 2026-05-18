@@ -44,6 +44,32 @@ export interface DatosEmpleadoRecibo {
   banco: string | null
 }
 
+/**
+ * Datos del cobro real (sql/092). Solo presentes cuando el recibo
+ * proviene de un pago ya grabado — los borradores (preview) no lo
+ * tienen porque aún no se decidió el método.
+ */
+export interface DatosCobroRecibo {
+  metodo_pago: 'efectivo' | 'transferencia' | 'cuenta_digital' | 'cheque' | 'otro'
+  /** Fecha real del pago, YYYY-MM-DD. */
+  fecha_pago: string
+  /** Nro de operación / cheque / referencia externa. */
+  referencia: string | null
+  /**
+   * Cuenta destino del pago si fue transferencia o cuenta digital.
+   * Tomada de info_bancaria. Para efectivo/cheque es null.
+   */
+  cuenta_destino: {
+    tipo_pago: 'banco' | 'digital'
+    etiqueta: string | null
+    banco: string | null
+    tipo_cuenta: string | null
+    numero_cuenta: string | null
+    alias: string | null
+    titular_nombre: string | null
+  } | null
+}
+
 export interface LineaConceptoRecibo {
   nombre: string
   tipo: 'haber' | 'descuento'
@@ -91,6 +117,12 @@ export interface DatosReciboPdf {
   fecha_emision: string
 
   notas: string | null
+
+  /**
+   * Datos del cobro real. Solo presente cuando el recibo proviene
+   * de un pago grabado (no en borrador / preview).
+   */
+  cobro?: DatosCobroRecibo | null
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -135,9 +167,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
   const periodo = formatearPeriodo(datos.periodo_inicio, datos.periodo_fin)
   const nombreCompleto = `${datos.empleado.nombre}${datos.empleado.apellido ? ' ' + datos.empleado.apellido : ''}`.trim() || '—'
   const datosFiscales = datos.empresa.datos_fiscales ?? {}
+  // Razón social fiscal si está cargada, sino el nombre comercial.
   const razonSocial = (datosFiscales.razon_social as string) || datos.empresa.nombre
-  const cuit = (datosFiscales.cuit as string) || (datosFiscales.identificacion_fiscal as string) || ''
-  const direccionEmpresa = (datosFiscales.direccion as string) || datos.empresa.ubicacion || ''
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -154,58 +185,97 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     margin: 0;
     padding: 0;
   }
+  /* Override del padding-bottom default de htmlAPdf (25mm hardcoded
+     para PDFs paginados con header repetido). El recibo es de UNA
+     página y necesita ese espacio para que las firmas y el pie
+     quepan sin saltar a una segunda página. La doble selectividad
+     html body gana sobre el body con !important del wrapper. */
+  html body {
+    padding: 10mm 13mm 8mm 13mm !important;
+  }
+  /* ─── Cabezal editorial: marca a la izq, recibo a la der ───
+       Solo identidad — sin datos fiscales (intencionalmente). La
+       línea inferior gruesa marca el separador del cuerpo. */
   .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    padding-bottom: 12mm;
-    border-bottom: 2px solid #111827;
-    margin-bottom: 8mm;
+    align-items: center;
+    gap: 10mm;
+    padding-bottom: 5mm;
+    border-bottom: 1.5px solid #111827;
+    margin-bottom: 6mm;
   }
-  .header .empresa { flex: 1; }
-  .header .empresa h1 {
-    margin: 0 0 2mm 0;
-    font-size: 14pt;
+  .header .marca {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 5mm;
+    min-width: 0;
+  }
+  .header .marca .logo {
+    width: 16mm;
+    height: 16mm;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .header .marca .razon {
+    min-width: 0;
+  }
+  .header .marca .razon h1 {
+    margin: 0;
+    font-size: 16pt;
     font-weight: 700;
     color: #111827;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
   }
-  .header .empresa p {
-    margin: 0;
-    font-size: 9pt;
+  .header .marca .razon .tag {
+    display: inline-block;
+    margin-top: 1.5mm;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: #6b7280;
-    line-height: 1.5;
-  }
-  .header .logo {
-    max-height: 18mm;
-    max-width: 40mm;
-    object-fit: contain;
+    font-weight: 600;
   }
   .header .recibo-meta {
     text-align: right;
-    font-size: 9pt;
-    color: #6b7280;
+    min-width: 50mm;
   }
   .header .recibo-meta .titulo {
-    font-size: 11pt;
+    font-size: 8pt;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 1mm;
+  }
+  .header .recibo-meta .numero {
+    font-size: 14pt;
     font-weight: 700;
     color: #111827;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .header .recibo-meta .fecha {
+    font-size: 9pt;
+    color: #6b7280;
+    margin-top: 0.5mm;
   }
   .grid-info {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6mm;
-    margin-bottom: 8mm;
+    gap: 4mm;
+    margin-bottom: 5mm;
   }
   .grid-info .bloque {
     border: 1px solid #e5e7eb;
     border-radius: 2mm;
-    padding: 4mm;
+    padding: 3mm 3.5mm;
   }
   .grid-info .bloque h2 {
-    margin: 0 0 2mm 0;
-    font-size: 8pt;
+    margin: 0 0 1.5mm 0;
+    font-size: 7.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #6b7280;
@@ -214,58 +284,82 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
   .grid-info .bloque .row {
     display: flex;
     justify-content: space-between;
-    margin: 1mm 0;
-    font-size: 9.5pt;
+    margin: 0.5mm 0;
+    font-size: 9pt;
+    line-height: 1.3;
   }
   .grid-info .bloque .row .label { color: #6b7280; }
   .grid-info .bloque .row .value { color: #111827; font-weight: 500; text-align: right; }
   table.lineas {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 6mm;
+    margin-bottom: 4mm;
     page-break-inside: avoid;
   }
   table.lineas thead th {
     text-align: left;
-    font-size: 8pt;
+    font-size: 7.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #6b7280;
     font-weight: 600;
-    padding: 2mm 3mm;
+    padding: 1.5mm 2.5mm;
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
   }
   table.lineas tbody td {
-    padding: 2.5mm 3mm;
+    padding: 1.8mm 2.5mm;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: top;
+    font-size: 9.5pt;
   }
   table.lineas tbody td.monto { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.lineas tbody td .detalle {
     display: block;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #6b7280;
-    margin-top: 0.5mm;
+    margin-top: 0.3mm;
   }
   table.lineas tfoot td {
-    padding: 3mm;
+    padding: 2.2mm 2.5mm;
     font-weight: 700;
     border-top: 2px solid #111827;
     background: #f9fafb;
   }
   table.lineas tfoot td.monto { text-align: right; font-variant-numeric: tabular-nums; }
   .seccion-titulo {
-    margin: 0 0 2mm 0;
-    font-size: 9pt;
+    margin: 0 0 1.5mm 0;
+    font-size: 8.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #374151;
     font-weight: 700;
   }
+  /* Insignia para conceptos con ajuste puntual del período: override
+     de monto o concepto agregado solo para este recibo. Discreta pero
+     visible al lado del nombre. */
+  .pill {
+    display: inline-block;
+    margin-left: 2mm;
+    padding: 0.5mm 1.5mm;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 1mm;
+    vertical-align: 1mm;
+  }
+  .pill-override {
+    color: #1e40af;
+    background: #dbeafe;
+  }
+  .pill-agregar {
+    color: #6b21a8;
+    background: #f3e8ff;
+  }
   .neto {
-    margin-top: 8mm;
-    padding: 5mm 6mm;
+    margin-top: 5mm;
+    padding: 4mm 5mm;
     background: #111827;
     color: #ffffff;
     display: flex;
@@ -284,23 +378,27 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
+  /* Firmas: bloque grande con respiración real, las dos líneas
+     dejan suficiente espacio arriba para firmar a mano. */
   .firmas {
-    margin-top: 16mm;
+    margin-top: 18mm;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16mm;
+    gap: 20mm;
     page-break-inside: avoid;
   }
   .firma {
-    border-top: 1px solid #d1d5db;
-    padding-top: 2mm;
+    border-top: 1px solid #9ca3af;
+    padding-top: 3mm;
     text-align: center;
     font-size: 9pt;
-    color: #6b7280;
+    color: #4b5563;
+    font-weight: 500;
+    min-height: 20mm;
   }
   .pie {
-    margin-top: 12mm;
-    padding-top: 4mm;
+    margin-top: 8mm;
+    padding-top: 3mm;
     border-top: 1px solid #e5e7eb;
     font-size: 7.5pt;
     color: #9ca3af;
@@ -308,8 +406,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     justify-content: space-between;
   }
   .notas {
-    margin-top: 6mm;
-    padding: 4mm;
+    margin-top: 4mm;
+    padding: 3mm 4mm;
     background: #fef9c3;
     border-left: 3px solid #facc15;
     font-size: 9pt;
@@ -320,21 +418,25 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
 </head>
 <body>
 
-  <!-- ─── Encabezado ─── -->
+  <!-- ─── Encabezado editorial ───
+       Identidad mínima: logo + razón social a la izquierda, "Recibo Nº"
+       con número y fecha a la derecha. Los datos fiscales (CUIT,
+       dirección, contacto) quedan en el pie del recibo si son
+       necesarios — el cabezal se mantiene limpio. -->
   <div class="header">
-    <div class="empresa">
-      <h1>${escaparHtml(razonSocial)}</h1>
-      <p>
-        ${cuit ? `CUIT: ${escaparHtml(cuit)}<br>` : ''}
-        ${direccionEmpresa ? `${escaparHtml(direccionEmpresa)}<br>` : ''}
-        ${datos.empresa.telefono ? `Tel: ${escaparHtml(datos.empresa.telefono)} · ` : ''}${datos.empresa.correo ? escaparHtml(datos.empresa.correo) : ''}
-      </p>
+    <div class="marca">
+      ${datos.empresa.logo_url
+        ? `<img class="logo" src="${escaparHtml(datos.empresa.logo_url)}" alt="${escaparHtml(datos.empresa.nombre)}">`
+        : ''}
+      <div class="razon">
+        <h1>${escaparHtml(razonSocial)}</h1>
+        <span class="tag">Liquidación de haberes</span>
+      </div>
     </div>
-    ${datos.empresa.logo_url ? `<img class="logo" src="${escaparHtml(datos.empresa.logo_url)}" alt="${escaparHtml(datos.empresa.nombre)}">` : ''}
     <div class="recibo-meta">
-      <div class="titulo">Recibo de haberes</div>
-      <div>Nº ${escaparHtml(datos.pago_id.slice(0, 8).toUpperCase())}</div>
-      <div>Emitido: ${formatearFecha(datos.fecha_emision)}</div>
+      <div class="titulo">Recibo Nº</div>
+      <div class="numero">${escaparHtml(datos.pago_id.slice(0, 8).toUpperCase())}</div>
+      <div class="fecha">Emitido el ${formatearFecha(datos.fecha_emision)}</div>
     </div>
   </div>
 
@@ -380,7 +482,7 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
         <td class="monto">${formatearMonto(datos.monto_base)}</td>
       </tr>
       ${haberes.map(h => `<tr>
-        <td><strong>${escaparHtml(h.nombre)}</strong>${h.detalle ? `<span class="detalle">${escaparHtml(h.detalle)}</span>` : ''}</td>
+        <td><strong>${escaparHtml(h.nombre)}</strong>${renderizarPillAjuste(h.detalle)}${h.detalle ? `<span class="detalle">${escaparHtml(h.detalle)}</span>` : ''}</td>
         <td>${h.automatico ? 'Automático' : 'Manual'}</td>
         <td class="monto">${formatearMonto(h.monto)}</td>
       </tr>`).join('')}
@@ -406,7 +508,7 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     </thead>
     <tbody>
       ${descuentos.map(d => `<tr>
-        <td><strong>${escaparHtml(d.nombre)}</strong>${d.detalle ? `<span class="detalle">${escaparHtml(d.detalle)}</span>` : ''}</td>
+        <td><strong>${escaparHtml(d.nombre)}</strong>${renderizarPillAjuste(d.detalle)}${d.detalle ? `<span class="detalle">${escaparHtml(d.detalle)}</span>` : ''}</td>
         <td>${d.automatico ? 'Automático' : 'Manual'}</td>
         <td class="monto">−${formatearMonto(d.monto)}</td>
       </tr>`).join('')}
@@ -426,6 +528,8 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
     <span class="valor">${formatearMonto(datos.monto_abonado)}</span>
   </div>
   ${datos.monto_abonado !== datos.monto_sugerido ? `<p style="margin-top:2mm;font-size:8pt;color:#6b7280;text-align:right;">Sugerido por el sistema: ${formatearMonto(datos.monto_sugerido)} · Diferencia: ${formatearMonto(datos.monto_abonado - datos.monto_sugerido)}</p>` : ''}
+
+  ${datos.cobro ? renderizarBloqueCobro(datos.cobro) : ''}
 
   ${datos.notas ? `<div class="notas"><strong>Notas:</strong> ${escaparHtml(datos.notas)}</div>` : ''}
 
@@ -448,6 +552,80 @@ export function renderizarHtmlRecibo(datos: DatosReciboPdf): string {
 // ════════════════════════════════════════════════════════════════
 // Helpers
 // ════════════════════════════════════════════════════════════════
+
+/**
+ * Bloque "Datos del cobro" — solo presente en recibos con pago
+ * grabado. Muestra cómo se hizo efectivamente el pago: método,
+ * fecha real, número de operación y cuenta destino si corresponde.
+ *
+ * El estilo es discreto (no compite con el neto a transferir, que
+ * sigue siendo lo más destacado del recibo) y queda como prueba de
+ * cobro al pie del recibo.
+ */
+function renderizarBloqueCobro(c: DatosCobroRecibo): string {
+  const ETIQUETAS_METODO: Record<DatosCobroRecibo['metodo_pago'], string> = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia bancaria',
+    cuenta_digital: 'Cuenta digital',
+    cheque: 'Cheque',
+    otro: 'Otro',
+  }
+  const filas: Array<{ label: string; valor: string }> = [
+    { label: 'Método de pago', valor: ETIQUETAS_METODO[c.metodo_pago] },
+    { label: 'Fecha del pago', valor: formatearFecha(c.fecha_pago) },
+  ]
+  if (c.referencia) {
+    filas.push({
+      label: c.metodo_pago === 'cheque' ? 'Nº de cheque' : 'Nº de operación',
+      valor: c.referencia,
+    })
+  }
+  if (c.cuenta_destino) {
+    const cd = c.cuenta_destino
+    const titulo = cd.etiqueta || cd.banco || (cd.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')
+    const partesTitulo = [titulo]
+    if (cd.banco && cd.etiqueta) partesTitulo.push(cd.banco)
+    if (cd.tipo_cuenta) partesTitulo.push(cd.tipo_cuenta)
+    filas.push({ label: 'Cuenta destino', valor: partesTitulo.join(' · ') })
+    if (cd.alias) filas.push({ label: 'Alias', valor: cd.alias })
+    if (cd.numero_cuenta) {
+      filas.push({
+        label: cd.tipo_pago === 'digital' ? 'CVU' : 'CBU',
+        valor: cd.numero_cuenta,
+      })
+    }
+    if (cd.titular_nombre) filas.push({ label: 'Titular', valor: cd.titular_nombre })
+  }
+
+  return `
+  <h3 class="seccion-titulo" style="margin-top:6mm;">Datos del cobro</h3>
+  <table style="width:100%;font-size:9pt;border-collapse:collapse;">
+    ${filas.map(f => `
+      <tr>
+        <td style="padding:1mm 0;color:#6b7280;width:40%;">${escaparHtml(f.label)}</td>
+        <td style="padding:1mm 0;color:#111827;font-weight:500;">${escaparHtml(f.valor)}</td>
+      </tr>
+    `).join('')}
+  </table>
+  `
+}
+
+/**
+ * Si el `detalle` indica que el concepto vino de un ajuste puntual
+ * del período (override o agregar), devuelve una pill de color para
+ * marcar la línea. Usa las cadenas exactas que escribe el motor en
+ * `armarConcepto` desde `motor-calculo.ts`. Mantener sincronizado.
+ */
+function renderizarPillAjuste(detalle: string | null): string {
+  if (!detalle) return ''
+  if (detalle.startsWith('Monto ajustado manualmente')) {
+    return '<span class="pill pill-override">Ajuste</span>'
+  }
+  if (detalle.startsWith('Concepto agregado al período')) {
+    return '<span class="pill pill-agregar">Solo este período</span>'
+  }
+  return ''
+}
 
 function escaparHtml(texto: string): string {
   return texto

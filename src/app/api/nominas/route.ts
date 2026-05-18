@@ -5,6 +5,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { resolverDatosContactoMiembro } from '@/lib/miembros/datos-contacto'
 import { cargarEtiquetasMiembros } from '@/lib/miembros/etiquetas'
 import { cargarIdentidadMiembros } from '@/lib/miembros/identidad'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 import {
   parsearCondicion,
   evaluarCondicion,
@@ -54,12 +55,18 @@ export async function GET(request: NextRequest) {
     // ─── Datos de la empresa ───
     const { data: empresaData } = await admin
       .from('empresas')
-      .select('nombre, pais')
+      .select('nombre, pais, zona_horaria')
       .eq('id', empresaId)
       .single()
 
     const nombreEmpresa = (empresaData?.nombre as string) || ''
     const paisEmpresa = (empresaData?.pais as string) || 'AR'
+    // Zona horaria de la empresa (default Buenos Aires). El server de
+    // Vercel corre en UTC, así que cualquier "hoy" calculado debe
+    // pasar por esta zona — sino días futuros del período en curso
+    // se cuentan mal como ausentes pasadas.
+    const zonaHorariaEmpresa = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const hoyISO = formatearFechaISO(new Date(), zonaHorariaEmpresa)
 
     // ─── Feriados y días no laborables ───
     // Distinguimos DOS conjuntos porque la legislación argentina los
@@ -286,6 +293,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ─── Ajustes puntuales del período (sql/095) ───
+    //
+    // Indexa por miembro_id → Map<concepto_id, ajuste>. Se cargan UNA
+    // sola vez para todos los miembros del listado, filtrando por
+    // período EXACTO (mismo desde y hasta). El motor unificado los
+    // respeta en `/api/nominas/calcular` y `/api/nominas/pagos`; acá
+    // los aplicamos a mano dentro del loop de conceptos para que el
+    // listado de la grilla principal refleje los overrides /
+    // exclusiones / agregados sin esperar a que se grabe el pago.
+    type AjustePeriodoLite = {
+      tipo_ajuste: 'override' | 'excluir' | 'agregar'
+      monto_override: number | null
+      motivo: string | null
+      concepto: ConceptoNomina | null
+    }
+    const ajustesPorMiembro = new Map<string, Map<string, AjustePeriodoLite>>()
+    if (miembrosFinalesIds.length > 0) {
+      const { data: ajustesRaw } = await admin
+        .from('ajustes_concepto_periodo')
+        .select('miembro_id, concepto_id, tipo_ajuste, monto_override, motivo, concepto:conceptos_nomina(*)')
+        .eq('empresa_id', empresaId)
+        .in('miembro_id', miembrosFinalesIds)
+        .eq('periodo_inicio', desde)
+        .eq('periodo_fin', hasta)
+      for (const a of ((ajustesRaw ?? []) as unknown as Array<{
+        miembro_id: string
+        concepto_id: string
+        tipo_ajuste: 'override' | 'excluir' | 'agregar'
+        monto_override: number | string | null
+        motivo: string | null
+        concepto: ConceptoNomina
+      }>)) {
+        if (!ajustesPorMiembro.has(a.miembro_id)) ajustesPorMiembro.set(a.miembro_id, new Map())
+        ajustesPorMiembro.get(a.miembro_id)!.set(a.concepto_id, {
+          tipo_ajuste: a.tipo_ajuste,
+          monto_override: a.monto_override === null ? null : Number(a.monto_override),
+          motivo: a.motivo,
+          concepto: a.concepto,
+        })
+      }
+    }
+
     // Identidad consolidada (perfil para miembros con cuenta Flux, contacto-equipo
     // para los cargados a mano). Reemplaza las dos queries previas a `perfiles` y
     // `contactos`. Ver src/lib/miembros/identidad.ts.
@@ -418,26 +467,42 @@ export async function GET(request: NextRequest) {
       return { fechasLaborales: fechasLab, fechasFeriado: fechasFer }
     }
 
-    // ─── Adelantos: cuotas pendientes por miembro ───
-    // Cuotas del período: pendientes Y descontadas (para mostrar desglose completo)
+    // ─── Ajustes del período: cuotas (adelanto/descuento/bono) ───
+    // Joineamos con adelantos_nomina para arrastrar el `tipo`, que
+    // decide si la cuota RESTA al neto (adelanto/descuento) o lo SUMA
+    // (bono). Filtramos pendientes y descontadas para mostrar el
+    // desglose completo del período.
     const { data: cuotasDelPeriodoData } = await admin
       .from('adelantos_cuotas')
-      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota, estado, fecha_programada')
+      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota, estado, fecha_programada, adelanto:adelantos_nomina!inner(tipo)')
       .eq('empresa_id', empresaId)
       .in('estado', ['pendiente', 'descontada'])
       .gte('fecha_programada', desde)
       .lte('fecha_programada', hasta)
 
-    // Agrupar cuotas por miembro (solo pendientes afectan el monto neto)
+    // Agrupamos por miembro separando descuentos (adelanto + descuento)
+    // de bonos. Si llega una cuota sin tipo (legacy), se asume
+    // 'adelanto' por compatibilidad — comportamiento histórico.
     const cuotasPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
+    const bonosPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
     for (const c of (cuotasDelPeriodoData || []) as Record<string, unknown>[]) {
       const mid = c.miembro_id as string
-      if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
-      const entry = cuotasPorMiembro.get(mid)!
-      // Todas las cuotas del período se descuentan (pendientes y ya descontadas)
-      entry.monto += parseFloat(c.monto_cuota as string)
-      entry.cantidad++
-      entry.detalle.push(c)
+      const adelantoRaw = c.adelanto as { tipo?: 'adelanto' | 'descuento' | 'bono' } | null | undefined
+      const tipo = adelantoRaw?.tipo ?? 'adelanto'
+      const monto = parseFloat(c.monto_cuota as string)
+      if (tipo === 'bono') {
+        if (!bonosPorMiembro.has(mid)) bonosPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
+        const entry = bonosPorMiembro.get(mid)!
+        entry.monto += monto
+        entry.cantidad++
+        entry.detalle.push(c)
+      } else {
+        if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
+        const entry = cuotasPorMiembro.get(mid)!
+        entry.monto += monto
+        entry.cantidad++
+        entry.detalle.push(c)
+      }
     }
 
     // ─── Saldo anterior: pagos del período anterior por miembro ───
@@ -461,6 +526,40 @@ export async function GET(request: NextRequest) {
       const abonado = parseFloat(p.monto_abonado as string) || 0
       const diferencia = abonado - sugerido // positivo = pagó de más (a favor), negativo = debe
       if (diferencia !== 0) saldoAnteriorPorMiembro.set(mid, diferencia)
+    }
+
+    // ─── Pago del período actual + estado de envío del recibo ───
+    // Necesario para que la UI muestre el badge "ya enviado por correo/WA"
+    // junto a cada empleado y bloquee duplicados — sin tener que hacer un
+    // fetch extra por empleado al abrir la lista. Tomamos el pago más
+    // reciente del rango exacto (puede haber históricos eliminados/no
+    // eliminados; preferimos el activo más nuevo).
+    const { data: pagosActualesData } = await admin
+      .from('pagos_nomina')
+      .select('miembro_id, recibo_correo_enviado_en, recibo_correo_enviado_a, recibo_whatsapp_enviado_en, recibo_whatsapp_enviado_a, creado_en')
+      .eq('empresa_id', empresaId)
+      .eq('eliminado', false)
+      .eq('fecha_inicio_periodo', desde)
+      .eq('fecha_fin_periodo', hasta)
+      .order('creado_en', { ascending: false })
+
+    interface EstadoReciboMiembro {
+      correo_enviado_en: string | null
+      correo_enviado_a: string | null
+      whatsapp_enviado_en: string | null
+      whatsapp_enviado_a: string | null
+    }
+    const reciboPorMiembro = new Map<string, EstadoReciboMiembro>()
+    for (const p of (pagosActualesData || []) as Record<string, unknown>[]) {
+      const mid = p.miembro_id as string
+      // Solo nos quedamos con el más reciente por miembro (ya viene ordenado DESC).
+      if (reciboPorMiembro.has(mid)) continue
+      reciboPorMiembro.set(mid, {
+        correo_enviado_en: (p.recibo_correo_enviado_en as string | null) || null,
+        correo_enviado_a: (p.recibo_correo_enviado_a as string | null) || null,
+        whatsapp_enviado_en: (p.recibo_whatsapp_enviado_en as string | null) || null,
+        whatsapp_enviado_a: (p.recibo_whatsapp_enviado_a as string | null) || null,
+      })
     }
 
     // ─── Calcular por cada miembro ───
@@ -534,8 +633,15 @@ export async function GET(request: NextRequest) {
       // Total trabajados = normales + feriados
       const diasTrabajados = diasTrabajadosNormales + diasTrabajadosEnFeriado
 
-      // Ausencias = días laborales donde no fichó (feriados no generan ausencia)
-      const diasAusentes = Math.max(0, diasLaborales - diasTrabajadosNormales)
+      // Ausencias = días laborales PASADOS donde no fichó.
+      // Los días futuros del período (todavía no llegaron) NO son
+      // ausentes — son pendientes. Sin este filtro, una liquidación
+      // del mes en curso al día 15 mostraba los lun-vie del 16 al 31
+      // como ausentes, dando un conteo absurdo.
+      const fechasLaboralesPasadas = diasPeriodo.fechasLaborales.filter(f => f <= hoyISO)
+      const diasTrabajadosPasados = [...fechasConPresencia]
+        .filter(f => fechasLaboralesSet.has(f) && f <= hoyISO).length
+      const diasAusentes = Math.max(0, fechasLaboralesPasadas.length - diasTrabajadosPasados)
 
       // Feriados en el período (solo los que caen en días activos del turno)
       const diasFeriadoCount = diasPeriodo.fechasFeriado.length
@@ -579,6 +685,10 @@ export async function GET(request: NextRequest) {
 
       // Clasificación concreta por fecha (para armar dias_detalle al final)
       const clasificacionPorFecha = new Map<string, 'completa' | 'media' | 'parcial'>()
+      // Minutos netos efectivamente trabajados por fecha. Lo usa el
+      // mini-calendario de la UI para mostrar "8h 30m" en el tooltip
+      // del día sin tener que recalcular en el cliente.
+      const minutosNetosPorFecha = new Map<string, number>()
 
       for (const r of registros) {
         if (!r.hora_entrada || r.estado === 'ausente') continue
@@ -610,6 +720,7 @@ export async function GET(request: NextRequest) {
 
         // Minutos netos del día (lo mismo que se descuenta en el total)
         const minNetosDia = Math.max(0, minBrutos - (descontarAlmuerzo ? minAlmDia : 0) - minPartDia)
+        if (minNetosDia > 0) minutosNetosPorFecha.set(r.fecha as string, minNetosDia)
 
         // Clasificar según porcentaje respecto a los minutos esperados del turno
         const esperadosDia = minutosEsperadosDia(r.fecha as string)
@@ -670,7 +781,9 @@ export async function GET(request: NextRequest) {
         else if (esLaboral) clasificacion = 'ausente'
         else clasificacion = 'no_laboral'
 
-        return { fecha: f, clasificacion }
+        const min = minutosNetosPorFecha.get(f)
+        const horas_netas = min !== undefined ? min / 60 : null
+        return { fecha: f, clasificacion, horas_netas }
       })
 
       const minutosDescontados = (descontarAlmuerzo ? minutosAlmuerzo : 0) + minutosParticular
@@ -686,9 +799,32 @@ export async function GET(request: NextRequest) {
         : 0
 
       // ─── Calcular monto a pagar ───
-      const compTipo = (m.compensacion_tipo as string) || 'fijo'
-      const compMonto = parseFloat(m.compensacion_monto as string) || 0
-      const compFrecuencia = (m.compensacion_frecuencia as string) || 'mensual'
+      // Fuente de verdad: el contrato laboral vigente. La columna
+      // legacy `miembros.compensacion_*` queda como fallback solo
+      // cuando el empleado no tiene contrato cargado todavía. Esto
+      // arregla el caso clásico: contrato renovado con monto nuevo
+      // pero `miembros.compensacion_monto` sin actualizar — la UI
+      // mostraba el viejo y el cálculo era incorrecto.
+      const contratoCompMiembro = contratoVigentePorMiembro.get(m.id as string) ?? null
+      let compTipo: string
+      let compMonto: number
+      let compFrecuencia: string
+      if (contratoCompMiembro) {
+        // Modalidad del contrato → tipo de compensación de la UI:
+        //   por_hora → 'por_hora'
+        //   por_dia  → 'por_dia'
+        //   fijo_*   → 'fijo' (mensual/quincenal/semanal)
+        const mod = contratoCompMiembro.modalidad_calculo
+        compTipo = mod === 'por_hora' ? 'por_hora'
+          : mod === 'por_dia' ? 'por_dia'
+          : 'fijo'
+        compMonto = Number(contratoCompMiembro.monto_base) || 0
+        compFrecuencia = contratoCompMiembro.frecuencia_pago || 'mensual'
+      } else {
+        compTipo = (m.compensacion_tipo as string) || 'fijo'
+        compMonto = parseFloat(m.compensacion_monto as string) || 0
+        compFrecuencia = (m.compensacion_frecuencia as string) || 'mensual'
+      }
       const diasEsperados = (m.dias_trabajo as number) || 5
 
       let montoPagar = 0
@@ -738,10 +874,16 @@ export async function GET(request: NextRequest) {
       const conceptosAplicados: ConceptoAplicadoCalculado[] = []
       let totalHaberes = 0
       let totalDescuentosConceptos = 0
-      const contratoVigenteMiembro = contratoVigentePorMiembro.get(m.id as string) ?? null
+      // Reusamos el lookup que hicimos arriba para resolver compensación.
+      const contratoVigenteMiembro = contratoCompMiembro
       const conceptosDelMiembro = conceptosPorMiembro.get(m.id as string) ?? []
+      const ajustesDelMiembro = ajustesPorMiembro.get(m.id as string) ?? new Map<string, AjustePeriodoLite>()
 
-      if (conceptosDelMiembro.length > 0) {
+      // Entramos al loop si hay conceptos del contrato O si hay
+      // ajustes puntuales del período (override/excluir/agregar).
+      // El caso 'agregar' aplica incluso para miembros sin conceptos
+      // asignados al contrato.
+      if (conceptosDelMiembro.length > 0 || ajustesDelMiembro.size > 0) {
         // ─── Métricas del PERÍODO (para conceptos por_periodo) ───
         const metricasPeriodo: MetricasAsistencia = {
           dias_periodo: todasLasFechas.length,
@@ -814,9 +956,43 @@ export async function GET(request: NextRequest) {
           )
         }
 
+        // Reusamos `ajustesDelMiembro` que ya cargamos arriba: el
+        // mapa concepto_id → {override / excluir / agregar}.
+
         for (const cc of conceptosDelMiembro) {
           const c = cc.concepto
           if (!c.activo) continue
+
+          // ─── Ajuste puntual del período: corta antes que las reglas del motor ───
+          const ajuste = ajustesDelMiembro.get(c.id)
+          if (ajuste?.tipo_ajuste === 'excluir') {
+            // El operador decidió no aplicarlo este período. No suma
+            // ni resta nada, ni aparece en `conceptos_aplicados`.
+            continue
+          }
+          if (ajuste?.tipo_ajuste === 'override' && ajuste.monto_override !== null) {
+            const monto = Number(ajuste.monto_override)
+            const valorBase = cc.valor_override !== null && cc.valor_override !== undefined
+              ? Number(cc.valor_override)
+              : (c.valor !== null && c.valor !== undefined ? Number(c.valor) : null)
+            const detalle = ajuste.motivo?.trim()
+              ? `Monto ajustado manualmente: ${ajuste.motivo.trim()}`
+              : 'Monto ajustado manualmente para este período.'
+            conceptosAplicados.push({
+              concepto_id: c.id,
+              nombre: c.nombre,
+              tipo: c.tipo,
+              modo_calculo: c.modo_calculo,
+              valor: valorBase,
+              monto: Math.round(monto * 100) / 100,
+              automatico: c.automatico,
+              detalle,
+            })
+            if (c.tipo === 'haber') totalHaberes += monto
+            else totalDescuentosConceptos += monto
+            continue
+          }
+
           if (!c.automatico) continue
 
           // Decidir si este concepto aplica AHORA según su periodicidad
@@ -859,6 +1035,37 @@ export async function GET(request: NextRequest) {
           })
           if (c.tipo === 'haber') totalHaberes += montoConcepto
           else totalDescuentosConceptos += montoConcepto
+        }
+
+        // ─── Ajustes 'agregar' del período ───
+        // Conceptos del catálogo que NO están en el contrato del
+        // miembro pero el operador agregó solo a este recibo. Vienen
+        // con el monto final en `monto_override` y el detalle del
+        // catálogo en `concepto`. Los que tienen 'agregar' apuntando
+        // a un concepto SÍ del contrato ya se procesaron como
+        // override arriba.
+        const conceptosDelMiembroIds = new Set(conceptosDelMiembro.map(cc => cc.concepto.id))
+        for (const [conceptoId, ajuste] of ajustesDelMiembro) {
+          if (ajuste.tipo_ajuste !== 'agregar') continue
+          if (conceptosDelMiembroIds.has(conceptoId)) continue
+          if (!ajuste.concepto || ajuste.monto_override === null) continue
+          const monto = Number(ajuste.monto_override)
+          const c = ajuste.concepto
+          const detalle = ajuste.motivo?.trim()
+            ? `Concepto agregado al período: ${ajuste.motivo.trim()}`
+            : 'Concepto agregado al período por ajuste manual.'
+          conceptosAplicados.push({
+            concepto_id: c.id,
+            nombre: c.nombre,
+            tipo: c.tipo,
+            modo_calculo: c.modo_calculo,
+            valor: monto,
+            monto: Math.round(monto * 100) / 100,
+            automatico: true,
+            detalle,
+          })
+          if (c.tipo === 'haber') totalHaberes += monto
+          else totalDescuentosConceptos += monto
         }
         totalHaberes = Math.round(totalHaberes * 100) / 100
         totalDescuentosConceptos = Math.round(totalDescuentosConceptos * 100) / 100
@@ -922,15 +1129,19 @@ export async function GET(request: NextRequest) {
         conceptos_aplicados: conceptosAplicados,
         total_haberes: totalHaberes,
         total_descuentos_conceptos: totalDescuentosConceptos,
-        // Adelantos
+        // Adelantos / descuentos del período (RESTAN del neto)
         descuento_adelanto: Math.round((cuotasPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
         cuotas_adelanto: cuotasPorMiembro.get(m.id as string)?.cantidad || 0,
+        // Bonos del período (SUMAN al neto)
+        bonos_periodo: Math.round((bonosPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
+        cuotas_bonos: bonosPorMiembro.get(m.id as string)?.cantidad || 0,
         // Saldo anterior (positivo = a favor del empleado, negativo = le deben descontar)
         saldo_anterior: Math.round((saldoAnteriorPorMiembro.get(m.id as string) || 0) * 100) / 100,
-        // Neto = bruto + haberes - descuentos conceptos - adelantos - saldo
+        // Neto = bruto + haberes + bonos - descuentos conceptos - adelantos - saldo
         monto_neto: Math.round((
           montoPagar
           + totalHaberes
+          + (bonosPorMiembro.get(m.id as string)?.monto || 0)
           - totalDescuentosConceptos
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
           - (saldoAnteriorPorMiembro.get(m.id as string) || 0)
@@ -939,6 +1150,31 @@ export async function GET(request: NextRequest) {
         // Solo aparece como true cuando el setting `mostrar_empleados_terminados`
         // está activo y el último contrato del miembro terminó antes del período.
         contrato_terminado_antes: miembrosTerminadosAntes.has(m.id as string),
+        // Estado de envío del recibo del período. NULL si nunca se envió o
+        // si no hay pago grabado todavía (la trazabilidad arranca cuando
+        // se registra el pago, no antes).
+        recibo_correo_enviado_en: reciboPorMiembro.get(m.id as string)?.correo_enviado_en ?? null,
+        recibo_correo_enviado_a: reciboPorMiembro.get(m.id as string)?.correo_enviado_a ?? null,
+        recibo_whatsapp_enviado_en: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_en ?? null,
+        recibo_whatsapp_enviado_a: reciboPorMiembro.get(m.id as string)?.whatsapp_enviado_a ?? null,
+        // Snapshot del contrato vigente — lo usa la generación del PDF
+        // borrador cuando se manda el recibo antes de registrar el pago.
+        // Para pagos ya grabados se ignora (prevalece el snapshot guardado
+        // en `pagos_nomina.contrato_snapshot`).
+        contrato_snapshot: contratoCompMiembro
+          ? {
+              contrato_id: contratoCompMiembro.id,
+              fecha_inicio: contratoCompMiembro.fecha_inicio,
+              fecha_fin: contratoCompMiembro.fecha_fin,
+              condicion: contratoCompMiembro.condicion,
+              modalidad_calculo: contratoCompMiembro.modalidad_calculo,
+              monto_base: Number(contratoCompMiembro.monto_base),
+              frecuencia_pago: contratoCompMiembro.frecuencia_pago,
+              regimen: contratoCompMiembro.regimen,
+              sector: null,
+              turno: null,
+            }
+          : null,
       }
     })
 

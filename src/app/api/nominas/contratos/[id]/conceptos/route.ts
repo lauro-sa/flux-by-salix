@@ -5,18 +5,25 @@
  *        Devuelve también los conceptos del catálogo NO asignados (para
  *        que la UI pueda mostrar los toggles sin un segundo fetch).
  *
- * PUT  → batch replace. Recibe { conceptos: [{concepto_id, valor_override?}] }
- *        y deja exactamente esos en `conceptos_contrato` (los que sobran
- *        se desactivan con `activo=false`, los nuevos se insertan).
- *        Usar PUT (no PATCH) porque la operación es declarativa: "estos
- *        son los conceptos que tiene este contrato". Es idempotente.
+ *        Incluye TODAS las asignaciones (vigentes + cerradas) para que
+ *        la UI pueda mostrar historial. Las vigentes son las que tienen
+ *        `fecha_baja IS NULL`.
+ *
+ * PUT  → batch replace declarativo. Recibe
+ *          { conceptos: [{ concepto_id, valor_override? }] }
+ *        y deja exactamente esos como vigentes. Operaciones:
+ *          - Concepto NUEVO en payload     → crea fila con fecha_alta=hoy.
+ *          - Concepto YA vigente en payload → si override cambió, update.
+ *          - Concepto vigente NO en payload → cierra con fecha_baja=hoy.
+ *        Cada cambio queda registrado en `auditoria_conceptos_contrato`
+ *        con quién y cuándo (alta / baja / override).
  *
  * Auth:
  *   GET → `nomina:ver_propio` (si el contrato pertenece a su miembro) o
  *         `nomina:ver_todos`.
  *   PUT → `nomina:editar`.
  *
- * Ver PLAN_MODULO_NOMINAS.md (PR 6b).
+ * Ver PLAN_MODULO_NOMINAS.md (PR 6b) y sql/091_vigencia_conceptos_contrato.sql.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -66,8 +73,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
     }
   }
 
-  // Conceptos asignados al contrato (incluye inactivos para historial,
-  // la UI filtra `activo=true` para los toggles).
+  // Conceptos asignados al contrato. Devolvemos TODAS las filas
+  // (vigentes + cerradas) para que la UI pueda mostrar historial.
+  // Las vigentes son las que tienen `fecha_baja IS NULL`. Ordenamos
+  // por fecha_alta desc para que las altas más recientes aparezcan
+  // primero en la timeline.
   const { data: asignaciones, error: errAsig } = await admin
     .from('conceptos_contrato')
     .select(`
@@ -79,6 +89,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     `)
     .eq('empresa_id', empresaId)
     .eq('contrato_id', id)
+    .order('fecha_alta', { ascending: false })
 
   if (errAsig) {
     console.error('[contratos/conceptos] GET asignaciones error:', errAsig)
@@ -164,18 +175,26 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
   }
 
-  // Estado actual: todas las asignaciones (incluso inactivas) — vamos a
-  // reactivar las que vuelvan y desactivar las que sobren.
+  // Estado actual: solo asignaciones VIGENTES (fecha_baja IS NULL). Las
+  // cerradas quedan como historia y no se tocan — si el operador
+  // reactiva un concepto, se crea una fila NUEVA con fecha_alta=hoy.
   const { data: actuales } = await admin
     .from('conceptos_contrato')
-    .select('id, concepto_id, activo, valor_override')
+    .select('id, concepto_id, valor_override, fecha_alta, fecha_baja')
     .eq('empresa_id', empresaId)
     .eq('contrato_id', id)
+    .is('fecha_baja', null)
   const porConcepto = new Map((actuales || []).map(a => [a.concepto_id, a]))
 
-  // Calcular operaciones.
-  const aDesactivar: string[] = []   // ids de filas existentes que sobran
-  const aActualizar: { id: string; activo: boolean; valor_override: number | null }[] = []
+  // Fecha de hoy en formato YYYY-MM-DD (la columna es `date` en BD).
+  const hoy = new Date().toISOString().slice(0, 10)
+
+  // Calcular operaciones declarativas.
+  //   - aCerrar:    filas vigentes que el payload NO incluye → fecha_baja=hoy.
+  //   - aOverride:  filas vigentes en el payload con override distinto → update.
+  //   - aInsertar:  conceptos del payload sin fila vigente → crear con fecha_alta=hoy.
+  const aCerrar: { id: string; concepto_id: string; valor_anterior: number | null }[] = []
+  const aOverride: { id: string; concepto_id: string; valor_anterior: number | null; valor_nuevo: number | null }[] = []
   const aInsertar: { concepto_id: string; valor_override: number | null }[] = []
 
   for (const [conceptoId, override] of mapa) {
@@ -186,40 +205,78 @@ export async function PUT(request: NextRequest, { params }: Params) {
       const overrideExistente = existente.valor_override === null || existente.valor_override === undefined
         ? null
         : Number(existente.valor_override)
-      if (!existente.activo || overrideExistente !== override) {
-        aActualizar.push({ id: existente.id, activo: true, valor_override: override })
+      if (overrideExistente !== override) {
+        aOverride.push({
+          id: existente.id,
+          concepto_id: conceptoId,
+          valor_anterior: overrideExistente,
+          valor_nuevo: override,
+        })
       }
     } else {
       aInsertar.push({ concepto_id: conceptoId, valor_override: override })
     }
   }
   for (const [conceptoIdActual, fila] of porConcepto) {
-    if (!mapa.has(conceptoIdActual) && fila.activo) aDesactivar.push(fila.id)
+    if (!mapa.has(conceptoIdActual)) {
+      const overrideExistente = fila.valor_override === null || fila.valor_override === undefined
+        ? null
+        : Number(fila.valor_override)
+      aCerrar.push({ id: fila.id, concepto_id: conceptoIdActual, valor_anterior: overrideExistente })
+    }
   }
 
-  // Ejecutar — en serie, sin transacción explícita (Supabase no la expone
-  // por REST). Si una falla, devolvemos error y dejamos que la UI vuelva
-  // a llamar; el endpoint es idempotente.
-  if (aDesactivar.length > 0) {
+  // ─── Ejecutar cambios + auditoría ───
+  // Sin transacción explícita (Supabase no la expone por REST). Si una
+  // operación falla, devolvemos error; el endpoint es idempotente y
+  // la UI puede reintentar. La auditoría se inserta DESPUÉS del cambio
+  // para no dejar registros de operaciones que no ocurrieron.
+  const auditoria: {
+    accion: 'alta' | 'baja' | 'override'
+    concepto_id: string
+    valor_anterior: string | null
+    valor_nuevo: string | null
+  }[] = []
+
+  // Cierres: setear fecha_baja=hoy (el trigger sincroniza activo=false).
+  if (aCerrar.length > 0) {
     const { error } = await admin
       .from('conceptos_contrato')
-      .update({ activo: false })
-      .in('id', aDesactivar)
+      .update({ fecha_baja: hoy })
+      .in('id', aCerrar.map(x => x.id))
     if (error) {
-      console.error('[contratos/conceptos] PUT desactivar error:', error)
-      return NextResponse.json({ error: 'Error al desactivar conceptos' }, { status: 500 })
+      console.error('[contratos/conceptos] PUT cerrar error:', error)
+      return NextResponse.json({ error: 'Error al cerrar conceptos' }, { status: 500 })
+    }
+    for (const c of aCerrar) {
+      auditoria.push({
+        accion: 'baja',
+        concepto_id: c.concepto_id,
+        valor_anterior: c.valor_anterior !== null ? String(c.valor_anterior) : null,
+        valor_nuevo: null,
+      })
     }
   }
-  for (const upd of aActualizar) {
+
+  // Cambios de override en filas vigentes.
+  for (const upd of aOverride) {
     const { error } = await admin
       .from('conceptos_contrato')
-      .update({ activo: upd.activo, valor_override: upd.valor_override })
+      .update({ valor_override: upd.valor_nuevo })
       .eq('id', upd.id)
     if (error) {
-      console.error('[contratos/conceptos] PUT actualizar error:', error)
-      return NextResponse.json({ error: 'Error al actualizar conceptos' }, { status: 500 })
+      console.error('[contratos/conceptos] PUT override error:', error)
+      return NextResponse.json({ error: 'Error al actualizar override' }, { status: 500 })
     }
+    auditoria.push({
+      accion: 'override',
+      concepto_id: upd.concepto_id,
+      valor_anterior: upd.valor_anterior !== null ? String(upd.valor_anterior) : null,
+      valor_nuevo: upd.valor_nuevo !== null ? String(upd.valor_nuevo) : null,
+    })
   }
+
+  // Altas nuevas con fecha_alta=hoy y fecha_baja=NULL.
   if (aInsertar.length > 0) {
     const { error } = await admin
       .from('conceptos_contrato')
@@ -228,12 +285,41 @@ export async function PUT(request: NextRequest, { params }: Params) {
         contrato_id: id,
         concepto_id: i.concepto_id,
         valor_override: i.valor_override,
-        activo: true,
+        fecha_alta: hoy,
+        fecha_baja: null,
         creado_por: user.id,
       })))
     if (error) {
       console.error('[contratos/conceptos] PUT insertar error:', error)
       return NextResponse.json({ error: 'Error al insertar conceptos' }, { status: 500 })
+    }
+    for (const i of aInsertar) {
+      auditoria.push({
+        accion: 'alta',
+        concepto_id: i.concepto_id,
+        valor_anterior: null,
+        valor_nuevo: i.valor_override !== null ? String(i.valor_override) : null,
+      })
+    }
+  }
+
+  // Insertar registros de auditoría en bloque. Si falla, logueamos
+  // pero no abortamos: el cambio ya está aplicado y la auditoría es
+  // best-effort.
+  if (auditoria.length > 0) {
+    const { error: errAud } = await admin
+      .from('auditoria_conceptos_contrato')
+      .insert(auditoria.map(a => ({
+        empresa_id: empresaId,
+        contrato_id: id,
+        concepto_id: a.concepto_id,
+        editado_por: user.id,
+        accion: a.accion,
+        valor_anterior: a.valor_anterior,
+        valor_nuevo: a.valor_nuevo,
+      })))
+    if (errAud) {
+      console.error('[contratos/conceptos] PUT auditoría error:', errAud)
     }
   }
 

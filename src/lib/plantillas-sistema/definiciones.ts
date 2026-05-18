@@ -205,7 +205,7 @@ const RECIBO_NOMINA: DefinicionPlantillaSistema = {
 <p style="font-size:13px;color:#64748b;">Si tenés alguna consulta sobre este recibo, no dudes en comunicarte con nosotros.</p>
 
 <p>Saludos,<br/><strong>{{empresa.nombre}}</strong></p>`,
-  modulos: ['asistencias'],
+  modulos: ['nominas'],
   orden: 6,
 }
 

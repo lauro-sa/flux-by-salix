@@ -249,6 +249,19 @@ export async function POST(request: NextRequest) {
       console.error('[contratos] error al cerrar vigente anterior:', errCierre)
       return NextResponse.json({ error: 'No se pudo cerrar el contrato vigente anterior' }, { status: 500 })
     }
+
+    // Cerrar también las asignaciones de conceptos vigentes del
+    // contrato anterior con la misma fecha_baja, para que la
+    // auditoría temporal sea coherente: el contrato termina y todos
+    // sus conceptos terminan con él. Si el operador asignó conceptos
+    // al nuevo contrato, se crearán abajo con `fecha_alta = nueva
+    // fecha_inicio` — así no hay solape.
+    await admin
+      .from('conceptos_contrato')
+      .update({ fecha_baja: fechaFinAnterior })
+      .eq('empresa_id', empresaId)
+      .eq('contrato_id', vigentePrev.id)
+      .is('fecha_baja', null)
   }
 
   // ─── Crear contrato nuevo ───
@@ -283,6 +296,8 @@ export async function POST(request: NextRequest) {
   // ─── Asignación inicial de conceptos ───
   // Prioridad: payload explícito > herencia del vigente anterior > vacío.
   // El array vacío explícito (body.conceptos === []) crea sin conceptos.
+  // Se asignan con `fecha_alta = fecha_inicio del contrato nuevo` y
+  // `fecha_baja = NULL` (vigentes). Se registra auditoría de "alta".
   let conceptosIniciales: { concepto_id: string; valor_override: number | null }[] = []
   if (Array.isArray(body.conceptos)) {
     conceptosIniciales = body.conceptos
@@ -309,13 +324,30 @@ export async function POST(request: NextRequest) {
         contrato_id: nuevo.id,
         concepto_id: c.concepto_id,
         valor_override: c.valor_override,
-        activo: true,
+        fecha_alta: body.fecha_inicio,
+        fecha_baja: null,
         creado_por: user.id,
       })))
     if (errConceptos) {
       // No fallamos el endpoint — el contrato ya está creado. Logueamos
       // y dejamos que el usuario reasigne desde la ficha si hace falta.
       console.error('[contratos] error al asignar conceptos iniciales:', errConceptos)
+    } else {
+      // Auditoría best-effort: registramos las altas iniciales para
+      // que después se pueda saber cuándo se asignó cada concepto.
+      const { error: errAud } = await admin
+        .from('auditoria_conceptos_contrato')
+        .insert(conceptosIniciales.map(c => ({
+          empresa_id: empresaId,
+          contrato_id: nuevo.id,
+          concepto_id: c.concepto_id,
+          editado_por: user.id,
+          accion: 'alta' as const,
+          valor_anterior: null,
+          valor_nuevo: c.valor_override !== null ? String(c.valor_override) : null,
+          motivo: vigentePrev ? 'Asignación al crear contrato nuevo (cierre del anterior)' : 'Asignación al crear contrato',
+        })))
+      if (errAud) console.error('[contratos] auditoría conceptos error:', errAud)
     }
   }
 
