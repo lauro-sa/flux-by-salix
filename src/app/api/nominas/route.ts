@@ -1178,6 +1178,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // ─── Setting de empresa: envío de recibo obligatorio antes de pagar ───
+    // Necesario en el dashboard para que el KPI hero decida si el modo
+    // 'enviar' aparece como paso obligatorio del flujo o si se puede
+    // saltear directo a 'pagar'.
+    const { data: empresaSetting } = await admin
+      .from('empresas')
+      .select('nominas_envio_obligatorio')
+      .eq('id', empresaId)
+      .single()
+    const envioObligatorio = !!empresaSetting?.nominas_envio_obligatorio
+
     // ─── Estado FSM del período (sql/104) ───
     // Lee si la liquidación de este período está abierta o cerrada para
     // que el cabezal del dashboard pueda mostrar el chip correcto. Si no
@@ -1242,6 +1253,7 @@ export async function GET(request: NextRequest) {
       nombre_empresa: nombreEmpresa,
       feriados_periodo: diasLab_feriadosResumen(feriadosNombres, desde, hasta),
       estado_periodo: estadoPeriodo,
+      envio_obligatorio: envioObligatorio,
       resultados: resultadosConEstado.sort((a, b) => a.nombre.localeCompare(b.nombre)),
     })
   } catch {

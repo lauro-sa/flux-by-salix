@@ -18,6 +18,7 @@ import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
+import { KpiHeroAccionPrincipal } from './KpiHeroAccionPrincipal'
 
 // ─── Tipos ───
 
@@ -302,6 +303,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [nombreEmpresa, setNombreEmpresa] = useState('')
   const [estadoPeriodo, setEstadoPeriodo] = useState<EstadoPeriodo | null>(null)
+  const [envioObligatorio, setEnvioObligatorio] = useState(false)
   const [modalEnvio, setModalEnvio] = useState(false)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
@@ -327,6 +329,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
     resultados: ResultadoNomina[]
     nombreEmpresa: string
     estadoPeriodo: EstadoPeriodo | null
+    envioObligatorio: boolean
   }>>(new Map())
   const cacheKey = `${periodo.desde}_${periodo.hasta}`
 
@@ -338,6 +341,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       setResultados(cached.resultados)
       setNombreEmpresa(cached.nombreEmpresa)
       setEstadoPeriodo(cached.estadoPeriodo)
+      setEnvioObligatorio(cached.envioObligatorio)
       return
     }
 
@@ -348,11 +352,13 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       const r = data.resultados || []
       const n = data.nombre_empresa || ''
       const ep = (data.estado_periodo as EstadoPeriodo | null) ?? null
+      const eo = !!data.envio_obligatorio
       setResultados(r)
       setNombreEmpresa(n)
       setEstadoPeriodo(ep)
+      setEnvioObligatorio(eo)
       // Guardar en cache
-      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep })
+      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep, envioObligatorio: eo })
     } catch { /* silenciar */ }
     setCargando(false)
   }, [periodo.desde, periodo.hasta])
@@ -404,6 +410,21 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
       {/* Contenido principal */}
       <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
+
+      {/* ── KPI Hero: acción principal del período ── */}
+      {!cargando && resultados.length > 0 && (
+        <KpiHeroAccionPrincipal
+          resultados={resultados}
+          estadoPeriodo={estadoPeriodo?.estado ?? 'abierto'}
+          envioObligatorio={envioObligatorio}
+          // Los handlers se conectan en el commit 6 (acciones en lote).
+          // Por ahora son no-op para validar el render visual.
+          onLiquidar={() => { /* TODO commit 6 */ }}
+          onEnviar={() => { /* TODO commit 6 */ }}
+          onPagar={() => { /* TODO commit 6 */ }}
+          onCerrarPeriodo={() => { /* TODO commit 6 */ }}
+        />
+      )}
 
       {/* ── Resumen ── */}
       {!cargando && resultados.length > 0 && (
