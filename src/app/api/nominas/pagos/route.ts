@@ -43,6 +43,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularReciboDesdeBD } from '@/lib/nominas/motor-calculo'
+import { transicionarLiquidacionEmpleado } from '@/lib/nominas/transicion-liquidacion'
 
 interface ConceptoExtra {
   nombre: string
@@ -383,5 +384,68 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ pago, detalle }, { status: 201 })
+  // ─── 4) Side-effect: transicionar liquidaciones_empleado_periodo → 'pagado' ───
+  //
+  // El flujo nuevo (sql/103) exige pasar por 'liquidado' antes de 'pagado'.
+  // Por compatibilidad con consumidores que llaman directo a /api/nominas/pagos
+  // sin haber liquidado primero, hacemos un fallback: si la fila no existe (estado
+  // virtual 'borrador'), crearla en 'pagado' linkeada al pago_nomina recién creado,
+  // saltando borrador/liquidado/enviado. El snapshot se guarda con el cálculo
+  // recién hecho. Audit en cambios_estado captura el salto.
+  //
+  // Si la fila ya existe en 'liquidado' o 'enviado', transicionar a 'pagado'
+  // con el helper estándar.
+  //
+  // Si la fila existe en 'borrador' (caso raro: alguien creó la fila pero no
+  // liquidó), tratarlo igual que liquidar+pagar en un solo movimiento.
+  const snapshot = {
+    version_motor: 'v3.0',
+    calculado_en: new Date().toISOString(),
+    monto_neto: detalle.neto,
+    monto_abonado: body.monto_abonado,
+    detalle,
+  } as unknown as Record<string, unknown>
+
+  const { data: filaExistente } = await admin
+    .from('liquidaciones_empleado_periodo')
+    .select('id, estado_clave')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', body.miembro_id)
+    .eq('periodo_inicio', body.periodo_inicio)
+    .eq('periodo_fin', body.periodo_fin)
+    .maybeSingle()
+
+  const estadoActual = (filaExistente?.estado_clave as string | undefined) ?? 'borrador'
+
+  // Si está en borrador, primero liquidar (con el snapshot recién calculado).
+  if (estadoActual === 'borrador') {
+    await transicionarLiquidacionEmpleado(admin, {
+      empresaId,
+      miembroId: body.miembro_id,
+      periodoInicio: body.periodo_inicio,
+      periodoFin: body.periodo_fin,
+      hastaClave: 'liquidado',
+      snapshotCalculo: snapshot,
+      usuario: { id: user.id, nombre: nombreCreador },
+    })
+  }
+
+  // Y después pasar a pagado linkeando al pago recién creado.
+  const transicion = await transicionarLiquidacionEmpleado(admin, {
+    empresaId,
+    miembroId: body.miembro_id,
+    periodoInicio: body.periodo_inicio,
+    periodoFin: body.periodo_fin,
+    hastaClave: 'pagado',
+    pagoNominaId: pago.id as string,
+    usuario: { id: user.id, nombre: nombreCreador },
+  })
+
+  // Si la transición falla (ej: envio_obligatorio activo y no se envió),
+  // la fila pagos_nomina ya está creada — sería raro hacer rollback porque
+  // el dinero ya se transfirió. Devolvemos warning para que el operador
+  // sepa que el estado quedó desincronizado.
+  const warning = transicion.ok ? null : transicion.mensaje
+
+  return NextResponse.json({ pago, detalle, warning }, { status: 201 })
 }
