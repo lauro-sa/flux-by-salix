@@ -11,7 +11,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Users, Loader2, Banknote, Mail } from 'lucide-react'
+import { Users, Loader2, Banknote, Mail, CircleDot, Lock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { GrupoBotones } from '@/componentes/ui/GrupoBotones'
@@ -65,9 +65,142 @@ interface ResultadoNomina {
   recibo_whatsapp_enviado_en?: string | null
   /** Teléfono al que se envió el último recibo por WhatsApp. */
   recibo_whatsapp_enviado_a?: string | null
+  /** Estado de la liquidación del empleado (sql/105). 'borrador' es virtual cuando aún no se liquidó. */
+  estado_liquidacion?: 'borrador' | 'liquidado' | 'enviado' | 'pagado'
+  liquidado_en?: string | null
+  enviado_en?: string | null
+  pagado_en?: string | null
+  pago_nomina_id?: string | null
+}
+
+/**
+ * Estado de la liquidación del período completo (sql/104).
+ * Se devuelve junto a los resultados del endpoint /api/nominas.
+ */
+interface EstadoPeriodo {
+  estado: 'abierto' | 'cerrado' | string
+  abierto_en: string | null
+  cerrado_en: string | null
+  cerrado_por_nombre: string | null
 }
 
 type TipoPeriodo = 'semana' | 'quincena' | 'mes'
+
+// ─── Cabezal: estado del período ───
+// Modos visuales:
+//   - 'al-dia':   período abierto, todo OK. Chip neutro.
+//   - 'pendiente': período en curso, faltan acciones. Chip info azul.
+//   - 'cerca-cierre': ≤2 días del fin del período. Chip advertencia.
+//   - 'vencido':  pasó la fecha de fin y sigue abierto. Chip peligro saturado.
+//   - 'cerrado':  período cerrado formalmente. Chip exito con lock.
+type ModoEstadoPeriodo = 'al-dia' | 'pendiente' | 'cerca-cierre' | 'vencido' | 'cerrado'
+
+interface InfoEstadoPeriodo {
+  modo: ModoEstadoPeriodo
+  etiqueta: string
+  microcopy: string
+  Icono: typeof CircleDot
+  colorClase: string
+}
+
+/**
+ * Calcula qué chip mostrar según el estado del período y los días
+ * restantes hasta el cierre programado.
+ */
+function calcularInfoEstadoPeriodo(
+  estadoPeriodo: EstadoPeriodo | null,
+  fechaFinPeriodo: Date,
+): InfoEstadoPeriodo {
+  const estado = estadoPeriodo?.estado ?? 'abierto'
+
+  if (estado === 'cerrado') {
+    const cerradoEn = estadoPeriodo?.cerrado_en
+      ? new Date(estadoPeriodo.cerrado_en).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+      : null
+    return {
+      modo: 'cerrado',
+      etiqueta: 'CERRADO',
+      microcopy: cerradoEn ? `Cerrado el ${cerradoEn}` : 'Período cerrado',
+      Icono: Lock,
+      colorClase: 'text-insignia-exito',
+    }
+  }
+
+  // Calcular días restantes hasta el fin del período.
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const fin = new Date(fechaFinPeriodo)
+  fin.setHours(0, 0, 0, 0)
+  const msPorDia = 1000 * 60 * 60 * 24
+  const diasRestantes = Math.round((fin.getTime() - hoy.getTime()) / msPorDia)
+
+  if (diasRestantes < 0) {
+    // Vencido sin cerrar.
+    return {
+      modo: 'vencido',
+      etiqueta: 'VENCIDO',
+      microcopy: `Cerrar ahora · venció hace ${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) === 1 ? '' : 's'}`,
+      Icono: AlertTriangle,
+      colorClase: 'text-insignia-peligro',
+    }
+  }
+  if (diasRestantes === 0) {
+    return {
+      modo: 'cerca-cierre',
+      etiqueta: 'EN CURSO',
+      microcopy: 'Cierra HOY',
+      Icono: AlertTriangle,
+      colorClase: 'text-insignia-advertencia',
+    }
+  }
+  if (diasRestantes === 1) {
+    return {
+      modo: 'cerca-cierre',
+      etiqueta: 'EN CURSO',
+      microcopy: 'Cierra MAÑANA',
+      Icono: AlertTriangle,
+      colorClase: 'text-insignia-advertencia',
+    }
+  }
+  if (diasRestantes <= 2) {
+    return {
+      modo: 'cerca-cierre',
+      etiqueta: 'EN CURSO',
+      microcopy: `Cierra en ${diasRestantes} días`,
+      Icono: AlertTriangle,
+      colorClase: 'text-insignia-advertencia',
+    }
+  }
+
+  const fechaCierre = fin.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+  return {
+    modo: 'pendiente',
+    etiqueta: 'EN CURSO',
+    microcopy: `Cierra ${fechaCierre} · faltan ${diasRestantes} días`,
+    Icono: CircleDot,
+    colorClase: 'text-insignia-info',
+  }
+}
+
+/**
+ * Chip compacto que se muestra arriba del HeroRango del cabezal.
+ * Variante celebratoria cuando el período está cerrado.
+ */
+function ChipEstadoPeriodo({ info }: { info: InfoEstadoPeriodo }) {
+  const { Icono, etiqueta, microcopy, colorClase, modo } = info
+  return (
+    <div className={`inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${colorClase}`}>
+      {modo === 'cerrado' ? (
+        <CheckCircle2 size={12} />
+      ) : (
+        <Icono size={12} className={modo === 'pendiente' ? 'animate-pulse' : ''} />
+      )}
+      <span>{etiqueta}</span>
+      <span className="text-texto-terciario font-normal normal-case tracking-normal">·</span>
+      <span className="text-texto-secundario font-normal normal-case tracking-normal">{microcopy}</span>
+    </div>
+  )
+}
 
 // ─── Helpers de período ───
 
@@ -168,6 +301,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [cargando, setCargando] = useState(false)
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [nombreEmpresa, setNombreEmpresa] = useState('')
+  const [estadoPeriodo, setEstadoPeriodo] = useState<EstadoPeriodo | null>(null)
   const [modalEnvio, setModalEnvio] = useState(false)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
@@ -189,7 +323,11 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   }), [periodo.desde, periodo.hasta])
 
   // Cache de resultados por período
-  const cacheRef = useRef<Map<string, { resultados: ResultadoNomina[]; nombreEmpresa: string }>>(new Map())
+  const cacheRef = useRef<Map<string, {
+    resultados: ResultadoNomina[]
+    nombreEmpresa: string
+    estadoPeriodo: EstadoPeriodo | null
+  }>>(new Map())
   const cacheKey = `${periodo.desde}_${periodo.hasta}`
 
   // Cargar nómina (con cache)
@@ -199,6 +337,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
     if (cached) {
       setResultados(cached.resultados)
       setNombreEmpresa(cached.nombreEmpresa)
+      setEstadoPeriodo(cached.estadoPeriodo)
       return
     }
 
@@ -208,10 +347,12 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       const data = await res.json()
       const r = data.resultados || []
       const n = data.nombre_empresa || ''
+      const ep = (data.estado_periodo as EstadoPeriodo | null) ?? null
       setResultados(r)
       setNombreEmpresa(n)
+      setEstadoPeriodo(ep)
       // Guardar en cache
-      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n })
+      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep })
     } catch { /* silenciar */ }
     setCargando(false)
   }, [periodo.desde, periodo.hasta])
@@ -224,10 +365,21 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const totalNeto = resultados.reduce((s, r) => s + r.monto_neto, 0)
   const totalHoras = resultados.reduce((s, r) => s + r.horas_netas, 0)
 
+  // Info del estado del período para el chip arriba del hero.
+  const infoEstadoPeriodo = useMemo(
+    () => calcularInfoEstadoPeriodo(estadoPeriodo, hastaDate),
+    [estadoPeriodo, hastaDate],
+  )
+
   return (
     <div>
       <CabezaloHero
-        titulo={<HeroRango desde={desdeDate} hasta={hastaDate} periodo={tipoPeriodo} />}
+        titulo={
+          <div className="flex flex-col gap-1.5">
+            <ChipEstadoPeriodo info={infoEstadoPeriodo} />
+            <HeroRango desde={desdeDate} hasta={hastaDate} periodo={tipoPeriodo} />
+          </div>
+        }
         onAnterior={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'prev'))}
         onSiguiente={() => setFechaRef(navegarPeriodo(fechaRef, tipoPeriodo, 'next'))}
         onHoy={() => setFechaRef(new Date())}
