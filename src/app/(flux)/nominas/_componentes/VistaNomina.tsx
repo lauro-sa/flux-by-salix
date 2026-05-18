@@ -504,8 +504,31 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
     [estadoPeriodo, hastaDate],
   )
 
+  // ── Blob de fondo dinámico ──
+  // Gradient radial detrás de todo el contenido. Color = modo visual del
+  // chip de estado, suave (10% opacidad). Convierte el fondo en señal,
+  // no en decoración fija (Vision OS vibe).
+  const colorBlob = useMemo(() => {
+    switch (infoEstadoPeriodo.modo) {
+      case 'vencido':       return 'rgba(239, 68, 68, 0.12)'    // rojo apagado
+      case 'cerca-cierre':  return 'rgba(245, 158, 11, 0.12)'   // ámbar
+      case 'pendiente':     return 'rgba(245, 158, 11, 0.10)'   // ámbar suave
+      case 'cerrado':       return 'rgba(34, 197, 94, 0.10)'    // verde
+      case 'al-dia':        return 'rgba(34, 197, 94, 0.10)'    // verde
+      default:              return 'rgba(148, 163, 184, 0.06)'  // neutro
+    }
+  }, [infoEstadoPeriodo.modo])
+
   return (
-    <div>
+    <div className="relative">
+      {/* Blob radial de fondo. Transición suave al cambiar de modo. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 transition-[background] duration-700"
+        style={{
+          background: `radial-gradient(circle at 88% 12%, ${colorBlob}, transparent 50%)`,
+        }}
+      />
       <CabezaloHero
         titulo={
           <div className="flex flex-col gap-1.5">
