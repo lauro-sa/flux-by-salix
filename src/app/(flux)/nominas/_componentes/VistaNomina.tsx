@@ -30,6 +30,7 @@ import {
 import { CardEmpleadoNomina } from './CardEmpleadoNomina'
 import { ModalPagarBulk, type EmpleadoPagable } from './ModalPagarBulk'
 import { ModalVerRecibo } from './ModalVerRecibo'
+import { ModalAdjuntarComprobante } from './ModalAdjuntarComprobante'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
@@ -85,6 +86,9 @@ interface ResultadoNomina {
   enviado_en?: string | null
   pagado_en?: string | null
   pago_nomina_id?: string | null
+  /** URL del comprobante del pago, si ya se adjuntó. Habilita el ícono
+   *  "Comprobante adjunto" en la card. */
+  comprobante_url?: string | null
 }
 
 /**
@@ -335,6 +339,13 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const [verReciboCtx, setVerReciboCtx] = useState<{
     miembroId: string
     pagoId: string | null
+  } | null>(null)
+  // ── Modal "Adjuntar comprobante" abierto desde la card de un pagado ──
+  const [adjuntarCtx, setAdjuntarCtx] = useState<{
+    pagoId: string
+    nombre: string
+    monto: number
+    comprobanteUrl: string | null
   } | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
@@ -656,6 +667,14 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
               onVerRecibo={(pagoId) => {
                 setVerReciboCtx({ miembroId: r.miembro_id, pagoId })
               }}
+              onAdjuntarComprobante={(pagoId) => {
+                setAdjuntarCtx({
+                  pagoId,
+                  nombre: r.nombre,
+                  monto: r.monto_neto,
+                  comprobanteUrl: r.comprobante_url ?? null,
+                })
+              }}
             />
           ))}
 
@@ -720,6 +739,18 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         periodoInicio={periodo.desde}
         periodoFin={periodo.hasta}
         pagoId={verReciboCtx?.pagoId ?? null}
+      />
+
+      {/* Modal "Adjuntar comprobante" — abierto desde la card del pagado.
+          Sube archivo y patchea el pago. Refresca el período al guardar. */}
+      <ModalAdjuntarComprobante
+        abierto={!!adjuntarCtx}
+        onCerrar={() => setAdjuntarCtx(null)}
+        pagoId={adjuntarCtx?.pagoId ?? null}
+        nombreEmpleado={adjuntarCtx?.nombre ?? ''}
+        montoAbonado={adjuntarCtx?.monto ?? 0}
+        comprobanteActualUrl={adjuntarCtx?.comprobanteUrl ?? null}
+        onGuardado={refrescarPeriodo}
       />
     </div>
   )
