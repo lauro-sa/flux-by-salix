@@ -229,7 +229,7 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
         terminado ? 'opacity-60' : ''
       }`}
     >
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-stretch">
         {/* ── Identidad + datos ── */}
         <div className="flex items-start gap-3 min-w-0">
           {/* Avatar con ring de color hash. Si hay foto, la muestra; sino iniciales. */}
@@ -302,48 +302,76 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
               </div>
             )}
 
-            {/* Detalle de asistencia + barra cumplimiento + acciones (vista no compacta).
-                El cluster de acciones (Adjuntar + CTA) vive acá al pie a la derecha,
-                separado del precio que está arriba — la card respira y tiene
-                composición arriba/abajo balanceada. */}
+            {/* Detalle de asistencia + barra cumplimiento (vista no compacta).
+                Organizado en clusters separados por puntos sutiles "·" para
+                jerarquizar grupos de información sin saturar la línea. */}
             {!compacta && (
-              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-3 flex-wrap text-[11px] text-texto-terciario">
-                <span className="tabular-nums">
-                  <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong> días
+              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-texto-terciario">
+                {/* Cluster 1: asistencia básica (días + horas trabajadas) */}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="tabular-nums">
+                    <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong>
+                    <span className="ml-0.5 text-texto-terciario/70">días</span>
+                  </span>
+                  <span className="text-white/[0.12]">·</span>
+                  <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
                 </span>
-                <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
-                {r.dias_tardanza > 0 && (
-                  <span className="text-insignia-advertencia">{r.dias_tardanza} tard.</span>
-                )}
-                {r.dias_ausentes > 0 && (
-                  <span className="text-insignia-peligro/80">{r.dias_ausentes} aus.</span>
-                )}
-                {r.descuento_adelanto > 0 && (
-                  <span className="text-insignia-advertencia">
-                    Adelanto −{fmtMonto(r.descuento_adelanto)}
-                    {r.cuotas_adelanto > 1 && ` · ${r.cuotas_adelanto} cuotas`}
-                    {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0
-                      ? ` · saldo ${fmtMonto(r.saldo_adelantos_vigentes)}`
-                      : ''}
-                  </span>
-                )}
-                {!r.descuento_adelanto && r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 && (
-                  <span className="text-texto-terciario">
-                    Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
-                  </span>
-                )}
-                {r.cuenta_destino && (
-                  <span className="inline-flex items-center gap-1 text-texto-terciario/80">
-                    {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
-                    <span className="truncate max-w-[140px]">
-                      {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+
+                {/* Cluster 2: incidencias (tardanzas, ausencias) — solo si las hay */}
+                {(r.dias_tardanza > 0 || r.dias_ausentes > 0) && (
+                  <>
+                    <span className="text-white/[0.12]">·</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      {r.dias_tardanza > 0 && (
+                        <span className="text-insignia-advertencia tabular-nums">{r.dias_tardanza} tard.</span>
+                      )}
+                      {r.dias_ausentes > 0 && (
+                        <span className="text-insignia-peligro/80 tabular-nums">{r.dias_ausentes} aus.</span>
+                      )}
                     </span>
-                  </span>
+                  </>
                 )}
-                {/* Barra cumplimiento jornada (Raycast progress vibe). Va antes
-                    de las acciones, no a `ml-auto`, para que las acciones queden
-                    siempre ancladas a la derecha. */}
-                <span className="inline-flex items-center gap-[2px]" aria-hidden>
+
+                {/* Cluster 3: adelantos (descuento aplicado o saldo vigente) */}
+                {r.descuento_adelanto > 0 ? (
+                  <>
+                    <span className="text-white/[0.12]">·</span>
+                    <span className="inline-flex items-center gap-1 text-insignia-advertencia">
+                      <span className="tabular-nums">Adelanto −{fmtMonto(r.descuento_adelanto)}</span>
+                      {r.cuotas_adelanto > 1 && (
+                        <span className="text-insignia-advertencia/70">({r.cuotas_adelanto} cuotas)</span>
+                      )}
+                      {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                        <span className="text-insignia-advertencia/70 tabular-nums">
+                          · saldo {fmtMonto(r.saldo_adelantos_vigentes)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </>
+                ) : r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                  <>
+                    <span className="text-white/[0.12]">·</span>
+                    <span className="tabular-nums">
+                      Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
+                    </span>
+                  </>
+                ) : null}
+
+                {/* Cluster 4: cuenta destino */}
+                {r.cuenta_destino && (
+                  <>
+                    <span className="text-white/[0.12]">·</span>
+                    <span className="inline-flex items-center gap-1 text-texto-terciario/80">
+                      {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
+                      <span className="truncate max-w-[140px]">
+                        {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+                      </span>
+                    </span>
+                  </>
+                )}
+
+                {/* Barra cumplimiento jornada — siempre a la derecha (ml-auto). */}
+                <span className="ml-auto inline-flex items-center gap-[2px]" aria-hidden>
                   {Array.from({ length: llenos }).map((_, i) => (
                     <span
                       key={`l-${i}`}
@@ -354,51 +382,51 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
                     <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
                   ))}
                 </span>
-
-                {/* Cluster de acciones al pie a la derecha. Si está pagado y hay
-                    handler, sumamos el ícono de adjuntar comprobante. */}
-                <div className="ml-auto flex items-center gap-1.5">
-                  {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onAdjuntarComprobante(r.pago_nomina_id!)
-                      }}
-                      title={r.comprobante_url ? 'Comprobante adjunto · ver o reemplazar' : 'Adjuntar comprobante'}
-                      className={`inline-flex items-center justify-center size-7 rounded-md border transition-colors ${
-                        r.comprobante_url
-                          ? 'border-insignia-exito/30 text-insignia-exito hover:bg-insignia-exito/10'
-                          : 'border-white/[0.08] text-texto-terciario hover:text-texto-marca hover:border-texto-marca/30 hover:bg-texto-marca/5'
-                      }`}
-                    >
-                      {r.comprobante_url ? <FileCheck2 size={12} /> : <Paperclip size={12} />}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCta}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
-                  >
-                    {info.ctaIcono}
-                    {info.ctaEtiqueta}
-                  </button>
-                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Cifra (arriba a la derecha) ──
-            En vista compacta el botón CTA viaja al lado del precio (la card
-            colapsa a una sola fila). En vista expandida el precio queda solo
-            acá arriba y el cluster de acciones está al pie a la derecha. */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* ── Cifra + acciones (columna derecha) ──
+            Precio arriba, botones abajo, separados por `justify-between` para
+            que tomen toda la altura de la card. Si hay comprobante adjunto
+            (estado pagado), el ícono Paperclip/FileCheck2 va al lado del CTA. */}
+        <div className="flex flex-col items-end justify-between gap-3 shrink-0">
           <p className={`text-lg md:text-xl font-bold tabular-nums leading-none ${
             estado === 'pagado' ? 'text-insignia-exito' : 'text-texto-primario'
           }`}>
             {fmtMonto(r.monto_neto)}
           </p>
+
+          {!compacta && (
+            <div className="flex items-center gap-1.5">
+              {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAdjuntarComprobante(r.pago_nomina_id!)
+                  }}
+                  title={r.comprobante_url ? 'Comprobante adjunto · ver o reemplazar' : 'Adjuntar comprobante'}
+                  className={`inline-flex items-center justify-center size-7 rounded-md border transition-colors ${
+                    r.comprobante_url
+                      ? 'border-insignia-exito/30 text-insignia-exito hover:bg-insignia-exito/10'
+                      : 'border-white/[0.08] text-texto-terciario hover:text-texto-marca hover:border-texto-marca/30 hover:bg-texto-marca/5'
+                  }`}
+                >
+                  {r.comprobante_url ? <FileCheck2 size={12} /> : <Paperclip size={12} />}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCta}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
+              >
+                {info.ctaIcono}
+                {info.ctaEtiqueta}
+              </button>
+            </div>
+          )}
           {compacta && (
             <button
               type="button"
