@@ -72,6 +72,8 @@ interface ResultadoNomina {
   monto_neto: number
   /** Flag del backend: el último contrato del miembro terminó antes del período. */
   contrato_terminado_antes?: boolean
+  /** Flag del backend: el primer contrato del miembro arranca después del fin del período. */
+  contrato_no_iniciado?: boolean
   /** Timestamp ISO del último envío exitoso del recibo por correo. NULL = nunca enviado. */
   recibo_correo_enviado_en?: string | null
   /** Dirección de correo a la que se envió el último recibo. */
@@ -89,6 +91,13 @@ interface ResultadoNomina {
   /** URL del comprobante del pago, si ya se adjuntó. Habilita el ícono
    *  "Comprobante adjunto" en la card. */
   comprobante_url?: string | null
+  /** Si el empleado cobra en este período según su frecuencia natural.
+   *  Cuando false, la card va en gris y NO suma a totales del período. */
+  aplica_al_periodo?: boolean
+  /** Frecuencia de pago del contrato (mensual/quincenal/semanal). Sirve
+   *  para mostrar microcopy "Cobra cada quincena" en cards fuera de
+   *  frecuencia. */
+  frecuencia_pago?: string
 }
 
 /**
@@ -373,7 +382,9 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
     estadoPeriodo: EstadoPeriodo | null
     envioObligatorio: boolean
   }>>(new Map())
-  const cacheKey = `${periodo.desde}_${periodo.hasta}`
+  // Tipo de vista forma parte de la clave porque /api/nominas usa el
+  // param `periodo` para clasificar empleados "fuera de frecuencia".
+  const cacheKey = `${periodo.desde}_${periodo.hasta}_${tipoPeriodo}`
 
   // Cargar nómina (con cache)
   const cargarNomina = useCallback(async () => {
@@ -389,7 +400,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
     setCargando(true)
     try {
-      const res = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}`)
+      const res = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&periodo=${tipoPeriodo}`)
       const data = await res.json()
       const r = data.resultados || []
       const n = data.nombre_empresa || ''
@@ -403,7 +414,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep, envioObligatorio: eo })
     } catch { /* silenciar */ }
     setCargando(false)
-  }, [periodo.desde, periodo.hasta])
+  }, [periodo.desde, periodo.hasta, tipoPeriodo, cacheKey])
 
   useEffect(() => { cargarNomina() }, [cargarNomina])
 
@@ -518,12 +529,27 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   )
   const conteoEstados = useMemo(() => contarPorEstado(resultados), [resultados])
 
+  // Subset que aplica al período por su frecuencia natural — base para
+  // KPIs y CTA del hero. Los "fuera de frecuencia" se listan en gris
+  // pero no entran a estas estadísticas.
+  const resultadosQueAplican = useMemo(
+    () => resultados.filter(r => r.aplica_al_periodo !== false),
+    [resultados],
+  )
+
   // Totales — siempre sobre la lista FILTRADA para que cierre con la
   // tabla visible. Si el usuario quita filtros, vuelve al total real.
-  const totalBruto = resultadosFiltrados.reduce((s, r) => s + r.monto_pagar, 0)
-  const totalDescuento = resultadosFiltrados.reduce((s, r) => s + r.descuento_adelanto, 0)
-  const totalNeto = resultadosFiltrados.reduce((s, r) => s + r.monto_neto, 0)
-  const totalHoras = resultadosFiltrados.reduce((s, r) => s + r.horas_netas, 0)
+  // Totales: solo sumamos los empleados que aplican a este período (los
+  // "fuera de frecuencia" aparecen en gris pero no cuentan). El default
+  // true cubre backends viejos que no envían aplica_al_periodo.
+  const resultadosQueCuentan = useMemo(
+    () => resultadosFiltrados.filter(r => r.aplica_al_periodo !== false),
+    [resultadosFiltrados],
+  )
+  const totalBruto = resultadosQueCuentan.reduce((s, r) => s + r.monto_pagar, 0)
+  const totalDescuento = resultadosQueCuentan.reduce((s, r) => s + r.descuento_adelanto, 0)
+  const totalNeto = resultadosQueCuentan.reduce((s, r) => s + r.monto_neto, 0)
+  const totalHoras = resultadosQueCuentan.reduce((s, r) => s + r.horas_netas, 0)
 
   // Info del estado del período para el chip arriba del hero.
   const infoEstadoPeriodo = useMemo(
@@ -588,10 +614,13 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       {/* Contenido principal */}
       <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
 
-      {/* ── KPI Hero: acción principal del período ── */}
-      {!cargando && resultados.length > 0 && (
+      {/* ── KPI Hero + soporte: solo cuentan empleados que aplican al
+          período visualizado. Los "fuera de frecuencia" no participan
+          de los KPIs ni del CTA bulk (no se liquidan acá, su pago cae
+          en otro período). ── */}
+      {!cargando && resultadosQueAplican.length > 0 && (
         <KpiHeroAccionPrincipal
-          resultados={resultados}
+          resultados={resultadosQueAplican}
           estadoPeriodo={estadoPeriodo?.estado ?? 'abierto'}
           envioObligatorio={envioObligatorio}
           onLiquidar={handleLiquidarBulk}
@@ -601,13 +630,12 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
         />
       )}
 
-      {/* ── KPIs soporte (Costo / Adelantos / Progreso) ── */}
-      {!cargando && resultados.length > 0 && (
+      {!cargando && resultadosQueAplican.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <KpisSoporteNomina resultados={resultados} />
+          <KpisSoporteNomina resultados={resultadosQueAplican} />
         </motion.div>
       )}
 
@@ -678,10 +706,17 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
             />
           ))}
 
-          {/* Footer totales — se mantiene como bloque al pie. */}
+          {/* Footer totales — se mantiene como bloque al pie. Cuenta solo
+              los empleados que aplican al período; los fuera de frecuencia
+              quedan listados arriba en gris pero no suman acá. */}
           <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05] mt-3">
             <div className="text-sm font-semibold text-texto-primario">
-              Total · {resultadosFiltrados.length} empleado{resultadosFiltrados.length !== 1 ? 's' : ''} · {fmtHoras(totalHoras)}
+              Total · {resultadosQueCuentan.length} empleado{resultadosQueCuentan.length !== 1 ? 's' : ''} · {fmtHoras(totalHoras)}
+              {resultadosFiltrados.length > resultadosQueCuentan.length && (
+                <span className="ml-1.5 text-[11px] font-normal text-texto-terciario">
+                  · {resultadosFiltrados.length - resultadosQueCuentan.length} fuera de frecuencia
+                </span>
+              )}
             </div>
             <div className="text-right text-sm">
               <span className="text-texto-secundario tabular-nums">{fmtMonto(totalBruto)}</span>

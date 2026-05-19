@@ -12,6 +12,7 @@ import {
   calcularMontoConcepto,
   esUltimaLiquidacionDelMes,
   calcularBasicoMensual,
+  aplicaFrecuenciaAlPeriodo,
 } from '@/lib/nominas/motor-calculo'
 import type {
   ContratoLaboral,
@@ -49,6 +50,25 @@ export async function GET(request: NextRequest) {
     let empleadosFiltro = params.get('empleados')?.split(',').filter(Boolean) || null
     const diasFiltro = params.get('dias')?.split(',').filter(Boolean) || null
     if (!desde || !hasta) return NextResponse.json({ error: 'Parámetros desde y hasta requeridos' }, { status: 400 })
+
+    // Tipo de período visualizado por la UI: mes | quincena | semana.
+    // Se usa para clasificar a cada empleado como "aplica al período"
+    // según su frecuencia_pago. Si no viene, se infiere del rango por
+    // duración (compatibilidad con consumidores viejos).
+    const periodoParam = params.get('periodo')
+    const tipoPeriodo: 'mes' | 'quincena' | 'semana' =
+      periodoParam === 'semana' ? 'semana'
+      : periodoParam === 'quincena' ? 'quincena'
+      : periodoParam === 'mes' ? 'mes'
+      : (() => {
+          // Inferencia: duración en días → tipo más probable.
+          // <= 8 días → semana, 9-20 → quincena, > 20 → mes.
+          const ms = new Date(hasta).getTime() - new Date(desde).getTime()
+          const dias = Math.round(ms / 86_400_000) + 1
+          if (dias <= 8) return 'semana'
+          if (dias <= 20) return 'quincena'
+          return 'mes'
+        })()
 
     const admin = crearClienteAdmin()
 
@@ -203,12 +223,19 @@ export async function GET(request: NextRequest) {
 
     const { data: miembrosDataRaw } = await queryMiembros
 
-    // ─── Filtrar empleados con contrato terminado antes del período ───
-    // Cargamos el último contrato (por fecha_inicio desc) de cada miembro y,
-    // si no está vigente y `fecha_fin < desde`, lo consideramos "terminado
-    // antes". Lo excluimos del listado salvo que el setting esté en true.
+    // ─── Filtrar empleados fuera de la vigencia del período ───
+    // Cargamos los contratos de cada miembro y los clasificamos según
+    // su relación con el período:
+    //   • "terminado antes": último contrato no vigente y fecha_fin < desde
+    //     → el empleado ya no estaba bajo ese contrato.
+    //   • "no iniciado": el contrato MÁS TEMPRANO del miembro tiene
+    //     fecha_inicio > hasta → todavía no estaba contratado.
+    // Ambos grupos se excluyen del listado salvo que `mostrarTerminados`
+    // esté activo (el setting cubre ambos casos: empleados fuera de la
+    // ventana de liquidación, antes o después).
     const miembroIds = (miembrosDataRaw || []).map((m: Record<string, unknown>) => m.id as string)
     let miembrosTerminadosAntes = new Set<string>()
+    let miembrosNoIniciados = new Set<string>()
     if (miembroIds.length > 0) {
       const { data: contratosRaw } = await admin
         .from('contratos_laborales')
@@ -216,50 +243,76 @@ export async function GET(request: NextRequest) {
         .eq('empresa_id', empresaId)
         .in('miembro_id', miembroIds)
         .order('fecha_inicio', { ascending: false })
+      // Para "terminado antes" miramos el ÚLTIMO contrato (el más reciente).
       const ultimoPorMiembro = new Map<string, { vigente: boolean; fecha_fin: string | null }>()
-      for (const c of (contratosRaw || []) as Array<{ miembro_id: string; vigente: boolean; fecha_fin: string | null }>) {
+      // Para "no iniciado" miramos el contrato MÁS TEMPRANO — si el primero
+      // empieza después del fin del período, el miembro no tenía contrato
+      // vigente al momento del período.
+      const primeroPorMiembro = new Map<string, { fecha_inicio: string }>()
+      for (const c of (contratosRaw || []) as Array<{ miembro_id: string; vigente: boolean; fecha_fin: string | null; fecha_inicio: string }>) {
         if (!ultimoPorMiembro.has(c.miembro_id)) {
           ultimoPorMiembro.set(c.miembro_id, { vigente: c.vigente, fecha_fin: c.fecha_fin })
         }
+        // El ORDER BY fecha_inicio DESC nos da el último primero. Para el
+        // más temprano necesitamos quedarnos con el último iterado.
+        primeroPorMiembro.set(c.miembro_id, { fecha_inicio: c.fecha_inicio })
       }
       for (const [mid, c] of ultimoPorMiembro) {
         if (!c.vigente && c.fecha_fin && c.fecha_fin < desde) {
           miembrosTerminadosAntes.add(mid)
         }
       }
+      for (const [mid, c] of primeroPorMiembro) {
+        if (c.fecha_inicio > hasta) {
+          miembrosNoIniciados.add(mid)
+        }
+      }
     }
     const miembrosData = mostrarTerminados
       ? miembrosDataRaw
       : (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
-          !miembrosTerminadosAntes.has(m.id as string),
+          !miembrosTerminadosAntes.has(m.id as string) &&
+          !miembrosNoIniciados.has(m.id as string),
         )
 
-    // ─── Contratos vigentes + conceptos aplicables ───
-    // Cargamos en dos pasos:
-    //   1) El contrato vigente de cada miembro (con fecha_inicio para
-    //      evaluar condiciones tipo "antigüedad ≥ N años").
-    //   2) Los conceptos asignados (activos) a esos contratos, con el
-    //      detalle completo del catálogo (modo_calculo, condicion_jsonb,
-    //      tipo, etc) para que el motor pueda evaluarlos.
-    // Se aplican luego en el loop por miembro, sumando haberes y
-    // restando descuentos sobre el monto base.
+    // ─── Contratos que aplican al período + conceptos ───
+    // Cargamos el contrato relevante para el período consultado, NO el
+    // que está vigente hoy. Un contrato aplica al período si:
+    //   fecha_inicio <= hasta  AND  (fecha_fin IS NULL OR fecha_fin >= desde)
+    // Esto permite liquidar a empleados cuyo contrato terminó dentro del
+    // período (ej: contrato 1 ene → 15 feb, consultamos feb: el motor
+    // recibe ese contrato y calcula proporcional con advertencia).
+    //
+    // Si un miembro tiene MÚLTIPLES contratos que aplican (cambio a
+    // mitad de período), usamos el más reciente por fecha_inicio. El
+    // operador puede ajustar manualmente con conceptos_extra al pagar.
+    //
+    // Después cargamos los conceptos asignados (activos) a esos
+    // contratos para que el motor los evalúe.
     const contratoVigentePorMiembro = new Map<string, ContratoLaboral>()
     const conceptosPorMiembro = new Map<string, Array<{ valor_override: number | string | null; concepto: ConceptoNomina }>>()
     const miembrosFinalesIds = (miembrosData || []).map((m: Record<string, unknown>) => m.id as string)
 
     if (miembrosFinalesIds.length > 0) {
-      const { data: contratosVigentes } = await admin
+      // Traemos todos los contratos que solapan con [desde, hasta] y
+      // dejamos UN contrato por miembro: el más reciente. El ORDER BY
+      // fecha_inicio DESC + el `if (!has)` se encarga de eso.
+      const { data: contratosDelPeriodo } = await admin
         .from('contratos_laborales')
         .select('*')
         .eq('empresa_id', empresaId)
         .in('miembro_id', miembrosFinalesIds)
-        .eq('vigente', true)
+        .lte('fecha_inicio', hasta)
+        .or(`fecha_fin.is.null,fecha_fin.gte.${desde}`)
+        .order('fecha_inicio', { ascending: false })
 
-      for (const c of (contratosVigentes ?? []) as ContratoLaboral[]) {
-        contratoVigentePorMiembro.set(c.miembro_id, c)
+      for (const c of (contratosDelPeriodo ?? []) as ContratoLaboral[]) {
+        if (!contratoVigentePorMiembro.has(c.miembro_id)) {
+          contratoVigentePorMiembro.set(c.miembro_id, c)
+        }
       }
 
-      const contratoIds = (contratosVigentes ?? []).map(c => (c as ContratoLaboral).id)
+      const contratoIds = Array.from(contratoVigentePorMiembro.values()).map(c => c.id)
       if (contratoIds.length > 0) {
         const { data: asignaciones } = await admin
           .from('conceptos_contrato')
@@ -1146,10 +1199,12 @@ export async function GET(request: NextRequest) {
           - (cuotasPorMiembro.get(m.id as string)?.monto || 0)
           - (saldoAnteriorPorMiembro.get(m.id as string) || 0)
         ) * 100) / 100,
-        // Flag para que la UI muestre en gris los empleados terminados.
-        // Solo aparece como true cuando el setting `mostrar_empleados_terminados`
-        // está activo y el último contrato del miembro terminó antes del período.
+        // Flags para que la UI muestre en gris empleados fuera del período.
+        // Solo aparecen como true cuando el setting `mostrar_empleados_terminados`
+        // está activo y el último contrato del miembro terminó antes del período,
+        // o el primer contrato del miembro aún no había iniciado al cierre.
         contrato_terminado_antes: miembrosTerminadosAntes.has(m.id as string),
+        contrato_no_iniciado: miembrosNoIniciados.has(m.id as string),
         // Estado de envío del recibo del período. NULL si nunca se envió o
         // si no hay pago grabado todavía (la trazabilidad arranca cuando
         // se registra el pago, no antes).
@@ -1435,6 +1490,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // ── Aplica al período según frecuencia natural del empleado ──
+      // Si false, la UI lo muestra en gris y no lo suma al total. La
+      // frecuencia viene del contrato; si no hay contrato (legacy)
+      // usamos compensacion_frecuencia del miembro o asumimos 'mensual'.
+      const contratoMiembro = contratoVigentePorMiembro.get(id)
+      const freqContrato = (contratoMiembro?.frecuencia_pago as string | undefined)
+        ?? ((miembrosData?.find(m => (m as Record<string, unknown>).id === id) as Record<string, unknown> | undefined)?.compensacion_frecuencia as string | undefined)
+        ?? 'mensual'
+      const aplicaAlPeriodo = aplicaFrecuenciaAlPeriodo(freqContrato, tipoPeriodo, desde, hasta)
+
       return {
         ...r,
         monto_neto: montoNetoFinal,
@@ -1455,6 +1520,10 @@ export async function GET(request: NextRequest) {
         sector: sectorPorMiembro.get(id) ?? null,
         cuenta_destino: cuentaPorMiembro.get(id) ?? null,
         saldo_adelantos_vigentes: saldoAdelantosPorMiembro.get(id) ?? 0,
+        // Marca de visualización: cuando false, la card va en gris y el
+        // total agregado del período no la cuenta.
+        aplica_al_periodo: aplicaAlPeriodo,
+        frecuencia_pago: freqContrato,
       }
     })
 
