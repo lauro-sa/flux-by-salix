@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { verificarVisibilidad, obtenerDatosMiembro, verificarPermiso } from '@/lib/permisos-servidor'
+import { verificarVisibilidad, requerirPermisoAPI } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/adelantos — Listar adelantos con cuotas.
@@ -176,18 +176,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user } = await obtenerUsuarioRuta()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
-
-    // Crear adelanto = editar nómina.
-    const datosMiembro = await obtenerDatosMiembro(user.id, empresaId)
-    if (!datosMiembro) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
-    if (!verificarPermiso(datosMiembro, 'nomina', 'editar')) {
-      return NextResponse.json({ error: 'Sin permiso para crear adelantos' }, { status: 403 })
-    }
+    // Crear adelanto/descuento/bono = editar nómina. requerirPermisoAPI maneja
+    // el caso de superadmin (que no figura como miembro) con un miembro virtual.
+    const guard = await requerirPermisoAPI('nomina', 'editar')
+    if ('respuesta' in guard) return guard.respuesta
+    const { user, empresaId } = guard
 
     const body = await request.json()
     const {
