@@ -36,7 +36,6 @@ import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/Modal
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
 import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
 import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
-import { SelectorConceptoCatalogo } from '@/app/(flux)/nominas/_componentes/SelectorConceptoCatalogo'
 import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
@@ -338,8 +337,6 @@ export function PaginaEditorNominaEmpleado({
     motivo: string | null
   }
   const [ajustesPeriodo, setAjustesPeriodo] = useState<AjustePeriodoUI[]>([])
-  /** Toggle del form de "agregar concepto del catálogo" en panel Ajustes. */
-  const [mostrarSelectorConcepto, setMostrarSelectorConcepto] = useState(false)
   /**
    * Detalle del recibo recalculado por el motor unificado
    * (`/api/nominas/calcular`). El endpoint del listado `/api/nominas`
@@ -1750,7 +1747,7 @@ export function PaginaEditorNominaEmpleado({
               <TarjetaPanel
                 titulo="Ajustes del período"
                 icono={<TrendingDown size={13} />}
-                accion={!mostrarSelectorConcepto ? (
+                accion={
                   <div className="flex items-center gap-3">
                     {(adelantos.length > 0 || emp.saldo_anterior !== 0) && (
                       <span className="text-[11px] text-texto-terciario">
@@ -1761,19 +1758,13 @@ export function PaginaEditorNominaEmpleado({
                       </span>
                     )}
                     {puedeEditarNomina && (
-                      <>
-                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                          onClick={() => setModalNuevoMovimientoAbierto(true)}>
-                          Bono / Adelanto
-                        </Boton>
-                        <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
-                          onClick={() => setMostrarSelectorConcepto(true)}>
-                          Concepto del catálogo
-                        </Boton>
-                      </>
+                      <Boton variante="fantasma" tamano="xs" icono={<Plus size={11} />}
+                        onClick={() => setModalNuevoMovimientoAbierto(true)}>
+                        Nuevo ajuste
+                      </Boton>
                     )}
                   </div>
-                ) : undefined}
+                }
               >
                 {/* Saldo a favor del período anterior */}
                 {emp.saldo_anterior > 0 && (
@@ -1942,30 +1933,9 @@ export function PaginaEditorNominaEmpleado({
                   })}
                 </div>
 
-                {/* Formulario nuevo adelanto/descuento/bono — vive en
-                    ModalNuevoMovimientoNomina (renderizado al pie del
-                    componente, junto a los demás modales). */}
-
-                {/* Form alternativo: agregar concepto del catálogo solo a
-                    este período. Crea un ajuste tipo 'agregar' que el
-                    motor aplica al recalcular. */}
-                {mostrarSelectorConcepto && (
-                  <SelectorConceptoCatalogo
-                    miembroId={datosEmpleado.miembro_id}
-                    periodoInicio={periodoActual.desde}
-                    periodoFin={periodoActual.hasta}
-                    conceptosEnContratoIds={new Set([
-                      ...(emp.conceptos_aplicados ?? []).map(c => c.concepto_id),
-                      ...(detalleMotor?.conceptos_aplicados ?? []).map(c => c.concepto_id),
-                      ...(detalleMotor?.conceptos_sugeridos ?? []).map(c => c.concepto_id),
-                    ])}
-                    onCancelar={() => setMostrarSelectorConcepto(false)}
-                    onGuardado={async () => {
-                      setMostrarSelectorConcepto(false)
-                      await recargarDatos()
-                    }}
-                  />
-                )}
+                {/* Toda la creación de ajustes (adelanto / descuento /
+                    bono / concepto del catálogo) vive en
+                    ModalNuevoMovimientoNomina al pie del componente. */}
               </TarjetaPanel>
 
               {/* ─── PAGOS DEL PERÍODO ─── */}
@@ -2221,6 +2191,13 @@ export function PaginaEditorNominaEmpleado({
         onCerrar={() => setModalNuevoMovimientoAbierto(false)}
         miembroId={datosEmpleado.miembro_id}
         fechaInicial={periodoActual.desde}
+        periodoInicio={periodoActual.desde}
+        periodoFin={periodoActual.hasta}
+        conceptosEnContratoIds={new Set([
+          ...(emp.conceptos_aplicados ?? []).map(c => c.concepto_id),
+          ...(detalleMotor?.conceptos_aplicados ?? []).map(c => c.concepto_id),
+          ...(detalleMotor?.conceptos_sugeridos ?? []).map(c => c.concepto_id),
+        ])}
         onCreado={recargarDatos}
       />
 
