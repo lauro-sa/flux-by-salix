@@ -6,6 +6,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, CanalInterno, CanalMensajeria, ModuloEmpresa,
@@ -55,6 +56,11 @@ export function useEstadoInbox() {
   const [cargandoMensajes, setCargandoMensajes] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const paginaMensajesRef = useRef(1)
+
+  // Reportar carga global para que la BarraProgresoGlobal se quede activa
+  // mientras inbox está fetcheando conversaciones o mensajes (no usa React
+  // Query, sino fetch directo + polling).
+  useReportarCarga(cargandoConversaciones || cargandoMensajes, 'inbox')
 
   // Canales internos
   const [canalesPublicos, setCanalesPublicos] = useState<CanalInterno[]>([])

@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoActividades from './_componentes/ContenidoActividades'
@@ -8,22 +7,16 @@ import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { ordenarActividadesInteligente } from '@/lib/orden-actividades'
 import { obtenerInicioFinDiaEnZona } from '@/lib/formato-fecha'
-import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
- * Página de actividades — /actividades (Server Component)
- * El cuerpo async vive dentro de un Suspense para que el skeleton se pinte
- * inmediatamente durante la navegación.
+ * Página de actividades — /actividades (Server Component).
+ * Ver nota de carga en /contactos/page.tsx.
  */
 
 const POR_PAGINA = 50
 
 export default function PaginaActividades() {
-  return (
-    <Suspense fallback={<SkeletonListado columnas={6} />}>
-      <ContenidoServidor />
-    </Suspense>
-  )
+  return <ContenidoServidor />
 }
 
 async function ContenidoServidor() {

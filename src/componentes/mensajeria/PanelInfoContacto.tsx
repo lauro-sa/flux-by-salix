@@ -492,9 +492,9 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
 
   const contenidoPanel = (
     <>
-      {/* Header */}
+      {/* Header — altura fija h-[65px] para alinear con el header del chat (PanelWhatsApp) +1px del borde inferior. */}
       <div
-        className="flex items-center justify-between p-3 sticky top-0 z-10"
+        className="flex items-center justify-between px-4 h-[65px] sticky top-0 z-10"
         style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         {esMovil ? (

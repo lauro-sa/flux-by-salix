@@ -115,6 +115,10 @@ export async function GET(request: NextRequest) {
         // Campos flat de acceso rápido (algunos consumidores los usan directo)
         nombre,
         apellido,
+        // Teléfonos consolidados (igual que correo: vienen del perfil o del contacto-equipo).
+        // Necesarios para el selector de "Nuevo chat" en WhatsApp audiencia=empleados.
+        telefono: id?.telefono ?? null,
+        telefono_empresa: id?.telefono_empresa ?? null,
       }
     })
 

@@ -11,8 +11,10 @@ import { TabsAudienciaWA } from './_componentes/TabsAudienciaWA'
 import { ListaConversaciones } from '@/componentes/mensajeria/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia } from './_componentes/PanelWhatsApp'
 import { PanelInfoContacto } from '@/componentes/mensajeria/PanelInfoContacto'
+import { PanelInfoEmpleado } from '@/componentes/mensajeria/PanelInfoEmpleado'
 import VistaPipeline from '@/componentes/mensajeria/VistaPipeline'
 import { ModalNuevoWhatsApp } from './_componentes/ModalNuevoWhatsApp'
+import { SelectorNuevoChat } from './_componentes/SelectorNuevoChat'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { EstadosConversacion } from '@/tipos/conversacion'
 
@@ -35,8 +37,10 @@ function PaginaWhatsApp() {
   const router = useRouter()
   const anchoInicialRef = useRef(estado.anchoLista)
 
-  // Si no hay canal WhatsApp configurado y ya cargó
-  if (!estado.canalWAId && !estado.cargandoConversaciones) {
+  // Mostrar el estado vacío SOLO una vez que terminó el fetch del canal. Sin este
+  // flag, durante el primer tick antes de la respuesta de /api/whatsapp/canales se
+  // veía un flash de "WhatsApp no configurado" aunque sí estuviera configurado.
+  if (estado.canalCargado && !estado.canalWAId) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center max-w-sm">
@@ -66,13 +70,20 @@ function PaginaWhatsApp() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Barra superior — solo desktop. En móvil la configuración se hace desde PC y el toggle vista no aplica */}
+      {/* Barra superior — solo desktop. Concentra el switch de audiencia (Clientes/Empleados)
+          y los controles de vista/panel/config en un único cabezal full-width. En móvil
+          la configuración se hace desde PC y el switch de audiencia se muestra dentro
+          de la lista (ver TabsAudienciaWA más abajo). */}
       {!estado.esMovil && (
         <BarraSuperiorWhatsApp
+          audiencia={estado.audiencia}
+          onCambiarAudiencia={(a) => {
+            estado.setAudiencia(a)
+            estado.setConversacionSeleccionada(null)
+            estado.setMensajes([])
+          }}
           vistaWA={estado.vistaWA}
           onCambiarVistaWA={estado.setVistaWA}
-          panelInfoAbierto={estado.panelInfoAbierto}
-          onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
           esMovil={estado.esMovil}
           onIrConfiguracion={() => router.push('/whatsapp/configuracion')}
         />
@@ -93,15 +104,32 @@ function PaginaWhatsApp() {
                 className={estado.esMovil ? 'flex-1 min-w-0 overflow-hidden flex flex-col' : 'flex-shrink-0 relative flex flex-col'}
                 style={estado.esMovil ? undefined : { width: estado.anchoLista, minWidth: 280, maxWidth: 500 }}
               >
-                <TabsAudienciaWA
-                  audiencia={estado.audiencia}
-                  onCambiar={(a) => {
-                    estado.setAudiencia(a)
-                    estado.setConversacionSeleccionada(null)
-                    estado.setMensajes([])
-                  }}
-                />
+                {/* Tabs Clientes/Empleados — solo móvil. En desktop el switch vive en BarraSuperiorWhatsApp. */}
+                {estado.esMovil && (
+                  <TabsAudienciaWA
+                    audiencia={estado.audiencia}
+                    onCambiar={(a) => {
+                      estado.setAudiencia(a)
+                      estado.setConversacionSeleccionada(null)
+                      estado.setMensajes([])
+                    }}
+                  />
+                )}
                 <div className="flex-1 min-h-0 overflow-hidden">
+                {/* Modo "Nuevo chat": la lista de conversaciones se reemplaza por el selector
+                    alfabético de destinatarios (clientes con WA o empleados con tel). Al elegir
+                    uno, se cierra el selector y se abre el modal de plantillas precargado. */}
+                {estado.modoNuevoChat ? (
+                  <SelectorNuevoChat
+                    audiencia={estado.audiencia}
+                    onCerrar={() => estado.setModoNuevoChat(false)}
+                    onSeleccionar={(d) => {
+                      estado.setDestinatarioNuevo({ telefono: d.telefono, nombre: d.nombre })
+                      estado.setModoNuevoChat(false)
+                      estado.setModalNuevoWA(true)
+                    }}
+                  />
+                ) : (<>
                 <ListaConversaciones
                   conversaciones={estado.conversaciones}
                   seleccionada={estado.conversacionSeleccionada?.id || null}
@@ -117,7 +145,7 @@ function PaginaWhatsApp() {
                   totalNoLeidos={estado.totalNoLeidos}
                   botHabilitado={estado.botHabilitado}
                   iaHabilitada={estado.iaHabilitada}
-                  onNuevoMensaje={estado.canalWAId ? () => estado.setModalNuevoWA(true) : undefined}
+                  onNuevoMensaje={estado.canalWAId ? () => estado.setModoNuevoChat(true) : undefined}
                   onEliminarSeleccion={estado.eliminarMultiples}
                   soloNoLeidos={estado.soloNoLeidos}
                   onToggleNoLeidos={() => estado.setSoloNoLeidos(prev => !prev)}
@@ -214,6 +242,7 @@ function PaginaWhatsApp() {
                   }}
                   esAdmin={true}
                 />
+                </>)}
                 </div>
                 {/* Drag handle para redimensionar */}
                 {!estado.esMovil && (
@@ -257,6 +286,8 @@ function PaginaWhatsApp() {
                   esMovil={estado.esMovil}
                   onVolver={() => { estado.setVistaMovilWA('lista'); estado.setConversacionSeleccionada(null); estado.setMensajes([]) }}
                   onAbrirInfo={() => estado.setVistaMovilWA('info')}
+                  panelInfoAbierto={estado.panelInfoAbierto}
+                  onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
                   onEtiquetasCambiaron={(etiquetas) => {
                     estado.setConversacionSeleccionada(prev => prev ? { ...prev, etiquetas } : null)
                     estado.setConversaciones(prev => prev.map(c =>
@@ -297,29 +328,48 @@ function PaginaWhatsApp() {
               </ErrorBoundary>
             )}
 
-            {/* Info contacto — móvil pantalla completa */}
+            {/* Info contacto / empleado — móvil pantalla completa.
+                En audiencia=empleados usamos PanelInfoEmpleado (datos del miembro), en
+                audiencia=clientes usamos PanelInfoContacto (datos del contacto externo). */}
             {estado.esMovil && estado.vistaMovilWA === 'info' && (
               <div className="flex-1 overflow-y-auto" style={{ background: 'var(--superficie-app)' }}>
-                <PanelInfoContacto
-                  conversacion={estado.conversacionSeleccionada}
-                  mensajes={estado.mensajes}
-                  abierto={true}
-                  onCerrar={() => estado.setVistaMovilWA('chat')}
-                  onAbrirVisor={estado.abrirVisor}
-                  esMovil
-                />
+                {estado.audiencia === 'empleados' ? (
+                  <PanelInfoEmpleado
+                    conversacion={estado.conversacionSeleccionada}
+                    abierto={true}
+                    onCerrar={() => estado.setVistaMovilWA('chat')}
+                    esMovil
+                  />
+                ) : (
+                  <PanelInfoContacto
+                    conversacion={estado.conversacionSeleccionada}
+                    mensajes={estado.mensajes}
+                    abierto={true}
+                    onCerrar={() => estado.setVistaMovilWA('chat')}
+                    onAbrirVisor={estado.abrirVisor}
+                    esMovil
+                  />
+                )}
               </div>
             )}
 
-            {/* Panel derecho desktop: info contacto */}
+            {/* Panel derecho desktop: info contacto o empleado según audiencia */}
             {!estado.esMovil && (
-              <PanelInfoContacto
-                conversacion={estado.conversacionSeleccionada}
-                mensajes={estado.mensajes}
-                abierto={estado.panelInfoAbierto}
-                onCerrar={() => estado.setPanelInfoAbierto(false)}
-                onAbrirVisor={estado.abrirVisor}
-              />
+              estado.audiencia === 'empleados' ? (
+                <PanelInfoEmpleado
+                  conversacion={estado.conversacionSeleccionada}
+                  abierto={estado.panelInfoAbierto}
+                  onCerrar={() => estado.setPanelInfoAbierto(false)}
+                />
+              ) : (
+                <PanelInfoContacto
+                  conversacion={estado.conversacionSeleccionada}
+                  mensajes={estado.mensajes}
+                  abierto={estado.panelInfoAbierto}
+                  onCerrar={() => estado.setPanelInfoAbierto(false)}
+                  onAbrirVisor={estado.abrirVisor}
+                />
+              )
             )}
           </>
         )}
@@ -334,13 +384,18 @@ function PaginaWhatsApp() {
         onCambiarIndice={estado.setVisorIndice}
       />
 
-      {/* Modal nuevo WhatsApp */}
+      {/* Modal nuevo WhatsApp — precargado si vino del selector "Nuevo chat" */}
       {estado.canalWAId && (
         <ModalNuevoWhatsApp
           abierto={estado.modalNuevoWA}
-          onCerrar={() => estado.setModalNuevoWA(false)}
+          onCerrar={() => {
+            estado.setModalNuevoWA(false)
+            estado.setDestinatarioNuevo(null)
+          }}
           canalId={estado.canalWAId}
           onEnviar={estado.enviarNuevoWhatsApp}
+          telefonoInicial={estado.destinatarioNuevo?.telefono}
+          destinatarioNombre={estado.destinatarioNuevo?.nombre}
         />
       )}
     </div>

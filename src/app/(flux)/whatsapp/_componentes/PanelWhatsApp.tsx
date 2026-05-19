@@ -23,6 +23,7 @@ import { construirDatosPlantilla, resolverParametrosCuerpo } from '@/lib/whatsap
 // PopoverProgramar ahora vive dentro de CompositorMensaje
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
+import { formatearTelefono } from '@/lib/formato'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
@@ -68,6 +69,10 @@ interface PropiedadesPanelWhatsApp {
   onVolver?: () => void
   /** Callback para abrir panel de info del contacto en móvil */
   onAbrirInfo?: () => void
+  /** Estado del panel de info del contacto en desktop — usado para mostrar el chevron correcto en hover. */
+  panelInfoAbierto?: boolean
+  /** Toggle del panel de info del contacto en desktop. Se dispara al hacer click en el nombre del contacto. */
+  onTogglePanelInfo?: () => void
   /** Callback para actualizar campos de la conversación (optimistic update desde BarraControlsWA) */
   onCambioConversacion?: (cambios: Partial<Conversacion>) => void
 }
@@ -254,6 +259,8 @@ export function PanelWhatsApp({
   esMovil = false,
   onVolver,
   onAbrirInfo,
+  panelInfoAbierto = false,
+  onTogglePanelInfo,
   onCambioConversacion,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
@@ -593,7 +600,9 @@ export function PanelWhatsApp({
           background: 'var(--superficie-tarjeta)',
         }}
       >
-      <div className="flex items-center gap-3 px-4 py-2.5">
+      {/* Altura fija h-[64px] consistente con el header de PanelInfoContacto para que las
+          líneas inferiores de ambos cabezales (chat e info contacto) coincidan visualmente. */}
+      <div className="flex items-center gap-3 px-4 h-[64px]">
         {/* Botón atrás en móvil — min 44px zona táctil */}
         {esMovil && onVolver && (
           <button
@@ -604,31 +613,59 @@ export function PanelWhatsApp({
             <ChevronLeft size={22} />
           </button>
         )}
-        <div
-          className={esMovil && onAbrirInfo ? 'cursor-pointer' : ''}
-          onClick={esMovil && onAbrirInfo ? onAbrirInfo : undefined}
-        >
-          <Avatar
-            nombre={conversacion.contacto_nombre || conversacion.identificador_externo || '?'}
-            tamano="sm"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--texto-primario)' }}>
-            {conversacion.contacto_nombre || conversacion.identificador_externo || 'Conversación'}
-          </h3>
-          {conversacion.identificador_externo && (
-            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-              {conversacion.identificador_externo}
-            </p>
-          )}
-          {/* Etiquetas inline — solo desktop. En móvil van en una fila aparte full-width debajo. */}
-          {etiquetasChips && (
-            <div className="hidden md:flex items-center gap-1 mt-0.5 flex-wrap">
-              {etiquetasChips}
-            </div>
-          )}
-        </div>
+        {/* Bloque clickeable nombre + teléfono: abre/alterna el panel de info del contacto (patrón WhatsApp).
+            En móvil dispara onAbrirInfo (vista a pantalla completa). En desktop alterna onTogglePanelInfo. */}
+        {(() => {
+          const onAbrirInfoBloque = esMovil ? onAbrirInfo : onTogglePanelInfo
+          const clickeable = !!onAbrirInfoBloque
+          return (
+            <button
+              type="button"
+              onClick={onAbrirInfoBloque}
+              disabled={!clickeable}
+              className={`group flex items-center gap-3 flex-1 min-w-0 text-left rounded-boton -mx-1 px-1 py-0.5 transition-colors ${
+                clickeable ? 'cursor-pointer hover:bg-[var(--superficie-hover)]' : 'cursor-default'
+              }`}
+              title={clickeable ? (panelInfoAbierto ? 'Ocultar info del contacto' : 'Ver info del contacto') : undefined}
+            >
+              <Avatar
+                nombre={conversacion.contacto_nombre || conversacion.identificador_externo || '?'}
+                tamano="sm"
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--texto-primario)' }}>
+                  {conversacion.contacto_nombre || conversacion.identificador_externo || 'Conversación'}
+                </h3>
+                {conversacion.identificador_externo && (
+                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                    {formatearTelefono(conversacion.identificador_externo)}
+                  </p>
+                )}
+                {/* Etiquetas inline — solo desktop. En móvil van en una fila aparte full-width debajo. */}
+                {etiquetasChips && (
+                  <div className="hidden md:flex items-center gap-1 mt-0.5 flex-wrap">
+                    {etiquetasChips}
+                  </div>
+                )}
+              </div>
+              {/* Indicador en hover (solo desktop): texto discreto + chevron direccional.
+                  Abierto → texto "Cerrar info" + chevron derecha (panel se irá a la derecha).
+                  Cerrado → texto "Abrir info" + chevron izquierda (panel aparecerá desde la derecha). */}
+              {clickeable && !esMovil && (
+                <span
+                  className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--texto-terciario)' }}
+                  aria-hidden="true"
+                >
+                  <span className="text-xxs">
+                    {panelInfoAbierto ? 'Cerrar info' : 'Abrir info'}
+                  </span>
+                  {panelInfoAbierto ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                </span>
+              )}
+            </button>
+          )
+        })()}
         {/* Acciones del header */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <PopoverSnooze

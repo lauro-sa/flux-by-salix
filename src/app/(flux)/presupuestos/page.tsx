@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoPresupuestos from './_componentes/ContenidoPresupuestos'
@@ -7,22 +6,17 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { enriquecerListadoPresupuestos } from '@/lib/presupuestos/enriquecer-listado'
-import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
- * Página de presupuestos — /presupuestos (Server Component)
- * El fetch inicial corre dentro de un Suspense que muestra skeleton durante
- * la navegación, evitando que la pantalla anterior quede congelada.
+ * Página de presupuestos — /presupuestos (Server Component).
+ * Ver nota de carga en /contactos/page.tsx — la BarraProgresoGlobal da el
+ * feedback visual durante la navegación, la página anterior persiste.
  */
 
 const POR_PAGINA = 50
 
 export default function PaginaPresupuestos() {
-  return (
-    <Suspense fallback={<SkeletonListado columnas={7} />}>
-      <ContenidoServidor />
-    </Suspense>
-  )
+  return <ContenidoServidor />
 }
 
 async function ContenidoServidor() {

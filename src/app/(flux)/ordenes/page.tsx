@@ -1,17 +1,12 @@
 'use client'
 
-import { Suspense } from 'react'
 import ContenidoOrdenes from './_componentes/ContenidoOrdenes'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 
 /**
  * Página de listado de órdenes de trabajo.
  * Reutiliza PlantillaListado + TablaDinamica vía ContenidoOrdenes.
+ * El feedback visual de carga lo da la BarraProgresoGlobal en PlantillaApp.
  */
 export default function PaginaOrdenes() {
-  return (
-    <Suspense fallback={<SkeletonTabla />}>
-      <ContenidoOrdenes />
-    </Suspense>
-  )
+  return <ContenidoOrdenes />
 }

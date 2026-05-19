@@ -120,10 +120,10 @@ function Header({
       ].join(' ')}
     >
       {/* Izquierda */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
-        <button type="button" onClick={onAbrirMenuMobil} className="md:hidden shrink-0 size-10 inline-flex items-center justify-center rounded-boton text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent">
-          <PanelLeft size={26} />
+        <button type="button" onClick={onAbrirMenuMobil} className="md:hidden shrink-0 size-10 inline-flex items-center justify-center rounded-boton text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent">
+          <PanelLeft size={22} />
         </button>
 
         {/* Desktop: toggle sidebar con popover (clic derecho / long press abre opciones) */}
@@ -147,13 +147,13 @@ function Header({
               variante="fantasma"
               tamano="sm"
               soloIcono
-              icono={sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+              icono={sidebarColapsado ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
               onClick={(e) => {
                 if (longPressFired.current) { longPressFired.current = false; return }
                 onToggleSidebar()
               }}
               titulo={sidebarColapsado ? 'Expandir menú\nClic derecho: más opciones' : 'Colapsar menú\nClic derecho: más opciones'}
-              className="shrink-0"
+              className="shrink-0 !text-texto-terciario hover:!text-texto-secundario"
             />
           </div>
 
@@ -244,6 +244,9 @@ function Header({
             )}
           </AnimatePresence>
         </div>
+
+        {/* Divisor entre toggle sidebar y migajas (desktop) */}
+        <div className="hidden md:block h-5 w-px bg-borde-sutil shrink-0" aria-hidden />
 
         <Migajas extras={migajasExtras} />
         <IndicadorGuardadoHeader />

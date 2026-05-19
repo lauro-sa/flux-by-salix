@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoContactos from './_componentes/ContenidoContactos'
@@ -7,25 +6,21 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { enriquecerContactos } from '@/lib/enriquecer-contactos'
-import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
- * Página de contactos — /contactos (Server Component)
+ * Página de contactos — /contactos (Server Component).
  *
- * El cuerpo está envuelto en <Suspense> para que durante la navegación se
- * pinte un skeleton al instante, en lugar de quedar congelado en la página
- * anterior hasta que termine el fetch del servidor. La función async
- * ContenidoServidor hace todo el trabajo de datos.
+ * Sin Suspense fallback ni loading.tsx: durante la navegación la página
+ * anterior persiste hasta que termina el fetch del Server Component. El
+ * feedback visual de carga lo da la BarraProgresoGlobal (barra fina arriba)
+ * que vive en PlantillaApp y se activa con cambios de ruta + actividad de
+ * React Query.
  */
 
 const POR_PAGINA = 50
 
 export default function PaginaContactos() {
-  return (
-    <Suspense fallback={<SkeletonListado columnas={7} />}>
-      <ContenidoServidor />
-    </Suspense>
-  )
+  return <ContenidoServidor />
 }
 
 async function ContenidoServidor() {

@@ -182,6 +182,10 @@ export interface Conversacion {
   sector_id: string | null
   sector_nombre: string | null
   sector_color: string | null
+  // Miembro del equipo asociado (cuando la conversación es con un empleado interno
+  // y no con un contacto externo). Las conversaciones de Salix IA, recibos de
+  // nómina, recordatorios, etc. apuntan a un miembro en vez de un contacto.
+  miembro_id: string | null
   // Bloqueo, pipeline, papelera
   bloqueada: boolean
   en_pipeline: boolean

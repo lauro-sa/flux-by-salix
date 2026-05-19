@@ -12,13 +12,16 @@ interface PropiedadesBuscador {
   className?: string
   /** Elemento extra a la derecha dentro del input (ej: botón "+") */
   accionDerecha?: React.ReactNode
+  /** Usa un borde más visible (texto-marca/35) para destacar el campo, por ejemplo
+      cuando el buscador es el control principal de la vista (ej. "Nuevo chat"). */
+  bordeResaltado?: boolean
 }
 
 /**
  * Buscador — Campo de búsqueda con debounce, ícono lupa y botón limpiar.
  * Se usa en: búsqueda de contactos, productos, conversaciones, etc.
  */
-function Buscador({ valor: valorExterno, onChange, placeholder = 'Buscar...', debounce = 400, autoFocus, className = '', accionDerecha }: PropiedadesBuscador) {
+function Buscador({ valor: valorExterno, onChange, placeholder = 'Buscar...', debounce = 400, autoFocus, className = '', accionDerecha, bordeResaltado = false }: PropiedadesBuscador) {
   const [valorInterno, setValorInterno] = useState(valorExterno || '')
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -49,7 +52,7 @@ function Buscador({ valor: valorExterno, onChange, placeholder = 'Buscar...', de
         onChange={(e) => manejarCambio(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className={`w-full pl-9 ${accionDerecha ? 'pr-14' : 'pr-8'} py-2 rounded-input border border-borde-sutil bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco focus:shadow-foco transition-all duration-150`}
+        className={`w-full pl-9 ${accionDerecha ? 'pr-11' : 'pr-8'} py-2 rounded-input border ${bordeResaltado ? 'border-texto-marca/40' : 'border-borde-sutil'} bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco focus:shadow-foco transition-all duration-150 text-ellipsis whitespace-nowrap overflow-hidden`}
       />
       <div className="absolute right-2 flex items-center gap-1">
         {valorInterno && (

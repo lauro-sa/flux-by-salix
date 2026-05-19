@@ -7,6 +7,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { sonidos } from '@/hooks/useSonido'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import type {
   EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, VistaMovilWA,
@@ -21,6 +22,14 @@ import { DEBOUNCE_BUSQUEDA, INTERVALO_POLLING } from '@/lib/constantes/timeouts'
  * realtime, polling y acciones de la sección WhatsApp independiente.
  * Extraído de useEstadoInbox para desacoplar WhatsApp como módulo propio.
  */
+
+/**
+ * Cache module-level de conversaciones por audiencia. Vive fuera del componente
+ * para sobrevivir desmontajes: al salir y volver a /whatsapp (ej. visitar /contactos
+ * y volver), la lista anterior queda disponible al instante mientras se revalida
+ * en background. Se limpia con el refresh completo de la pestaña del navegador.
+ */
+const cacheConversacionesPorAudiencia = new Map<'clientes' | 'empleados', ConversacionConDetalles[]>()
 
 export function useEstadoWhatsApp() {
   const { t } = useTraduccion()
@@ -61,6 +70,11 @@ export function useEstadoWhatsApp() {
   const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
   const paginaMensajesRef = useRef(1)
 
+  // Reportar carga global para que la BarraProgresoGlobal se quede activa
+  // mientras WhatsApp está fetcheando conversaciones o mensajes (no usa
+  // React Query, sino fetch directo + polling).
+  useReportarCarga(cargandoConversaciones || cargandoMensajes, 'whatsapp')
+
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
 
@@ -71,7 +85,15 @@ export function useEstadoWhatsApp() {
   // WhatsApp: modal nuevo mensaje + canal WA
   const [modalNuevoWA, setModalNuevoWA] = useState(false)
   const [canalWAId, setCanalWAId] = useState<string>('')
+  // Flag que distingue "aún no cargué el canal" vs "cargué y no hay canal".
+  // Sin esto, el render condicional muestra "WhatsApp no configurado" durante el primer
+  // tick antes de que termine el fetch a /api/whatsapp/canales.
+  const [canalCargado, setCanalCargado] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string>('')
+  // Modo "Nuevo chat": la columna izquierda muestra el selector alfabético de destinatarios
+  // en vez de la lista de conversaciones. Al elegir uno, se precarga el modal de plantillas.
+  const [modoNuevoChat, setModoNuevoChat] = useState(false)
+  const [destinatarioNuevo, setDestinatarioNuevo] = useState<{ telefono: string; nombre: string } | null>(null)
 
   // Ancho de la lista de conversaciones (redimensionable, persistido)
   const [anchoLista, setAnchoLista] = useState(340)
@@ -141,6 +163,7 @@ export function useEstadoWhatsApp() {
         if (canales.length > 0) setCanalWAId(canales[0].id)
       })
       .catch(() => {})
+      .finally(() => setCanalCargado(true))
   }, [configCargada])
 
   // ─── Params de filtro para conversaciones ───
@@ -155,22 +178,55 @@ export function useEstadoWhatsApp() {
     return params
   }, [audiencia, filtroEstado, filtroEtiqueta, soloNoLeidos])
 
+  // Audiencia "actual" — referencia que siempre refleja el último valor seteado.
+  // Necesaria para que un fetch en vuelo pueda chequear si su resultado sigue
+  // siendo relevante antes de aplicarlo (evita race condition al alternar rápido
+  // Clientes ↔ Empleados: el fetch viejo podía pisar el resultado del nuevo).
+  const audienciaRef = useRef(audiencia)
+  audienciaRef.current = audiencia
+
   // ─── Cargar conversaciones ───
   const cargarConversaciones = useCallback(async () => {
     if (!configCargada) return
     if (abriendoDesdeUrlRef.current) return
-    setCargandoConversaciones(true)
+    // Capturamos la audiencia al iniciar el fetch para descartar resultados viejos
+    // si el usuario cambió de pestaña antes de que llegue la respuesta.
+    const audienciaPeticion = audiencia
+    // Solo mostramos el loader cuando NO hay datos cacheados para esta audiencia
+    // (primera carga). Si ya hay, revalidación silenciosa en background.
+    const tieneCache = (cacheConversacionesPorAudiencia.get(audienciaPeticion)?.length ?? 0) > 0
+    if (!tieneCache) setCargandoConversaciones(true)
     try {
       const params = construirParamsConversaciones()
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
       const data = await res.json()
-      setConversaciones(data.conversaciones || [])
+      const lista = (data.conversaciones || []) as ConversacionConDetalles[]
+      cacheConversacionesPorAudiencia.set(audienciaPeticion, lista)
+      // Solo aplicamos el resultado si la audiencia activa sigue siendo la misma
+      // que cuando arrancó este fetch. Si el usuario alternó mientras tanto,
+      // el siguiente fetch ya estará en vuelo y va a aplicar lo correcto.
+      if (audienciaRef.current === audienciaPeticion) {
+        setConversaciones(lista)
+      }
     } catch {
-      setConversaciones([])
+      if (!tieneCache && audienciaRef.current === audienciaPeticion) {
+        setConversaciones([])
+      }
     } finally {
-      setCargandoConversaciones(false)
+      if (audienciaRef.current === audienciaPeticion) {
+        setCargandoConversaciones(false)
+      }
     }
-  }, [construirParamsConversaciones, configCargada])
+  }, [construirParamsConversaciones, configCargada, audiencia])
+
+  // Al montar / al cambiar de audiencia, mostrar instantáneo lo que haya cacheado
+  // (sin loader) para que la columna no quede "en blanco" mientras llega el fetch.
+  // El cache es module-level, así que sobrevive a desmontajes — al volver a /whatsapp
+  // desde otra ruta, la lista anterior se ve al instante mientras se revalida.
+  useEffect(() => {
+    const cacheado = cacheConversacionesPorAudiencia.get(audiencia)
+    if (cacheado) setConversaciones(cacheado)
+  }, [audiencia])
 
   useEffect(() => {
     cargarConversaciones()
@@ -917,7 +973,13 @@ export function useEstadoWhatsApp() {
     modalNuevoWA,
     setModalNuevoWA,
     canalWAId,
+    canalCargado,
     enviarNuevoWhatsApp,
+    // Modo "Nuevo chat" — selector alfabético en la columna izq
+    modoNuevoChat,
+    setModoNuevoChat,
+    destinatarioNuevo,
+    setDestinatarioNuevo,
 
     // Acciones conversación
     eliminarMultiples,

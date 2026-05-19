@@ -25,7 +25,6 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
 import { ModalImportar } from './ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -202,7 +201,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
   const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !filtroResponsable && filtroEtiquetas.length === 0 && filtroCanales.length === 0 && !filtroPresupuesto && filtroEstadoPres.length === 0 && !filtroActividades && !filtroProvincia && !filtroCiudad && !filtroCreadoRango && !filtroUltimaInteraccion && filtroRubros.length === 0 && filtroRelaciones.length === 0 && !vinculadoDe && pagina === 1
 
   // ── Listado de contactos con React Query ──
-  const { datos: contactos, total, cargando, cargandoInicial, recargar: recargarContactos } = useListado<FilaContacto>({
+  const { datos: contactos, total, cargando, recargar: recargarContactos } = useListado<FilaContacto>({
     clave: 'contactos',
     url: '/api/contactos',
     parametros: {
@@ -1007,7 +1006,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/contactos/configuracion')}
     >
-      {cargandoInicial ? <SkeletonTabla /> : <TablaDinamica
+      <TablaDinamica
         chipFiltro={vinculadoDe && nombreFiltro ? (
           <Boton
             variante="secundario"
@@ -1235,7 +1234,7 @@ function ContenidoContactosInterno({ datosInicialesJson }: Props) {
             }
           />
         }
-      />}
+      />
     </PlantillaListado>
 
     {/* Modal de importación con pasos (subir, mapear, preview, importar, resultado) */}

@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoProductos from './_componentes/ContenidoProductos'
@@ -8,16 +7,16 @@ import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ShieldX } from 'lucide-react'
-import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
+
+/**
+ * Página de productos — /productos (Server Component).
+ * Ver nota de carga en /contactos/page.tsx.
+ */
 
 const POR_PAGINA = 50
 
 export default function PaginaProductos() {
-  return (
-    <Suspense fallback={<SkeletonListado columnas={6} />}>
-      <ContenidoServidor />
-    </Suspense>
-  )
+  return <ContenidoServidor />
 }
 
 async function ContenidoServidor() {

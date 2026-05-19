@@ -16,7 +16,7 @@ import { normalizarBusqueda } from '@/lib/validaciones'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { SkeletonLista } from '@/componentes/feedback/SkeletonTabla'
+import { FallbackListado } from '@/componentes/feedback/FallbackListado'
 import { useAuth } from '@/hooks/useAuth'
 import { useRol } from '@/hooks/useRol'
 import { usePreferencias } from '@/hooks/usePreferencias'
@@ -484,7 +484,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
       {/* ═══ LISTA ═══ */}
       <div className="flex-1 overflow-auto px-2 sm:px-6 pb-4">
         {cargando ? (
-          <SkeletonLista filas={6} />
+          <FallbackListado />
         ) : elementosFiltrados.length === 0 ? (
           <div className="flex items-center justify-center h-full bg-superficie-tarjeta border border-borde-sutil rounded-card">
             <EstadoVacio

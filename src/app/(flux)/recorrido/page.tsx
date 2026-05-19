@@ -14,7 +14,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { Cargador } from '@/componentes/ui/Cargador'
+import { FallbackListado } from '@/componentes/feedback/FallbackListado'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorMapa, MapaRecorrido, abrirRutaCompleta } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
@@ -737,13 +737,10 @@ export default function PaginaRecorrido() {
   const estadoRecorrido: EstadoRecorrido = recorrido?.estado as EstadoRecorrido ||
     (finalizadas >= paradas.length && paradas.length > 0 ? 'completado' : completadas > 0 ? 'en_curso' : 'pendiente')
 
-  // Loading
+  // Loading — mismo patrón unificado que loading.tsx para no romper la
+  // continuidad visual al hidratar el componente cliente.
   if (cargando) {
-    return (
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-superficie-app">
-        <Cargador tamano="pagina" />
-      </div>
-    )
+    return <FallbackListado icono={<Route size={52} strokeWidth={1} />} />
   }
 
   // Sin recorrido — mapa con ubicación actual + estado vacío

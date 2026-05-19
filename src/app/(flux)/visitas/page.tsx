@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import ContenidoVisitas from './_componentes/ContenidoVisitas'
@@ -6,22 +5,16 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
-import { SkeletonListado } from '@/componentes/feedback/SkeletonListado'
 
 /**
- * Página de visitas — /visitas (Server Component)
- * Hidrata React Query con la primera página dentro de un Suspense que
- * muestra skeleton al instante durante la navegación.
+ * Página de visitas — /visitas (Server Component).
+ * Ver nota de carga en /contactos/page.tsx.
  */
 
 const POR_PAGINA = 50
 
 export default function PaginaVisitas() {
-  return (
-    <Suspense fallback={<SkeletonListado columnas={6} />}>
-      <ContenidoServidor />
-    </Suspense>
-  )
+  return <ContenidoServidor />
 }
 
 async function ContenidoServidor() {

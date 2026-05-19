@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
   // Mismo beneficio para date-fns y framer-motion.
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'framer-motion'],
+    // Router Cache del cliente: al volver a una ruta visitada hace poco,
+    // Next reusa el RSC payload en memoria sin re-correr el Server Component
+    // (evita que se vea el SkeletonListado del <Suspense fallback> en cada
+    // navegación). Next 15 bajó el default a 0s, lo subimos para que volver
+    // a /contactos o /presupuestos en menos de 30s sea instantáneo. El cache
+    // se invalida automáticamente con router.refresh() o al modificar datos.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   images: {
     // Formatos de imagen optimizados (WebP y AVIF)

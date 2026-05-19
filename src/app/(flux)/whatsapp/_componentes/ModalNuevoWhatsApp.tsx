@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { Send, Loader2, Search, Phone, Check, AlertCircle } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
-import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp } from '@/tipos/whatsapp'
 import { useTraduccion } from '@/lib/i18n'
 import { VARIABLES_POR_VALOR } from '@/lib/whatsapp/variables'
+import { formatearTelefono } from '@/lib/formato'
 
 /**
  * ModalNuevoWhatsApp — Modal para iniciar una nueva conversación de WhatsApp.
@@ -23,6 +23,11 @@ interface PropiedadesModalNuevoWA {
   canalId: string
   /** Callback al enviar: recibe teléfono, plantilla y valores de variables */
   onEnviar: (telefono: string, plantilla: PlantillaWhatsApp, valoresVariables: string[]) => Promise<void>
+  /** Si viene, el teléfono se precarga y NO se muestra el campo editable.
+      Usado por el flujo "Nuevo chat" desde la columna izquierda, que selecciona contacto antes. */
+  telefonoInicial?: string
+  /** Nombre del destinatario precargado (se muestra como info read-only en vez del input). */
+  destinatarioNombre?: string
 }
 
 /** Parsear formato WhatsApp (*negrita*, _cursiva_, ~tachado~) a HTML */
@@ -84,7 +89,9 @@ function validarTelefono(tel: string): { valido: boolean; mensaje?: string } {
   return { valido: true }
 }
 
-export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: PropiedadesModalNuevoWA) {
+export function ModalNuevoWhatsApp({
+  abierto, onCerrar, canalId, onEnviar, telefonoInicial, destinatarioNombre,
+}: PropiedadesModalNuevoWA) {
   const { t } = useTraduccion()
   const [telefono, setTelefono] = useState('')
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
@@ -95,11 +102,15 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
   const [enviando, setEnviando] = useState(false)
   const [tocado, setTocado] = useState(false)
 
+  // Cuando se abre con un teléfono precargado (flujo "Nuevo chat" desde la columna),
+  // el campo de teléfono no se muestra; el destinatario es read-only.
+  const telefonoPrecargado = !!telefonoInicial
+
   // Cargar plantillas aprobadas al abrir
   useEffect(() => {
     if (!abierto || !canalId) return
     setCargando(true)
-    setTelefono('')
+    setTelefono(telefonoInicial ?? '')
     setTocado(false)
     setBusquedaPlantilla('')
     setPlantillaSeleccionada(null)
@@ -118,7 +129,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
       })
       .catch(() => setPlantillas([]))
       .finally(() => setCargando(false))
-  }, [abierto, canalId])
+  }, [abierto, canalId, telefonoInicial])
 
   // Cuando se selecciona una plantilla, inicializar los valores de variables vacíos
   const seleccionarPlantilla = useCallback((plantilla: PlantillaWhatsApp | null) => {
@@ -159,49 +170,86 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
   const validacion = validarTelefono(telefono)
   const mostrarEstado = tocado && telefono.length > 0
 
+  // El alto máximo lo controla el Modal base (`max-h-[min(85dvh,640px)]`). El contenedor
+  // interno usa `h-full` para que la lista de plantillas pueda scrollear correctamente.
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Nuevo mensaje WhatsApp" tamano="lg" sinPadding>
-      <div className="flex flex-col" style={{ maxHeight: 'min(70dvh, 600px)' }}>
-        {/* Campo teléfono */}
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo="Nuevo mensaje WhatsApp"
+      tamano="lg"
+      sinPadding
+      accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
+      accionPrimaria={{
+        etiqueta: enviando ? 'Enviando...' : 'Enviar plantilla',
+        onClick: manejarEnvio,
+        icono: <Send size={14} />,
+        cargando: enviando,
+        disabled: !validacion.valido || !plantillaSeleccionada,
+      }}
+    >
+      <div className="flex flex-col h-full">
+        {/* Destinatario: precargado (read-only) o campo manual */}
         <div className="px-5 pt-4 pb-3 space-y-1" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
           <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
-            Número de teléfono
+            {telefonoPrecargado ? 'Destinatario' : 'Número de teléfono'}
           </label>
-          <div className="relative">
-            <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--texto-terciario)' }} />
-            <input
-              type="tel"
-              value={telefono}
-              onChange={(e) => { setTelefono(e.target.value); if (!tocado) setTocado(true) }}
-              onBlur={() => setTocado(true)}
-              placeholder="Ej: 5491123456789"
-              autoFocus
-              className="w-full pl-9 pr-10 py-2.5 rounded-card text-sm outline-none transition-all"
-              style={{
-                background: 'var(--superficie-tarjeta)',
-                border: `1px solid ${mostrarEstado ? (validacion.valido ? 'var(--insignia-exito)' : 'var(--insignia-peligro)') : 'var(--borde-sutil)'}`,
-                color: 'var(--texto-primario)',
-              }}
-            />
-            {/* Indicador de estado dentro del input */}
-            {mostrarEstado && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                {validacion.valido ? (
-                  <Check size={14} style={{ color: 'var(--insignia-exito)' }} />
-                ) : (
-                  <AlertCircle size={14} style={{ color: 'var(--insignia-peligro)' }} />
+          {telefonoPrecargado ? (
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 rounded-card"
+              style={{ background: 'var(--superficie-tarjeta)', border: '1px solid var(--borde-sutil)' }}
+            >
+              <Phone size={14} style={{ color: 'var(--texto-terciario)' }} />
+              <div className="flex-1 min-w-0">
+                {destinatarioNombre && (
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
+                    {destinatarioNombre}
+                  </p>
+                )}
+                <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                  {telefonoInicial ? formatearTelefono(telefonoInicial) : ''}
+                </p>
+              </div>
+              <Check size={14} style={{ color: 'var(--insignia-exito)' }} />
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--texto-terciario)' }} />
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => { setTelefono(e.target.value); if (!tocado) setTocado(true) }}
+                  onBlur={() => setTocado(true)}
+                  placeholder="Ej: 5491123456789"
+                  autoFocus
+                  className="w-full pl-9 pr-10 py-2.5 rounded-card text-sm outline-none transition-all"
+                  style={{
+                    background: 'var(--superficie-tarjeta)',
+                    border: `1px solid ${mostrarEstado ? (validacion.valido ? 'var(--insignia-exito)' : 'var(--insignia-peligro)') : 'var(--borde-sutil)'}`,
+                    color: 'var(--texto-primario)',
+                  }}
+                />
+                {mostrarEstado && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {validacion.valido ? (
+                      <Check size={14} style={{ color: 'var(--insignia-exito)' }} />
+                    ) : (
+                      <AlertCircle size={14} style={{ color: 'var(--insignia-peligro)' }} />
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-          {mostrarEstado && !validacion.valido && validacion.mensaje ? (
-            <p className="text-xs" style={{ color: 'var(--insignia-peligro)' }}>
-              {validacion.mensaje}
-            </p>
-          ) : (
-            <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-              Código de país + número, sin espacios ni guiones
-            </p>
+              {mostrarEstado && !validacion.valido && validacion.mensaje ? (
+                <p className="text-xs" style={{ color: 'var(--insignia-peligro)' }}>
+                  {validacion.mensaje}
+                </p>
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  Código de país + número, sin espacios ni guiones
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -356,27 +404,6 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
           </div>
         )}
 
-        {/* Footer: botón enviar */}
-        <div
-          className="px-5 py-3 flex items-center justify-end gap-3"
-          style={{ borderTop: '1px solid var(--borde-sutil)' }}
-        >
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>
-            Cancelar
-          </Boton>
-          <Boton
-            tamano="sm"
-            onClick={manejarEnvio}
-            disabled={!validacion.valido || !plantillaSeleccionada || enviando}
-            icono={enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            style={{
-              background: validacion.valido && plantillaSeleccionada ? 'var(--canal-whatsapp)' : undefined,
-              color: validacion.valido && plantillaSeleccionada ? '#fff' : undefined,
-            }}
-          >
-            {enviando ? 'Enviando...' : 'Enviar plantilla'}
-          </Boton>
-        </div>
       </div>
     </Modal>
   )

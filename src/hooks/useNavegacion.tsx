@@ -40,6 +40,7 @@ const MIGAJAS_MODULOS: Record<string, Migaja> = {
   '/documentos': { etiqueta: 'Documentos', ruta: '/documentos', modulo: 'documentos' },
   '/productos': { etiqueta: 'Productos', ruta: '/productos', modulo: 'productos' },
   '/inbox': { etiqueta: 'Inbox', ruta: '/inbox', modulo: 'inbox' },
+  '/whatsapp': { etiqueta: 'WhatsApp', ruta: '/whatsapp', modulo: 'whatsapp' },
   '/asistencias': { etiqueta: 'Asistencias', ruta: '/asistencias', modulo: 'asistencias' },
   '/calendario': { etiqueta: 'Calendario', ruta: '/calendario', modulo: 'calendario' },
   '/presupuestos': { etiqueta: 'Presupuestos', ruta: '/presupuestos', modulo: 'presupuestos' },

@@ -576,6 +576,14 @@ input:-webkit-autofill:active {
   50%      { transform: translateY(-2px); }
 }
 
+/* Barra de progreso indeterminada — usada en BarraProgresoGlobal mientras
+   hay actividad de carga. Una franja angosta del 20 % del ancho se mueve
+   continuamente de izquierda a derecha. Minimal y predecible. */
+@keyframes flux-barra-progreso {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 /* ============================================
    Estilos globales de Flux by Salix
    ============================================ */

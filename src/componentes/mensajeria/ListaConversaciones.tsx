@@ -12,7 +12,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye, EyeOff,
-  MoreVertical, Pin, BellOff, Plus,
+  MoreVertical, Pin, BellOff, Plus, MessageSquare,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { TextoTelefono } from '@/componentes/ui/TextoTelefono'
@@ -69,7 +69,9 @@ interface PropiedadesListaConversaciones {
 
 // Iconos de canal
 const ICONO_CANAL: Record<TipoCanal, React.ReactNode> = {
-  whatsapp: <IconoWhatsApp size={14} />,
+  // En el header "Conversaciones" usamos el icono genérico de mensaje (globito con contenido)
+  // — el branding de WhatsApp ya vive en el título del módulo arriba.
+  whatsapp: <MessageSquare size={14} />,
   correo: <Mail size={14} />,
   interno: <Hash size={14} />,
 }

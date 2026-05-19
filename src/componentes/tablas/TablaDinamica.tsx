@@ -1539,7 +1539,11 @@ function TablaDinamica<T>({
           </div>
         ) : (
         <>
-        <AnimatePresence mode="wait">
+        {/* initial={false} evita el fade-in al montar el componente (al navegar
+            entre módulos): los datos ya están cacheados por React Query y la
+            tabla aparece instantánea. Las transiciones lista↔tarjetas siguen
+            animadas porque solo se desactiva el montaje inicial. */}
+        <AnimatePresence mode="wait" initial={false}>
           {vistaActual === 'lista' && (
             <motion.div
               key="lista"

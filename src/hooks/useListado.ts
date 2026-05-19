@@ -81,6 +81,18 @@ export function useListado<T>({
     // ve spinner). El refetch silencioso mantiene los datos frescos sin
     // bloquear UX. Antes era 20 s, perdíamos cache al alternar pantallas.
     staleTime: 60_000,
+    // 'always': refetchear al montar aunque los datos estén "frescos" según
+    // staleTime. Es el complemento del Router Cache de Next (staleTimes en
+    // next.config.ts): Next reusa el RSC payload por 30 s para que la página
+    // anterior persista durante la navegación, pero ese payload puede traer
+    // datos viejos (sobre todo después de crear/editar/eliminar desde un
+    // editor que no llama a router.refresh()). El refetch silencioso garantiza
+    // que la tabla siempre muestre el estado actual del servidor sin depender
+    // de que cada mutación invalide manualmente. keepPreviousData mantiene la
+    // tabla visible mientras llega el fetch → sin parpadeo. La BarraProgresoGlobal
+    // en PlantillaApp se activa con este fetch (vía useIsFetching) y da el
+    // único feedback visual de carga.
+    refetchOnMount: 'always',
     ...(datosInicialesJson ? { initialData: datosInicialesJson } : {}),
   })
 

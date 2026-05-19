@@ -12,7 +12,10 @@ import {
   Megaphone, FileBarChart, Route,
   CircleUserRound, Building2, Trash2,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+
+/** Componente de icono polimórfico: acepta tanto Lucide como nuestros iconos custom. */
+type ComponenteIcono = React.ComponentType<{ size?: number; className?: string }>
 
 /**
  * Migajas (Breadcrumbs) — Muestra el camino de navegación completo.
@@ -27,7 +30,7 @@ import type { LucideIcon } from 'lucide-react'
  */
 
 /** Mapa de módulo → ícono (mismos que el sidebar) */
-const ICONOS_MODULO: Record<string, LucideIcon> = {
+const ICONOS_MODULO: Record<string, ComponenteIcono> = {
   dashboard: LayoutDashboard,
   contactos: Users,
   actividades: Zap,
@@ -39,6 +42,7 @@ const ICONOS_MODULO: Record<string, LucideIcon> = {
   informes: FileBarChart,
   ordenes: Wrench,
   inbox: MessagesSquare,
+  whatsapp: IconoWhatsApp,
   asistencias: Clock,
   calendario: Calendar,
   auditoria: Shield,
@@ -81,8 +85,8 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
           const primera = migajas[0]
           const Icono = primera?.modulo ? ICONOS_MODULO[primera.modulo] : undefined
           return (
-            <span className="font-semibold flex items-center gap-1.5" style={{ fontSize: 'var(--texto-sm)', color: 'var(--texto-primario)' }}>
-              {Icono && <Icono size={16} className="text-texto-terciario shrink-0" />}
+            <span className="font-semibold flex items-center gap-2" style={{ fontSize: 'var(--texto-base)', color: 'var(--texto-primario)' }}>
+              {Icono && <Icono size={18} className="text-texto-secundario shrink-0" />}
               {ultima.etiqueta}
             </span>
           )
@@ -96,23 +100,48 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 'var(--espacio-1)',
+          gap: 'var(--espacio-2)',
           fontSize: 'var(--texto-sm)',
           flexWrap: 'wrap',
         }}
       >
         {migajas.map((migaja, i) => {
+          const esPrimera = i === 0
           const esUltima = i === migajas.length - 1
-          const Icono = i === 0 && migaja.modulo ? ICONOS_MODULO[migaja.modulo] : undefined
+          const Icono = esPrimera && migaja.modulo ? ICONOS_MODULO[migaja.modulo] : undefined
 
+          // Primera migaja (módulo/sección): protagonista — ícono más grande + texto base semibold
+          if (esPrimera) {
+            const contenido = (
+              <span className="flex items-center gap-2 font-semibold" style={{ fontSize: 'var(--texto-base)', color: 'var(--texto-primario)' }}>
+                {Icono && <Icono size={18} className="text-texto-secundario shrink-0" />}
+                {migaja.etiqueta}
+              </span>
+            )
+            return (
+              <span key={migaja.ruta + i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--espacio-2)' }}>
+                {esUltima ? (
+                  contenido
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navegarAMigaja(migaja.ruta)}
+                    style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textDecoration: 'none', transition: `opacity var(--transicion-rapida)` }}
+                    className="hover:opacity-80"
+                  >
+                    {contenido}
+                  </button>
+                )}
+              </span>
+            )
+          }
+
+          // Migajas siguientes (entidades, subniveles): terciario, más sutiles
           return (
-            <span key={migaja.ruta + i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--espacio-1)' }}>
-              {i > 0 && (
-                <ChevronRight size={14} style={{ color: 'var(--texto-terciario)' }} />
-              )}
-              {Icono && <Icono size={15} className="text-texto-terciario shrink-0" />}
+            <span key={migaja.ruta + i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--espacio-2)' }}>
+              <ChevronRight size={14} style={{ color: 'var(--texto-terciario)' }} />
               {esUltima ? (
-                <span className="font-medium" style={{ color: 'var(--texto-primario)' }}>
+                <span className="font-medium" style={{ color: 'var(--texto-secundario)' }}>
                   {migaja.etiqueta}
                 </span>
               ) : (
@@ -129,6 +158,7 @@ function MigajasInterno({ extras }: PropiedadesMigajas) {
                     textDecoration: 'none',
                     transition: `color var(--transicion-rapida)`,
                   }}
+                  className="hover:!text-texto-secundario"
                 >
                   {migaja.etiqueta}
                 </button>

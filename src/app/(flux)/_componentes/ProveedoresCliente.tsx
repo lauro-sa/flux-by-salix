@@ -27,6 +27,7 @@ import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { ProveedorCambiosPendientes } from '@/hooks/useCambiosPendientes'
 import { ProveedorIndicadorGuardado } from '@/hooks/useIndicadorGuardado'
 import { ProveedorQuery } from '@/hooks/useQueryClient'
+import { ProveedorCargaGlobal } from '@/hooks/useCargaGlobal'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorPermisos, type PermisosInicialesServer } from '@/hooks/usePermisosActuales'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
@@ -72,6 +73,7 @@ export function ProveedoresCliente({
 }: Props) {
   return (
     <ProveedorQuery>
+    <ProveedorCargaGlobal>
     <ProveedorIdioma>
       <ProveedorAuth usuarioInicial={usuarioInicial} sesionInicial={sesionInicial}>
         <ProveedorPermisos permisosIniciales={permisosIniciales}>
@@ -101,6 +103,7 @@ export function ProveedoresCliente({
         </ProveedorPermisos>
       </ProveedorAuth>
     </ProveedorIdioma>
+    </ProveedorCargaGlobal>
     </ProveedorQuery>
   )
 }
