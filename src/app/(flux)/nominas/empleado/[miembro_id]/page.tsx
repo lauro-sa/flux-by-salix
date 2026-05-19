@@ -573,9 +573,6 @@ function ContenidoFicha() {
           <SeccionLiquidaciones
             miembroId={miembroId}
             frecuenciaContrato={contratoVigente?.frecuencia_pago}
-            contratoVigente={contratoVigente}
-            onEditarContrato={() => setModalEditarAbierto(true)}
-            onIrAContrato={() => setTab('contrato')}
           />
         </div>
       )}
@@ -697,7 +694,7 @@ function ContenidoFicha() {
  * wrapper se reescribirá para consumir ContratoSnapshot.
  */
 function SeccionLiquidaciones({
-  miembroId, frecuenciaContrato, contratoVigente, onEditarContrato, onIrAContrato,
+  miembroId, frecuenciaContrato,
 }: {
   miembroId: string
   /**
@@ -707,15 +704,6 @@ function SeccionLiquidaciones({
    * o todavía cargando) cae al mes por defecto.
    */
   frecuenciaContrato?: string
-  /** Contrato vigente del empleado — fuente de verdad de la card
-   *  "Compensación base" del editor. */
-  contratoVigente?: ContratoLaboral | null
-  /** Callback que abre el ModalEditarContrato del padre (corrección
-   *  de tipeo, sin historial). */
-  onEditarContrato?: () => void
-  /** Callback que cambia al tab "Contrato vigente" (para usar
-   *  "Cambiar condiciones" — aumentos reales, preserva historial). */
-  onIrAContrato?: () => void
 }) {
   const search = useSearchParams()
   const [cargando, setCargando] = useState(true)
@@ -791,9 +779,6 @@ function SeccionLiquidaciones({
       rutaVolver="/nominas"
       textoVolver="Nóminas"
       embed
-      contratoVigente={contratoVigente ?? null}
-      onEditarContrato={onEditarContrato}
-      onIrAContrato={onIrAContrato}
     />
   )
 }
