@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import type { LucideProps } from 'lucide-react'
-import { Phone, Mail, MapPin, UserRound, FileText, Copy, Globe } from 'lucide-react'
+import { Phone, Mail, MapPin, UserRound, FileText, Copy, Globe, Sparkles } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
 import {
   accionLlamar,
@@ -28,6 +28,7 @@ import {
   copiarAlPortapapeles,
   normalizarTelefono,
 } from '@/lib/plataforma'
+import { useArmadorPresupuesto } from '@/hooks/useArmadorPresupuesto'
 
 import { IconoWhatsApp } from '@/componentes/marca/IconoWhatsApp'
 
@@ -82,10 +83,14 @@ export function inferirGrupo(clave: string): GrupoAccion {
   return 'navegacion' // ir-*, ver-*
 }
 
-/** Contexto detectado desde la ruta (null si no hay entidad con acciones). */
+/** Contexto detectado desde la ruta (null si no hay entidad con acciones).
+ *  El tipo 'presupuesto-nuevo' es especial: no tiene ID en la URL (es la
+ *  pantalla de creación) y por lo tanto no requiere fetch. Igualmente
+ *  habilita acciones rápidas (en particular: "Armar líneas con IA"). */
 type ContextoRuta =
   | { tipo: 'contacto'; id: string }
   | { tipo: 'presupuesto'; id: string }
+  | { tipo: 'presupuesto-nuevo' }
   | { tipo: 'orden'; id: string }
   | { tipo: 'visita'; id: string }
   | { tipo: 'usuario'; id: string }
@@ -98,6 +103,8 @@ export function parsearContextoRuta(pathname: string | null): ContextoRuta {
   if (!pathname) return null
   const mContacto = pathname.match(new RegExp(`^/contactos/(${REGEX_UUID})`, 'i'))
   if (mContacto) return { tipo: 'contacto', id: mContacto[1] }
+  // /presupuestos/nuevo — pantalla de creación, sin ID
+  if (/^\/presupuestos\/nuevo(\?|$|\/)/i.test(pathname)) return { tipo: 'presupuesto-nuevo' }
   const mPresupuesto = pathname.match(new RegExp(`^/presupuestos/(${REGEX_UUID})`, 'i'))
   if (mPresupuesto) return { tipo: 'presupuesto', id: mPresupuesto[1] }
   const mOrden = pathname.match(new RegExp(`^/ordenes/(${REGEX_UUID})`, 'i'))
@@ -165,6 +172,9 @@ type RespuestaContacto = {
 type RespuestaPresupuesto = {
   id: string
   numero: number | string
+  /** Estado del presupuesto (ej: 'borrador', 'enviado', 'aceptado', 'rechazado', etc.).
+   *  Se usa para habilitar la acción "Armar líneas con IA" solo en borrador. */
+  estado?: string | null
   contacto_id: string | null
   contacto_nombre: string | null
   contacto_apellido: string | null
@@ -258,12 +268,21 @@ export function useAccionesRapidas() {
 
   const router = useRouter()
   const toast = useToast()
+  const armador = useArmadorPresupuesto()
 
   // Fetch apenas cambia la ruta a una con contexto: así las acciones ya están
   // listas cuando el usuario abre el panel. No se dispara si la ruta actual
   // no es una vista con acciones (ej. /calendario, /dashboard).
   useEffect(() => {
     if (!contexto) {
+      setDatos(null)
+      setContactoVinculado(null)
+      setAtencionVinculada(null)
+      return
+    }
+    // 'presupuesto-nuevo' no tiene ID — no hay nada que fetchear. Las acciones
+    // se construyen sin datos (solo la de "Armar líneas con IA").
+    if (contexto.tipo === 'presupuesto-nuevo') {
       setDatos(null)
       setContactoVinculado(null)
       setAtencionVinculada(null)
@@ -344,17 +363,36 @@ export function useAccionesRapidas() {
   }, [contexto])
 
   const acciones = useMemo<AccionRapida[]>(() => {
-    if (!contexto || !datos) return []
+    if (!contexto) return []
+
+    // Presupuesto NUEVO (sin ID): no hay datos, solo la acción de IA si el
+    // editor está montado y escuchando en el bus.
+    if (contexto.tipo === 'presupuesto-nuevo') {
+      return armador.disponible ? [accionArmarLineasIA(armador.abrir)] : []
+    }
+
+    if (!datos) return []
+
     if (contexto.tipo === 'contacto') {
       return construirAccionesContacto(datos as RespuestaContacto, { toast, router })
     }
     if (contexto.tipo === 'presupuesto') {
-      return construirAccionesPresupuesto(
-        datos as RespuestaPresupuesto,
+      const presupuesto = datos as RespuestaPresupuesto
+      const acciones = construirAccionesPresupuesto(
+        presupuesto,
         contactoVinculado,
         atencionVinculada,
         { toast, router },
       )
+      // Solo en estado borrador (o sin estado conocido, por compat) y si hay
+      // un editor escuchando, ofrecemos la acción de armar líneas con IA arriba
+      // del resto. En estados posteriores (enviado/aceptado/etc.) el armador
+      // no aplica porque el presupuesto ya no se edita libremente.
+      const esBorrador = !presupuesto.estado || presupuesto.estado === 'borrador'
+      if (esBorrador && armador.disponible) {
+        return [accionArmarLineasIA(armador.abrir), ...acciones]
+      }
+      return acciones
     }
     if (contexto.tipo === 'orden') {
       return construirAccionesOrden(
@@ -376,9 +414,25 @@ export function useAccionesRapidas() {
       return construirAccionesUsuario(datos as RespuestaUsuario, { toast, router })
     }
     return []
-  }, [contexto, datos, contactoVinculado, atencionVinculada, toast, router])
+  }, [contexto, datos, contactoVinculado, atencionVinculada, toast, router, armador])
 
   return { acciones, cargando, error, hayContexto: contexto !== null }
+}
+
+/**
+ * Acción rápida especial: abre el armador de líneas con IA del editor de
+ * presupuestos. Solo se muestra cuando hay un editor montado y escuchando
+ * en el bus (ver `armador-presupuesto-bus`).
+ */
+function accionArmarLineasIA(abrir: () => void): AccionRapida {
+  return {
+    clave: 'ir-armar-lineas-ia',
+    etiqueta: 'Armar líneas con IA',
+    descripcion: 'Describí el trabajo y Salix arma las líneas del presupuesto',
+    icono: Sparkles,
+    colorIcono: 'text-violet-400',
+    onEjecutar: abrir,
+  }
 }
 
 /* ────────────────────────────────────────────────

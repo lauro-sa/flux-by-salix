@@ -21,7 +21,6 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Editor } from '@tiptap/react'
 import {
@@ -29,7 +28,8 @@ import {
   Loader2, Users, ChevronLeft, MoreHorizontal,
   Eye, Pencil, Hash, Wand2
 } from 'lucide-react'
-import { useEsMovil } from '@/hooks/useEsMovil'
+import { PanelFlotanteCascada } from '@/componentes/ui/PanelFlotanteCascada'
+import { CabezalPanel } from '@/componentes/ui/CabezalPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
@@ -137,7 +137,6 @@ function idCorto(id: string): string {
 // ─── Componente principal ───
 
 function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
-  const esMovil = useEsMovil()
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
   const { fechaRelativa, fecha: fmtFecha, hora: fmtHora } = useFormato()
@@ -1063,36 +1062,27 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
         renderEditor()
       ) : (
         <>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil">
-            <div className="flex items-center gap-2">
-              <div className="size-8 rounded-card bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+          {/* Header unificado (CabezalPanel) — vista de lista */}
+          <CabezalPanel
+            icono={
+              <div className="size-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
                 <StickyNote className="size-4 text-white" />
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-texto-primario">Notas rápidas</h3>
-                <p className="text-[11px] text-texto-terciario">
-                  {todasLasNotas.length} {todasLasNotas.length === 1 ? 'nota' : 'notas'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
+            }
+            titulo="Notas rápidas"
+            subtitulo={`${todasLasNotas.length} ${todasLasNotas.length === 1 ? 'nota' : 'notas'}`}
+            acciones={
               <button
                 onClick={crearNueva}
                 disabled={creando}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors disabled:opacity-30"
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors disabled:opacity-30"
                 title="Nueva nota"
               >
                 {creando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               </button>
-              <button
-                onClick={onCerrar}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          </div>
+            }
+            onCerrar={onCerrar}
+          />
 
           {/* Pestañas */}
           <div className="flex border-b border-borde-sutil">
@@ -1129,56 +1119,19 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     </div>
   )
 
-  // Mobile: pantalla completa (slide-up) para mejor experiencia táctil
-  if (esMovil) {
-    return createPortal(
-      <AnimatePresence>
-        {abierto && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-            className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
-            style={{
-              paddingTop: 'env(safe-area-inset-top, 0px)',
-              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-              height: 'calc(var(--vh, 1vh) * 100)',
-            }}
-          >
-            {contenidoPanel}
-          </motion.div>
-        )}
-      </AnimatePresence>,
-      document.body
-    )
-  }
-
-  // Desktop: Panel lateral derecho — portal para escapar del transform del contenedor flotante
-  return createPortal(
-    <AnimatePresence>
-      {abierto && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onCerrar}
-            className="fixed inset-0 bg-black/20 z-[68]"
-          />
-          <motion.div
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[420px] max-w-[90vw] z-[69] flex flex-col border-l border-borde-sutil shadow-2xl"
-          >
-            {contenidoPanel}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body
+  // Wrapper unificado: gestiona portal, mobile/desktop, cascada de paneles
+  // y backdrop. Acá solo identidad + contenido.
+  return (
+    <PanelFlotanteCascada
+      id="notas-rapidas"
+      etiqueta="Notas"
+      colorAcento="rgb(250, 204, 21)"
+      abierto={abierto}
+      onCerrar={onCerrar}
+      zBase={69}
+    >
+      {contenidoPanel}
+    </PanelFlotanteCascada>
   )
 }
 

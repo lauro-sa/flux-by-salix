@@ -82,9 +82,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // arriba), después activas vs inactivas, después por última
   // modificación. Así, después de cambiar la default, la nueva queda
   // visualmente arriba sin que el operador tenga que buscarla.
+  //
+  // El join con `entidades_financieras` aplana el `nombre` del catálogo
+  // en `entidad_nombre` para que la UI no tenga que cruzar listas.
   const { data, error } = await admin
     .from('info_bancaria')
-    .select('*')
+    .select('*, entidad:entidades_financieras(id, nombre, codigo_banco)')
     .eq('empresa_id', auth.empresaId)
     .eq('miembro_id', miembroId)
     .eq('eliminada', false)
@@ -96,7 +99,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     console.error('[info-bancaria] GET error:', error)
     return NextResponse.json({ error: 'Error al listar cuentas' }, { status: 500 })
   }
-  return NextResponse.json({ cuentas: data ?? [] })
+
+  // Aplana el join: la UI consume `entidad_nombre` (string) en vez del
+  // objeto anidado. Si la cuenta no tiene entidad enlazada (legacy),
+  // cae al texto libre del campo `banco`.
+  type Fila = Record<string, unknown> & {
+    entidad?: { id: string; nombre: string; codigo_banco: string | null } | null
+    banco?: string | null
+  }
+  const cuentas = (data ?? []).map((c) => {
+    const fila = c as Fila
+    const { entidad, ...rest } = fila
+    return {
+      ...rest,
+      entidad_nombre: entidad?.nombre ?? fila.banco ?? null,
+      entidad_codigo_banco: entidad?.codigo_banco ?? null,
+    }
+  })
+
+  return NextResponse.json({ cuentas })
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -106,6 +127,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 interface PayloadCrear {
   tipo_pago: 'banco' | 'digital'
   tipo_cuenta?: string | null
+  /** FK al catálogo `entidades_financieras` (sql/108). Cuando viene,
+      sustituye al texto libre del campo `banco`. La UI moderna manda
+      este id; el `banco` text queda como fallback histórico. */
+  entidad_id?: string | null
   banco?: string | null
   numero_cuenta?: string | null
   alias?: string | null
@@ -172,6 +197,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       miembro_id: miembroId,
       tipo_pago: body.tipo_pago,
       tipo_cuenta: body.tipo_cuenta ?? null,
+      entidad_id: body.entidad_id ?? null,
       banco: body.banco ?? null,
       numero_cuenta: body.numero_cuenta ?? null,
       alias: body.alias ?? null,

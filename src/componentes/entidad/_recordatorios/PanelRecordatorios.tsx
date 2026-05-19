@@ -15,7 +15,8 @@
  */
 
 import { useEffect, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import { PanelFlotanteCascada } from '@/componentes/ui/PanelFlotanteCascada'
+import { CabezalPanel } from '@/componentes/ui/CabezalPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, AlarmClock, Plus, Clock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -164,48 +165,38 @@ function HeaderHero({
   onCerrar: () => void
 }) {
   return (
-    <div className="px-4 pt-4 pb-3 border-b border-borde-sutil shrink-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="size-11 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
-            <AlarmClock className="size-5 text-white" strokeWidth={2} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold text-texto-primario leading-tight">Recordatorios</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              {activos === 0
-                ? 'Nada pendiente por ahora'
-                : `${activos} ${activos === 1 ? 'recordatorio activo' : 'recordatorios activos'}`}
-            </p>
-          </div>
+    <CabezalPanel
+      icono={
+        <div className="size-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <AlarmClock className="size-4 text-white" strokeWidth={2} />
         </div>
-        <button
-          onClick={onCerrar}
-          className="size-9 -mr-1 -mt-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors flex items-center justify-center shrink-0"
-          title="Cerrar"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
-
-      {/* Resumen en pills — solo si hay algo que mostrar */}
-      {(vencidos > 0 || hoy > 0) && (
-        <div className="flex items-center gap-2 mt-3">
-          {vencidos > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-insignia-peligro/10 text-insignia-peligro-texto border border-insignia-peligro/20">
-              <AlertTriangle size={12} strokeWidth={2} />
-              {vencidos} {vencidos === 1 ? 'vencido' : 'vencidos'}
-            </span>
-          )}
-          {hoy > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-texto-marca/10 text-texto-marca border border-texto-marca/20">
-              <Clock size={12} strokeWidth={2} />
-              {hoy} {hoy === 1 ? 'para hoy' : 'para hoy'}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+      }
+      titulo="Recordatorios"
+      subtitulo={
+        activos === 0
+          ? 'Nada pendiente por ahora'
+          : `${activos} ${activos === 1 ? 'recordatorio activo' : 'recordatorios activos'}`
+      }
+      onCerrar={onCerrar}
+      extras={
+        (vencidos > 0 || hoy > 0) && (
+          <div className="flex items-center gap-2 px-4 pb-3">
+            {vencidos > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-insignia-peligro/10 text-insignia-peligro-texto border border-insignia-peligro/20">
+                <AlertTriangle size={12} strokeWidth={2} />
+                {vencidos} {vencidos === 1 ? 'vencido' : 'vencidos'}
+              </span>
+            )}
+            {hoy > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-texto-marca/10 text-texto-marca border border-texto-marca/20">
+                <Clock size={12} strokeWidth={2} />
+                {hoy} {hoy === 1 ? 'para hoy' : 'para hoy'}
+              </span>
+            )}
+          </div>
+        )
+      }
+    />
   )
 }
 
@@ -411,74 +402,19 @@ function PanelRecordatorios({ abierto, onCerrar }: PropiedadesPanelRecordatorios
     </div>
   )
 
-  // Mobile: pantalla completa (slide-up)
-  if (esMovil) {
-    return (
-      <>
-        {createPortal(
-          <AnimatePresence>
-            {abierto && (
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-                className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
-                style={{
-                  paddingTop: 'env(safe-area-inset-top, 0px)',
-                  height: 'calc(var(--vh, 1vh) * 100)',
-                }}
-              >
-                {contenido}
-              </motion.div>
-            )}
-          </AnimatePresence>,
-          document.body
-        )}
-
-        <PreviewRecordatorio
-          previewModal={previewModal}
-          onCerrarModal={() => setPreviewModal(false)}
-          previewToast={previewToast}
-          onCerrarToast={() => setPreviewToast(false)}
-        />
-        <ModalConfirmarEliminar
-          recordatorio={confirmarEliminar}
-          onCerrar={() => setConfirmarEliminar(null)}
-          onConfirmar={eliminarDirecto}
-        />
-      </>
-    )
-  }
-
-  // Desktop: panel lateral derecho
+  // Wrapper unificado: gestiona portal, mobile/desktop, cascada y backdrop.
   return (
     <>
-      {createPortal(
-        <AnimatePresence>
-          {abierto && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onCerrar}
-                className="fixed inset-0 bg-black/20 z-[68]"
-              />
-              <motion.div
-                initial={{ x: '100%', opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: '100%', opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="salix-glass salix-panel fixed top-0 right-0 h-full w-[460px] max-w-[92vw] z-[69] flex flex-col border-l border-borde-sutil shadow-2xl"
-              >
-                {contenido}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      <PanelFlotanteCascada
+        id="recordatorios"
+        etiqueta="Recordatorios"
+        colorAcento="rgb(251, 146, 60)"
+        abierto={abierto}
+        onCerrar={onCerrar}
+        zBase={69}
+      >
+        {contenido}
+      </PanelFlotanteCascada>
 
       <PreviewRecordatorio
         previewModal={previewModal}

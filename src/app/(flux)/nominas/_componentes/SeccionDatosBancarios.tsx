@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Plus, Building2, Wallet, Pencil, Trash2, Loader2,
-  User, Star,
+  User, Star, CheckCircle2, AlertCircle, Power,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -25,9 +25,29 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { InfoBancaria } from '@/tipos/nominas'
+
+// ─── Tipos del catálogo de entidades financieras (sql/108) ───
+interface EntidadFinanciera {
+  id: string
+  tipo: 'banco' | 'digital'
+  nombre: string
+  codigo_banco: string | null
+  activa: boolean
+}
+
+// Tipos de cuenta válidos en Argentina para cuentas bancarias.
+// El BCRA reconoce estos tres como denominaciones estándar — usar un
+// select fijo evita el clásico "Ahorro" / "ahorros" / "Caja de ahorro"
+// como entradas distintas en la BD.
+const TIPOS_CUENTA_BANCO = [
+  { valor: 'Caja de ahorro', etiqueta: 'Caja de ahorro' },
+  { valor: 'Cuenta corriente', etiqueta: 'Cuenta corriente' },
+  { valor: 'Cuenta sueldo', etiqueta: 'Cuenta sueldo' },
+] as const
 
 interface Props {
   miembroId: string
@@ -367,7 +387,8 @@ function CuentaResumen({
   variante: 'pierde' | 'gana'
 }) {
   const esDigital = cuenta.tipo_pago === 'digital'
-  const nombre = cuenta.etiqueta || cuenta.banco || (esDigital ? 'Billetera virtual' : 'Cuenta bancaria')
+  const nombreEntidad = cuenta.entidad_nombre || cuenta.banco
+  const nombre = cuenta.etiqueta || nombreEntidad || (esDigital ? 'Billetera virtual' : 'Cuenta bancaria')
   const colorBorde = variante === 'gana' ? 'border-texto-marca/40 bg-texto-marca/[0.04]' : 'border-borde-sutil bg-superficie-tarjeta'
 
   return (
@@ -389,8 +410,8 @@ function CuentaResumen({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-texto-primario truncate">{nombre}</p>
-          {cuenta.banco && cuenta.etiqueta && (
-            <p className="text-[11px] text-texto-terciario uppercase tracking-wider">{cuenta.banco}</p>
+          {nombreEntidad && cuenta.etiqueta && (
+            <p className="text-[11px] text-texto-terciario uppercase tracking-wider">{nombreEntidad}</p>
           )}
         </div>
       </div>
@@ -440,7 +461,10 @@ function CuentaFila({
   onEliminar: () => void
 }) {
   const esDigital = cuenta.tipo_pago === 'digital'
-  const titulo = cuenta.etiqueta || cuenta.banco || (esDigital ? 'Billetera virtual' : 'Cuenta bancaria')
+  // Preferimos el nombre canónico del catálogo (sql/108) y caemos al
+  // texto libre legacy solo para cuentas no migradas.
+  const nombreEntidad = cuenta.entidad_nombre || cuenta.banco
+  const titulo = cuenta.etiqueta || nombreEntidad || (esDigital ? 'Billetera virtual' : 'Cuenta bancaria')
 
   // Animación de destaque cuando la cuenta acaba de marcarse como
   // predeterminada: halo violeta sutil que se expande y desvanece.
@@ -489,8 +513,8 @@ function CuentaFila({
                 Por defecto
               </span>
             )}
-            {cuenta.banco && cuenta.etiqueta && (
-              <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{cuenta.banco}</span>
+            {nombreEntidad && cuenta.etiqueta && (
+              <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{nombreEntidad}</span>
             )}
             {cuenta.tipo_cuenta && (
               <span className="text-[10px] text-texto-terciario uppercase tracking-wider">{cuenta.tipo_cuenta}</span>
@@ -614,7 +638,11 @@ function EditorCuenta({
 
   const [tipoPago, setTipoPago] = useState<'banco' | 'digital'>(cuentaExistente?.tipo_pago ?? 'banco')
   const [etiqueta, setEtiqueta] = useState(cuentaExistente?.etiqueta ?? '')
-  const [banco, setBanco] = useState(cuentaExistente?.banco ?? '')
+  // entidadId apunta al catálogo (sql/108). `banco` se mantiene en
+  // paralelo como string-cache para que el backend siga viendo el
+  // nombre y no rompa lectores legacy.
+  const [entidadId, setEntidadId] = useState<string | null>(cuentaExistente?.entidad_id ?? null)
+  const [banco, setBanco] = useState(cuentaExistente?.banco ?? cuentaExistente?.entidad_nombre ?? '')
   const [tipoCuenta, setTipoCuenta] = useState(cuentaExistente?.tipo_cuenta ?? '')
   const [numeroCuenta, setNumeroCuenta] = useState(cuentaExistente?.numero_cuenta ?? '')
   const [alias, setAlias] = useState(cuentaExistente?.alias ?? '')
@@ -628,15 +656,82 @@ function EditorCuenta({
   const [predeterminada, setPredeterminada] = useState(cuentaExistente?.predeterminada ?? false)
   const [guardando, setGuardando] = useState(false)
 
+  // ─── Catálogo de entidades (sql/108) ───
+  // Lo cargamos por tipo para evitar mezclar bancos y billeteras en el
+  // mismo dropdown. Se recarga si el operador cambia el tipo_pago.
+  const [entidades, setEntidades] = useState<EntidadFinanciera[]>([])
+  // Mensaje sutil cuando la autodetección por CBU sugiere una entidad
+  // distinta a la que el operador seleccionó manualmente.
+  const [sugerenciaBanco, setSugerenciaBanco] = useState<EntidadFinanciera | null>(null)
+
+  useEffect(() => {
+    const cargarEntidades = async () => {
+      try {
+        const res = await fetch(`/api/configuracion/entidades-financieras?tipo=${tipoPago}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (res.ok) setEntidades((data.entidades ?? []) as EntidadFinanciera[])
+      } catch (err) {
+        console.error('[EditorCuenta] cargar entidades:', err)
+      }
+    }
+    cargarEntidades()
+  }, [tipoPago])
+
+  // ─── Validación CBU/CVU ───
+  // CBU/CVU en Argentina = 22 dígitos numéricos. Mostramos el estado
+  // (válido / incompleto / no-numérico) inline para que el operador
+  // sepa al toque si el número que pegó es viable, sin tener que
+  // intentar guardar y leer un error.
+  const soloDigitos = numeroCuenta.replace(/\D/g, '')
+  const cbuOk = tipoPago === 'banco' ? soloDigitos.length === 22 : soloDigitos.length === 22
+  const cbuVacio = numeroCuenta.trim().length === 0
+  const cbuIncompleto = !cbuVacio && !cbuOk
+
+  // Autodetección de banco por código BCRA (primeros 3 dígitos del CBU).
+  // Si el operador no eligió banco aún Y hay una entidad con ese código,
+  // la sugerimos visualmente. Si ya hay banco elegido pero el código no
+  // coincide, alertamos que probablemente sea otra entidad.
+  useEffect(() => {
+    if (tipoPago !== 'banco' || soloDigitos.length < 3) {
+      setSugerenciaBanco(null)
+      return
+    }
+    const codigo = soloDigitos.substring(0, 3)
+    const candidatas = entidades.filter(e => e.codigo_banco === codigo)
+    if (candidatas.length === 0) {
+      setSugerenciaBanco(null)
+      return
+    }
+    // Si la entidad actual ya coincide con alguna candidata, no sugerimos.
+    if (entidadId && candidatas.some(c => c.id === entidadId)) {
+      setSugerenciaBanco(null)
+      return
+    }
+    setSugerenciaBanco(candidatas[0])
+  }, [soloDigitos, entidades, entidadId, tipoPago])
+
   const guardar = async () => {
+    // Si el CBU/CVU está incompleto, no bloqueamos el guardado (el
+    // operador puede querer cargar la cuenta con solo el alias y
+    // completar el CBU más tarde), pero sí pedimos confirmación si
+    // está parcialmente lleno (1-21 dígitos) para evitar tipeos.
+    if (cbuIncompleto && !confirm('El CBU/CVU tiene una cantidad de dígitos que no parece válida (22 esperados). ¿Querés guardarlo igual?')) {
+      return
+    }
     setGuardando(true)
     try {
+      // Mantenemos `banco` como string-cache para legacy/lectores que
+      // no consumen aún el join con entidades_financieras. El campo
+      // canónico es `entidad_id`.
       const payload = {
         tipo_pago: tipoPago,
         etiqueta: etiqueta.trim() || null,
+        entidad_id: entidadId,
         banco: banco.trim() || null,
         tipo_cuenta: tipoCuenta.trim() || null,
-        numero_cuenta: numeroCuenta.trim() || null,
+        // El CBU/CVU se guarda solo con los dígitos para que las
+        // búsquedas y comparaciones futuras sean determinísticas.
+        numero_cuenta: soloDigitos || null,
         alias: alias.trim() || null,
         titular_nombre: titularNombre.trim() || null,
         titular_documento: titularDocumento.trim() || null,
@@ -682,7 +777,7 @@ function EditorCuenta({
       abierto
       onCerrar={() => { if (!guardando) onCerrar() }}
       titulo={esEdicion ? 'Editar cuenta' : 'Agregar cuenta'}
-      tamano="lg"
+      tamano="3xl"
       accionSecundaria={{ etiqueta: 'Cancelar', onClick: onCerrar }}
       accionPrimaria={{
         etiqueta: esEdicion ? 'Guardar cambios' : 'Crear cuenta',
@@ -690,41 +785,68 @@ function EditorCuenta({
         cargando: guardando,
       }}
     >
-      <div className="space-y-4">
-        {/* Tipo de pago */}
-        <div>
-          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Tipo</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setTipoPago('banco')}
-              disabled={guardando}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                tipoPago === 'banco'
-                  ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
-                  : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
-              }`}
-            >
-              <Building2 size={14} />
-              <span>Cuenta bancaria</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoPago('digital')}
-              disabled={guardando}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                tipoPago === 'digital'
-                  ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
-                  : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
-              }`}
-            >
-              <Wallet size={14} />
-              <span>Billetera virtual</span>
-            </button>
+      <div className="space-y-3">
+        {/* Fila 1 — Tipo de pago + Tipo de cuenta.
+            Cuando es banco, los dos selectores van juntos (decisión:
+            "qué clase de cuenta es"). Cuando es digital, el tipo_pago
+            ocupa el ancho completo porque no hay tipo_cuenta válido. */}
+        <div className={`grid gap-3 ${tipoPago === 'banco' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Tipo</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setTipoPago('banco')}
+                disabled={guardando}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                  tipoPago === 'banco'
+                    ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
+                    : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+                }`}
+              >
+                <Building2 size={14} />
+                <span>Bancaria</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoPago('digital')}
+                disabled={guardando}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                  tipoPago === 'digital'
+                    ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
+                    : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+                }`}
+              >
+                <Wallet size={14} />
+                <span>Billetera</span>
+              </button>
+            </div>
           </div>
+          {tipoPago === 'banco' && (
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">Tipo de cuenta</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {TIPOS_CUENTA_BANCO.map(t => (
+                  <button
+                    key={t.valor}
+                    type="button"
+                    onClick={() => setTipoCuenta(tipoCuenta === t.valor ? '' : t.valor)}
+                    disabled={guardando}
+                    className={`text-xs px-2 py-2 rounded-lg border transition-colors ${
+                      tipoCuenta === t.valor
+                        ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
+                        : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+                    }`}
+                  >
+                    {t.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Etiqueta + banco */}
+        {/* Fila 2 — Etiqueta + entidad (banco/billetera del catálogo compartido) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Input
             tipo="text"
@@ -733,47 +855,147 @@ function EditorCuenta({
             onChange={e => setEtiqueta(e.target.value)}
             placeholder="Ej: Cuenta sueldo"
           />
-          <Input
-            tipo="text"
-            etiqueta={tipoPago === 'banco' ? 'Banco' : 'Billetera (Mercado Pago, Brubank, etc.)'}
-            value={banco}
-            onChange={e => setBanco(e.target.value)}
-            placeholder={tipoPago === 'banco' ? 'Ej: Galicia' : 'Ej: Mercado Pago'}
+          <SelectCreable
+            etiqueta={tipoPago === 'banco' ? 'Banco' : 'Billetera virtual'}
+            placeholder={tipoPago === 'banco' ? 'Seleccioná un banco...' : 'Seleccioná una billetera...'}
+            opciones={entidades.map(e => ({ valor: e.id, etiqueta: e.nombre }))}
+            valor={entidadId ?? ''}
+            onChange={(v) => {
+              setEntidadId(v || null)
+              const ent = entidades.find(e => e.id === v)
+              if (ent) setBanco(ent.nombre)
+            }}
+            // Crear inline: la primera vez que un operador necesita
+            // "Banco XYZ" lo agrega desde acá y queda en el catálogo
+            // para todos los demás miembros de la empresa.
+            onCrear={async (nombre) => {
+              try {
+                const res = await fetch('/api/configuracion/entidades-financieras', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tipo: tipoPago, nombre }),
+                })
+                const data = await res.json()
+                if (!res.ok) { toast.mostrar('error', data.error || 'No se pudo crear'); return false }
+                const ent = data.entidad as EntidadFinanciera
+                setEntidades(prev => {
+                  if (prev.some(e => e.id === ent.id)) return prev
+                  return [...prev, ent].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+                })
+                setEntidadId(ent.id)
+                setBanco(ent.nombre)
+                return ent.id
+              } catch (err) {
+                console.error('[EditorCuenta] onCrear entidad:', err)
+                toast.mostrar('error', 'Error de red al crear')
+                return false
+              }
+            }}
+            onEditar={async (id, nuevoNombre) => {
+              try {
+                const res = await fetch(`/api/configuracion/entidades-financieras/${id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ nombre: nuevoNombre }),
+                })
+                const data = await res.json()
+                if (!res.ok) { toast.mostrar('error', data.error || 'No se pudo editar'); return false }
+                const ent = data.entidad as EntidadFinanciera
+                setEntidades(prev => prev.map(e => e.id === id ? ent : e))
+                if (entidadId === id) setBanco(ent.nombre)
+                return ent.id
+              } catch (err) {
+                console.error('[EditorCuenta] onEditar entidad:', err)
+                toast.mostrar('error', 'Error de red al editar')
+                return false
+              }
+            }}
+            onEliminar={async (id) => {
+              if (!confirm('Eliminar esta entidad del catálogo de la empresa. Las cuentas que la usaban conservan el nombre histórico. ¿Continuar?')) return false
+              try {
+                const res = await fetch(`/api/configuracion/entidades-financieras/${id}`, { method: 'DELETE' })
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}))
+                  toast.mostrar('error', data.error || 'No se pudo eliminar')
+                  return false
+                }
+                setEntidades(prev => prev.filter(e => e.id !== id))
+                if (entidadId === id) { setEntidadId(null); setBanco('') }
+                return true
+              } catch (err) {
+                console.error('[EditorCuenta] onEliminar entidad:', err)
+                toast.mostrar('error', 'Error de red al eliminar')
+                return false
+              }
+            }}
+            textoCrear="Agregar"
           />
         </div>
 
-        {/* Tipo de cuenta + número */}
+        {/* Fila 3 — CBU/CVU + Alias en la misma fila (mayormente vienen
+            juntos: cuando el operador tipea uno, suele tener el otro a
+            mano). El feedback de validación del CBU va inline debajo. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {tipoPago === 'banco' && (
+          <div className="flex flex-col">
             <Input
               tipo="text"
-              etiqueta="Tipo de cuenta"
-              value={tipoCuenta}
-              onChange={e => setTipoCuenta(e.target.value)}
-              placeholder="Ahorro / Corriente / Sueldo"
+              etiqueta={tipoPago === 'banco' ? 'CBU (22 dígitos)' : 'CVU (22 dígitos)'}
+              value={numeroCuenta}
+              onChange={e => {
+                // Solo aceptamos dígitos. Limitamos a 22 para evitar el
+                // pegado de espacios/guiones/strings con prefijos raros.
+                const limpio = e.target.value.replace(/\D/g, '').slice(0, 22)
+                setNumeroCuenta(limpio)
+              }}
+              placeholder="0000003100000000000000"
+              inputMode="numeric"
             />
-          )}
+            <div className="mt-1 min-h-[14px] text-[11px]">
+              {cbuOk && (
+                <span className="inline-flex items-center gap-1 text-insignia-exito">
+                  <CheckCircle2 size={11} /> {soloDigitos.length} dígitos válidos
+                </span>
+              )}
+              {cbuIncompleto && (
+                <span className="inline-flex items-center gap-1 text-insignia-advertencia">
+                  <AlertCircle size={11} /> {soloDigitos.length}/22 dígitos
+                </span>
+              )}
+            </div>
+          </div>
           <Input
             tipo="text"
-            etiqueta={tipoPago === 'banco' ? 'CBU' : 'CVU / Número'}
-            value={numeroCuenta}
-            onChange={e => setNumeroCuenta(e.target.value)}
-            placeholder={tipoPago === 'banco' ? '22 dígitos' : 'CVU del proveedor'}
+            etiqueta="Alias"
+            value={alias}
+            onChange={e => setAlias(e.target.value)}
+            placeholder="mi.alias.cbu"
           />
         </div>
 
-        {/* Alias */}
-        <Input
-          tipo="text"
-          etiqueta="Alias"
-          value={alias}
-          onChange={e => setAlias(e.target.value)}
-          placeholder="mi.alias.cbu"
-        />
+        {/* Sugerencia de banco por código BCRA. Solo aparece cuando el
+            CBU pegado apunta a una entidad distinta a la elegida (o no
+            hay ninguna elegida). El operador acepta o ignora. */}
+        {sugerenciaBanco && (
+          <button
+            type="button"
+            onClick={() => {
+              setEntidadId(sugerenciaBanco.id)
+              setBanco(sugerenciaBanco.nombre)
+              setSugerenciaBanco(null)
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-texto-marca/30 bg-texto-marca/[0.06] text-xs text-texto-primario hover:bg-texto-marca/[0.1] transition-colors"
+          >
+            <Building2 size={14} className="text-texto-marca" />
+            <span>
+              Los primeros 3 dígitos del CBU coinciden con <b>{sugerenciaBanco.nombre}</b>.
+              <span className="ml-1 text-texto-marca underline">Usar este banco</span>
+            </span>
+          </button>
+        )}
 
-        {/* Titular */}
+        {/* Titular (si no es el empleado) — opcional */}
         <div>
-          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">
             Titular (si no es el empleado)
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -794,54 +1016,69 @@ function EditorCuenta({
           </div>
         </div>
 
-        {/* Activa + Predeterminada */}
-        <div className="space-y-2.5 pt-1">
-          <button
-            type="button"
-            onClick={() => setActiva(!activa)}
-            disabled={guardando}
-            className="flex items-center gap-2.5 text-sm text-texto-secundario hover:text-texto-primario"
-          >
-            <span className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-              activa
-                ? 'bg-texto-marca border-texto-marca'
-                : 'border-borde-fuerte bg-superficie-tarjeta'
-            }`}>
-              {activa && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </span>
-            <span>Cuenta activa (aparece como opción al registrar pagos)</span>
-          </button>
+        {/* Estado (activa + predeterminada) — cards toggleables paralelas.
+            Reemplaza los checkboxes viejos por el mismo patrón visual
+            que el selector de tipo de arriba (más legible y consistente
+            con el resto del modal). */}
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Estado</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setActiva(!activa)}
+              disabled={guardando}
+              className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                activa
+                  ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
+                  : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+              }`}
+            >
+              <Power size={16} className="shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium leading-tight">
+                  {activa ? 'Cuenta activa' : 'Cuenta inactiva'}
+                </div>
+                <div className={`text-[11px] mt-0.5 leading-snug ${activa ? 'text-texto-marca/70' : 'text-texto-terciario'}`}>
+                  {activa
+                    ? 'Aparece como opción al registrar pagos.'
+                    : 'No se muestra al registrar pagos.'}
+                </div>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => activa && setPredeterminada(!predeterminada)}
-            disabled={guardando || !activa}
-            className={`flex items-center gap-2.5 text-sm ${
-              activa ? 'text-texto-secundario hover:text-texto-primario' : 'text-texto-terciario/60 cursor-not-allowed'
-            }`}
-          >
-            <span className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-              predeterminada && activa
-                ? 'bg-texto-marca border-texto-marca'
-                : 'border-borde-fuerte bg-superficie-tarjeta'
-            }`}>
-              {predeterminada && activa && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </span>
-            <span>
-              Marcar como cuenta por defecto al registrar pagos
-              {cuentaExistente?.predeterminada && predeterminada && (
-                <span className="ml-1.5 text-[10px] uppercase tracking-wider text-texto-marca">· actual</span>
-              )}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => activa && setPredeterminada(!predeterminada)}
+              disabled={guardando || !activa}
+              className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                !activa
+                  ? 'border-borde-sutil bg-superficie-tarjeta text-texto-terciario/50 cursor-not-allowed'
+                  : predeterminada
+                    ? 'border-texto-marca/50 bg-texto-marca/10 text-texto-marca'
+                    : 'border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:border-borde-fuerte'
+              }`}
+            >
+              <Star
+                size={16}
+                className={`shrink-0 mt-0.5 ${predeterminada && activa ? 'fill-current' : ''}`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium leading-tight flex items-center gap-1.5">
+                  Por defecto
+                  {cuentaExistente?.predeterminada && predeterminada && (
+                    <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-texto-marca/15 text-texto-marca">Actual</span>
+                  )}
+                </div>
+                <div className={`text-[11px] mt-0.5 leading-snug ${
+                  !activa ? 'text-texto-terciario/60' : predeterminada ? 'text-texto-marca/70' : 'text-texto-terciario'
+                }`}>
+                  {!activa
+                    ? 'Activá la cuenta para poder marcarla.'
+                    : 'Se preselecciona al registrar el pago.'}
+                </div>
+              </div>
+            </button>
+          </div>
 
           {/* Aviso inline: si el operador marcó "como default" desde el
               editor y ya hay OTRA cuenta default vigente, le mostramos
@@ -851,7 +1088,7 @@ function EditorCuenta({
           {predeterminada && activa && (() => {
             const otraDefault = otrasCuentas.find(c => c.predeterminada && !c.eliminada)
             if (!otraDefault) return null
-            const nombreOtra = otraDefault.etiqueta || otraDefault.banco || (otraDefault.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')
+            const nombreOtra = otraDefault.etiqueta || otraDefault.entidad_nombre || otraDefault.banco || (otraDefault.tipo_pago === 'digital' ? 'Billetera virtual' : 'Cuenta bancaria')
             const datoOtra = otraDefault.alias || otraDefault.numero_cuenta || null
             return (
               <div className="flex items-start gap-2 rounded-md border border-insignia-advertencia/30 bg-insignia-advertencia/[0.06] px-3 py-2 text-xs text-texto-secundario">

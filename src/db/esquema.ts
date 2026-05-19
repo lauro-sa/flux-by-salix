@@ -2942,14 +2942,44 @@ export const educacion_usuario = pgTable('educacion_usuario', {
   index('educacion_usuario_miembro_idx').on(tabla.miembro_id),
 ])
 
-// Catálogo de bancos por empresa — se crean al usarlos y se reutilizan entre miembros
-export const bancos = pgTable('bancos', {
+// Catálogo de entidades financieras por empresa: bancos tradicionales
+// + billeteras virtuales. Se auto-seedea al crear una empresa (trigger
+// en sql/108) con los bancos AR más comunes (con código BCRA para
+// autodetectar por CBU) y las billeteras principales. Editable y
+// extensible por usuarios con permiso `config_empresa:editar`.
+export const entidades_financieras = pgTable('entidades_financieras', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  // 'banco' = institución tradicional. 'digital' = billetera virtual.
+  tipo: text('tipo').notNull().default('banco'),
   nombre: text('nombre').notNull(),
+  // Código BCRA (primeros 3 dígitos del CBU). Sirve para autodetectar
+  // el banco al pegar un CBU. Null en billeteras (usan bancos socios).
+  codigo_banco: text('codigo_banco'),
+  activa: boolean('activa').notNull().default(true),
+  eliminada: boolean('eliminada').notNull().default(false),
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_por: uuid('actualizado_por'),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('entidades_financieras_empresa_idx').on(tabla.empresa_id),
+])
+
+// Auditoría dedicada para cambios en el catálogo de entidades.
+export const auditoria_entidades_financieras = pgTable('auditoria_entidades_financieras', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  entidad_id: uuid('entidad_id').notNull().references(() => entidades_financieras.id, { onDelete: 'cascade' }),
+  editado_por: uuid('editado_por').notNull(),
+  // crear, editar, eliminar, restaurar, activar, desactivar
+  accion: text('accion').notNull(),
+  campo_modificado: text('campo_modificado'),
+  valor_anterior: text('valor_anterior'),
+  valor_nuevo: text('valor_nuevo'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
-  index('bancos_empresa_idx').on(tabla.empresa_id),
+  index('auditoria_entidades_financieras_idx').on(tabla.empresa_id, tabla.entidad_id, tabla.creado_en),
 ])
 
 // Cuentas para pagos del empleado (bancarias + billeteras virtuales).
@@ -2964,6 +2994,9 @@ export const info_bancaria = pgTable('info_bancaria', {
   // digital = billetera virtual (Mercado Pago, Brubank, Ualá, etc.)
   tipo_pago: text('tipo_pago').notNull().default('banco'),
   tipo_cuenta: text('tipo_cuenta'),
+  // FK al catálogo (sql/108). El text `banco` queda como fallback
+  // legacy hasta que las cuentas viejas terminen de migrarse.
+  entidad_id: uuid('entidad_id').references(() => entidades_financieras.id, { onDelete: 'set null' }),
   banco: text('banco'),
   numero_cuenta: text('numero_cuenta'),
   alias: text('alias'),

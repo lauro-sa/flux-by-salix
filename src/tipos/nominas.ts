@@ -570,6 +570,10 @@ export interface InfoBancaria {
   tipo_pago: 'banco' | 'digital'
   /** Para banco: ahorro/corriente/sueldo. Para digital: libre. */
   tipo_cuenta: string | null
+  /** FK al catálogo `entidades_financieras`. Cuando viene, la UI
+      muestra el `nombre` de la entidad y el texto libre `banco` queda
+      como fallback histórico para cuentas no migradas. */
+  entidad_id: string | null
   /** Banco o billetera ("Galicia", "Mercado Pago", "Brubank", etc.). */
   banco: string | null
   /** CBU (22 dígitos en banco), CVU (digital) o número interno. */
@@ -592,6 +596,13 @@ export interface InfoBancaria {
   creado_en: string
   actualizado_por: string | null
   actualizado_en: string
+  /** Aplanado del join con `entidades_financieras` (sql/108). Cuando
+      `entidad_id` resuelve a una entidad vigente, este campo trae el
+      nombre canónico del catálogo. Para cuentas legacy sin enlace,
+      cae al texto libre del campo `banco`. */
+  entidad_nombre?: string | null
+  /** Código BCRA de la entidad enlazada (autodetectable por CBU). */
+  entidad_codigo_banco?: string | null
 }
 
 /**
