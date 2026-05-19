@@ -35,6 +35,7 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
 import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
+import { ModalEditarCompensacion } from '@/app/(flux)/nominas/_componentes/ModalEditarCompensacion'
 import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
 import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -369,12 +370,13 @@ export function PaginaEditorNominaEmpleado({
   // persistente arriba del recibo. Se carga al cambiar de empleado.
   const [contratoTerminado, setContratoTerminado] = useState<{ fecha_fin: string } | null>(null)
 
-  // Compensación editable
+  // Compensación: estado local sincronizado con BD. La edición ahora vive
+  // en ModalEditarCompensacion, que solo persiste al confirmar.
   const [compTipo, setCompTipo] = useState(empleadoInicial.compensacion_tipo)
   const [compMonto, setCompMonto] = useState(String(empleadoInicial.compensacion_monto))
   const [compFrecuencia, setCompFrecuencia] = useState(empleadoInicial.compensacion_frecuencia || 'mensual')
   const [compDias, setCompDias] = useState(5)
-  const [compEditando, setCompEditando] = useState(false)
+  const [modalCompensacionAbierto, setModalCompensacionAbierto] = useState(false)
 
   // Confirmación de pago (ahora en ModalAdaptable)
   const [confirmandoPago, setConfirmandoPago] = useState(false)
@@ -409,7 +411,7 @@ export function PaginaEditorNominaEmpleado({
   // completar la operación sin autorización. Reactivo gracias al contexto.
   useEffect(() => {
     if (puedeEditarNomina) return
-    setCompEditando(false)
+    setModalCompensacionAbierto(false)
     setModalNuevoMovimientoAbierto(false)
     setEditandoAdelanto(null)
     setEditandoPago(null)
@@ -635,7 +637,7 @@ export function PaginaEditorNominaEmpleado({
         setCompMonto(String(resultado.compensacion_monto))
         setCompFrecuencia(resultado.compensacion_frecuencia || 'mensual')
         // Reset de estados de UI transitorios
-        setCompEditando(false)
+        setModalCompensacionAbierto(false)
         setConfirmandoPago(false)
         setModalNuevoMovimientoAbierto(false)
         setEditandoPago(null)
@@ -1600,139 +1602,96 @@ export function PaginaEditorNominaEmpleado({
             {/* ═══════ COLUMNA DERECHA ═══════ */}
             <div className="space-y-4">
 
-              {/* ─── COMPENSACIÓN BASE ─── */}
+              {/* ─── COMPENSACIÓN BASE ───
+                  Solo lectura: una cifra principal clara (monto del
+                  contrato), proyección mensual como secundario, y los 3
+                  atributos (tipo/frecuencia/días) en chips con jerarquía
+                  visual. La edición se abre en ModalEditarCompensacion. */}
               <TarjetaPanel
                 titulo="Compensación base"
                 icono={<Coins size={13} />}
-                accion={!compEditando && puedeEditarNomina ? (
-                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />} onClick={() => setCompEditando(true)}>Editar</Boton>
+                accion={puedeEditarNomina ? (
+                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
+                    onClick={() => setModalCompensacionAbierto(true)}>
+                    Editar
+                  </Boton>
                 ) : undefined}
               >
-                {!compEditando ? (
-                  <div>
-                    {(parseFloat(compMonto) || 0) > 0 ? (
-                      <>
-                        <p className="text-3xl font-bold text-texto-primario tabular-nums">
-                          <NumeroAnimado claveAnim={animKey}>
-                            {compTipo === 'fijo' ? fmtMonto(parseFloat(compMonto)) : (
-                              <>{fmtMonto(proyeccionMensual)}<span className="text-base font-normal text-texto-terciario">/mes</span></>
-                            )}
-                          </NumeroAnimado>
-                        </p>
-                        {compTipo !== 'fijo' && (
-                          <p className="text-xs text-texto-terciario mt-1">
-                            {fmtMonto(parseFloat(compMonto))} / {compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4,33 sem
-                          </p>
+                {(parseFloat(compMonto) || 0) > 0 ? (
+                  <div className="space-y-3.5">
+                    {/* Tipo de pago como chip superior (Apple Card vibe) */}
+                    <div>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider ${
+                        compTipo === 'fijo'
+                          ? 'bg-texto-marca/15 text-texto-marca'
+                          : 'bg-insignia-info/15 text-insignia-info'
+                      }`}>
+                        {compTipo === 'fijo' ? <Landmark size={10} /> : <CalendarDays size={10} />}
+                        {compTipo === 'fijo' ? 'Sueldo fijo' : compTipo === 'por_hora' ? 'Por hora' : 'Por día'}
+                      </span>
+                    </div>
+
+                    {/* Cifra principal = proyección mensual (lo que se
+                        llevaría al mes completo). Es la respuesta a "¿cuánto
+                        gana este empleado?". Para sueldo fijo mensual coincide
+                        con el monto del contrato. La cifra base (jornal / monto
+                        del período) va abajo como secundaria. */}
+                    <div>
+                      <p className="text-3xl font-bold text-texto-primario tabular-nums leading-none">
+                        <NumeroAnimado claveAnim={animKey}>
+                          {fmtMonto(proyeccionMensual)}
+                        </NumeroAnimado>
+                        <span className="text-base font-normal text-texto-terciario ml-1">/mes</span>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-1.5 tabular-nums">
+                        {compTipo === 'fijo' ? (
+                          compFrecuencia === 'mensual' ? (
+                            <span className="text-texto-terciario/70">Sueldo fijo mensual</span>
+                          ) : (
+                            <>
+                              <span className="text-texto-secundario font-medium">{fmtMonto(parseFloat(compMonto))}</span>
+                              <span className="text-texto-terciario/70"> / {compFrecuencia === 'semanal' ? 'semana' : 'quincena'}</span>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <span className="text-texto-secundario font-medium">{fmtMonto(parseFloat(compMonto))}</span>
+                            <span className="text-texto-terciario/70"> / {compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4,33</span>
+                          </>
                         )}
-                        <div className="flex items-center gap-2 mt-3 flex-wrap">
-                          <Insignia color="neutro" tamano="sm">
-                            {compDias === 7 ? '7/7' : compDias === 6 ? 'L-S' : compDias === 5 ? 'L-V' : `${compDias} días`}
-                          </Insignia>
-                          <Insignia color="neutro" tamano="sm">
-                            {compFrecuencia === 'semanal' ? 'Semanal' : compFrecuencia === 'quincenal' ? 'Quincenal' : 'Mensual'}
-                          </Insignia>
-                          <Insignia color={compTipo === 'por_dia' ? 'info' : compTipo === 'por_hora' ? 'cyan' : 'primario'} tamano="sm">
-                            {compTipo === 'por_dia' ? 'Por día' : compTipo === 'por_hora' ? 'Por hora' : 'Sueldo fijo'}
-                          </Insignia>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-sm text-texto-terciario">Sin monto configurado</p>
-                    )}
+                      </p>
+                    </div>
+
+                    {/* Atributos secundarios — agrupados con separadores
+                        sutiles, no como pills sueltas. */}
+                    <div className="flex items-center gap-2.5 text-[11px] text-texto-terciario pt-2.5 border-t border-white/[0.04]">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Cobra</span>
+                        <span className="text-texto-secundario font-medium">
+                          {compFrecuencia === 'semanal' ? 'semanal'
+                            : compFrecuencia === 'quincenal' ? 'quincenal'
+                            : 'mensual'}
+                        </span>
+                      </span>
+                      <span className="text-texto-terciario/30">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Trabaja</span>
+                        <span className="text-texto-secundario font-medium">
+                          {compDias === 5 ? 'L–V' : compDias === 6 ? 'L–S' : '7/7'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-5">
-                    {/* Tipo de pago */}
-                    <div>
-                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cómo se le paga?</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { valor: 'por_dia', titulo: 'Cobra por día', desc: 'Gana un monto por cada día que trabaja.', icono: <CalendarDays size={20} /> },
-                          { valor: 'fijo', titulo: 'Sueldo fijo', desc: 'Cobra un monto fijo por período completo.', icono: <Landmark size={20} /> },
-                        ].map(op => (
-                          <button key={op.valor}
-                            onClick={() => { const prev = compTipo; setCompTipo(op.valor); guardarCompensacion('compensacion_tipo', op.valor, prev) }}
-                            className={`flex items-start gap-3 p-3 rounded-card border text-left cursor-pointer transition-all ${
-                              compTipo === op.valor
-                                ? 'border-texto-marca bg-texto-marca/5'
-                                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
-                            }`}
-                          >
-                            <div className={`size-10 rounded-card flex items-center justify-center shrink-0 ${
-                              compTipo === op.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
-                            }`}>
-                              {op.icono}
-                            </div>
-                            <div>
-                              <p className={`text-sm font-semibold ${compTipo === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
-                                {op.titulo}
-                              </p>
-                              <p className="text-xs text-texto-terciario mt-0.5">{op.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Monto */}
-                    <div>
-                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">
-                        {compTipo === 'por_dia' ? '¿Cuánto gana por día trabajado?' : '¿Cuánto gana por período completo?'}
-                      </p>
-                      <InputMoneda value={compMonto} onChange={setCompMonto} moneda="ARS" placeholder="40.000" />
-                      {compTipo !== 'fijo' && (parseFloat(compMonto) || 0) > 0 && (
-                        <p className="text-xs text-texto-terciario mt-2">
-                          Proyección mensual: <span className="text-insignia-exito font-medium">{fmtMonto(proyeccionMensual)}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Frecuencia */}
-                    <div>
-                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">¿Cada cuánto cobra?</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {[
-                          { valor: 'semanal', etiqueta: 'Semanal' },
-                          { valor: 'quincenal', etiqueta: 'Quincenal' },
-                          { valor: 'mensual', etiqueta: 'Mensual' },
-                        ].map(f => (
-                          <Boton key={f.valor}
-                            variante={compFrecuencia === f.valor ? 'primario' : 'secundario'}
-                            tamano="sm"
-                            onClick={() => { const prev = compFrecuencia; setCompFrecuencia(f.valor); guardarCompensacion('compensacion_frecuencia', f.valor, prev) }}
-                            className={compFrecuencia === f.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
-                          >{f.etiqueta}</Boton>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Días por semana */}
-                    <div>
-                      <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-3">Días por semana</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {[
-                          { valor: 5, etiqueta: 'L-V' },
-                          { valor: 6, etiqueta: 'L-S' },
-                          { valor: 7, etiqueta: '7/7' },
-                        ].map(d => (
-                          <Boton key={d.valor}
-                            variante={compDias === d.valor ? 'primario' : 'secundario'}
-                            tamano="sm"
-                            onClick={() => { const prev = compDias; setCompDias(d.valor); guardarCompensacion('dias_trabajo', d.valor, prev) }}
-                            className={compDias === d.valor ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca' : ''}
-                          >{d.etiqueta}</Boton>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Boton variante="primario" tamano="sm" onClick={() => {
-                      const montoNuevo = parseFloat(compMonto) || 0
-                      if (montoNuevo !== datosEmpleado.compensacion_monto) {
-                        guardarCompensacion('compensacion_monto', montoNuevo, datosEmpleado.compensacion_monto)
-                      }
-                      setCompEditando(false)
-                    }}>Listo</Boton>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => puedeEditarNomina && setModalCompensacionAbierto(true)}
+                    disabled={!puedeEditarNomina}
+                    className="w-full text-center py-6 text-sm text-texto-terciario hover:text-texto-marca disabled:cursor-default transition-colors"
+                  >
+                    Sin compensación configurada
+                    {puedeEditarNomina && <span className="block text-[11px] mt-1 text-texto-marca">Configurar →</span>}
+                  </button>
                 )}
               </TarjetaPanel>
 
@@ -2199,6 +2158,43 @@ export function PaginaEditorNominaEmpleado({
           ...(detalleMotor?.conceptos_sugeridos ?? []).map(c => c.concepto_id),
         ])}
         onCreado={recargarDatos}
+      />
+
+      {/* Modal de edición de compensación base — reemplaza al editor
+          inline. Solo persiste al confirmar (no autoguardado por campo
+          como antes). El callback dispara guardarCompensacion por cada
+          campo modificado, manteniendo el historial granular. */}
+      <ModalEditarCompensacion
+        abierto={modalCompensacionAbierto}
+        onCerrar={() => setModalCompensacionAbierto(false)}
+        valoresIniciales={{
+          tipo: (compTipo === 'fijo' ? 'fijo' : 'por_dia') as 'fijo' | 'por_dia',
+          monto: parseFloat(compMonto) || 0,
+          frecuencia: (compFrecuencia as 'semanal' | 'quincenal' | 'mensual'),
+          dias: (compDias as 5 | 6 | 7),
+        }}
+        onGuardar={async (nueva, cambios) => {
+          // Optimista en cliente para que la card refleje al instante.
+          if (cambios.tipo !== undefined) setCompTipo(nueva.tipo)
+          if (cambios.monto !== undefined) setCompMonto(String(nueva.monto))
+          if (cambios.frecuencia !== undefined) setCompFrecuencia(nueva.frecuencia)
+          if (cambios.dias !== undefined) setCompDias(nueva.dias)
+          // Persistir y registrar historial por cada campo cambiado.
+          const tareas: Promise<unknown>[] = []
+          if (cambios.tipo !== undefined) {
+            tareas.push(Promise.resolve(guardarCompensacion('compensacion_tipo', nueva.tipo, compTipo)))
+          }
+          if (cambios.monto !== undefined) {
+            tareas.push(Promise.resolve(guardarCompensacion('compensacion_monto', nueva.monto, parseFloat(compMonto) || 0)))
+          }
+          if (cambios.frecuencia !== undefined) {
+            tareas.push(Promise.resolve(guardarCompensacion('compensacion_frecuencia', nueva.frecuencia, compFrecuencia)))
+          }
+          if (cambios.dias !== undefined) {
+            tareas.push(Promise.resolve(guardarCompensacion('dias_trabajo', nueva.dias, compDias)))
+          }
+          await Promise.all(tareas)
+        }}
       />
 
       {/* Modal "Ver recibo" — preview del PDF + acciones unificadas.
