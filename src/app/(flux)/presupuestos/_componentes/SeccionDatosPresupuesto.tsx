@@ -18,17 +18,40 @@ import type { CondicionPago, ConfigPresupuestos, PresupuestoConLineas } from '@/
 import type { LineaTemporal } from './tipos-editor'
 import { EstadosCuota, type EstadoCuota } from '@/tipos/cuota'
 
-/** Botoncito de copiar al portapapeles */
+/**
+ * Botoncito de copiar al portapapeles. Pensado para vivir al final de una
+ * fila con hover bg (group/fila): muestra "Copiar" inline cuando se pasa el
+ * mouse por la fila y "Copiado" en verde durante 1.5s tras copiar. El
+ * ícono queda anclado a la derecha y no se mueve cuando aparece el label.
+ */
 function BotonCopiar({ valor }: { valor: string }) {
   const [copiado, setCopiado] = useState(false)
-  const copiar = () => {
+  const copiar = (e: React.MouseEvent) => {
+    e.stopPropagation()
     navigator.clipboard.writeText(valor)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 1500)
   }
+  // Ancho mínimo reservado para que el botón mida lo mismo con o sin el
+  // label "Copiar" visible. Sin esto, al aparecer el texto en hover, el
+  // botón crece y arrastra al monto que vive entre el label flex-1 y el
+  // botón, "moviendo" los números cuando se pasa el mouse. El min-w
+  // garantiza que el layout sea estable.
+  const claseBase = 'ml-auto shrink-0 inline-flex items-center justify-end gap-1 min-w-[5rem] px-1.5 py-0 rounded transition-colors'
+  const claseEstado = copiado
+    ? 'text-insignia-exito bg-insignia-exito/15'
+    : 'text-texto-terciario hover:text-texto-primario hover:bg-superficie-tarjeta'
   return (
-    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
-      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    <button
+      type="button"
+      onClick={copiar}
+      className={`${claseBase} ${claseEstado}`}
+      title={copiado ? 'Copiado' : 'Copiar'}
+    >
+      <span className={`text-xxs ${copiado ? 'inline' : 'hidden group-hover/fila:inline'}`}>
+        {copiado ? 'Copiado' : 'Copiar'}
+      </span>
+      {copiado ? <Check size={11} /> : <Copy size={11} />}
     </button>
   )
 }
@@ -132,46 +155,58 @@ export default function SeccionDatosPresupuesto({
 
   const formatearFecha = (d: Date | string) => formato.fecha(d)
 
-  const fila = "flex items-center justify-between py-2.5"
-  const etiqueta = "text-xs font-medium text-texto-secundario uppercase tracking-wide"
-  const valorAncho = "w-52"
+  // Estilos compartidos para las filas del card: garantiza altura uniforme,
+  // hover bg sutil y respiro generoso entre cada propiedad. Las filas no
+  // tienen botón copiar; las que sí lo necesitan agregan group/fila + el
+  // botón al final, manteniendo el mismo padding vertical.
+  const filaBase = 'flex items-center justify-between gap-3 -mx-3 px-3 py-2 rounded transition-colors'
+  const filaHover = 'group/fila hover:bg-superficie-hover/40'
+  const etiqueta = 'text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0'
+  const valorTexto = 'text-sm text-texto-primario'
+  const valorAncho = 'min-w-0 max-w-[60%]'
 
   return (
     <div className="py-3">
-      {/* Fila TIPO + PLANTILLA (solo modo crear) */}
-      <div className={`grid gap-4 py-2 mb-2 ${modo === 'crear' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Tipo:</span>
-          <span className="text-sm text-texto-primario">{t('documentos.tipos.presupuesto')}</span>
+      {/* Card principal con todas las propiedades del presupuesto. Espaciado
+          interno generoso, filas con hover bg para invitar al copiado donde
+          aplica, y separadores horizontales sutiles entre bloques temáticos
+          (identidad del doc → fechas → cobros → moneda). TIPO y PLANTILLA
+          encabezan el card en modo crear; en modo editar Plantilla se omite
+          (es un atributo que solo se aplica al crear). */}
+      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-2">
+        {/* Bloque 0 — Identidad del documento: tipo + plantilla (crear) */}
+        <div className={filaBase}>
+          <span className={etiqueta}>Tipo</span>
+          <span className={`${valorTexto} text-right`}>{t('documentos.tipos.presupuesto')}</span>
         </div>
         {modo === 'crear' && (
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Plantilla:</span>
-            <SelectorPlantilla
-              plantillas={((config?.plantillas || []) as Array<{ id: string; nombre: string; creado_por: string; [k: string]: unknown }>)}
-              plantillaActual={plantillaId}
-              predeterminadaId={((config?.plantillas_predeterminadas || {}) as Record<string, string>)[usuarioId] || null}
-              usuarioId={usuarioId}
-              puedeEliminarTodas={esPropietario || esAdmin}
-              tieneModificaciones={plantillaModificada}
-              onCargar={onCargarPlantilla}
-              onGuardarComo={onGuardarComoPlantilla}
-              onGuardarCambios={onGuardarCambiosPlantilla}
-              onEliminar={onEliminarPlantilla}
-              onTogglePredeterminada={onTogglePredeterminada}
-              onLimpiar={() => onPlantillaIdChange(null)}
-            />
+          <div className={filaBase}>
+            <span className={etiqueta}>Plantilla</span>
+            <div className="flex items-center justify-end min-w-0 -my-1">
+              <SelectorPlantilla
+                plantillas={((config?.plantillas || []) as Array<{ id: string; nombre: string; creado_por: string; [k: string]: unknown }>)}
+                plantillaActual={plantillaId}
+                predeterminadaId={((config?.plantillas_predeterminadas || {}) as Record<string, string>)[usuarioId] || null}
+                usuarioId={usuarioId}
+                puedeEliminarTodas={esPropietario || esAdmin}
+                tieneModificaciones={plantillaModificada}
+                onCargar={onCargarPlantilla}
+                onGuardarComo={onGuardarComoPlantilla}
+                onGuardarCambios={onGuardarCambiosPlantilla}
+                onEliminar={onEliminarPlantilla}
+                onTogglePredeterminada={onTogglePredeterminada}
+                onLimpiar={() => onPlantillaIdChange(null)}
+              />
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Datos del presupuesto — agrupados con divide-y */}
-      <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card -mx-3 divide-y divide-borde-sutil/50">
-        {/* Referencia */}
-        <div className="px-3 py-1">
-          <div className={fila}>
-            <span className={etiqueta}>Referencia</span>
-            {esEditable ? (
+        {/* Bloque 1 — Referencia (con separador horizontal arriba) */}
+        <div className="mt-2 pt-2 border-t border-borde-sutil/50">
+        <div className={`${filaBase} ${esEditable ? '' : filaHover}`}>
+          <span className={etiqueta}>Referencia</span>
+          {esEditable ? (
+            <div className={valorAncho}>
               <Input
                 value={referencia}
                 onChange={(e) => onReferenciaChange(e.target.value)}
@@ -180,93 +215,105 @@ export default function SeccionDatosPresupuesto({
                 formato={null}
                 variante="plano"
                 compacto
-                className={`${valorAncho} text-right pl-3`}
+                className="w-full text-right pl-3"
               />
-            ) : (
-              <span className="text-sm text-texto-primario">{referencia || '—'}</span>
-            )}
-          </div>
+            </div>
+          ) : referencia ? (
+            <div className={`group/fila flex items-center gap-1.5 ${valorAncho}`}>
+              <span className={`${valorTexto} truncate flex-1 text-right select-text`}>{referencia}</span>
+              <BotonCopiar valor={referencia} />
+            </div>
+          ) : (
+            <span className="text-sm text-texto-terciario">—</span>
+          )}
+        </div>
         </div>
 
-        {/* Fechas (grid único de 3 columnas compartido) */}
-        <div className={`px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3 ${presupuesto?.fecha_emision_original ? 'border-l-2 border-l-insignia-advertencia/60' : ''}`}>
-          {/* Fila Emisión original (arriba, solo si fue re-emitido) */}
+        {/* Bloque 2 — Fechas: emisión y validez (con re-emisión opcional
+            destacada con barra naranja a la izquierda). */}
+        <div className={`mt-2 pt-2 border-t border-borde-sutil/50 ${presupuesto?.fecha_emision_original ? 'border-l-2 border-l-insignia-advertencia/60 -ml-3 pl-3 -mr-3 pr-3' : ''}`}>
+          {/* Fila Emisión original (solo si fue re-emitido) */}
           {presupuesto?.fecha_emision_original && (
-            <>
-              <span className={`${etiqueta} py-1 text-texto-terciario`}>Emisión original</span>
-              <div className="py-1" />
-              <div className="py-1 w-40">
-                <span className="text-xs text-texto-terciario">
-                  {formatearFecha(presupuesto.fecha_emision_original)}
-                </span>
-              </div>
-            </>
+            <div className={filaBase}>
+              <span className={`${etiqueta} text-texto-terciario`}>Emisión original</span>
+              <span className="text-xs text-texto-terciario">
+                {formatearFecha(presupuesto.fecha_emision_original)}
+              </span>
+            </div>
           )}
           {/* Fila Emisión / Re-emisión */}
-          <span className={`${etiqueta} py-2.5 ${presupuesto?.fecha_emision_original ? 'text-insignia-advertencia' : ''}`}>{presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}</span>
-          <div className="py-2.5" />
-          <div className="py-2.5 w-40">
-            {esEditable ? (
-              <SelectorFecha
-                valor={modo === 'editar' ? (presupuesto?.fecha_emision?.split('T')[0] || '') : fechaEmision}
-                onChange={(v) => {
-                  if (!v) return
-                  onFechaEmisionChange(v)
-                }}
-                limpiable={false}
-              />
-            ) : (
-              <span className="text-sm text-texto-primario">
-                {presupuesto?.fecha_emision ? formatearFecha(presupuesto.fecha_emision) : '—'}
-              </span>
-            )}
+          <div className={filaBase}>
+            <span className={`${etiqueta} ${presupuesto?.fecha_emision_original ? 'text-insignia-advertencia' : ''}`}>
+              {presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}
+            </span>
+            <div className="w-40">
+              {esEditable ? (
+                <SelectorFecha
+                  valor={modo === 'editar' ? (presupuesto?.fecha_emision?.split('T')[0] || '') : fechaEmision}
+                  onChange={(v) => {
+                    if (!v) return
+                    onFechaEmisionChange(v)
+                  }}
+                  limpiable={false}
+                  variante="plano"
+                />
+              ) : (
+                <span className={`${valorTexto} block text-right`}>
+                  {presupuesto?.fecha_emision ? formatearFecha(presupuesto.fecha_emision) : '—'}
+                </span>
+              )}
+            </div>
           </div>
-          {/* Fila Validez */}
-          <span className={`${etiqueta} py-2.5`}>Validez</span>
-          <div className="py-2.5">
-            {esEditable && !bloqueada ? (
-              <Input
-                tipo="number"
-                min={1}
-                value={diasVencimiento}
-                onChange={(e) => onDiasVencimientoChange(Math.max(1, parseInt(e.target.value) || 1))}
-                onBlur={onDiasVencimientoBlur}
-                onFocus={(e) => e.target.select()}
-                formato={null}
-                compacto
-                className="!w-10 font-mono text-center text-xs !px-1 !py-1"
-                title="Dias de validez"
-              />
-            ) : (
-              <span className="text-xs text-texto-terciario font-mono text-center block">{diasVencimiento}d</span>
-            )}
-          </div>
-          <div className="py-2.5 w-40">
-            {esEditable ? (
-              <SelectorFecha
-                valor={fechaVenc.toISOString().split('T')[0]}
-                onChange={(v) => {
-                  if (!v || bloqueada) return
-                  const emision = new Date(fechaEmision + 'T00:00:00')
-                  const venc = new Date(v + 'T00:00:00')
-                  const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                  onDiasVencimientoChange(Math.max(1, diff))
-                  onAutoguardar({ dias_vencimiento: Math.max(1, diff) })
-                }}
-                limpiable={false}
-                disabled={bloqueada}
-              />
-            ) : (
-              <span className={`text-sm ${presupuesto?.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
-                {presupuesto?.fecha_vencimiento ? formatearFecha(presupuesto.fecha_vencimiento) : '—'}
-              </span>
-            )}
+          {/* Fila Validez: días + fecha de vencimiento */}
+          <div className={filaBase}>
+            <span className={etiqueta}>Validez</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {esEditable && !bloqueada ? (
+                <Input
+                  tipo="number"
+                  min={1}
+                  value={diasVencimiento}
+                  onChange={(e) => onDiasVencimientoChange(Math.max(1, parseInt(e.target.value) || 1))}
+                  onBlur={onDiasVencimientoBlur}
+                  onFocus={(e) => e.target.select()}
+                  formato={null}
+                  compacto
+                  className="!w-12 !bg-superficie-tarjeta !border-transparent hover:!border-borde-sutil [&_input]:!text-center [&_input]:font-mono [&_input]:!text-xs"
+                  title="Días de validez"
+                />
+              ) : (
+                <span className="text-xs text-texto-terciario font-mono">{diasVencimiento}d</span>
+              )}
+              <div className="w-40">
+                {esEditable ? (
+                  <SelectorFecha
+                    valor={fechaVenc.toISOString().split('T')[0]}
+                    onChange={(v) => {
+                      if (!v || bloqueada) return
+                      const emision = new Date(fechaEmision + 'T00:00:00')
+                      const venc = new Date(v + 'T00:00:00')
+                      const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
+                      onDiasVencimientoChange(Math.max(1, diff))
+                      onAutoguardar({ dias_vencimiento: Math.max(1, diff) })
+                    }}
+                    limpiable={false}
+                    disabled={bloqueada}
+                    variante="plano"
+                  />
+                ) : (
+                  <span className={`text-sm block text-right ${presupuesto?.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
+                    {presupuesto?.fecha_vencimiento ? formatearFecha(presupuesto.fecha_vencimiento) : '—'}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Condiciones de pago + Moneda */}
-        <div className="px-3 py-1">
-          <div className={fila}>
+        {/* Bloque 3 — Cobros: condición de pago + cuotas materializadas con
+            su estado (pendiente / parcial / cobrada). */}
+        <div className="mt-2 pt-2 border-t border-borde-sutil/50">
+          <div className={filaBase}>
             <span className={etiqueta}>{t('documentos.condiciones_pago')}</span>
             <div className={valorAncho}>
               {esEditable ? (
@@ -274,26 +321,28 @@ export default function SeccionDatosPresupuesto({
                   valor={condicionPagoId}
                   onChange={(v) => onCondicionPagoChange(v)}
                   opciones={[
-                    { valor: '', etiqueta: 'Sin condicion' },
+                    { valor: '', etiqueta: 'Sin condición' },
                     ...condiciones.map(c => ({ valor: c.id, etiqueta: c.label })),
                   ]}
                   variante="plano"
                 />
               ) : (
-                <span className="text-sm text-texto-primario">
-                  {condSeleccionada?.label || presupuesto?.condicion_pago_label || 'Sin condicion'}
+                <span className={`${valorTexto} block text-right`}>
+                  {condSeleccionada?.label || presupuesto?.condicion_pago_label || 'Sin condición'}
                 </span>
               )}
             </div>
           </div>
-          {/* Desglose de pago.
-              - hitos: una tarjeta por cada hito configurado, estado desde la
-                cuota real materializada en BD.
-              - plazo_fijo: una sola tarjeta del 100%, estado derivado del
-                total cobrado vs total_final (no hay cuotas en BD). */}
+
+          {/* Desglose de cuotas / tramos:
+              - hitos: una tarjeta por hito, estado desde la cuota real en BD.
+              - plazo_fijo: tarjeta única del 100%, estado derivado del total
+                cobrado vs total_final (no hay cuotas en BD).
+              Mismo patrón visual que las tarjetas Cliente/Dirigido a:
+              identidad arriba, separador sutil, montos abajo con hover bg
+              + botón Copiar al final de cada fila. */}
           {(() => {
             if (!condSeleccionada) return null
-            // Lista unificada de "tramos" a renderear.
             const tramos: Array<{
               key: string
               descripcion: string
@@ -312,9 +361,6 @@ export default function SeccionDatosPresupuesto({
                 })
               })
             } else if (condSeleccionada.tipo === 'plazo_fijo') {
-              // Tramo único del 100%. La descripción es la del label de la
-              // condición (ej: "100% Pago anticipado", "30 días neto"), o un
-              // fallback derivado de los días de vencimiento.
               const descripcion =
                 condSeleccionada.label ||
                 (condSeleccionada.diasVencimiento === 0
@@ -335,7 +381,7 @@ export default function SeccionDatosPresupuesto({
             const tieneImpuestos = totalDocumento !== subtotalNeto
 
             return (
-              <div className="pb-2 pt-1 space-y-1.5">
+              <div className="mt-2 space-y-2">
                 {tramos.map((tramo) => {
                   const montoTotal = totalDocumento * tramo.porcentaje / 100
                   const montoNeto = subtotalNeto * tramo.porcentaje / 100
@@ -345,37 +391,44 @@ export default function SeccionDatosPresupuesto({
                       ? { icon: <CircleDot size={11} />, color: 'text-insignia-advertencia', bg: 'bg-insignia-advertencia/15', label: 'Parcial' }
                       : { icon: <CircleDashed size={11} />, color: 'text-texto-terciario', bg: 'bg-white/[0.04]', label: 'Pendiente' }
                   return (
-                    <div key={tramo.key} className="rounded-boton border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
-                      {/* Encabezado: descripción + porcentaje + indicador de cobro */}
-                      <div className="flex items-center justify-between mb-1.5 gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                    <div key={tramo.key} className="rounded-card bg-superficie-app/50 px-3 py-3">
+                      {/* Identidad de la cuota: descripción + estado + % */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <span
                             className={`size-4 rounded-full flex items-center justify-center shrink-0 ${indicadorEstado.bg} ${indicadorEstado.color}`}
                             title={indicadorEstado.label}
                           >
                             {indicadorEstado.icon}
                           </span>
-                          <span className="text-xs font-medium text-texto-secundario truncate">{tramo.descripcion}</span>
+                          <span className="text-sm font-semibold text-texto-primario truncate">{tramo.descripcion}</span>
                         </div>
-                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded shrink-0">{tramo.porcentaje}%</span>
+                        <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+                          {tramo.porcentaje}%
+                        </span>
                       </div>
-                      {/* Montos */}
-                      <div className="space-y-1">
+
+                      {/* Separador sutil entre identidad y montos */}
+                      <div className="mt-3 border-t border-borde-sutil/50" />
+
+                      {/* Montos: neto (si hay impuestos) y total. Filas con
+                          hover bg + botón Copiar al final. */}
+                      <div className="mt-3 space-y-0.5">
                         {tieneImpuestos && (
-                          <div className="flex items-center justify-between text-xxs">
-                            <span className="text-texto-terciario">Neto</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-texto-terciario font-mono tabular-nums">{simbolo} {formato.numero(montoNeto, 2)}</span>
-                              <BotonCopiar valor={montoNeto.toFixed(2)} />
-                            </div>
+                          <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+                            <span className="flex-1">Neto</span>
+                            <span className="font-mono tabular-nums select-text">{simbolo} {formato.numero(montoNeto, 2)}</span>
+                            <BotonCopiar valor={montoNeto.toFixed(2)} />
                           </div>
                         )}
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-texto-secundario font-medium">{tieneImpuestos ? 'Con impuestos' : 'Total'}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-texto-primario font-mono font-semibold tabular-nums">{simbolo} {formato.numero(montoTotal, 2)}</span>
-                            <BotonCopiar valor={montoTotal.toFixed(2)} />
-                          </div>
+                        <div className="group/fila flex items-center gap-1.5 text-xs -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+                          <span className="flex-1 text-texto-secundario font-medium">
+                            {tieneImpuestos ? 'Con impuestos' : 'Total'}
+                          </span>
+                          <span className="text-texto-primario font-mono font-semibold tabular-nums select-text">
+                            {simbolo} {formato.numero(montoTotal, 2)}
+                          </span>
+                          <BotonCopiar valor={montoTotal.toFixed(2)} />
                         </div>
                       </div>
                     </div>
@@ -384,7 +437,11 @@ export default function SeccionDatosPresupuesto({
               </div>
             )
           })()}
-          <div className={fila}>
+        </div>
+
+        {/* Bloque 4 — Moneda */}
+        <div className="mt-2 pt-2 border-t border-borde-sutil/50">
+          <div className={filaBase}>
             <span className={etiqueta}>{t('documentos.moneda')}</span>
             <div className={valorAncho}>
               {esEditable ? (
@@ -398,7 +455,7 @@ export default function SeccionDatosPresupuesto({
                   variante="plano"
                 />
               ) : (
-                <span className="text-sm text-texto-primario">
+                <span className={`${valorTexto} block text-right`}>
                   {simbolo} {monedas.find(m => m.id === (presupuesto?.moneda || moneda))?.label || moneda}
                 </span>
               )}

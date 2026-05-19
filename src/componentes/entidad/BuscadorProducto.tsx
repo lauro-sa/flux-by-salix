@@ -44,6 +44,10 @@ interface PropsBuscadorProducto {
   className?: string
   /** Foco automático al montar (para líneas recién agregadas) */
   autoFocus?: boolean
+  /** Callback al presionar Enter cuando NO hay un item activo en el dropdown.
+   *  Útil para flujos donde queremos "confirmar texto libre" (ítem que no
+   *  está en el catálogo). Si no se pasa, Enter sin selección no hace nada. */
+  onEnterSinSeleccion?: () => void
 }
 
 export function BuscadorProducto({
@@ -55,6 +59,7 @@ export function BuscadorProducto({
   soloLectura = false,
   className = '',
   autoFocus = false,
+  onEnterSinSeleccion,
 }: PropsBuscadorProducto) {
   const { locale, moneda: fmtMoneda } = useFormato()
   const [busqueda, setBusqueda] = useState('')
@@ -124,6 +129,18 @@ export function BuscadorProducto({
       setAbierto(false)
     }
   }, [abierto, resultados, indiceActivo, manejarSeleccion])
+
+  // Enter sin item activo en el dropdown: si el padre lo permite, confirma
+  // como texto libre. Esto se maneja aparte del manejarTecla porque ese hook
+  // está acotado a abierto + resultados; este caso aplica también cuando el
+  // dropdown está cerrado o vacío.
+  const manejarEnterGlobal = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter') return
+    if (indiceActivo >= 0) return // se maneja en manejarTecla (selección activa)
+    if (!onEnterSinSeleccion) return
+    e.preventDefault()
+    onEnterSinSeleccion()
+  }, [indiceActivo, onEnterSinSeleccion])
 
   // Posición del dropdown (portal)
   const [posDropdown, setPosDropdown] = useState<{ top: number; left: number; width: number; haciaArriba: boolean } | null>(null)
@@ -219,7 +236,7 @@ export function BuscadorProducto({
           ref={inputRef}
           value={busqueda}
           onChange={manejarCambio}
-          onKeyDown={manejarTecla}
+          onKeyDown={(e) => { manejarTecla(e); manejarEnterGlobal(e) }}
           onFocus={() => {
             if (busqueda.trim() && resultados.length > 0) setAbierto(true)
           }}

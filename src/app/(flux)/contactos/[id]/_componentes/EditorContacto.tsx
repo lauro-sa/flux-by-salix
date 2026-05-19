@@ -367,7 +367,14 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
     if (esNuevo) return
     if (creadoRef.current) return
     if (tieneContactoInicial) {
-      if (desdeId && desdeNombre) setMigajaDinamica(`/contactos/${desdeId}`, desdeNombre)
+      if (desdeId && desdeNombre) {
+        // `desde` admite dos formas: ruta absoluta ("/presupuestos/abc-123")
+        // cuando se navega desde otro módulo, o ID puro de contacto cuando
+        // se navega entre contactos vinculados. La ruta absoluta gana sobre
+        // el prefijo `/contactos/` para que la migaja apunte al origen real.
+        const rutaOrigen = desdeId.startsWith('/') ? desdeId : `/contactos/${desdeId}`
+        setMigajaDinamica(rutaOrigen, desdeNombre)
+      }
       setMigajaDinamica(pathname, nombreCompleto || codigo || 'Detalle')
       return
     }
@@ -377,7 +384,14 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
         if (!data.id) return
         const nc = combinarNombre(data.nombre || '', data.apellido)
         setNombreCompleto(nc)
-        if (desdeId && desdeNombre) setMigajaDinamica(`/contactos/${desdeId}`, desdeNombre)
+        if (desdeId && desdeNombre) {
+        // `desde` admite dos formas: ruta absoluta ("/presupuestos/abc-123")
+        // cuando se navega desde otro módulo, o ID puro de contacto cuando
+        // se navega entre contactos vinculados. La ruta absoluta gana sobre
+        // el prefijo `/contactos/` para que la migaja apunte al origen real.
+        const rutaOrigen = desdeId.startsWith('/') ? desdeId : `/contactos/${desdeId}`
+        setMigajaDinamica(rutaOrigen, desdeNombre)
+      }
         setMigajaDinamica(pathname, nc || data.codigo || 'Detalle')
         setCodigo(data.codigo || '')
         setEsProvisorio(data.es_provisorio || false)

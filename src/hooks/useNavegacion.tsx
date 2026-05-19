@@ -132,6 +132,22 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
         }
         conPadres.push(inter)
       }
+
+      // Navegación cross-entity (detalle de un módulo → detalle de otro): si
+      // las intermedias trajeron el módulo de origen, el módulo destino sobra
+      // en la migaja porque no estás "entrando al listado", estás saltando de
+      // una ficha a otra. Ej: Presupuesto Pres 26-098 → Contacto Develop SRL
+      // se lee mejor como "Presupuestos > Pres 26-098 > Develop SRL" que
+      // intercalando "Contactos" en medio.
+      const moduloActual = `/${(pathname.split('/').filter(Boolean)[0] || '')}`
+      const padresIntermediosDeOtroModulo = conPadres.some(
+        m => MIGAJAS_MODULOS[m.ruta] && m.ruta !== moduloActual
+      )
+      if (padresIntermediosDeOtroModulo) {
+        const idxModuloActual = migajas.findIndex(m => m.ruta === moduloActual)
+        if (idxModuloActual >= 0) migajas.splice(idxModuloActual, 1)
+      }
+
       // Insertar al inicio (antes del módulo actual) para respetar el orden de navegación
       migajas.splice(0, 0, ...conPadres)
     }

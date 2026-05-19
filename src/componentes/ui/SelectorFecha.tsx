@@ -90,6 +90,10 @@ interface PropiedadesSelectorFecha {
   /** Año máximo navegable */
   anioMax?: number
   className?: string
+  /** 'default' (caja con borde + bg) o 'plano' (sin caja, ideal para tablas
+   *  y cards donde el padding/border del control hace que la fila parezca
+   *  "inflada" frente a otras filas de texto plano). */
+  variante?: 'default' | 'plano'
 }
 
 const MESES = [
@@ -108,6 +112,7 @@ function SelectorFecha({
   anioMin = 1920,
   anioMax = 2100,
   className = '',
+  variante = 'default',
 }: PropiedadesSelectorFecha) {
   const fmt = useFormato()
   const [abierto, setAbierto] = useState(false)
@@ -316,14 +321,21 @@ function SelectorFecha({
         </label>
       )}
 
-      {/* Input escribible con ícono de calendario */}
+      {/* Input escribible con ícono de calendario. Variante 'plano' usa
+          padding mínimo y un fondo sutil siempre visible que indica que es
+          un control interactivo (no texto plano), sin las dimensiones de la
+          caja completa que infla la altura de las filas. */}
       <div
         ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-input border text-sm transition-all w-full min-w-0',
-          'bg-superficie-tarjeta',
+          'flex items-center gap-1.5 rounded-input text-sm transition-all w-full min-w-0',
+          variante === 'plano'
+            ? 'px-2 py-1 bg-superficie-tarjeta border border-transparent hover:border-borde-sutil'
+            : 'px-3 py-2 bg-superficie-tarjeta border',
+          variante === 'plano'
+            ? (error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco' : '')
+            : (error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco'),
           disabled ? 'opacity-50 cursor-not-allowed' : '',
-          error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
         ].join(' ')}
       >
         <button

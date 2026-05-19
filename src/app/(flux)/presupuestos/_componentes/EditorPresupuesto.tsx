@@ -33,6 +33,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useEsPantallaAncha } from '@/hooks/useEsPantallaAncha'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
+import type { RefPanelChatter } from '@/componentes/entidad/_panel_chatter/tipos'
 import type {
   PresupuestoConLineas, LineaPresupuesto, TipoLinea,
   Impuesto, UnidadMedida, CondicionPago, ConfigPresupuestos,
@@ -237,6 +238,11 @@ export default function EditorPresupuesto({
   // Contacto (modo crear)
   const [contactoId, setContactoId] = useState<string | null>(null)
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoResumido | null>(null)
+
+  // Ref al PanelChatter para forzar refetch cuando insertamos entradas vía
+  // backend (cambio de estado, envío de correo). El Realtime de Supabase
+  // puede llegar con latencia o no llegar; este handle garantiza UI fresca.
+  const refPanelChatter = useRef<RefPanelChatter | null>(null)
 
   // Dirigido a (vinculación)
   const [vinculaciones, setVinculaciones] = useState<Vinculacion[]>([])
@@ -781,6 +787,9 @@ export default function EditorPresupuesto({
       if (res.ok) {
         const actualizado = await res.json()
         setPresupuesto(prev => prev ? { ...prev, ...actualizado } : null)
+        // El PATCH registra el cambio de estado en chatter desde el backend.
+        // No esperamos al Realtime: forzamos refetch para evitar UI desactualizada.
+        refPanelChatter.current?.recargar()
       } else {
         // Revertir si falló
         setPresupuesto(prev => prev ? { ...prev, estado: estadoAnterior || prev.estado } : null)
@@ -909,10 +918,28 @@ export default function EditorPresupuesto({
 
   // ─── CRUD de líneas ────────────────────────────────────────────────────
 
-  const agregarLinea = useCallback(async (tipo: TipoLinea) => {
+  // Registrar producto del catálogo para que el detector de cambios pueda
+  // comparar nombre/descripción contra el original. Declarado arriba de
+  // `agregarLinea` porque éste lo invoca al crear una línea desde la fila
+  // persistente con un producto del catálogo prellenado.
+  const registrarOriginalCatalogo = useCallback((lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => {
+    setOriginalesCatalogo(prev => {
+      const nuevo = new Map(prev)
+      nuevo.set(lineaId, { producto_id: producto.id, nombre: producto.nombre, descripcion_venta: producto.descripcion_venta })
+      return nuevo
+    })
+  }, [])
+
+  const agregarLinea = useCallback(async (tipo: TipoLinea, datosIniciales?: import('./TablaLineas').DatosInicialesLinea) => {
     const impuestos = (config?.impuestos || []) as Impuesto[]
     const impDefault = impuestos.find(i => i.activo && i.predeterminado) || impuestos.find(i => i.activo && i.porcentaje > 0)
     const pid = presupuestoIdRef.current
+
+    // Resolver campos de la línea: lo que venga en `datosIniciales` (de un
+    // producto seleccionado en la fila persistente) pisa los defaults; si no
+    // viene, se usa el impuesto por defecto del config como antes.
+    const impuestoPorcentajeFinal = datosIniciales?.impuesto_porcentaje ?? (tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0')
+    const impuestoLabelFinal = datosIniciales?.impuesto_label ?? (tipo === 'producto' && impDefault ? impDefault.label : null)
 
     if (pid) {
       try {
@@ -921,15 +948,27 @@ export default function EditorPresupuesto({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tipo_linea: tipo,
-            impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
-            impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
+            codigo_producto: datosIniciales?.codigo_producto ?? null,
+            descripcion: datosIniciales?.descripcion ?? null,
+            descripcion_detalle: datosIniciales?.descripcion_detalle ?? null,
+            precio_unitario: datosIniciales?.precio_unitario ?? null,
+            unidad: datosIniciales?.unidad ?? null,
+            impuesto_label: impuestoLabelFinal,
+            impuesto_porcentaje: impuestoPorcentajeFinal,
           }),
         })
         if (res.ok) {
           const nuevas = await res.json()
           const lista = Array.isArray(nuevas) ? nuevas : [nuevas]
           setLineas(prev => [...prev, ...lista])
-          if (lista[0]?.id) setLineaRecienAgregada(lista[0].id)
+          if (lista[0]?.id) {
+            setLineaRecienAgregada(lista[0].id)
+            // Registrar producto del catálogo para que el detector de cambios
+            // sepa comparar nombre/descripción contra el original.
+            if (datosIniciales?.productoCatalogo) {
+              registrarOriginalCatalogo(lista[0].id, datosIniciales.productoCatalogo)
+            }
+          }
           if (modo === 'editar') recargarTotalesRef.current()
         }
       } catch { /* silenciar */ }
@@ -938,18 +977,26 @@ export default function EditorPresupuesto({
       const nuevaLinea: LineaTemporal = {
         _temp: true,
         id: idTemp,
-        tipo_linea: tipo, orden: lineas.length, codigo_producto: null,
-        descripcion: tipo === 'seccion' ? '' : null, descripcion_detalle: null,
-        cantidad: '1', unidad: null, precio_unitario: '0', descuento: '0',
-        impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
-        impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
+        tipo_linea: tipo, orden: lineas.length,
+        codigo_producto: datosIniciales?.codigo_producto ?? null,
+        descripcion: datosIniciales?.descripcion ?? (tipo === 'seccion' ? '' : null),
+        descripcion_detalle: datosIniciales?.descripcion_detalle ?? null,
+        cantidad: '1',
+        unidad: datosIniciales?.unidad ?? null,
+        precio_unitario: datosIniciales?.precio_unitario ?? '0',
+        descuento: '0',
+        impuesto_label: impuestoLabelFinal,
+        impuesto_porcentaje: impuestoPorcentajeFinal,
         subtotal: '0', impuesto_monto: '0', total: '0',
         monto: tipo === 'descuento' ? '0' : null,
       }
       setLineas(prev => [...prev, nuevaLinea])
       setLineaRecienAgregada(idTemp)
+      if (datosIniciales?.productoCatalogo) {
+        registrarOriginalCatalogo(idTemp, datosIniciales.productoCatalogo)
+      }
     }
-  }, [lineas.length, config, modo])
+  }, [lineas.length, config, modo, registrarOriginalCatalogo])
 
   // ─── Asistente IA: aplicar líneas propuestas ───
   const aplicarLineasIA = useCallback(async (lineasIA: LineaPropuestaIA[]) => {
@@ -1102,15 +1149,9 @@ export default function EditorPresupuesto({
     }
   }, [])
 
-  // ─── Catálogo: almacenar originales, actualizar, revertir ───────────────
-
-  const registrarOriginalCatalogo = useCallback((lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => {
-    setOriginalesCatalogo(prev => {
-      const nuevo = new Map(prev)
-      nuevo.set(lineaId, { producto_id: producto.id, nombre: producto.nombre, descripcion_venta: producto.descripcion_venta })
-      return nuevo
-    })
-  }, [])
+  // ─── Catálogo: actualizar, revertir ─────────────────────────────────────
+  // (registrarOriginalCatalogo está declarado arriba, junto a agregarLinea,
+  // porque éste lo invoca al crear líneas con producto del catálogo.)
 
   const actualizarCatalogo = useCallback(async (lineaId: string) => {
     const original = originalesCatalogo.get(lineaId)
@@ -1328,6 +1369,28 @@ export default function EditorPresupuesto({
       await cambiarEstado('enviado') // El envío no bloquea por vencimiento — el correo siempre debe salir
     }
 
+    // Snapshot del "Dirigido a" desde el destinatario elegido en el modal.
+    // Si el correo_para matchea una vinculación del cliente, persistimos el
+    // contacto como atencion_* para que quede registrado en el documento.
+    // Sin esto, el destinatario solo viaja en el correo y no se ve al volver
+    // al detalle del presupuesto (sección "Dirigido a" queda vacía).
+    const destinatarioPrincipal = datos.correo_para[0]?.trim().toLowerCase() || ''
+    if (destinatarioPrincipal && !presupuestoRef.current?.atencion_contacto_id) {
+      const matchVinc = vinculaciones.find(
+        v => (v.vinculado.correo || '').trim().toLowerCase() === destinatarioPrincipal
+      )
+      const fuente = matchVinc?.vinculado || atencionSeleccionadaRef.current
+      if (fuente?.correo && fuente.correo.trim().toLowerCase() === destinatarioPrincipal) {
+        autoguardar({
+          atencion_contacto_id: fuente.id,
+          atencion_nombre: `${fuente.nombre} ${fuente.apellido || ''}`.trim(),
+          atencion_correo: fuente.correo,
+        })
+        setAtencionId(fuente.id)
+        setAtencionSeleccionada(fuente)
+      }
+    }
+
     // Si nunca se congeló un PDF en el chatter, guardar la versión actual como "versión original"
     const pid = presupuestoIdRef.current
     if (pid && pdfCongeladoUrl) {
@@ -1428,6 +1491,10 @@ export default function EditorPresupuesto({
           entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
       })
+      // Backend inserta la entrada 'correo_enviado' en chatter. Forzamos
+      // refetch porque Realtime puede llegar con latencia y dejar al usuario
+      // viendo el timeline sin el correo recién enviado.
+      refPanelChatter.current?.recargar()
     }
 
     const snapshot = datos._snapshot || null
@@ -1445,7 +1512,7 @@ export default function EditorPresupuesto({
         }
       },
     })
-  }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio, pdfCongeladoUrl])
+  }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio, pdfCongeladoUrl, vinculaciones, autoguardar])
 
   const handleGuardarBorrador = useCallback(async (datos: DatosBorradorCorreo) => {
     if (idPresupuesto) {
@@ -2299,6 +2366,7 @@ export default function EditorPresupuesto({
       {/* ─── Panel de actividad (Chatter) ─── */}
       {modo === 'editar' && idPresupuesto && (
         <PanelChatter
+          ref={refPanelChatter}
           entidadTipo="presupuesto"
           entidadId={idPresupuesto}
           contactoPrincipal={contactoSeleccionado ? {

@@ -3,23 +3,68 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X, Copy, Check } from 'lucide-react'
+import { ChevronUp, ChevronDown, ExternalLink, Mail, Phone, X, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
-/** Botoncito de copiar al portapapeles */
+/**
+ * Parte un texto de dirección en dos líneas para jerarquía visual:
+ * la calle (lo más útil para reconocer al cliente) queda como protagonista,
+ * y el resto (localidad/CP/ciudad/país) abajo en tamaño menor.
+ *
+ * Heurística: la primera coma separa calle del resto. Funciona para el
+ * formato canónico que arma la app ("Calle 1234, Ciudad, Provincia, País").
+ * Si no hay coma, todo va como línea principal.
+ */
+function partirDireccion(texto: string): { principal: string; secundaria: string } {
+  const idx = texto.indexOf(',')
+  if (idx < 0) return { principal: texto.trim(), secundaria: '' }
+  return {
+    principal: texto.slice(0, idx).trim(),
+    secundaria: texto.slice(idx + 1).trim(),
+  }
+}
+
+/**
+ * Botoncito de copiar al portapapeles. Pensado para vivir al final de una
+ * fila con hover bg: el botón aparece más visible al pasar el mouse por la
+ * fila (group/fila) y muestra "Copiar" inline. El texto principal de la
+ * fila sigue siendo seleccionable porque el botón no se superpone.
+ */
 function BotonCopiar({ valor }: { valor: string }) {
   const [copiado, setCopiado] = useState(false)
-  const copiar = () => {
+  const copiar = (e: React.MouseEvent) => {
+    e.stopPropagation()
     navigator.clipboard.writeText(valor)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 1500)
   }
+  // Feedback verde + label "Copiado" durante 1.5s. El label se hace visible
+  // siempre que esté copiado (no depende del hover) para que el usuario vea
+  // el efecto incluso si ya sacó el mouse del botón al hacer click.
+  // Ancho mínimo reservado para que el botón mida lo mismo con o sin el
+  // label "Copiar" visible. Sin esto, al aparecer el texto en hover, el
+  // botón crece y "mueve" los elementos vecinos (montos, direcciones).
+  const claseBase = 'ml-auto shrink-0 inline-flex items-center justify-end gap-1 min-w-[5rem] px-1.5 py-0 rounded transition-colors'
+  const claseEstado = copiado
+    ? 'text-insignia-exito bg-insignia-exito/15'
+    : 'text-texto-terciario hover:text-texto-primario hover:bg-superficie-tarjeta'
+
   return (
-    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
-      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    <button
+      type="button"
+      onClick={copiar}
+      className={`${claseBase} ${claseEstado}`}
+      title={copiado ? 'Copiado' : 'Copiar'}
+    >
+      {/* Texto a la izquierda del ícono: así el ícono queda anclado a la
+          derecha y no se mueve cuando aparece/desaparece el label en hover. */}
+      <span className={`text-xxs ${copiado ? 'inline' : 'hidden group-hover/fila:inline'}`}>
+        {copiado ? 'Copiado' : 'Copiar'}
+      </span>
+      {copiado ? <Check size={11} /> : <Copy size={11} />}
     </button>
   )
 }
@@ -94,6 +139,13 @@ interface PropiedadesSelectorContacto {
   autoFocus?: boolean
   /** Hay vinculaciones con correo disponibles (para mejorar mensaje de alerta) */
   hayVinculacionesConCorreo?: boolean
+  /** Query string `?desde=...&desde_nombre=...` para que la página destino del
+   *  contacto arme su breadcrumb apuntando al presupuesto de origen. */
+  qsDesde?: string
+  /** Oculta el botón ↗ "Ver ficha" interno cuando el padre lo renderiza
+   *  afuera del card (junto a la etiqueta de sección, por ejemplo). Así
+   *  la columna derecha del card queda solo con metadatos + copiar. */
+  ocultarBotonIrAContacto?: boolean
 }
 
 export default function SelectorContactoPresupuesto({
@@ -106,6 +158,8 @@ export default function SelectorContactoPresupuesto({
   error = false,
   autoFocus = false,
   hayVinculacionesConCorreo = false,
+  qsDesde = '',
+  ocultarBotonIrAContacto = false,
 }: PropiedadesSelectorContacto) {
   const router = useRouter()
   const [busqueda, setBusqueda] = useState('')
@@ -224,91 +278,122 @@ export default function SelectorContactoPresupuesto({
     // Si no hay direcciones pero sí hay contacto.direccion (fallback modo editar)
     const direccionTexto = direccionActual?.texto || contacto.direccion
     const direccionTipo = direccionActual ? etiquetaTipoDireccion(direccionActual.tipo) : null
+    const direccionPartida = direccionTexto ? partirDireccion(direccionTexto) : null
+    // Mostrar separador entre dirección y contacto solo si ambos bloques existen.
+    const tieneContactoBajo = !!contacto.correo || !!telefonoMostrar
+    const mostrarSeparadorBajoDireccion = !!direccionPartida && tieneContactoBajo
 
     return (
       <div className={`rounded-card bg-superficie-app/50 px-3 py-3 ${error ? 'ring-2 ring-estado-error/50' : ''}`}>
-        <div className="flex items-start justify-between">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-texto-primario">
-                {contacto.nombre} {contacto.apellido || ''}
+        {/* Bloque identidad: nombre a la izquierda, badge de tipo + acciones a
+            la derecha en la misma línea. Esto deja al nombre como el dato
+            protagonista (sin chips mezclados) y agrupa todos los elementos
+            "auxiliares" del header en un solo cluster a la derecha. */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-texto-primario truncate min-w-0 flex-1">
+            {contacto.nombre} {contacto.apellido || ''}
+          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {contacto.tipo_contacto && (
+              <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario">
+                {contacto.tipo_contacto.etiqueta}
               </span>
-              {contacto.tipo_contacto && (
-                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario">
-                  {contacto.tipo_contacto.etiqueta}
-                </span>
-              )}
-            </div>
-            {contacto.numero_identificacion && (
-              <div className="space-y-0.5">
-                <p className="text-xs text-texto-secundario flex items-center gap-1.5">
-                  {contacto.numero_identificacion}
-                  <BotonCopiar valor={contacto.numero_identificacion.replace(/-/g, '')} />
-                </p>
-                {contacto.condicion_iva && (
-                  <p className="text-xxs text-texto-terciario">
-                    {contacto.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </p>
-                )}
-              </div>
             )}
-            {direccionTexto && (
-              <div className="flex items-start gap-1.5">
-                <MapPin size={12} className="shrink-0 mt-0.5 text-texto-terciario" />
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-texto-terciario">{direccionTexto}</p>
-                  {direccionTipo && (
-                    <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
-                      {direccionTipo}
-                    </span>
-                  )}
-                  {direcciones.length > 1 && !soloLectura && (
-                    <select
-                      className="text-xxs bg-superficie-tarjeta border border-borde-sutil rounded px-1 py-0.5 text-texto-secundario cursor-pointer outline-none"
-                      value={direccionActual?.id || ''}
-                      onChange={(e) => {
-                        const dir = direcciones.find(d => d.id === e.target.value)
-                        if (dir && onCambiarDireccion) onCambiarDireccion(dir.id || '', dir.texto || '')
-                      }}
-                    >
-                      {direcciones.map((d, i) => (
-                        <option key={d.id || i} value={d.id || ''}>
-                          {etiquetaTipoDireccion(d.tipo) || `Dirección ${i + 1}`}{d.es_principal ? ' (principal)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            )}
-            {contacto.correo && (
-              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Mail size={12} className="shrink-0" />
-                {contacto.correo}
-                <BotonCopiar valor={contacto.correo} />
-              </p>
-            )}
-            {telefonoMostrar && (
-              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Phone size={12} className="shrink-0" />
-                {formatearParaMostrar(telefonoMostrar)}
-                <BotonCopiar valor={telefonoMostrar} />
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
             {!soloLectura && (
               <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={limpiar} titulo="Cambiar cliente" className="text-texto-terciario hover:text-estado-error hover:bg-estado-error/10" />
             )}
-            {contacto.id && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${contacto.id}`)} titulo="Ver ficha del contacto" />
+            {contacto.id && !ocultarBotonIrAContacto && (
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${contacto.id}${qsDesde}`)} titulo="Ver ficha del contacto" />
             )}
           </div>
         </div>
+        {contacto.numero_identificacion && (
+          <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario mt-1.5 -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+            <span className="select-text">{contacto.numero_identificacion}</span>
+            {contacto.condicion_iva && (
+              <span className="text-texto-terciario/70 select-text">
+                · {contacto.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </span>
+            )}
+            <BotonCopiar valor={contacto.numero_identificacion.replace(/-/g, '')} />
+          </div>
+        )}
+
+        {/* Bloque dirección: protagonista del bloque inferior. La calle se
+            destaca en tamaño normal; localidad/CP/país van en línea
+            secundaria más chica, según jerarquía pedida.
+            Toda la región es group/fila: el botón Copiar la dirección
+            completa aparece en hover, alineado bajo el badge de tipo.
+            Padding y separación entre filas calibrados para que el bloque
+            respire sin sentirse comprimido, pero sin que el hover lo
+            "infle" — mantiene la misma altura con y sin hover. */}
+        {direccionPartida && direccionTexto && (
+          <div className="group/fila mt-3 -mx-1.5 px-1.5 py-1.5 rounded hover:bg-superficie-hover/40 transition-colors">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-texto-primario flex-1 min-w-0 select-text">
+                {direccionPartida.principal}
+              </p>
+              {direccionTipo && (
+                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+                  {direccionTipo}
+                </span>
+              )}
+              {direcciones.length > 1 && !soloLectura && (
+                <select
+                  className="text-xxs bg-superficie-tarjeta border border-borde-sutil rounded px-1 py-0.5 text-texto-secundario cursor-pointer outline-none shrink-0"
+                  value={direccionActual?.id || ''}
+                  onChange={(e) => {
+                    const dir = direcciones.find(d => d.id === e.target.value)
+                    if (dir && onCambiarDireccion) onCambiarDireccion(dir.id || '', dir.texto || '')
+                  }}
+                >
+                  {direcciones.map((d, i) => (
+                    <option key={d.id || i} value={d.id || ''}>
+                      {etiquetaTipoDireccion(d.tipo) || `Dirección ${i + 1}`}{d.es_principal ? ' (principal)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <p className="text-xxs text-texto-terciario flex-1 min-w-0 select-text">
+                {direccionPartida.secundaria}
+              </p>
+              <BotonCopiar valor={direccionTexto} />
+            </div>
+          </div>
+        )}
+
+        {/* Separador sutil entre dirección y datos de contacto */}
+        {mostrarSeparadorBajoDireccion && (
+          <div className="mt-3 border-t border-borde-sutil/50" />
+        )}
+
+        {/* Bloque contacto: correo + teléfono. Datos secundarios pero útiles.
+            Cada fila tiene hover bg para invitar al copiado; el texto sigue
+            siendo seleccionable (no hay pointer-events:none en el span). */}
+        {tieneContactoBajo && (
+          <div className="space-y-0.5 mt-3">
+            {contacto.correo && (
+              <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+                <Mail size={11} className="shrink-0" />
+                <span className="truncate flex-1 select-text">{contacto.correo}</span>
+                <BotonCopiar valor={contacto.correo} />
+              </div>
+            )}
+            {telefonoMostrar && (
+              <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+                <Phone size={11} className="shrink-0" />
+                <span className="flex-1 select-text">{formatearParaMostrar(telefonoMostrar)}</span>
+                <BotonCopiar valor={telefonoMostrar} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Alerta si no tiene correo */}
         {!contacto.correo && (
-          <div className="mt-2 flex items-start gap-2 p-2.5 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+          <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-card bg-insignia-advertencia/10 border border-insignia-advertencia/20">
             <span className="text-insignia-advertencia text-sm shrink-0 mt-0.5">⚠</span>
             <p className="text-xs text-insignia-advertencia">
               {hayVinculacionesConCorreo

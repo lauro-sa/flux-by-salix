@@ -10,6 +10,15 @@ import type { AdjuntoConOrigen } from './SeccionAdjuntos'
 // ─── Modo de visualización del chatter ───
 export type ModoChatter = 'inferior' | 'lateral'
 
+// ─── Handle expuesto por PanelChatter via ref ───
+// Permite al padre forzar una recarga del timeline sin depender de Realtime,
+// útil al ejecutar acciones que insertan en `chatter` desde el backend
+// (cambios de estado, envío de correo) cuya notificación realtime puede llegar
+// con latencia o no llegar.
+export interface RefPanelChatter {
+  recargar: () => void
+}
+
 // ─── Props del PanelChatter principal ───
 export interface PropsPanelChatter {
   entidadTipo: string

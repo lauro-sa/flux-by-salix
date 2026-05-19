@@ -13,7 +13,7 @@
  * Se usa en: EditorPresupuesto, y cualquier módulo de documentos.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
 import {
   MessageSquare, Loader2, Search, Zap, Logs,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
@@ -36,7 +36,7 @@ import {
   SeccionAdjuntos, ModalWhatsAppChatter, useConfigActividades,
   SeccionFlujosDisparados,
 } from './_panel_chatter'
-import type { PropsPanelChatter } from './_panel_chatter/tipos'
+import type { PropsPanelChatter, RefPanelChatter } from './_panel_chatter/tipos'
 import type { AdjuntoConOrigen } from './_panel_chatter/SeccionAdjuntos'
 import { HistorialEstados } from './HistorialEstados'
 import { esEntidadConEstado } from '@/tipos/estados'
@@ -55,7 +55,7 @@ const FILTROS_BASE: { clave: FiltroChatter; etiqueta: string }[] = [
 // Acciones de sistema consideradas "pagos" para el filtro y el orden por fecha_evento
 const ACCIONES_PAGO = new Set(['pago_confirmado', 'pago_rechazado', 'portal_comprobante'])
 
-export function PanelChatter({
+export const PanelChatter = forwardRef<RefPanelChatter, PropsPanelChatter>(function PanelChatter({
   entidadTipo,
   entidadId,
   contacto,
@@ -72,7 +72,7 @@ export function PanelChatter({
   onEditarPago,
   onEliminarPago,
   className = '',
-}: PropsPanelChatter) {
+}, ref) {
   const { usuario } = useAuth()
   const { formatoHora } = useFormato()
 
@@ -154,6 +154,12 @@ export function PanelChatter({
       supabase.removeChannel(canal)
     }
   }, [entidadId, entidadTipo, reactivacion])
+
+  // ─── Handle imperativo: permite al padre forzar un refetch cuando Realtime
+  // no llega a tiempo (típico tras enviar correo / cambiar estado). ─────────
+  useImperativeHandle(ref, () => ({
+    recargar: () => { cargarRef.current() },
+  }), [])
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
@@ -841,7 +847,7 @@ export function PanelChatter({
       />
     </>
   )
-}
+})
 
 // ─── Etiquetas de secciones para el menú ───
 const ETIQUETAS_SECCION: Record<string, string> = {

@@ -50,6 +50,22 @@ export interface OriginalCatalogo {
   descripcion_venta: string | null
 }
 
+/** Datos opcionales para prellenar una línea al crearla. Se usa cuando el
+ *  usuario selecciona un producto del catálogo desde la fila persistente al
+ *  pie de la tabla — todos los campos del producto se materializan en la
+ *  nueva línea en una sola operación, en lugar de crear vacía y editar. */
+export interface DatosInicialesLinea {
+  codigo_producto?: string | null
+  descripcion?: string | null
+  descripcion_detalle?: string | null
+  precio_unitario?: string | null
+  unidad?: string | null
+  impuesto_porcentaje?: string | null
+  impuesto_label?: string | null
+  /** Producto del catálogo seleccionado (para registrar originales de cambio) */
+  productoCatalogo?: { id: string; nombre: string; descripcion_venta: string | null }
+}
+
 interface PropiedadesTablaLineas {
   lineas: LineaPresupuesto[]
   columnasVisibles: string[]
@@ -58,7 +74,7 @@ interface PropiedadesTablaLineas {
   moneda: string
   simboloMoneda: string
   soloLectura?: boolean
-  onAgregarLinea: (tipo: TipoLinea) => void
+  onAgregarLinea: (tipo: TipoLinea, datosIniciales?: DatosInicialesLinea) => void
   onEditarLinea: (id: string, campo: string, valor: string) => void
   onEliminarLinea: (id: string) => void
   onReordenar: (ids: string[]) => void
@@ -323,25 +339,40 @@ function TablaLineas({
           ))}
         </AnimatePresence>
       </Reorder.Group>
+
+      {/* ─── Fila persistente: buscador inline para agregar productos.
+          Vive después de las líneas reales, dentro del scroll horizontal
+          para que sus columnas se alineen con el resto. Al seleccionar un
+          producto del catálogo se materializa como línea con todos sus
+          datos; con Enter sobre texto libre se crea una línea solo con
+          descripción. Tras crear, el buscador se resetea solo. */}
+      {!soloLectura && (
+        <FilaAgregar
+          columnasVisibles={columnasVisibles}
+          impuestos={impuestos}
+          onAgregarLinea={onAgregarLinea}
+        />
+      )}
       </div>
 
-      {/* ─── Botones agregar línea (inline) ─── */}
+      {/* ─── Barra secundaria: tipos de línea distintos de producto.
+          Producto se agrega via la fila persistente de arriba, así que
+          acá solo quedan los tipos especiales (Sección, Nota, Descuento)
+          + el atajo a Salix IA cuando hay bus conectado. */}
       {!soloLectura && (
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-borde-sutil">
-          {(['producto', 'seccion', 'nota', 'descuento'] as TipoLinea[]).map((tipo, idx) => (
+        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-borde-sutil text-xs">
+          <span className="text-texto-terciario mr-1">Agregar:</span>
+          {(['seccion', 'nota', 'descuento'] as TipoLinea[]).map((tipo, idx) => (
             <span key={tipo} className="flex items-center">
-              {idx > 0 && <span className="text-texto-terciario/40 mx-1.5">|</span>}
+              {idx > 0 && <span className="text-texto-terciario/40 mx-1">·</span>}
               <Boton variante="fantasma" tamano="xs" onClick={() => onAgregarLinea(tipo)}>
-                {tipo === 'producto' ? 'Agregar producto' : ETIQUETA_TIPO[tipo]}
+                {ETIQUETA_TIPO[tipo]}
               </Boton>
             </span>
           ))}
-          {/* Link al armador de Salix IA — una opción más del grupo de
-              acciones, con el mismo separador "|" que tienen Sección, Nota,
-              Descuento. Solo aparece si el padre lo expone. */}
           {onAbrirAsistenteIA && (
             <span className="flex items-center">
-              <span className="text-texto-terciario/40 mx-1.5">|</span>
+              <span className="text-texto-terciario/40 mx-1">·</span>
               <button
                 type="button"
                 onClick={onAbrirAsistenteIA}
@@ -356,26 +387,93 @@ function TablaLineas({
         </div>
       )}
 
-      {/* ─── Sin líneas ─── */}
+      {/* ─── Sin líneas: solo se muestra cuando la tabla está vacía.
+          Mensaje guía corto. La invitación a Salix IA ya está en la
+          barra secundaria de arriba, no se duplica acá. */}
       {lineas.length === 0 && (
-        <div className="flex flex-col items-center gap-3">
-          <EstadoVacio titulo="Sin líneas" descripcion="Agregá productos, servicios o texto libre." />
-          {/* Invitación a usar el armador con Salix IA — solo si el padre
-              lo expone (editable + bus conectado). Es un link discreto, no
-              compite con el call-to-action de agregar manualmente. */}
-          {!soloLectura && onAbrirAsistenteIA && (
-            <button
-              type="button"
-              onClick={onAbrirAsistenteIA}
-              className="group inline-flex items-center gap-1.5 text-xs text-texto-terciario hover:text-insignia-primario-texto transition-colors"
-              title="Describí el trabajo y Salix arma las líneas por vos"
-            >
-              <Sparkles size={12} className="text-insignia-primario group-hover:scale-110 transition-transform" />
-              <span>o redactá todas las líneas con <span className="font-medium text-insignia-primario-texto">Salix IA</span></span>
-            </button>
+        <EstadoVacio titulo="Sin líneas" descripcion="Empezá a escribir en el buscador o agregá una sección/nota." />
+      )}
+    </div>
+  )
+}
+
+// ─── Fila persistente para agregar productos al final de la tabla.
+// Es un sub-componente local porque está acoplado a la estructura de
+// columnas de TablaLineas (mismas anchos, mismo padding). Mantiene su
+// propio estado de busqueda (valor + codigo) que se resetea tras cada
+// creación, dejando la fila lista para la próxima entrada. ────────────────
+function FilaAgregar({
+  columnasVisibles,
+  impuestos,
+  onAgregarLinea,
+}: {
+  columnasVisibles: string[]
+  impuestos: Impuesto[]
+  onAgregarLinea: (tipo: TipoLinea, datosIniciales?: DatosInicialesLinea) => void
+}) {
+  const [valor, setValor] = useState('')
+  const [codigo, setCodigo] = useState('')
+
+  const seleccionarProducto = useCallback((producto: {
+    id: string
+    codigo: string
+    nombre: string
+    precio_unitario: string | null
+    unidad: string
+    impuesto_id: string | null
+    descripcion_venta: string | null
+  }) => {
+    const imp = producto.impuesto_id ? impuestos.find(i => i.id === producto.impuesto_id) : null
+    onAgregarLinea('producto', {
+      codigo_producto: producto.codigo,
+      descripcion: producto.nombre,
+      descripcion_detalle: producto.descripcion_venta,
+      precio_unitario: producto.precio_unitario,
+      unidad: producto.unidad,
+      impuesto_porcentaje: imp ? String(imp.porcentaje) : undefined,
+      impuesto_label: imp ? imp.label : undefined,
+      productoCatalogo: {
+        id: producto.id,
+        nombre: producto.nombre,
+        descripcion_venta: producto.descripcion_venta,
+      },
+    })
+    setValor('')
+    setCodigo('')
+  }, [impuestos, onAgregarLinea])
+
+  // Texto libre: si el usuario escribió algo que no quiere buscar en el
+  // catálogo (un servicio ad-hoc, un producto que no está cargado), Enter
+  // crea la línea solo con la descripción. El resto de campos quedan en
+  // sus valores por defecto y los completa después.
+  const confirmarTextoLibre = useCallback(() => {
+    const texto = valor.trim()
+    if (!texto) return
+    onAgregarLinea('producto', { descripcion: texto })
+    setValor('')
+    setCodigo('')
+  }, [valor, onAgregarLinea])
+
+  return (
+    <div className="group flex items-center gap-1 px-1 py-2 border-t border-borde-sutil/30">
+      <div className="w-6 shrink-0" />
+      {columnasVisibles.map(col => (
+        <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1 ${col !== 'producto' && col !== 'descripcion' ? 'text-center' : ''}`}>
+          {col === 'producto' ? (
+            <BuscadorProducto
+              valor={valor}
+              codigo={codigo}
+              onChange={setValor}
+              onSeleccionar={seleccionarProducto}
+              onEnterSinSeleccion={confirmarTextoLibre}
+              placeholder="Empezá a escribir o buscá un producto..."
+            />
+          ) : col === 'descripcion' ? null : (
+            <span className="text-xs text-texto-terciario/25">—</span>
           )}
         </div>
-      )}
+      ))}
+      <div className="w-8 shrink-0" />
     </div>
   )
 }

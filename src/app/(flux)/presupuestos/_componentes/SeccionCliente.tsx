@@ -69,13 +69,32 @@ export default function SeccionCliente({
   const correoContacto = contactoSeleccionado?.correo || presupuesto?.contacto_correo
   const clienteSinCorreo = !correoContacto
 
+  // ID del contacto cliente para el botón ↗ "ver ficha" del header. Vive
+  // afuera del card para no competir visualmente con los metadatos
+  // (Empresa, Principal) que tenemos a la derecha dentro de la tarjeta.
+  const contactoIdHeader = contactoSeleccionado?.id || presupuesto?.contacto_id || null
+  const qsDesde = qsDesdePresupuesto(presupuesto)
+
   return (
     <div className="space-y-3 py-3">
       {/* CLIENTE */}
       <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
-        <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-          {t('documentos.cliente')}
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
+            {t('documentos.cliente')}
+          </span>
+          {contactoIdHeader && (
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<ExternalLink size={14} />}
+              onClick={() => router.push(`/contactos/${contactoIdHeader}${qsDesde}`)}
+              titulo="Ver ficha del contacto"
+              className="-my-1 text-texto-terciario hover:text-texto-primario hover:bg-transparent transition-colors"
+            />
+          )}
+        </div>
         <div className="mt-1.5">
           {modo === 'crear' ? (
             <SelectorContactoPresupuesto
@@ -103,6 +122,8 @@ export default function SeccionCliente({
               hayVinculacionesConCorreo={hayVinculacionesConCorreo}
               direccionIdSeleccionada={direccionIdSeleccionada}
               onCambiarDireccion={onCambiarDireccion}
+              qsDesde={qsDesde}
+              ocultarBotonIrAContacto
               onSeleccionarConDirigidoA={(padre, hijoId) => {
                 onSeleccionarConDirigidoA(padre, hijoId)
               }}
@@ -137,6 +158,8 @@ export default function SeccionCliente({
               hayVinculacionesConCorreo={hayVinculacionesConCorreo}
               direccionIdSeleccionada={direccionIdSeleccionada}
               onCambiarDireccion={onCambiarDireccion}
+              qsDesde={qsDesde}
+              ocultarBotonIrAContacto
             />
           )}
         </div>
@@ -149,6 +172,7 @@ export default function SeccionCliente({
           vinculaciones={vinculaciones}
           onSeleccionarAtencion={onSeleccionarAtencion}
           onLimpiar={() => onCambiarAtencionEditar(null, null)}
+          qsDesde={qsDesdePresupuesto(presupuesto)}
         />
       )}
 
@@ -198,75 +222,174 @@ export default function SeccionCliente({
   )
 }
 
-/** Botoncito de copiar al portapapeles */
+/**
+ * Botoncito de copiar al portapapeles. Pensado para vivir al final de una
+ * fila con hover bg: el botón se hace visible al pasar el mouse por la fila
+ * y muestra la palabra "Copiar" inline. El texto principal de la fila sigue
+ * siendo seleccionable porque el botón no captura el click sobre el texto.
+ *
+ * Tras copiar muestra "Copiado ✓" durante 1.5s como feedback inmediato.
+ */
 function BotonCopiar({ valor }: { valor: string }) {
   const [copiado, setCopiado] = useState(false)
-  const copiar = () => {
+  const copiar = (e: React.MouseEvent) => {
+    e.stopPropagation()
     navigator.clipboard.writeText(valor)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 1500)
   }
+  // Feedback verde + label "Copiado" durante 1.5s. El label se hace visible
+  // siempre que esté copiado (no depende del hover) para que el usuario vea
+  // el efecto incluso si ya sacó el mouse del botón al hacer click.
+  // Ancho mínimo reservado para que el botón mida lo mismo con o sin el
+  // label "Copiar" visible. Sin esto, al aparecer el texto en hover, el
+  // botón crece y "mueve" los elementos vecinos (montos, direcciones).
+  const claseBase = 'ml-auto shrink-0 inline-flex items-center justify-end gap-1 min-w-[5rem] px-1.5 py-0 rounded transition-colors'
+  const claseEstado = copiado
+    ? 'text-insignia-exito bg-insignia-exito/15'
+    : 'text-texto-terciario hover:text-texto-primario hover:bg-superficie-tarjeta'
+
   return (
-    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
-      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    <button
+      type="button"
+      onClick={copiar}
+      className={`${claseBase} ${claseEstado}`}
+      title={copiado ? 'Copiado' : 'Copiar'}
+    >
+      {/* Texto a la izquierda del ícono: así el ícono queda anclado a la
+          derecha y no se mueve cuando aparece/desaparece el label en hover. */}
+      <span className={`text-xxs ${copiado ? 'inline' : 'hidden group-hover/fila:inline'}`}>
+        {copiado ? 'Copiado' : 'Copiar'}
+      </span>
+      {copiado ? <Check size={11} /> : <Copy size={11} />}
     </button>
   )
 }
 
 // ─── Sub-componentes internos de "Dirigido a" ──────────────────────────────
 
+/**
+ * TarjetaDirigidoA — Render visual unificado de un Dirigido a seleccionado.
+ * Se usa tanto en modo crear como editar para que el look sea idéntico en
+ * borrador, enviado y bloqueado; solo cambian las acciones (Cambiar).
+ *
+ * Jerarquía: nombre arriba (lo más útil para reconocer al destinatario),
+ * separador sutil, correo y teléfono más chicos, y al pie el aviso de que
+ * aparecerá como "Atención:" en el PDF.
+ */
+function TarjetaDirigidoA({
+  nombre,
+  correo,
+  telefono,
+  cargo,
+  mostrarCambiar,
+  onCambiar,
+}: {
+  nombre: string
+  correo: string | null | undefined
+  telefono: string | null | undefined
+  cargo?: string | null
+  mostrarCambiar: boolean
+  onCambiar?: () => void
+}) {
+  const tieneDatosContacto = !!correo || !!telefono
+
+  return (
+    <div className="mt-1.5 rounded-card bg-superficie-app/50 px-3 py-3">
+      {/* Bloque identidad: nombre + cargo + acciones. El botón ↗ ahora vive
+          afuera del card, junto al label "DIRIGIDO A", así la columna
+          derecha del card queda más limpia y los metadatos del contacto no
+          compiten visualmente con la acción de navegar a su ficha. */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-texto-primario truncate">
+            {nombre}
+          </p>
+          {cargo && (
+            <p className="text-xxs text-texto-terciario mt-0.5">{cargo}</p>
+          )}
+        </div>
+        {mostrarCambiar && onCambiar && (
+          <Boton variante="fantasma" tamano="xs" onClick={onCambiar} className="shrink-0">Cambiar</Boton>
+        )}
+      </div>
+
+      {/* Separador sutil entre identidad y datos de contacto */}
+      {tieneDatosContacto && (
+        <div className="mt-3 border-t border-borde-sutil/50" />
+      )}
+
+      {/* Bloque contacto: correo + teléfono. Datos secundarios pero útiles.
+          Cada fila tiene hover bg para invitar al copiado; el texto sigue
+          siendo seleccionable (no hay pointer-events:none en el span). */}
+      {tieneDatosContacto && (
+        <div className="mt-3 space-y-0.5">
+          {correo && (
+            <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+              <Mail size={11} className="shrink-0" />
+              <span className="truncate flex-1 select-text">{correo}</span>
+              <BotonCopiar valor={correo} />
+            </div>
+          )}
+          {telefono && (
+            <div className="group/fila flex items-center gap-1.5 text-xxs text-texto-terciario -mx-1.5 px-1.5 py-1 rounded hover:bg-superficie-hover/40 transition-colors">
+              <Phone size={11} className="shrink-0" />
+              <span className="flex-1 select-text"><TextoTelefono valor={telefono} /></span>
+              <BotonCopiar valor={telefono} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pie informativo: aclaración para el usuario, no protagonista. */}
+      <p className="text-xxs text-texto-terciario/70 mt-3">
+        Aparecerá como &quot;Atención:&quot; en el PDF del documento
+      </p>
+    </div>
+  )
+}
+
 function DirigidoACrear({
   atencionSeleccionada,
   vinculaciones,
   onSeleccionarAtencion,
   onLimpiar,
+  qsDesde,
 }: {
   atencionSeleccionada: Vinculacion['vinculado'] | null
   vinculaciones: Vinculacion[]
   onSeleccionarAtencion: (vinc: Vinculacion) => void
   onLimpiar: () => void
+  qsDesde: string
 }) {
   const router = useRouter()
-
   return (
     <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
-      <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-        Dirigido a
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
+          Dirigido a
+        </span>
+        {atencionSeleccionada?.id && (
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<ExternalLink size={14} />}
+            onClick={() => router.push(`/contactos/${atencionSeleccionada.id}${qsDesde}`)}
+            titulo="Ver ficha del contacto"
+            className="-my-1 text-texto-terciario hover:text-texto-primario hover:bg-transparent transition-colors"
+          />
+        )}
+      </div>
 
       {atencionSeleccionada ? (
-        <div className="mt-1.5 rounded-card bg-superficie-app/50 px-3 py-3">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1.5">
-              <p className="text-sm font-semibold text-texto-primario">
-                {atencionSeleccionada.nombre} {atencionSeleccionada.apellido || ''}
-              </p>
-              {atencionSeleccionada.correo && (
-                <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                  <Mail size={12} className="shrink-0" />
-                  {atencionSeleccionada.correo}
-                  <BotonCopiar valor={atencionSeleccionada.correo} />
-                </p>
-              )}
-              {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
-                <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                  <Phone size={12} className="shrink-0" />
-                  <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
-                  <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Boton variante="fantasma" tamano="xs" onClick={onLimpiar}>Cambiar</Boton>
-              {atencionSeleccionada.id && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)} titulo="Ver ficha del contacto" />
-              )}
-            </div>
-          </div>
-          <p className="text-xxs text-texto-terciario mt-2">
-            Aparecera como &quot;Atencion:&quot; en el PDF del documento
-          </p>
-        </div>
+        <TarjetaDirigidoA
+          nombre={`${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()}
+          correo={atencionSeleccionada.correo}
+          telefono={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
+          mostrarCambiar
+          onCambiar={onLimpiar}
+        />
       ) : (
         <div className="mt-1.5 space-y-1">
           {vinculaciones.map(v => (
@@ -293,6 +416,16 @@ function DirigidoACrear({
   )
 }
 
+// Construye el query string `?desde=...&desde_nombre=...` para que la página
+// del contacto destino arme su breadcrumb apuntando al presupuesto de origen.
+// Sin esto, al navegar a un contacto vinculado las migajas vuelven al listado
+// "Contactos" y se pierde el rastro del documento desde el que se entró.
+function qsDesdePresupuesto(presupuesto: PresupuestoConLineas | null | undefined): string {
+  if (!presupuesto?.id) return ''
+  const etiqueta = presupuesto.numero || 'Presupuesto'
+  return `?desde=${encodeURIComponent(`/presupuestos/${presupuesto.id}`)}&desde_nombre=${encodeURIComponent(etiqueta)}`
+}
+
 function DirigidoAEditarExistente({
   presupuesto,
   atencionSeleccionada,
@@ -307,45 +440,33 @@ function DirigidoAEditarExistente({
   onCambiar: () => void
 }) {
   const router = useRouter()
-
+  const qsDesde = qsDesdePresupuesto(presupuesto)
   return (
     <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-card px-3 py-3 -mx-3">
-      <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-        Dirigido a
-      </span>
-      <div className="mt-1.5 rounded-card bg-superficie-app/50 px-3 py-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1.5">
-            <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
-            {(atencionSeleccionada?.correo || presupuesto.atencion_correo) && (
-              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Mail size={12} className="shrink-0" />
-                {atencionSeleccionada?.correo || presupuesto.atencion_correo}
-                <BotonCopiar valor={atencionSeleccionada?.correo || presupuesto.atencion_correo || ''} />
-              </p>
-            )}
-            {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
-              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <Phone size={12} className="shrink-0" />
-                <TextoTelefono valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono} />
-                <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
-              </p>
-            )}
-            {presupuesto.atencion_cargo && (
-              <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {esEditable && vinculaciones.length > 0 && (
-              <Boton variante="fantasma" tamano="xs" onClick={onCambiar}>Cambiar</Boton>
-            )}
-            {presupuesto.atencion_contacto_id && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)} titulo="Ver ficha del contacto" />
-            )}
-          </div>
-        </div>
-        <p className="text-xxs text-texto-terciario mt-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
+          Dirigido a
+        </span>
+        {presupuesto.atencion_contacto_id && (
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<ExternalLink size={14} />}
+            onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}${qsDesde}`)}
+            titulo="Ver ficha del contacto"
+            className="-my-1 text-texto-terciario hover:text-texto-primario hover:bg-transparent transition-colors"
+          />
+        )}
       </div>
+      <TarjetaDirigidoA
+        nombre={presupuesto.atencion_nombre || ''}
+        correo={atencionSeleccionada?.correo || presupuesto.atencion_correo}
+        telefono={atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono}
+        cargo={presupuesto.atencion_cargo}
+        mostrarCambiar={esEditable && vinculaciones.length > 0}
+        onCambiar={onCambiar}
+      />
     </div>
   )
 }
