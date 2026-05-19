@@ -17,7 +17,7 @@ import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight, Eye,
   ClipboardCheck, Calendar, Coins, TrendingDown, CreditCard, Download,
-  Ban,
+  Ban, Info,
 } from 'lucide-react'
 import { PlantillaEditor } from '@/componentes/entidad/PlantillaEditor'
 import { CabezaloHero, HeroRango } from '@/componentes/entidad/CabezaloHero'
@@ -35,8 +35,8 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from '@/app/(flux)/nominas/_componentes/ModalEnviarReciboNomina'
 import { ModalConfirmarPagoNomina } from '@/app/(flux)/nominas/_componentes/ModalConfirmarPagoNomina'
 import { ModalNuevoMovimientoNomina } from '@/app/(flux)/nominas/_componentes/ModalNuevoMovimientoNomina'
-import { ModalEditarCompensacion } from '@/app/(flux)/nominas/_componentes/ModalEditarCompensacion'
 import { MenuAjusteConcepto } from '@/app/(flux)/nominas/_componentes/MenuAjusteConcepto'
+import type { ContratoLaboral } from '@/tipos/nominas'
 import { ModalVerRecibo } from '@/app/(flux)/nominas/_componentes/ModalVerRecibo'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
@@ -168,6 +168,25 @@ interface Props {
    * y las acciones de pago siguen visibles.
    */
   embed?: boolean
+  /**
+   * Contrato vigente del empleado — fuente de verdad de la card
+   * "Compensación base". Si es null se muestra estado vacío. La columna
+   * legacy `miembros.compensacion_*` queda como fallback solo cuando no
+   * hay contrato cargado (caso edge / migración).
+   */
+  contratoVigente?: ContratoLaboral | null
+  /**
+   * Callback al apretar "Editar" en la card de compensación. Espera
+   * abrir el ModalEditarContrato del padre (corrección sin historial).
+   * Si no se provee, el botón queda oculto.
+   */
+  onEditarContrato?: () => void
+  /**
+   * Callback opcional: cambia al tab "Contrato vigente" del padre.
+   * Se ofrece en el microcopy como atajo para usar "Cambiar
+   * condiciones" cuando el cambio es real (aumento, modalidad).
+   */
+  onIrAContrato?: () => void
 }
 
 // ─── Formatos ───
@@ -297,6 +316,9 @@ export function PaginaEditorNominaEmpleado({
   rutaVolver,
   textoVolver = 'Nómina',
   embed = false,
+  contratoVigente,
+  onEditarContrato,
+  onIrAContrato,
 }: Props) {
   const router = useRouter()
   const supabase = crearClienteNavegador()
@@ -370,13 +392,13 @@ export function PaginaEditorNominaEmpleado({
   // persistente arriba del recibo. Se carga al cambiar de empleado.
   const [contratoTerminado, setContratoTerminado] = useState<{ fecha_fin: string } | null>(null)
 
-  // Compensación: estado local sincronizado con BD. La edición ahora vive
-  // en ModalEditarCompensacion, que solo persiste al confirmar.
+  // Compensación legacy del miembro — solo se usa para el cálculo cuando
+  // NO hay contrato vigente (fallback). Si hay contrato, la card lee de
+  // ahí; estos campos quedan para el caso edge sin contrato.
   const [compTipo, setCompTipo] = useState(empleadoInicial.compensacion_tipo)
   const [compMonto, setCompMonto] = useState(String(empleadoInicial.compensacion_monto))
   const [compFrecuencia, setCompFrecuencia] = useState(empleadoInicial.compensacion_frecuencia || 'mensual')
   const [compDias, setCompDias] = useState(5)
-  const [modalCompensacionAbierto, setModalCompensacionAbierto] = useState(false)
 
   // Confirmación de pago (ahora en ModalAdaptable)
   const [confirmandoPago, setConfirmandoPago] = useState(false)
@@ -411,7 +433,6 @@ export function PaginaEditorNominaEmpleado({
   // completar la operación sin autorización. Reactivo gracias al contexto.
   useEffect(() => {
     if (puedeEditarNomina) return
-    setModalCompensacionAbierto(false)
     setModalNuevoMovimientoAbierto(false)
     setEditandoAdelanto(null)
     setEditandoPago(null)
@@ -637,7 +658,6 @@ export function PaginaEditorNominaEmpleado({
         setCompMonto(String(resultado.compensacion_monto))
         setCompFrecuencia(resultado.compensacion_frecuencia || 'mensual')
         // Reset de estados de UI transitorios
-        setModalCompensacionAbierto(false)
         setConfirmandoPago(false)
         setModalNuevoMovimientoAbierto(false)
         setEditandoPago(null)
@@ -1603,97 +1623,156 @@ export function PaginaEditorNominaEmpleado({
             <div className="space-y-4">
 
               {/* ─── COMPENSACIÓN BASE ───
-                  Solo lectura: una cifra principal clara (monto del
-                  contrato), proyección mensual como secundario, y los 3
-                  atributos (tipo/frecuencia/días) en chips con jerarquía
-                  visual. La edición se abre en ModalEditarCompensacion. */}
-              <TarjetaPanel
-                titulo="Compensación base"
-                icono={<Coins size={13} />}
-                accion={puedeEditarNomina ? (
-                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
-                    onClick={() => setModalCompensacionAbierto(true)}>
-                    Editar
-                  </Boton>
-                ) : undefined}
-              >
-                {(parseFloat(compMonto) || 0) > 0 ? (
-                  <div className="space-y-3.5">
-                    {/* Tipo de pago como chip superior (Apple Card vibe) */}
-                    <div>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider ${
-                        compTipo === 'fijo'
-                          ? 'bg-texto-marca/15 text-texto-marca'
-                          : 'bg-insignia-info/15 text-insignia-info'
-                      }`}>
-                        {compTipo === 'fijo' ? <Landmark size={10} /> : <CalendarDays size={10} />}
-                        {compTipo === 'fijo' ? 'Sueldo fijo' : compTipo === 'por_hora' ? 'Por hora' : 'Por día'}
-                      </span>
-                    </div>
+                  Vista sintética del contrato vigente. La fuente de
+                  verdad del cálculo es `contratos_laborales` (ver el
+                  motor en /api/nominas, bloque "Calcular monto a pagar").
+                  Las columnas legacy `miembros.compensacion_*` son solo
+                  fallback cuando no hay contrato cargado.
+                  Acción "Editar" abre el ModalEditarContrato del padre
+                  (corrección de tipeo, sin historial). Para cambios
+                  reales — aumento, modalidad nueva — el microcopy invita
+                  a usar "Cambiar condiciones" desde el tab Contrato. */}
+              {(() => {
+                // Datos visibles: contrato vigente (primario) o legacy (fallback).
+                const tieneContrato = !!contratoVigente
+                const modalidadContrato = contratoVigente?.modalidad_calculo ?? null
+                const montoContrato = contratoVigente ? Number(contratoVigente.monto_base) : (parseFloat(compMonto) || 0)
+                const frecContrato = contratoVigente?.frecuencia_pago ?? compFrecuencia
+                // Mapeo modalidad → "tipo de pago" presentable.
+                const tipoLabel =
+                  modalidadContrato === 'por_hora' ? 'Por hora'
+                  : modalidadContrato === 'por_dia' ? 'Por día'
+                  : modalidadContrato && modalidadContrato.startsWith('fijo') ? 'Sueldo fijo'
+                  : compTipo === 'fijo' ? 'Sueldo fijo'
+                  : compTipo === 'por_hora' ? 'Por hora'
+                  : 'Por día'
+                const esFijo = tipoLabel === 'Sueldo fijo'
+                // Proyección mensual: usa el monto del contrato si hay,
+                // sino la fórmula legacy basada en días por semana.
+                const proyMensual = tieneContrato
+                  ? (modalidadContrato === 'fijo_mensual' ? montoContrato
+                    : modalidadContrato === 'fijo_quincenal' ? montoContrato * 2
+                    : modalidadContrato === 'fijo_semanal' ? montoContrato * 4.33
+                    : modalidadContrato === 'por_dia' ? montoContrato * compDias * 4.33
+                    : montoContrato * compDias * 8 * 4.33)  // por_hora ≈ 8h/día
+                  : proyeccionMensual
 
-                    {/* Cifra principal = proyección mensual (lo que se
-                        llevaría al mes completo). Es la respuesta a "¿cuánto
-                        gana este empleado?". Para sueldo fijo mensual coincide
-                        con el monto del contrato. La cifra base (jornal / monto
-                        del período) va abajo como secundaria. */}
-                    <div>
-                      <p className="text-3xl font-bold text-texto-primario tabular-nums leading-none">
-                        <NumeroAnimado claveAnim={animKey}>
-                          {fmtMonto(proyeccionMensual)}
-                        </NumeroAnimado>
-                        <span className="text-base font-normal text-texto-terciario ml-1">/mes</span>
-                      </p>
-                      <p className="text-[11px] text-texto-terciario mt-1.5 tabular-nums">
-                        {compTipo === 'fijo' ? (
-                          compFrecuencia === 'mensual' ? (
-                            <span className="text-texto-terciario/70">Sueldo fijo mensual</span>
-                          ) : (
-                            <>
-                              <span className="text-texto-secundario font-medium">{fmtMonto(parseFloat(compMonto))}</span>
-                              <span className="text-texto-terciario/70"> / {compFrecuencia === 'semanal' ? 'semana' : 'quincena'}</span>
-                            </>
-                          )
-                        ) : (
-                          <>
-                            <span className="text-texto-secundario font-medium">{fmtMonto(parseFloat(compMonto))}</span>
-                            <span className="text-texto-terciario/70"> / {compTipo === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4,33</span>
-                          </>
-                        )}
-                      </p>
-                    </div>
-
-                    {/* Atributos secundarios — agrupados con separadores
-                        sutiles, no como pills sueltas. */}
-                    <div className="flex items-center gap-2.5 text-[11px] text-texto-terciario pt-2.5 border-t border-white/[0.04]">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Cobra</span>
-                        <span className="text-texto-secundario font-medium">
-                          {compFrecuencia === 'semanal' ? 'semanal'
-                            : compFrecuencia === 'quincenal' ? 'quincenal'
-                            : 'mensual'}
-                        </span>
-                      </span>
-                      <span className="text-texto-terciario/30">·</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Trabaja</span>
-                        <span className="text-texto-secundario font-medium">
-                          {compDias === 5 ? 'L–V' : compDias === 6 ? 'L–S' : '7/7'}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => puedeEditarNomina && setModalCompensacionAbierto(true)}
-                    disabled={!puedeEditarNomina}
-                    className="w-full text-center py-6 text-sm text-texto-terciario hover:text-texto-marca disabled:cursor-default transition-colors"
+                return (
+                  <TarjetaPanel
+                    titulo="Compensación base"
+                    icono={<Coins size={13} />}
+                    accion={puedeEditarNomina && tieneContrato && onEditarContrato ? (
+                      <Boton variante="fantasma" tamano="xs" icono={<Pencil size={11} />}
+                        onClick={onEditarContrato}>
+                        Editar
+                      </Boton>
+                    ) : undefined}
                   >
-                    Sin compensación configurada
-                    {puedeEditarNomina && <span className="block text-[11px] mt-1 text-texto-marca">Configurar →</span>}
-                  </button>
-                )}
-              </TarjetaPanel>
+                    {montoContrato > 0 ? (
+                      <div className="space-y-3.5">
+                        {/* Tipo de pago como chip superior (Apple Card vibe) */}
+                        <div>
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider ${
+                            esFijo
+                              ? 'bg-texto-marca/15 text-texto-marca'
+                              : 'bg-insignia-info/15 text-insignia-info'
+                          }`}>
+                            {esFijo ? <Landmark size={10} /> : <CalendarDays size={10} />}
+                            {tipoLabel}
+                          </span>
+                        </div>
+
+                        {/* Cifra principal = proyección mensual (lo que se
+                            llevaría al mes completo). Cifra base abajo como
+                            secundaria, etiquetada. */}
+                        <div>
+                          <p className="text-3xl font-bold text-texto-primario tabular-nums leading-none">
+                            <NumeroAnimado claveAnim={animKey}>
+                              {fmtMonto(proyMensual)}
+                            </NumeroAnimado>
+                            <span className="text-base font-normal text-texto-terciario ml-1">/mes</span>
+                          </p>
+                          <p className="text-[11px] text-texto-terciario mt-1.5 tabular-nums">
+                            {esFijo ? (
+                              modalidadContrato === 'fijo_mensual' || (!tieneContrato && frecContrato === 'mensual') ? (
+                                <span className="text-texto-terciario/70">Sueldo fijo mensual</span>
+                              ) : (
+                                <>
+                                  <span className="text-texto-secundario font-medium">{fmtMonto(montoContrato)}</span>
+                                  <span className="text-texto-terciario/70"> / {
+                                    modalidadContrato === 'fijo_semanal' || frecContrato === 'semanal' ? 'semana'
+                                    : modalidadContrato === 'fijo_quincenal' || frecContrato === 'quincenal' ? 'quincena'
+                                    : 'mes'
+                                  }</span>
+                                </>
+                              )
+                            ) : (
+                              <>
+                                <span className="text-texto-secundario font-medium">{fmtMonto(montoContrato)}</span>
+                                <span className="text-texto-terciario/70"> / {modalidadContrato === 'por_hora' ? 'hora' : 'día'} · {compDias} días/sem × 4,33</span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Atributos secundarios */}
+                        <div className="flex items-center gap-2.5 text-[11px] text-texto-terciario pt-2.5 border-t border-white/[0.04]">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Cobra</span>
+                            <span className="text-texto-secundario font-medium">
+                              {frecContrato === 'semanal' ? 'semanal'
+                                : frecContrato === 'quincenal' ? 'quincenal'
+                                : frecContrato === 'diaria' ? 'diaria'
+                                : 'mensual'}
+                            </span>
+                          </span>
+                          <span className="text-texto-terciario/30">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-texto-terciario/70 uppercase tracking-wider text-[10px]">Trabaja</span>
+                            <span className="text-texto-secundario font-medium">
+                              {compDias === 5 ? 'L–V' : compDias === 6 ? 'L–S' : '7/7'}
+                            </span>
+                          </span>
+                        </div>
+
+                        {/* Microcopy explicando los dos caminos de edición.
+                            Solo aparece si el operador puede editar y existe
+                            el callback para ir al tab Contrato. */}
+                        {puedeEditarNomina && tieneContrato && onIrAContrato && (
+                          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/[0.025] border border-white/[0.05]">
+                            <Info size={11} className="text-texto-terciario mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-texto-terciario leading-relaxed">
+                              <span className="text-texto-secundario font-medium">Editar</span> es para
+                              corregir un dato cargado mal (no crea historial).
+                              Para un aumento o cambio de modalidad,{' '}
+                              <button
+                                type="button"
+                                onClick={onIrAContrato}
+                                className="text-texto-marca hover:underline font-medium"
+                              >
+                                Cambiar condiciones
+                              </button>{' '}
+                              en el tab Contrato (preserva la fecha desde la cual aplica).
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => puedeEditarNomina && onIrAContrato?.()}
+                        disabled={!puedeEditarNomina || !onIrAContrato}
+                        className="w-full text-center py-6 text-sm text-texto-terciario hover:text-texto-marca disabled:cursor-default transition-colors"
+                      >
+                        Sin contrato laboral cargado
+                        {puedeEditarNomina && onIrAContrato && (
+                          <span className="block text-[11px] mt-1 text-texto-marca">Cargar en tab Contrato →</span>
+                        )}
+                      </button>
+                    )}
+                  </TarjetaPanel>
+                )
+              })()}
 
               {/* ─── AJUSTES DEL PERÍODO ───
                   Movimientos one-off del recibo que no son parte del
@@ -2160,42 +2239,10 @@ export function PaginaEditorNominaEmpleado({
         onCreado={recargarDatos}
       />
 
-      {/* Modal de edición de compensación base — reemplaza al editor
-          inline. Solo persiste al confirmar (no autoguardado por campo
-          como antes). El callback dispara guardarCompensacion por cada
-          campo modificado, manteniendo el historial granular. */}
-      <ModalEditarCompensacion
-        abierto={modalCompensacionAbierto}
-        onCerrar={() => setModalCompensacionAbierto(false)}
-        valoresIniciales={{
-          tipo: (compTipo === 'fijo' ? 'fijo' : 'por_dia') as 'fijo' | 'por_dia',
-          monto: parseFloat(compMonto) || 0,
-          frecuencia: (compFrecuencia as 'semanal' | 'quincenal' | 'mensual'),
-          dias: (compDias as 5 | 6 | 7),
-        }}
-        onGuardar={async (nueva, cambios) => {
-          // Optimista en cliente para que la card refleje al instante.
-          if (cambios.tipo !== undefined) setCompTipo(nueva.tipo)
-          if (cambios.monto !== undefined) setCompMonto(String(nueva.monto))
-          if (cambios.frecuencia !== undefined) setCompFrecuencia(nueva.frecuencia)
-          if (cambios.dias !== undefined) setCompDias(nueva.dias)
-          // Persistir y registrar historial por cada campo cambiado.
-          const tareas: Promise<unknown>[] = []
-          if (cambios.tipo !== undefined) {
-            tareas.push(Promise.resolve(guardarCompensacion('compensacion_tipo', nueva.tipo, compTipo)))
-          }
-          if (cambios.monto !== undefined) {
-            tareas.push(Promise.resolve(guardarCompensacion('compensacion_monto', nueva.monto, parseFloat(compMonto) || 0)))
-          }
-          if (cambios.frecuencia !== undefined) {
-            tareas.push(Promise.resolve(guardarCompensacion('compensacion_frecuencia', nueva.frecuencia, compFrecuencia)))
-          }
-          if (cambios.dias !== undefined) {
-            tareas.push(Promise.resolve(guardarCompensacion('dias_trabajo', nueva.dias, compDias)))
-          }
-          await Promise.all(tareas)
-        }}
-      />
+      {/* La edición del sueldo / modalidad / frecuencia se hace en el
+          ModalEditarContrato del padre (tab "Contrato vigente"). La
+          card "Compensación base" de acá es solo vista del contrato y
+          dispara onEditarContrato cuando el operador la toca. */}
 
       {/* Modal "Ver recibo" — preview del PDF + acciones unificadas.
           Si ya hay pago grabado del período, usa el PDF definitivo;
