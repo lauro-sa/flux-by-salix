@@ -43,7 +43,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil, onMenuActivoChan
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
   const { esPropietario, tienePermiso } = useRol()
   const { tieneModulo } = useModulos()
-  const { noLeidasPorCategoria, porCategoria } = useNotificaciones({ deshabilitado: false })
+  const { noLeidasPorCategoria, porCategoria } = useNotificaciones()
   const { hayPendientes } = usePendientes()
   const sonido = useSonido()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }

@@ -33,6 +33,7 @@ import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import type { Preferencias } from '@/hooks/usePreferencias'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorModulos } from '@/hooks/useModulos'
+import { ProveedorNotificaciones } from '@/hooks/useNotificaciones'
 import { PlantillaApp } from '@/componentes/entidad/PlantillaApp'
 import type { Empresa, ModuloConEstado } from '@/tipos'
 
@@ -83,9 +84,11 @@ export function ProveedoresCliente({
               <ProveedorEnvioPendiente>
               <ProveedorCambiosPendientes>
               <ProveedorIndicadorGuardado>
-                <PlantillaApp>
-                  {children}
-                </PlantillaApp>
+                <ProveedorNotificaciones>
+                  <PlantillaApp>
+                    {children}
+                  </PlantillaApp>
+                </ProveedorNotificaciones>
               </ProveedorIndicadorGuardado>
               </ProveedorCambiosPendientes>
               </ProveedorEnvioPendiente>

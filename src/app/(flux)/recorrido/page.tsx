@@ -175,8 +175,11 @@ export default function PaginaRecorrido() {
   }, [fechaSeleccionada]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Realtime: recargar cuando el coordinador cambia visitas o paradas del recorrido.
+  // Filtro empresa_id obligatorio para no saturar el compute de Supabase en multi-tenant.
   useEffect(() => {
+    if (!empresa?.id) return
     const supabase = crearClienteNavegador()
+    const filtro = `empresa_id=eq.${empresa.id}`
     const recargar = () => {
       fetch(`/api/recorrido/hoy?fecha=${fechaSeleccionada}`)
         .then(r => r.ok ? r.json() : null)
@@ -190,12 +193,13 @@ export default function PaginaRecorrido() {
     }
     const canal = supabase
       .channel('recorrido-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'visitas' }, recargar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visitas', filter: filtro }, recargar)
+      // recorrido_paradas no tiene empresa_id (es tabla hija de recorridos): RLS filtra server-side.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recorrido_paradas' }, recargar)
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
-  }, [fechaSeleccionada])
+  }, [fechaSeleccionada, empresa?.id])
 
   const cambiarFecha = useCallback((nuevaFecha: string) => {
     setFechaSeleccionada(nuevaFecha)

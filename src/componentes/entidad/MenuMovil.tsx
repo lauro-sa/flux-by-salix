@@ -96,7 +96,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   const { empresa, empresas, cambiarEmpresa } = useEmpresa()
   const { tienePermiso, esPropietario } = useRol()
   const { tieneModulo } = useModulos()
-  const { noLeidasPorCategoria, porCategoria } = useNotificaciones({ deshabilitado: false })
+  const { noLeidasPorCategoria, porCategoria } = useNotificaciones()
 
   // iOS: position:fixed en body para evitar scroll detrás del menú
   useScrollLockiOS(abierto)
