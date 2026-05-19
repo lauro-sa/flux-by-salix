@@ -13,6 +13,7 @@ import {
   calcularMetricasAsistencia,
   evaluarCondicion,
   parsearCondicion,
+  aplicaFrecuenciaAlPeriodo,
   type DatosCalculoRecibo,
   type AsistenciaInput,
   type ConceptoContratoInput,
@@ -698,6 +699,39 @@ describe('calcularReciboPuro — contrato terminado', () => {
     const r = calcularReciboPuro(datosBase())
     expect(r.advertencias.some(a => a.includes('terminó'))).toBe(false)
   })
+
+  it('contrato inicia DESPUÉS del fin del período → monto base 0 + advertencia', () => {
+    const c = contrato({
+      fecha_inicio: '2026-05-05',
+      fecha_fin: null,
+      vigente: true,
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    expect(r.monto_base_calculado).toBe(0)
+    expect(r.advertencias.some(a => a.includes('contrato inicia el 2026-05-05'))).toBe(true)
+    expect(r.neto).toBe(0)
+  })
+
+  it('contrato inicia DENTRO del período → calcula normal + advertencia para revisar manualmente', () => {
+    const c = contrato({
+      fecha_inicio: '2026-04-15',
+      fecha_fin: null,
+      vigente: true,
+    })
+    const r = calcularReciboPuro(datosBase({
+      contrato: c,
+      periodo_inicio: '2026-04-01',
+      periodo_fin: '2026-04-30',
+    }))
+    // Modalidad fijo_mensual: calcula completo, el operador debe ajustar manualmente.
+    expect(r.monto_base_calculado).toBe(400000)
+    expect(r.advertencias.some(a => a.includes('contrato inicia el 2026-04-15'))).toBe(true)
+    expect(r.advertencias.some(a => a.includes('dentro del período'))).toBe(true)
+  })
 })
 
 describe('calcularReciboPuro — licencias', () => {
@@ -911,5 +945,43 @@ describe('calcularReciboPuro — ajustes puntuales del período', () => {
     }))
     expect(r.conceptos_aplicados).toHaveLength(0)
     expect(r.conceptos_sugeridos[0].detalle).toContain('Excluido del período')
+  })
+})
+
+// ════════════════════════════════════════════════════════════════
+// aplicaFrecuenciaAlPeriodo
+// ════════════════════════════════════════════════════════════════
+
+describe('aplicaFrecuenciaAlPeriodo', () => {
+  // Vista mes: aplican TODOS.
+  it('vista mes incluye a todas las frecuencias', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'mes', '2026-05-01', '2026-05-31')).toBe(true)
+  })
+
+  // Vista quincena: quincenales aplican, semanales aplican, mensuales solo en la 2da.
+  it('vista quincena: quincenal y semanal aplican siempre', () => {
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'quincena', '2026-05-16', '2026-05-31')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
+  })
+  it('vista quincena 1: mensual NO aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'quincena', '2026-05-01', '2026-05-15')).toBe(false)
+  })
+  it('vista quincena 2 (última del mes): mensual SÍ aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'quincena', '2026-05-16', '2026-05-31')).toBe(true)
+  })
+
+  // Vista semana: solo semanales.
+  it('vista semana: solo semanal aplica', () => {
+    expect(aplicaFrecuenciaAlPeriodo('semanal', 'semana', '2026-05-04', '2026-05-10')).toBe(true)
+    expect(aplicaFrecuenciaAlPeriodo('quincenal', 'semana', '2026-05-04', '2026-05-10')).toBe(false)
+    expect(aplicaFrecuenciaAlPeriodo('mensual', 'semana', '2026-05-04', '2026-05-10')).toBe(false)
+  })
+
+  // Frecuencia desconocida / legacy: aplica (no romper datos viejos).
+  it('frecuencia desconocida → aplica (legacy)', () => {
+    expect(aplicaFrecuenciaAlPeriodo('eventual', 'quincena', '2026-05-01', '2026-05-15')).toBe(true)
   })
 })

@@ -86,13 +86,15 @@ function calcularInfoHero(
 
   // Caso 1: período cerrado → celebratorio con total transferido
   if (estadoPeriodo === 'cerrado') {
-    const totalPagado = empleadosConNeto
-      .filter(e => e.estado_liquidacion === 'pagado')
-      .reduce((s, e) => s + e.monto_neto, 0)
+    const pagados = empleadosConNeto.filter(e => e.estado_liquidacion === 'pagado')
+    const totalPagado = pagados.reduce((s, e) => s + e.monto_neto, 0)
     return {
       modo: 'al-dia',
       titulo: '✓ Período al día',
-      subtitulo: `${empleadosConNeto.length} de ${empleadosConNeto.length} empleados pagados · ${formatearMonto(totalPagado)} transferidos`,
+      // Mostramos pagados/total real (no N de N), porque un período puede
+      // estar cerrado con empleados que quedaron sin pagar por excepción
+      // operativa. La cifra transferida es solo de los efectivamente pagados.
+      subtitulo: `${pagados.length} de ${empleadosConNeto.length} empleados pagados · ${formatearMonto(totalPagado)} transferidos`,
       cifra: null,
       ctaEtiqueta: null,
       ctaIcono: <Lock size={18} />,

@@ -20,7 +20,7 @@
 
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet, Paperclip, FileCheck2 } from 'lucide-react'
+import { Eye, FileCheck, Send, Banknote, Mail, Lock, CircleDot, AlertTriangle, Building2, Wallet, Paperclip, FileCheck2, Hourglass, CalendarClock } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 export interface ResultadoNominaCard {
@@ -41,6 +41,12 @@ export interface ResultadoNominaCard {
   cuotas_adelanto: number
   monto_neto: number
   contrato_terminado_antes?: boolean
+  contrato_no_iniciado?: boolean
+  /** Si false, la card va en gris y no suma al total — el empleado no
+   *  cobra este período según su frecuencia natural. */
+  aplica_al_periodo?: boolean
+  /** mensual / quincenal / semanal — para el microcopy en card gris. */
+  frecuencia_pago?: string
   recibo_correo_enviado_en?: string | null
   recibo_correo_enviado_a?: string | null
   recibo_whatsapp_enviado_en?: string | null
@@ -145,12 +151,41 @@ interface InfoEstadoFila {
   ctaIcono: React.ReactNode
 }
 
-function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoFila {
+function infoEstadoFila(
+  estado: string,
+  contratoTerminado: boolean,
+  contratoNoIniciado: boolean,
+  fueraDeFrecuencia: boolean,
+  frecuenciaPago?: string,
+): InfoEstadoFila {
   if (contratoTerminado) {
     return {
       etiqueta: 'Terminado',
       colorChip: 'text-insignia-peligro',
       iconoChip: AlertTriangle,
+      ctaEtiqueta: 'Ver',
+      ctaIcono: <Eye size={12} />,
+    }
+  }
+  if (contratoNoIniciado) {
+    return {
+      etiqueta: 'Aún no inicia',
+      colorChip: 'text-texto-terciario',
+      iconoChip: Hourglass,
+      ctaEtiqueta: 'Ver',
+      ctaIcono: <Eye size={12} />,
+    }
+  }
+  if (fueraDeFrecuencia) {
+    const frecLabel =
+      frecuenciaPago === 'mensual' ? 'al fin de mes'
+      : frecuenciaPago === 'quincenal' ? 'cada quincena'
+      : frecuenciaPago === 'semanal' ? 'cada semana'
+      : 'en otro período'
+    return {
+      etiqueta: `Cobra ${frecLabel}`,
+      colorChip: 'text-texto-terciario',
+      iconoChip: CalendarClock,
       ctaEtiqueta: 'Ver',
       ctaIcono: <Eye size={12} />,
     }
@@ -195,8 +230,16 @@ function infoEstadoFila(estado: string, contratoTerminado: boolean): InfoEstadoF
 export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecibo, onAdjuntarComprobante }: Props) {
   const router = useRouter()
   const terminado = !!r.contrato_terminado_antes
+  const noIniciado = !!r.contrato_no_iniciado
+  // `aplica_al_periodo` viene del backend; default true para no romper
+  // consumidores que no envían el flag (compatibilidad hacia atrás).
+  const fueraDeFrecuencia = r.aplica_al_periodo === false && !terminado && !noIniciado
+  const fueraDePeriodo = terminado || noIniciado || fueraDeFrecuencia
   const estado = r.estado_liquidacion ?? 'borrador'
-  const info = useMemo(() => infoEstadoFila(estado, terminado), [estado, terminado])
+  const info = useMemo(
+    () => infoEstadoFila(estado, terminado, noIniciado, fueraDeFrecuencia, r.frecuencia_pago),
+    [estado, terminado, noIniciado, fueraDeFrecuencia, r.frecuencia_pago],
+  )
   const ringClase = useMemo(() => colorRingPorId(r.miembro_id), [r.miembro_id])
 
   // Click general de la card → siempre redirige al detalle del empleado.
@@ -226,10 +269,10 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
     <article
       onClick={handleClick}
       className={`group cursor-pointer rounded-2xl border border-white/[0.05] bg-white/[0.025] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all px-4 py-3.5 ${
-        terminado ? 'opacity-60' : ''
+        fueraDePeriodo ? 'opacity-60' : ''
       }`}
     >
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-3 items-stretch">
         {/* ── Identidad + datos ── */}
         <div className="flex items-start gap-3 min-w-0">
           {/* Avatar con ring de color hash. Si hay foto, la muestra; sino iniciales. */}
@@ -302,69 +345,123 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
               </div>
             )}
 
-            {/* Detalle de asistencia + barra cumplimiento (vista no compacta) */}
-            {!compacta && (
-              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-3 flex-wrap text-[11px] text-texto-terciario">
-                <span className="tabular-nums">
-                  <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong> días
-                </span>
-                <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
-                {r.dias_tardanza > 0 && (
-                  <span className="text-insignia-advertencia">{r.dias_tardanza} tard.</span>
-                )}
-                {r.dias_ausentes > 0 && (
-                  <span className="text-insignia-peligro/80">{r.dias_ausentes} aus.</span>
-                )}
-                {r.descuento_adelanto > 0 && (
-                  <span className="text-insignia-advertencia">
-                    Adelanto −{fmtMonto(r.descuento_adelanto)}
-                    {r.cuotas_adelanto > 1 && ` · ${r.cuotas_adelanto} cuotas`}
-                    {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0
-                      ? ` · saldo ${fmtMonto(r.saldo_adelantos_vigentes)}`
-                      : ''}
-                  </span>
-                )}
-                {!r.descuento_adelanto && r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 && (
-                  <span className="text-texto-terciario">
-                    Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
-                  </span>
-                )}
-                {r.cuenta_destino && (
-                  <span className="inline-flex items-center gap-1 text-texto-terciario/80">
-                    {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
-                    <span className="truncate max-w-[140px]">
-                      {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+            {/* Detalle de asistencia + barra cumplimiento (vista no compacta).
+                Estructura en dos sub-líneas para jerarquizar:
+                  Línea A: asistencia básica (días/horas/tardanzas/ausencias)
+                          + barra de cumplimiento a la derecha.
+                  Línea B (condicional): info financiera (adelanto + cuenta).
+                Si no hay nada financiero, la línea B se omite y la card
+                respira más. */}
+            {!compacta && (() => {
+              const hayFinanciero =
+                r.descuento_adelanto > 0 ||
+                (r.saldo_adelantos_vigentes ?? 0) > 0 ||
+                !!r.cuenta_destino
+              return (
+                <div className="mt-2 pt-2 border-t border-white/[0.04] space-y-1 text-[11px] text-texto-terciario">
+                  {/* ── Línea A: asistencia + barra ── */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="tabular-nums">
+                      <strong className="text-texto-primario font-medium">{r.dias_trabajados}/{r.dias_laborales}</strong>
+                      <span className="ml-1 text-texto-terciario/70">días</span>
                     </span>
-                  </span>
-                )}
-                {/* Barra cumplimiento jornada (Raycast progress vibe) */}
-                <span className="inline-flex items-center gap-[2px] ml-auto" aria-hidden>
-                  {Array.from({ length: llenos }).map((_, i) => (
+                    <span className="text-texto-terciario/40">·</span>
+                    <span className="tabular-nums">{fmtHoras(r.horas_netas)}</span>
+                    {r.dias_tardanza > 0 && (
+                      <>
+                        <span className="text-texto-terciario/40">·</span>
+                        <span className="text-insignia-advertencia tabular-nums">{r.dias_tardanza} tard.</span>
+                      </>
+                    )}
+                    {r.dias_ausentes > 0 && (
+                      <>
+                        <span className="text-texto-terciario/40">·</span>
+                        <span className="text-insignia-peligro/80 tabular-nums">{r.dias_ausentes} aus.</span>
+                      </>
+                    )}
+                    {/* Bloque de asistencia: etiqueta + porcentaje arriba,
+                        puntitos día-por-día debajo. En columna, alineado a la
+                        derecha — la columna fija del precio garantiza misma
+                        posición en todas las cards. La etiqueta explica qué
+                        son los puntitos sin necesidad de tooltip. */}
                     <span
-                      key={`l-${i}`}
-                      className={`block size-1.5 rounded-sm ${ratio >= 0.9 ? 'bg-insignia-exito/70' : ratio >= 0.6 ? 'bg-texto-secundario/40' : 'bg-insignia-advertencia/70'}`}
-                    />
-                  ))}
-                  {Array.from({ length: vacios }).map((_, i) => (
-                    <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
-                  ))}
-                </span>
-              </div>
-            )}
+                      className="ml-auto inline-flex flex-col items-end gap-1"
+                      title={`${r.dias_trabajados} de ${r.dias_laborales} días trabajados`}
+                    >
+                      <span className="text-[10px] text-texto-terciario/80 leading-none">
+                        Asistencia <span className="tabular-nums text-texto-secundario font-medium">{Math.round(ratio * 100)}%</span>
+                      </span>
+                      <span className="inline-flex items-center gap-[2px]" aria-hidden>
+                        {Array.from({ length: llenos }).map((_, i) => (
+                          <span
+                            key={`l-${i}`}
+                            className={`block size-1.5 rounded-sm ${ratio >= 0.9 ? 'bg-insignia-exito/70' : ratio >= 0.6 ? 'bg-texto-secundario/40' : 'bg-insignia-advertencia/70'}`}
+                          />
+                        ))}
+                        {Array.from({ length: vacios }).map((_, i) => (
+                          <span key={`v-${i}`} className="block size-1.5 rounded-sm bg-white/[0.05]" />
+                        ))}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* ── Línea B: financiero (solo si hay adelanto, saldo o cuenta) ── */}
+                  {hayFinanciero && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.descuento_adelanto > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-insignia-advertencia">
+                          <span className="tabular-nums">Adelanto −{fmtMonto(r.descuento_adelanto)}</span>
+                          {r.cuotas_adelanto > 1 && (
+                            <span className="text-insignia-advertencia/70">({r.cuotas_adelanto} cuotas)</span>
+                          )}
+                          {r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                            <span className="text-insignia-advertencia/70 tabular-nums">
+                              · saldo {fmtMonto(r.saldo_adelantos_vigentes)}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : r.saldo_adelantos_vigentes && r.saldo_adelantos_vigentes > 0 ? (
+                        <span className="tabular-nums">
+                          Saldo adelantos {fmtMonto(r.saldo_adelantos_vigentes)}
+                        </span>
+                      ) : null}
+
+                      {r.cuenta_destino && (
+                        <>
+                          {(r.descuento_adelanto > 0 || (r.saldo_adelantos_vigentes ?? 0) > 0) && (
+                            <span className="text-texto-terciario/40">·</span>
+                          )}
+                          <span className="inline-flex items-center gap-1 text-texto-terciario/80">
+                            {r.cuenta_destino.tipo_pago === 'digital' ? <Wallet size={10} /> : <Building2 size={10} />}
+                            <span className="truncate max-w-[180px]">
+                              {r.cuenta_destino.etiqueta || r.cuenta_destino.banco || (r.cuenta_destino.tipo_pago === 'digital' ? 'Billetera' : 'Banco')}
+                            </span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
 
-        {/* ── Cifra + CTA ── */}
-        <div className="flex md:flex-col items-end md:items-end gap-2 md:gap-1 shrink-0">
+        {/* ── Cifra + acciones (columna derecha) ──
+            Precio arriba, botones abajo, separados por `justify-between` para
+            que tomen toda la altura de la card. Si hay comprobante adjunto
+            (estado pagado), el ícono Paperclip/FileCheck2 va al lado del CTA. */}
+        <div className="flex flex-col items-end justify-between gap-3 shrink-0">
           <p className={`text-lg md:text-xl font-bold tabular-nums leading-none ${
-            estado === 'pagado' ? 'text-insignia-exito' : 'text-texto-primario'
+            fueraDeFrecuencia ? 'text-texto-terciario'
+            : estado === 'pagado' ? 'text-insignia-exito'
+            : 'text-texto-primario'
           }`}>
             {fmtMonto(r.monto_neto)}
           </p>
+
           {!compacta && (
             <div className="flex items-center gap-1.5">
-              {/* Acción secundaria: adjuntar comprobante. Solo si está pagado
-                  y hay handler. Cambia ícono según haya o no comprobante. */}
               {estado === 'pagado' && r.pago_nomina_id && onAdjuntarComprobante && (
                 <button
                   type="button"
@@ -391,6 +488,16 @@ export function CardEmpleadoNomina({ resultado: r, compacta, onClick, onVerRecib
                 {info.ctaEtiqueta}
               </button>
             </div>
+          )}
+          {compacta && (
+            <button
+              type="button"
+              onClick={handleCta}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-marca border border-texto-marca/30 hover:bg-texto-marca/10 transition-colors"
+            >
+              {info.ctaIcono}
+              {info.ctaEtiqueta}
+            </button>
           )}
         </div>
       </div>
