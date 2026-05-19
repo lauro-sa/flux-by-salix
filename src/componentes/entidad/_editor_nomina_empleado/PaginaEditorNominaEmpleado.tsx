@@ -1136,154 +1136,12 @@ export function PaginaEditorNominaEmpleado({
           {/* ── GRID 2 COLUMNAS ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-            {/* ═══════ COLUMNA IZQUIERDA ═══════ */}
+            {/* ═══════ COLUMNA IZQUIERDA — Desglose / Ajustes / Pagos ═══════
+                Concentra todo lo "financiero" del período: cómo se calcula
+                el recibo (Desglose), los ajustes que modifican ese cálculo
+                (Ajustes) y los pagos efectivamente registrados (Pagos).
+                Lectura vertical de causa → efecto. */}
             <div className="space-y-4">
-
-              {/* ─── ASISTENCIA (con mini-calendario) ─── */}
-              <TarjetaPanel
-                titulo="Asistencia"
-                subtitulo="del período"
-                icono={<ClipboardCheck size={13} />}
-                accion={recalculando ? (
-                  <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />
-                ) : undefined}
-              >
-                <div className="grid grid-cols-4 gap-3 text-center mb-4">
-                  <div>
-                    <p className="text-xl font-bold text-texto-primario tabular-nums">
-                      <NumeroAnimado claveAnim={animKey}>
-                        {emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span>
-                      </NumeroAnimado>
-                    </p>
-                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Trabajados</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-insignia-exito tabular-nums">
-                      <NumeroAnimado claveAnim={animKey}>{diasAHorario}</NumeroAnimado>
-                    </p>
-                    <p className="text-[10px] text-texto-terciario uppercase mt-1">A horario</p>
-                  </div>
-                  <div>
-                    <p className={`text-xl font-bold tabular-nums ${emp.dias_tardanza > 0 ? 'text-insignia-advertencia' : 'text-texto-terciario'}`}>
-                      <NumeroAnimado claveAnim={animKey}>{emp.dias_tardanza}</NumeroAnimado>
-                    </p>
-                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Tardanzas</p>
-                  </div>
-                  <div>
-                    <p className={`text-xl font-bold tabular-nums ${emp.dias_ausentes > 0 ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
-                      <NumeroAnimado claveAnim={animKey}>{emp.dias_ausentes}</NumeroAnimado>
-                    </p>
-                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Ausencias</p>
-                  </div>
-                </div>
-
-                {/* ─── Horas del período ───
-                    Total + promedio diario. El color del promedio
-                    refleja si está fuera del rango "normal" para
-                    detectar sobreesfuerzo de un vistazo:
-                      ≤ 9h    → texto secundario (normal)
-                      9-11h   → advertencia (largo)
-                      > 11h   → peligro (muy largo, considerar bono)
-                    Solo se muestra si el empleado trabajó al menos un
-                    día en el período (evita "0h promedio: 0h" en
-                    períodos sin actividad). */}
-                {emp.dias_trabajados > 0 && emp.horas_netas > 0 && (
-                  <div className="mb-4 rounded-lg border border-borde-sutil bg-superficie-elevada/40 px-3 py-2.5">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-texto-terciario mb-1.5">
-                      Horas del período
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-texto-primario tabular-nums leading-tight">
-                          {fmtHoras(emp.horas_netas)}
-                        </p>
-                        <p className="text-[11px] text-texto-terciario mt-0.5">
-                          Total trabajado
-                        </p>
-                      </div>
-                      <div>
-                        {(() => {
-                          const prom = emp.promedio_horas_diario
-                          const colorPromedio = prom > 11
-                            ? 'text-insignia-peligro'
-                            : prom > 9
-                              ? 'text-insignia-advertencia'
-                              : 'text-texto-primario'
-                          return (
-                            <>
-                              <p className={`text-base font-semibold tabular-nums leading-tight ${colorPromedio}`}>
-                                {fmtHoras(prom)}
-                                {prom > 11 && (
-                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
-                                    muy alto
-                                  </span>
-                                )}
-                                {prom > 9 && prom <= 11 && (
-                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
-                                    alto
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-[11px] text-texto-terciario mt-0.5">
-                                Promedio diario
-                              </p>
-                            </>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Mini-calendario del período: cada celda muestra el
-                    estado del día con color y, al hover, un tooltip con
-                    "DD MMM — Estado · Xh Ym" para detectar de un
-                    vistazo días con jornadas largas y decidir si
-                    corresponde un bono extra. */}
-                {(emp.dias_detalle && emp.dias_detalle.length > 0) && (
-                  <CalendarioPeriodoMini
-                    desde={periodoActual.desde}
-                    hasta={periodoActual.hasta}
-                    diasEstado={mapaDiasEstado}
-                    horasPorDia={mapaHorasPorDia}
-                    estados={ESTADOS_DIAS_NOMINA}
-                  />
-                )}
-              </TarjetaPanel>
-
-              {/* ─── JORNADAS (sólo para jornaleros) ─── */}
-              {compTipo === 'por_dia' && (
-                <TarjetaPanel
-                  titulo="Jornadas"
-                  icono={<Calendar size={13} />}
-                  accion={typeof emp.jornales_equivalentes === 'number' ? (
-                    <span className="text-[11px] text-texto-secundario">
-                      Equivalen a <span className="font-semibold text-texto-primario tabular-nums">{emp.jornales_equivalentes}</span> jornal{emp.jornales_equivalentes === 1 ? '' : 'es'}
-                    </span>
-                  ) : undefined}
-                >
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <p className="text-2xl font-bold text-insignia-exito tabular-nums">
-                        <NumeroAnimado claveAnim={animKey}>{emp.dias_jornada_completa ?? 0}</NumeroAnimado>
-                      </p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">Completas</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-insignia-advertencia tabular-nums">
-                        <NumeroAnimado claveAnim={animKey}>{emp.dias_media_jornada ?? 0}</NumeroAnimado>
-                      </p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">Medias</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-insignia-info tabular-nums">
-                        <NumeroAnimado claveAnim={animKey}>{emp.dias_presente_parcial ?? 0}</NumeroAnimado>
-                      </p>
-                      <p className="text-[11px] text-texto-terciario mt-0.5">Parciales</p>
-                    </div>
-                  </div>
-                </TarjetaPanel>
-              )}
 
               {/* ─── DESGLOSE DEL CÁLCULO (recibo) ───
                   Solo lectura: los ajustes del período (override, excluir,
@@ -1594,17 +1452,6 @@ export function PaginaEditorNominaEmpleado({
                   )
                 })()}
               </TarjetaPanel>
-            </div>
-
-            {/* ═══════ COLUMNA DERECHA ═══════ */}
-            <div className="space-y-4">
-
-              {/* La card "Compensación base" se eliminó: la info ya vive
-                  en el cabecero sticky de la ficha (sector / modalidad /
-                  sueldo base / estimado mensual). Para editar el contrato
-                  usar el botón "Editar contrato" del cabecero o ir al tab
-                  Contrato vigente para "Cambiar condiciones" (con
-                  historial). */}
 
               {/* ─── AJUSTES DEL PERÍODO ───
                   Movimientos one-off del recibo que no son parte del
@@ -1901,6 +1748,160 @@ export function PaginaEditorNominaEmpleado({
                 )}
               </TarjetaPanel>
             </div>
+
+            {/* ═══════ COLUMNA DERECHA — Asistencia / Jornadas ═══════
+                Información del desempeño del empleado en el período: días
+                trabajados, calendario visual, horas y jornadas equivalentes
+                (estas últimas solo para jornaleros). Es lectura, no edita
+                el cálculo. */}
+            <div className="space-y-4">
+
+              {/* ─── ASISTENCIA (con mini-calendario) ─── */}
+              <TarjetaPanel
+                titulo="Asistencia"
+                subtitulo="del período"
+                icono={<ClipboardCheck size={13} />}
+                accion={recalculando ? (
+                  <div className="size-3 border-2 border-texto-marca/30 border-t-texto-marca rounded-full animate-spin" />
+                ) : undefined}
+              >
+                <div className="grid grid-cols-4 gap-3 text-center mb-4">
+                  <div>
+                    <p className="text-xl font-bold text-texto-primario tabular-nums">
+                      <NumeroAnimado claveAnim={animKey}>
+                        {emp.dias_trabajados}<span className="text-sm font-normal text-texto-terciario">/{emp.dias_laborales}</span>
+                      </NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Trabajados</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-insignia-exito tabular-nums">
+                      <NumeroAnimado claveAnim={animKey}>{diasAHorario}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">A horario</p>
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold tabular-nums ${emp.dias_tardanza > 0 ? 'text-insignia-advertencia' : 'text-texto-terciario'}`}>
+                      <NumeroAnimado claveAnim={animKey}>{emp.dias_tardanza}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Tardanzas</p>
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold tabular-nums ${emp.dias_ausentes > 0 ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
+                      <NumeroAnimado claveAnim={animKey}>{emp.dias_ausentes}</NumeroAnimado>
+                    </p>
+                    <p className="text-[10px] text-texto-terciario uppercase mt-1">Ausencias</p>
+                  </div>
+                </div>
+
+                {/* ─── Horas del período ───
+                    Total + promedio diario. El color del promedio
+                    refleja si está fuera del rango "normal" para
+                    detectar sobreesfuerzo de un vistazo:
+                      ≤ 9h    → texto secundario (normal)
+                      9-11h   → advertencia (largo)
+                      > 11h   → peligro (muy largo, considerar bono)
+                    Solo se muestra si el empleado trabajó al menos un
+                    día en el período (evita "0h promedio: 0h" en
+                    períodos sin actividad). */}
+                {emp.dias_trabajados > 0 && emp.horas_netas > 0 && (
+                  <div className="mb-4 rounded-lg border border-borde-sutil bg-superficie-elevada/40 px-3 py-2.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-texto-terciario mb-1.5">
+                      Horas del período
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-texto-primario tabular-nums leading-tight">
+                          {fmtHoras(emp.horas_netas)}
+                        </p>
+                        <p className="text-[11px] text-texto-terciario mt-0.5">
+                          Total trabajado
+                        </p>
+                      </div>
+                      <div>
+                        {(() => {
+                          const prom = emp.promedio_horas_diario
+                          const colorPromedio = prom > 11
+                            ? 'text-insignia-peligro'
+                            : prom > 9
+                              ? 'text-insignia-advertencia'
+                              : 'text-texto-primario'
+                          return (
+                            <>
+                              <p className={`text-base font-semibold tabular-nums leading-tight ${colorPromedio}`}>
+                                {fmtHoras(prom)}
+                                {prom > 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    muy alto
+                                  </span>
+                                )}
+                                {prom > 9 && prom <= 11 && (
+                                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wider">
+                                    alto
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[11px] text-texto-terciario mt-0.5">
+                                Promedio diario
+                              </p>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mini-calendario del período: cada celda muestra el
+                    estado del día con color y, al hover, un tooltip con
+                    "DD MMM — Estado · Xh Ym" para detectar de un
+                    vistazo días con jornadas largas y decidir si
+                    corresponde un bono extra. */}
+                {(emp.dias_detalle && emp.dias_detalle.length > 0) && (
+                  <CalendarioPeriodoMini
+                    desde={periodoActual.desde}
+                    hasta={periodoActual.hasta}
+                    diasEstado={mapaDiasEstado}
+                    horasPorDia={mapaHorasPorDia}
+                    estados={ESTADOS_DIAS_NOMINA}
+                  />
+                )}
+              </TarjetaPanel>
+
+              {/* ─── JORNADAS (sólo para jornaleros) ─── */}
+              {compTipo === 'por_dia' && (
+                <TarjetaPanel
+                  titulo="Jornadas"
+                  icono={<Calendar size={13} />}
+                  accion={typeof emp.jornales_equivalentes === 'number' ? (
+                    <span className="text-[11px] text-texto-secundario">
+                      Equivalen a <span className="font-semibold text-texto-primario tabular-nums">{emp.jornales_equivalentes}</span> jornal{emp.jornales_equivalentes === 1 ? '' : 'es'}
+                    </span>
+                  ) : undefined}
+                >
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-exito tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_jornada_completa ?? 0}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Completas</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-advertencia tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_media_jornada ?? 0}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Medias</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-insignia-info tabular-nums">
+                        <NumeroAnimado claveAnim={animKey}>{emp.dias_presente_parcial ?? 0}</NumeroAnimado>
+                      </p>
+                      <p className="text-[11px] text-texto-terciario mt-0.5">Parciales</p>
+                    </div>
+                  </div>
+                </TarjetaPanel>
+              )}
+            </div>
           </div>
     </div>
   )
@@ -1909,34 +1910,21 @@ export function PaginaEditorNominaEmpleado({
     <>
       {embed ? (
         // ─── Modo embed: dentro de la ficha del empleado ───
-        // Cabezal en dos columnas dentro de la misma franja:
-        //   IZQUIERDA: acciones primarias del período (Ver/Enviar/Pagar).
-        //   DERECHA:   hero del período (1 — 15 MAYO · estado) + cluster
-        //              de controles (‹ Hoy › y Mes/Quincena/Semana)
-        //              alineados a la derecha y agrupados verticalmente.
-        // Así toda la información del período "convive" como un solo
-        // bloque coherente en vez de fragmentarse en filas separadas.
-        <div className="px-4 md:px-6 py-4 space-y-5">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            {/* ── Acciones primarias (izquierda) ── */}
-            {accionesPago.length > 0 ? (
-              <GrupoBotones>
-                {accionesPago.map(a => (
-                  <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
-                    {a.etiqueta}
-                  </Boton>
-                ))}
-              </GrupoBotones>
-            ) : <span />}
-
-            {/* ── Cluster período (derecha): hero + navegación + selector ── */}
-            <div className="flex flex-col items-stretch md:items-end gap-2.5">
+        // Usa <CabezaloHero> (la misma plantilla que la lista de Nóminas,
+        // Asistencias, Calendario y Visitas) para que toda la app comparta
+        // un único patrón de navegación temporal:
+        //   • Fila hero: HeroRango (con chip de estado) + flechas ‹ Hoy ›
+        //   • Fila de controles: toggles Mes/Quincena/Semana a la izquierda
+        //     + acciones primarias del período (Ver/Enviar/Pagar) a la derecha
+        <>
+          <CabezaloHero
+            titulo={
               <HeroRango
                 desde={desdeDate}
                 hasta={hastaDate}
                 periodo={tipoPeriodo}
                 subtitulo={
-                  <span className="flex items-center justify-end gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-2 flex-wrap">
                     <span>
                       {hastaDate.getFullYear()}
                       {tipoPeriodo === 'quincena' && <> · Quincena {desdeDate.getDate() <= 15 ? 1 : 2}</>}
@@ -1950,7 +1938,9 @@ export function PaginaEditorNominaEmpleado({
                             ? 'text-insignia-advertencia'
                             : bannerEstado.tono === 'peligro'
                               ? 'text-insignia-peligro'
-                              : 'text-texto-terciario'
+                              : bannerEstado.tono === 'info'
+                                ? 'text-insignia-info'
+                                : 'text-texto-terciario'
                       }`}
                     >
                       <span className="size-1.5 rounded-full bg-current" />
@@ -1959,43 +1949,13 @@ export function PaginaEditorNominaEmpleado({
                   </span>
                 }
               />
-
-              {/* Toolbar de controles: navegador ‹ Hoy › y selector de tipo
-                  de período, juntos en una sola fila para que el cluster
-                  quede compacto. */}
-              <div className="flex items-center justify-end gap-2 flex-wrap">
-                <GrupoBotones>
-                  <button
-                    type="button"
-                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
-                    title="Período anterior"
-                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => aplicarPeriodo(new Date(), tipoPeriodo)}
-                    disabled={enPeriodoActual}
-                    title="Volver al período actual"
-                    className={`h-8 px-3 rounded-boton border text-sm font-medium transition-colors ${
-                      enPeriodoActual
-                        ? 'border-borde-sutil text-texto-terciario/50 cursor-default'
-                        : 'border-texto-marca/40 text-texto-marca hover:bg-texto-marca/10'
-                    }`}
-                  >
-                    Hoy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
-                    title="Período siguiente"
-                    className="size-8 flex items-center justify-center rounded-boton border border-borde-sutil text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </GrupoBotones>
-
+            }
+            onAnterior={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'prev'), tipoPeriodo)}
+            onSiguiente={() => aplicarPeriodo(navegarFecha(fechaRef, tipoPeriodo, 'next'), tipoPeriodo)}
+            onHoy={() => aplicarPeriodo(new Date(), tipoPeriodo)}
+            hoyDeshabilitado={enPeriodoActual}
+            slotControles={
+              <>
                 <GrupoBotones>
                   {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
                     <Boton
@@ -2009,11 +1969,25 @@ export function PaginaEditorNominaEmpleado({
                     </Boton>
                   ))}
                 </GrupoBotones>
-              </div>
-            </div>
+                {accionesPago.length > 0 && (
+                  <>
+                    <div className="flex-1" />
+                    <GrupoBotones>
+                      {accionesPago.map(a => (
+                        <Boton key={a.id} variante={a.variante} tamano="sm" icono={a.icono} onClick={a.onClick}>
+                          {a.etiqueta}
+                        </Boton>
+                      ))}
+                    </GrupoBotones>
+                  </>
+                )}
+              </>
+            }
+          />
+          <div className="px-4 md:px-6 pb-4 md:pb-6">
+            {contenidoPrincipal}
           </div>
-          {contenidoPrincipal}
-        </div>
+        </>
       ) : (
         // ─── Modo pantalla completa ───
         <PlantillaEditor
