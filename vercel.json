@@ -99,11 +99,11 @@
     },
     {
       "path": "/api/cron/barrer-workflows-pendientes",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     },
     {
       "path": "/api/cron/disparar-workflows-tiempo",
-      "schedule": "* * * * *"
+      "schedule": "*/2 * * * *"
     }
   ]
 }

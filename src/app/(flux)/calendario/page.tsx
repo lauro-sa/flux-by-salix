@@ -24,6 +24,7 @@ import { ModalEvento } from './_componentes/ModalEvento'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useEmpresa } from '@/hooks/useEmpresa'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
@@ -124,6 +125,7 @@ export default function PaginaCalendario() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
+  const { empresa } = useEmpresa()
   const modalVisita = useModalVisita()
   const eventoAlVolverRef = useRef<EventoCalendario | null>(null)
 
@@ -324,24 +326,30 @@ export default function PaginaCalendario() {
   }, [cargarEventos]))
 
   // --- Realtime: recargar cuando cambian eventos o visitas ---
+  // El filtro empresa_id evita que Supabase evalúe RLS por suscriptor en cada change
+  // de otras empresas — clave para no saturar el compute de la DB en multi-tenant.
   useEffect(() => {
+    if (!empresa?.id) return
     const supabase = crearClienteNavegador()
+    const filtro = `empresa_id=eq.${empresa.id}`
     const canal = supabase
       .channel('calendario-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'eventos_calendario',
+        filter: filtro,
       }, () => { cargarEventos() })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'visitas',
+        filter: filtro,
       }, () => { cargarEventos() })
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
-  }, [cargarEventos, reactivacion])
+  }, [cargarEventos, reactivacion, empresa?.id])
 
   // --- Navegación ---
   const navegar = useCallback((direccion: 'anterior' | 'siguiente' | 'hoy') => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { INTERVALO_SYNC_CORREO_BACKGROUND } from '@/lib/constantes/timeouts'
+import { useModulos } from '@/hooks/useModulos'
 
 /**
  * useSyncCorreoBackground — Sincroniza correos en background desde cualquier página.
@@ -12,14 +13,20 @@ import { INTERVALO_SYNC_CORREO_BACKGROUND } from '@/lib/constantes/timeouts'
  * generando notificaciones si hay correos nuevos.
  *
  * No sincroniza si:
+ * - El módulo `inbox_correo` no está activo en la empresa
  * - La pestaña está oculta (document.hidden)
  * - Ya hay una sincronización en curso
  * - El usuario está en /inbox (ahí ya corre su propio sync más frecuente)
  */
 export function useSyncCorreoBackground() {
   const sincronizandoRef = useRef(false)
+  const { tieneModulo } = useModulos()
+  const moduloActivo = tieneModulo('inbox_correo')
 
   useEffect(() => {
+    // Si el módulo no está activo, no montar timers ni hacer fetches.
+    if (!moduloActivo) return
+
     // Sync inicial con delay para no competir con la carga de la página
     const timeoutInicial = setTimeout(() => {
       sincronizar()
@@ -31,7 +38,7 @@ export function useSyncCorreoBackground() {
       clearTimeout(timeoutInicial)
       clearInterval(intervalo)
     }
-  }, [])
+  }, [moduloActivo])
 
   function sincronizar() {
     // No sincronizar si la pestaña está oculta

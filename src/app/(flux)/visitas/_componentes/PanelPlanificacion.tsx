@@ -17,6 +17,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { useEmpresa } from '@/hooks/useEmpresa'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 import { useEscucharReactivacion } from '@/hooks/useReactivacionPWA'
 import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical, ArrowRight } from 'lucide-react'
@@ -110,6 +111,7 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
   const formato = useFormato()
+  const { empresa } = useEmpresa()
   const zonaHoraria = formato.zonaHoraria
 
   // Selector de mes
@@ -174,7 +176,9 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
   }, [refetch]))
 
   // Realtime: recargar cuando cambian visitas (otro usuario reasigna o completa)
+  // Filtro empresa_id obligatorio: sin él Supabase evalúa RLS por suscriptor en cada change global.
   useEffect(() => {
+    if (!empresa?.id) return
     const supabase = crearClienteNavegador()
     const canal = supabase
       .channel('planificacion-realtime')
@@ -182,11 +186,12 @@ export default function PanelPlanificacion({ onAbrirVisita, onConfirmarProvisori
         event: 'UPDATE',
         schema: 'public',
         table: 'visitas',
+        filter: `empresa_id=eq.${empresa.id}`,
       }, () => { refetch() })
       .subscribe()
 
     return () => { supabase.removeChannel(canal) }
-  }, [refetch, reactivacion])
+  }, [refetch, reactivacion, empresa?.id])
 
   // Estado local optimista
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])
