@@ -15,6 +15,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from '@/componentes/entidad/NotasRapidas/PanelNotas'
 import { PanelChat } from '@/componentes/entidad/SalixIA/PanelChat'
 import { PanelRecordatorios } from '@/componentes/entidad/_recordatorios/PanelRecordatorios'
+import { useMinimizadosFlotantes } from '@/hooks/useMinimizable'
+import { restaurarMinimizados, restaurarPanel } from '@/lib/paneles-flotantes/gestor-paneles-flotantes'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotasRapidas } from '@/hooks/useNotasRapidas'
 import { useTema } from '@/hooks/useTema'
@@ -343,13 +345,92 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
    Posición: bottom-right. En móvil se eleva para no chocar con la nav inferior.
    ════════════════════════════════════════════ */
 
+/** Máximo de chats de Salix IA abiertos en paralelo. Más de 3 satura
+ *  visualmente la cascada y multiplica conexiones al backend. */
+const MAX_CHATS_SIMULTANEOS = 3
+
 function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof useNotasRapidas> }) {
   const [expandido, setExpandido] = useState(false)
   const [panelNotas, setPanelNotas] = useState(false)
   const [panelRecordatorios, setPanelRecordatorios] = useState(false)
-  const [panelIA, setPanelIA] = useState(false)
+  // Lista de chats de Salix IA abiertos en paralelo (hasta MAX_CHATS_SIMULTANEOS).
+  // Cada elemento es el id del chat (ej. 'salix-chat-1734567890'). Vacío = sin chats.
+  const [chatsAbiertos, setChatsAbiertos] = useState<string[]>([])
   const [iaHabilitado, setIaHabilitado] = useState(false)
   const [recordatoriosVencidos, setRecordatoriosVencidos] = useState(0)
+
+  // El gestor mueve los paneles entre `stack` y `minimizados` SIN bajar los
+  // flags `panelNotas / panelRecordatorios / chatsAbiertos` del padre. Los
+  // paneles se mantienen MONTADOS con `abierto=true` durante la
+  // minimización, preservando todo su estado interno (formularios a medio
+  // llenar, conversación en curso, scroll, etc). El PanelFlotanteCascada
+  // anima el colapso visual usando el flag `minimizado` del gestor.
+  // Sólo la X (cierre definitivo) baja el flag y desmonta el panel.
+
+  const minimizadosPendientes = useMinimizadosFlotantes()
+  const hayMinimizados = minimizadosPendientes.length > 0
+
+  // Eventos globales para abrir paneles desde otras partes de la app
+  // (ej. dashboard dispara `flux:abrir-notas` al tocar un chip de actividad).
+  // Si el panel ya estaba abierto pero minimizado, lo restauramos del gestor.
+  useEffect(() => {
+    const abrirNotas = () => {
+      if (minimizadosPendientes.some(p => p.id === 'notas-rapidas')) {
+        restaurarPanel('notas-rapidas')
+      } else {
+        setPanelNotas(true)
+      }
+    }
+    const abrirRecordatorios = () => {
+      if (minimizadosPendientes.some(p => p.id === 'recordatorios')) {
+        restaurarPanel('recordatorios')
+      } else {
+        setPanelRecordatorios(true)
+      }
+    }
+    window.addEventListener('flux:abrir-notas', abrirNotas)
+    window.addEventListener('flux:abrir-recordatorios', abrirRecordatorios)
+    return () => {
+      window.removeEventListener('flux:abrir-notas', abrirNotas)
+      window.removeEventListener('flux:abrir-recordatorios', abrirRecordatorios)
+    }
+  }, [minimizadosPendientes])
+
+  const abrirChat = useCallback(() => {
+    // Si hay chats minimizados, primero restauramos todos los paneles
+    // minimizados (el usuario espera que tocar un sub-botón "traiga de
+    // vuelta lo que tenía abierto"). Si no había minimizados, simplemente
+    // abrimos un chat nuevo.
+    const minim = minimizadosPendientes
+    if (minim.some(p => p.id.startsWith('salix-chat'))) {
+      restaurarMinimizados()
+      return
+    }
+    setChatsAbiertos(prev => {
+      if (prev.length >= MAX_CHATS_SIMULTANEOS) return prev
+      const nuevoId = `salix-chat-${Date.now()}`
+      return [...prev, nuevoId]
+    })
+  }, [minimizadosPendientes])
+
+  const cerrarChat = useCallback((id: string) => {
+    setChatsAbiertos(prev => prev.filter(c => c !== id))
+  }, [])
+
+  // Helper: cuando el usuario toca un sub-botón del menú expandido, si su
+  // panel está minimizado lo restauramos del gestor; si nunca se abrió,
+  // levantamos el flag para que se monte por primera vez. Si ya estaba
+  // abierto y visible, no hace nada (el menú se cierra solo por el effect).
+  const abrirOrestaurar = useCallback((id: string, setter: (v: boolean) => void, yaAbierto: boolean) => {
+    if (minimizadosPendientes.some(p => p.id === id)) {
+      restaurarPanel(id)
+    } else if (!yaAbierto) {
+      setter(true)
+    } else {
+      // Estaba en stack pero quizás atrás: lo traemos al frente.
+      restaurarPanel(id)
+    }
+  }, [minimizadosPendientes])
   // Ruta actual: usada para decidir si mostrar el botón de accesos (IA + acciones
   // rápidas). Si no hay IA pero la ruta tiene acciones, igualmente se muestra.
   const pathname = usePathname()
@@ -418,10 +499,11 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
     return () => clearInterval(interval)
   }, [usuario, cargando])
 
-  // Cerrar el menú expandido cuando se abre un panel
+  // Cerrar el menú expandido cuando se abre cualquier panel (notas,
+  // recordatorios o algún chat de Salix IA).
   useEffect(() => {
-    if (panelNotas || panelRecordatorios || panelIA) setExpandido(false)
-  }, [panelNotas, panelRecordatorios, panelIA])
+    if (panelNotas || panelRecordatorios || chatsAbiertos.length > 0) setExpandido(false)
+  }, [panelNotas, panelRecordatorios, chatsAbiertos.length])
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -453,10 +535,25 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
           timerVisibleRef.current = setTimeout(() => setVisible(false), 1500)
         }}
       >
-      {/* Botón principal — logo Flux */}
+      {/* Botón principal — logo Flux.
+          - Si hay paneles minimizados (alguien hizo doble clic afuera), el
+            click los RESTAURA a todos en lugar de abrir el menú. Es lo que
+            espera el usuario: minimizar=ocultar temporal, tocar el FAB
+            vuelve a traerlos.
+          - Si no hay minimizados, abre/cierra el menú expandido como siempre.
+          data-fab-flotante: evita que el doble clic del usuario sobre este
+          botón sea interpretado como "doble clic afuera" por el gestor. */}
       <motion.button
+        data-fab-flotante="logo-principal"
         whileTap={{ scale: 0.9 }}
-        onClick={(e) => { e.stopPropagation(); setExpandido(!expandido) }}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (hayMinimizados) {
+            restaurarMinimizados()
+            return
+          }
+          setExpandido(!expandido)
+        }}
         className="size-12 rounded-full flex items-center justify-center text-texto-marca relative cursor-pointer"
         style={{
           backgroundColor: 'color-mix(in srgb, var(--superficie-elevada) 65%, transparent)',
@@ -465,7 +562,9 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
           border: '1px solid var(--borde-sutil)',
           boxShadow: 'var(--sombra-md)',
         }}
-        title="Accesos rápidos"
+        title={hayMinimizados
+          ? `Restaurar ${minimizadosPendientes.length} panel${minimizadosPendientes.length > 1 ? 'es' : ''}`
+          : 'Accesos rápidos'}
       >
         <motion.div
           animate={{ rotate: expandido ? 45 : 0 }}
@@ -513,8 +612,9 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
                 exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15, delay: 0.1 } }}
                 transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => setPanelIA(true)}
-                className={`size-11 rounded-full flex items-center justify-center cursor-pointer ${
+                onClick={abrirChat}
+                disabled={chatsAbiertos.length >= MAX_CHATS_SIMULTANEOS}
+                className={`size-11 rounded-full flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   iaHabilitado ? 'text-violet-400' : 'text-amber-400'
                 }`}
                 style={{
@@ -539,7 +639,7 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
               exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15, delay: 0.05 } }}
               transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0.06 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setPanelNotas(true)}
+              onClick={() => abrirOrestaurar('notas-rapidas', setPanelNotas, panelNotas)}
               className="size-11 rounded-full flex items-center justify-center text-amber-400/80 relative cursor-pointer"
               style={{
                 backgroundColor: fondoCristal,
@@ -572,7 +672,7 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
               exit={{ opacity: 0, scale: 0.3, y: 40, transition: { duration: 0.15 } }}
               transition={{ type: 'spring', damping: 14, stiffness: 320, delay: 0.12 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setPanelRecordatorios(true)}
+              onClick={() => abrirOrestaurar('recordatorios', setPanelRecordatorios, panelRecordatorios)}
               className="size-11 rounded-full flex items-center justify-center text-orange-400/85 relative cursor-pointer"
               style={{
                 backgroundColor: fondoCristal,
@@ -596,7 +696,12 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
         )}
       </AnimatePresence>
 
-      {/* Paneles — se abren desde los botones expandidos */}
+      {/* Paneles — se abren desde los botones expandidos.
+          Notas y Recordatorios son únicos (flag booleano).
+          Salix IA puede tener hasta MAX_CHATS_SIMULTANEOS chats en paralelo:
+          cada uno con su id único, su propio PanelChat (instancia separada
+          de useSalixIA), y el botón "+" del header abre otro mientras no se
+          llegue al tope. */}
       <PanelNotas
         abierto={panelNotas}
         onCerrar={() => setPanelNotas(false)}
@@ -606,11 +711,18 @@ function BotonesFlotantes({ notasRapidas }: { notasRapidas: ReturnType<typeof us
         abierto={panelRecordatorios}
         onCerrar={() => setPanelRecordatorios(false)}
       />
-      <PanelChat
-        abierto={panelIA}
-        onCerrar={() => setPanelIA(false)}
-        iaHabilitado={iaHabilitado}
-      />
+      {chatsAbiertos.map((idChat, i) => (
+        <PanelChat
+          key={idChat}
+          idChat={idChat}
+          etiquetaChat={chatsAbiertos.length > 1 ? `Chat ${i + 1}` : 'Chat'}
+          abierto={true}
+          onCerrar={() => cerrarChat(idChat)}
+          onAbrirNuevoChat={abrirChat}
+          puedeAbrirNuevoChat={chatsAbiertos.length < MAX_CHATS_SIMULTANEOS}
+          iaHabilitado={iaHabilitado}
+        />
+      ))}
       </div>
     </>
   )
