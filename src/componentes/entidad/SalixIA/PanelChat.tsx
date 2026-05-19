@@ -10,12 +10,12 @@
  */
 
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { PanelFlotanteCascada } from '@/componentes/ui/PanelFlotanteCascada'
+import { CabezalPanel } from '@/componentes/ui/CabezalPanel'
 import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft, Zap, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
-import { useEsMovil } from '@/hooks/useEsMovil'
 import { useAccionesRapidas } from '@/hooks/useAccionesRapidas'
 import { GrabadorAudio } from '@/componentes/mensajeria/GrabadorAudio'
 import { ListaAccionesRapidas } from './ListaAccionesRapidas'
@@ -28,6 +28,29 @@ interface PropiedadesPanelChat {
    * muestra las acciones rápidas contextuales (sin chat ni input).
    */
   iaHabilitado?: boolean
+  /**
+   * ID único para registrar este chat en el gestor de paneles flotantes.
+   * Default 'salix-chat'. Cuando hay múltiples chats abiertos en paralelo,
+   * cada uno usa un id distinto (ej. 'salix-chat-1', 'salix-chat-2').
+   */
+  idChat?: string
+  /**
+   * Etiqueta del chat en la solapa de la cascada y en el subtítulo del
+   * cabezal. Default 'Chat'. Útil para diferenciar entre múltiples chats
+   * (ej. 'Chat 1', 'Chat 2').
+   */
+  etiquetaChat?: string
+  /**
+   * Si se pasa, el botón "+" del header abre un nuevo chat (otro panel)
+   * en vez de iniciar una conversación nueva en el panel actual. La opción
+   * de "Nueva conversación" sigue disponible dentro del historial.
+   */
+  onAbrirNuevoChat?: () => void
+  /**
+   * Si se pasa, controla si el botón "+" para abrir nuevo chat está
+   * habilitado (false cuando se llegó al máximo de chats abiertos).
+   */
+  puedeAbrirNuevoChat?: boolean
 }
 
 /**
@@ -97,8 +120,15 @@ function parsearLineaFormato(linea: string, onNavegar: (ruta: string) => void, l
   return partes.length > 0 ? partes : linea
 }
 
-function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelChat) {
-  const esMovil = useEsMovil()
+function PanelChat({
+  abierto,
+  onCerrar,
+  iaHabilitado = true,
+  idChat = 'salix-chat',
+  etiquetaChat = 'Chat',
+  onAbrirNuevoChat,
+  puedeAbrirNuevoChat = true,
+}: PropiedadesPanelChat) {
   const router = useRouter()
   const {
     mensajes,
@@ -295,43 +325,46 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
 
   const contenido = (
     <div className="flex flex-col h-full relative">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
-        <div className="flex items-center gap-2">
-          {vistaHistorial ? (
-            <>
-              <button
-                onClick={() => setVistaHistorial(false)}
-                className="p-1 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <h3 className="text-sm font-semibold text-texto-primario">Conversaciones</h3>
-            </>
-          ) : soloAcciones ? (
-            <>
-              <div className="size-8 rounded-card bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
-                <Zap className="size-4 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-texto-primario">Acciones rápidas</h3>
-                <p className="text-[11px] text-texto-terciario">Lo que podés hacer acá</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="size-8 rounded-card bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center">
-                <Sparkles className="size-4 text-violet-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-texto-primario">Salix IA</h3>
-                <p className="text-[11px] text-texto-terciario">Tu copiloto en Flux</p>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {!vistaHistorial && !soloAcciones && (
+      {/* Header unificado (CabezalPanel). Tres variantes según contexto:
+          - Vista historial: ícono de retroceso + título "Conversaciones"
+          - Solo acciones rápidas (sin IA): ícono ámbar de rayo
+          - Modo normal (chat): ícono violeta de sparkles + acciones extra
+            (History, Plus para nueva conversación) */}
+      {vistaHistorial ? (
+        <CabezalPanel
+          icono={
+            <button
+              onClick={() => setVistaHistorial(false)}
+              className="size-full flex items-center justify-center rounded-card text-texto-secundario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+              title="Volver"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+          }
+          titulo="Conversaciones"
+          onCerrar={onCerrar}
+        />
+      ) : soloAcciones ? (
+        <CabezalPanel
+          icono={
+            <div className="size-full bg-gradient-to-br from-amber-500/25 to-orange-600/20 flex items-center justify-center">
+              <Zap className="size-4 text-amber-400" />
+            </div>
+          }
+          titulo="Acciones rápidas"
+          subtitulo="Lo que podés hacer acá"
+          onCerrar={onCerrar}
+        />
+      ) : (
+        <CabezalPanel
+          icono={
+            <div className="size-full bg-gradient-to-br from-violet-500/25 to-indigo-600/20 flex items-center justify-center">
+              <Sparkles className="size-4 text-violet-400" />
+            </div>
+          }
+          titulo="Salix IA"
+          subtitulo="Tu copiloto en Flux"
+          acciones={
             <>
               <button
                 onClick={abrirHistorial}
@@ -340,23 +373,32 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
               >
                 <History className="size-4" />
               </button>
+              {/* "+" abre un NUEVO panel de chat en paralelo (hasta 3 en
+                  total). Si llegamos al máximo, se deshabilita. La opción
+                  de "Nueva conversación" dentro del mismo chat sigue
+                  disponible desde la vista de historial. */}
               <button
-                onClick={iniciarNueva}
-                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-                title="Nueva conversación"
+                onClick={() => {
+                  if (onAbrirNuevoChat && puedeAbrirNuevoChat) onAbrirNuevoChat()
+                  else iniciarNueva()
+                }}
+                disabled={!!onAbrirNuevoChat && !puedeAbrirNuevoChat}
+                className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title={
+                  onAbrirNuevoChat
+                    ? puedeAbrirNuevoChat
+                      ? 'Abrir otro chat en paralelo'
+                      : 'Máximo 3 chats simultáneos'
+                    : 'Nueva conversación'
+                }
               >
                 <Plus className="size-4" />
               </button>
             </>
-          )}
-          <button
-            onClick={onCerrar}
-            className="p-1.5 rounded-card text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-      </div>
+          }
+          onCerrar={onCerrar}
+        />
+      )}
 
       {/* Vista de historial de conversaciones */}
       {vistaHistorial ? (
@@ -563,61 +605,19 @@ function PanelChat({ abierto, onCerrar, iaHabilitado = true }: PropiedadesPanelC
     </div>
   )
 
-  // Mobile: pantalla completa (slide-up) — mismo comportamiento que antes,
-  // ahora con look glass aplicado (blobs + cristal).
-  if (esMovil) {
-    return createPortal(
-      <AnimatePresence>
-        {abierto && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-            className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
-            style={{
-              paddingTop: 'env(safe-area-inset-top, 0px)',
-              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-              height: 'calc(var(--vh, 1vh) * 100)',
-            }}
-          >
-            {contenido}
-          </motion.div>
-        )}
-      </AnimatePresence>,
-      document.body
-    )
-  }
-
-  // Desktop: panel lateral derecho — pegado al borde (igual que antes),
-  // ahora con look glass + blobs.
-  return createPortal(
-    <AnimatePresence>
-      {abierto && (
-        <>
-          {/* Overlay sutil */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onCerrar}
-            className="fixed inset-0 bg-black/20 z-[69]"
-          />
-
-          {/* Panel — sistema visual `salix-glass` */}
-          <motion.div
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="salix-glass salix-panel fixed top-0 right-0 h-full w-[400px] max-w-[90vw] z-[70] flex flex-col border-l border-white/[0.07] shadow-2xl"
-          >
-            {contenido}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body
+  // El wrapper PanelFlotanteCascada gestiona portal, motion, mobile/desktop,
+  // cascada de paneles apilados y backdrop. Acá solo le pasamos identidad
+  // (id, etiqueta, color) y el contenido.
+  return (
+    <PanelFlotanteCascada
+      id={idChat}
+      etiqueta={etiquetaChat}
+      colorAcento="rgb(167, 139, 250)"
+      abierto={abierto}
+      onCerrar={onCerrar}
+    >
+      {contenido}
+    </PanelFlotanteCascada>
   )
 }
 

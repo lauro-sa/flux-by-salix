@@ -14,6 +14,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PanelNotas } from './PanelNotas'
 import type { useNotasRapidas } from '@/hooks/useNotasRapidas'
+import { useMinimizable, useMinimizadosFlotantes } from '@/hooks/useMinimizable'
+import { restaurarMinimizados } from '@/lib/paneles-flotantes/gestor-paneles-flotantes'
 
 /** Ícono de nota minimalista — líneas de texto estilizadas */
 function IconoNota({ className = '' }: { className?: string }) {
@@ -46,6 +48,9 @@ interface PropiedadesBotonNotas {
 
 function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
   const [panelAbierto, setPanelAbierto] = useState(false)
+  useMinimizable({ id: 'notas-rapidas', setAbierto: setPanelAbierto })
+  const minimizadosPendientes = useMinimizadosFlotantes()
+  const hayMinimizados = minimizadosPendientes.length > 0
 
   // Escucha evento global para abrir el panel desde otras partes de la app
   // (ej: acceso rápido del dashboard → window.dispatchEvent(new Event('flux:abrir-notas')))
@@ -67,11 +72,15 @@ function BotonFlotanteNotas({ notasRapidas }: PropiedadesBotonNotas) {
       <AnimatePresence>
         {!panelAbierto && (
           <motion.button
+            data-fab-flotante="notas-rapidas"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             whileTap={{ scale: 0.92 }}
-            onClick={() => setPanelAbierto(true)}
+            onClick={() => {
+              if (hayMinimizados) restaurarMinimizados()
+              else setPanelAbierto(true)
+            }}
             // Cuando hay alertas sin leer subimos la saturación del ícono
             // al 100% para que se note que requiere atención. Sin alertas
             // queda al 70% como antes (presencia discreta).

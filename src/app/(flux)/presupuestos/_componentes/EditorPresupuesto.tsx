@@ -14,6 +14,8 @@ import { TablaLineas, type OriginalCatalogo } from './TablaLineas'
 import dynamic from 'next/dynamic'
 import type { LineaPropuestaIA } from './PanelAsistenteIA'
 const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.PanelAsistenteIA), { ssr: false })
+import { registrarArmador } from '@/lib/salix-ia/armador-presupuesto-bus'
+import { useMinimizable } from '@/hooks/useMinimizable'
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import { useRol } from '@/hooks/useRol'
 import { Boton } from '@/componentes/ui/Boton'
@@ -127,7 +129,10 @@ export default function EditorPresupuesto({
   // Plantilla (solo modo crear)
   const [plantillaId, setPlantillaId] = useState<string | null>(null)
 
-  // Asistente IA
+  // Asistente IA (armador de líneas con Salix). El panel se puede abrir desde:
+  //  - El link sutil del editor (ver botón "✨ Armar con Salix IA")
+  //  - El FAB global de Salix IA, que vive en el layout y consume el bus
+  //    `armador-presupuesto-bus` para invocar `setPanelIA(true)` desde afuera.
   const [panelIA, setPanelIA] = useState(false)
   const [productosProvisionales, setProductosProvisionales] = useState<string[]>([])
 
@@ -1800,6 +1805,20 @@ export default function EditorPresupuesto({
   const esEditable = modo === 'crear'
     || estadoActual === 'borrador'
     || (modoEdicionAdmin && puedeEdicionAdmin)
+
+  // Registrar este editor en el bus de Salix IA mientras esté en modo
+  // editable: así el FAB global puede ofrecer "Armar líneas con IA" como
+  // acción rápida y, al clickearla, abre acá el armador. Al desmontarse
+  // o salir de editable, se desregistra para que el FAB oculte la acción.
+  useEffect(() => {
+    if (!esEditable) return
+    const desregistrar = registrarArmador(() => setPanelIA(true))
+    return desregistrar
+  }, [esEditable])
+
+  // El armador participa de la cascada de paneles flotantes — reacciona a
+  // minimizar/restaurar global (doble click afuera + FAB).
+  useMinimizable({ id: 'armador-presupuesto', setAbierto: setPanelIA })
   // Una vez que el presupuesto existe en BD (modo editar O modo crear ya creado),
   // habilitamos los botones de transición de estado. Antes esto dependía solo de
   // `modo === 'editar'` y obligaba a refrescar tras crear para ver Cancelar/Enviar.
@@ -2195,19 +2214,11 @@ export default function EditorPresupuesto({
 
         {/* ─── TABLA DE LINEAS ─── */}
         <div className="px-6 py-4">
-          {/* Botón Asistente IA */}
-          {esEditable && (
-            <div className="flex justify-end mb-3">
-              <Boton
-                variante="secundario"
-                tamano="sm"
-                icono={<Sparkles size={14} />}
-                onClick={() => setPanelIA(true)}
-              >
-                Salix IA
-              </Boton>
-            </div>
-          )}
+          {/* El link "Redactar con Salix IA" se renderea ahora dentro de
+              TablaLineas como una opción más en la fila de acciones
+              (Agregar producto | Sección | Nota | Descuento | Salix IA),
+              para mantener todas las formas de "agregar contenido" juntas.
+              También se puede invocar desde el FAB global (mismo bus). */}
 
           <TablaLineas
             lineas={lineas as unknown as LineaPresupuesto[]}
@@ -2219,6 +2230,7 @@ export default function EditorPresupuesto({
             soloLectura={!esEditable}
             lineaRecienAgregada={lineaRecienAgregada}
             onAgregarLinea={agregarLinea}
+            onAbrirAsistenteIA={esEditable ? () => setPanelIA(true) : undefined}
             onEditarLinea={editarLinea}
             onEliminarLinea={eliminarLinea}
             onReordenar={reordenarLineas}

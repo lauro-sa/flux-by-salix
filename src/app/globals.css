@@ -549,6 +549,33 @@ input:-webkit-autofill:active {
   animation: sidebar-fade-in 250ms ease-out 100ms both;
 }
 
+/* ────────────────────────────────────────────
+   Flux — animaciones de panel Salix IA
+   Reutilizables para puntos de estado, skeletons
+   con brillo, inputs "respirando" mientras pensa,
+   y cards que flotan suavemente en empty states.
+   ──────────────────────────────────────────── */
+@keyframes flux-pulso-suave {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.8); }
+}
+@keyframes flux-pulso-rapido {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.65); }
+}
+@keyframes flux-brillo-barrido {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes flux-input-respiro {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 91, 214, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(91, 91, 214, 0.08); }
+}
+@keyframes flux-flotar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+
 /* ============================================
    Estilos globales de Flux by Salix
    ============================================ */

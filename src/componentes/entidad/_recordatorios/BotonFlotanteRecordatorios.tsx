@@ -13,10 +13,15 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlarmClock } from 'lucide-react'
 import { PanelRecordatorios } from './PanelRecordatorios'
+import { useMinimizable, useMinimizadosFlotantes } from '@/hooks/useMinimizable'
+import { restaurarMinimizados } from '@/lib/paneles-flotantes/gestor-paneles-flotantes'
 
 function BotonFlotanteRecordatorios() {
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [vencidos, setVencidos] = useState(0)
+  useMinimizable({ id: 'recordatorios', setAbierto: setPanelAbierto })
+  const minimizadosPendientes = useMinimizadosFlotantes()
+  const hayMinimizados = minimizadosPendientes.length > 0
 
   // Conteo liviano de vencidos para el badge (no depende de abrir el panel)
   useEffect(() => {
@@ -48,11 +53,15 @@ function BotonFlotanteRecordatorios() {
       <AnimatePresence>
         {!panelAbierto && (
           <motion.button
+            data-fab-flotante="recordatorios"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             whileTap={{ scale: 0.92 }}
-            onClick={() => setPanelAbierto(true)}
+            onClick={() => {
+              if (hayMinimizados) restaurarMinimizados()
+              else setPanelAbierto(true)
+            }}
             className="size-12 flex items-center justify-center text-acento-recordatorios/70 hover:text-acento-recordatorios drop-shadow-lg transition-all duration-200 cursor-pointer relative"
             title="Recordatorios"
           >

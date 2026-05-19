@@ -5,7 +5,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Trash2, GripVertical, Package, Type,
   StickyNote, Percent, Settings2, Eye, EyeOff,
-  RotateCcw, Upload,
+  RotateCcw, Upload, Sparkles,
 } from 'lucide-react'
 import type { LineaPresupuesto, TipoLinea, Impuesto, UnidadMedida } from '@/tipos/presupuesto'
 import { COLUMNAS_LINEA_DISPONIBLES } from '@/tipos/presupuesto'
@@ -77,6 +77,10 @@ interface PropiedadesTablaLineas {
   presupuestoGuardado?: boolean
   /** Notificar al padre cuando se selecciona un producto del catálogo (para almacenar originales) */
   onProductoSeleccionado?: (lineaId: string, producto: { id: string; nombre: string; descripcion_venta: string | null }) => void
+  /** Si se pasa, en el estado vacío aparece un link "Redactar con Salix IA"
+   *  como segunda invitación además de agregar manualmente. Solo se muestra
+   *  cuando la tabla está editable y vacía. */
+  onAbrirAsistenteIA?: () => void
 }
 
 // Iconos por tipo de línea
@@ -138,6 +142,7 @@ function TablaLineas({
   puedeEditarProductos = false,
   presupuestoGuardado = false,
   onProductoSeleccionado,
+  onAbrirAsistenteIA,
 }: PropiedadesTablaLineas) {
   const [menuColumnasAbierto, setMenuColumnasAbierto] = useState(false)
   const [lineaActiva, setLineaActiva] = useState<string | null>(null)
@@ -331,12 +336,45 @@ function TablaLineas({
               </Boton>
             </span>
           ))}
+          {/* Link al armador de Salix IA — una opción más del grupo de
+              acciones, con el mismo separador "|" que tienen Sección, Nota,
+              Descuento. Solo aparece si el padre lo expone. */}
+          {onAbrirAsistenteIA && (
+            <span className="flex items-center">
+              <span className="text-texto-terciario/40 mx-1.5">|</span>
+              <button
+                type="button"
+                onClick={onAbrirAsistenteIA}
+                className="group inline-flex items-center gap-1.5 px-2 py-1 rounded-boton text-xs text-texto-terciario hover:text-insignia-primario-texto transition-colors"
+                title="Describí el trabajo y Salix arma las líneas"
+              >
+                <Sparkles size={12} className="text-insignia-primario group-hover:scale-110 transition-transform" />
+                <span>Redactar con <span className="font-medium text-insignia-primario-texto">Salix IA</span></span>
+              </button>
+            </span>
+          )}
         </div>
       )}
 
       {/* ─── Sin líneas ─── */}
       {lineas.length === 0 && (
-        <EstadoVacio titulo="Sin líneas" descripcion="Agregá productos, servicios o texto libre." />
+        <div className="flex flex-col items-center gap-3">
+          <EstadoVacio titulo="Sin líneas" descripcion="Agregá productos, servicios o texto libre." />
+          {/* Invitación a usar el armador con Salix IA — solo si el padre
+              lo expone (editable + bus conectado). Es un link discreto, no
+              compite con el call-to-action de agregar manualmente. */}
+          {!soloLectura && onAbrirAsistenteIA && (
+            <button
+              type="button"
+              onClick={onAbrirAsistenteIA}
+              className="group inline-flex items-center gap-1.5 text-xs text-texto-terciario hover:text-insignia-primario-texto transition-colors"
+              title="Describí el trabajo y Salix arma las líneas por vos"
+            >
+              <Sparkles size={12} className="text-insignia-primario group-hover:scale-110 transition-transform" />
+              <span>o redactá todas las líneas con <span className="font-medium text-insignia-primario-texto">Salix IA</span></span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

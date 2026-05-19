@@ -49,6 +49,7 @@ async function autorizarAccesoMiembro(auth: Auth, miembroId: string) {
 const CAMPOS_EDITABLES = [
   'tipo_pago',
   'tipo_cuenta',
+  'entidad_id',
   'banco',
   'numero_cuenta',
   'alias',
