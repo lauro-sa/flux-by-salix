@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -70,7 +70,7 @@ export function PanelFlotanteCascada({
   children,
 }: PropsPanelFlotanteCascada) {
   const esMovil = useEsMovil()
-  const { posicion, total, esFrente, traerAlFrente } = usePanelFlotante({
+  const { posicion, total, esFrente, enStack, minimizado, traerAlFrente } = usePanelFlotante({
     id,
     etiqueta,
     colorAcento,
@@ -78,16 +78,35 @@ export function PanelFlotanteCascada({
   })
   const [montado, setMontado] = useState(false)
 
+  // Snapshot del último estado VISIBLE en stack. Lo usamos durante la
+  // minimización para que el panel anime su salida desde la posición
+  // donde estaba — sin esto, los paneles que estaban "atrás" en la
+  // cascada (visibility: hidden) se hacen visibles abruptamente al
+  // colapsar el stack y se ve feo. Capturamos posicion/total/esFrente
+  // mientras enStack=true; cuando el panel se minimiza (enStack=false
+  // pero abierto=true) usamos este snapshot para mantener su layout.
+  const ultimoVisibleRef = useRef({ posicion: 0, total: 1, esFrente: true })
+  useEffect(() => {
+    if (enStack) {
+      ultimoVisibleRef.current = { posicion, total, esFrente }
+    }
+  }, [enStack, posicion, total, esFrente])
+
+  const posicionEf = enStack ? posicion : ultimoVisibleRef.current.posicion
+  const totalEf = enStack ? total : ultimoVisibleRef.current.total
+  const esFrenteEf = enStack ? esFrente : ultimoVisibleRef.current.esFrente
+
   // SSR-safe portal: el portal recién se hace en el primer efecto client-side.
   useEffect(() => {
     setMontado(true)
   }, [])
 
   // Listener global de doble click afuera de los paneles → minimizar todos.
-  // Solo lo monta el panel del FRENTE para que no se duplique entre paneles
-  // del stack. Se desactiva si no hay paneles abiertos.
+  // Solo lo monta el panel del FRENTE (real, en stack) para que no se
+  // duplique entre paneles del stack. Se desactiva si no hay paneles
+  // abiertos en stack o si este panel está minimizado.
   useEffect(() => {
-    if (!esFrente || total === 0) return
+    if (!esFrente || total === 0 || minimizado) return
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (!target) return
@@ -99,19 +118,23 @@ export function PanelFlotanteCascada({
     }
     window.addEventListener('dblclick', handler)
     return () => window.removeEventListener('dblclick', handler)
-  }, [esFrente, total])
+  }, [esFrente, total, minimizado])
 
   if (!montado || typeof window === 'undefined') return null
 
   // Mobile: comportamiento simple sin cascada. El frente ocupa todo,
-  // los demás quedan invisibles registrados en el stack.
+  // los demás quedan invisibles registrados en el stack. Al minimizar,
+  // el panel se mantiene MONTADO con `y: '100%'` para preservar su
+  // estado interno (formularios, scroll, conversación). Sólo cuando
+  // `abierto` baja a false (X explícita) se desmonta.
   if (esMovil) {
     return createPortal(
       <AnimatePresence>
-        {abierto && esFrente && (
+        {abierto && (esFrenteEf || totalEf <= 1) && (
           <motion.div
+            data-panel-flotante={id}
             initial={{ y: '100%' }}
-            animate={{ y: 0 }}
+            animate={{ y: minimizado ? '100%' : 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
             className="salix-glass salix-panel fixed inset-0 z-[80] flex flex-col"
@@ -119,6 +142,7 @@ export function PanelFlotanteCascada({
               paddingTop: 'env(safe-area-inset-top, 0px)',
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
               height: 'calc(var(--vh, 1vh) * 100)',
+              pointerEvents: minimizado ? 'none' : 'auto',
             }}
           >
             {children}
@@ -136,20 +160,28 @@ export function PanelFlotanteCascada({
   //   posicion=0 (frente)  → right: 0          (visible entero)
   //   posicion=1 (atrás 1) → right: 14         (solo asoma 14px a la izq)
   //   posicion=N           → right: N * 14
-  const rightCalculado = abierto && posicion >= 0
-    ? posicion * OFFSET_BORDE
-    : 0
-  const zIndex = abierto ? zBase - Math.max(posicion, 0) : zBase
+  // Usamos posicionEf/totalEf/esFrenteEf (snapshot del último estado en
+  // stack) para que durante la minimización el panel anime su salida
+  // desde donde estaba y no se reposicione abruptamente al `right: 0`.
+  const rightCalculado = posicionEf * OFFSET_BORDE
+  const zIndex = abierto ? zBase - Math.max(posicionEf, 0) : zBase
+
+  // Visibilidad efectiva en la cascada (sin contar minimización):
+  // sólo el frente y el caso de un único panel son visibles; los de atrás
+  // quedan ocultos para no robar clicks. La minimización se maneja
+  // aparte vía width/opacity en el animate del motion.div.
+  const visibleEnCascada = esFrenteEf || totalEf <= 1
 
   return createPortal(
     <AnimatePresence>
       {abierto && (
         <>
           {/* Backdrop oscuro — solo cuando este panel es el frente Y NO hay
-              otros apilados detrás. Si hay cascada, no lo mostramos porque
-              taparía las solapas asomando de los paneles atrás y robaría
-              los clicks. Para cerrar con cascada se usa la X o ESC. */}
-          {mostrarBackdrop && esFrente && total === 1 && (
+              otros apilados detrás Y no está minimizado. Si hay cascada,
+              no lo mostramos porque taparía las solapas asomando de los
+              paneles atrás y robaría los clicks. Para cerrar con cascada
+              se usa la X o ESC. */}
+          {mostrarBackdrop && esFrenteEf && totalEf === 1 && !minimizado && (
             <motion.div
               key={`backdrop-${id}`}
               initial={{ opacity: 0 }}
@@ -167,14 +199,20 @@ export function PanelFlotanteCascada({
               el contenido se REVELA desde la derecha hacia la izquierda
               sin distorsión (porque el contenido adentro tiene tamaño fijo).
               Este es el approach limpio para "nacer desde el borde derecho";
-              scaleX deformaba el contenido y clipPath no interpolaba bien. */}
+              scaleX deformaba el contenido y clipPath no interpolaba bien.
+
+              Cuando se MINIMIZA, animamos width y opacity de vuelta a 0
+              pero el componente sigue montado: así preserva su estado
+              interno (formularios, conversación, scroll). Sólo cuando
+              `abierto` baja a false (cierre definitivo por X), AnimatePresence
+              desmonta el componente. */}
           <motion.div
             key={`panel-${id}`}
             data-panel-flotante={id}
             initial={{ opacity: 0, width: 0, right: rightCalculado }}
             animate={{
-              opacity: 1,
-              width: ANCHO_PANEL,
+              opacity: minimizado ? 0 : 1,
+              width: minimizado ? 0 : ANCHO_PANEL,
               right: rightCalculado,
             }}
             exit={{ opacity: 0, width: 0 }}
@@ -190,8 +228,12 @@ export function PanelFlotanteCascada({
               overflow: 'hidden',
               zIndex,
               maxWidth: '92vw',
-              pointerEvents: esFrente || total <= 1 ? 'auto' : 'none',
-              visibility: esFrente || total <= 1 ? 'visible' : 'hidden',
+              pointerEvents: minimizado ? 'none' : (visibleEnCascada ? 'auto' : 'none'),
+              // Cuando está minimizado, el panel está animando width→0;
+              // mantenerlo `visible` durante la animación es necesario
+              // para que se vea el colapso. Después de la animación el
+              // width=0 lo hace invisible de facto.
+              visibility: minimizado ? 'visible' : (visibleEnCascada ? 'visible' : 'hidden'),
             }}
           >
             {/* Contenido interno: tamaño FIJO de ANCHO_PANEL, anclado al
@@ -215,8 +257,11 @@ export function PanelFlotanteCascada({
 
               Internamente usa flex items-center justify-center para que la
               etiqueta vertical quede SIEMPRE centrada verticalmente, sin
-              importar el alto del viewport. */}
-          {!esFrente && total > 1 && (
+              importar el alto del viewport.
+
+              Cuando este panel está minimizado, la solapa también desaparece
+              (width→0). */}
+          {!esFrenteEf && totalEf > 1 && (
             // Misma técnica que el panel: wrapper exterior con width animado
             // de 0 → OFFSET_BORDE, anclado al borde derecho del panel atrás.
             // La solapa adentro tiene tamaño fijo y se revela desde la derecha.
@@ -225,8 +270,8 @@ export function PanelFlotanteCascada({
               data-panel-flotante={`${id}-solapa`}
               initial={{ opacity: 0, width: 0, right: rightCalculado + ANCHO_PANEL - OFFSET_BORDE }}
               animate={{
-                opacity: 1,
-                width: OFFSET_BORDE,
+                opacity: minimizado ? 0 : 1,
+                width: minimizado ? 0 : OFFSET_BORDE,
                 right: rightCalculado + ANCHO_PANEL - OFFSET_BORDE,
               }}
               exit={{ opacity: 0, width: 0 }}
@@ -241,6 +286,7 @@ export function PanelFlotanteCascada({
                 height: '100%',
                 overflow: 'hidden',
                 zIndex: zIndex + 1,
+                pointerEvents: minimizado ? 'none' : 'auto',
               }}
             >
               <button

@@ -4,6 +4,8 @@ import { useEffect, useSyncExternalStore } from 'react'
 import {
   obtenerStackPaneles,
   obtenerStackPanelesSSR,
+  obtenerMinimizados,
+  obtenerMinimizadosSSR,
   suscribirPaneles,
   registrarPanel,
   promoverPanel,
@@ -48,16 +50,20 @@ interface OpcionesPanelFlotante {
 }
 
 interface DatosPanelFlotante {
-  /** Índice en el stack. 0 = frente, 1 = uno atrás, 2 = dos atrás, etc. */
+  /** Índice en el stack. 0 = frente, 1 = uno atrás, 2 = dos atrás, etc.
+   *  -1 cuando el panel no está en stack (está minimizado o cerrado). */
   posicion: number
-  /** Cantidad total de paneles abiertos. */
+  /** Cantidad total de paneles en el stack (no incluye minimizados). */
   total: number
   /** ¿Este panel está al frente del stack? */
   esFrente: boolean
+  /** ¿Este panel está actualmente registrado en el stack? */
+  enStack: boolean
+  /** ¿Está actualmente minimizado (oculto pero preserva su estado)? */
+  minimizado: boolean
   /** Promueve este panel al frente. */
   traerAlFrente: () => void
-  /** Cierra este panel (lo saca del stack). El componente sigue siendo
-   *  responsable de cerrar su propia visibilidad — esto solo limpia el bus. */
+  /** Cierra este panel definitivamente (lo saca del stack Y de minimizados). */
   cerrar: () => void
   /** Lista de todos los paneles atrás de este, en orden visual (el primero
    *  es el que está justo atrás). Útil para renderear las solapas/bordes. */
@@ -72,6 +78,11 @@ export function usePanelFlotante({ id, etiqueta, colorAcento, abierto }: Opcione
     obtenerStackPaneles,
     obtenerStackPanelesSSR,
   )
+  const minimizados = useSyncExternalStore(
+    suscribirPaneles,
+    obtenerMinimizados,
+    obtenerMinimizadosSSR,
+  )
 
   // Registrar / desregistrar según abierto. Se reagrupa cuando cambia
   // etiqueta o color (raro, pero soportado).
@@ -83,11 +94,14 @@ export function usePanelFlotante({ id, etiqueta, colorAcento, abierto }: Opcione
 
   const posicion = stack.findIndex(p => p.id === id)
   const enStack = posicion >= 0
+  const minimizado = minimizados.some(p => p.id === id)
 
   return {
     posicion: enStack ? posicion : -1,
     total: stack.length,
     esFrente: posicion === 0,
+    enStack,
+    minimizado,
     traerAlFrente: () => promoverPanel(id),
     cerrar: () => cerrarPanel(id),
     panelesAtras: enStack ? stack.slice(posicion + 1) : [],

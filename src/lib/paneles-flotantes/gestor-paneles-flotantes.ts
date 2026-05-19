@@ -72,6 +72,15 @@ function persistirMinimizados() {
  *
  * Devuelve la función de cleanup para usar en el useEffect que registra:
  *   useEffect(() => registrar({...}), [...])
+ *
+ * IMPORTANTE: el cleanup usa `desregistrarPanel`, NO `cerrarPanel`. La
+ * diferencia es que el cleanup NO debe tocar `minimizados`: cuando el
+ * usuario hace doble click afuera, `minimizarTodos` mueve el panel a
+ * `minimizados` y dispara setAbierto(false) en el host; ese setState a su
+ * vez hace que `usePanelFlotante` corra su cleanup. Si el cleanup limpiara
+ * `minimizados` perderíamos la posibilidad de restaurar el panel al tocar
+ * el FAB. Solo `cerrarPanel` (uso explícito por X o cerrar definitivo)
+ * limpia ambos.
  */
 export function registrarPanel(panel: PanelFlotanteRegistrado): () => void {
   const existe = stack.find(p => p.id === panel.id)
@@ -82,7 +91,17 @@ export function registrarPanel(panel: PanelFlotanteRegistrado): () => void {
     stack = [panel, ...stack]
   }
   notificar()
-  return () => cerrarPanel(panel.id)
+  return () => desregistrarPanel(panel.id)
+}
+
+/** Saca un panel del stack SIN tocar `minimizados`. Es el opuesto exacto
+ *  de `registrarPanel`. Usar desde el cleanup del useEffect del hook
+ *  `usePanelFlotante` para que la minimización persista hasta que el
+ *  usuario decida restaurar o cerrar definitivamente. */
+export function desregistrarPanel(id: string): void {
+  const antes = stack.length
+  stack = stack.filter(p => p.id !== id)
+  if (stack.length !== antes) notificar()
 }
 
 /** Promueve un panel ya registrado al frente. No-op si no estaba registrado. */
@@ -105,39 +124,59 @@ export function cerrarPanel(id: string): void {
   if (stack.length !== antesStack || minimizados.length !== antesMin) notificar()
 }
 
-/** Minimiza TODOS los paneles abiertos: los saca del stack pero los
- *  guarda en `minimizados` para que el FAB pueda restaurarlos después.
- *  Emite un CustomEvent para que cada host de panel cierre su flag
- *  `abierto` interno sin tratar esto como un cierre definitivo.
+/** Minimiza TODOS los paneles abiertos: los saca del stack y los guarda
+ *  en `minimizados` para poder restaurarlos después.
+ *
+ *  IMPORTANTE: NO emite eventos para que los hosts bajen sus flags
+ *  `abierto`. Los paneles deben permanecer montados con `abierto=true`
+ *  para conservar su estado interno (formularios a medio llenar,
+ *  conversación en curso, scroll, etc.). El `PanelFlotanteCascada` se
+ *  entera del cambio vía `useSyncExternalStore` y anima el ocultamiento
+ *  sin desmontar.
+ *
  *  No-op si no hay paneles abiertos. */
 export function minimizarTodos(): void {
   if (stack.length === 0) return
   minimizados = [...stack]
-  const idsAMinimizar = minimizados.map(p => p.id)
   stack = []
   persistirMinimizados()
   notificar()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('flux:minimizar-paneles', { detail: idsAMinimizar }))
-  }
 }
 
-/** Restaura los paneles que fueron minimizados. Emite un CustomEvent
- *  con los IDs para que cada host vuelva a abrir su panel correspondiente.
- *  El orden visual se preserva (el que estaba al frente vuelve al frente)
- *  porque los hosts emiten su `abierto=true` en orden y el gestor los
- *  registra como nuevos paneles en ese orden. */
+/** Restaura los paneles que fueron minimizados moviéndolos de vuelta al
+ *  stack en su orden original. Como los paneles seguían montados con
+ *  `abierto=true` (no se desmontaron al minimizar), simplemente con
+ *  re-aparecer recuperan su estado interno tal cual estaba. */
 export function restaurarMinimizados(): PanelFlotanteRegistrado[] {
   if (minimizados.length === 0) return []
   const restaurados = [...minimizados]
-  const idsARestaurar = restaurados.map(p => p.id)
+  // Re-insertamos al frente del stack en el orden en que estaban.
+  // El primero del array minimizados era el frente al minimizar.
+  stack = [...restaurados, ...stack.filter(p => !restaurados.some(r => r.id === p.id))]
   minimizados = []
   persistirMinimizados()
   notificar()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('flux:restaurar-paneles', { detail: idsARestaurar }))
-  }
   return restaurados
+}
+
+/** Restaura UN panel específico de los minimizados. Si no estaba
+ *  minimizado pero sí en stack, lo promueve al frente. Si no estaba en
+ *  ningún lado, no hace nada (la apertura inicial pasa por
+ *  `registrarPanel`, vía el `useEffect` de `usePanelFlotante`).
+ *
+ *  Útil para los sub-botones del speed-dial: cuando el usuario toca
+ *  "Notas" después de haber minimizado, queremos que ese panel vuelva. */
+export function restaurarPanel(id: string): void {
+  const enMinimizados = minimizados.find(p => p.id === id)
+  if (enMinimizados) {
+    minimizados = minimizados.filter(p => p.id !== id)
+    stack = [enMinimizados, ...stack.filter(p => p.id !== id)]
+    persistirMinimizados()
+    notificar()
+    return
+  }
+  // No estaba minimizado: si está en stack, promover al frente.
+  promoverPanel(id)
 }
 
 /** Snapshot de los paneles minimizados. */
