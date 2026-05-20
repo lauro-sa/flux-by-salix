@@ -268,12 +268,21 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    const miembrosDataConVigencia = mostrarTerminados
-      ? miembrosDataRaw
-      : (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
+    // El filtro de vigencia oculta empleados sin contrato vigente del
+    // LISTADO general. Pero cuando se consulta un empleado específico
+    // (`empleados=X` en la query), el caller está pidiendo a ese
+    // empleado a propósito — filtrarlo silenciosamente hace que la UI
+    // del detalle de empleado quede mostrando datos viejos del período
+    // anterior. En ese caso, devolvemos al empleado con sus flags
+    // (`contrato_no_iniciado` / `contrato_terminado_antes`) seteados
+    // para que el frontend pueda mostrar un estado claro.
+    const filtrarPorVigencia = !empleadosFiltro && !mostrarTerminados
+    const miembrosDataConVigencia = filtrarPorVigencia
+      ? (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
           !miembrosTerminadosAntes.has(m.id as string) &&
           !miembrosNoIniciados.has(m.id as string),
         )
+      : miembrosDataRaw
 
     // ─── Estado FSM por empleado + snapshot del recibo (sql/105) ───
     //
