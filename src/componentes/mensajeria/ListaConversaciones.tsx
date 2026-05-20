@@ -201,22 +201,26 @@ export function ListaConversaciones({
 
   return (
     <div className="flex flex-col h-full min-w-0 overflow-hidden md:border-r md:border-borde-sutil">
-      {/* Header con búsqueda */}
-      <div className="p-3 px-4 space-y-2" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-        {/* Barra de selección masiva */}
+      {/* Cabezal de la columna — altura uniforme con el resto de cabezales
+          internos (sidebar de cuentas: h-9). Una sola fila con título + badge
+          a la izquierda y acciones (incluyendo accionesHeader) a la derecha. */}
+      <div
+        className="flex items-center justify-between h-9 px-3 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+      >
         {modoSeleccion ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <>
+            <div className="flex items-center gap-2 min-w-0">
               <Boton variante="fantasma" tamano="xs" soloIcono titulo="Seleccionar todos" onClick={seleccionarTodos} aria-label="Seleccionar todos" icono={
                 seleccionados.size === conversaciones.length && conversaciones.length > 0
                   ? <CheckSquare size={14} style={{ color: 'var(--texto-marca)' }} />
                   : <Square size={14} style={{ color: 'var(--texto-terciario)' }} />
               } />
-              <span className="text-xs" style={{ color: 'var(--texto-secundario)' }}>
+              <span className="text-xs truncate" style={{ color: 'var(--texto-secundario)' }}>
                 {seleccionados.size} seleccionado{seleccionados.size !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               {seleccionados.size > 0 && onEliminarSeleccion && (
                 <Boton
                   variante="fantasma"
@@ -236,74 +240,68 @@ export function ListaConversaciones({
                 {t('comun.cancelar')}
               </Boton>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="space-y-1.5">
-            {/* Fila 1: título + badge */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {ICONO_CANAL[tipoCanal]}
-                <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                  {t('inbox.conversaciones')}
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              {ICONO_CANAL[tipoCanal]}
+              <span className="text-sm font-semibold truncate" style={{ color: 'var(--texto-primario)' }}>
+                {t('inbox.conversaciones')}
+              </span>
+              {totalNoLeidos > 0 && (
+                <span
+                  className="text-xxs font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  style={{
+                    background: 'var(--insignia-peligro-fondo)',
+                    color: 'var(--insignia-peligro-texto)',
+                  }}
+                >
+                  {totalNoLeidos}
                 </span>
-                {totalNoLeidos > 0 && (
-                  <span
-                    className="text-xxs font-medium px-1.5 py-0.5 rounded-full"
-                    style={{
-                      background: 'var(--insignia-peligro-fondo)',
-                      color: 'var(--insignia-peligro-texto)',
-                    }}
-                  >
-                    {totalNoLeidos}
-                  </span>
-                )}
-              </div>
-              {/* Acciones: no leídos, seleccionar, filtro */}
-              <div className="flex items-center gap-0.5">
-                {onToggleNoLeidos && (
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    soloIcono
-                    icono={soloNoLeidos ? <EyeOff size={14} /> : <Eye size={14} />}
-                    onClick={onToggleNoLeidos}
-                    titulo={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
-                    style={{
-                      color: soloNoLeidos ? 'var(--texto-marca)' : 'var(--texto-terciario)',
-                    }}
-                  />
-                )}
-                {onEliminarSeleccion && (
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    soloIcono
-                    icono={<CheckSquare size={14} />}
-                    onClick={() => setModoSeleccion(true)}
-                    titulo="Seleccionar"
-                    style={{ color: 'var(--texto-terciario)' }}
-                  />
-                )}
+              )}
+            </div>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {onToggleNoLeidos && (
                 <Boton
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
-                  titulo="Filtrar"
-                  icono={<Filter size={14} />}
-                  onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                  style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+                  icono={soloNoLeidos ? <EyeOff size={14} /> : <Eye size={14} />}
+                  onClick={onToggleNoLeidos}
+                  titulo={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
+                  style={{
+                    color: soloNoLeidos ? 'var(--texto-marca)' : 'var(--texto-terciario)',
+                  }}
                 />
-              </div>
+              )}
+              {onEliminarSeleccion && (
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<CheckSquare size={14} />}
+                  onClick={() => setModoSeleccion(true)}
+                  titulo="Seleccionar"
+                  style={{ color: 'var(--texto-terciario)' }}
+                />
+              )}
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                titulo="Filtrar"
+                icono={<Filter size={14} />}
+                onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+              />
+              {accionesHeader}
             </div>
-            {/* Fila 2: acciones extra del header (vista columna/fila, colapsar, etc.) */}
-            {accionesHeader && (
-              <div className="flex items-center justify-end">
-                {accionesHeader}
-              </div>
-            )}
-          </div>
+          </>
         )}
+      </div>
 
+      {/* Bloque búsqueda + paginador + filtros */}
+      <div className="px-3 py-2 space-y-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
         <Buscador
           valor={busqueda}
           onChange={onBusqueda}
@@ -683,6 +681,7 @@ export function ListaConversaciones({
           esAdmin={esAdmin}
           estaFijada={!!menuConv.conv._fijada}
           estaSilenciada={!!menuConv.conv._silenciada}
+          tipoCanal={tipoCanal}
         />
       )}
     </div>
