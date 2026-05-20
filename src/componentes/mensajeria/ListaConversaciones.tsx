@@ -285,15 +285,21 @@ export function ListaConversaciones({
                   style={{ color: 'var(--texto-terciario)' }}
                 />
               )}
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                titulo="Filtrar"
-                icono={<Filter size={14} />}
-                onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
-              />
+              {/* Filtro por estado (Abierta/En espera/Resuelta/Spam) — solo
+                  aplica a WhatsApp e Interno. Correo se navega por carpetas
+                  desde el sidebar (Entrada/Enviados/Spam/Archivado), así que
+                  el filtro de estado no aporta nada y confunde. */}
+              {tipoCanal !== 'correo' && (
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  titulo="Filtrar"
+                  icono={<Filter size={14} />}
+                  onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                  style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+                />
+              )}
               {accionesHeader}
             </div>
           </>
