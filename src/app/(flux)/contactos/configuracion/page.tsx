@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tag, Briefcase, UserCheck, Link2, Plus, DatabaseBackup, Download, Upload, Check, AlertTriangle, CloudCog, ExternalLink, RefreshCw, Unplug } from 'lucide-react'
+import { Tag, Briefcase, UserCheck, Link2, Plus, DatabaseBackup, Download, Upload, Check, AlertTriangle, CloudCog, ExternalLink, RefreshCw, Unplug, ArrowDownAZ } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { useSearchParams } from 'next/navigation'
@@ -13,6 +13,7 @@ import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Boton } from '@/componentes/ui/Boton'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
+import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SinPermiso } from '@/componentes/feedback/SinPermiso'
@@ -42,6 +43,9 @@ interface ItemConfig {
   color?: string
   activo?: boolean
   orden: number
+  /** Cantidad de contactos/vinculaciones que usan este item — viene del
+   *  endpoint GET y se muestra como badge en la lista. */
+  cantidadUsos?: number
 }
 
 export default function PaginaConfiguracionContactos() {
@@ -59,7 +63,7 @@ export default function PaginaConfiguracionContactos() {
 
   const secciones: SeccionConfig[] = [
     { id: 'etiquetas', etiqueta: 'Etiquetas de contactos', icono: <Tag size={16} />, grupo: 'Clasificación' },
-    { id: 'puestos', etiqueta: 'Puestos / Rubros', icono: <Briefcase size={16} />, grupo: 'Clasificación' },
+    { id: 'puestos', etiqueta: 'Cargos / Rubros', icono: <Briefcase size={16} />, grupo: 'Clasificación' },
     { id: 'relaciones', etiqueta: 'Relaciones', icono: <Link2 size={16} />, grupo: 'Clasificación' },
     { id: 'copias', etiqueta: 'Copias de seguridad', icono: <DatabaseBackup size={16} />, grupo: 'Datos y respaldo' },
     { id: 'google-drive', etiqueta: 'Google Drive', icono: <CloudCog size={16} />, grupo: 'Datos y respaldo' },
@@ -71,10 +75,10 @@ export default function PaginaConfiguracionContactos() {
     try {
       const res = await fetch('/api/contactos/config')
       const data = await res.json()
-      if (data.etiquetas) setEtiquetas(data.etiquetas.map((e: Record<string, unknown>) => ({ id: e.id, nombre: e.nombre, color: e.color || 'neutro', activo: e.activa ?? e.activo ?? true, orden: e.orden || 0 })))
-      if (data.rubros) setRubros(data.rubros.map((r: Record<string, unknown>) => ({ id: r.id, nombre: r.nombre, activo: r.activo ?? true, orden: r.orden || 0 })))
-      if (data.puestos) setPuestos(data.puestos.map((p: Record<string, unknown>) => ({ id: p.id, nombre: p.nombre, activo: p.activo ?? true, orden: p.orden || 0 })))
-      if (data.relaciones) setRelaciones(data.relaciones.map((r: Record<string, unknown>) => ({ id: r.id as string, nombre: r.nombre as string, activo: (r.activo as boolean) ?? true, orden: (r.orden as number) || 0 })))
+      if (data.etiquetas) setEtiquetas(data.etiquetas.map((e: Record<string, unknown>) => ({ id: e.id, nombre: e.nombre, color: e.color || 'neutro', activo: e.activa ?? e.activo ?? true, orden: e.orden || 0, cantidadUsos: (e.cantidad_usos as number) || 0 })))
+      if (data.rubros) setRubros(data.rubros.map((r: Record<string, unknown>) => ({ id: r.id, nombre: r.nombre, activo: r.activo ?? true, orden: r.orden || 0, cantidadUsos: (r.cantidad_usos as number) || 0 })))
+      if (data.puestos) setPuestos(data.puestos.map((p: Record<string, unknown>) => ({ id: p.id, nombre: p.nombre, activo: p.activo ?? true, orden: p.orden || 0, cantidadUsos: (p.cantidad_usos as number) || 0 })))
+      if (data.relaciones) setRelaciones(data.relaciones.map((r: Record<string, unknown>) => ({ id: r.id as string, nombre: r.nombre as string, activo: (r.activo as boolean) ?? true, orden: (r.orden as number) || 0, cantidadUsos: (r.cantidad_usos as number) || 0 })))
     } catch { /* silenciar */ }
     finally { setCargando(false) }
   }, [puedeVer])
@@ -119,17 +123,31 @@ export default function PaginaConfiguracionContactos() {
     etiqueta: '',
   })
 
-  // Reordenar items
+  // Reordenar items. Asignamos `orden = i + 1` (1, 2, 3, ...) en vez de 0,
+  // 1, 2, ... porque `orden = 0` se reserva para "el usuario nunca pre-
+  // ordenó este item" — esos items se ordenan alfabéticamente por
+  // tiebreak. Después de un drag, todos los items del catálogo pasan a
+  // tener `orden >= 1` (orden manual respetado).
   const reordenar = useCallback(async (tipo: string, idsOrdenados: string[]) => {
     await Promise.all(idsOrdenados.map((id, i) =>
       fetch('/api/contactos/config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, id, orden: i }),
+        body: JSON.stringify({ tipo, id, orden: i + 1 }),
       })
     ))
     cargar()
   }, [cargar])
+
+  // Modal "elegí qué restablecer": 1) alfabético (solo orden), 2) defaults
+  // del software (items + orden, borra los custom). El usuario elige el
+  // modo antes de entrar al flujo completo.
+  const [elegirRestablecer, setElegirRestablecer] = useState<{
+    abierto: boolean
+    tipo: string
+    etiqueta: string
+  }>({ abierto: false, tipo: '', etiqueta: '' })
+  const [restableciendoOrden, setRestableciendoOrden] = useState(false)
 
   const abrirRestablecer = useCallback((tipo: string) => {
     const etiquetas: Record<string, string> = {
@@ -138,8 +156,34 @@ export default function PaginaConfiguracionContactos() {
       puesto: 'puestos',
       relacion: 'relaciones',
     }
-    setModalRestablecer({ abierto: true, tipo, etiqueta: etiquetas[tipo] || tipo })
+    // Primero el chooser de modo (alfabético o predefinidos completos).
+    setElegirRestablecer({ abierto: true, tipo, etiqueta: etiquetas[tipo] || tipo })
   }, [])
+
+  // Modo 1: solo orden alfabético (resetea orden = 0 para todos los items
+  // del catálogo, no toca items ni datos de contactos).
+  const restablecerAlfabetico = useCallback(async (tipo: string) => {
+    setRestableciendoOrden(true)
+    try {
+      await fetch('/api/contactos/config/orden-alfabetico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo }),
+      })
+      setElegirRestablecer({ abierto: false, tipo: '', etiqueta: '' })
+      cargar()
+    } finally {
+      setRestableciendoOrden(false)
+    }
+  }, [cargar])
+
+  // Modo 2: volver a defaults del software (abre el modal de migración
+  // existente, que avisa si hay items custom con contactos asignados).
+  const restablecerPredefinidos = useCallback(() => {
+    const { tipo, etiqueta } = elegirRestablecer
+    setElegirRestablecer({ abierto: false, tipo: '', etiqueta: '' })
+    setModalRestablecer({ abierto: true, tipo, etiqueta })
+  }, [elegirRestablecer])
 
   // Guard de acceso: después de todos los hooks.
   if (cargandoPermisos) return null
@@ -179,8 +223,8 @@ export default function PaginaConfiguracionContactos() {
           {seccionActiva === 'puestos' && (
             <div className="space-y-8">
               <SeccionLista
-                titulo="Puestos"
-                descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+                titulo="Cargos"
+                descripcion="Cargo o profesión del contacto (Contador, Diseñador, etc.). Se usa en la ficha del contacto, no en las vinculaciones."
                 items={puestos}
                 tipo="puesto"
                 onCreate={(nombre) => crear('puesto', nombre)}
@@ -207,8 +251,8 @@ export default function PaginaConfiguracionContactos() {
           )}
           {seccionActiva === 'relaciones' && (
             <SeccionLista
-              titulo="Tipos de relación"
-              descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+              titulo="Tipos de relación entre contactos"
+              descripcion="Cómo se vincula un contacto con otro (Administra, Encargado/a de, Pagos de, etc.). Aparece en el modal de vinculación."
               items={relaciones}
               tipo="relacion"
               onCreate={(nombre) => crear('relacion', nombre)}
@@ -227,6 +271,59 @@ export default function PaginaConfiguracionContactos() {
           )}
         </>
       )}
+      {/* Chooser de modo de restablecer: alfabético vs defaults del software */}
+      <ModalAdaptable
+        abierto={elegirRestablecer.abierto}
+        onCerrar={() => setElegirRestablecer({ abierto: false, tipo: '', etiqueta: '' })}
+        titulo={`Restablecer ${elegirRestablecer.etiqueta}`}
+        tamano="md"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-texto-secundario">
+            Elegí cómo querés restablecer:
+          </p>
+
+          {/* Opción 1: orden alfabético */}
+          <button
+            type="button"
+            onClick={() => restablecerAlfabetico(elegirRestablecer.tipo)}
+            disabled={restableciendoOrden}
+            className="w-full text-left p-4 rounded-card border border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-md bg-texto-marca/10 text-texto-marca flex items-center justify-center shrink-0">
+                <ArrowDownAZ size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-texto-primario">Orden alfabético</div>
+                <p className="text-xs text-texto-terciario mt-0.5">
+                  Resetea solo el orden manual. Los items se vuelven a ordenar de la A a la Z. <span className="text-texto-secundario">No borra ni modifica ningún item.</span>
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Opción 2: defaults del software */}
+          <button
+            type="button"
+            onClick={restablecerPredefinidos}
+            className="w-full text-left p-4 rounded-card border border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover transition-colors"
+          >
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-md bg-insignia-advertencia/15 text-insignia-advertencia flex items-center justify-center shrink-0">
+                <RefreshCw size={17} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-texto-primario">Volver a los predefinidos</div>
+                <p className="text-xs text-texto-terciario mt-0.5">
+                  Devuelve los {elegirRestablecer.etiqueta} a los que vienen con el software. <span className="text-insignia-advertencia">Los items personalizados se borran</span> — si hay contactos que los usan, te avisa antes para reasignarlos.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </ModalAdaptable>
+
       <ModalRestablecer
         abierto={modalRestablecer.abierto}
         onCerrar={() => setModalRestablecer(prev => ({ ...prev, abierto: false }))}
@@ -286,7 +383,8 @@ function SeccionLista({
     id: item.id,
     nombre: item.nombre,
     activo: item.activo,
-    datos: { color: item.color },
+    // `cantidadUsos` viaja vía `datos` para renderizarlo como badge.
+    datos: { color: item.color, cantidadUsos: item.cantidadUsos ?? 0 },
   }))
 
   return (
@@ -316,7 +414,7 @@ function SeccionLista({
         restaurable={!!onRestablecer}
         onRestaurar={onRestablecer}
         renderContenido={conColor ? (item) => (
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div
               className="size-4 rounded-full shrink-0"
               style={{ backgroundColor: `var(--insignia-${item.datos?.color || 'neutro'})` }}
@@ -324,6 +422,26 @@ function SeccionLista({
             <Insignia color={(item.datos?.color || 'neutro') as ColorInsignia}>{item.nombre}</Insignia>
           </div>
         ) : undefined}
+        renderControlesExtra={(item) => {
+          // Badge de usos pegado a los controles (a la izquierda del
+          // switch). Lo mostramos SIEMPRE, incluso en 0, para que la
+          // columna quede prolija y alineada. En 0 va más opaco.
+          const usos = (item.datos?.cantidadUsos as number) || 0
+          return (
+            <span
+              className={`inline-flex items-center justify-center min-w-[28px] px-1.5 py-0.5 rounded-boton bg-superficie-app text-[11px] tabular-nums shrink-0 ${
+                usos > 0 ? 'text-texto-secundario' : 'text-texto-terciario/60'
+              }`}
+              title={
+                usos === 0
+                  ? `Ningún contacto usa este ${tipo} todavía`
+                  : `${usos} ${usos === 1 ? 'contacto' : 'contactos'} usa${usos === 1 ? '' : 'n'} este ${tipo}`
+              }
+            >
+              {usos}
+            </span>
+          )
+        }}
       />
 
       {/* Modal crear/editar */}
@@ -348,7 +466,15 @@ function SeccionLista({
       <ModalConfirmacion
         abierto={!!confirmarEliminar}
         titulo={`Eliminar ${tipo}`}
-        descripcion={`Se eliminará "${items.find(i => i.id === confirmarEliminar)?.nombre || ''}".`}
+        descripcion={(() => {
+          const item = items.find(i => i.id === confirmarEliminar)
+          if (!item) return ''
+          const usos = item.cantidadUsos ?? 0
+          if (usos === 0) {
+            return `Se eliminará "${item.nombre}" del catálogo.`
+          }
+          return `Se eliminará "${item.nombre}" del catálogo. Hay ${usos} ${usos === 1 ? 'contacto que lo tiene' : 'contactos que lo tienen'} cargado — conservan el valor pero no aparecerá más en los selectores para nuevas selecciones.`
+        })()}
         etiquetaConfirmar="Eliminar"
         tipo="peligro"
         onConfirmar={() => {

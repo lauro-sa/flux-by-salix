@@ -134,17 +134,18 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
         conPadres.push(inter)
       }
 
-      // Navegación cross-entity (detalle de un módulo → detalle de otro): si
-      // las intermedias trajeron el módulo de origen, el módulo destino sobra
-      // en la migaja porque no estás "entrando al listado", estás saltando de
-      // una ficha a otra. Ej: Presupuesto Pres 26-098 → Contacto Develop SRL
-      // se lee mejor como "Presupuestos > Pres 26-098 > Develop SRL" que
-      // intercalando "Contactos" en medio.
+      // Salto ficha → ficha (mismo módulo o cross-module): si llegamos
+      // a esta ficha viniendo de OTRA ficha (no del listado), no tiene
+      // sentido intercalar el listado del módulo en el medio — se lee
+      // mejor como "Manuel > Garage Yatay" que "Manuel > Contactos >
+      // Garage Yatay", porque el click en Contactos te sacaría del
+      // contexto sin filtros. Aplica tanto para cross-module (Presupuesto
+      // → Contacto) como para mismo módulo (Contacto → Contacto). El
+      // criterio: cualquier intermedia que NO sea ya un módulo estático
+      // (i.e., una ficha individual) implica salto entre fichas.
       const moduloActual = `/${(pathname.split('/').filter(Boolean)[0] || '')}`
-      const padresIntermediosDeOtroModulo = conPadres.some(
-        m => MIGAJAS_MODULOS[m.ruta] && m.ruta !== moduloActual
-      )
-      if (padresIntermediosDeOtroModulo) {
+      const hayIntermediasDeFicha = conPadres.some(m => !MIGAJAS_MODULOS[m.ruta])
+      if (hayIntermediasDeFicha) {
         const idxModuloActual = migajas.findIndex(m => m.ruta === moduloActual)
         if (idxModuloActual >= 0) migajas.splice(idxModuloActual, 1)
       }

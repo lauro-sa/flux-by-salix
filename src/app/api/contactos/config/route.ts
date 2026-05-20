@@ -20,22 +20,59 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    const [etiquetasRes, rubrosRes, puestosRes, relacionesRes] = await Promise.all([
-      admin.from('etiquetas_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
-      admin.from('rubros_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
-      admin.from('puestos_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
-      admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).order('etiqueta'),
+    const [etiquetasRes, rubrosRes, puestosRes, relacionesRes, contactosRes] = await Promise.all([
+      // Orden primario: columna `orden` (default 0 = sin ordenar manualmente).
+      // Desempate: alfabético por `nombre`/`etiqueta`. Cuando todos los
+      // items están en `orden = 0` (estado inicial, antes de cualquier
+      // drag-and-drop), salen alfabéticos por el tiebreak — comportamiento
+      // que esperás como default.
+      admin.from('etiquetas_contacto').select('*').eq('empresa_id', empresaId).order('orden').order('nombre'),
+      admin.from('rubros_contacto').select('*').eq('empresa_id', empresaId).order('orden').order('nombre'),
+      admin.from('puestos_contacto').select('*').eq('empresa_id', empresaId).order('orden').order('nombre'),
+      admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).order('orden').order('etiqueta'),
+      // Para contar usos: traemos los datos crudos de los contactos de la
+      // empresa y agregamos en TS (más simple y rápido que múltiples
+      // queries con COUNT, sobre todo en empresas con catálogos chicos y
+      // contactos en volumen moderado).
+      admin.from('contactos').select('id, rubro, cargo, etiquetas').eq('empresa_id', empresaId).eq('en_papelera', false),
     ])
 
-    return NextResponse.json({
-      etiquetas: etiquetasRes.data || [],
-      rubros: rubrosRes.data || [],
-      puestos: puestosRes.data || [],
-      relaciones: (relacionesRes.data || []).map((r: Record<string, unknown>) => ({
-        id: r.id, nombre: r.etiqueta, activo: r.activo, orden: 0,
-        etiqueta_inversa: r.etiqueta_inversa, es_predefinido: r.es_predefinido,
-      })),
+    // Vinculaciones de la empresa, para contar usos de tipo_relacion_id
+    // y puesto. Filtramos por `empresa_id` directo en la tabla (existe
+    // como FK) — antes hacíamos `.in('contacto_id', idsContactos)` con la
+    // lista completa de IDs de la empresa, pero con 900+ contactos el
+    // URL excedía el límite de PostgREST y la query devolvía vacío.
+    const { data: vinculacionesData } = await admin
+      .from('contacto_vinculaciones')
+      .select('tipo_relacion_id, puesto')
+      .eq('empresa_id', empresaId)
+    const vinculaciones = (vinculacionesData || []) as Array<{ tipo_relacion_id: string | null; puesto: string | null }>
+
+    // Conteo de usos por valor — pasamos `cantidad_usos` por item.
+    const contactos = (contactosRes.data || []) as Array<{ rubro: string | null; cargo: string | null; etiquetas: string[] | null }>
+    const contarUsos = (predicate: (c: typeof contactos[number]) => boolean): number =>
+      contactos.reduce((acc, c) => acc + (predicate(c) ? 1 : 0), 0)
+
+    const etiquetas = (etiquetasRes.data || []).map((e: Record<string, unknown>) => ({
+      ...e,
+      cantidad_usos: contarUsos(c => (c.etiquetas || []).includes(e.nombre as string)),
+    }))
+    const rubros = (rubrosRes.data || []).map((r: Record<string, unknown>) => ({
+      ...r,
+      cantidad_usos: contarUsos(c => c.rubro === r.nombre),
+    }))
+    const puestos = (puestosRes.data || []).map((p: Record<string, unknown>) => {
+      const usosCargo = contarUsos(c => c.cargo === p.nombre)
+      const usosVinc = vinculaciones.reduce((acc, v) => acc + (v.puesto === p.nombre ? 1 : 0), 0)
+      return { ...p, cantidad_usos: usosCargo + usosVinc }
     })
+    const relaciones = (relacionesRes.data || []).map((r: Record<string, unknown>) => ({
+      id: r.id, nombre: r.etiqueta, activo: r.activo, orden: 0,
+      etiqueta_inversa: r.etiqueta_inversa, es_predefinido: r.es_predefinido,
+      cantidad_usos: vinculaciones.reduce((acc, v) => acc + (v.tipo_relacion_id === r.id ? 1 : 0), 0),
+    }))
+
+    return NextResponse.json({ etiquetas, rubros, puestos, relaciones })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
@@ -109,6 +146,13 @@ export async function POST(request: NextRequest) {
 /**
  * PATCH /api/contactos/config — Actualizar etiqueta, rubro o puesto.
  * Body: { tipo, id, nombre?, color?, activo?, orden? }
+ *
+ * Si se cambia el `nombre` del item, propagamos el cambio a los registros
+ * referenciados — porque etiquetas, rubros y puestos se guardan por VALOR
+ * (string) en `contactos.etiquetas[]`, `contactos.rubro`, `contactos.cargo`,
+ * `contacto_vinculaciones.puesto`. Si no propagáramos, los contactos
+ * quedarían con el nombre viejo "congelado" desconectados del catálogo.
+ * Para `relacion` no aplica — vinculaciones referencian por `tipo_relacion_id` (FK).
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -130,6 +174,20 @@ export async function PATCH(request: NextRequest) {
 
     if (!tabla || !id) return NextResponse.json({ error: 'Tipo e ID obligatorios' }, { status: 400 })
 
+    // Si vamos a cambiar el nombre, leemos el valor anterior primero para
+    // poder propagar el cambio a los registros que lo usan por valor.
+    let nombreAnterior: string | null = null
+    const cambioDeNombre = 'nombre' in body && body.nombre?.trim()
+    if (cambioDeNombre && tipo !== 'relacion') {
+      const { data: filaAnterior } = await admin
+        .from(tabla)
+        .select('nombre')
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .maybeSingle()
+      nombreAnterior = (filaAnterior as { nombre?: string } | null)?.nombre || null
+    }
+
     const actualizar: Record<string, unknown> = {}
     if (tipo === 'relacion') {
       if ('nombre' in body) actualizar.etiqueta = body.nombre?.trim()
@@ -144,6 +202,45 @@ export async function PATCH(request: NextRequest) {
     const { data, error } = await admin.from(tabla).update(actualizar).eq('id', id).eq('empresa_id', empresaId).select().single()
 
     if (error) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+
+    // Propagar el rename a los registros que referencian por valor.
+    if (cambioDeNombre && nombreAnterior && nombreAnterior !== body.nombre.trim()) {
+      const nombreNuevo = body.nombre.trim()
+      const empresa = empresaId
+
+      if (tipo === 'rubro') {
+        // contactos.rubro
+        await admin.from('contactos').update({ rubro: nombreNuevo })
+          .eq('empresa_id', empresa)
+          .eq('rubro', nombreAnterior)
+      } else if (tipo === 'puesto') {
+        // contactos.cargo (profesión general)
+        await admin.from('contactos').update({ cargo: nombreNuevo })
+          .eq('empresa_id', empresa)
+          .eq('cargo', nombreAnterior)
+        // contacto_vinculaciones.puesto (rol en la vinculación, legacy).
+        // Filtramos directo por `empresa_id` (la tabla la tiene como FK).
+        await admin.from('contacto_vinculaciones').update({ puesto: nombreNuevo })
+          .eq('empresa_id', empresa)
+          .eq('puesto', nombreAnterior)
+      } else if (tipo === 'etiqueta') {
+        // contactos.etiquetas es text[]. Hacemos un SQL directo para
+        // reemplazar el valor viejo por el nuevo en el array. Necesita
+        // exec via rpc o raw query — uso `rpc` si existe, sino update por
+        // contacto. Simplificamos: fetch contactos con la etiqueta, mapeo
+        // del array, update individual.
+        const { data: contactosConEtiqueta } = await admin
+          .from('contactos')
+          .select('id, etiquetas')
+          .eq('empresa_id', empresa)
+          .contains('etiquetas', [nombreAnterior])
+        const filas = (contactosConEtiqueta as Array<{ id: string; etiquetas: string[] }> | null) || []
+        for (const c of filas) {
+          const nuevas = (c.etiquetas || []).map(e => e === nombreAnterior ? nombreNuevo : e)
+          await admin.from('contactos').update({ etiquetas: nuevas }).eq('id', c.id)
+        }
+      }
+    }
 
     return NextResponse.json(data)
   } catch {

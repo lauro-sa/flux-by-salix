@@ -1347,20 +1347,18 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
                       onChange={onCambiarPais} />
                   </Fila>
                 )}
-                {/* Tipo de identificación (col der de fila 1). El grid llena
-                    por filas: País (izq) → Identificación (der). */}
+                {/* Tipo de identificación (col der de fila 1). Siempre Select
+                    aunque haya una sola opción — antes mostrábamos un span
+                    fijo en ese caso, pero quedaba inconsistente con los
+                    demás campos (parecía no editable). Si solo hay una
+                    opción, el Select arranca con ella seleccionada y el
+                    usuario simplemente la ve confirmada. */}
                 {camposIdentificacion.length > 0 && (
                   <Fila etiqueta={t('contactos.identificacion')}>
-                    {camposIdentificacion.length > 1 ? (
-                      <Select variante="plano"
-                        opciones={camposIdentificacion.map(c => ({ valor: c.clave, etiqueta: c.etiqueta }))}
-                        valor={campos.tipo_identificacion || ''}
-                        onChange={v => guardarSelect('tipo_identificacion', v)} />
-                    ) : (
-                      <span className="text-sm font-medium text-texto-primario block py-1">
-                        {camposIdentificacion[0].etiqueta}
-                      </span>
-                    )}
+                    <Select variante="plano"
+                      opciones={camposIdentificacion.map(c => ({ valor: c.clave, etiqueta: c.etiqueta }))}
+                      valor={campos.tipo_identificacion || camposIdentificacion[0].clave}
+                      onChange={v => guardarSelect('tipo_identificacion', v)} />
                   </Fila>
                 )}
                 {/* Primer campo fiscal no-identificación (col izq de fila 2):
@@ -1473,6 +1471,7 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
             <VinculacionesContacto
               contactoId={contactoId!}
               nombreContacto={nombreCompleto}
+              correoContacto={campos.correo || null}
               vinculaciones={mapearVinculaciones(vinculaciones)}
               vinculacionesInversas={mapearVinculacionesInversas(vinculacionesInversas)}
               tiposRelacion={tiposRelacion}

@@ -53,9 +53,16 @@ async function fetchTipos(empresaId: string, admin: Admin): Promise<DatosInicial
   // Tablas posiblemente vacías en empresas nuevas: aceptamos resultado vacío
   // y devolvemos shape vacío en lugar de explotar.
   const queries = await Promise.all([
-    admin.from('tipos_contacto').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden'),
-    admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden'),
-    admin.from('puestos_vinculacion').select('id, etiqueta').eq('empresa_id', empresaId).order('orden'),
+    admin.from('tipos_contacto').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden').order('etiqueta'),
+    admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden').order('etiqueta'),
+    // Catálogo de puestos para vinculaciones — viene de `puestos_contacto`
+    // (la misma tabla que escribe POST/DELETE /api/contactos/config y que
+    // lee /api/contactos/tipos). Antes esta query apuntaba a la tabla
+    // inexistente `puestos_vinculacion`, fallaba silenciosa y se mostraba
+    // un fallback hardcodeado — los puestos creados por el usuario nunca
+    // aparecían en el dropdown. Mapeamos `nombre → etiqueta` para
+    // conservar el shape esperado por VinculacionesContacto.
+    admin.from('puestos_contacto').select('id, nombre, orden').eq('empresa_id', empresaId).eq('activo', true).order('orden').order('nombre'),
     // campos_fiscales_pais no tiene columna `activo` (los registros son
     // catálogos por país, todos vigentes mientras existan). Filtrar por
     // `activo=true` ahí rompía la query → llegaba vacío y no aparecían los
@@ -73,7 +80,7 @@ async function fetchTipos(empresaId: string, admin: Admin): Promise<DatosInicial
   return {
     tipos_contacto: (tiposContactoRes.data || []) as TipoContacto[],
     tipos_relacion: (tiposRelacionRes.data || []) as TipoRelacion[],
-    puestos_vinculacion: (puestosRes.data || []) as { id: string; etiqueta: string }[],
+    puestos_vinculacion: ((puestosRes.data || []) as Array<{ id: string; nombre: string }>).map(p => ({ id: p.id, etiqueta: p.nombre })),
     campos_fiscales: (camposFiscalesRes.data || []) as CampoFiscalPais[],
     paises,
   }

@@ -7,7 +7,7 @@ import {
   Link2, Search, X, UserPlus, FileCheck, Phone, Mail, ExternalLink,
   ChevronRight, Plus, Building2, User, Truck,
   Smartphone, Briefcase, Home as HomeIcon,
-  ArrowRight, ArrowLeft, ArrowLeftRight, Trash2,
+  ArrowRight, ArrowLeft, ArrowLeftRight, Trash2, Star,
 } from 'lucide-react'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Input } from '@/componentes/ui/Input'
@@ -75,6 +75,11 @@ interface PuestoVinculacion {
 interface Props {
   contactoId: string
   nombreContacto?: string
+  /** Correo del contacto principal. Si está vacío, el primer vinculado que
+   *  se agregue queda auto-marcado como destinatario predeterminado para
+   *  documentos (lógica del producto: si el contacto no tiene mail propio,
+   *  necesita uno por vínculo para recibir docs). */
+  correoContacto?: string | null
   vinculaciones: VinculoUI[]
   vinculacionesInversas: VinculoUI[]
   tiposRelacion: TipoRelacion[]
@@ -119,6 +124,7 @@ const TIPOS_CONTACTO_CREAR = [
 export function VinculacionesContacto({
   contactoId,
   nombreContacto,
+  correoContacto,
   vinculaciones,
   vinculacionesInversas,
   tiposRelacion,
@@ -175,6 +181,10 @@ export function VinculacionesContacto({
   const [edicionTelefono, setEdicionTelefono] = useState('')
   const [edicionTipoTelefono, setEdicionTipoTelefono] = useState<string>('movil')
   const [edicionPuesto, setEdicionPuesto] = useState('')
+  // ID del tipo de relación seleccionado en el modal de edición. Reemplaza
+  // al free-text "puesto" como criterio principal del rol del vínculo —
+  // el `puesto` queda como dato secundario opcional (legacy).
+  const [edicionTipoRelacionId, setEdicionTipoRelacionId] = useState('')
   const [edicionRecibeDoc, setEdicionRecibeDoc] = useState(false)
   const [guardandoEdicion, setGuardandoEdicion] = useState(false)
 
@@ -206,6 +216,22 @@ export function VinculacionesContacto({
     nombre: string
   } | null>(null)
   const [desvinculando, setDesvinculando] = useState(false)
+
+  // ─── Cambio de destinatario predeterminado ───
+  // Regla del producto: solo UN vinculado puede estar marcado como
+  // destinatario por defecto a la vez. Cuando el usuario tildá un nuevo
+  // candidato y ya hay otro marcado, pasamos por confirmación para
+  // explicitar el cambio (no es un toggle silencioso).
+  const [confirmarCambioDestinatario, setConfirmarCambioDestinatario] = useState<{
+    vinculoNuevo: VinculoUI & { esEntrante: boolean }
+    actual: { nombre: string }
+  } | null>(null)
+  // Override optimista del flag por vinculado_id. Se setea inmediatamente
+  // al clickear la estrella para feedback instantáneo. El PATCH corre en
+  // background; al volver `onActualizar()` los datos del padre sincronizan
+  // y el override queda redundante (pero inofensivo). Se limpia cuando el
+  // valor real coincide con el override.
+  const [destinatarioOverride, setDestinatarioOverride] = useState<Record<string, boolean>>({})
 
   // IDs ya vinculados para filtrar en búsqueda
   const idsVinculados = new Set([
@@ -300,6 +326,15 @@ export function VinculacionesContacto({
     if (!seleccionado || vinculando) return
     setVinculando(true)
     try {
+      // Auto-default: si el contacto principal no tiene correo y no hay
+      // ningún vinculado todavía marcado como destinatario, el primero
+      // que agreguemos hereda el flag — porque sin correo propio, este
+      // contacto necesita un vinculado por defecto para recibir docs.
+      const hayMarcado = [...vinculaciones, ...vinculacionesInversas].some(v => v.recibe_documentos)
+      const sinCorreoPropio = !correoContacto || !correoContacto.trim()
+      const autoDestinatario = sinCorreoPropio && !hayMarcado
+      const flagDest = recibeDocumentos || autoDestinatario
+
       // Vínculo en sentido saliente (A → B) si corresponde
       if (direccionVinculo === 'saliente' || direccionVinculo === 'bidireccional') {
         await fetch('/api/contactos/vinculaciones', {
@@ -310,7 +345,7 @@ export function VinculacionesContacto({
             vinculado_id: seleccionado.id,
             tipo_relacion_id: tipoRelacionId || null,
             puesto: puesto || null,
-            recibe_documentos: recibeDocumentos,
+            recibe_documentos: flagDest,
           }),
         })
       }
@@ -326,7 +361,7 @@ export function VinculacionesContacto({
             // En entrante puro, el puesto del otro contacto en mi relación
             // (lo que "él hace para mí") va de mi lado del vínculo.
             puesto: direccionVinculo === 'entrante' ? (puesto || null) : null,
-            recibe_documentos: direccionVinculo === 'entrante' ? recibeDocumentos : false,
+            recibe_documentos: direccionVinculo === 'entrante' ? flagDest : false,
           }),
         })
       }
@@ -337,7 +372,96 @@ export function VinculacionesContacto({
     } catch {
       mostrar('error', 'Error al vincular el contacto')
     } finally { setVinculando(false) }
-  }, [seleccionado, contactoId, tipoRelacionId, puesto, recibeDocumentos, direccionVinculo, vinculando, onActualizar])
+  }, [seleccionado, contactoId, tipoRelacionId, puesto, recibeDocumentos, direccionVinculo, vinculando, onActualizar, correoContacto, vinculaciones, vinculacionesInversas])
+
+  /** Marca/desmarca un vínculo como destinatario predeterminado de
+   *  documentos para este contacto. Regla: solo UNO puede estar marcado
+   *  a la vez. Si se intenta marcar uno cuando ya hay otro, pasamos por
+   *  confirmación (`confirmarCambioDestinatario`) para que el cambio sea
+   *  explícito. Al confirmar, se desmarca el actual y se marca el nuevo.
+   *
+   *  Se usa el endpoint PATCH de vinculaciones — los IDs van en el
+   *  sentido real del vínculo (invertidos si es entrante). */
+  const aplicarDestinatario = useCallback(async (
+    vinculoTarget: VinculoUI & { esEntrante: boolean },
+    nuevoEstado: boolean,
+  ) => {
+    const payload = vinculoTarget.esEntrante
+      ? { contacto_id: vinculoTarget.vinculado_id, vinculado_id: contactoId }
+      : { contacto_id: contactoId, vinculado_id: vinculoTarget.vinculado_id }
+    try {
+      await fetch('/api/contactos/vinculaciones', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, recibe_documentos: nuevoEstado }),
+      })
+    } catch { /* propaga al toggleDestinatario */ }
+  }, [contactoId])
+
+  const toggleDestinatario = useCallback(async (
+    vinculoTarget: VinculoUI & { esEntrante: boolean },
+  ) => {
+    // Estado efectivo (override > BD) para decidir si es desmarcado o no.
+    const estadoActual = vinculoTarget.vinculado_id in destinatarioOverride
+      ? destinatarioOverride[vinculoTarget.vinculado_id]
+      : vinculoTarget.recibe_documentos
+
+    // Si ya estaba marcado, solo lo desmarcamos (no requiere confirmación).
+    if (estadoActual) {
+      // Optimistic: feedback inmediato.
+      setDestinatarioOverride(prev => ({ ...prev, [vinculoTarget.vinculado_id]: false }))
+      await aplicarDestinatario(vinculoTarget, false)
+      onActualizar()
+      return
+    }
+    // Si NO estaba marcado, buscamos si hay otro marcado para pedir
+    // confirmación. Considera tanto el estado en BD como cualquier
+    // override pendiente.
+    const efectivo = (v: VinculoUI) =>
+      v.vinculado_id in destinatarioOverride
+        ? destinatarioOverride[v.vinculado_id]
+        : v.recibe_documentos
+    const actual = [...vinculaciones, ...vinculacionesInversas].find(
+      v => efectivo(v) && v.vinculado_id !== vinculoTarget.vinculado_id
+    )
+    if (actual) {
+      setConfirmarCambioDestinatario({
+        vinculoNuevo: vinculoTarget,
+        actual: { nombre: [actual.nombre, actual.apellido].filter(Boolean).join(' ') || 'el actual' },
+      })
+      return
+    }
+    // No hay otro — toggle directo con feedback instantáneo.
+    setDestinatarioOverride(prev => ({ ...prev, [vinculoTarget.vinculado_id]: true }))
+    await aplicarDestinatario(vinculoTarget, true)
+    onActualizar()
+  }, [vinculaciones, vinculacionesInversas, destinatarioOverride, aplicarDestinatario, onActualizar])
+
+  const confirmarYAplicarCambioDestinatario = useCallback(async () => {
+    if (!confirmarCambioDestinatario) return
+    const { vinculoNuevo } = confirmarCambioDestinatario
+    // Optimistic: marcar el nuevo y desmarcar a todos los actuales en el
+    // override para feedback inmediato. La sincronización con BD ocurre
+    // a continuación con los PATCH.
+    const marcados = [...vinculaciones, ...vinculacionesInversas].filter(v => {
+      const efec = v.vinculado_id in destinatarioOverride ? destinatarioOverride[v.vinculado_id] : v.recibe_documentos
+      return efec && v.vinculado_id !== vinculoNuevo.vinculado_id
+    })
+    setDestinatarioOverride(prev => {
+      const next = { ...prev, [vinculoNuevo.vinculado_id]: true }
+      for (const m of marcados) next[m.vinculado_id] = false
+      return next
+    })
+    setConfirmarCambioDestinatario(null)
+    // Defensa contra estados inconsistentes — desmarcamos a todos los
+    // marcados en BD.
+    for (const v of marcados) {
+      const target = { ...v, esEntrante: vinculacionesInversas.some(vi => vi.id === v.id) }
+      await aplicarDestinatario(target, false)
+    }
+    await aplicarDestinatario(vinculoNuevo, true)
+    onActualizar()
+  }, [confirmarCambioDestinatario, vinculaciones, vinculacionesInversas, destinatarioOverride, aplicarDestinatario, onActualizar])
 
   /** Desvincular un contacto respetando la dirección del vínculo.
    *  Si es entrante (el otro es el dueño), se mandan los IDs invertidos. */
@@ -417,6 +541,9 @@ export function VinculacionesContacto({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payloadVinc,
+          tipo_relacion_id: edicionTipoRelacionId || null,
+          // Mantenemos `puesto` por compat con datos viejos pero ya no se
+          // edita desde la UI — el tipo de relación lo reemplaza.
           puesto: edicionPuesto || null,
           recibe_documentos: edicionRecibeDoc,
         }),
@@ -489,7 +616,7 @@ export function VinculacionesContacto({
     } catch {
       mostrar('error', 'Error al guardar los cambios')
     } finally { setGuardandoEdicion(false) }
-  }, [vinculoEditando, edicionNombre, edicionCorreo, edicionTelefono, edicionTipoTelefono, edicionPuesto, edicionRecibeDoc, direccionEdicion, direccionEdicionOriginal, contactoId, guardandoEdicion, onActualizar])
+  }, [vinculoEditando, edicionNombre, edicionCorreo, edicionTelefono, edicionTipoTelefono, edicionPuesto, edicionTipoRelacionId, edicionRecibeDoc, direccionEdicion, direccionEdicionOriginal, contactoId, guardandoEdicion, onActualizar])
 
   /** Crear contacto nuevo y vincularlo en un solo paso */
   const crearYVincular = useCallback(async () => {
@@ -534,6 +661,13 @@ export function VinculacionesContacto({
       }
       if (!data.id) throw new Error('No se pudo crear')
 
+      // Auto-default destinatario (misma regla que en `vincular`): si el
+      // contacto principal no tiene correo y ningún vinculado ya está
+      // marcado, este nuevo hereda el flag.
+      const hayMarcado = [...vinculaciones, ...vinculacionesInversas].some(v => v.recibe_documentos)
+      const sinCorreoPropio = !correoContacto || !correoContacto.trim()
+      const autoDestinatario = sinCorreoPropio && !hayMarcado
+
       // Crear vínculo(s) según `crearDireccion` — misma lógica que `vincular`.
       if (crearDireccion === 'saliente' || crearDireccion === 'bidireccional') {
         await fetch('/api/contactos/vinculaciones', {
@@ -544,7 +678,7 @@ export function VinculacionesContacto({
             vinculado_id: data.id,
             tipo_relacion_id: crearTipoRelacionId || null,
             puesto: crearPuesto || null,
-            recibe_documentos: false,
+            recibe_documentos: autoDestinatario,
           }),
         })
       }
@@ -557,7 +691,7 @@ export function VinculacionesContacto({
             vinculado_id: contactoId,
             tipo_relacion_id: crearTipoRelacionId || null,
             puesto: crearDireccion === 'entrante' ? (crearPuesto || null) : null,
-            recibe_documentos: false,
+            recibe_documentos: crearDireccion === 'entrante' ? autoDestinatario : false,
           }),
         })
       }
@@ -568,7 +702,7 @@ export function VinculacionesContacto({
     } catch {
       mostrar('error', 'Error al crear el contacto')
     } finally { setCreando(false) }
-  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearTipoTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearDireccion, contactoId, creando, onActualizar])
+  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearTipoTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearDireccion, contactoId, creando, onActualizar, correoContacto, vinculaciones, vinculacionesInversas])
 
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
@@ -611,6 +745,7 @@ export function VinculacionesContacto({
     // Móvil implica WhatsApp por convención; si el usuario quiere fijo, lo cambia.
     setEdicionTipoTelefono('movil')
     setEdicionPuesto(vinculo.puesto || '')
+    setEdicionTipoRelacionId(vinculo.tipo_relacion_id || '')
     setEdicionRecibeDoc(vinculo.recibe_documentos)
 
     // Detectar si existe la dirección opuesta para saber si es bidireccional.
@@ -760,7 +895,9 @@ export function VinculacionesContacto({
                   {soloEntrantes.map(v => (
                     <TarjetaVinculo
                       key={v.id}
-                      vinculo={v}
+                      vinculo={v.vinculado_id in destinatarioOverride
+                        ? { ...v, recibe_documentos: destinatarioOverride[v.vinculado_id] }
+                        : v}
                       etiquetaRelacion={v.tipo_relacion_etiqueta}
                       editable
                       onDesvincular={() => setConfirmarDesvincular({
@@ -769,6 +906,7 @@ export function VinculacionesContacto({
                         nombre: [v.nombre, v.apellido].filter(Boolean).join(' '),
                       })}
                       onClick={() => abrirEdicion(v, v.esEntrante)}
+                      onToggleDestinatario={() => toggleDestinatario(v)}
                       origenId={contactoId}
                       origenNombre={nombreContacto}
                     />
@@ -787,7 +925,9 @@ export function VinculacionesContacto({
                   {bidireccionales.map(v => (
                     <TarjetaVinculo
                       key={v.id}
-                      vinculo={v}
+                      vinculo={v.vinculado_id in destinatarioOverride
+                        ? { ...v, recibe_documentos: destinatarioOverride[v.vinculado_id] }
+                        : v}
                       etiquetaRelacion={v.tipo_relacion_etiqueta}
                       editable
                       onDesvincular={() => setConfirmarDesvincular({
@@ -796,6 +936,7 @@ export function VinculacionesContacto({
                         nombre: [v.nombre, v.apellido].filter(Boolean).join(' '),
                       })}
                       onClick={() => abrirEdicion(v, v.esEntrante)}
+                      onToggleDestinatario={() => toggleDestinatario(v)}
                       origenId={contactoId}
                       origenNombre={nombreContacto}
                     />
@@ -813,7 +954,9 @@ export function VinculacionesContacto({
                   {soloSalientes.map(v => (
                     <TarjetaVinculo
                       key={v.id}
-                      vinculo={v}
+                      vinculo={v.vinculado_id in destinatarioOverride
+                        ? { ...v, recibe_documentos: destinatarioOverride[v.vinculado_id] }
+                        : v}
                       etiquetaRelacion={v.tipo_relacion_etiqueta}
                       editable
                       onDesvincular={() => setConfirmarDesvincular({
@@ -822,6 +965,7 @@ export function VinculacionesContacto({
                         nombre: [v.nombre, v.apellido].filter(Boolean).join(' '),
                       })}
                       onClick={() => abrirEdicion(v, v.esEntrante)}
+                      onToggleDestinatario={() => toggleDestinatario(v)}
                       origenId={contactoId}
                       origenNombre={nombreContacto}
                     />
@@ -1041,19 +1185,13 @@ export function VinculacionesContacto({
                 tiposRelacion={tiposRelacion}
               />
 
-              {/* Dirección del vínculo + opciones extra */}
-              <div className="space-y-3 rounded-card border border-borde-sutil p-3">
+              {/* Dirección del vínculo */}
+              <div className="rounded-card border border-borde-sutil p-3">
                 <SelectorDireccionVinculo
                   valor={direccionVinculo}
                   onChange={setDireccionVinculo}
                   nombreOtro={[seleccionado.nombre, seleccionado.apellido].filter(Boolean).join(' ') || 'otro contacto'}
                   nombreEste={nombreContacto || 'este contacto'}
-                />
-                <Checkbox
-                  marcado={recibeDocumentos}
-                  onChange={setRecibeDocumentos}
-                  etiqueta="Recibe copias de documentos"
-                  className="text-texto-secundario"
                 />
               </div>
 
@@ -1351,18 +1489,14 @@ export function VinculacionesContacto({
                   nombreOtro={[vinculoEditando.nombre, vinculoEditando.apellido].filter(Boolean).join(' ') || 'el otro'}
                 />
 
-                <SelectorPuesto
-                  valor={edicionPuesto}
-                  onChange={setEdicionPuesto}
-                  puestos={puestosSugeridos}
-                  etiqueta={t('contactos.puesto_rol')}
-                />
-
-                <Checkbox
-                  marcado={edicionRecibeDoc}
-                  onChange={setEdicionRecibeDoc}
-                  etiqueta="Recibe copias de documentos"
-                  className="text-texto-secundario"
+                {/* Tipo de relación — qué rol cumple este vínculo. Catálogo
+                    `tipos_relacion` (Administra, Encargado/a de, Pagos de,
+                    etc.). Si el usuario tipea uno que no existe y aprieta
+                    Enter, lo crea en el catálogo. */}
+                <SelectorRelacion
+                  valor={edicionTipoRelacionId}
+                  onChange={setEdicionTipoRelacionId}
+                  tiposRelacion={tiposRelacion}
                 />
               </div>
             </section>
@@ -1390,6 +1524,21 @@ export function VinculacionesContacto({
         cargando={desvinculando}
       />
 
+      {/* ═══ Confirmación al cambiar destinatario predeterminado ═══ */}
+      <ModalConfirmacion
+        abierto={confirmarCambioDestinatario !== null}
+        onCerrar={() => setConfirmarCambioDestinatario(null)}
+        onConfirmar={confirmarYAplicarCambioDestinatario}
+        titulo="¿Cambiar destinatario predeterminado?"
+        descripcion={
+          confirmarCambioDestinatario
+            ? `Actualmente "${confirmarCambioDestinatario.actual.nombre}" está marcado como destinatario predeterminado para documentos de ${nombreDisplay}. Si confirmás, pasa a serlo "${[confirmarCambioDestinatario.vinculoNuevo.nombre, confirmarCambioDestinatario.vinculoNuevo.apellido].filter(Boolean).join(' ')}". Solo uno puede estar marcado a la vez.`
+            : undefined
+        }
+        tipo="info"
+        etiquetaConfirmar="Cambiar"
+      />
+
     </section>
   )
 }
@@ -1399,14 +1548,14 @@ export function VinculacionesContacto({
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * SelectorPuesto — Selector dropdown de puesto/rol.
- * Muestra puestos configurados (filtra al escribir), permite crear nuevos
- * (guardándolos en `puestos_contacto` via /api/contactos/config) y borrar
- * los que tienen id (los del fallback hardcodeado no son borrables).
+ * SelectorPuesto — Selector dropdown para elegir o crear puesto/cargo.
+ * Muestra los puestos del catálogo (`puestos_contacto`), filtra al
+ * escribir, permite crear nuevos al tipear un nombre que no existe +
+ * Enter. La gestión completa (renombrar, eliminar, ordenar) vive en
+ * `/contactos/configuracion?seccion=puestos` — el dropdown es solo
+ * para selección rápida.
  *
- * Trigger del dropdown: focus + click del chevron a la derecha. El chevron
- * también funciona como indicador visual de que el campo es desplegable
- * (antes no se notaba — parecía un input plano cualquiera).
+ * Trigger del dropdown: focus + click del chevron a la derecha.
  */
 function SelectorPuesto({
   valor,
@@ -1422,19 +1571,30 @@ function SelectorPuesto({
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState(valor)
   const [puestosLocales, setPuestosLocales] = useState(puestos)
-  const [confirmandoBorrarId, setConfirmandoBorrarId] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
+  const [posicion, setPosicion] = useState<{ top: number; left: number; width: number; arriba: boolean }>({ top: 0, left: 0, width: 0, arriba: false })
 
   // Sincronizar puestos externos
   useEffect(() => { setPuestosLocales(puestos) }, [puestos])
   useEffect(() => { setTexto(valor) }, [valor])
 
+  // Flip-up: si no entra el dropdown abajo del input (max-h ~14rem), lo
+  // abrimos hacia arriba usando `bottom` como ancla. La altura máxima la
+  // dejamos en 224px (14rem) para coincidir con max-h-56 del contenedor.
   useLayoutEffect(() => {
     if (!abierto || !ref.current) return
     const rect = ref.current.getBoundingClientRect()
-    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    const ALTURA_MAX = 224 // 14rem, igual al max-h-56 del dropdown
+    const espacioDebajo = window.innerHeight - rect.bottom
+    const espacioArriba = rect.top
+    const arriba = espacioDebajo < ALTURA_MAX && espacioArriba > espacioDebajo
+    setPosicion({
+      top: arriba ? rect.top - 4 : rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      arriba,
+    })
   }, [abierto])
 
   // Cerrar al click fuera
@@ -1445,7 +1605,6 @@ function SelectorPuesto({
       if (ref.current?.contains(target)) return
       if (dropdownRef.current?.contains(target)) return
       setAbierto(false)
-      setConfirmandoBorrarId(null)
       if (texto !== valor) onChange(texto)
     }
     document.addEventListener('mousedown', handler)
@@ -1457,7 +1616,16 @@ function SelectorPuesto({
     const handler = () => {
       if (ref.current) {
         const rect = ref.current.getBoundingClientRect()
-        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+        const ALTURA_MAX = 224
+        const espacioDebajo = window.innerHeight - rect.bottom
+        const espacioArriba = rect.top
+        const arriba = espacioDebajo < ALTURA_MAX && espacioArriba > espacioDebajo
+        setPosicion({
+          top: arriba ? rect.top - 4 : rect.bottom + 4,
+          left: rect.left,
+          width: rect.width,
+          arriba,
+        })
       }
     }
     window.addEventListener('scroll', handler, true)
@@ -1468,12 +1636,20 @@ function SelectorPuesto({
     }
   }, [abierto])
 
-  const filtrados = texto
+  // Filtramos solo cuando el usuario está tipeando algo distinto al valor
+  // guardado. Si abrieron el dropdown con el valor pre-cargado (texto ===
+  // valor), mostramos *todos* los puestos para que puedan elegir otro sin
+  // tener que borrar primero. Antes el filtro buscaba el valor guardado en
+  // los demás puestos y, como nada matcheaba, la lista quedaba vacía.
+  const usuarioTipeoBusqueda = texto.trim().length > 0 && texto !== valor
+  const filtrados = usuarioTipeoBusqueda
     ? puestosLocales.filter(p => p.etiqueta.toLowerCase().includes(texto.toLowerCase()) && p.etiqueta !== valor)
     : puestosLocales.filter(p => p.etiqueta !== valor)
 
   const existeExacto = puestosLocales.some(p => p.etiqueta.toLowerCase() === texto.toLowerCase().trim())
-  const mostrarCrear = texto.trim() && !existeExacto
+  // "Crear X" solo aparece cuando el usuario tipeó algo nuevo que no existe
+  // — no cuando simplemente abrió el dropdown con el valor pre-cargado.
+  const mostrarCrear = usuarioTipeoBusqueda && !existeExacto
 
   function seleccionar(p: string) {
     onChange(p)
@@ -1502,22 +1678,6 @@ function SelectorPuesto({
         setPuestosLocales(prev => prev.some(p => p.etiqueta === nombre) ? prev : [...prev, { etiqueta: nombre }])
       })
     seleccionar(nombre)
-  }
-
-  function borrarPuesto(id: string, etiquetaBorrada: string) {
-    // Optimista: lo sacamos de la lista local de inmediato
-    setPuestosLocales(prev => prev.filter(p => p.id !== id))
-    setConfirmandoBorrarId(null)
-    fetch('/api/contactos/config', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'puesto', id }),
-    }).catch(() => {})
-    // Si el valor actual era el borrado, limpiar
-    if (valor === etiquetaBorrada) {
-      onChange('')
-      setTexto('')
-    }
   }
 
   return (
@@ -1565,7 +1725,18 @@ function SelectorPuesto({
         <div
           ref={dropdownRef}
           className="fixed rounded-card border border-borde-sutil shadow-elevada max-h-56 overflow-y-auto"
-          style={{ backgroundColor: 'var(--superficie-elevada)', top: posicion.top, left: posicion.left, width: posicion.width, zIndex: 'var(--z-popover)' as unknown as number }}
+          style={{
+            backgroundColor: 'var(--superficie-elevada)',
+            // Si abre arriba, usamos `bottom` para anclarlo al top del input
+            // y crecer hacia arriba en vez de hacia abajo. `transform`
+            // translate-Y -100% lo posiciona arriba del input.
+            ...(posicion.arriba
+              ? { bottom: window.innerHeight - posicion.top, left: posicion.left }
+              : { top: posicion.top, left: posicion.left }
+            ),
+            width: posicion.width,
+            zIndex: 'var(--z-popover)' as unknown as number,
+          }}
           onMouseDown={e => e.preventDefault()}
         >
           {filtrados.length === 0 && !mostrarCrear && (
@@ -1573,45 +1744,13 @@ function SelectorPuesto({
               No hay puestos cargados.
             </div>
           )}
-          {filtrados.map(p => {
-            const confirmando = p.id && confirmandoBorrarId === p.id
-            return (
-              <div key={p.id || p.etiqueta}
-                className="group flex items-center hover:bg-superficie-hover transition-colors"
-              >
-                <button type="button"
-                  onClick={() => seleccionar(p.etiqueta)}
-                  className="flex-1 text-left px-3 py-1.5 text-sm text-texto-primario bg-transparent border-none cursor-pointer">
-                  {p.etiqueta}
-                </button>
-                {p.id && (confirmando ? (
-                  <div className="flex items-center gap-1 px-2">
-                    <button type="button"
-                      onClick={() => borrarPuesto(p.id!, p.etiqueta)}
-                      className="text-[11px] text-insignia-peligro hover:underline px-1.5 py-0.5"
-                      title="Confirmar borrado"
-                    >
-                      Borrar
-                    </button>
-                    <button type="button"
-                      onClick={() => setConfirmandoBorrarId(null)}
-                      className="text-[11px] text-texto-terciario hover:text-texto-primario px-1.5 py-0.5"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button"
-                    onClick={() => setConfirmandoBorrarId(p.id!)}
-                    className="text-texto-terciario hover:text-insignia-peligro p-1.5 mr-1 rounded-md hover:bg-white/[0.04] opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Eliminar de la lista"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                ))}
-              </div>
-            )
-          })}
+          {filtrados.map(p => (
+            <button key={p.id || p.etiqueta} type="button"
+              onClick={() => seleccionar(p.etiqueta)}
+              className="w-full text-left px-3 py-1.5 text-sm text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              {p.etiqueta}
+            </button>
+          ))}
           {mostrarCrear && (
             <button type="button"
               onClick={crearYSeleccionar}
@@ -1865,6 +2004,7 @@ function TarjetaVinculo({
   etiquetaRelacion,
   onDesvincular,
   onClick,
+  onToggleDestinatario,
   editable = false,
   origenId,
   origenNombre,
@@ -1876,6 +2016,9 @@ function TarjetaVinculo({
   etiquetaRelacion?: string | null
   onDesvincular?: () => void
   onClick?: () => void
+  /** Toggle de destinatario predeterminado para documentos. Si se provee,
+   *  la estrella es clickeable. La regla "solo uno" la enforce el padre. */
+  onToggleDestinatario?: () => void
   editable?: boolean
   origenId?: string
   origenNombre?: string
@@ -1886,24 +2029,26 @@ function TarjetaVinculo({
   return (
     <div
       onClick={editable ? onClick : undefined}
-      className={`relative rounded-card border border-borde-sutil bg-superficie-tarjeta group transition-colors ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/40' : ''}`}
+      className={`relative rounded-card border bg-superficie-tarjeta group transition-colors overflow-hidden flex flex-col h-full ${
+        vinculo.recibe_documentos
+          ? 'border-insignia-advertencia/40'
+          : 'border-borde-sutil'
+      } ${editable ? 'cursor-pointer hover:border-borde-fuerte hover:bg-superficie-hover/40' : ''}`}
     >
-      <div className="flex items-start gap-3 p-3.5">
+      {/* Contenido principal — flex-1 para que el footer quede pegado al
+          fondo aunque la card sea más alta que su contenido natural
+          (cuando una card par tiene más datos, la otra se estira para
+          igualar y el footer queda en la misma línea visual). */}
+      <div className="flex-1 flex items-start gap-3 p-3.5 pb-3">
         {/* Avatar — ancla visual a la izquierda */}
         <Avatar nombre={nombre} tamano="sm" />
 
-        {/* Contenido central — 3 líneas de jerarquía decreciente.
-            pr-16 reserva un canal a la derecha para que el código (top) y el
-            link "Ver" (bottom) no se monten sobre los textos en hover. */}
-        <div className="flex-1 min-w-0 space-y-1.5 pr-16">
-          {/* Línea 1: Nombre (protagonista) + flag recibe-documentos */}
+        {/* Contenido central — líneas de jerarquía decreciente. pr-14
+            reserva un canal a la derecha para el código y la X. */}
+        <div className="flex-1 min-w-0 space-y-2 pr-14">
+          {/* Línea 1: Nombre (protagonista). */}
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-sm font-semibold text-texto-primario truncate">{nombre}</span>
-            {vinculo.recibe_documentos && (
-              <span className="shrink-0" aria-label="Recibe documentos">
-                <FileCheck size={12} className="text-insignia-exito" />
-              </span>
-            )}
           </div>
 
           {/* Línea 2: clasificación (tipo + relación + puesto) */}
@@ -1923,28 +2068,34 @@ function TarjetaVinculo({
             )}
           </div>
 
-          {/* Línea 3: datos de contacto (inline si entran) */}
-          {(vinculo.telefono || vinculo.correo) && (
-            <div className="flex items-center gap-x-3 gap-y-1 flex-wrap pt-1">
-              {vinculo.telefono && (
-                <span className="flex items-center gap-1 text-xs text-texto-terciario min-w-0">
-                  <Phone size={11} className="shrink-0" />
-                  <TextoTelefono valor={vinculo.telefono} className="truncate" />
-                </span>
+          {/* Líneas de contacto — siempre renderizadas (incluso vacías)
+              para que el alto de la card sea consistente entre tarjetas
+              con y sin datos. Cuando falta un valor, el ícono queda
+              tenue + un guion "—" que indica visualmente "vacío". */}
+          <div className="space-y-1 pt-0.5">
+            <span className="flex items-center gap-1.5 text-xs min-w-0">
+              <Phone size={11} className={`shrink-0 ${vinculo.telefono ? 'text-texto-terciario' : 'text-texto-terciario/40'}`} />
+              {vinculo.telefono ? (
+                <TextoTelefono valor={vinculo.telefono} className="truncate text-texto-terciario" />
+              ) : (
+                <span className="text-texto-terciario/50">—</span>
               )}
-              {vinculo.correo && (
-                <span className="flex items-center gap-1 text-xs text-texto-terciario min-w-0">
-                  <Mail size={11} className="shrink-0" />
-                  <span className="truncate">{vinculo.correo}</span>
-                </span>
+            </span>
+            <span className="flex items-center gap-1.5 text-xs min-w-0">
+              <Mail size={11} className={`shrink-0 ${vinculo.correo ? 'text-texto-terciario' : 'text-texto-terciario/40'}`} />
+              {vinculo.correo ? (
+                <span className="truncate text-texto-terciario">{vinculo.correo}</span>
+              ) : (
+                <span className="text-texto-terciario/50">—</span>
               )}
-            </div>
-          )}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Esquina superior derecha: código (siempre visible) + botón desvincular (hover) */}
-      <div className="absolute top-3 right-3 flex items-center gap-1">
+      {/* Esquina superior derecha: código + X (hover only).
+          La estrella ahora vive en el footer fijo, no acá. */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
         {vinculo.codigo && (
           <span className="text-[11px] font-medium text-texto-terciario tabular-nums">
             {vinculo.codigo}
@@ -1963,15 +2114,51 @@ function TarjetaVinculo({
         )}
       </div>
 
-      {/* Esquina inferior derecha: link "Ver" (aparece al hover) */}
-      <a
-        href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
-        onClick={e => e.stopPropagation()}
-        className="absolute bottom-2.5 right-3 flex items-center gap-1 px-1.5 py-0.5 rounded-boton text-[11px] text-texto-marca hover:bg-superficie-hover transition-colors opacity-0 group-hover:opacity-100"
-      >
-        <ExternalLink size={10} />
-        Ver
-      </a>
+      {/* ── Footer fijo: star toggleable (con label siempre visible)
+            + link Ver al hacer hover. Esta franja existe siempre, en
+            inactivo o activo, así el toggle no agranda la card.
+            Inactivo: ☆ outline gris + "Destinatario predeterminado" en
+            gris muy suave (pista discreta de que es clickeable).
+            Activo: ★ filled amber + texto amber con bg amber sutil. */}
+      {onToggleDestinatario && (
+        <div
+          className={`flex items-center justify-between px-3 py-1.5 border-t transition-colors ${
+            vinculo.recibe_documentos
+              ? 'border-insignia-advertencia/30 bg-insignia-advertencia/[0.06]'
+              : 'border-borde-sutil/60'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onToggleDestinatario() }}
+            aria-label={vinculo.recibe_documentos ? 'Quitar como destinatario predeterminado' : 'Marcar como destinatario predeterminado'}
+            title={vinculo.recibe_documentos
+              ? 'Destinatario predeterminado — click para quitar'
+              : 'Marcar como destinatario predeterminado para documentos'}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-medium transition-colors active:scale-95 ${
+              vinculo.recibe_documentos
+                ? 'text-insignia-advertencia hover:text-insignia-advertencia/80'
+                : 'text-texto-terciario/70 hover:text-insignia-advertencia'
+            }`}
+          >
+            <Star
+              size={12}
+              fill={vinculo.recibe_documentos ? 'currentColor' : 'none'}
+              strokeWidth={2}
+              className="shrink-0"
+            />
+            <span className="truncate">Destinatario predeterminado</span>
+          </button>
+          <a
+            href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
+            onClick={e => e.stopPropagation()}
+            className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-boton text-[11px] text-texto-marca hover:bg-superficie-hover transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <ExternalLink size={10} />
+            Ver
+          </a>
+        </div>
+      )}
     </div>
   )
 }
@@ -1996,36 +2183,38 @@ function SelectorDireccionVinculo({
   nombreEste: string
   nombreOtro: string
 }) {
-  /** Cada opción define quién es el "actor" (apunta) y quién es el "target".
-   *  Renderizamos al actor en bold/color fuerte y al target en gris suave —
-   *  así de un vistazo se entiende quién manda el vínculo, sin depender
-   *  solo de la flechita que pasa desapercibida. */
+  /** Cada opción define:
+   *   - `actor`: quién es el que apunta. Para renderizar al actor en bold y
+   *     al target en gris suave en la línea de nombres.
+   *   - `icono`: flecha grande arriba (señal visual principal).
+   *   - `frase`: texto explicativo abajo de los nombres ("Manuel se vincula
+   *     a Garage Yatay") — hace que cada botón se lea solo, sin depender
+   *     de un párrafo descripción afuera. */
   const opciones: Array<{
     valor: 'saliente' | 'bidireccional' | 'entrante'
     actor: 'este' | 'otro' | 'ambos'
     icono: React.ReactNode
-    descripcion: string
+    frase: string
   }> = [
     {
       valor: 'saliente',
       actor: 'este',
-      icono: <ArrowRight size={14} />,
-      descripcion: `Lo agregás como tu vínculo. Aparece en los salientes de ${nombreEste}.`,
+      icono: <ArrowRight size={20} strokeWidth={2.2} />,
+      frase: `${nombreEste} se vincula a ${nombreOtro}`,
     },
     {
       valor: 'bidireccional',
       actor: 'ambos',
-      icono: <ArrowLeftRight size={14} />,
-      descripcion: `Vínculo recíproco — aparece en las dos fichas.`,
+      icono: <ArrowLeftRight size={20} strokeWidth={2.2} />,
+      frase: `${nombreEste} y ${nombreOtro} se vinculan entre sí`,
     },
     {
       valor: 'entrante',
       actor: 'otro',
-      icono: <ArrowLeft size={14} />,
-      descripcion: `Se guarda como si ${nombreOtro || 'el otro contacto'} te agregara a vos. Aparece en los entrantes de ${nombreEste}.`,
+      icono: <ArrowLeft size={20} strokeWidth={2.2} />,
+      frase: `${nombreOtro} se vincula a ${nombreEste}`,
     },
   ]
-  const seleccionada = opciones.find(o => o.valor === valor)
 
   // Clases para los dos nombres según quién sea el actor en cada opción.
   const claseActor = 'font-semibold text-texto-primario'
@@ -2036,7 +2225,7 @@ function SelectorDireccionVinculo({
       <div className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
         Dirección del vínculo
       </div>
-      <div className="flex flex-col sm:flex-row gap-1.5">
+      <div className="flex flex-col sm:flex-row gap-2">
         {opciones.map(o => {
           const activa = o.valor === valor
           const claseEste = o.actor === 'este' || o.actor === 'ambos' ? claseActor : claseTarget
@@ -2047,29 +2236,32 @@ function SelectorDireccionVinculo({
               type="button"
               onClick={() => onChange(o.valor)}
               className={[
-                'flex-1 min-w-0 flex items-center justify-center gap-2 px-3 py-2 rounded-card border text-xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                'flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-card border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                 activa
                   ? 'border-texto-marca/50 bg-texto-marca/10'
                   : 'border-borde-sutil bg-transparent hover:border-borde-fuerte',
               ].join(' ')}
             >
-              <span className={`shrink-0 ${activa ? 'text-texto-marca' : 'text-texto-terciario'}`}>
+              {/* Flecha grande arriba — señal visual principal */}
+              <span className={activa ? 'text-texto-marca' : 'text-texto-secundario'}>
                 {o.icono}
               </span>
-              <span className="truncate">
+
+              {/* Línea de nombres con actor en bold */}
+              <div className="w-full truncate text-xs text-center">
                 <span className={claseEste}>{nombreEste}</span>
                 <span className="text-texto-terciario mx-1">·</span>
                 <span className={claseOtro}>{nombreOtro}</span>
-              </span>
+              </div>
+
+              {/* Frase explicativa abajo — hace que cada botón se lea solo */}
+              <div className="w-full text-[10.5px] leading-snug text-texto-terciario text-center px-1">
+                {o.frase}
+              </div>
             </button>
           )
         })}
       </div>
-      {seleccionada && (
-        <p className="text-[11px] text-texto-terciario">
-          {seleccionada.descripcion}
-        </p>
-      )}
     </div>
   )
 }

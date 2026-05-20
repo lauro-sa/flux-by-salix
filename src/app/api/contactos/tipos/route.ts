@@ -28,19 +28,19 @@ export async function GET(_request: NextRequest) {
         .select('*')
         .eq('empresa_id', empresaId)
         .eq('activo', true)
-        .order('orden'),
+        .order('orden').order('etiqueta'),
       admin
         .from('tipos_relacion')
         .select('*')
         .eq('empresa_id', empresaId)
         .eq('activo', true)
-        .order('etiqueta'),
+        .order('orden').order('etiqueta'),
       admin
         .from('puestos_contacto')
         .select('id, nombre, orden')
         .eq('empresa_id', empresaId)
         .eq('activo', true)
-        .order('orden'),
+        .order('orden').order('nombre'),
       admin
         .from('empresas')
         .select('pais, paises')
