@@ -23,11 +23,12 @@ const REGLAS: ReadonlyArray<{
   icono: string
   color: string
 }> = [
-  // Comunicación — correo
+  // Comunicación — correo. Azul Outlook/Apple Mail es la
+  // convención visual universal para email.
   {
     patrones: [/\bcorreo\b/, /\bemail\b/, /\bmail\b/, /\bgmail\b/, /\binbox\b/, /\brespuesta\b/, /\bresponder\b/],
     icono: 'Mail',
-    color: '#8e4ec6',
+    color: '#3b82f6',
   },
   // Comunicación — WhatsApp
   {

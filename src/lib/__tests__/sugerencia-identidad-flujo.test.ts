@@ -7,13 +7,13 @@ describe('sugerirIdentidadFlujo', () => {
     expect(sugerirIdentidadFlujo('   ')).toEqual({ icono: 'Workflow', color: '#5b5bd6' })
   })
 
-  it('correo y variantes → Mail + violeta', () => {
+  it('correo y variantes → Mail + azul', () => {
     expect(sugerirIdentidadFlujo('Respuesta automática fuera de horario'))
-      .toEqual({ icono: 'Mail', color: '#8e4ec6' })
+      .toEqual({ icono: 'Mail', color: '#3b82f6' })
     expect(sugerirIdentidadFlujo('Reenvío de correo a soporte'))
-      .toEqual({ icono: 'Mail', color: '#8e4ec6' })
+      .toEqual({ icono: 'Mail', color: '#3b82f6' })
     expect(sugerirIdentidadFlujo('Email a nuevos clientes'))
-      .toEqual({ icono: 'Mail', color: '#8e4ec6' })
+      .toEqual({ icono: 'Mail', color: '#3b82f6' })
   })
 
   it('whatsapp y mensajería → MessageCircle + verde', () => {
@@ -43,7 +43,7 @@ describe('sugerirIdentidadFlujo', () => {
 
   it('case y tildes son irrelevantes', () => {
     expect(sugerirIdentidadFlujo('CORREO importante'))
-      .toEqual({ icono: 'Mail', color: '#8e4ec6' })
+      .toEqual({ icono: 'Mail', color: '#3b82f6' })
     expect(sugerirIdentidadFlujo('Cotización aceptada'))
       .toEqual({ icono: 'FileText', color: '#3b82f6' })
   })
@@ -51,7 +51,7 @@ describe('sugerirIdentidadFlujo', () => {
   it('orden de prioridad: correo gana sobre actividad cuando ambas aparecen', () => {
     // En la lista, "correo" está antes que "tarea" — el primer match gana.
     expect(sugerirIdentidadFlujo('Tarea de correo automático'))
-      .toEqual({ icono: 'Mail', color: '#8e4ec6' })
+      .toEqual({ icono: 'Mail', color: '#3b82f6' })
   })
 
   it('sin match → default', () => {

@@ -210,7 +210,11 @@ export default function ModalNuevoFlujo({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={t('flujos.modal_nuevo.titulo')}
-      tamano="4xl"
+      // El tamaño se adapta a la pestaña: la grilla de plantillas
+      // (3 columnas) necesita el ancho 4xl; el formulario "Desde
+      // cero" es solo ícono+nombre+paleta, alcanza con `lg` y queda
+      // mucho menos vacío.
+      tamano={pestana === 'cero' ? 'lg' : '4xl'}
     >
       {/* Pestañas */}
       <div className="flex gap-1 mb-5 border-b border-borde-sutil -mx-6 px-6">
