@@ -28,7 +28,8 @@
       "maxDuration": 60
     }
   },
-  "crons": [
+  "_NOTA_crons_pausados": "Renombrado 'crons' → '_crons_pausados' para que Vercel deje de dispararlos mientras Postgres se recupera de la saturación (incidente 2026-05-20). Una vez sano y con causa raíz identificada, renombrar de vuelta a 'crons'.",
+  "_crons_pausados": [
     {
       "path": "/api/cron/sincronizar-correo",
       "schedule": "*/15 * * * *"
