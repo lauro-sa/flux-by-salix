@@ -15,6 +15,9 @@
  * no tiene state, solo sugiere.
  */
 
+// Los colores son hex de la `PALETA_COLORES_TIPO_ACTIVIDAD` para que
+// el preset que sugerimos coincida 1-a-1 con una bolita seleccionada
+// del selector (sin "verde aproximado" — el aro se posiciona exacto).
 const REGLAS: ReadonlyArray<{
   patrones: ReadonlyArray<RegExp>
   icono: string
@@ -24,83 +27,84 @@ const REGLAS: ReadonlyArray<{
   {
     patrones: [/\bcorreo\b/, /\bemail\b/, /\bmail\b/, /\bgmail\b/, /\binbox\b/, /\brespuesta\b/, /\bresponder\b/],
     icono: 'Mail',
-    color: 'violeta',
+    color: '#8e4ec6',
   },
   // Comunicación — WhatsApp
   {
     patrones: [/\bwhatsapp\b/, /\bwa\b/, /\bmensaje\b/, /\bmensajes\b/, /\bchat\b/],
     icono: 'MessageCircle',
-    color: 'exito',
+    color: '#46a758',
   },
   // Notificaciones / alertas
   {
     patrones: [/\bnotific/, /\balerta\b/, /\baviso\b/, /\brecordatorio\b/, /\brecordar\b/],
     icono: 'Bell',
-    color: 'advertencia',
+    color: '#f5a623',
   },
   // Visitas
   {
     patrones: [/\bvisita\b/, /\bvisitas\b/],
     icono: 'MapPin',
-    color: 'cyan',
+    color: '#7c93c4',
   },
   // Asistencias / fichaje
   {
     patrones: [/\basistencia\b/, /\bfichaje\b/, /\bjornada\b/],
     icono: 'Calendar',
-    color: 'naranja',
+    color: '#f5a623',
   },
   // Cobranzas / cuotas / pagos
   {
     patrones: [/\bcuota\b/, /\bcuotas\b/, /\bcobranza\b/, /\bcobrar\b/, /\bpago\b/, /\bpagos\b/, /\bdeuda\b/],
     icono: 'DollarSign',
-    color: 'exito',
+    color: '#46a758',
   },
   // Presupuestos
   {
     patrones: [/\bpresupuesto\b/, /\bcotizaci/, /\boferta\b/],
     icono: 'FileText',
-    color: 'info',
+    color: '#3b82f6',
   },
   // Órdenes de trabajo
   {
     patrones: [/\borden\b/, /\bordenes\b/, /\bot\b/, /\btrabajo\b/],
     icono: 'Wrench',
-    color: 'primario',
+    color: '#5b5bd6',
   },
   // Actividades / tareas
   {
     patrones: [/\bactividad\b/, /\bactividades\b/, /\btarea\b/, /\btareas\b/, /\bseguimiento\b/],
     icono: 'CheckCircle',
-    color: 'primario',
+    color: '#5b5bd6',
   },
   // Nómina
   {
     patrones: [/\bnomina\b/, /\bsalario\b/, /\bsueldo\b/, /\badelanto\b/],
     icono: 'Wallet',
-    color: 'naranja',
+    color: '#f5a623',
   },
   // Etiquetas / clasificación
   {
     patrones: [/\betiqueta\b/, /\betiquetas\b/, /\bclasificar\b/],
     icono: 'Tag',
-    color: 'rosa',
+    color: '#ec4899',
   },
   // Tiempo / scheduler
   {
     patrones: [/\bdiari/, /\bsemanal/, /\bmensual/, /\bautomatic/, /\bprogramad/],
     icono: 'Clock',
-    color: 'info',
+    color: '#3b82f6',
   },
   // Contactos
   {
     patrones: [/\bcontacto\b/, /\bcontactos\b/, /\bcliente\b/, /\bclientes\b/],
     icono: 'Users',
-    color: 'cyan',
+    color: '#7c93c4',
   },
 ]
 
-const DEFAULT_IDENTIDAD = { icono: 'Workflow', color: 'violeta' } as const
+// Default = Índigo (color de marca de Flux) + ícono genérico de módulo.
+const DEFAULT_IDENTIDAD = { icono: 'Workflow', color: '#5b5bd6' } as const
 
 export interface IdentidadSugerida {
   icono: string

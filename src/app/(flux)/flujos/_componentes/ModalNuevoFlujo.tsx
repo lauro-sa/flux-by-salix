@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
-import { Search, Sparkles, FileSpreadsheet, Pipette } from 'lucide-react'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Search, Sparkles, FileSpreadsheet, Pipette, Check } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Modal } from '@/componentes/ui/Modal'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
-import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
-import { PickerInline } from '@/componentes/ui/SelectorColor'
+import { MiniSelectorIcono } from '@/componentes/ui/MiniSelectorIcono'
+import { PickerHSL } from '@/componentes/ui/_editor_texto/PickerHSL'
+import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { useModulos } from '@/hooks/useModulos'
 import { ETIQUETAS_ENTIDAD, ENTIDADES_CON_ESTADO } from '@/tipos/estados'
@@ -16,18 +19,18 @@ import {
   type PlantillaSugerida,
 } from '@/lib/workflows/plantillas-sugeridas'
 import { sugerirIdentidadFlujo } from '@/lib/workflows/sugerencia-identidad-flujo'
-import { iconoLucideFlujo, resolverEstiloColorFlujo } from '@/lib/workflows/iconos-flujo'
 import { CardPlantilla } from './EstadoVacioFlujos'
 import { useCrearFlujo } from './useCrearFlujo'
 
-// Paleta de tokens de color predefinidos (claves de `ColorInsignia`).
-// El último slot del selector NO es token sino un picker hex con
-// gotero — el modelo `flujos.color` acepta tanto el token como
-// `#RRGGBB`, ver `resolverEstiloColorFlujo`.
-const COLORES_FLUJO = [
-  'violeta', 'primario', 'info', 'cyan', 'exito',
-  'advertencia', 'naranja', 'peligro', 'rosa', 'neutro',
-] as const
+// Íconos "rápidos" mostrados sin búsqueda en el MiniSelectorIcono.
+// Curados para el dominio de flujos (comunicación, scheduler,
+// negocio, RRHH); buscador adentro del popover descubre los demás.
+const ICONOS_RAPIDOS_FLUJO = [
+  'Workflow', 'Zap', 'Sparkles', 'Bell', 'Mail', 'MessageCircle',
+  'MessageSquare', 'Phone', 'Calendar', 'Clock', 'AlarmClock', 'CheckCircle',
+  'FileText', 'ClipboardList', 'DollarSign', 'CreditCard', 'Wallet', 'Tag',
+  'MapPin', 'Users', 'User', 'Wrench', 'Settings', 'Shield',
+]
 
 /**
  * ModalNuevoFlujo — Modal "+ Nuevo flujo" con dos pestañas (§1.11 plan UX).
@@ -81,20 +84,23 @@ export default function ModalNuevoFlujo({
   const [busquedaPlantilla, setBusquedaPlantilla] = useState('')
   const [filtroModulo, setFiltroModulo] = useState('')
   const [nombre, setNombre] = useState('')
-  // Identidad visual del flujo recién creado. `icono` es un nombre de
-  // Lucide; `color` puede ser un token de Insignia o un hex literal
-  // venido del PickerInline (gotero). El helper
-  // `resolverEstiloColorFlujo` lo consume sin distinción.
+  // Identidad visual: `icono` es un nombre Lucide, `color` siempre es
+  // un hex literal (#RRGGBB). El helper `resolverEstiloColorFlujo`
+  // acepta tanto tokens viejos como hex — los flujos nuevos siempre
+  // nacen con hex para alinearse con el patrón del editor de tipos
+  // de actividad (PaginaEditorTipoActividad).
   const [icono, setIcono] = useState('Workflow')
-  const [color, setColor] = useState<string>('violeta')
+  const [color, setColor] = useState<string>('#5b5bd6')
   // Dirty flags: una vez que el usuario toca ícono o color a mano, ya
-  // no los pisamos con la sugerencia automática del nombre. Sin estos
-  // refs, escribir el nombre revertiría su elección y sería molesto.
+  // no los pisamos con la sugerencia automática del nombre.
   const iconoTocado = useRef(false)
   const colorTocado = useRef(false)
-  // Picker hex (gotero) — popover controlado por la última bolita
-  // del selector de color.
+  // Picker HSL (gotero) — popover renderizado por portal a
+  // document.body, como en el editor de tipos de actividad.
   const [pickerAbierto, setPickerAbierto] = useState(false)
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 })
+  const pickerBotonRef = useRef<HTMLButtonElement>(null)
+  const pickerDropdownRef = useRef<HTMLDivElement>(null)
 
   // Cuando abre con plantilla pre-seleccionada, ir directo a "Desde cero"
   // con el nombre de la plantilla pre-cargado (más rápido que volver a
@@ -108,7 +114,7 @@ export default function ModalNuevoFlujo({
     } else {
       setNombre('')
       setIcono('Workflow')
-      setColor('violeta')
+      setColor('#5b5bd6')
       iconoTocado.current = false
       colorTocado.current = false
       setPickerAbierto(false)
@@ -160,6 +166,26 @@ export default function ModalNuevoFlujo({
     if (!iconoTocado.current) setIcono(sugerido.icono)
     if (!colorTocado.current) setColor(sugerido.color)
   }, [nombre, abierto, pestana])
+
+  // Posición + cierre del picker HSL (gotero). Mismo patrón que el
+  // editor de tipos de actividad: portal a body, fuera del DOM del
+  // modal para que no se le aplique el overflow / max-h.
+  useLayoutEffect(() => {
+    if (!pickerAbierto || !pickerBotonRef.current) return
+    const rect = pickerBotonRef.current.getBoundingClientRect()
+    setPickerPos({ top: rect.bottom + 6, left: rect.left })
+  }, [pickerAbierto])
+  useEffect(() => {
+    if (!pickerAbierto) return
+    const cerrarFuera = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (pickerBotonRef.current?.contains(target)) return
+      if (pickerDropdownRef.current?.contains(target)) return
+      setPickerAbierto(false)
+    }
+    document.addEventListener('mousedown', cerrarFuera)
+    return () => document.removeEventListener('mousedown', cerrarFuera)
+  }, [pickerAbierto])
 
   function cambiarIcono(nuevo: string) {
     iconoTocado.current = true
@@ -245,159 +271,110 @@ export default function ModalNuevoFlujo({
           )}
         </div>
       ) : (
-        // Layout 2 columnas: izquierda nombre+color+CTA, derecha
-        // selector de íconos grande con categorías (aprovecha el
-        // ancho del modal en vez de dejar la mitad derecha vacía).
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-6">
-          {/* Columna izquierda */}
-          <div className="flex flex-col gap-5">
-            {/* Nombre del flujo. La preview del ícono se muestra como
-                bolita decorativa antes del input — al elegir un ícono
-                a la derecha o al escribir el nombre, esa bolita se
-                actualiza en vivo. */}
-            <div>
-              <label className="block text-xs font-medium text-texto-secundario mb-1.5">
-                {t('flujos.modal_nuevo.nombre_label')}
-              </label>
-              <div className="flex items-stretch gap-2">
-                <div
-                  className="shrink-0 inline-flex items-center justify-center size-9 rounded-md"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${resolverEstiloColorFlujo(color)} 12%, transparent)`,
-                    color: resolverEstiloColorFlujo(color),
-                  }}
-                  aria-hidden="true"
-                >
-                  {(() => {
-                    // Render perezoso. `obtenerIcono` cubre TODO Lucide
-                    // (no solo el mapa restringido de
-                    // `iconoLucideFlujo`); fallback a Workflow si no
-                    // matchea por algún motivo.
-                    const Icono = obtenerIcono(icono) ?? iconoLucideFlujo(null)
-                    return <Icono size={16} strokeWidth={1.7} />
-                  })()}
-                </div>
-                <div className="flex-1">
-                  <Input
-                    placeholder={t('flujos.modal_nuevo.nombre_placeholder')}
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-texto-terciario mt-1.5">
-                {t('flujos.modal_nuevo.sugerencia_hint')}
-              </p>
-            </div>
-
-            {/* Paleta de color: 10 tokens predefinidos + 1 gotero.
-                El gotero abre `PickerInline` (HSL) en un popover
-                inline; al confirmar guarda el hex en `color`. El
-                helper `resolverEstiloColorFlujo` consume token o
-                hex sin distinción. */}
-            <div>
-              <label className="block text-xs font-medium text-texto-secundario mb-1.5">
-                {t('flujos.modal_nuevo.color_label')}
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                {COLORES_FLUJO.map((c) => {
-                  const seleccionado = c === color
+        // Patrón idéntico a PaginaEditorTipoActividad (referencia visual
+        // del proyecto): MiniSelectorIcono a la izquierda + input nombre +
+        // bolitas de color compactas + gotero con PickerHSL en portal.
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <MiniSelectorIcono
+              valor={icono}
+              color={color}
+              onChange={cambiarIcono}
+              iconosRapidos={ICONOS_RAPIDOS_FLUJO}
+              titulo={t('flujos.modal_nuevo.elegir_icono')}
+            />
+            <div className="flex-1 min-w-0 space-y-3">
+              <Input
+                tipo="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder={t('flujos.modal_nuevo.nombre_placeholder')}
+                autoFocus
+                className="!text-base !font-semibold"
+              />
+              {/* Paleta de bolitas inline (size-5) + gotero. Mismo
+                  ancho y estilo que tipos de actividad. */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {PALETA_COLORES_TIPO_ACTIVIDAD.map((preset) => {
+                  const sel = color.toLowerCase() === preset.color.toLowerCase()
                   return (
                     <button
-                      key={c}
+                      key={preset.color}
                       type="button"
-                      onClick={() => cambiarColor(c)}
-                      title={t(`flujos.modal_nuevo.color.${c}`)}
-                      aria-label={t(`flujos.modal_nuevo.color.${c}`)}
-                      aria-pressed={seleccionado}
-                      className={`size-7 rounded-full cursor-pointer transition-all ${
-                        seleccionado
-                          ? 'ring-2 ring-texto-primario ring-offset-2 ring-offset-superficie-elevada'
-                          : 'hover:scale-110'
+                      onClick={() => cambiarColor(preset.color)}
+                      title={preset.nombre}
+                      aria-label={preset.nombre}
+                      className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                        sel ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
                       }`}
-                      style={{
-                        background: `var(--insignia-${c}-texto, var(--texto-marca))`,
-                      }}
-                    />
+                      style={{ backgroundColor: preset.color }}
+                    >
+                      {sel && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                    </button>
                   )
                 })}
-                {/* Gotero / color custom. Si el color actual ya es
-                    hex (#XXXXXX), el botón muestra ese color como
-                    bolita seleccionada; si no, queda gris con el
-                    ícono Pipette. */}
+                {/* Gotero — abre PickerHSL en portal a body */}
                 <div className="relative">
                   <button
+                    ref={pickerBotonRef}
                     type="button"
-                    onClick={() => setPickerAbierto((v) => !v)}
-                    aria-label={t('flujos.modal_nuevo.color_custom')}
-                    title={t('flujos.modal_nuevo.color_custom')}
-                    aria-pressed={color.startsWith('#')}
-                    className={`size-7 rounded-full cursor-pointer flex items-center justify-center border border-borde-fuerte transition-all ${
-                      color.startsWith('#')
-                        ? 'ring-2 ring-texto-primario ring-offset-2 ring-offset-superficie-elevada text-texto-app'
-                        : 'bg-superficie-tarjeta text-texto-terciario hover:text-texto-secundario hover:scale-110'
+                    onClick={() => setPickerAbierto(!pickerAbierto)}
+                    className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+                      pickerAbierto || !PALETA_COLORES_TIPO_ACTIVIDAD.some((p) => p.color.toLowerCase() === color.toLowerCase())
+                        ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent'
+                        : 'border-borde-fuerte'
                     }`}
                     style={
-                      color.startsWith('#')
-                        ? { background: color, color: '#fff' }
+                      !PALETA_COLORES_TIPO_ACTIVIDAD.some((p) => p.color.toLowerCase() === color.toLowerCase())
+                        ? { backgroundColor: color }
                         : undefined
                     }
+                    title={t('flujos.modal_nuevo.color_custom')}
+                    aria-label={t('flujos.modal_nuevo.color_custom')}
                   >
-                    <Pipette size={12} strokeWidth={2} />
+                    {!PALETA_COLORES_TIPO_ACTIVIDAD.some((p) => p.color.toLowerCase() === color.toLowerCase())
+                      ? <Check size={9} className="text-white drop-shadow-sm" />
+                      : <Pipette size={9} className="text-texto-terciario" />}
                   </button>
-                  {pickerAbierto && (
-                    <div
-                      className="absolute z-50 mt-2 left-0 w-[260px] rounded-card border border-borde-sutil bg-superficie-elevada shadow-2xl p-3"
-                      role="dialog"
-                      aria-label={t('flujos.modal_nuevo.color_custom')}
-                    >
-                      <PickerInline
-                        valor={color.startsWith('#') ? color : '#7c3aed'}
-                        onChange={(hex) => cambiarColor(hex)}
-                      />
-                      <div className="flex justify-end pt-2">
-                        <Boton
-                          variante="fantasma"
-                          tamano="sm"
-                          onClick={() => setPickerAbierto(false)}
+                  {typeof window !== 'undefined' && createPortal(
+                    <AnimatePresence>
+                      {pickerAbierto && (
+                        <motion.div
+                          ref={pickerDropdownRef}
+                          initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                          transition={{ duration: 0.15 }}
+                          className="fixed bg-superficie-elevada border border-borde-sutil rounded-card shadow-lg overflow-hidden"
+                          style={{ top: pickerPos.top, left: pickerPos.left, zIndex: 200 }}
                         >
-                          {t('comun.cerrar')}
-                        </Boton>
-                      </div>
-                    </div>
+                          <PickerHSL
+                            valorInicial={color}
+                            onAplicar={(c) => { cambiarColor(c); setPickerAbierto(false) }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>,
+                    document.body,
                   )}
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-start pt-2">
-              <Boton
-                variante="primario"
-                tamano="md"
-                onClick={crearDesdeCero}
-                disabled={!nombre.trim()}
-                cargando={creando}
-              >
-                {t('flujos.modal_nuevo.crear_y_editar')}
-              </Boton>
-            </div>
           </div>
+          <p className="text-[11px] text-texto-terciario">
+            {t('flujos.modal_nuevo.sugerencia_hint')}
+          </p>
 
-          {/* Divisor vertical — se oculta en mobile (grid colapsa a 1 col) */}
-          <div className="hidden md:block bg-white/[0.07]" />
-
-          {/* Columna derecha: SelectorIcono grande con categorías.
-              Es el componente "fuerte" — el mismo que se usa en
-              tipos de actividad, tipos de evento, etapas, etc. */}
-          <div>
-            <label className="block text-xs font-medium text-texto-secundario mb-1.5">
-              {t('flujos.modal_nuevo.icono_label')}
-            </label>
-            <SelectorIcono
-              valor={icono}
-              onChange={cambiarIcono}
-            />
+          <div className="flex justify-end pt-2">
+            <Boton
+              variante="primario"
+              tamano="md"
+              onClick={crearDesdeCero}
+              disabled={!nombre.trim()}
+              cargando={creando}
+            >
+              {t('flujos.modal_nuevo.crear_y_editar')}
+            </Boton>
           </div>
         </div>
       )}
