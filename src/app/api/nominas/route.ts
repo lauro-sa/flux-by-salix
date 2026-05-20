@@ -1631,6 +1631,60 @@ export async function GET(request: NextRequest) {
     const resultadosFinales = ([...resultadosConEstado, ...resultadosDesdeSnapshot] as Array<Record<string, unknown>>)
       .sort((a, b) => String(a.nombre ?? '').localeCompare(String(b.nombre ?? '')))
 
+    // ─── Self-heal del snapshot ───
+    //
+    // Para empleados con estado != borrador que pasaron por el motor en
+    // vivo (porque no tenían snapshot completo), guardamos la fila
+    // calculada en `liquidaciones_empleado_periodo.snapshot_calculo`
+    // bumpeando a v3.1. La próxima vez que se consulte este período,
+    // el endpoint los va a leer del snapshot sin recalcular.
+    //
+    // Esto convierte los snapshots viejos (v3.0 sin `fila_listado` o
+    // pagados sin snapshot alguno) en v3.1 a medida que el usuario
+    // navega la UI, sin necesidad de un script de backfill explícito.
+    //
+    // Diseño:
+    //   - El update es asíncrono (no se await): no bloquea la respuesta.
+    //   - Cualquier error del update se silencia (próxima visita reintenta).
+    //   - Solo aplica a empleados con estado != borrador que SÍ están en
+    //     resultadosConEstado (los calculados en vivo). Los que ya vienen
+    //     de snapshot completo no se tocan.
+    const filasParaSelfHeal: Array<{ miembroId: string; fila: Record<string, unknown>; snapshotActual: Record<string, unknown> | null }> = []
+    for (const fila of resultadosConEstado) {
+      const id = fila.miembro_id as string
+      const estado = estadosPorMiembro.get(id)
+      if (!estado || estado.estado === 'borrador') continue
+      filasParaSelfHeal.push({
+        miembroId: id,
+        fila: fila as unknown as Record<string, unknown>,
+        snapshotActual: estado.snapshot,
+      })
+    }
+    if (filasParaSelfHeal.length > 0) {
+      // Disparamos los updates en paralelo sin await: la respuesta sale
+      // ya. En Vercel los promises sueltos del request pueden cancelarse
+      // si la lambda termina, pero como los GET de nóminas duran varios
+      // segundos (cargando todo lo del listado), normalmente alcanza.
+      // Si algún update se pierde, la próxima visita lo reintenta.
+      void Promise.all(filasParaSelfHeal.map(async ({ miembroId, fila, snapshotActual }) => {
+        try {
+          const snapshotNuevo = {
+            ...(snapshotActual ?? {}),
+            version_motor: 'v3.1',
+            fila_listado: fila,
+            self_healed_en: new Date().toISOString(),
+          }
+          await admin
+            .from('liquidaciones_empleado_periodo')
+            .update({ snapshot_calculo: snapshotNuevo })
+            .eq('empresa_id', empresaId)
+            .eq('miembro_id', miembroId)
+            .eq('periodo_inicio', desde)
+            .eq('periodo_fin', hasta)
+        } catch { /* silenciar — próxima visita reintenta */ }
+      }))
+    }
+
     return NextResponse.json({
       desde, hasta,
       dias_laborales: (resultados[0]?.dias_laborales as number | undefined) ?? ((resultadosDesdeSnapshot[0] as Record<string, unknown> | undefined)?.dias_laborales as number | undefined) ?? 0,
