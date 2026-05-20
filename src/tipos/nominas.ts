@@ -540,6 +540,113 @@ export interface DetalleReciboCalculado {
 }
 
 // ════════════════════════════════════════════════════════════════
+// Fila del listado de nómina (resultado del endpoint /api/nominas GET)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Resultado del cálculo de nómina para UN empleado en UN período,
+ * tal como lo devuelve el endpoint /api/nominas GET. Es lo que la
+ * grilla principal de Liquidaciones usa por cada card.
+ *
+ * Este shape se persiste en `liquidaciones_empleado_periodo.snapshot_calculo.fila_listado`
+ * cuando un empleado pasa a estado != 'borrador'. Al volver a consultar
+ * el período, si el snapshot está poblado el endpoint NO recalcula:
+ * lee la fila directamente del snapshot. Eso evita que las cards
+ * pagadas se "muevan" si alguien edita una asistencia retroactivamente
+ * y baja el costo del endpoint a casi cero para períodos cerrados.
+ *
+ * Versión del shape:
+ *   - sin marca → snapshots viejos (pre-v3.1). El endpoint cae a
+ *     recálculo vivo para mantener compatibilidad.
+ *   - v3.1+ → snapshot incluye `fila_listado` completa.
+ */
+export interface FilaListadoNomina {
+  // ── Identidad/datos del empleado ──
+  miembro_id: string
+  nombre: string
+  correo: string
+  telefono: string
+  canal_notif_correo: string
+  canal_notif_telefono: string
+  puesto: string | null
+  fecha_ingreso: string | null
+  numero_empleado: string | null
+  foto_url: string | null
+  documento: { tipo: string; numero: string } | null
+
+  // ── Compensación (del contrato vigente o fallback miembros.compensacion_*) ──
+  compensacion_tipo: string
+  compensacion_monto: number
+  compensacion_frecuencia: string
+
+  // ── Métricas de asistencia ──
+  dias_laborales: number
+  dias_trabajados: number
+  dias_ausentes: number
+  dias_tardanza: number
+  dias_feriados: number
+  dias_trabajados_feriado: number
+  dias_jornada_completa: number
+  dias_media_jornada: number
+  dias_presente_parcial: number
+  jornales_equivalentes: number
+  dias_detalle: Array<{
+    fecha: string
+    clasificacion: 'completa' | 'media' | 'parcial' | 'ausente' | 'feriado' | 'feriado_trabajado' | 'no_laboral'
+    horas_netas: number | null
+  }>
+
+  // ── Horas con desglose ──
+  horas_brutas: number
+  horas_netas: number
+  horas_almuerzo: number
+  horas_particular: number
+  horas_totales: number
+  promedio_horas_diario: number
+  dias_con_almuerzo: number
+  dias_con_salida_particular: number
+  descuenta_almuerzo: boolean
+  duracion_almuerzo_config: number
+
+  // ── Montos ──
+  monto_pagar: number
+  monto_detalle: string
+  conceptos_aplicados: ConceptoAplicadoCalculado[]
+  total_haberes: number
+  total_descuentos_conceptos: number
+  descuento_adelanto: number
+  cuotas_adelanto: number
+  bonos_periodo: number
+  cuotas_bonos: number
+  saldo_anterior: number
+  monto_neto: number
+
+  // ── Flags de visibilidad/vigencia ──
+  contrato_terminado_antes: boolean
+  contrato_no_iniciado: boolean
+
+  // ── Estado de envío del recibo (puede venir de pago grabado) ──
+  recibo_correo_enviado_en: string | null
+  recibo_correo_enviado_a: string | null
+  recibo_whatsapp_enviado_en: string | null
+  recibo_whatsapp_enviado_a: string | null
+
+  // ── Snapshot del contrato vigente (lo usa el PDF borrador) ──
+  contrato_snapshot: {
+    contrato_id: string
+    fecha_inicio: string
+    fecha_fin: string | null
+    condicion: string
+    modalidad_calculo: string
+    monto_base: number
+    frecuencia_pago: string
+    regimen: string
+    sector: null
+    turno: null
+  } | null
+}
+
+// ════════════════════════════════════════════════════════════════
 // Pagos de nómina y datos bancarios del empleado
 // ════════════════════════════════════════════════════════════════
 

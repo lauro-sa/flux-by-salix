@@ -47,6 +47,14 @@ interface FilaEmpleado {
 
 type FiltroEstado = 'activos' | 'terminados' | 'todos'
 
+/**
+ * Cache module-level por filtro de estado. Sobrevive a desmontajes para
+ * que al volver a /nominas la lista aparezca al instante mientras se
+ * revalida silenciosa en background. Se invalida con el refresh del
+ * navegador o al disparar mutaciones del módulo desde otras vistas.
+ */
+const cacheEmpleadosPorEstado = new Map<FiltroEstado, FilaEmpleado[]>()
+
 const ETIQUETAS_MODALIDAD: Record<string, string> = {
   por_hora: 'Por hora',
   por_dia: 'Por día',
@@ -66,19 +74,33 @@ function normalizar(s: string): string {
 
 export function VistaEmpleados() {
   const router = useRouter()
-  const [empleados, setEmpleados] = useState<FilaEmpleado[]>([])
-  const [cargando, setCargando] = useState(true)
-  const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState<FiltroEstado>('activos')
+  // Hidratamos desde cache module-level: si ya visitamos este filtro en
+  // esta sesión, la lista aparece al instante (sin loader).
+  const [empleados, setEmpleados] = useState<FilaEmpleado[]>(
+    () => cacheEmpleadosPorEstado.get('activos') ?? [],
+  )
+  const [cargando, setCargando] = useState(() => !cacheEmpleadosPorEstado.has('activos'))
+  const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
     let cancelado = false
-    setCargando(true)
+    // Si hay cache para este filtro, lo aplicamos al instante y
+    // revalidamos en background (sin loader). Si no, sí mostramos loader.
+    const cacheado = cacheEmpleadosPorEstado.get(estado)
+    if (cacheado) {
+      setEmpleados(cacheado)
+      setCargando(false)
+    } else {
+      setCargando(true)
+    }
     fetch(`/api/nominas/empleados?estado=${estado}`)
       .then(r => r.json())
       .then((data) => {
         if (cancelado) return
-        setEmpleados((data.empleados ?? []) as FilaEmpleado[])
+        const lista = (data.empleados ?? []) as FilaEmpleado[]
+        cacheEmpleadosPorEstado.set(estado, lista)
+        setEmpleados(lista)
       })
       .catch(err => {
         console.error('[VistaEmpleados] error', err)

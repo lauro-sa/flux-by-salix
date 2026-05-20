@@ -13,7 +13,7 @@
  * Ver PLAN_MODULO_NOMINAS.md.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -67,6 +67,19 @@ interface EmpleadoMini {
   apellido: string
 }
 
+/**
+ * Cache module-level. Sobrevive a desmontajes para que volver a la tab
+ * Adelantos desde otra ruta muestre lo último visto al instante mientras
+ * revalida en background.
+ *
+ * - `cacheAdelantosPorFiltros` indexa por la combinación de filtros
+ *   serializados; cambiar de filtro busca primero ahí antes de fetchear.
+ * - `cacheEmpleadosMini` es global (no depende de filtros): la lista de
+ *   empleados solo se usa para selectores y se carga una sola vez.
+ */
+const cacheAdelantosPorFiltros = new Map<string, Adelanto[]>()
+let cacheEmpleadosMini: EmpleadoMini[] | null = null
+
 // ════════════════════════════════════════════════════════════════
 // Componente principal
 // ════════════════════════════════════════════════════════════════
@@ -77,21 +90,28 @@ export function VistaAdelantos() {
   const { moneda } = useFormato()
   const puedeEditar = tienePermiso('nomina', 'editar')
 
-  // Datos
-  const [adelantos, setAdelantos] = useState<Adelanto[]>([])
-  const [empleados, setEmpleados] = useState<EmpleadoMini[]>([])
-  // `primeraCarga` solo se usa para el spinner inicial. Refrescos post-acción
-  // (crear, cancelar, reasignar) NO la activan: la lista se actualiza en su
-  // lugar sin parpadear.
-  const [primeraCarga, setPrimeraCarga] = useState(true)
-
-  // Filtros
+  // Filtros (declarados antes que los datos para construir la clave de cache).
   const [filtroMiembro, setFiltroMiembro] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'' | 'activo' | 'pagado' | 'cancelado'>('')
   const [filtroTipo, setFiltroTipo] = useState<'' | 'adelanto' | 'descuento'>('')
   const [filtroFrecuencia, setFiltroFrecuencia] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
+
+  // Clave inicial de cache (filtros vacíos al primer render).
+  const claveCacheInicial = '||||||'
+  // Datos. Hidratamos desde el cache module-level para que volver a la tab
+  // muestre la última lista al instante.
+  const [adelantos, setAdelantos] = useState<Adelanto[]>(
+    () => cacheAdelantosPorFiltros.get(claveCacheInicial) ?? [],
+  )
+  const [empleados, setEmpleados] = useState<EmpleadoMini[]>(() => cacheEmpleadosMini ?? [])
+  // `primeraCarga` solo se usa para el spinner inicial. Si ya tenemos
+  // cache para los filtros iniciales, arrancamos en false: no mostramos
+  // loader y la revalidación corre silenciosa.
+  const [primeraCarga, setPrimeraCarga] = useState(
+    () => !cacheAdelantosPorFiltros.has(claveCacheInicial),
+  )
 
   // Editor
   const [editorAbierto, setEditorAbierto] = useState(false)
@@ -100,7 +120,22 @@ export function VistaAdelantos() {
   const [detalleId, setDetalleId] = useState<string | null>(null)
 
   // ─── Cargas ───
+  // Clave de cache derivada de los filtros activos.
+  const claveCache = `${filtroMiembro}|${filtroEstado}|${filtroTipo}|${filtroFrecuencia}|${filtroDesde}|${filtroHasta}`
+  // Ref con la combinación de filtros activa: la consultamos al
+  // resolver un fetch para descartar respuestas viejas si el usuario
+  // alternó filtros mientras estaba en vuelo.
+  const claveCacheRef = useRef(claveCache)
+  claveCacheRef.current = claveCache
+
   const cargarAdelantos = useCallback(async () => {
+    const clavePeticion = claveCache
+    // Hidratamos desde cache si existe — la revalidación corre igual abajo.
+    const cacheado = cacheAdelantosPorFiltros.get(clavePeticion)
+    if (cacheado) {
+      setAdelantos(cacheado)
+      setPrimeraCarga(false)
+    }
     try {
       const params = new URLSearchParams()
       if (filtroMiembro) params.set('miembro_id', filtroMiembro)
@@ -112,17 +147,28 @@ export function VistaAdelantos() {
 
       const res = await fetch(`/api/adelantos?${params.toString()}`)
       const data = await res.json()
-      setAdelantos((data.adelantos ?? []) as Adelanto[])
+      const lista = (data.adelantos ?? []) as Adelanto[]
+      cacheAdelantosPorFiltros.set(clavePeticion, lista)
+      // Solo pintamos la lista si el filtro activo no cambió entretanto.
+      if (claveCacheRef.current === clavePeticion) {
+        setAdelantos(lista)
+      }
     } catch (err) {
       console.error('[VistaAdelantos] error:', err)
       toast.mostrar('error', 'No se pudieron cargar los adelantos')
     } finally {
-      setPrimeraCarga(false)
+      if (claveCacheRef.current === clavePeticion) {
+        setPrimeraCarga(false)
+      }
     }
-  }, [filtroMiembro, filtroEstado, filtroTipo, filtroFrecuencia, filtroDesde, filtroHasta, toast])
+  }, [filtroMiembro, filtroEstado, filtroTipo, filtroFrecuencia, filtroDesde, filtroHasta, toast, claveCache])
 
   // Cargar empleados una sola vez para los filtros y el reasignar.
+  // Si ya hay cache module-level, no refetcheamos: la lista no cambia
+  // dentro de la sesión salvo que se den de alta/baja empleados (caso
+  // suficientemente raro como para no justificar refetch en cada montaje).
   useEffect(() => {
+    if (cacheEmpleadosMini) return
     let cancelado = false
     const cargar = async () => {
       try {
@@ -131,6 +177,7 @@ export function VistaAdelantos() {
         if (cancelado) return
         const lista = ((data.empleados ?? []) as Array<{ miembro_id: string; nombre: string; apellido: string }>)
           .map(e => ({ miembro_id: e.miembro_id, nombre: e.nombre, apellido: e.apellido }))
+        cacheEmpleadosMini = lista
         setEmpleados(lista)
       } catch {
         // sin empleados; los filtros muestran "Todos"
@@ -141,6 +188,15 @@ export function VistaAdelantos() {
   }, [])
 
   useEffect(() => { cargarAdelantos() }, [cargarAdelantos])
+
+  // Refresco tras mutaciones (crear / cancelar / reasignar / editar):
+  // invalida TODO el cache de filtros porque la mutación puede haber
+  // afectado a entradas que están en otra combinación, no solo en la
+  // activa. Después dispara la carga normal del filtro vigente.
+  const refrescarAdelantos = useCallback(async () => {
+    cacheAdelantosPorFiltros.clear()
+    await cargarAdelantos()
+  }, [cargarAdelantos])
 
   // Mapa para mostrar nombre rápido en la tabla
   const mapaEmpleados = useMemo(
@@ -163,7 +219,7 @@ export function VistaAdelantos() {
         return toast.mostrar('error', data.error || 'No se pudo cancelar')
       }
       toast.mostrar('exito', 'Adelanto cancelado')
-      cargarAdelantos()
+      refrescarAdelantos()
     } catch {
       toast.mostrar('error', 'Error de red')
     }
@@ -386,7 +442,7 @@ export function VistaAdelantos() {
         adelanto={editando}
         empleados={empleados}
         onCerrar={() => { setEditorAbierto(false); setEditando(null) }}
-        onGuardado={() => { setEditorAbierto(false); setEditando(null); cargarAdelantos() }}
+        onGuardado={() => { setEditorAbierto(false); setEditando(null); refrescarAdelantos() }}
       />
 
       {/* Modal reasignar */}
@@ -394,7 +450,7 @@ export function VistaAdelantos() {
         adelanto={reasignando}
         empleados={empleados}
         onCerrar={() => setReasignando(null)}
-        onListo={() => { setReasignando(null); cargarAdelantos() }}
+        onListo={() => { setReasignando(null); refrescarAdelantos() }}
       />
     </div>
   )

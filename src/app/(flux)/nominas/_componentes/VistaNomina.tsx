@@ -113,6 +113,25 @@ interface EstadoPeriodo {
 
 type TipoPeriodo = 'semana' | 'quincena' | 'mes'
 
+/**
+ * Cache module-level del cálculo de nómina por período.
+ * Vive fuera del componente para sobrevivir desmontajes: al salir y volver
+ * a /nominas, la última vista aparece al instante mientras se revalida en
+ * background. Se limpia al refrescar la pestaña del navegador o al ejecutar
+ * acciones que mutan el período (liquidar, pagar, cerrar).
+ *
+ * Clave: `${desde}_${hasta}_${tipoPeriodo}` — el tipo entra porque
+ * /api/nominas usa el param `periodo` para clasificar empleados fuera de
+ * frecuencia.
+ */
+interface EntradaCacheNomina {
+  resultados: ResultadoNomina[]
+  nombreEmpresa: string
+  estadoPeriodo: EstadoPeriodo | null
+  envioObligatorio: boolean
+}
+const cacheNominaPorPeriodo = new Map<string, EntradaCacheNomina>()
+
 // ─── Cabezal: estado del período ───
 // Modos visuales:
 //   - 'al-dia':   período abierto, todo OK. Chip neutro.
@@ -325,11 +344,18 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   const router = useRouter()
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
   const [fechaRef, setFechaRef] = useState(new Date())
+  // Hidratación instantánea desde el cache module-level: si el usuario ya
+  // visitó este período en esta sesión, los datos aparecen sin loader.
+  const claveInicial = (() => {
+    const p = calcularPeriodo(new Date(), 'mes')
+    return `${p.desde}_${p.hasta}_mes`
+  })()
+  const cacheInicial = cacheNominaPorPeriodo.get(claveInicial)
   const [cargando, setCargando] = useState(false)
-  const [resultados, setResultados] = useState<ResultadoNomina[]>([])
-  const [nombreEmpresa, setNombreEmpresa] = useState('')
-  const [estadoPeriodo, setEstadoPeriodo] = useState<EstadoPeriodo | null>(null)
-  const [envioObligatorio, setEnvioObligatorio] = useState(false)
+  const [resultados, setResultados] = useState<ResultadoNomina[]>(cacheInicial?.resultados ?? [])
+  const [nombreEmpresa, setNombreEmpresa] = useState(cacheInicial?.nombreEmpresa ?? '')
+  const [estadoPeriodo, setEstadoPeriodo] = useState<EstadoPeriodo | null>(cacheInicial?.estadoPeriodo ?? null)
+  const [envioObligatorio, setEnvioObligatorio] = useState(cacheInicial?.envioObligatorio ?? false)
   const [modalEnvio, setModalEnvio] = useState(false)
 
   // ── Filtros / búsqueda / vista compacta ──
@@ -371,34 +397,42 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
 
   // Exponer acciones al cabezal via ref
   useImperativeHandle(ref, () => ({
-    exportar: () => window.open(`/api/asistencias/exportar?desde=${periodo.desde}&hasta=${periodo.hasta}`, '_blank'),
+    exportar: () => window.open(`/api/nominas/exportar?desde=${periodo.desde}&hasta=${periodo.hasta}&periodo=${tipoPeriodo}`, '_blank'),
     enviarRecibos: () => setModalEnvio(true),
   }), [periodo.desde, periodo.hasta])
 
-  // Cache de resultados por período
-  const cacheRef = useRef<Map<string, {
-    resultados: ResultadoNomina[]
-    nombreEmpresa: string
-    estadoPeriodo: EstadoPeriodo | null
-    envioObligatorio: boolean
-  }>>(new Map())
   // Tipo de vista forma parte de la clave porque /api/nominas usa el
   // param `periodo` para clasificar empleados "fuera de frecuencia".
   const cacheKey = `${periodo.desde}_${periodo.hasta}_${tipoPeriodo}`
 
-  // Cargar nómina (con cache)
+  // Ref con la clave del período "actual". La usamos al resolver un
+  // fetch para descartar respuestas viejas: si el usuario navegó a otro
+  // período mientras este fetch estaba en vuelo, no aplicamos su
+  // resultado a la UI (lo guardamos en cache igual, eso siempre es
+  // correcto porque el fetch se hizo con esa clave). Sin esto, un
+  // fetch lento del período en curso pisaba los datos del período
+  // anterior y el chip flipeaba de "cerrado" a "vencido" solo.
+  const cacheKeyRef = useRef(cacheKey)
+  cacheKeyRef.current = cacheKey
+
+  // Cargar nómina. Usa cache module-level: si hay datos del período,
+  // los muestra al instante y revalida silenciosa en background. Si no,
+  // muestra el loader. El cache sobrevive a desmontar/remontar la página.
   const cargarNomina = useCallback(async () => {
-    // Si ya tenemos cache para este período, usar directo
-    const cached = cacheRef.current.get(cacheKey)
+    // Capturamos la clave al iniciar el fetch para chequear al resolver
+    // si el usuario sigue parado en este período.
+    const clavePeticion = cacheKey
+    const cached = cacheNominaPorPeriodo.get(clavePeticion)
     if (cached) {
+      // Hidratamos al toque desde cache para que cambiar de período/tab
+      // no parpadee. La revalidación corre abajo en background.
       setResultados(cached.resultados)
       setNombreEmpresa(cached.nombreEmpresa)
       setEstadoPeriodo(cached.estadoPeriodo)
       setEnvioObligatorio(cached.envioObligatorio)
-      return
+    } else {
+      setCargando(true)
     }
-
-    setCargando(true)
     try {
       const res = await fetch(`/api/nominas?desde=${periodo.desde}&hasta=${periodo.hasta}&periodo=${tipoPeriodo}`)
       const data = await res.json()
@@ -406,14 +440,22 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
       const n = data.nombre_empresa || ''
       const ep = (data.estado_periodo as EstadoPeriodo | null) ?? null
       const eo = !!data.envio_obligatorio
-      setResultados(r)
-      setNombreEmpresa(n)
-      setEstadoPeriodo(ep)
-      setEnvioObligatorio(eo)
-      // Guardar en cache
-      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep, envioObligatorio: eo })
+      // El cache se llena igual: el resultado pertenece al período
+      // que pidió este fetch, no al que el usuario esté viendo ahora.
+      cacheNominaPorPeriodo.set(clavePeticion, { resultados: r, nombreEmpresa: n, estadoPeriodo: ep, envioObligatorio: eo })
+      // Solo aplicamos a la UI si el usuario sigue mirando este período.
+      // Sin esto, navegar rápido entre períodos hacía que un fetch viejo
+      // pise el estado del período activo (race condition clásica).
+      if (cacheKeyRef.current === clavePeticion) {
+        setResultados(r)
+        setNombreEmpresa(n)
+        setEstadoPeriodo(ep)
+        setEnvioObligatorio(eo)
+      }
     } catch { /* silenciar */ }
-    setCargando(false)
+    if (cacheKeyRef.current === clavePeticion) {
+      setCargando(false)
+    }
   }, [periodo.desde, periodo.hasta, tipoPeriodo, cacheKey])
 
   useEffect(() => { cargarNomina() }, [cargarNomina])
@@ -422,7 +464,7 @@ export const VistaNomina = forwardRef<VistaNominaHandle, VistaNominaProps>(funct
   // Se llama después de transiciones bulk para que la UI refleje el
   // nuevo estado_liquidacion de cada empleado sin esperar al usuario.
   const refrescarPeriodo = useCallback(async () => {
-    cacheRef.current.delete(cacheKey)
+    cacheNominaPorPeriodo.delete(cacheKey)
     await cargarNomina()
   }, [cacheKey, cargarNomina])
 

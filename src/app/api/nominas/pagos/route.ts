@@ -44,6 +44,7 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularReciboDesdeBD } from '@/lib/nominas/motor-calculo'
 import { transicionarLiquidacionEmpleado } from '@/lib/nominas/transicion-liquidacion'
+import { obtenerFilaListadoParaSnapshot } from '@/lib/nominas/obtener-fila-listado'
 
 interface ConceptoExtra {
   nombre: string
@@ -135,6 +136,32 @@ export async function POST(request: NextRequest) {
     .eq('empresa_id', empresaId)
     .maybeSingle()
   if (!miembro) return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })
+
+  // ─── Validación de solapamiento ───
+  //
+  // Mismo guard que en /api/nominas/liquidar: rechazamos si el miembro
+  // ya tiene una liquidación cuyo rango se solapa con el solicitado y
+  // NO es la misma fila exacta. Sin esto, el operador puede pagar el
+  // "mes completo" sobre un empleado que ya tenía la quincena pagada
+  // (o viceversa) generando ledgers duplicados.
+  const { data: liqsSolapadas } = await admin
+    .from('liquidaciones_empleado_periodo')
+    .select('periodo_inicio, periodo_fin, estado_clave')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', body.miembro_id)
+    .neq('estado_clave', 'borrador')
+    .lte('periodo_inicio', body.periodo_fin)
+    .gte('periodo_fin', body.periodo_inicio)
+  const conflictosLiq = (liqsSolapadas ?? []).filter(s =>
+    !(s.periodo_inicio === body.periodo_inicio && s.periodo_fin === body.periodo_fin),
+  )
+  if (conflictosLiq.length > 0) {
+    const c = conflictosLiq[0]
+    return NextResponse.json({
+      error: `Ya existe una liquidación ${c.estado_clave} para el período ${c.periodo_inicio} → ${c.periodo_fin} que se solapa. No se puede registrar este pago con otra granularidad.`,
+      code: 'solapamiento',
+    }, { status: 409 })
+  }
 
   // ─── 1) Calcular el recibo (autoritativo) ───
   const detalle = await calcularReciboDesdeBD(admin, {
@@ -398,12 +425,20 @@ export async function POST(request: NextRequest) {
   //
   // Si la fila existe en 'borrador' (caso raro: alguien creó la fila pero no
   // liquidó), tratarlo igual que liquidar+pagar en un solo movimiento.
+  // Fila completa del listado para snapshot enriquecido v3.1. Permite
+  // que /api/nominas GET reconstruya la card sin pasar por el motor.
+  // Si la fila no existe (red caída u otro motivo), guardamos snapshot
+  // sin ella: los GET futuros caerán a cálculo en vivo (compat v3.0).
+  const filaListadoSnapshot = await obtenerFilaListadoParaSnapshot(
+    request, body.miembro_id, body.periodo_inicio, body.periodo_fin,
+  )
   const snapshot = {
-    version_motor: 'v3.0',
+    version_motor: 'v3.1',
     calculado_en: new Date().toISOString(),
     monto_neto: detalle.neto,
     monto_abonado: body.monto_abonado,
     detalle,
+    fila_listado: filaListadoSnapshot,
   } as unknown as Record<string, unknown>
 
   const { data: filaExistente } = await admin
