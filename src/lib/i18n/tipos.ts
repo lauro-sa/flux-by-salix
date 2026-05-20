@@ -2341,6 +2341,7 @@ export interface Traducciones {
       enviar_whatsapp_texto: { titulo: string; descripcion: string }
       enviar_correo_plantilla: { titulo: string; descripcion: string }
       enviar_correo_texto: { titulo: string; descripcion: string }
+      enviar_respuesta_rapida_correo: { titulo: string; descripcion: string }
       crear_actividad: { titulo: string; descripcion: string }
       completar_actividad: { titulo: string; descripcion: string }
       cambiar_estado_entidad: { titulo: string; descripcion: string }

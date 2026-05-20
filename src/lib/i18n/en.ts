@@ -2280,6 +2280,7 @@ export const en: Traducciones = {
       enviar_whatsapp_plantilla: { titulo: 'Send WhatsApp', descripcion: 'Send a Meta-approved template to a contact.' },
       enviar_whatsapp_texto: { titulo: 'Send WhatsApp (free text)', descripcion: 'Send a text message within the 24-hour window.' },
       enviar_correo_plantilla: { titulo: 'Send email (template)', descripcion: 'Send an email based on a saved template.' },
+      enviar_respuesta_rapida_correo: { titulo: 'Send quick reply', descripcion: 'Send a saved quick reply from the email inbox.' },
       enviar_correo_texto: { titulo: 'Send email', descripcion: 'Send a free-form email.' },
       crear_actividad: { titulo: 'Create activity', descripcion: 'Generate an activity assigned to a user.' },
       completar_actividad: { titulo: 'Complete activity', descripcion: 'Close a pending activity that matches a criterion.' },

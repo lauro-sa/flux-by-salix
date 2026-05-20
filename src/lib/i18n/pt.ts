@@ -2280,6 +2280,7 @@ export const pt: Traducciones = {
       enviar_whatsapp_plantilla: { titulo: 'Enviar WhatsApp', descripcion: 'Enviar uma plantilla aprovada pela Meta a um contato.' },
       enviar_whatsapp_texto: { titulo: 'Enviar WhatsApp (texto livre)', descripcion: 'Enviar uma mensagem dentro da janela de 24 hs.' },
       enviar_correo_plantilla: { titulo: 'Enviar e-mail (plantilla)', descripcion: 'Enviar um e-mail baseado em uma plantilla salva.' },
+      enviar_respuesta_rapida_correo: { titulo: 'Enviar resposta rápida', descripcion: 'Enviar uma resposta rápida salva da inbox de e-mail.' },
       enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Enviar um e-mail de texto livre.' },
       crear_actividad: { titulo: 'Criar atividade', descripcion: 'Gerar uma atividade atribuída a um usuário.' },
       completar_actividad: { titulo: 'Concluir atividade', descripcion: 'Fechar uma atividade pendente que corresponda a um critério.' },
