@@ -413,22 +413,22 @@ describe('dry-run — terminar_flujo', () => {
 
 describe('dry-run — acción no implementada en el motor', () => {
   it('devuelve simulado=true con accion_simulada en vez de AccionNoImplementada', async () => {
+    // `enviar_correo_texto` sigue siendo genérica (no implementada).
+    // `enviar_correo_plantilla` ya tiene handler propio desde el PR de
+    // disparador inbox; su dry-run se cubre en flujos-executor-correo.test.ts.
     const { admin } = crearAdminConSpies({})
     const accion = {
-      tipo: 'enviar_correo_plantilla',
-      plantilla_id: 'pl-1',
-      destinatario: '{{contacto.email}}',
+      tipo: 'enviar_correo_texto',
+      parametros: { destinatario: 'x@y.com', cuerpo: 'hola' },
     } as never
     const r = await ejecutarAccion(accion, ctxDry, admin as never)
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.resultado.simulado).toBe(true)
-      expect(r.resultado.accion_simulada).toBe('enviar_correo_plantilla')
-      // Marca para que la UI sepa que es un tipo NO soportado por el motor.
+      expect(r.resultado.accion_simulada).toBe('enviar_correo_texto')
       expect(r.resultado.no_implementada).toBe(true)
-      // Payload preservado para que el log tenga la info que el usuario configuró.
       const payload = r.resultado.payload as Record<string, unknown>
-      expect(payload.plantilla_id).toBe('pl-1')
+      expect(payload.tipo).toBe('enviar_correo_texto')
     }
   })
 })

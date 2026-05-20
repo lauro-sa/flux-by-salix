@@ -197,16 +197,18 @@ describe('correrEjecucionDryRun — branches', () => {
 // =============================================================
 
 describe('correrEjecucionDryRun — acciones no implementadas en motor', () => {
-  it('enviar_correo_plantilla queda como no_implementada=true en el log', async () => {
+  it('enviar_correo_texto queda como no_implementada=true en el log', async () => {
+    // `enviar_correo_plantilla` ya tiene handler dedicado desde el PR de
+    // disparador inbox correo. Para validar el camino "no implementada"
+    // usamos `enviar_correo_texto` que sigue siendo genérica.
     const { admin } = crearAdminTrackeable()
     const r = await correrEjecucionDryRun(
       {
         empresaId: 'emp-1',
         acciones: [
           {
-            tipo: 'enviar_correo_plantilla',
-            plantilla_id: 'p-1',
-            destinatario: 'lauro@test.com',
+            tipo: 'enviar_correo_texto',
+            parametros: { destinatario: 'lauro@test.com', cuerpo: 'hola' },
           },
         ],
         contextoVars: {},
