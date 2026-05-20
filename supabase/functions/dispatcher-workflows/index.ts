@@ -134,6 +134,22 @@ interface DisparadorEntidadEstadoCambio {
   }
 }
 
+/**
+ * Disparador para mensajes entrantes del inbox. Mirror de
+ * src/tipos/workflow.ts → DisparadorInboxMensajeRecibido.
+ *
+ * Hoy solo `tipo_canal: 'correo'`. El trigger SQL (sql/113) ya filtra
+ * por es_entrante + no notas internas + tipo_contenido válido y arma
+ * el `contexto.mensaje_disparador` con todos los datos necesarios.
+ */
+interface DisparadorInboxMensajeRecibido {
+  tipo: 'inbox.mensaje_recibido'
+  configuracion: {
+    tipo_canal: 'correo'
+    canal_ids?: string[]
+  }
+}
+
 interface WebhookPayloadCambiosEstado {
   type: 'INSERT'
   table: 'cambios_estado'
@@ -181,6 +197,20 @@ function esDisparadorEntidadEstadoCambio(d: unknown): d is DisparadorEntidadEsta
   return true
 }
 
+function esDisparadorInboxMensajeRecibido(d: unknown): d is DisparadorInboxMensajeRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.mensaje_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  const c = r.configuracion as Record<string, unknown>
+  if (c.tipo_canal !== 'correo') return false
+  if (c.canal_ids !== undefined) {
+    if (!Array.isArray(c.canal_ids)) return false
+    if (!c.canal_ids.every((id) => typeof id === 'string' && id.length > 0)) return false
+  }
+  return true
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 function armarClaveIdempotencia(flujoId: string, cambiosEstadoId: string): string {
@@ -188,14 +218,41 @@ function armarClaveIdempotencia(flujoId: string, cambiosEstadoId: string): strin
 }
 
 // Mirror de matchearFlujos en src/lib/workflows/dispatcher.ts.
-// Reglas: activo + misma empresa + tipo entidad.estado_cambio +
-// entidad_tipo y hasta_clave coinciden + (solo_creacion exige
-// estado_anterior IS NULL si está en true) + (desde_clave coincide
-// si está seteado).
+// Reglas:
+//   - activo + misma empresa.
+//   - Si entidad_tipo='mensaje' y estado_nuevo='recibido' → matchear
+//     contra disparadores `inbox.mensaje_recibido` (filtro adicional
+//     por canal_ids si está configurado).
+//   - Caso default (presupuesto, visita, cuota, etc.) → matchear
+//     contra disparadores `entidad.estado_cambio` con el shape de
+//     entidad_tipo + hasta_clave + (solo_creacion / desde_clave).
 function matchearFlujos(evento: CambioEstado, flujosActivos: Flujo[]): Flujo[] {
   return flujosActivos.filter((flujo) => {
     if (!flujo.activo) return false
     if (flujo.empresa_id !== evento.empresa_id) return false
+
+    // Rama mensaje recibido (sql/113): mismo carril cambios_estado pero
+    // matchea contra otro tipo de disparador.
+    if (evento.entidad_tipo === 'mensaje' && evento.estado_nuevo === 'recibido') {
+      if (!esDisparadorInboxMensajeRecibido(flujo.disparador)) return false
+      const cfg = flujo.disparador.configuracion
+      // Filtro por tipo de canal: el trigger SQL deja el tipo en
+      // contexto.metadatos.canal_tipo.
+      const metaCanalTipo = evento.metadatos?.canal_tipo
+      if (typeof metaCanalTipo === 'string' && metaCanalTipo !== cfg.tipo_canal) {
+        return false
+      }
+      // Filtro por canal_ids específicos (multi-select). Si está vacío
+      // o ausente, matchea todos los canales del tipo.
+      if (cfg.canal_ids && cfg.canal_ids.length > 0) {
+        const eventoCanalId = evento.metadatos?.canal_id
+        if (typeof eventoCanalId !== 'string') return false
+        if (!cfg.canal_ids.includes(eventoCanalId)) return false
+      }
+      return true
+    }
+
+    // Rama default: entidad.estado_cambio.
     if (!esDisparadorEntidadEstadoCambio(flujo.disparador)) return false
     const cfg = flujo.disparador.configuracion
     if (cfg.entidad_tipo !== evento.entidad_tipo) return false
@@ -305,11 +362,15 @@ Deno.serve(async (req: Request) => {
   for (const flujo of matched) {
     const clave = armarClaveIdempotencia(flujo.id, evento.id)
 
-    // Contexto inicial mínimo. PR 16 lo enriquece con datos de la
-    // entidad disparadora, actor, empresa, etc.
-    const contextoInicial = {
+    // Contexto inicial. Para inbox.mensaje_recibido el trigger SQL
+    // ya armó `mensaje_disparador` en evento.contexto — lo propagamos
+    // tal cual al contexto_inicial de la ejecución para que el
+    // executor lo lea sin queries adicionales.
+    const esInboxMensaje =
+      evento.entidad_tipo === 'mensaje' && evento.estado_nuevo === 'recibido'
+    const contextoInicial: Record<string, unknown> = {
       trigger: {
-        tipo: 'entidad.estado_cambio',
+        tipo: esInboxMensaje ? 'inbox.mensaje_recibido' : 'entidad.estado_cambio',
         cambios_estado_id: evento.id,
         fecha: evento.creado_en,
       },
@@ -321,6 +382,12 @@ Deno.serve(async (req: Request) => {
         estado_anterior: evento.estado_anterior,
         estado_nuevo: evento.estado_nuevo,
       },
+    }
+    if (esInboxMensaje && evento.contexto && typeof evento.contexto === 'object') {
+      const md = (evento.contexto as Record<string, unknown>).mensaje_disparador
+      if (md && typeof md === 'object') {
+        contextoInicial.mensaje_disparador = md
+      }
     }
 
     const { data: ejInsertada, error: errIns } = await sb
