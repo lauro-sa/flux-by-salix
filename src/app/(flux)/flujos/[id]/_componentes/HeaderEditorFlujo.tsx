@@ -10,7 +10,7 @@ import { MiniSelectorIcono } from '@/componentes/ui/MiniSelectorIcono'
 import { MenuFilaFlujo } from '../../_componentes/MenuFilaFlujo'
 import IndicadorGuardado from './IndicadorGuardado'
 import NombreFlujoEditable from './NombreFlujoEditable'
-import { iconoLucideFlujo } from '@/lib/workflows/iconos-flujo'
+import { iconoLucideFlujo, resolverEstiloColorFlujo } from '@/lib/workflows/iconos-flujo'
 import type { EstadoFlujo } from '@/tipos/workflow'
 import type { FlujoEditable } from './hooks/useEditorFlujo'
 
@@ -90,12 +90,10 @@ export default function HeaderEditorFlujo({
   const router = useRouter()
   const permisos = flujo.permisos ?? { editar: false, eliminar: false, activar: false }
 
-  // Color tokeneado para la bolita del MiniSelectorIcono. Si el flujo
-  // no tiene color custom, usamos el del estado para que el ícono
-  // siempre se vea con un acento sutil.
-  const colorIconoCss = flujo.color
-    ? `var(--insignia-${flujo.color}-texto, var(--texto-marca))`
-    : 'var(--texto-marca)'
+  // Color para la bolita del MiniSelectorIcono. El helper acepta
+  // tanto tokens (`violeta`, `exito`, …) como hex literal (`#7c3aed`),
+  // que vienen del selector de color con gotero del modal "Desde cero".
+  const colorIconoCss = resolverEstiloColorFlujo(flujo.color)
 
   // Acciones contextuales del header según estado + borrador interno.
   const accionesContextuales = (() => {

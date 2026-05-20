@@ -107,6 +107,26 @@ export function iconoLucideFlujo(nombre: string | null | undefined): LucideIcon 
   return ICONOS_FLUJO[nombre] ?? Workflow
 }
 
+/**
+ * Resuelve el valor que va al CSS para el color del flujo.
+ *
+ * `flujos.color` puede venir en dos formas:
+ *   1. Token de `ColorInsignia` (ej: "violeta", "exito") → se mapea a
+ *      `var(--insignia-${token}-texto, var(--texto-marca))` para que
+ *      respete dark/light + tokens semánticos.
+ *   2. Hex literal (ej: "#7c3aed") → se devuelve tal cual, para soportar
+ *      el gotero del selector de color custom.
+ *
+ * En cualquier otro caso (null, vacío, basura) cae al texto-marca
+ * (índigo Attio). El fallback dentro del `var()` también cubre tokens
+ * inexistentes sin romper el render.
+ */
+export function resolverEstiloColorFlujo(color: string | null | undefined): string {
+  if (!color) return 'var(--texto-marca)'
+  if (color.startsWith('#')) return color
+  return `var(--insignia-${color}-texto, var(--texto-marca))`
+}
+
 // =============================================================
 // Defaults por tipo de disparador / acción
 // =============================================================

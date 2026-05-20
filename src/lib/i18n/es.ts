@@ -1620,7 +1620,10 @@ export const es: Traducciones = {
       modulo_placeholder: 'Elegí un módulo',
       crear_y_editar: 'Crear y editar',
       elegir_icono: 'Elegir ícono',
+      icono_label: 'Ícono',
+      sugerencia_hint: 'Te sugerimos un ícono y color según el nombre; podés cambiarlos.',
       color_label: 'Color',
+      color_custom: 'Color personalizado',
       color: {
         violeta: 'Violeta',
         primario: 'Primario',

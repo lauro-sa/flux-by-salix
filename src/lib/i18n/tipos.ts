@@ -1638,7 +1638,10 @@ export interface Traducciones {
       modulo_placeholder: string
       crear_y_editar: string
       elegir_icono: string
+      icono_label: string
+      sugerencia_hint: string
       color_label: string
+      color_custom: string
       color: {
         violeta: string
         primario: string

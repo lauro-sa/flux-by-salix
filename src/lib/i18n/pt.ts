@@ -1582,7 +1582,10 @@ export const pt: Traducciones = {
       modulo_placeholder: 'Escolha um módulo',
       crear_y_editar: 'Criar e editar',
       elegir_icono: 'Escolher ícone',
+      icono_label: 'Ícone',
+      sugerencia_hint: 'Sugerimos um ícone e cor com base no nome; você pode alterá-los.',
       color_label: 'Cor',
+      color_custom: 'Cor personalizada',
       color: {
         violeta: 'Violeta',
         primario: 'Primário',
