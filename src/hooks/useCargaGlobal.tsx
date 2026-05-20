@@ -8,7 +8,7 @@ import {
 /**
  * Sistema de reporte de carga global. Pensado para que módulos que NO usan
  * React Query (WhatsApp, Inbox, etc. con `fetch` directo) puedan marcar
- * cuándo están cargando, así la BarraProgresoGlobal de PlantillaApp queda
+ * cuándo están cargando, así la CargaBarra de PlantillaApp queda
  * activa hasta que terminan de verdad.
  *
  * Uso desde un hook custom:
@@ -33,7 +33,7 @@ export function ProveedorCargaGlobal({ children }: { children: ReactNode }) {
   // Usamos un Set referencial + contador de versión: el Set conserva
   // identidad entre renders (evita re-crear el callback) pero forzamos
   // re-render incrementando una versión para que los consumidores
-  // (BarraProgresoGlobal) reaccionen.
+  // (CargaBarra) reaccionen.
   const [version, setVersion] = useState(0)
   const [activosSet] = useState(() => new Set<string>())
 
@@ -81,15 +81,26 @@ export function useCargaGlobal(): ContextoCarga {
  * @param activo Indica si el módulo está actualmente cargando.
  * @param identificador Opcional. Si no se provee, se genera uno único por
  *   instancia con `useId()` (cada montaje del hook tiene su propio slot).
+ * @param umbralMs Opcional. Si se provee, el slot solo se registra cuando
+ *   `activo` lleva más de ese tiempo en true — evita parpadeos en
+ *   operaciones cortas (típico autoguardado de 50–200 ms). Default: 0
+ *   (registro inmediato, comportamiento original).
  */
-export function useReportarCarga(activo: boolean, identificador?: string): void {
+export function useReportarCarga(activo: boolean, identificador?: string, umbralMs = 0): void {
   const { registrar, liberar } = useCargaGlobal()
   const autoId = useId()
   const id = identificador ?? autoId
 
   useEffect(() => {
     if (!activo) return
-    registrar(id)
-    return () => liberar(id)
-  }, [activo, id, registrar, liberar])
+    if (umbralMs <= 0) {
+      registrar(id)
+      return () => liberar(id)
+    }
+    const t = setTimeout(() => registrar(id), umbralMs)
+    return () => {
+      clearTimeout(t)
+      liberar(id)
+    }
+  }, [activo, id, umbralMs, registrar, liberar])
 }

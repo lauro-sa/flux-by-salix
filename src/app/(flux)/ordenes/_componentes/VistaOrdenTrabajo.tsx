@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell, Camera, ClipboardList, ListChecks } from 'lucide-react'
+import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell, Camera, ClipboardList, ListChecks, Wrench } from 'lucide-react'
+import { CargaIcono } from '@/componentes/carga'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -34,6 +35,9 @@ interface Props {
    *  evita que la migaja muestre el genérico "Detalle". La página padre
    *  setea con `useNavegacion().setMigajaDinamica()`. */
   onTituloCargado?: (titulo: string) => void
+  /** Número precargado server-side (OT-0042). Se muestra debajo del ícono
+   *  en el cargador mientras se hidrata el cliente. */
+  numeroInicial?: string | null
 }
 
 interface MiembroEquipo {
@@ -43,7 +47,7 @@ interface MiembroEquipo {
 
 type TabOT = 'tareas' | 'relevamiento' | 'bitacora'
 
-export default function VistaOrdenTrabajo({ ordenId, onTituloCargado }: Props) {
+export default function VistaOrdenTrabajo({ ordenId, onTituloCargado, numeroInicial }: Props) {
   const { t } = useTraduccion()
   const formato = useFormato()
   const router = useRouter()
@@ -336,10 +340,12 @@ export default function VistaOrdenTrabajo({ ordenId, onTituloCargado }: Props) {
   }, [])
 
   if (cargando) {
+    // Ícono de OT dibujándose + número precargado (si vino server-side).
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 size={24} className="animate-spin text-texto-terciario" />
-      </div>
+      <CargaIcono
+        icono={<Wrench size={52} strokeWidth={1} />}
+        nombre={orden?.numero || numeroInicial || undefined}
+      />
     )
   }
 

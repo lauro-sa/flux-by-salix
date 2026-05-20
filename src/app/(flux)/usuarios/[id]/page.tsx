@@ -22,6 +22,8 @@ import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol } from '@/hooks/useRol'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
+import { CargaIcono } from '@/componentes/carga'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -62,6 +64,11 @@ export default function PaginaPerfilUsuario() {
   const [cargando, setCargando] = useState(true)
   const [miembro, setMiembro] = useState<Miembro | null>(null)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
+
+  // Mantiene activa la BarraProgresoGlobal del header durante el fetch
+  // inicial — única señal visible mientras el cliente hidrata (no hay
+  // persistencia automática porque el page es Client Component).
+  useReportarCarga(cargando, `usuario-${miembroId}`)
 
   // Título de la pestaña: nombre completo del miembro (perfil real o sintético).
   useTituloPestana(perfil ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ').trim() || null : null)
@@ -1021,19 +1028,11 @@ export default function PaginaPerfilUsuario() {
     { clave: 'metricas', etiqueta: 'Métricas', icono: <BarChart3 size={15} /> },
   ]
 
-  /* ════════════ LOADING / ERROR ════════════ */
+  /* ════════════ LOADING / ERROR ════════════
+     Sin skeleton placebo: muestra el ícono de usuario dibujándose más la
+     barra superior. Patrón unificado con el resto de los detalles. */
   if (cargando) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-6 w-24 bg-superficie-hover rounded" />
-          <div className="h-20 bg-superficie-hover rounded-card" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-superficie-hover rounded-card" />)}
-          </div>
-        </div>
-      </div>
-    )
+    return <CargaIcono icono={<User size={52} strokeWidth={1} />} />
   }
 
   if (!miembro || !perfil) {
