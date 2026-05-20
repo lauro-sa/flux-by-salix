@@ -79,13 +79,9 @@ function MiniSelectorIcono({
     }
   }, [abierto])
 
-  // Sin búsqueda: mostramos toda la grilla scrolleable (no solo los
-  // "rápidos"). Antes el dropdown abría con 38 íconos y obligaba a
-  // escribir para ver más — confuso para el usuario, que pensaba que
-  // esa era la lista completa.
   const iconosFiltrados = busqueda.trim()
-    ? obtenerTodosLosIconos().filter(k => k.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 240)
-    : obtenerTodosLosIconos()
+    ? obtenerTodosLosIconos().filter(k => k.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 72)
+    : iconosRapidos
 
   return (
     <div className="relative shrink-0">
@@ -140,6 +136,11 @@ function MiniSelectorIcono({
                   )
                 })}
               </div>
+              {!busqueda.trim() && (
+                <div className="px-3 py-1.5 border-t border-borde-sutil">
+                  <p className="text-[10px] text-texto-terciario text-center">Buscá para ver todos los iconos</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>,
