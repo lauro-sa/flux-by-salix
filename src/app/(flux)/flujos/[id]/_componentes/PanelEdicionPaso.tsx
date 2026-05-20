@@ -295,7 +295,7 @@ export default function PanelEdicionPaso({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: '100%', opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="fixed inset-y-0 right-0 z-30 w-full md:w-[480px] bg-superficie-app border-l border-borde-sutil flex flex-col shadow-2xl"
+          className="fixed right-0 bottom-0 top-[var(--header-alto)] z-30 w-full md:w-[480px] bg-superficie-app border-l border-borde-sutil flex flex-col shadow-2xl"
           role="dialog"
           aria-label={datos.fallbackTitulo}
         >
