@@ -1712,6 +1712,7 @@ export const en: Traducciones = {
         etiqueta: 'Trigger',
         placeholder_titulo: 'Configure the trigger',
         placeholder_desc: 'Pick the event or moment that will start this flow.',
+        cta_elegir: 'Choose',
       },
 
       branch: {

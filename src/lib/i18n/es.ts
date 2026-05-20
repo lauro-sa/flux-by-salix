@@ -1751,6 +1751,7 @@ export const es: Traducciones = {
         etiqueta: 'Disparador',
         placeholder_titulo: 'Configurá el disparador',
         placeholder_desc: 'Elegí el evento o el momento que va a iniciar este flujo.',
+        cta_elegir: 'Elegir',
       },
 
       branch: {

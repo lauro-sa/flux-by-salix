@@ -1712,6 +1712,7 @@ export const pt: Traducciones = {
         etiqueta: 'Gatilho',
         placeholder_titulo: 'Configure o gatilho',
         placeholder_desc: 'Escolha o evento ou momento que vai iniciar este fluxo.',
+        cta_elegir: 'Escolher',
       },
 
       branch: {

@@ -1778,6 +1778,7 @@ export interface Traducciones {
         etiqueta: string
         placeholder_titulo: string
         placeholder_desc: string
+        cta_elegir: string
       }
 
       branch: {

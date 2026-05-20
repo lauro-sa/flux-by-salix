@@ -1,7 +1,7 @@
 'use client'
 
 import { useTraduccion } from '@/lib/i18n'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronRight } from 'lucide-react'
 import { etiquetaDisparador, descripcionDisparador } from '@/lib/workflows/etiquetas-disparador'
 import { iconoDefaultDisparador, iconoLucideFlujo } from '@/lib/workflows/iconos-flujo'
 import type { TipoDisparador } from '@/tipos/workflow'
@@ -77,15 +77,24 @@ export default function TarjetaDisparador({
 
   const onClick = sinDisparador && !soloLectura ? onElegirDisparador : onSeleccionar
 
+  // Variante "placeholder" (sinDisparador): mostramos la tarjeta con
+  // borde discontinuo + hover marcado + chevron a la derecha y un CTA
+  // textual, igual al patrón de "Agregar paso". Sin esos affordances
+  // la tarjeta se ve idéntica a una card informativa pasiva y el
+  // usuario no entiende que tiene que tocarla.
   return (
     <div
       // `id` HTML para el scroll-to-disparador del banner rojo (19.4).
       id="flujo-disparador"
       title={tieneError ? mensajeError : undefined}
-      className={`relative rounded-card border bg-superficie-tarjeta border-t-2 transition-colors ${
-        seleccionado ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]' : 'border-borde-sutil'
+      className={`relative rounded-card border bg-superficie-tarjeta transition-colors ${
+        sinDisparador
+          ? 'border-dashed border-texto-marca/40 hover:border-texto-marca hover:bg-texto-marca/[0.04]'
+          : 'border-t-2 ' + (seleccionado
+              ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]'
+              : 'border-borde-sutil')
       } ${tieneError ? 'border-l-2 border-l-insignia-peligro-texto' : ''}`}
-      style={{ borderTopColor: 'var(--texto-marca)' }}
+      style={sinDisparador ? undefined : { borderTopColor: 'var(--texto-marca)' }}
     >
       {/* Etiqueta uppercase del plan UX */}
       <div className="absolute -top-2.5 left-3 px-1.5 bg-superficie-app">
@@ -107,11 +116,13 @@ export default function TarjetaDisparador({
         type="button"
         onClick={onClick}
         disabled={soloLectura && sinDisparador}
-        className="w-full flex items-center gap-3 px-3 pt-4 pb-3 text-left cursor-pointer disabled:cursor-default"
+        className="group w-full flex items-center gap-3 px-3 pt-4 pb-3 text-left cursor-pointer disabled:cursor-default"
       >
         <span
-          className={`shrink-0 inline-flex items-center justify-center size-10 rounded-md bg-texto-marca/10 ${
-            sinDisparador ? 'text-texto-terciario' : 'text-texto-marca'
+          className={`shrink-0 inline-flex items-center justify-center size-10 rounded-md ${
+            sinDisparador
+              ? 'bg-texto-marca/10 text-texto-marca/70 group-hover:text-texto-marca'
+              : 'bg-texto-marca/10 text-texto-marca'
           }`}
           aria-hidden="true"
         >
@@ -125,6 +136,15 @@ export default function TarjetaDisparador({
             </p>
           )}
         </div>
+        {/* CTA explícito cuando la tarjeta está vacía: chip + chevron
+            que dejan en claro que es clickeable. Se oculta una vez que
+            el disparador ya está configurado. */}
+        {sinDisparador && !soloLectura && (
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium text-texto-marca bg-texto-marca/10 group-hover:bg-texto-marca/15">
+            {t('flujos.editor.disparador.cta_elegir')}
+            <ChevronRight size={12} strokeWidth={2} />
+          </span>
+        )}
       </button>
     </div>
   )
