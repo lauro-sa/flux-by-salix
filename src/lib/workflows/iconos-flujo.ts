@@ -33,6 +33,7 @@ import {
   Inbox,
   Mail,
   MailCheck,
+  MessageCircle,
   MessageSquare,
   MessageSquareText,
   PenLine,
@@ -77,6 +78,7 @@ export const ICONOS_FLUJO: Record<string, LucideIcon> = {
   Inbox,
   Mail,
   MailCheck,
+  MessageCircle,
   MessageSquare,
   MessageSquareText,
   PenLine,
@@ -143,7 +145,9 @@ const ICONO_POR_DISPARADOR: Record<TipoDisparador, string> = {
   'tiempo.cron': 'Clock',
   'tiempo.relativo_a_campo': 'Calendar',
   'webhook.entrante': 'Webhook',
-  'inbox.mensaje_recibido': 'Inbox',
+  'inbox.correo_recibido': 'Mail',
+  'inbox.whatsapp_recibido': 'MessageCircle',
+  'inbox.interno_recibido': 'Users',
   'inbox.conversacion_sin_respuesta': 'AlarmClock',
 }
 

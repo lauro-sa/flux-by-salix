@@ -31,7 +31,7 @@
  *   • tiempo.cron            → Empresa + Sistema (sin entidad ni contacto)
  *   • tiempo.relativo_a_campo → Entidad + Contacto + Empresa + Sistema (sin Cambio)
  *   • webhook.entrante       → Empresa + Sistema (payload entra en `cambio` libre)
- *   • inbox.mensaje_recibido → Empresa + Sistema + Cambio (sin contacto fijo)
+ *   • inbox.{correo,whatsapp,interno}_recibido → Empresa + Sistema + Cambio
  *   • inbox.conversacion_sin_respuesta → Empresa + Sistema + Cambio
  *
  * Los campos de cada entidad son los más usados de su shape principal.
@@ -247,7 +247,9 @@ export function variablesDisponibles(
   if (
     tipo === 'entidad.estado_cambio' ||
     tipo === 'entidad.campo_cambia' ||
-    tipo === 'inbox.mensaje_recibido' ||
+    tipo === 'inbox.correo_recibido' ||
+    tipo === 'inbox.whatsapp_recibido' ||
+    tipo === 'inbox.interno_recibido' ||
     tipo === 'inbox.conversacion_sin_respuesta'
   ) {
     fuentes.push({
@@ -281,7 +283,9 @@ function leerEntidadDelDisparador(
       return 'actividad'
     case 'tiempo.cron':
     case 'webhook.entrante':
-    case 'inbox.mensaje_recibido':
+    case 'inbox.correo_recibido':
+    case 'inbox.whatsapp_recibido':
+    case 'inbox.interno_recibido':
     case 'inbox.conversacion_sin_respuesta':
       return null
   }

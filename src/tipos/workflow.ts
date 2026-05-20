@@ -51,7 +51,9 @@ export type TipoDisparador =
   | 'tiempo.cron'
   | 'tiempo.relativo_a_campo'
   | 'webhook.entrante'
-  | 'inbox.mensaje_recibido'
+  | 'inbox.correo_recibido'
+  | 'inbox.whatsapp_recibido'
+  | 'inbox.interno_recibido'
   | 'inbox.conversacion_sin_respuesta'
 
 export const TIPOS_DISPARADOR: readonly TipoDisparador[] = [
@@ -62,7 +64,9 @@ export const TIPOS_DISPARADOR: readonly TipoDisparador[] = [
   'tiempo.cron',
   'tiempo.relativo_a_campo',
   'webhook.entrante',
-  'inbox.mensaje_recibido',
+  'inbox.correo_recibido',
+  'inbox.whatsapp_recibido',
+  'inbox.interno_recibido',
   'inbox.conversacion_sin_respuesta',
 ] as const
 
@@ -175,34 +179,56 @@ export interface DisparadorWebhookEntrante {
 }
 
 /**
- * Dispara cuando llega un mensaje entrante a una cuenta del inbox.
+ * Disparadores de inbox — uno por canal entrante.
  *
- * Hoy el motor lo ejecuta solo para correo (`tipo_canal: 'correo'`).
- * El campo se mantiene en el shape para que cuando se sume WhatsApp en
- * un PR posterior, los flujos existentes no necesiten migración.
+ * Separados por tipo (correo, whatsapp, interno) en lugar de un único
+ * `inbox.correo_recibido` con `tipo_canal` discriminador. El catálogo
+ * del editor lista una tarjeta por canal y las acciones específicas
+ * del canal quedan naturalmente acopladas al disparador correcto.
  *
- * `canal_ids` es multi-select de cuentas (`canales_correo.id`). Vacío
- * o ausente = todas las cuentas de ese tipo en la empresa.
+ * Hoy solo `inbox.correo_recibido` está implementado en el motor;
+ * `inbox.whatsapp_recibido` e `inbox.interno_recibido` existen como
+ * tipos válidos para que la UI los muestre, pero `validacion-flujo.ts`
+ * los rechaza al publicar con error explícito hasta que el motor los
+ * soporte.
  *
  * El enganche real ocurre via trigger SQL `AFTER INSERT ON mensajes
  * WHERE es_entrante` (sql/113) que escribe a `cambios_estado` con
- * `entidad_tipo='mensaje'`, `estado_anterior=NULL`, `estado_nuevo='recibido'`,
- * y el dispatcher matchea por el shape de este disparador.
+ * `entidad_tipo='mensaje'`, `estado_nuevo='recibido'` y el
+ * `canal_tipo` en metadatos. El dispatcher decide qué tipo de
+ * disparador matchea según ese `canal_tipo`.
  */
-export interface DisparadorInboxMensajeRecibido {
-  tipo: 'inbox.mensaje_recibido'
+export interface DisparadorInboxCorreoRecibido {
+  tipo: 'inbox.correo_recibido'
   configuracion: {
     /**
-     * Tipo de canal que dispara. Hoy solo 'correo'. Cuando se sume
-     * 'whatsapp' al motor, se extiende este union sin tocar flujos
-     * existentes (los actuales seguirán filtrando por correo).
-     */
-    tipo_canal: 'correo'
-    /**
      * IDs de canales (`canales_correo.id`) que disparan el flujo.
-     * Vacío/ausente = todos los canales del `tipo_canal` en la empresa.
+     * Vacío/ausente = todos los canales de correo de la empresa.
      */
     canal_ids?: string[]
+  }
+}
+
+export interface DisparadorInboxWhatsappRecibido {
+  tipo: 'inbox.whatsapp_recibido'
+  configuracion: {
+    /**
+     * IDs de líneas de WhatsApp que disparan el flujo. NO IMPLEMENTADO
+     * en motor: la validación rechaza activar el flujo con este
+     * disparador hasta que el dispatcher lo soporte.
+     */
+    linea_ids?: string[]
+  }
+}
+
+export interface DisparadorInboxInternoRecibido {
+  tipo: 'inbox.interno_recibido'
+  configuracion: {
+    /**
+     * IDs de equipos cuyos mensajes internos disparan el flujo. NO
+     * IMPLEMENTADO en motor.
+     */
+    equipo_ids?: string[]
   }
 }
 
@@ -227,7 +253,9 @@ export type DisparadorWorkflow = (
   | DisparadorTiempoCron
   | DisparadorTiempoRelativoACampo
   | DisparadorWebhookEntrante
-  | DisparadorInboxMensajeRecibido
+  | DisparadorInboxCorreoRecibido
+  | DisparadorInboxWhatsappRecibido
+  | DisparadorInboxInternoRecibido
   | DisparadorInboxConversacionSinRespuesta
 ) & MetadataUiDisparador
 
@@ -429,7 +457,7 @@ export interface AccionNotificarUsuario extends AccionBase {
  * en backend con `resolverVariablesPlantilla`.
  *
  * Cuando el flujo se dispara como respuesta a un mensaje entrante
- * (disparador `inbox.mensaje_recibido`), el destinatario y la cuenta
+ * (disparador `inbox.correo_recibido`), el destinatario y la cuenta
  * origen se derivan automáticamente del mensaje original — sin
  * configuración manual:
  *   - destinatario = `correo_de` del mensaje entrante
@@ -1042,24 +1070,59 @@ export function esDisparadorTiempoRelativoACampo(
   return true
 }
 
-// ─── Type guard del disparador inbox.mensaje_recibido ────────
+// ─── Type guards de los disparadores de inbox ────────────────
+// Uno por canal — refactor 2026-05-20 para que el catálogo del editor
+// liste cada canal explícitamente en lugar de un genérico
+// "mensaje_recibido" con tipo_canal discriminador.
 
-const TIPOS_CANAL_INBOX = new Set<string>(['correo'])
+function esArrayIdsOpcional(v: unknown): boolean {
+  if (v === undefined) return true
+  if (!Array.isArray(v)) return false
+  return v.every((id) => typeof id === 'string' && id.length > 0)
+}
 
-export function esDisparadorInboxMensajeRecibido(
+export function esDisparadorInboxCorreoRecibido(
   d: unknown,
-): d is DisparadorInboxMensajeRecibido {
+): d is DisparadorInboxCorreoRecibido {
   if (typeof d !== 'object' || d === null) return false
   const r = d as Record<string, unknown>
-  if (r.tipo !== 'inbox.mensaje_recibido') return false
+  if (r.tipo !== 'inbox.correo_recibido') return false
   if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
-  const c = r.configuracion as Record<string, unknown>
-  if (typeof c.tipo_canal !== 'string' || !TIPOS_CANAL_INBOX.has(c.tipo_canal)) return false
-  if (c.canal_ids !== undefined) {
-    if (!Array.isArray(c.canal_ids)) return false
-    if (!c.canal_ids.every((id) => typeof id === 'string' && id.length > 0)) return false
-  }
-  return true
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).canal_ids)
+}
+
+export function esDisparadorInboxWhatsappRecibido(
+  d: unknown,
+): d is DisparadorInboxWhatsappRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.whatsapp_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).linea_ids)
+}
+
+export function esDisparadorInboxInternoRecibido(
+  d: unknown,
+): d is DisparadorInboxInternoRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.interno_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).equipo_ids)
+}
+
+/**
+ * Helper para los lugares que necesitan "es un disparador de inbox"
+ * sin importar el canal específico (panel routing, variables disponibles).
+ */
+export function esDisparadorInbox(
+  d: unknown,
+): d is DisparadorInboxCorreoRecibido | DisparadorInboxWhatsappRecibido | DisparadorInboxInternoRecibido {
+  return (
+    esDisparadorInboxCorreoRecibido(d) ||
+    esDisparadorInboxWhatsappRecibido(d) ||
+    esDisparadorInboxInternoRecibido(d)
+  )
 }
 
 // ─── Type guards de acciones (sub-PR 15.1) ────────────────────

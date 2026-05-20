@@ -776,7 +776,7 @@ interface MensajeDisparador {
 
 /**
  * Lee del `contexto_inicial` los campos del mensaje que disparó el flujo,
- * si el disparador fue `inbox.mensaje_recibido`. El dispatcher es el
+ * si el disparador fue uno de los `inbox.*_recibido`. El dispatcher es el
  * responsable de poblar `contexto_inicial.mensaje_disparador` con esa
  * estructura. Para flujos disparados por cron u otra cosa, devuelve null.
  */

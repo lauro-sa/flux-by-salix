@@ -133,7 +133,7 @@ describe('decidirEntidadAPrevisar · casos específicos', () => {
   it('inbox.* → null', () => {
     expect(
       decidirEntidadAPrevisar({
-        tipo: 'inbox.mensaje_recibido',
+        tipo: 'inbox.correo_recibido',
         configuracion: {},
       }),
     ).toBeNull()

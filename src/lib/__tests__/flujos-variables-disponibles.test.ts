@@ -143,10 +143,10 @@ describe('variablesDisponibles · webhook.entrante', () => {
   })
 })
 
-describe('variablesDisponibles · inbox.mensaje_recibido', () => {
+describe('variablesDisponibles · inbox.correo_recibido', () => {
   it('expone Empresa + Sistema + Cambio (sin entidad ni contacto fijos)', () => {
     const r = variablesDisponibles({
-      tipo: 'inbox.mensaje_recibido',
+      tipo: 'inbox.correo_recibido',
       configuracion: {},
     })
     expect(clavesFuentes(r.fuentes)).toEqual(['empresa', 'sistema', 'cambio'])

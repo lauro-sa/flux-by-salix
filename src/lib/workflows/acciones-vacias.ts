@@ -85,10 +85,20 @@ export function crearDisparadorVacio(tipo: TipoDisparador): DisparadorWorkflow {
         tipo: 'webhook.entrante',
         configuracion: { slug: '' },
       }
-    case 'inbox.mensaje_recibido':
+    case 'inbox.correo_recibido':
       return {
-        tipo: 'inbox.mensaje_recibido',
-        configuracion: { tipo_canal: 'correo' },
+        tipo: 'inbox.correo_recibido',
+        configuracion: {},
+      }
+    case 'inbox.whatsapp_recibido':
+      return {
+        tipo: 'inbox.whatsapp_recibido',
+        configuracion: {},
+      }
+    case 'inbox.interno_recibido':
+      return {
+        tipo: 'inbox.interno_recibido',
+        configuracion: {},
       }
     case 'inbox.conversacion_sin_respuesta':
       return {

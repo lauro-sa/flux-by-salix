@@ -438,9 +438,14 @@ export default function PaginaConfiguracionInbox() {
           disparadores son inbox.* sin `entidad_tipo` en la configuración. */}
       {seccionActiva === 'flujos' && (
         <SeccionFlujosModulo
-          tiposDisparador={['inbox.mensaje_recibido', 'inbox.conversacion_sin_respuesta']}
+          tiposDisparador={[
+            'inbox.correo_recibido',
+            'inbox.whatsapp_recibido',
+            'inbox.interno_recibido',
+            'inbox.conversacion_sin_respuesta',
+          ]}
           modulosPlantillas={['inbox_whatsapp']}
-          hrefVerTodos="/flujos?tipo_disparador=inbox.mensaje_recibido,inbox.conversacion_sin_respuesta"
+          hrefVerTodos="/flujos?tipo_disparador=inbox.correo_recibido,inbox.whatsapp_recibido,inbox.interno_recibido,inbox.conversacion_sin_respuesta"
           claveCache="seccion-flujos-inbox"
         />
       )}

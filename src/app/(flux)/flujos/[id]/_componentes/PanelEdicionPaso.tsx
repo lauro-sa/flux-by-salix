@@ -38,7 +38,8 @@ import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparad
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
 import PanelDisparadorEntidadCampoCambia from './_panel/secciones/PanelDisparadorEntidadCampoCambia'
 import PanelDisparadorRelativoACampo from './_panel/secciones/PanelDisparadorRelativoACampo'
-import PanelDisparadorInboxMensajeRecibido from './_panel/secciones/PanelDisparadorInboxMensajeRecibido'
+import PanelDisparadorInboxCorreoRecibido from './_panel/secciones/PanelDisparadorInboxCorreoRecibido'
+import PanelDisparadorProximamente from './_panel/secciones/PanelDisparadorProximamente'
 import PanelTipoPendiente from './_panel/secciones/PanelTipoPendiente'
 import { usePreviewContexto } from './_picker/usePreviewContexto'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
@@ -59,7 +60,7 @@ import type {
   DisparadorEntidadEstadoCambio,
   DisparadorTiempoCron,
   DisparadorTiempoRelativoACampo,
-  DisparadorInboxMensajeRecibido,
+  DisparadorInboxCorreoRecibido,
   DisparadorWorkflow,
   TipoAccion,
   TipoDisparador,
@@ -426,23 +427,37 @@ function renderDisparador(args: RenderDisparadorArgs) {
     )
   }
 
-  if (tipo === 'inbox.mensaje_recibido') {
+  if (tipo === 'inbox.correo_recibido') {
     const canalIdsRaw = cfg.canal_ids
     const canalIds = Array.isArray(canalIdsRaw)
       ? canalIdsRaw.filter((s): s is string => typeof s === 'string' && s.length > 0)
       : []
-    const disparador: DisparadorInboxMensajeRecibido = {
-      tipo: 'inbox.mensaje_recibido',
-      configuracion: {
-        tipo_canal: 'correo',
-        ...(canalIds.length > 0 ? { canal_ids: canalIds } : {}),
-      },
+    const disparador: DisparadorInboxCorreoRecibido = {
+      tipo: 'inbox.correo_recibido',
+      configuracion: canalIds.length > 0 ? { canal_ids: canalIds } : {},
     }
     return (
-      <PanelDisparadorInboxMensajeRecibido
+      <PanelDisparadorInboxCorreoRecibido
         disparador={disparador}
         soloLectura={soloLectura}
         onCambiar={onCambiar}
+      />
+    )
+  }
+
+  // WhatsApp e interno: tarjeta en el catálogo + panel "Próximamente".
+  // `validarPublicable` rechaza activar el flujo con estos disparadores.
+  if (tipo === 'inbox.whatsapp_recibido') {
+    return (
+      <PanelDisparadorProximamente
+        claveI18nMensaje="flujos.editor.panel.proximamente.whatsapp"
+      />
+    )
+  }
+  if (tipo === 'inbox.interno_recibido') {
+    return (
+      <PanelDisparadorProximamente
+        claveI18nMensaje="flujos.editor.panel.proximamente.interno"
       />
     )
   }
