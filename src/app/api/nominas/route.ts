@@ -268,12 +268,78 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    const miembrosData = mostrarTerminados
+    const miembrosDataConVigencia = mostrarTerminados
       ? miembrosDataRaw
       : (miembrosDataRaw || []).filter((m: Record<string, unknown>) =>
           !miembrosTerminadosAntes.has(m.id as string) &&
           !miembrosNoIniciados.has(m.id as string),
         )
+
+    // ─── Estado FSM por empleado + snapshot del recibo (sql/105) ───
+    //
+    // CRÍTICO PARA PERFORMANCE: cargamos los estados ANTES del motor de
+    // cálculo para poder identificar empleados que ya tienen un snapshot
+    // completo persistido. Para esos, NO recorremos el motor — leemos
+    // la fila del listado directo del snapshot. Es lo que permite que
+    // un período cerrado de hace meses abra al instante sin cargar
+    // asistencias ni correr el cálculo.
+    //
+    // Shape del snapshot:
+    //   - v3.1+ → `snapshot_calculo.fila_listado` con FilaListadoNomina completa.
+    //   - viejo → solo `snapshot_calculo.detalle`. Esos empleados todavía
+    //     entran al motor (fallback) para mantener compat hasta que se
+    //     reliquiden o paguen y el snapshot quede en shape nuevo.
+    const idsMiembrosConVigencia = (miembrosDataConVigencia || [])
+      .map((m: Record<string, unknown>) => m.id as string)
+    interface EstadoFSMMiembro {
+      estado: 'borrador' | 'liquidado' | 'enviado' | 'pagado'
+      liquidado_en: string | null
+      enviado_en: string | null
+      pagado_en: string | null
+      pago_nomina_id: string | null
+      snapshot: Record<string, unknown> | null
+    }
+    const estadosPorMiembro = new Map<string, EstadoFSMMiembro>()
+    if (idsMiembrosConVigencia.length > 0) {
+      const { data: estadosEmpleadoFilas } = await admin
+        .from('liquidaciones_empleado_periodo')
+        .select('miembro_id, estado_clave, liquidado_en, enviado_en, pagado_en, pago_nomina_id, snapshot_calculo')
+        .eq('empresa_id', empresaId)
+        .eq('periodo_inicio', desde)
+        .eq('periodo_fin', hasta)
+        .in('miembro_id', idsMiembrosConVigencia)
+      for (const f of estadosEmpleadoFilas ?? []) {
+        estadosPorMiembro.set(f.miembro_id as string, {
+          estado: f.estado_clave as 'borrador' | 'liquidado' | 'enviado' | 'pagado',
+          liquidado_en: (f.liquidado_en as string | null) ?? null,
+          enviado_en: (f.enviado_en as string | null) ?? null,
+          pagado_en: (f.pagado_en as string | null) ?? null,
+          pago_nomina_id: (f.pago_nomina_id as string | null) ?? null,
+          snapshot: (f.snapshot_calculo as Record<string, unknown> | null) ?? null,
+        })
+      }
+    }
+
+    // Separamos los miembros en dos grupos:
+    //   1. `miembrosDesdeSnapshot`: estado != borrador Y snapshot incluye
+    //      `fila_listado` completa → se reconstruyen sin pasar por el motor.
+    //   2. `miembrosData`: el resto → el motor los procesa como hoy. Esto
+    //      incluye borradores y snapshots viejos sin `fila_listado`.
+    const miembrosDesdeSnapshot: Array<{ miembro: Record<string, unknown>; fila: Record<string, unknown> }> = []
+    const miembrosData: typeof miembrosDataConVigencia = []
+    for (const m of (miembrosDataConVigencia || [])) {
+      const id = (m as Record<string, unknown>).id as string
+      const estado = estadosPorMiembro.get(id)
+      const snap = estado?.snapshot
+      const filaSnap = snap && typeof snap === 'object'
+        ? (snap as Record<string, unknown>).fila_listado as Record<string, unknown> | undefined
+        : undefined
+      if (estado && estado.estado !== 'borrador' && filaSnap) {
+        miembrosDesdeSnapshot.push({ miembro: m as Record<string, unknown>, fila: filaSnap })
+      } else {
+        miembrosData.push(m)
+      }
+    }
 
     // ─── Contratos que aplican al período + conceptos ───
     // Cargamos el contrato relevante para el período consultado, NO el
@@ -1236,8 +1302,15 @@ export async function GET(request: NextRequest) {
     // ─── Datos extra de identidad por empleado ───
     // Enriquecen las cards del dashboard sin queries N+1 — cada uno es un
     // SELECT con .in() sobre miembros_ids y se mappea en memoria.
-    const miembrosIds = (miembrosData || []).map(m => (m as Record<string, unknown>).id as string)
-    const usuariosIds = (miembrosData || [])
+    //
+    // Importante: usamos la lista COMPLETA (`miembrosDataConVigencia`),
+    // no solo los borradores que entraron al motor. Las cards leídas
+    // desde snapshot también necesitan avatar, sector, cuenta destino,
+    // saldo de adelantos. Si filtráramos por `miembrosData` (solo
+    // borradores) las cards liquidadas perderían esos datos.
+    const miembrosParaEnriquecer = miembrosDataConVigencia || []
+    const miembrosIds = miembrosParaEnriquecer.map(m => (m as Record<string, unknown>).id as string)
+    const usuariosIds = miembrosParaEnriquecer
       .map(m => (m as Record<string, unknown>).usuario_id as string | null)
       .filter((u): u is string => !!u)
 
@@ -1348,38 +1421,6 @@ export async function GET(request: NextRequest) {
       abierto_en: periodoFila?.abierto_en ?? null,
       cerrado_en: periodoFila?.cerrado_en ?? null,
       cerrado_por_nombre: periodoFila?.cerrado_por_nombre ?? null,
-    }
-
-    // ─── Estado FSM por empleado (sql/105) ───
-    // Cruza con cada resultado para que la UI muestre el chip de estado
-    // (borrador virtual / liquidado / enviado / pagado) en cada fila.
-    // Para liquidaciones congeladas (estado != borrador) también traemos
-    // el snapshot_calculo para poder mostrar los montos del momento en
-    // que se liquidó, no el cálculo vivo (que podría haber cambiado si
-    // alguien edita conceptos o asistencias después de liquidar).
-    const { data: estadosEmpleadoFilas } = await admin
-      .from('liquidaciones_empleado_periodo')
-      .select('miembro_id, estado_clave, liquidado_en, enviado_en, pagado_en, pago_nomina_id, snapshot_calculo')
-      .eq('empresa_id', empresaId)
-      .eq('periodo_inicio', desde)
-      .eq('periodo_fin', hasta)
-    const estadosPorMiembro = new Map<string, {
-      estado: string
-      liquidado_en: string | null
-      enviado_en: string | null
-      pagado_en: string | null
-      pago_nomina_id: string | null
-      snapshot: Record<string, unknown> | null
-    }>()
-    for (const f of estadosEmpleadoFilas ?? []) {
-      estadosPorMiembro.set(f.miembro_id as string, {
-        estado: f.estado_clave as string,
-        liquidado_en: (f.liquidado_en as string | null) ?? null,
-        enviado_en: (f.enviado_en as string | null) ?? null,
-        pagado_en: (f.pagado_en as string | null) ?? null,
-        pago_nomina_id: (f.pago_nomina_id as string | null) ?? null,
-        snapshot: (f.snapshot_calculo as Record<string, unknown> | null) ?? null,
-      })
     }
 
     // Para liquidaciones que ya tienen pago_nomina creado, traemos el
@@ -1527,14 +1568,77 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // ─── Filas reconstruidas desde snapshot (saltan el motor) ───
+    //
+    // Para empleados liquidados/enviados/pagados con snapshot v3.1+,
+    // armamos su fila SIN haber pasado por el motor (esa fila ya estaba
+    // identificada en `miembrosDesdeSnapshot`). Agregamos el mismo
+    // enriquecimiento de identidad y override de monto por pago que se
+    // aplica a las filas calculadas en vivo, para que la card sea
+    // visualmente idéntica.
+    const resultadosDesdeSnapshot = miembrosDesdeSnapshot.map(({ miembro, fila }) => {
+      const id = miembro.id as string
+      const e = estadosPorMiembro.get(id)!
+      const filaTyped = fila as unknown as Record<string, unknown>
+
+      // Override del monto neto por pago (ledger financiero) si aplica.
+      // Aunque el snapshot ya tiene un monto_neto congelado, el pago
+      // real podría diferir (ej. el operador pagó otra cifra).
+      let montoNetoFinal = Number(filaTyped.monto_neto) || 0
+      let fuenteMonto: 'snapshot' | 'pago' = 'snapshot'
+      let comprobanteUrlFinal: string | null = null
+      if (e.pago_nomina_id) {
+        const p = pagoPorId.get(e.pago_nomina_id)
+        if (p) {
+          montoNetoFinal = p.monto_abonado
+          fuenteMonto = 'pago'
+          comprobanteUrlFinal = p.comprobante_url
+        }
+      }
+
+      const usuarioId = miembro.usuario_id as string | null | undefined
+      const contratoMiembro = contratoVigentePorMiembro.get(id)
+      const freqContrato = (contratoMiembro?.frecuencia_pago as string | undefined)
+        ?? ((miembro.compensacion_frecuencia as string | undefined))
+        ?? 'mensual'
+      const aplicaAlPeriodo = aplicaFrecuenciaAlPeriodo(freqContrato, tipoPeriodo, desde, hasta)
+
+      return {
+        // Esparcimos todos los campos congelados de la fila
+        ...filaTyped,
+        // Sobrescribimos lo dinámico: estado, pago, identidad enriquecida
+        monto_neto: montoNetoFinal,
+        estado_liquidacion: e.estado,
+        fuente_monto: fuenteMonto,
+        liquidado_en: e.liquidado_en,
+        enviado_en: e.enviado_en,
+        pagado_en: e.pagado_en,
+        pago_nomina_id: e.pago_nomina_id,
+        comprobante_url: comprobanteUrlFinal,
+        avatar_url: usuarioId ? (avatarPorUsuario.get(usuarioId) ?? null) : null,
+        sector: sectorPorMiembro.get(id) ?? null,
+        cuenta_destino: cuentaPorMiembro.get(id) ?? null,
+        saldo_adelantos_vigentes: saldoAdelantosPorMiembro.get(id) ?? 0,
+        aplica_al_periodo: aplicaAlPeriodo,
+        frecuencia_pago: freqContrato,
+      }
+    })
+
+    // Combinamos las filas calculadas en vivo + las leídas del snapshot.
+    // Ambas comparten shape (FilaListadoNomina con enriquecimiento). El
+    // cast a Record<string, unknown> es seguro: el shape coincide pero
+    // TypeScript no lo infiere por el spread de `filaTyped`.
+    const resultadosFinales = ([...resultadosConEstado, ...resultadosDesdeSnapshot] as Array<Record<string, unknown>>)
+      .sort((a, b) => String(a.nombre ?? '').localeCompare(String(b.nombre ?? '')))
+
     return NextResponse.json({
       desde, hasta,
-      dias_laborales: resultados[0]?.dias_laborales || 0,
+      dias_laborales: (resultados[0]?.dias_laborales as number | undefined) ?? ((resultadosDesdeSnapshot[0] as Record<string, unknown> | undefined)?.dias_laborales as number | undefined) ?? 0,
       nombre_empresa: nombreEmpresa,
       feriados_periodo: diasLab_feriadosResumen(feriadosNombres, desde, hasta),
       estado_periodo: estadoPeriodo,
       envio_obligatorio: envioObligatorio,
-      resultados: resultadosConEstado.sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      resultados: resultadosFinales,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

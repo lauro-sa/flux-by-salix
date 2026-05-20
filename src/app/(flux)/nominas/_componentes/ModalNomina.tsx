@@ -111,7 +111,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
           </div>
           <div className="flex items-center gap-2">
             <Boton variante="secundario" tamano="sm" onClick={() => {
-              window.open(`/api/asistencias/exportar?desde=${desde}&hasta=${hasta}`, '_blank')
+              window.open(`/api/nominas/exportar?desde=${desde}&hasta=${hasta}`, '_blank')
             }}>
               <Download size={13} className="mr-1" /> Exportar
             </Boton>

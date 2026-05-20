@@ -21,6 +21,7 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularReciboDesdeBD } from '@/lib/nominas/motor-calculo'
 import { transicionarLiquidacionEmpleado } from '@/lib/nominas/transicion-liquidacion'
+import { obtenerFilaListadoParaSnapshot } from '@/lib/nominas/obtener-fila-listado'
 
 interface Payload {
   periodo_inicio: string
@@ -57,11 +58,24 @@ export async function POST(request: NextRequest) {
         periodoInicio: periodo_inicio,
         periodoFin: periodo_fin,
       })
+      // Antes de transicionar pedimos al endpoint /api/nominas la fila
+      // completa para este miembro (todavía en estado 'borrador'). Esto
+      // captura las métricas detalladas del listado (horas brutas, días
+      // jornada, etc.) que el motor base no produce. Una vez liquidado,
+      // el endpoint leerá del snapshot sin recalcular.
+      const filaListado = await obtenerFilaListadoParaSnapshot(
+        request, miembroId, periodo_inicio, periodo_fin,
+      )
       const snapshot = {
-        version_motor: 'v3.0',
+        version_motor: 'v3.1',
         calculado_en: new Date().toISOString(),
-        ...recibo,
-      } as unknown as Record<string, unknown>
+        // `detalle` con shape estable lo consume calcular-con-snapshot.ts
+        // y generar-pdf-recibo.ts (ambos esperan snapshot.detalle).
+        detalle: recibo,
+        // `fila_listado` permite a /api/nominas GET reconstruir la card
+        // sin pasar por el motor.
+        fila_listado: filaListado,
+      } as Record<string, unknown>
 
       const r = await transicionarLiquidacionEmpleado(admin, {
         empresaId,

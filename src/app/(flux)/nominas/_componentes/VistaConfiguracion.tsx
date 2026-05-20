@@ -12,7 +12,7 @@
  * más en el futuro (parámetros fiscales, formato del recibo, etc.).
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -52,6 +52,24 @@ function formatearValor(c: ConceptoNomina): string {
 }
 
 type SubTab = 'conceptos' | 'plantillas' | 'politica'
+
+/**
+ * Cache module-level para los tres paneles de configuración.
+ * Sobrevive a desmontajes — al cambiar entre sub-tabs o al volver a
+ * /nominas, lo cargado se muestra al instante mientras se revalida
+ * en background. Se invalida con el refresh del navegador o con las
+ * mutaciones de cada panel.
+ */
+let cachePoliticaEnvioObligatorio: boolean | null = null
+const cacheConceptosPorFiltro = new Map<string, ConceptoNomina[]>() // clave: `${incluirInactivos}`
+interface CachePanelPlantillas {
+  config: ConfigPlantillas
+  canalesCorreo: OpcionRef[]
+  canalesWhatsApp: OpcionRef[]
+  plantillasCorreo: OpcionRef[]
+  plantillasWhatsApp: OpcionRef[]
+}
+let cachePanelPlantillas: CachePanelPlantillas | null = null
 
 const SUB_TABS = [
   { clave: 'conceptos', etiqueta: 'Conceptos', icono: <Tag size={14} /> },
@@ -94,8 +112,13 @@ function PanelPolitica() {
   const { tienePermiso } = useRol()
   const puedeEditar = tienePermiso('nomina', 'editar')
 
-  const [envioObligatorio, setEnvioObligatorio] = useState(false)
-  const [primeraCarga, setPrimeraCarga] = useState(true)
+  // Hidratamos desde cache module-level: si ya cargamos el flag en esta
+  // sesión, el panel arranca con su valor (sin loader) y revalida en
+  // background. Si nunca se cargó, sí mostramos spinner.
+  const [envioObligatorio, setEnvioObligatorio] = useState(
+    () => cachePoliticaEnvioObligatorio ?? false,
+  )
+  const [primeraCarga, setPrimeraCarga] = useState(() => cachePoliticaEnvioObligatorio === null)
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
@@ -104,7 +127,9 @@ function PanelPolitica() {
       try {
         const res = await fetch('/api/nominas/configuracion')
         const data = await res.json()
-        if (!cancelado) setEnvioObligatorio(!!data?.configuracion?.envio_obligatorio)
+        const valor = !!data?.configuracion?.envio_obligatorio
+        cachePoliticaEnvioObligatorio = valor
+        if (!cancelado) setEnvioObligatorio(valor)
       } catch {
         if (!cancelado) toast.mostrar('error', 'No se pudo cargar la configuración')
       } finally {
@@ -131,6 +156,11 @@ function PanelPolitica() {
         toast.mostrar('error', data.error || 'No se pudo guardar')
         return
       }
+      // Sincronizamos el cache module-level con el nuevo valor.
+      // Sin esto, salir y volver mostraría el valor viejo hasta que
+      // termine la revalidación en background.
+      cachePoliticaEnvioObligatorio = nuevo
+      cachePanelPlantillas = null
       toast.mostrar('exito', nuevo ? 'Envío obligatorio activado' : 'Envío obligatorio desactivado')
     } catch {
       setEnvioObligatorio(anterior)
@@ -188,13 +218,20 @@ function PanelConceptos() {
   const { tienePermiso } = useRol()
   const puedeEditar = tienePermiso('nomina', 'editar')
 
-  const [conceptos, setConceptos] = useState<ConceptoNomina[]>([])
+  const [filtroTipo, setFiltroTipo] = useState<'' | TipoConcepto>('')
+  const [incluirInactivos, setIncluirInactivos] = useState(false)
+  // Hidratación instantánea desde cache module-level por filtro. Si
+  // ya cargamos esta vista en la sesión, no muestra loader: aparece
+  // al toque y se revalida silencioso.
+  const [conceptos, setConceptos] = useState<ConceptoNomina[]>(
+    () => cacheConceptosPorFiltro.get('false') ?? [],
+  )
   // `primeraCarga` solo se usa para mostrar el spinner inicial centrado.
   // Los refrescos post-acción (crear/duplicar/eliminar/etc.) NO tocan
   // esta bandera para que la lista se actualice en su lugar sin parpadeo.
-  const [primeraCarga, setPrimeraCarga] = useState(true)
-  const [filtroTipo, setFiltroTipo] = useState<'' | TipoConcepto>('')
-  const [incluirInactivos, setIncluirInactivos] = useState(false)
+  const [primeraCarga, setPrimeraCarga] = useState(
+    () => !cacheConceptosPorFiltro.has('false'),
+  )
 
   const [editorAbierto, setEditorAbierto] = useState(false)
   const [editando, setEditando] = useState<ConceptoNomina | null>(null)
@@ -208,16 +245,45 @@ function PanelConceptos() {
   } | null>(null)
   const [procesandoConfirmacion, setProcesandoConfirmacion] = useState(false)
 
+  // Ref con el filtro activo para gatear respuestas viejas si el
+  // usuario alterna "Mostrar inactivos" mientras hay un fetch en vuelo.
+  const filtroActivoRef = useRef(String(incluirInactivos))
+  filtroActivoRef.current = String(incluirInactivos)
+
   const cargar = async () => {
+    const clave = String(incluirInactivos)
+    // Hidratamos al toque si hay cache para esta combinación, así
+    // cambiar de filtro o volver al panel no parpadea.
+    const cacheado = cacheConceptosPorFiltro.get(clave)
+    if (cacheado) {
+      setConceptos(cacheado)
+      setPrimeraCarga(false)
+    }
     try {
       const res = await fetch(`/api/nominas/conceptos?incluirInactivos=${incluirInactivos}`)
       const data = await res.json()
-      setConceptos((data.conceptos ?? []) as ConceptoNomina[])
+      const lista = (data.conceptos ?? []) as ConceptoNomina[]
+      cacheConceptosPorFiltro.set(clave, lista)
+      // Solo aplicamos a la UI si el filtro no cambió mientras tanto.
+      if (filtroActivoRef.current === clave) {
+        setConceptos(lista)
+      }
     } catch (err) {
       console.error('[VistaConfiguracion] error', err)
     } finally {
-      setPrimeraCarga(false)
+      if (filtroActivoRef.current === clave) {
+        setPrimeraCarga(false)
+      }
     }
+  }
+
+  // Refresco tras mutaciones (crear / editar / duplicar / desactivar /
+  // eliminar / reactivar): limpiamos TODO el cache de conceptos porque
+  // los cambios pueden afectar a otra combinación de filtros distinta
+  // de la activa.
+  const refrescar = async () => {
+    cacheConceptosPorFiltro.clear()
+    await cargar()
   }
 
   useEffect(() => { cargar() }, [incluirInactivos]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -253,7 +319,7 @@ function PanelConceptos() {
         toast.mostrar('exito', 'Concepto desactivado')
       }
       setConfirmacion(null)
-      cargar()
+      refrescar()
     } catch {
       toast.mostrar('error', 'Error de red')
     } finally {
@@ -278,7 +344,7 @@ function PanelConceptos() {
         return toast.mostrar('error', data.error || 'No se pudo reactivar')
       }
       toast.mostrar('exito', 'Concepto reactivado')
-      cargar()
+      refrescar()
     } catch {
       toast.mostrar('error', 'Error de red')
     }
@@ -301,7 +367,7 @@ function PanelConceptos() {
         return toast.mostrar('error', data.error || 'No se pudo duplicar')
       }
       toast.mostrar('exito', `Duplicado como "${(data.concepto as ConceptoNomina).nombre}"`)
-      cargar()
+      refrescar()
     } catch {
       toast.mostrar('error', 'Error de red')
     }
@@ -494,7 +560,7 @@ function PanelConceptos() {
         abierto={editorAbierto}
         concepto={editando}
         onCerrar={() => setEditorAbierto(false)}
-        onGuardado={cargar}
+        onGuardado={refrescar}
       />
 
       {/* Modal de confirmación reutilizado para eliminar y desactivar.
@@ -562,15 +628,32 @@ function PanelPlantillasEnvio() {
   const { tienePermiso } = useRol()
   const puedeEditar = tienePermiso('nomina', 'editar')
 
-  const [config, setConfig] = useState<ConfigPlantillas | null>(null)
-  const [canalesCorreo, setCanalesCorreo] = useState<OpcionRef[]>([])
-  const [canalesWhatsApp, setCanalesWhatsApp] = useState<OpcionRef[]>([])
-  const [plantillasCorreo, setPlantillasCorreo] = useState<OpcionRef[]>([])
-  const [plantillasWhatsApp, setPlantillasWhatsApp] = useState<OpcionRef[]>([])
-  const [cargando, setCargando] = useState(true)
+  // Hidratamos los 5 estados desde el cache module-level. Si ya
+  // cargamos el panel en esta sesión, aparece todo al instante (sin
+  // los 5 fetches en paralelo bloqueando el render) mientras se
+  // revalida en background.
+  const [config, setConfig] = useState<ConfigPlantillas | null>(
+    () => cachePanelPlantillas?.config ?? null,
+  )
+  const [canalesCorreo, setCanalesCorreo] = useState<OpcionRef[]>(
+    () => cachePanelPlantillas?.canalesCorreo ?? [],
+  )
+  const [canalesWhatsApp, setCanalesWhatsApp] = useState<OpcionRef[]>(
+    () => cachePanelPlantillas?.canalesWhatsApp ?? [],
+  )
+  const [plantillasCorreo, setPlantillasCorreo] = useState<OpcionRef[]>(
+    () => cachePanelPlantillas?.plantillasCorreo ?? [],
+  )
+  const [plantillasWhatsApp, setPlantillasWhatsApp] = useState<OpcionRef[]>(
+    () => cachePanelPlantillas?.plantillasWhatsApp ?? [],
+  )
+  const [cargando, setCargando] = useState(() => cachePanelPlantillas === null)
   const [guardando, setGuardando] = useState(false)
 
-  // ─── Carga inicial ───
+  // ─── Carga inicial / revalidación ───
+  // Aun cuando hayamos hidratado del cache, revalidamos en background
+  // para que cambios externos (ej. una plantilla nueva creada en Inbox)
+  // se reflejen sin necesidad de F5.
   useEffect(() => {
     let cancelado = false
     const cargar = async () => {
@@ -584,13 +667,13 @@ function PanelPlantillasEnvio() {
         ])
         if (cancelado) return
 
-        setConfig(confRes.configuracion ?? {
+        const configResuelta: ConfigPlantillas = confRes.configuracion ?? {
           canal_correo_default_id: null,
           plantilla_correo_default_id: null,
           canal_whatsapp_default_id: null,
           plantilla_whatsapp_default_id: null,
           mostrar_empleados_terminados: false,
-        })
+        }
 
         // Canales: tomamos id y un nombre legible. La estructura puede
         // variar entre endpoints, normalizamos.
@@ -599,8 +682,8 @@ function PanelPlantillasEnvio() {
             id: c.id as string,
             nombre: (c.nombre as string) || (c.nombre_visible as string) || (c.alias as string) || '—',
           }))
-        setCanalesCorreo(norm((ccRes.canales as Array<Record<string, unknown>>) ?? []))
-        setCanalesWhatsApp(norm((cwaRes.canales as Array<Record<string, unknown>>) ?? []))
+        const cc = norm((ccRes.canales as Array<Record<string, unknown>>) ?? [])
+        const cwa = norm((cwaRes.canales as Array<Record<string, unknown>>) ?? [])
 
         // Plantillas: filtramos solo las que están marcadas para nóminas
         // (campo `modulos` contiene 'nomina' o 'nominas') o categoría
@@ -618,8 +701,21 @@ function PanelPlantillasEnvio() {
           )
           return (especificas.length > 0 ? especificas : todas).map(p => ({ id: p.id, nombre: p.nombre }))
         }
-        setPlantillasCorreo(filtrar((pcRes.plantillas as Array<Record<string, unknown>>) ?? []))
-        setPlantillasWhatsApp(filtrar((pwaRes.plantillas as Array<Record<string, unknown>>) ?? []))
+        const pc = filtrar((pcRes.plantillas as Array<Record<string, unknown>>) ?? [])
+        const pwa = filtrar((pwaRes.plantillas as Array<Record<string, unknown>>) ?? [])
+
+        cachePanelPlantillas = {
+          config: configResuelta,
+          canalesCorreo: cc,
+          canalesWhatsApp: cwa,
+          plantillasCorreo: pc,
+          plantillasWhatsApp: pwa,
+        }
+        setConfig(configResuelta)
+        setCanalesCorreo(cc)
+        setCanalesWhatsApp(cwa)
+        setPlantillasCorreo(pc)
+        setPlantillasWhatsApp(pwa)
       } catch (err) {
         console.error('[PanelPlantillasEnvio] error:', err)
         toast.mostrar('error', 'No se pudo cargar la configuración')
@@ -652,6 +748,13 @@ function PanelPlantillasEnvio() {
         const data = await res.json()
         return toast.mostrar('error', data.error || 'No se pudo guardar')
       }
+      // Sincronizamos el cache module-level con la config recién guardada
+      // y dejamos en null el cache de política (lo guardado puede afectar
+      // a `envio_obligatorio` si el PUT mandó ambas keys).
+      if (cachePanelPlantillas) {
+        cachePanelPlantillas = { ...cachePanelPlantillas, config }
+      }
+      cachePoliticaEnvioObligatorio = null
       toast.mostrar('exito', 'Configuración guardada')
     } catch {
       toast.mostrar('error', 'Error de red')

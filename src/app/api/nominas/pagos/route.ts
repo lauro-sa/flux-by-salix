@@ -44,6 +44,7 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularReciboDesdeBD } from '@/lib/nominas/motor-calculo'
 import { transicionarLiquidacionEmpleado } from '@/lib/nominas/transicion-liquidacion'
+import { obtenerFilaListadoParaSnapshot } from '@/lib/nominas/obtener-fila-listado'
 
 interface ConceptoExtra {
   nombre: string
@@ -398,12 +399,20 @@ export async function POST(request: NextRequest) {
   //
   // Si la fila existe en 'borrador' (caso raro: alguien creó la fila pero no
   // liquidó), tratarlo igual que liquidar+pagar en un solo movimiento.
+  // Fila completa del listado para snapshot enriquecido v3.1. Permite
+  // que /api/nominas GET reconstruya la card sin pasar por el motor.
+  // Si la fila no existe (red caída u otro motivo), guardamos snapshot
+  // sin ella: los GET futuros caerán a cálculo en vivo (compat v3.0).
+  const filaListadoSnapshot = await obtenerFilaListadoParaSnapshot(
+    request, body.miembro_id, body.periodo_inicio, body.periodo_fin,
+  )
   const snapshot = {
-    version_motor: 'v3.0',
+    version_motor: 'v3.1',
     calculado_en: new Date().toISOString(),
     monto_neto: detalle.neto,
     monto_abonado: body.monto_abonado,
     detalle,
+    fila_listado: filaListadoSnapshot,
   } as unknown as Record<string, unknown>
 
   const { data: filaExistente } = await admin
