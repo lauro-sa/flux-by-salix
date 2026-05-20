@@ -137,6 +137,32 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
   if (!miembro) return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })
 
+  // ─── Validación de solapamiento ───
+  //
+  // Mismo guard que en /api/nominas/liquidar: rechazamos si el miembro
+  // ya tiene una liquidación cuyo rango se solapa con el solicitado y
+  // NO es la misma fila exacta. Sin esto, el operador puede pagar el
+  // "mes completo" sobre un empleado que ya tenía la quincena pagada
+  // (o viceversa) generando ledgers duplicados.
+  const { data: liqsSolapadas } = await admin
+    .from('liquidaciones_empleado_periodo')
+    .select('periodo_inicio, periodo_fin, estado_clave')
+    .eq('empresa_id', empresaId)
+    .eq('miembro_id', body.miembro_id)
+    .neq('estado_clave', 'borrador')
+    .lte('periodo_inicio', body.periodo_fin)
+    .gte('periodo_fin', body.periodo_inicio)
+  const conflictosLiq = (liqsSolapadas ?? []).filter(s =>
+    !(s.periodo_inicio === body.periodo_inicio && s.periodo_fin === body.periodo_fin),
+  )
+  if (conflictosLiq.length > 0) {
+    const c = conflictosLiq[0]
+    return NextResponse.json({
+      error: `Ya existe una liquidación ${c.estado_clave} para el período ${c.periodo_inicio} → ${c.periodo_fin} que se solapa. No se puede registrar este pago con otra granularidad.`,
+      code: 'solapamiento',
+    }, { status: 409 })
+  }
+
   // ─── 1) Calcular el recibo (autoritativo) ───
   const detalle = await calcularReciboDesdeBD(admin, {
     miembroId: body.miembro_id,
