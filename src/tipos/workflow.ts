@@ -752,6 +752,14 @@ export interface BodyCrearFlujo {
   nombre: string
   descripcion?: string | null
   basado_en_flujo_id?: string
+  /** Icono Lucide opcional (ej: "Mail"). Si viene, el flujo lo persiste
+   *  en `flujos.icono` ya desde la creación, evitando el segundo PATCH
+   *  desde el editor. Si `basado_en_flujo_id` también está, el icono
+   *  explícito gana sobre el heredado. */
+  icono?: string | null
+  /** Color de la paleta Insignia (ej: "violeta", "exito"). Mismo
+   *  criterio que `icono`: si viene, persiste de entrada. */
+  color?: string | null
 }
 
 export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
@@ -769,6 +777,14 @@ export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
     // existe (mismo criterio que el resto de Flux). Solo evitamos
     // strings vacíos o absurdamente largos.
     if (id.length === 0 || id.length > 100) return false
+  }
+  if (r.icono !== undefined && r.icono !== null) {
+    if (typeof r.icono !== 'string') return false
+    if (r.icono.length === 0 || r.icono.length > 64) return false
+  }
+  if (r.color !== undefined && r.color !== null) {
+    if (typeof r.color !== 'string') return false
+    if (r.color.length === 0 || r.color.length > 32) return false
   }
   return true
 }

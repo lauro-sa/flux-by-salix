@@ -355,6 +355,14 @@ export async function POST(request: NextRequest) {
     insertPayload.icono = camposDuplicar.icono
     insertPayload.color = camposDuplicar.color
   }
+  // En creación nueva (no-duplicar), el caller puede mandar icono/color
+  // explícitos. El modal "Desde cero" del 19.x los aprovecha para que
+  // el flujo nazca con identidad visual y no termine como una fila
+  // gris hasta que el usuario abra el editor.
+  if (!camposDuplicar) {
+    if (body.icono !== undefined) insertPayload.icono = body.icono?.trim() || null
+    if (body.color !== undefined) insertPayload.color = body.color?.trim() || null
+  }
 
   const { data: flujo, error } = await admin
     .from('flujos')

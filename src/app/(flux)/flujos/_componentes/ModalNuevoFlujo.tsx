@@ -6,6 +6,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
+import { MiniSelectorIcono } from '@/componentes/ui/MiniSelectorIcono'
 import { useTraduccion } from '@/lib/i18n'
 import { useModulos } from '@/hooks/useModulos'
 import { ETIQUETAS_ENTIDAD, ENTIDADES_CON_ESTADO } from '@/tipos/estados'
@@ -15,6 +16,16 @@ import {
 } from '@/lib/workflows/plantillas-sugeridas'
 import { CardPlantilla } from './EstadoVacioFlujos'
 import { useCrearFlujo } from './useCrearFlujo'
+
+// Paleta de colores válidos para un flujo (mismas claves que
+// `ColorInsignia` para que el header del editor las consuma sin
+// mapeo). El primer item es el fallback que toma el flujo si el
+// usuario no toca el selector.
+const COLORES_FLUJO = [
+  'violeta', 'primario', 'info', 'cyan', 'exito',
+  'advertencia', 'naranja', 'peligro', 'rosa', 'neutro',
+] as const
+type ColorFlujo = typeof COLORES_FLUJO[number]
 
 /**
  * ModalNuevoFlujo — Modal "+ Nuevo flujo" con dos pestañas (§1.11 plan UX).
@@ -68,7 +79,12 @@ export default function ModalNuevoFlujo({
   const [busquedaPlantilla, setBusquedaPlantilla] = useState('')
   const [filtroModulo, setFiltroModulo] = useState('')
   const [nombre, setNombre] = useState('')
-  const [moduloSeleccionado, setModuloSeleccionado] = useState('')
+  // Identidad visual del flujo recién creado. Icono Lucide + color de
+  // la paleta `COLORES_FLUJO`. Si el usuario no toca el selector, se
+  // crea con el default ('Workflow' + 'violeta') y después puede
+  // cambiarlo desde el header del editor.
+  const [icono, setIcono] = useState('Workflow')
+  const [color, setColor] = useState<ColorFlujo>('violeta')
 
   // Cuando abre con plantilla pre-seleccionada, ir directo a "Desde cero"
   // con el nombre de la plantilla pre-cargado (más rápido que volver a
@@ -81,7 +97,8 @@ export default function ModalNuevoFlujo({
       void crearDesdePlantilla(plantillaInicial)
     } else {
       setNombre('')
-      setModuloSeleccionado('')
+      setIcono('Workflow')
+      setColor('violeta')
       setBusquedaPlantilla('')
       setFiltroModulo('')
     }
@@ -122,7 +139,11 @@ export default function ModalNuevoFlujo({
 
   function crearDesdeCero() {
     if (!nombre.trim()) return
-    void crearFlujo({ nombre: nombre.trim() })
+    void crearFlujo({
+      nombre: nombre.trim(),
+      icono,
+      color,
+    })
   }
 
   return (
@@ -191,25 +212,66 @@ export default function ModalNuevoFlujo({
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-4 max-w-md">
-          <Input
-            etiqueta={t('flujos.modal_nuevo.nombre_label')}
-            placeholder={t('flujos.modal_nuevo.nombre_placeholder')}
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            autoFocus
-          />
+        <div className="flex flex-col gap-5 max-w-xl">
+          {/* Fila: icono clickeable + nombre. El icono usa el mismo
+              MiniSelectorIcono del header del editor para que se vea
+              y funcione igual desde el primer momento. El color de
+              fondo del botón es el seleccionado abajo. */}
           <div>
-            <label className="block text-xs font-medium text-texto-secundario mb-1">
-              {t('flujos.modal_nuevo.modulo_label')}
+            <label className="block text-xs font-medium text-texto-secundario mb-1.5">
+              {t('flujos.modal_nuevo.nombre_label')}
             </label>
-            <Select
-              opciones={opcionesModulo}
-              valor={moduloSeleccionado}
-              onChange={setModuloSeleccionado}
-              placeholder={t('flujos.modal_nuevo.modulo_placeholder')}
-            />
+            <div className="flex items-stretch gap-2">
+              <MiniSelectorIcono
+                valor={icono}
+                color={`var(--insignia-${color}-texto, var(--texto-marca))`}
+                onChange={setIcono}
+                titulo={t('flujos.modal_nuevo.elegir_icono')}
+              />
+              <div className="flex-1">
+                <Input
+                  placeholder={t('flujos.modal_nuevo.nombre_placeholder')}
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Paleta de color en bolitas — mismo patrón visual que
+              `ModalTipoActividad` (CLAUDE.md §"Modales de
+              configuración"). Click cambia el aro de selección;
+              size-7 para que sea cómodo a touch sin invadir el modal. */}
+          <div>
+            <label className="block text-xs font-medium text-texto-secundario mb-1.5">
+              {t('flujos.modal_nuevo.color_label')}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {COLORES_FLUJO.map((c) => {
+                const seleccionado = c === color
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    title={t(`flujos.modal_nuevo.color.${c}`)}
+                    aria-label={t(`flujos.modal_nuevo.color.${c}`)}
+                    aria-pressed={seleccionado}
+                    className={`size-7 rounded-full cursor-pointer transition-all ${
+                      seleccionado
+                        ? 'ring-2 ring-texto-primario ring-offset-2 ring-offset-superficie-elevada'
+                        : 'hover:scale-110'
+                    }`}
+                    style={{
+                      background: `var(--insignia-${c}-texto, var(--texto-marca))`,
+                    }}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2">
             <Boton
               variante="primario"

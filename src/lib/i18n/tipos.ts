@@ -1637,6 +1637,20 @@ export interface Traducciones {
       modulo_label: string
       modulo_placeholder: string
       crear_y_editar: string
+      elegir_icono: string
+      color_label: string
+      color: {
+        violeta: string
+        primario: string
+        info: string
+        cyan: string
+        exito: string
+        advertencia: string
+        naranja: string
+        peligro: string
+        rosa: string
+        neutro: string
+      }
       sin_plantillas: string
       sin_plantillas_busqueda: string
       plantilla_disparador: string
