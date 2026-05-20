@@ -35,6 +35,10 @@ interface PropiedadesModal {
   sinPadding?: boolean
   /** Modo pantalla completa — ignora tamano y ocupa todo el viewport */
   expandido?: boolean
+  /** Desbloquea el max-h grande (90dvh) sin tener que subir a tamano="3xl".
+   *  Útil cuando querés mantener un modal angosto (lg, xl) pero con altura
+   *  amplia para no forzar scroll en formularios con varias secciones. */
+  altoExtendido?: boolean
 }
 
 const anchosPx: Record<TamanoModal, number> = {
@@ -67,6 +71,7 @@ function Modal({
   accionesEncabezado,
   sinPadding,
   expandido,
+  altoExtendido,
 }: PropiedadesModal) {
   const tieneAccionesEstructuradas = !!(accionPrimaria || accionSecundaria || accionPeligro || footerExtraIzquierda)
   const footer = tieneAccionesEstructuradas
@@ -153,7 +158,7 @@ function Modal({
               className={expandido
                 ? 'w-full h-full flex flex-col pointer-events-auto'
                 : `rounded-modal shadow-elevada w-full flex flex-col pointer-events-auto border border-borde-sutil ${
-                  ['3xl', '4xl', '5xl'].includes(tamano) ? 'max-h-[90dvh]' : 'max-h-[min(85dvh,640px)]'
+                  altoExtendido || ['3xl', '4xl', '5xl'].includes(tamano) ? 'max-h-[90dvh]' : 'max-h-[min(85dvh,640px)]'
                 }`
               }
               style={{

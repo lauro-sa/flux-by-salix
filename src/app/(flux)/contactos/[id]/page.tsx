@@ -1,7 +1,5 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import EditorContacto, { type DatosInicialesContacto } from './_componentes/EditorContacto'
-import { SkeletonDetalle } from '@/componentes/feedback/SkeletonDetalle'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { TipoContacto, TipoRelacion, CampoFiscalPais } from '@/tipos'
@@ -9,26 +7,12 @@ import type { TipoContacto, TipoRelacion, CampoFiscalPais } from '@/tipos'
 /**
  * Página de detalle de contacto — /contactos/[id]
  *
- * Server Component que precarga en paralelo:
- *  - Tipos de contacto / relación / puestos / campos fiscales / países
- *    (compartido con la creación, vive en /api/contactos/tipos).
- *  - Etiquetas y rubros configurables (/api/contactos/config).
- *  - El contacto en sí con sus relaciones (cuando no es "nuevo").
- *
- * Esos datos se pasan al cliente `EditorContacto`, que arranca sin el
- * spinner inicial y sin disparar los tres fetches que hacía en useEffect.
- * Para mantener la sensación rápida durante la navegación, el cuerpo
- * async vive dentro de un Suspense con SkeletonDetalle.
+ * Server Component que precarga en paralelo tipos, config y el contacto.
+ * Sin Suspense fallback: mientras el await se resuelve Next mantiene visible
+ * la página anterior y `BarraProgresoGlobal` (en PlantillaApp) marca la
+ * actividad. Patrón unificado con el resto de los detalles.
  */
-export default function PaginaDetalleContacto({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<SkeletonDetalle />}>
-      <ContenidoServidor params={params} />
-    </Suspense>
-  )
-}
-
-async function ContenidoServidor({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaDetalleContacto({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   // Para "nuevo" sólo necesitamos los catálogos compartidos; el contacto
@@ -72,7 +56,11 @@ async function fetchTipos(empresaId: string, admin: Admin): Promise<DatosInicial
     admin.from('tipos_contacto').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden'),
     admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).eq('activo', true).order('orden'),
     admin.from('puestos_vinculacion').select('id, etiqueta').eq('empresa_id', empresaId).order('orden'),
-    admin.from('campos_fiscales_pais').select('*').eq('activo', true),
+    // campos_fiscales_pais no tiene columna `activo` (los registros son
+    // catálogos por país, todos vigentes mientras existan). Filtrar por
+    // `activo=true` ahí rompía la query → llegaba vacío y no aparecían los
+    // campos de CUIT/DNI/Condición IVA/etc. en la UI.
+    admin.from('campos_fiscales_pais').select('*'),
     admin.from('empresas').select('pais, paises').eq('id', empresaId).maybeSingle(),
   ])
   const [tiposContactoRes, tiposRelacionRes, puestosRes, camposFiscalesRes, empresaRes] = queries
@@ -112,8 +100,8 @@ async function fetchContacto(id: string, empresaId: string, _userId: string, adm
       *,
       direcciones:contacto_direcciones(*),
       telefonos:contacto_telefonos(*),
-      vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(*, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp, codigo, tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, color))),
-      vinculaciones_inversas:contacto_vinculaciones!contacto_vinculaciones_vinculado_id_fkey(*, contacto_origen:contactos!contacto_vinculaciones_contacto_id_fkey(id, nombre, apellido, correo, telefono, whatsapp, codigo, tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, color)))
+      vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(*, tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa), vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono, whatsapp, codigo, tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, color))),
+      vinculaciones_inversas:contacto_vinculaciones!contacto_vinculaciones_vinculado_id_fkey(*, tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa), contacto:contactos!contacto_vinculaciones_contacto_id_fkey(id, nombre, apellido, correo, telefono, whatsapp, codigo, tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, color)))
     `)
     .eq('id', id)
     .eq('empresa_id', empresaId)

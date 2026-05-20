@@ -26,12 +26,15 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { normalizarTelefono, formatearTelefonoInternacional } from '@/lib/validaciones'
 import type { TelefonoNormalizado, TipoTelefono } from '@/lib/contacto-telefonos'
 
-const TIPOS_OPCIONES: Array<{ valor: TipoTelefono; etiqueta: string }> = [
-  { valor: 'movil', etiqueta: 'Móvil' },
-  { valor: 'fijo', etiqueta: 'Fijo' },
-  { valor: 'trabajo', etiqueta: 'Trabajo' },
-  { valor: 'casa', etiqueta: 'Casa' },
-  { valor: 'otro', etiqueta: 'Otro' },
+/** Opciones del selector de tipo — incluyen `icono` para que el Select lo
+ *  muestre a la izquierda del label en el botón cerrado y en la lista.
+ *  Móvil usa el logo de WhatsApp (regla del producto: móvil = WhatsApp). */
+const TIPOS_OPCIONES: Array<{ valor: TipoTelefono; etiqueta: string; icono: React.ReactNode }> = [
+  { valor: 'movil', etiqueta: 'Móvil', icono: <IconoWhatsApp size={13} /> },
+  { valor: 'fijo', etiqueta: 'Fijo', icono: <Phone size={13} /> },
+  { valor: 'trabajo', etiqueta: 'Trabajo', icono: <Briefcase size={13} /> },
+  { valor: 'casa', etiqueta: 'Casa', icono: <HomeIcon size={13} /> },
+  { valor: 'otro', etiqueta: 'Otro', icono: <Phone size={13} /> },
 ]
 
 /** Garantiza que el tipo recibido sea uno válido; cae a 'movil' si no. */
@@ -65,6 +68,11 @@ interface Props {
   /** Si el contacto está vinculado a un miembro, pasamos su nombre para mostrar
    *  un link "Editar en Usuarios → [Nombre]" arriba de las filas sincronizadas. */
   miembroVinculado?: { nombre: string } | null
+  /** Si true, no renderiza el header propio "Teléfonos" + botón "+" arriba —
+   *  pensado para cuando el componente vive dentro de un CampoEditorial que
+   *  ya provee la cabecera. El botón de agregar se muestra como link
+   *  discreto al final de la lista. */
+  sinCabecera?: boolean
 }
 
 /** Ícono que representa el tipo. Móvil siempre se muestra como WhatsApp. */
@@ -97,7 +105,7 @@ function guardarUltimoTipo(tipo: string) {
   }
 }
 
-export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroVinculado }: Props) {
+export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroVinculado, sinCabecera }: Props) {
   const reactId = useId()
   const [items, setItems] = useState<TelefonoUI[]>(() =>
     telefonos.map((t, i) => ({
@@ -229,19 +237,22 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroV
 
   return (
     <div className="space-y-2">
-      {/* Header: título + botón agregar */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-texto-primario">Teléfonos</h3>
-        <Boton
-          variante="fantasma"
-          tamano="xs"
-          soloIcono
-          titulo="Agregar teléfono"
-          icono={<Plus size={14} />}
-          onClick={agregar}
-          redondeado
-        />
-      </div>
+      {/* Header: título + botón agregar — solo cuando el componente no vive
+          dentro de un CampoEditorial (que ya provee la cabecera). */}
+      {!sinCabecera && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-texto-primario">Teléfonos</h3>
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            titulo="Agregar teléfono"
+            icono={<Plus size={14} />}
+            onClick={agregar}
+            redondeado
+          />
+        </div>
+      )}
 
       {/* Estado vacío */}
       {mostrarVacio && (
@@ -272,11 +283,16 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroV
             className="overflow-hidden"
           >
             <div className="flex items-center gap-2 group">
-              {/* Ícono del tipo (decorativo, refleja el tipo seleccionado abajo).
-                  Para filas sync, mostramos un candado al lado para indicar read-only. */}
-              <div className={`shrink-0 inline-flex items-center justify-center w-7 h-7 ${colorIconoTipo(t.tipo)} ${esSincronizado ? 'opacity-70' : ''}`}>
-                {iconoParaTipo(t.tipo)}
-              </div>
+              {/* Ícono del tipo (decorativo) — solo cuando el componente
+                  tiene cabecera propia. En modo `sinCabecera` (envuelto en
+                  CampoEditorial) el ícono general de teléfono ya está en
+                  el label de arriba, y el tipo se ve a la derecha del
+                  input, así que repetirlo acá es ruido. */}
+              {!sinCabecera && (
+                <div className={`shrink-0 inline-flex items-center justify-center w-7 h-7 ${colorIconoTipo(t.tipo)} ${esSincronizado ? 'opacity-70' : ''}`}>
+                  {iconoParaTipo(t.tipo)}
+                </div>
+              )}
 
               {/* Input del número.
                   - Enfocado: muestra el valor raw (5491156029403) para editar.
@@ -354,6 +370,18 @@ export function TelefonosContacto({ telefonos, onChange, permitirVacio, miembroV
           )
         })}
       </AnimatePresence>
+
+      {/* Link inline "+ Agregar teléfono" cuando el componente vive sin
+          cabecera y ya tiene al menos un item — reemplaza al botón "+"
+          flotante para mantener la estética editorial unificada. */}
+      {sinCabecera && tieneItems && (
+        <button
+          onClick={agregar}
+          className="text-xs text-texto-terciario hover:text-texto-primario transition-colors mt-1 px-1"
+        >
+          + Agregar teléfono
+        </button>
+      )}
     </div>
   )
 }

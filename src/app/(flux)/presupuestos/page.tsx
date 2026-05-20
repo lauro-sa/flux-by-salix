@@ -9,7 +9,7 @@ import { enriquecerListadoPresupuestos } from '@/lib/presupuestos/enriquecer-lis
 
 /**
  * Página de presupuestos — /presupuestos (Server Component).
- * Ver nota de carga en /contactos/page.tsx — la BarraProgresoGlobal da el
+ * Ver nota de carga en /contactos/page.tsx — la CargaBarra da el
  * feedback visual durante la navegación, la página anterior persiste.
  */
 

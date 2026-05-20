@@ -31,6 +31,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import type { Miembro, Perfil, CompensacionTipo, CompensacionFrecuencia } from '@/tipos'
 import { SeccionDatosBancarios } from '@/app/(flux)/nominas/_componentes/SeccionDatosBancarios'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import {
   ETIQUETA_FRECUENCIA,
   navegarPeriodo, obtenerPeriodo,
@@ -154,6 +155,8 @@ export function TabPagos({
   const [archivoComprobante, setArchivoComprobante] = useState<File | null>(null)
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
   const inputComprobanteRef = useRef<HTMLInputElement>(null)
+
+  useReportarCarga(subiendoComprobante, 'usuario-subir-comprobante')
 
   /* Cerrar compensación al hacer click afuera */
   useEffect(() => {

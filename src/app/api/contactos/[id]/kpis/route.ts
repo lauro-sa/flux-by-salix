@@ -66,12 +66,25 @@ export async function GET(
         .eq('contacto_id', id)
         .eq('en_papelera', false),
 
-      // Actividades
-      admin.from('actividades')
-        .select('id', { count: 'exact', head: true })
+      // Actividades — los vínculos viven en actividades_relaciones desde el
+      // refactor que dropeó actividades.contacto_id. Resolvemos los IDs y
+      // contamos las activas (no en papelera).
+      admin.from('actividades_relaciones')
+        .select('actividad_id')
         .eq('empresa_id', empresaId)
-        .eq('contacto_id', id)
-        .eq('en_papelera', false),
+        .eq('entidad_tipo', 'contacto')
+        .eq('entidad_id', id)
+        .then(async ({ data: rels }) => {
+          const ids = [...new Set((rels || []).map(r => r.actividad_id as string))]
+          if (ids.length === 0) return { count: 0 }
+          const { count } = await admin
+            .from('actividades')
+            .select('id', { count: 'exact', head: true })
+            .eq('empresa_id', empresaId)
+            .eq('en_papelera', false)
+            .in('id', ids)
+          return { count: count || 0 }
+        }),
 
       // Órdenes de trabajo
       admin.from('ordenes_trabajo')

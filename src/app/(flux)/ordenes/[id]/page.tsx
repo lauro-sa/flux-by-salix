@@ -1,31 +1,32 @@
-'use client'
-
-import { use, useState } from 'react'
-import { useNavegacion } from '@/hooks/useNavegacion'
-import { useTituloPestana } from '@/hooks/useTituloPestana'
-import { GuardPagina } from '@/componentes/entidad/GuardPagina'
-import VistaOrdenTrabajo from '../_componentes/VistaOrdenTrabajo'
+import { redirect } from 'next/navigation'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
+import PaginaOrdenDetalleCliente from './_pagina-cliente'
 
 /**
- * Página de detalle de una orden de trabajo.
- * Wrapper que extrae el ID, monta la vista, alimenta la migaja dinámica
- * con el número de OT y setea el título de la pestaña del navegador.
+ * Página de detalle de una orden de trabajo — /ordenes/[id]
+ *
+ * Server Component: hace un fetch rápido del `numero` de la OT para que el
+ * cargador del cliente arranque mostrando ya el nombre real del documento
+ * debajo del ícono dibujándose.
  */
-export default function PaginaOrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const nav = useNavegacion()
-  const [numeroOT, setNumeroOT] = useState<string | null>(null)
-  useTituloPestana(numeroOT)
+export default async function PaginaOrdenDetalle({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
-  return (
-    <GuardPagina modulo="ordenes_trabajo">
-      <VistaOrdenTrabajo
-        ordenId={id}
-        onTituloCargado={(numero) => {
-          nav.setMigajaDinamica(`/ordenes/${id}`, numero)
-          setNumeroOT(numero)
-        }}
-      />
-    </GuardPagina>
-  )
+  const supabase = await crearClienteServidor()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const empresaId = user.app_metadata?.empresa_activa_id as string | undefined
+  if (!empresaId) redirect('/login')
+
+  const admin = crearClienteAdmin()
+  const { data } = await admin
+    .from('ordenes_trabajo')
+    .select('numero')
+    .eq('id', id)
+    .eq('empresa_id', empresaId)
+    .maybeSingle()
+  const numeroInicial = (data?.numero as string | undefined) ?? null
+
+  return <PaginaOrdenDetalleCliente id={id} numeroInicial={numeroInicial} />
 }

@@ -47,6 +47,8 @@ interface PropiedadesModalAdaptable {
   accionesEncabezado?: ReactNode
   /** Modo pantalla completa */
   expandido?: boolean
+  /** Desbloquea max-h grande (90dvh) sin necesidad de subir el ancho a 3xl+. */
+  altoExtendido?: boolean
 }
 
 function ModalAdaptable({
@@ -65,6 +67,7 @@ function ModalAdaptable({
   forzarModal = false,
   accionesEncabezado,
   expandido,
+  altoExtendido,
 }: PropiedadesModalAdaptable) {
   const esMovil = useEsMovil()
 
@@ -101,6 +104,7 @@ function ModalAdaptable({
       sinPadding={sinPadding}
       accionesEncabezado={accionesEncabezado}
       expandido={expandido}
+      altoExtendido={altoExtendido}
     >
       {children}
     </Modal>

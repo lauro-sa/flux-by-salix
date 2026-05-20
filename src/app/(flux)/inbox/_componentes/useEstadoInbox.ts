@@ -27,6 +27,40 @@ export type ModoVista = 'columna' | 'fila'
 export type VistaMovilCorreo = 'sidebar' | 'lista' | 'correo'
 export type VistaMovilInterno = 'canales' | 'chat'
 
+/**
+ * Cache module-level para evitar recargas en frío al volver al inbox desde
+ * otra ruta. Vive fuera del hook para sobrevivir desmontajes: al regresar a
+ * /inbox la última vista queda al instante mientras revalida en background.
+ * Mismo patrón que WhatsApp (useEstadoWhatsApp). Se limpia con refresh del
+ * navegador.
+ *
+ * - `cacheConversacionesInbox`: lista de conversaciones por clave estructural
+ *   (tab + canal + carpeta para correo, tab + filtroEstado para interno).
+ *   No incluye búsqueda ni "solo no leídos" para no fragmentar; el cache se
+ *   muestra mientras el backend revalida con los filtros actuales.
+ * - `cacheCanalesCorreo`: catálogo de canales de correo configurados.
+ * - `cacheCanalesInternos`: catálogo de canales internos (públicos, privados, grupos).
+ */
+const cacheConversacionesInbox = new Map<string, ConversacionConDetalles[]>()
+const cacheCanalesCorreo: { datos: CanalMensajeria[] | null } = { datos: null }
+const cacheCanalesInternos: {
+  datos: { canales: CanalInterno[]; grupos: CanalInterno[]; privados: CanalInterno[] } | null
+} = { datos: null }
+
+function claveCacheInbox(
+  tabActivo: TipoCanal,
+  canalCorreoActivo: string,
+  canalTodas: boolean,
+  carpetaCorreo: CarpetaCorreo,
+  filtroEstado: EstadoConversacion | 'todas',
+): string {
+  if (tabActivo === 'correo') {
+    const canalKey = canalTodas ? 'todas' : (canalCorreoActivo || 'sin-canal')
+    return `correo|${canalKey}|${carpetaCorreo}`
+  }
+  return `${tabActivo}|${filtroEstado}`
+}
+
 export function useEstadoInbox() {
   const { t } = useTraduccion()
   const router = useRouter()
@@ -35,16 +69,32 @@ export function useEstadoInbox() {
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
   // ─── Estado global del inbox ───
+  // Las dimensiones que conforman la clave de cache (tab, canal, carpeta) se
+  // persisten en localStorage para que el cache module-level se pueda
+  // consultar en el mismo render inicial — sin esto, en el primer render
+  // tendríamos defaults (`canalCorreoActivo=''`, `carpetaCorreo='entrada'`)
+  // que rara vez matchean la última vista del usuario, y el cache "exista
+  // pero no se use" hasta que terminen los fetches asincrónicos.
   const abriendoDesdeUrlRef = useRef(false)
   const tabCambiadoManualRef = useRef(false)
-  const [tabActivo, setTabActivo] = useState<TipoCanal>('correo')
+  // Marca si el tab vino de localStorage (decisión previa del usuario): el
+  // effect de config NO debe pisarlo aunque ambos módulos estén activos.
+  const tabPersistidoRef = useRef(false)
+  const [tabActivo, setTabActivo] = useState<TipoCanal>(() => {
+    if (typeof window === 'undefined') return 'correo'
+    const persistido = localStorage.getItem('flux_inbox_tab') as TipoCanal | null
+    if (persistido === 'correo' || persistido === 'interno') {
+      tabPersistidoRef.current = true
+      return persistido
+    }
+    return 'correo'
+  })
   const [configCargada, setConfigCargada] = useState(false)
   const [modulosActivos, setModulosActivos] = useState<Set<string>>(
     new Set(['inbox_correo', 'inbox_interno'])
   )
 
   // Conversaciones
-  const [conversaciones, setConversaciones] = useState<ConversacionConDetalles[]>([])
   const [conversacionSeleccionada, setConversacionSeleccionada] = useState<ConversacionConDetalles | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoConversacion | 'todas'>('todas')
@@ -57,29 +107,67 @@ export function useEstadoInbox() {
   const [enviando, setEnviando] = useState(false)
   const paginaMensajesRef = useRef(1)
 
-  // Reportar carga global para que la BarraProgresoGlobal se quede activa
+  // Reportar carga global para que la CargaBarra se quede activa
   // mientras inbox está fetcheando conversaciones o mensajes (no usa React
   // Query, sino fetch directo + polling).
   useReportarCarga(cargandoConversaciones || cargandoMensajes, 'inbox')
 
-  // Canales internos
-  const [canalesPublicos, setCanalesPublicos] = useState<CanalInterno[]>([])
-  const [canalesPrivados, setCanalesPrivados] = useState<CanalInterno[]>([])
-  const [canalesGrupos, setCanalesGrupos] = useState<CanalInterno[]>([])
+  // Canales internos: estado inicial hidratado desde el cache module-level
+  // para evitar columnas vacías al volver a /inbox desde otra ruta.
+  const [canalesPublicos, setCanalesPublicos] = useState<CanalInterno[]>(
+    () => cacheCanalesInternos.datos?.canales ?? [],
+  )
+  const [canalesPrivados, setCanalesPrivados] = useState<CanalInterno[]>(
+    () => cacheCanalesInternos.datos?.privados ?? [],
+  )
+  const [canalesGrupos, setCanalesGrupos] = useState<CanalInterno[]>(
+    () => cacheCanalesInternos.datos?.grupos ?? [],
+  )
   const [canalInternoSeleccionado, setCanalInternoSeleccionado] = useState<CanalInterno | null>(null)
   const [modalCrearInterno, setModalCrearInterno] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string>('')
 
-  // Correo
+  // Correo: tanto la lista de canales como las dimensiones de filtrado se
+  // hidratan sincrónicamente (cache module-level + localStorage). Eso permite
+  // que la clave de cache de conversaciones se conozca al instante y la lista
+  // aparezca con la vista anterior en el primer render — mismo flujo que WA.
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
   // Destinatarios precargados cuando se abre el compositor desde una acción
   // rápida (ej. `/inbox?nuevo=1&para=juan@ejemplo.com&tab=correo`). Se pasa
   // a CompositorCorreo como `paraInicial` y luego se limpia.
   const [paraRedactarNuevo, setParaRedactarNuevo] = useState<string[]>([])
-  const [canalesCorreo, setCanalesCorreo] = useState<CanalMensajeria[]>([])
-  const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>('')
-  const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
-  const [canalTodas, setCanalTodas] = useState(false)
+  const [canalesCorreo, setCanalesCorreo] = useState<CanalMensajeria[]>(
+    () => cacheCanalesCorreo.datos ?? [],
+  )
+  const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('flux_inbox_canal_correo') || ''
+  })
+  const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>(() => {
+    if (typeof window === 'undefined') return 'entrada'
+    const guardada = localStorage.getItem('flux_inbox_carpeta') as CarpetaCorreo | null
+    if (guardada === 'entrada' || guardada === 'enviados' || guardada === 'spam' || guardada === 'archivado') {
+      return guardada
+    }
+    return 'entrada'
+  })
+  const [canalTodas, setCanalTodas] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('flux_inbox_canal_todas') === 'true'
+  })
+
+  // Conversaciones: estado inicial hidratado desde el cache module-level
+  // según las dimensiones recién restauradas (tab + canal + carpeta).
+  // Sin esto, el primer render mostraría [] aunque haya cache disponible.
+  const [conversaciones, setConversaciones] = useState<ConversacionConDetalles[]>(() => {
+    if (typeof window === 'undefined') return []
+    const tabIni = (localStorage.getItem('flux_inbox_tab') as TipoCanal | null) || 'correo'
+    const canalIni = localStorage.getItem('flux_inbox_canal_correo') || ''
+    const carpetaIni = (localStorage.getItem('flux_inbox_carpeta') as CarpetaCorreo | null) || 'entrada'
+    const todasIni = localStorage.getItem('flux_inbox_canal_todas') === 'true'
+    const clave = claveCacheInbox(tabIni, canalIni, todasIni, carpetaIni, 'todas')
+    return cacheConversacionesInbox.get(clave) ?? []
+  })
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
   const [sincronizando, setSincronizando] = useState(false)
   const [ultimoSync, setUltimoSync] = useState<Date | null>(null)
@@ -134,6 +222,25 @@ export function useEstadoInbox() {
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
+  // Persistir dimensiones del cache en localStorage para que el próximo
+  // mount pueda hidratar el estado inicial sincrónicamente.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('flux_inbox_tab', tabActivo)
+  }, [tabActivo])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (canalCorreoActivo) localStorage.setItem('flux_inbox_canal_correo', canalCorreoActivo)
+  }, [canalCorreoActivo])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('flux_inbox_carpeta', carpetaCorreo)
+  }, [carpetaCorreo])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('flux_inbox_canal_todas', String(canalTodas))
+  }, [canalTodas])
+
   // ─── Cargar config de empresa ───
   useEffect(() => {
     const cargarConfig = async () => {
@@ -150,7 +257,15 @@ export function useEstadoInbox() {
           if (activos.size > 0) {
             setModulosActivos(activos)
             const urlParams = new URLSearchParams(window.location.search)
-            if (!urlParams.has('conv') && !urlParams.has('tab') && !tabCambiadoManualRef.current) {
+            // Solo aplicar el default desde módulos si NO hay tab persistido
+            // del usuario (primera vez) y no hay override por URL ni cambio
+            // manual reciente.
+            if (
+              !urlParams.has('conv')
+              && !urlParams.has('tab')
+              && !tabCambiadoManualRef.current
+              && !tabPersistidoRef.current
+            ) {
               if (activos.has('inbox_correo')) setTabActivo('correo')
               else if (activos.has('inbox_interno')) setTabActivo('interno')
             }
@@ -194,23 +309,64 @@ export function useEstadoInbox() {
     return params
   }, [tabActivo, filtroEstado, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas])
 
+  // Ref con la clave de cache actual: la usamos para descartar respuestas
+  // viejas si el usuario cambió de tab/canal/carpeta mientras un fetch estaba
+  // en vuelo (mismo patrón que useEstadoWhatsApp con audienciaRef).
+  const claveCacheActualRef = useRef<string>(
+    claveCacheInbox(tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado),
+  )
+  claveCacheActualRef.current = claveCacheInbox(
+    tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado,
+  )
+
   // ─── Cargar conversaciones ───
   const cargarConversaciones = useCallback(async () => {
     if (!configCargada) return
     if (abriendoDesdeUrlRef.current) return
     if (tabActivo === 'correo' && !canalTodas && !canalCorreoActivo) return
-    setCargandoConversaciones(true)
+
+    const clavePeticion = claveCacheInbox(
+      tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado,
+    )
+    // Solo mostramos loader cuando NO hay datos cacheados para esta vista
+    // (primera carga). Si ya hay, revalidación silenciosa en background.
+    const tieneCache = (cacheConversacionesInbox.get(clavePeticion)?.length ?? 0) > 0
+    if (!tieneCache) setCargandoConversaciones(true)
     try {
       const params = construirParamsConversaciones()
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
       const data = await res.json()
-      setConversaciones(data.conversaciones || [])
+      const lista = (data.conversaciones || []) as ConversacionConDetalles[]
+      cacheConversacionesInbox.set(clavePeticion, lista)
+      // Solo aplicar el resultado si la vista activa sigue siendo la misma
+      // que cuando arrancó este fetch. Si el usuario alternó mientras tanto,
+      // el siguiente fetch ya estará en vuelo y va a aplicar lo correcto.
+      if (claveCacheActualRef.current === clavePeticion) {
+        setConversaciones(lista)
+      }
     } catch {
-      setConversaciones([])
+      if (!tieneCache && claveCacheActualRef.current === clavePeticion) {
+        setConversaciones([])
+      }
     } finally {
-      setCargandoConversaciones(false)
+      if (claveCacheActualRef.current === clavePeticion) {
+        setCargandoConversaciones(false)
+      }
     }
-  }, [construirParamsConversaciones, configCargada, tabActivo, canalCorreoActivo, canalTodas])
+  }, [construirParamsConversaciones, configCargada, tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado])
+
+  // Al montar o al cambiar de dimensión estructural, mostrar instantáneo lo
+  // que haya cacheado para esa vista (sin loader) para que la columna no
+  // quede "en blanco" mientras llega el fetch. El cache es module-level, así
+  // que sobrevive a desmontajes — al volver a /inbox desde otra ruta, la
+  // lista anterior se ve al instante mientras se revalida.
+  useEffect(() => {
+    const clave = claveCacheInbox(
+      tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado,
+    )
+    const cacheado = cacheConversacionesInbox.get(clave)
+    if (cacheado) setConversaciones(cacheado)
+  }, [tabActivo, canalCorreoActivo, canalTodas, carpetaCorreo, filtroEstado])
 
   useEffect(() => {
     cargarConversaciones()
@@ -364,22 +520,36 @@ export function useEstadoInbox() {
   }, [busqueda, cargarConversaciones, configCargada])
 
   // ─── Cargar canales de correo ───
+  // Hidratación instantánea desde cache module-level (sobrevive desmontajes)
+  // + revalidación silenciosa en background. Evita el "parpadeo" del sidebar
+  // de canales cuando se vuelve a /inbox desde otra ruta.
   useEffect(() => {
     if (tabActivo !== 'correo' || !configCargada) return
+
+    const aplicar = (canales: CanalMensajeria[]) => {
+      setCanalesCorreo(canales)
+      const idsCanales = new Set(canales.map(c => c.id))
+      if (canales.length > 0 && (!canalCorreoActivo || !idsCanales.has(canalCorreoActivo))) {
+        const principal = canales.find(c => c.es_principal)
+        setCanalCorreoActivo(principal?.id || canales[0].id)
+      }
+      if (canales.length <= 1) {
+        setCanalTodas(false)
+      }
+    }
+
+    // Hidratar al instante con lo último cacheado para evitar columna vacía.
+    if (cacheCanalesCorreo.datos) {
+      aplicar(cacheCanalesCorreo.datos)
+    }
+
     const cargar = async () => {
       try {
         const res = await fetch('/api/correo/canales')
         const data = await res.json()
         const canales = (data.canales || []) as CanalMensajeria[]
-        setCanalesCorreo(canales)
-        const idsCanales = new Set(canales.map(c => c.id))
-        if (canales.length > 0 && (!canalCorreoActivo || !idsCanales.has(canalCorreoActivo))) {
-          const principal = canales.find(c => c.es_principal)
-          setCanalCorreoActivo(principal?.id || canales[0].id)
-        }
-        if (canales.length <= 1) {
-          setCanalTodas(false)
-        }
+        cacheCanalesCorreo.datos = canales
+        aplicar(canales)
       } catch {
         // silenciar
       }
@@ -474,13 +644,19 @@ export function useEstadoInbox() {
   }, [supabase])
 
   // ─── Canales internos ───
+  // Revalidación con hidratación instantánea desde cache module-level
+  // (mismo patrón que canales de correo).
   const cargarCanalesInternos = useCallback(async () => {
     try {
       const res = await fetch('/api/inbox/internos')
       const data = await res.json()
-      setCanalesPublicos(data.canales || [])
-      setCanalesGrupos(data.grupos || [])
-      setCanalesPrivados(data.privados || [])
+      const canales = (data.canales || []) as CanalInterno[]
+      const grupos = (data.grupos || []) as CanalInterno[]
+      const privados = (data.privados || []) as CanalInterno[]
+      cacheCanalesInternos.datos = { canales, grupos, privados }
+      setCanalesPublicos(canales)
+      setCanalesGrupos(grupos)
+      setCanalesPrivados(privados)
       canalesInternosCargadosRef.current = true
     } catch {
       // silenciar
@@ -489,6 +665,14 @@ export function useEstadoInbox() {
 
   useEffect(() => {
     if (tabActivo !== 'interno' || !configCargada) return
+    // Hidratar al instante con lo último cacheado para que la columna de
+    // canales no quede vacía mientras llega el fetch.
+    if (cacheCanalesInternos.datos) {
+      setCanalesPublicos(cacheCanalesInternos.datos.canales)
+      setCanalesGrupos(cacheCanalesInternos.datos.grupos)
+      setCanalesPrivados(cacheCanalesInternos.datos.privados)
+      canalesInternosCargadosRef.current = true
+    }
     cargarCanalesInternos()
   }, [tabActivo, cargarCanalesInternos, configCargada])
 
@@ -925,6 +1109,54 @@ export function useEstadoInbox() {
     }
   }, [conversacionSeleccionada, mostrar])
 
+  /** Fija/desfija una conversación para el usuario actual.
+   *  Backend: POST/DELETE /api/inbox/conversaciones/:id/pins.
+   *  Optimistic UI: actualiza `_fijada` al instante y revierte si falla. */
+  const fijarConversacion = useCallback(async (conversacionId: string) => {
+    const conv = conversaciones.find(c => c.id === conversacionId)
+    if (!conv) return
+    const yaEstaFijada = !!conv._fijada
+    const metodo = yaEstaFijada ? 'DELETE' : 'POST'
+
+    setConversaciones(prev => prev.map(c =>
+      c.id === conversacionId ? { ...c, _fijada: !yaEstaFijada } : c
+    ))
+
+    try {
+      const res = await fetch(`/api/inbox/conversaciones/${conversacionId}/pins`, { method: metodo })
+      if (!res.ok) throw new Error()
+    } catch {
+      // Revertir si falla
+      setConversaciones(prev => prev.map(c =>
+        c.id === conversacionId ? { ...c, _fijada: yaEstaFijada } : c
+      ))
+      mostrar('error', yaEstaFijada ? 'Error al desfijar' : 'Error al fijar')
+    }
+  }, [conversaciones, mostrar])
+
+  /** Dispatcher para acciones del menú contextual (3 puntitos).
+   *  Centraliza las acciones del MenuConversacion para que la lista solo
+   *  tenga que pasar este handler y no cada uno por separado. */
+  const accionMenu = useCallback(async (accion: string, conversacionId: string) => {
+    switch (accion) {
+      case 'fijar':
+        return fijarConversacion(conversacionId)
+      case 'marcar_lectura': {
+        const conv = conversaciones.find(c => c.id === conversacionId)
+        if (!conv) return
+        return toggleLeido(conversacionId, conv.mensajes_sin_leer)
+      }
+      case 'papelera':
+        return eliminarConversacion(conversacionId)
+      default:
+        // Acciones no soportadas en Inbox (silenciar, pipeline, bloquear,
+        // fijar_para_usuario) — son específicas de WhatsApp y nunca deberían
+        // dispararse desde acá porque el menú las oculta cuando tipoCanal
+        // !== 'whatsapp'. Silenciamos sin error.
+        return
+    }
+  }, [conversaciones, fijarConversacion, toggleLeido, eliminarConversacion])
+
   const archivarConversacion = useCallback(async (conversacionId: string) => {
     try {
       await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
@@ -1080,6 +1312,8 @@ export function useEstadoInbox() {
     eliminarMultiples,
     eliminarConversacion,
     archivarConversacion,
+    fijarConversacion,
+    accionMenu,
 
     // Vistas móviles
     vistaMovilCorreo,

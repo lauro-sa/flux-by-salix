@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { FallbackListado } from './FallbackListado'
+import { CargaIcono } from '@/componentes/carga'
 import { EstadoVacio } from './EstadoVacio'
 import { AlertTriangle } from 'lucide-react'
 
@@ -14,7 +14,7 @@ interface Props {
   vacio?: boolean
   /** Contenido cuando hay datos */
   children: ReactNode
-  /** Componente de carga personalizado (default: FallbackListado con barra de progreso) */
+  /** Componente de carga personalizado (default: CargaIcono con barra de progreso) */
   skeleton?: ReactNode
   /** Props para el estado vacío */
   vacioTitulo?: string
@@ -40,7 +40,7 @@ export function ContenedorConEstado({
   vacioAccion,
 }: Props) {
   if (cargando) {
-    return <>{skeleton || <FallbackListado />}</>
+    return <>{skeleton || <CargaIcono />}</>
   }
 
   if (error) {

@@ -36,6 +36,7 @@ import { Lightbox } from '@/componentes/ui/Lightbox'
 import { Popover } from '@/componentes/ui/Popover'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import { formatearFechaISO } from '@/lib/formato-fecha'
 import {
   ETIQUETAS_METODO_PAGO,
@@ -183,6 +184,9 @@ export function ModalRegistrarPago({
 
   const [guardando, setGuardando] = useState(false)
   const [subiendoExtra, setSubiendoExtra] = useState(false)
+
+  // Subida de comprobantes adicionales puede tardar varios segundos.
+  useReportarCarga(subiendoExtra, 'pago-presupuesto-subir-extra')
 
   const [resumenes, setResumenes] = useState<ResumenCuota[]>([])
   const [totalCobradoPresupuesto, setTotalCobradoPresupuesto] = useState(0)

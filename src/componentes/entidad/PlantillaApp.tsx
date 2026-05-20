@@ -7,7 +7,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
-import { BarraProgresoGlobal } from '@/componentes/feedback/BarraProgresoGlobal'
+import { CargaBarra } from '@/componentes/carga'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import IconoSalix from '@/componentes/marca/IconoSalix'
 import { Sparkles, AlarmClock, Zap } from 'lucide-react'
@@ -250,7 +250,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   if (esPantallaCompleta) {
     return (
       <div className="layout-app layout-app--fijo flex flex-col" suppressHydrationWarning>
-        <BarraProgresoGlobal />
+        <CargaBarra />
         <main className="flex-1 flex flex-col w-full bg-superficie-app min-h-0 relative" suppressHydrationWarning>
           {children}
         </main>
@@ -310,7 +310,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         {/* Barra de progreso global — pegada al borde inferior del Header
             (sobre el contenido del módulo). Respeta el ancho del contenedor
             principal (excluye el sidebar). */}
-        <BarraProgresoGlobal />
+        <CargaBarra />
 
         <ToastNotificacion />
 

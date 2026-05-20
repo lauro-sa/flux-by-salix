@@ -617,8 +617,8 @@ export const PanelChatter = forwardRef<RefPanelChatter, PropsPanelChatter>(funct
                 )}
               </AnimatePresence>
 
-              {/* ─── Filtros ─── */}
-              <div className="flex gap-0.5 px-3 py-1.5 border-b border-borde-sutil overflow-x-auto scrollbar-none">
+              {/* ─── Filtros (tabs subrayadas — jerarquía menor que la barra de acciones) ─── */}
+              <div className="flex gap-4 px-3 border-b border-borde-sutil overflow-x-auto scrollbar-none">
                 {filtrosDisponibles.map(f => {
                   const esActivo = filtro === f.clave
                   const count = contadores[f.clave]
@@ -626,19 +626,22 @@ export const PanelChatter = forwardRef<RefPanelChatter, PropsPanelChatter>(funct
                     <button
                       key={f.clave}
                       onClick={() => setFiltro(f.clave)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-boton text-xs font-medium transition-colors shrink-0 ${
+                      className={`relative flex items-center gap-1.5 py-2 text-xs font-medium transition-colors shrink-0 ${
                         esActivo
-                          ? 'bg-texto-marca/10 text-texto-marca'
-                          : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'
+                          ? 'text-texto-marca'
+                          : 'text-texto-terciario hover:text-texto-secundario'
                       }`}
                     >
                       {f.etiqueta}
                       {count > 0 && (
-                        <span className={`text-xxs px-1 py-px rounded-full ${
-                          esActivo ? 'bg-texto-marca/20 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
+                        <span className={`text-xxs ${
+                          esActivo ? 'text-texto-marca/70' : 'text-texto-terciario/70'
                         }`}>
                           {count}
                         </span>
+                      )}
+                      {esActivo && (
+                        <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-texto-marca rounded-full" />
                       )}
                     </button>
                   )

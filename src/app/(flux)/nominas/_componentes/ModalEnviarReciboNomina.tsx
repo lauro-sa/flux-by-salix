@@ -38,6 +38,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -335,6 +336,10 @@ export function ModalEnviarReciboNomina({
   // Estado del envío
   const [estadoEnvio, setEstadoEnvio] = useState<EstadoEnvio>('idle')
   const [resultadoLote, setResultadoLote] = useState<ResultadoEnvioLote | null>(null)
+
+  // Envío en lote por WhatsApp puede durar varios segundos por cada destinatario:
+  // mantiene activa la BarraProgresoGlobal del header durante todo el lote.
+  useReportarCarga(estadoEnvio === 'enviando', 'nominas-envio-lote')
 
   // Para modo individual correo: abrir ModalEnviarDocumento
   const [modalIndividualAbierto, setModalIndividualAbierto] = useState(false)

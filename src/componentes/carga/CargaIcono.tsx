@@ -2,10 +2,15 @@
 
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { EstadoVacio } from './EstadoVacio'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 
 /**
- * FallbackListado — Placeholder unificado para páginas en carga.
+ * CargaIcono — Placeholder unificado para páginas/módulos en carga.
+ *
+ * Es uno de los TRES patrones canónicos de carga de Flux:
+ *   • CargaBarra  — barra fina (modales/listas/secciones)
+ *   • CargaIcono  — ícono dibujándose + barra (este componente, módulos enteros)
+ *   • CargaMarca  — logo Salix + byline + barra (splash app, login)
  *
  * Patrón unificado: muestra una barra de progreso indeterminada angosta en
  * el borde superior + el ícono de la sección dibujándose en el centro.
@@ -32,9 +37,14 @@ interface Props {
   titulo?: string
   /** Descripción secundaria. Requiere `titulo`. */
   descripcion?: string
+  /** Nombre del documento que se está cargando (ej. "P-0042", número de OT,
+   *  nombre del contacto). Si se provee, aparece debajo del ícono en estilo
+   *  sutil — pensado para el fallback de Suspense de páginas de detalle.
+   *  No combinar con `titulo` (gana `titulo`). */
+  nombre?: string
 }
 
-export function FallbackListado({ icono, titulo, descripcion }: Props = {}) {
+export function CargaIcono({ icono, titulo, descripcion, nombre }: Props = {}) {
   const tieneEstadoVacio = !!titulo
 
   return (
@@ -55,18 +65,31 @@ export function FallbackListado({ icono, titulo, descripcion }: Props = {}) {
           <EstadoVacio icono={icono} titulo={titulo} descripcion={descripcion} />
         </div>
       ) : icono ? (
-        // Módulo sin estado vacío definido (dashboard, calendario, etc.):
-        // solo el ícono dibujándose, sin texto. Misma animación que el icono
-        // de EstadoVacio para mantener coherencia visual.
+        // Módulo sin estado vacío definido o detalle con nombre conocido:
+        // ícono dibujándose en el centro, con el nombre del documento (si
+        // se provee) en estilo sutil debajo. Misma animación que EstadoVacio
+        // para coherencia visual.
         <div className="flex-1 flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="text-texto-terciario [&>svg]:w-16 [&>svg]:h-16 icono-dibujar"
-          >
-            {icono}
-          </motion.div>
+          <div className="flex flex-col items-center gap-5">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className="text-texto-terciario [&>svg]:w-16 [&>svg]:h-16 icono-dibujar"
+            >
+              {icono}
+            </motion.div>
+            {nombre && (
+              <motion.span
+                className="text-lg font-medium text-texto-secundario"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {nombre}
+              </motion.span>
+            )}
+          </div>
         </div>
       ) : (
         // Sin ícono ni texto: solo la barra de progreso arriba (uso muy raro).

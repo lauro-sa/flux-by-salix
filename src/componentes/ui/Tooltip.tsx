@@ -123,7 +123,11 @@ function Tooltip({
 
   useEffect(() => () => clearTimeout(refTimer.current), [])
 
-  if (!contenido) return <>{children}</>
+  // Sin contenido: mantenemos el <span> wrapper igual para que el árbol DOM
+  // sea idéntico al caso con contenido — si un padre alterna `contenido` entre
+  // vacío y no vacío post-mount (ej. datos que llegan después de hidratar)
+  // sin esto se produce hydration mismatch.
+  if (!contenido) return <span className="inline-flex">{children}</span>
 
   const animacionInicial = posicionFinal === 'arriba' ? { opacity: 0, y: 4 }
     : posicionFinal === 'abajo' ? { opacity: 0, y: -4 }

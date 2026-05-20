@@ -13,6 +13,7 @@ import {
 import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from '@/componentes/mensajeria/SelectorRespuestasRapidas'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import type { Editor } from '@tiptap/react'
 
 /**
@@ -280,6 +281,10 @@ export function CompositorCorreo({
   const [adjuntosSubidos, setAdjuntosSubidos] = useState<AdjuntoSubido[]>([])
   const [adjuntosIds, setAdjuntosIds] = useState<string[]>(adjuntosIdsInicial)
   const [subiendoAdjuntos, setSubiendoAdjuntos] = useState(false)
+
+  // Subir adjuntos a Supabase Storage suele tardar más que el resto de las
+  // operaciones del compositor — refleja la actividad en la BarraProgresoGlobal.
+  useReportarCarga(subiendoAdjuntos, 'compositor-correo-adjuntos')
 
   // Programar envío
   const [mostrarProgramar, setMostrarProgramar] = useState(false)

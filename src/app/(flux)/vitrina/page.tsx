@@ -28,7 +28,8 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { ModalEnviarDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { useColoresEmpresa } from '@/hooks/useColoresEmpresa'
-import { LogoSalix, SplashSalix, IconoSalix } from '@/componentes/marca'
+import { LogoSalix, IconoSalix } from '@/componentes/marca'
+import { CargaMarca } from '@/componentes/carga'
 import type { VarianteIcono } from '@/componentes/marca'
 import { useToast } from '@/componentes/feedback/Toast'
 import { DELAY_TRANSICION, DELAY_ACCION } from '@/lib/constantes/timeouts'
@@ -1096,12 +1097,12 @@ function SeccionMarca({ id }: { id?: string }) {
         </div>
         {mostrarSplash && (
           <>
-            <SplashSalix producto="flux" />
+            <CargaMarca producto="flux" />
             <AutoCerrarSplash onCerrar={() => setMostrarSplash(false)} />
           </>
         )}
         <Separador etiqueta="Splash inline" />
-        <SplashSalix producto="flux" inline tamano={36} />
+        <CargaMarca producto="flux" inline tamano={36} />
       </div>
 
       {/* Sobre fondos */}

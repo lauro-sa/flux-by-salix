@@ -3,6 +3,50 @@
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
+
+/**
+ * TextoTipiado — Anima un string letra por letra (efecto máquina de escribir).
+ * Se exporta para reuso por el cabezal compacto sticky del editor: así el
+ * código, el nombre y las iniciales se "escriben" al cambiar de contacto vía
+ * las flechas de la BarraKPIs, dando feedback de que algo cambió sin
+ * recargar la página.
+ *
+ * Quien quiera dispararlo debe envolver con un `<span key={texto}>` o similar
+ * para forzar el remount cuando cambia el contenido.
+ */
+export function TextoTipiado({
+  texto,
+  className,
+  style,
+  retardoBase = 0,
+  duracionChar = 0.045,
+}: {
+  texto: string
+  className?: string
+  style?: React.CSSProperties
+  retardoBase?: number
+  duracionChar?: number
+}) {
+  return (
+    <span className={className} style={style}>
+      {texto.split('').map((char, i) => (
+        <motion.span
+          key={i}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: 0.18,
+            delay: retardoBase + i * duracionChar,
+            ease: 'easeOut',
+          }}
+          style={{ display: 'inline-block', whiteSpace: 'pre' }}
+        >
+          {char}
+        </motion.span>
+      ))}
+    </span>
+  )
+}
 import {
   Building2, Building, User, Truck, UserPlus, BadgeCheck, ChevronDown, MoreVertical,
 } from 'lucide-react'
@@ -18,8 +62,10 @@ const ICONOS_TIPO: Record<string, typeof User> = {
   proveedor: Truck, lead: UserPlus, equipo: BadgeCheck,
 }
 
-/** Colores sólidos para el degradado del banner */
-const COLORES_BANNER: Record<string, [string, string]> = {
+/** Colores sólidos para el degradado del banner. Exportado para que el mini-
+ *  header sticky del editor reuse la misma paleta (continuidad visual al
+ *  scrollear). */
+export const COLORES_BANNER: Record<string, [string, string]> = {
   persona:   ['#5b5bd6', '#7c7ce0'],  // índigo
   empresa:   ['#2563eb', '#4f8af7'],  // azul
   edificio:  ['#0e7490', '#0891b2'],  // cyan/verdecito
@@ -97,23 +143,29 @@ export function BannerContacto({
 
   return (
     <div className="relative mx-4 sm:mx-6 mt-4 mb-10">
-      {/* Degradado de fondo */}
+      {/* Degradado de fondo.
+          Key compuesta tipo+código: se re-anima tanto al cambiar el tipo de
+          contacto (cambio de paleta) como al navegar entre contactos con las
+          flechas de la BarraKPIs. El "dim leve" (0.55 → 1) marca la
+          transición sin tapar la animación de tipiado de los textos. */}
       <motion.div
-        key={claveTipo}
-        initial={{ opacity: 0 }}
+        key={`${claveTipo}-${codigo || 'sin'}`}
+        initial={{ opacity: 0.55 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         className="rounded-card overflow-hidden"
         style={{
           height: 110,
           background: `linear-gradient(135deg, ${colores[0]} 0%, ${colores[1]} 100%)`,
         }}
       >
-        {/* Código arriba derecha — siempre visible */}
+        {/* Código arriba derecha — tipiado al cambiar de contacto. */}
         <div className="absolute top-3 right-4">
-          <span className={`text-xl font-mono font-bold tracking-wider ${codigo ? 'text-white/60' : 'text-white/25'}`}>
-            {codigo || 'C-····'}
-          </span>
+          <TextoTipiado
+            key={codigo || 'sin'}
+            texto={codigo || 'C-····'}
+            className={`text-xl font-mono font-bold tracking-wider ${codigo ? 'text-white/60' : 'text-white/25'}`}
+          />
         </div>
 
         {/* Selector de tipo + menú — abajo derecha */}
@@ -170,7 +222,16 @@ export function BannerContacto({
           {avatarUrl ? (
             <Image src={avatarUrl} alt={nombre} width={72} height={72} className="w-full h-full object-cover" unoptimized={avatarUrl.startsWith('data:')} />
           ) : contenidoAvatar ? (
-            contenidoAvatar
+            // Iniciales tipiadas: cuando cambia el contacto (con flechas de
+            // BarraKPIs) las dos letras "se escriben". Pequeño retardo extra
+            // (0.08 s) para que entren un poco después del código y se sienta
+            // una secuencia coherente.
+            <TextoTipiado
+              key={contenidoAvatar}
+              texto={contenidoAvatar}
+              retardoBase={0.1}
+              duracionChar={0.08}
+            />
           ) : (
             <IconoAvatar size={30} />
           )}
@@ -250,7 +311,7 @@ function SelectorTipo({
 
 // ─── Helper ───
 
-function obtenerIniciales(nombre: string): string {
+export function obtenerIniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean)
   if (partes.length === 0) return '?'
   if (partes.length >= 2) return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()

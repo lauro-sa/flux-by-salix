@@ -89,7 +89,7 @@ export function useListado<T>({
     // editor que no llama a router.refresh()). El refetch silencioso garantiza
     // que la tabla siempre muestre el estado actual del servidor sin depender
     // de que cada mutación invalide manualmente. keepPreviousData mantiene la
-    // tabla visible mientras llega el fetch → sin parpadeo. La BarraProgresoGlobal
+    // tabla visible mientras llega el fetch → sin parpadeo. La CargaBarra
     // en PlantillaApp se activa con este fetch (vía useIsFetching) y da el
     // único feedback visual de carga.
     refetchOnMount: 'always',

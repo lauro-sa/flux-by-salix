@@ -25,6 +25,7 @@ import {
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { SelectorPlantillaCorreo, type PlantillaCorreoCompleta } from '@/componentes/entidad/SelectorPlantillaCorreo'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 
 import {
   InputEmailChips,
@@ -85,6 +86,11 @@ export function ModalEnviarDocumento({
   onReintentarSincronizacion,
 }: PropiedadesModalEnviarDocumento) {
   const [expandido, setExpandido] = useState(false)
+
+  // Mientras se está enviando el documento (correo o WhatsApp), marca la
+  // BarraProgresoGlobal del header — el envío puede tardar varios segundos
+  // por adjuntos pesados o latencia de Meta.
+  useReportarCarga(enviando, 'modal-enviar-documento')
 
   // El estado 'ok' se auto-desvanece a los 4 s; 'sincronizando', 'desactualizado'
   // y 'error' se mantienen visibles hasta que cambien (los dos últimos llevan

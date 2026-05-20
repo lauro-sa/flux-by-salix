@@ -70,7 +70,7 @@ export function useEstadoWhatsApp() {
   const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
   const paginaMensajesRef = useRef(1)
 
-  // Reportar carga global para que la BarraProgresoGlobal se quede activa
+  // Reportar carga global para que la CargaBarra se quede activa
   // mientras WhatsApp está fetcheando conversaciones o mensajes (no usa
   // React Query, sino fetch directo + polling).
   useReportarCarga(cargandoConversaciones || cargandoMensajes, 'whatsapp')

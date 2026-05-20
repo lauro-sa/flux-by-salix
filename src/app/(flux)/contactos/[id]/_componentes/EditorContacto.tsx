@@ -8,9 +8,9 @@ import { GuardPagina } from '@/componentes/entidad/GuardPagina'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 import {
-  Mail, Globe, ChevronLeft,
+  Mail, Globe, ChevronLeft, Phone, Tag, Languages,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
-  UserCheck, Clock, Link2, Search, Merge,
+  UserCheck, Clock, Link2, Search, Merge, Briefcase, FileBadge,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -20,14 +20,15 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
-import { Cargador } from '@/componentes/ui/Cargador'
+import { CargaIcono } from '@/componentes/carga'
+import { Users } from 'lucide-react'
 import { DireccionesContacto, type DireccionConTipo } from '../../_componentes/DireccionesContacto'
 import { TelefonosContacto } from '../../_componentes/TelefonosContacto'
 import { VinculacionesContacto } from '../../_componentes/VinculacionesContacto'
 import type { TelefonoNormalizado } from '@/lib/contacto-telefonos'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type PlantillaCorreo, type DatosEnvioDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
-import { BannerContacto } from '../../_componentes/BannerContacto'
+import { BannerContacto, COLORES_BANNER, obtenerIniciales, TextoTipiado } from '../../_componentes/BannerContacto'
 import { ModalAceptarProvisorio } from '../../_componentes/ModalAceptarProvisorio'
 import { ModalFusionarContacto } from '../../_componentes/ModalFusionarContacto'
 import { BarraKPIs } from '../../_componentes/BarraKPIs'
@@ -121,7 +122,7 @@ export default function EditorContacto({ datosIniciales }: PropsEditorContacto =
 }
 
 function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
-  const { t } = useTraduccion()
+  const { t, idioma: idiomaSesion } = useTraduccion()
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const pathname = usePathname()
@@ -166,7 +167,10 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
       tipo_identificacion: (ci.tipo_identificacion as string) || '',
       numero_identificacion: (ci.numero_identificacion as string) || '',
       moneda: (ci.moneda as string) || 'ARS',
-      idioma: (ci.idioma as string) || 'es',
+      // Default del idioma: lo que viene del contacto guardado; si nunca se
+      // setó, el idioma activo de la sesión (mejor proxy de "idioma de la
+      // empresa" hasta que exista empresas.idioma).
+      idioma: (ci.idioma as string) || idiomaSesion || 'es',
       limite_credito: (ci.limite_credito as { toString(): string } | undefined)?.toString() || '',
       plazo_pago_cliente: (ci.plazo_pago_cliente as string) || '',
       plazo_pago_proveedor: (ci.plazo_pago_proveedor as string) || '',
@@ -258,7 +262,6 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
   const esNavegacion = searchParams.get('nav') === '1'
   // Si el server ya entregó el contacto, no necesitamos pintar el spinner inicial.
   const [cargando, setCargando] = useState(!esNuevo && !esNavegacion && !tieneContactoInicial)
-  const [actualizando, setActualizando] = useState(esNavegacion)
   const [modalEliminar, setModalEliminar] = useState(false)
   const [esProvisorio, setEsProvisorio] = useState<boolean>(() => !!contactoInicial?.es_provisorio)
   const [accionandoProvisorio, setAccionandoProvisorio] = useState(false)
@@ -289,6 +292,61 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
   const esPersona = TIPOS_PERSONA.includes(claveTipo)
   const esEdificio = claveTipo === 'edificio'
   const esEntidadSinContacto = ['edificio', 'empresa', 'proveedor'].includes(claveTipo)
+
+  // ─── Cabezal compacto sticky: crossfade scroll-driven ───
+  // En lugar de un toggle binario (visible/oculto), seguimos el scrollTop y
+  // calculamos un progreso continuo 0..1 desde 0 px hasta ~110 px (alto del
+  // banner grande). Banner grande: opacity = 1 - progreso. Cabezal compacto:
+  // opacity = progreso, height = 56 × progreso. Ambos crossfaden suavemente
+  // a medida que scrolleás, no en un salto. Sensación de morph natural.
+  const refScroll = useRef<HTMLDivElement>(null)
+  const [scrollProgreso, setScrollProgreso] = useState(0)
+  useEffect(() => {
+    const root = refScroll.current
+    if (!root || esNuevo) return
+    const handler = () => {
+      const p = Math.min(1, Math.max(0, root.scrollTop / 110))
+      setScrollProgreso(p)
+    }
+    handler()
+    root.addEventListener('scroll', handler, { passive: true })
+    return () => root.removeEventListener('scroll', handler)
+  }, [esNuevo])
+
+  // Medimos la altura natural del bloque (fila de estado + BarraKPIs) para
+  // poder colapsar el cabecero hasta los 56 px del cabezal compacto al
+  // scrollear, sin hardcodear ni dejar espacio negro arriba. Cualquier
+  // cambio en el contenido (carga de KPIs, etc.) lo recoge ResizeObserver.
+  const refCabeceroOriginal = useRef<HTMLDivElement>(null)
+  const [alturaCabeceroOriginal, setAlturaCabeceroOriginal] = useState<number | null>(null)
+  useEffect(() => {
+    const el = refCabeceroOriginal.current
+    if (!el || esNuevo) return
+    const medir = () => {
+      const h = el.offsetHeight
+      if (h > 0) setAlturaCabeceroOriginal(h)
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [esNuevo])
+
+  // Animación tipiada del nombre grande al cambiar de contacto.
+  // El campo es un <Input> editable: no podemos "tipiar" sobre el valor sin
+  // romper la edición. La solución es mostrar un overlay de TextoTipiado
+  // *sobre* el Input durante ~900 ms y ocultar el texto del Input mientras
+  // tanto (color transparent). Pasado ese tiempo, el overlay desaparece y
+  // el Input vuelve a su color normal — todo sin perder foco ni valor.
+  const [tipiandoNombre, setTipiandoNombre] = useState(false)
+  useEffect(() => {
+    if (esNuevo || !contactoId) return
+    setTipiandoNombre(true)
+    const t = setTimeout(() => setTipiandoNombre(false), 700)
+    return () => clearTimeout(t)
+  }, [contactoId, esNuevo])
+  const coloresMini = COLORES_BANNER[claveTipo] || COLORES_BANNER.persona
+  const inicialesMini = obtenerIniciales(nombreCompleto || '?')
 
   const camposIdentificacion = useMemo(
     () => camposFiscalesPais.filter(c => c.es_identificacion && c.aplica_a.includes(claveTipo) && (!paisContacto || c.pais === paisContacto)),
@@ -416,7 +474,7 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
           web: data.web || '', cargo: data.cargo || '', rubro: data.rubro || '',
           tipo_identificacion: data.tipo_identificacion || '',
           numero_identificacion: data.numero_identificacion || '',
-          moneda: data.moneda || 'ARS', idioma: data.idioma || 'es',
+          moneda: data.moneda || 'ARS', idioma: data.idioma || idiomaSesion || 'es',
           limite_credito: data.limite_credito?.toString() || '',
           plazo_pago_cliente: data.plazo_pago_cliente || '',
           plazo_pago_proveedor: data.plazo_pago_proveedor || '',
@@ -441,7 +499,7 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
         if (data.vinculaciones_inversas) setVinculacionesInversas(data.vinculaciones_inversas)
       })
       .catch(() => {})
-      .finally(() => { setCargando(false); setActualizando(false) })
+      .finally(() => { setCargando(false) })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactoId])
 
@@ -927,83 +985,165 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
   // RENDER
   // ═══════════════════════════════════════════════════════════════
 
-  if (cargando) return <Cargador tamano="pagina" />
+  if (cargando) {
+    // Patrón unificado: ícono del módulo dibujándose + nombre del contacto
+    // (si ya está en estado cliente; en navegación directa el page server
+    // ya precarga el contacto, así que casi siempre se ve "Nombre Apellido").
+    return (
+      <CargaIcono
+        icono={<Users size={52} strokeWidth={1} />}
+        nombre={nombreCompleto.trim() || undefined}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col h-full overflow-auto">
 
-      {/* ═══ CABECERO ═══ */}
-      <div className="shrink-0 border-b border-borde-sutil">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-2">
-          <div className="flex items-center gap-2 text-sm min-w-0">
-            {guardando && <span className="text-xs text-texto-terciario animate-pulse">{esNuevo ? 'Creando contacto...' : t('contactos.guardando')}</span>}
-            {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
-          </div>
-          {!esNuevo && (
-            <Boton variante="fantasma" tamano="xs" icono={<Trash2 size={14} />} onClick={() => setModalEliminar(true)} className="text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo">
-              <span className="hidden sm:inline">{t('comun.eliminar')}</span>
-            </Boton>
-          )}
-        </div>
-
-        {/* Creación: selector de tipo como pills / Edición: barra de KPIs */}
+      {/* ═══ CABECERO ═══
+          En modo edición, todo el cabecero (fila de estado + BarraKPIs)
+          *colapsa* al scrollear hasta los 56 px del cabezal compacto. El
+          gradiente con avatar+nombre+código aparece superpuesto al fondo
+          del cabecero, fijado a una altura natural (h-14), sin heredar la
+          altura total. Sin espacios negros, sin doble barra, sin gordura. */}
+      <div
+        className="shrink-0 min-h-0 border-b border-borde-sutil relative overflow-hidden"
+        style={{
+          height: !esNuevo && alturaCabeceroOriginal != null
+            ? alturaCabeceroOriginal + (56 - alturaCabeceroOriginal) * scrollProgreso
+            : undefined,
+        }}
+      >
         {esNuevo ? (
-          <div className="px-4 sm:px-6 pb-3 flex flex-col items-center">
-            <div className="text-xs text-texto-terciario mb-1.5">Tipo de contacto</div>
-            <div className="flex items-center gap-1.5 flex-wrap justify-center">
-              {tiposContacto.filter(t => t.clave !== 'equipo').map(tipo => {
-                const activo = tipo.id === tipoContactoId
-                const Icono = ICONOS_TIPO[tipo.clave] || User
-                const color = COLOR_TIPO_CONTACTO[tipo.clave] || 'neutro'
-                return (
-                  <button key={tipo.id} type="button" onClick={() => cambiarTipo(tipo.id)}
-                    className={[
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
-                      activo ? 'border-transparent' : 'bg-transparent text-texto-secundario border-borde-sutil hover:border-borde-fuerte hover:text-texto-primario',
-                    ].join(' ')}
-                    style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)`, borderColor: 'transparent' } : undefined}>
-                    <Icono size={14} />{tipo.etiqueta}
-                  </button>
-                )
-              })}
+          <>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-2">
+              <div className="flex items-center gap-2 text-sm min-w-0">
+                {guardando && <span className="text-xs text-texto-terciario animate-pulse">Creando contacto...</span>}
+                {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
+              </div>
             </div>
-          </div>
+            <div className="px-4 sm:px-6 pb-3 flex flex-col items-center">
+              <div className="text-xs text-texto-terciario mb-1.5">Tipo de contacto</div>
+              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                {tiposContacto.filter(t => t.clave !== 'equipo').map(tipo => {
+                  const activo = tipo.id === tipoContactoId
+                  const Icono = ICONOS_TIPO[tipo.clave] || User
+                  const color = COLOR_TIPO_CONTACTO[tipo.clave] || 'neutro'
+                  return (
+                    <button key={tipo.id} type="button" onClick={() => cambiarTipo(tipo.id)}
+                      className={[
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                        activo ? 'border-transparent' : 'bg-transparent text-texto-secundario border-borde-sutil hover:border-borde-fuerte hover:text-texto-primario',
+                      ].join(' ')}
+                      style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)`, borderColor: 'transparent' } : undefined}>
+                      <Icono size={14} />{tipo.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </>
         ) : (
-          <div className="px-4 sm:px-6 pb-3">
-            <BarraKPIs contactoId={contactoId!} contactoNombre={nombreCompleto || 'Contacto'} />
-          </div>
+          <>
+            {/* Contenido original del cabecero — se mide para conocer la
+                altura natural; al scrollear se desvanece y el parent lo
+                clipea desde abajo gracias a overflow-hidden. */}
+            <div
+              ref={refCabeceroOriginal}
+              style={{
+                opacity: 1 - scrollProgreso,
+                pointerEvents: scrollProgreso > 0.5 ? 'none' : 'auto',
+              }}
+              aria-hidden={scrollProgreso > 0.5}
+            >
+              <div className="flex items-center justify-between px-4 sm:px-6 py-2">
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  {guardando && <span className="text-xs text-texto-terciario animate-pulse">{t('contactos.guardando')}</span>}
+                  {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
+                </div>
+              </div>
+              <div className="px-4 sm:px-6 pb-3">
+                <BarraKPIs contactoId={contactoId!} contactoNombre={nombreCompleto || 'Contacto'} />
+              </div>
+            </div>
+
+            {/* Cabezal compacto — anclado al fondo del cabecero con altura
+                fija (h-14). Cuando el cabecero colapsa a 56 px, el compacto
+                queda perfectamente alineado con la franja final. Iniciales,
+                nombre y código usan TextoTipiado con key={contactoId} para
+                "escribirse" al cambiar entre contactos (espejo del banner
+                grande, así el efecto se siente igual estés scrolleado o
+                no). */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-14 flex items-center px-4 sm:px-6 gap-3"
+              style={{
+                opacity: scrollProgreso,
+                pointerEvents: scrollProgreso > 0.5 ? 'auto' : 'none',
+                background: `linear-gradient(135deg, ${coloresMini[0]} 0%, ${coloresMini[1]} 100%)`,
+              }}
+              aria-hidden={scrollProgreso < 0.5}
+            >
+              <div
+                className="shrink-0 rounded-full w-9 h-9 flex items-center justify-center text-xs font-bold text-white/95 bg-white/15 backdrop-blur-sm border border-white/20"
+                aria-hidden
+              >
+                <TextoTipiado key={`ini-${contactoId}`} texto={inicialesMini} duracionChar={0.08} />
+              </div>
+              <span className="text-sm font-semibold text-white truncate flex-1 min-w-0">
+                <TextoTipiado key={`nom-${contactoId}`} texto={nombreCompleto || 'Sin nombre'} retardoBase={0.08} duracionChar={0.03} />
+              </span>
+              {codigo && (
+                <span className="text-xs font-mono tabular-nums text-white/70 shrink-0">
+                  <TextoTipiado key={`cod-${contactoId}`} texto={codigo} retardoBase={0.15} />
+                </span>
+              )}
+            </div>
+          </>
         )}
       </div>
 
-      {/* ═══ CONTENIDO ═══ */}
-      <div className={`flex-1 overflow-auto transition-opacity duration-150 ${actualizando ? 'opacity-40 pointer-events-none' : ''}`}>
+      {/* ═══ CONTENIDO ═══
+          Durante la navegación entre contactos (?nav=1) el contacto anterior
+          se mantiene plenamente visible mientras llega el nuevo. La actividad
+          de fetch la reporta la CargaBarra global del header — no atenuamos
+          el contenido para no oscurecer datos válidos ni bloquear clicks. */}
+      <div ref={refScroll} className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto px-4 sm:px-8 lg:px-12 py-0 space-y-6">
 
-          {/* Banner + Avatar + selector de tipo */}
-          <BannerContacto
-            nombre={nombreCompleto}
-            codigo={codigo}
-            avatarUrl={esNuevo ? null : avatarUrl}
-            tipoActivo={tipoActivo || null}
-            claveTipo={claveTipo}
-            tiposContacto={tiposContacto}
-            puedeEditar={!esNuevo}
-            onCambiarTipo={esNuevo ? undefined : (tipoId: string) => {
-              const tipo = tiposContacto.find(t => t.id === tipoId)
-              setTipoContactoId(tipoId)
-              const esNuevaPersona = tipo && TIPOS_PERSONA.includes(tipo.clave)
-              const esNuevaEmpresa = tipo && ['empresa', 'proveedor'].includes(tipo.clave)
-              const limpiar: Record<string, unknown> = { tipo_contacto_id: tipoId }
-              if (!esNuevaPersona) { limpiar.cargo = null; setCampos(p => ({ ...p, cargo: '' })) }
-              if (!esNuevaEmpresa) { limpiar.rubro = null; setCampos(p => ({ ...p, rubro: '' })) }
-              guardar(limpiar)
-            }}
-            onSubirFoto={(esNuevo || miembroIdVinculado) ? undefined : subirFoto}
-            acciones={esNuevo ? [] : [
-              { id: 'fusionar', etiqueta: 'Fusionar con otro contacto', icono: <Merge size={14} />, onClick: () => setModalFusionar(true) },
-              { id: 'eliminar', etiqueta: 'Eliminar contacto', icono: <Trash2 size={14} />, peligro: true, onClick: () => setModalEliminar(true) },
-            ]}
-          />
+          {/* Banner + Avatar + selector de tipo.
+              Wrapper con opacity atada al scroll: a medida que scrolleás, el
+              banner se desvanece (1 - progreso) en sincronía con el cabezal
+              compacto que aparece. Sin transición CSS — el scroll mismo es la
+              animación, así no hay "golpe" al pasar un umbral. */}
+          <div
+            style={{ opacity: 1 - scrollProgreso }}
+            aria-hidden={scrollProgreso > 0.5}
+          >
+            <BannerContacto
+              nombre={nombreCompleto}
+              codigo={codigo}
+              avatarUrl={esNuevo ? null : avatarUrl}
+              tipoActivo={tipoActivo || null}
+              claveTipo={claveTipo}
+              tiposContacto={tiposContacto}
+              puedeEditar={!esNuevo}
+              onCambiarTipo={esNuevo ? undefined : (tipoId: string) => {
+                const tipo = tiposContacto.find(t => t.id === tipoId)
+                setTipoContactoId(tipoId)
+                const esNuevaPersona = tipo && TIPOS_PERSONA.includes(tipo.clave)
+                const esNuevaEmpresa = tipo && ['empresa', 'proveedor'].includes(tipo.clave)
+                const limpiar: Record<string, unknown> = { tipo_contacto_id: tipoId }
+                if (!esNuevaPersona) { limpiar.cargo = null; setCampos(p => ({ ...p, cargo: '' })) }
+                if (!esNuevaEmpresa) { limpiar.rubro = null; setCampos(p => ({ ...p, rubro: '' })) }
+                guardar(limpiar)
+              }}
+              onSubirFoto={(esNuevo || miembroIdVinculado) ? undefined : subirFoto}
+              acciones={esNuevo ? [] : [
+                { id: 'fusionar', etiqueta: 'Fusionar con otro contacto', icono: <Merge size={14} />, onClick: () => setModalFusionar(true) },
+                { id: 'eliminar', etiqueta: 'Eliminar contacto', icono: <Trash2 size={14} />, peligro: true, onClick: () => setModalEliminar(true) },
+              ]}
+            />
+          </div>
 
           {/* Banner provisorio (solo edición) */}
           {!esNuevo && esProvisorio && (
@@ -1024,20 +1164,42 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
           )}
 
           {/* Nombre completo. Si el contacto está vinculado a un miembro, el nombre
-              se edita desde la sección Usuarios y acá queda read-only. */}
+              se edita desde la sección Usuarios y acá queda read-only.
+              Al cambiar de contacto (vía flechas de BarraKPIs) se monta un
+              overlay de TextoTipiado *sobre* el Input por ~900 ms: el texto
+              del Input queda transparente y el overlay "escribe" el nombre
+              letra por letra. Pasado ese tiempo el overlay se desmonta y el
+              Input vuelve a ser un campo editable normal — sin perder foco
+              ni romper la edición. */}
           <div className="pl-1">
-            <Input
-              variante="plano"
-              value={nombreCompleto}
-              onChange={e => { if (!miembroIdVinculado) setNombreCompleto(e.target.value) }}
-              onBlur={() => { if (!miembroIdVinculado) onBlurNombre() }}
-              readOnly={!!miembroIdVinculado}
-              placeholder={t('contactos.nombre_completo')}
-              autoFocus={esNuevo}
-              formato={esPersona ? 'nombre_persona' : 'nombre_empresa'}
-              className={`[&_input]:text-2xl [&_input]:font-bold ${miembroIdVinculado ? '[&_input]:cursor-not-allowed' : ''}`}
-              title={miembroIdVinculado ? 'El nombre se edita desde la sección Usuarios' : undefined}
-            />
+            {/* Relativo limitado al Input para que el overlay tipiado se
+                alinee exactamente con la línea del input (y no se centre
+                con el <p> "Datos sincronizados..." que viene debajo en el
+                caso miembro). */}
+            <div className="relative">
+              <Input
+                variante="plano"
+                value={nombreCompleto}
+                onChange={e => { if (!miembroIdVinculado) setNombreCompleto(e.target.value) }}
+                onBlur={() => { if (!miembroIdVinculado) onBlurNombre() }}
+                readOnly={!!miembroIdVinculado}
+                placeholder={t('contactos.nombre_completo')}
+                autoFocus={esNuevo}
+                formato={esPersona ? 'nombre_persona' : 'nombre_empresa'}
+                className={`[&_input]:text-2xl [&_input]:font-bold ${tipiandoNombre ? '[&_input]:text-transparent [&_input]:caret-transparent' : ''} ${miembroIdVinculado ? '[&_input]:cursor-not-allowed' : ''}`}
+                title={miembroIdVinculado ? 'El nombre se edita desde la sección Usuarios' : undefined}
+              />
+              {tipiandoNombre && !esNuevo && nombreCompleto && (
+                <div
+                  key={`tipiado-${contactoId}`}
+                  aria-hidden
+                  className="absolute inset-0 flex items-center pointer-events-none text-2xl font-bold text-texto-primario leading-normal"
+                  style={{ paddingTop: 4, paddingBottom: 4 }}
+                >
+                  <TextoTipiado texto={nombreCompleto} duracionChar={0.03} />
+                </div>
+              )}
+            </div>
             {miembroIdVinculado && (
               <p className="text-[11px] text-texto-terciario mt-1 pl-0">
                 Datos sincronizados con la cuenta del usuario.{' '}
@@ -1051,58 +1213,62 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
             )}
           </div>
 
-          {/* Contacto directo + puesto/etiquetas en 2 columnas (60/40) */}
-          <section className="flex flex-col sm:flex-row gap-8">
-            {/* Columna izquierda (60%): datos de comunicación */}
-            <div className="flex-[3] min-w-0 space-y-2">
-              <Input variante="plano" tipo="email" icono={<Mail size={16} />}
+          {/* ─── Comunicación + Clasificación ───
+              Posiciones FIJAS en el grid (no auto-flow). Las primeras 3
+              filas son IDÉNTICAS en todos los tipos — solo cambia qué hay
+              en la celda derecha de fila 1 (Cargo/Rubro/—), lo demás está
+              siempre en el mismo lugar. Si el tipo es persona se agrega
+              una cuarta fila con Título; en otros tipos el grid termina en
+              fila 3, igual de prolijo. */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5">
+            {/* Fila 1 — IZQ: Correo · DER: Cargo (persona) / Rubro (empresa,proveedor) / vacío */}
+            <CampoEditorial icono={<Mail size={13} />} etiqueta="Correo">
+              <Input variante="plano" tipo="email"
                 value={campos.correo || ''}
                 onChange={e => { if (miembroIdVinculado) return; setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
                 onBlur={() => { if (!miembroIdVinculado) onBlurCampo('correo') }}
                 readOnly={!!miembroIdVinculado}
                 title={miembroIdVinculado ? 'El correo se edita desde la sección Usuarios' : undefined}
-                placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
-
-              {/* Lista de teléfonos: N por contacto, cada uno con tipo + flag WhatsApp + principal.
-                  Las filas con origen='sync_*' se muestran con candado y no se pueden editar. */}
-              <TelefonosContacto
-                telefonos={telefonos}
-                onChange={guardarTelefonos}
-                miembroVinculado={miembroIdVinculado ? { nombre: nombreCompleto } : null}
-              />
-
-              {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
-                <Input variante="plano" tipo="url" icono={<Globe size={16} />}
-                  value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
-                  onBlur={() => onBlurCampo('web')} placeholder="Sitio web" formato="url" />
-              )}
-            </div>
-
-            {/* Columna derecha (40%): puesto/rubro + etiquetas */}
-            <div className="flex-[2] min-w-0 space-y-3">
-              {esPersona && (
+                placeholder="correo@ejemplo.com" formato="email" error={esNuevo ? errores.correo : undefined} />
+            </CampoEditorial>
+            {esPersona ? (
+              <CampoEditorial icono={<Briefcase size={13} />} etiqueta={t('comun.cargo')}>
                 <SelectorConSugerencias
-                  etiqueta={t('comun.cargo')}
                   valor={campos.cargo || ''}
                   opciones={puestosVinculacion.map(p => p.etiqueta)}
                   tipoConfig="puesto"
                   onChange={v => { setCampos(p => ({ ...p, cargo: v })); if (!esNuevo) guardar({ cargo: v || null }) }}
                   placeholder="Buscar o crear puesto..."
                 />
-              )}
-              {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
+              </CampoEditorial>
+            ) : (claveTipo === 'empresa' || claveTipo === 'proveedor') ? (
+              <CampoEditorial icono={<Briefcase size={13} />} etiqueta={t('comun.rubro')}>
                 <SelectorConSugerencias
-                  etiqueta={t('comun.rubro')}
                   valor={campos.rubro || ''}
                   opciones={rubrosConfig.map(r => r.nombre)}
                   tipoConfig="rubro"
                   onChange={v => { setCampos(p => ({ ...p, rubro: v })); if (!esNuevo) guardar({ rubro: v || null }) }}
                   placeholder="Buscar o crear rubro..."
                 />
-              )}
+              </CampoEditorial>
+            ) : (
+              <div aria-hidden />
+            )}
+
+            {/* Fila 2 — IZQ: Teléfonos · DER: Etiquetas (igual en todos los tipos) */}
+            <CampoEditorial icono={<Phone size={13} />} etiqueta="Teléfonos">
+              <TelefonosContacto
+                telefonos={telefonos}
+                onChange={guardarTelefonos}
+                miembroVinculado={miembroIdVinculado ? { nombre: nombreCompleto } : null}
+                sinCabecera
+              />
+            </CampoEditorial>
+            <CampoEditorial icono={<Tag size={13} />} etiqueta="Etiquetas">
               <SelectorEtiquetas
                 etiquetas={etiquetas}
                 etiquetasConfig={etiquetasConfig}
+                mostrarLabel={false}
                 onAgregar={(nombre, color) => {
                   if (etiquetas.includes(nombre)) return
                   const nuevas = [...etiquetas, nombre]
@@ -1121,7 +1287,30 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
                   if (!esNuevo) guardar({ etiquetas: nuevas })
                 }}
               />
-            </div>
+            </CampoEditorial>
+
+            {/* Fila 3 — IZQ: Sitio web · DER: Idioma (igual en todos los tipos) */}
+            <CampoEditorial icono={<Globe size={13} />} etiqueta="Sitio web">
+              <Input variante="plano" tipo="url"
+                value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
+                onBlur={() => onBlurCampo('web')} placeholder="https://..." formato="url" />
+            </CampoEditorial>
+            <CampoEditorial icono={<Languages size={13} />} etiqueta={t('comun.idioma')}>
+              <Select variante="plano" valor={campos.idioma || idiomaSesion || 'es'} onChange={v => guardarSelect('idioma', v)}
+                opciones={[{ valor: 'es', etiqueta: 'Español' }, { valor: 'en', etiqueta: 'English' }, { valor: 'pt', etiqueta: 'Português' }]} />
+            </CampoEditorial>
+
+            {/* Fila 4 — IZQ: Título (solo persona) · DER: vacío. Para otros
+                tipos la sección termina en fila 3 — sin huecos sueltos. */}
+            {esPersona && (
+              <>
+                <CampoEditorial icono={<User size={13} />} etiqueta={t('contactos.titulo_campo')}>
+                  <Select variante="plano" valor={campos.titulo || ''} onChange={v => guardarSelect('titulo', v)}
+                    opciones={[{ valor: '', etiqueta: '—' }, { valor: 'Sr.', etiqueta: 'Sr.' }, { valor: 'Sra.', etiqueta: 'Sra.' }, { valor: 'Dr.', etiqueta: 'Dr.' }, { valor: 'Dra.', etiqueta: 'Dra.' }, { valor: 'Ing.', etiqueta: 'Ing.' }, { valor: 'Lic.', etiqueta: 'Lic.' }, { valor: 'Arq.', etiqueta: 'Arq.' }, { valor: 'Cr.', etiqueta: 'Cr.' }]} />
+                </CampoEditorial>
+                <div aria-hidden />
+              </>
+            )}
           </section>
 
           {/* Direcciones */}
@@ -1134,87 +1323,115 @@ function EditorContactoInterno({ datosIniciales }: PropsEditorContacto) {
             />
           </section>
 
-          {/* Grid de campos */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-            {paisesEmpresa.length > 1 && (
-              <Fila etiqueta={t('contactos.pais_fiscal')}>
-                <Select variante="plano"
-                  opciones={paisesEmpresa.map(c => {
-                    const p = PAISES_DISPONIBLES.find(pd => pd.codigo === c)
-                    return { valor: c, etiqueta: p ? `${p.bandera} ${p.nombre}` : c }
-                  })}
-                  valor={paisContacto}
-                  onChange={onCambiarPais} />
-              </Fila>
-            )}
-            {camposIdentificacion.length > 0 && (
-              <Fila etiqueta={t('contactos.identificacion')}>
-                <div className="flex items-center gap-2">
-                  {camposIdentificacion.length > 1 ? (
-                    <div className="w-28 shrink-0">
+          {/* Datos fiscales (tarjeta) — país fiscal, identificación e info
+              fiscal dinámica del país. Solo se renderiza si hay algo que
+              mostrar (sino la tarjeta queda vacía y suma ruido). Va primero
+              porque suele ser la info más relevante operativamente. */}
+          {(paisesEmpresa.length > 1 || camposIdentificacion.length > 0 || camposFiscalesFiltrados.length > 0) && (
+            <section className="rounded-card border border-borde-sutil overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-borde-sutil"
+                style={{ backgroundColor: 'var(--superficie-tarjeta)' }}>
+                <FileBadge size={15} className="text-texto-terciario" />
+                <h3 className="text-sm font-semibold text-texto-primario">{t('contactos.datos_fiscales')}</h3>
+              </div>
+              <div className="px-4 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3"
+                style={{ backgroundColor: 'var(--superficie-app)' }}>
+                {paisesEmpresa.length > 1 && (
+                  <Fila etiqueta={t('contactos.pais_fiscal')}>
+                    <Select variante="plano"
+                      opciones={paisesEmpresa.map(c => {
+                        const p = PAISES_DISPONIBLES.find(pd => pd.codigo === c)
+                        return { valor: c, etiqueta: p ? `${p.bandera} ${p.nombre}` : c }
+                      })}
+                      valor={paisContacto}
+                      onChange={onCambiarPais} />
+                  </Fila>
+                )}
+                {/* Tipo de identificación (col der de fila 1). El grid llena
+                    por filas: País (izq) → Identificación (der). */}
+                {camposIdentificacion.length > 0 && (
+                  <Fila etiqueta={t('contactos.identificacion')}>
+                    {camposIdentificacion.length > 1 ? (
                       <Select variante="plano"
                         opciones={camposIdentificacion.map(c => ({ valor: c.clave, etiqueta: c.etiqueta }))}
-                        valor={campos.tipo_identificacion || ''} onChange={v => guardarSelect('tipo_identificacion', v)} />
-                    </div>
-                  ) : (
-                    <span className="text-xs font-medium text-texto-secundario shrink-0">{camposIdentificacion[0].etiqueta}</span>
-                  )}
-                  <Input variante="plano" value={campos.numero_identificacion || ''}
-                    onChange={e => setCampos(p => ({ ...p, numero_identificacion: e.target.value }))}
-                    onBlur={() => onBlurCampo('numero_identificacion')}
-                    placeholder={camposIdentificacion.find(c => c.clave === campos.tipo_identificacion)?.mascara || camposIdentificacion[0]?.etiqueta || ''} />
-                </div>
-              </Fila>
-            )}
-            <Fila etiqueta={t('contactos.titulo_campo')}>
-              <Select variante="plano" valor={campos.titulo || ''} onChange={v => guardarSelect('titulo', v)}
-                opciones={[{ valor: '', etiqueta: '—' }, { valor: 'Sr.', etiqueta: 'Sr.' }, { valor: 'Sra.', etiqueta: 'Sra.' }, { valor: 'Dr.', etiqueta: 'Dr.' }, { valor: 'Dra.', etiqueta: 'Dra.' }, { valor: 'Ing.', etiqueta: 'Ing.' }, { valor: 'Lic.', etiqueta: 'Lic.' }, { valor: 'Arq.', etiqueta: 'Arq.' }, { valor: 'Cr.', etiqueta: 'Cr.' }]} />
-            </Fila>
-            <Fila etiqueta={t('comun.idioma')}>
-              <Select variante="plano" valor={campos.idioma || 'es'} onChange={v => guardarSelect('idioma', v)}
-                opciones={[{ valor: 'es', etiqueta: 'Español' }, { valor: 'en', etiqueta: 'English' }, { valor: 'pt', etiqueta: 'Português' }]} />
-            </Fila>
-            <Fila etiqueta={t('comun.moneda_label')}>
-              <Select variante="plano" valor={campos.moneda || 'ARS'} onChange={v => guardarSelect('moneda', v)}
-                opciones={[{ valor: 'ARS', etiqueta: 'Peso argentino (ARS)' }, { valor: 'USD', etiqueta: 'Dólar (USD)' }, { valor: 'EUR', etiqueta: 'Euro (EUR)' }, { valor: 'MXN', etiqueta: 'Peso mexicano (MXN)' }, { valor: 'COP', etiqueta: 'Peso colombiano (COP)' }]} />
-            </Fila>
-            <Fila etiqueta={t('contactos.limite_credito')}>
-              <Input variante="plano" tipo="number" value={campos.limite_credito || ''}
-                onChange={e => setCampos(p => ({ ...p, limite_credito: e.target.value }))}
-                onBlur={() => onBlurCampo('limite_credito')} placeholder="0" />
-            </Fila>
-            <Fila etiqueta={t('contactos.plazo_cliente')}>
-              <Select variante="plano" valor={campos.plazo_pago_cliente || ''} onChange={v => guardarSelect('plazo_pago_cliente', v)}
-                opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
-            </Fila>
-            <Fila etiqueta={t('contactos.plazo_proveedor')}>
-              <Select variante="plano" valor={campos.plazo_pago_proveedor || ''} onChange={v => guardarSelect('plazo_pago_proveedor', v)}
-                opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
-            </Fila>
-          </section>
-
-          {/* Fiscal dinámico */}
-          {camposFiscalesFiltrados.length > 0 && (
-            <section>
-              <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">{t('contactos.datos_fiscales')}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-                {camposFiscalesFiltrados.map(campo => (
-                  <Fila key={campo.clave} etiqueta={campo.etiqueta}>
-                    {campo.tipo_campo === 'select' && campo.opciones ? (
-                      <Select variante="plano" valor={datosFiscales[campo.clave] || ''}
-                        onChange={v => guardarFiscal(campo.clave, v)}
-                        opciones={[{ valor: '', etiqueta: `${t('comun.seleccionar')}...` }, ...(campo.opciones as { valor: string; etiqueta: string }[])]} />
+                        valor={campos.tipo_identificacion || ''}
+                        onChange={v => guardarSelect('tipo_identificacion', v)} />
                     ) : (
-                      <Input variante="plano" value={datosFiscales[campo.clave] || ''}
-                        onChange={e => setDatosFiscales(p => ({ ...p, [campo.clave]: e.target.value }))}
-                        onBlur={() => guardarFiscal(campo.clave, datosFiscales[campo.clave] || '')}
-                        placeholder={campo.mascara || campo.etiqueta} />
+                      <span className="text-sm font-medium text-texto-primario block py-1">
+                        {camposIdentificacion[0].etiqueta}
+                      </span>
                     )}
                   </Fila>
+                )}
+                {/* Primer campo fiscal no-identificación (col izq de fila 2):
+                    típicamente Condición IVA en AR, Régimen Tributario en CO/MX,
+                    Régimen IVA en ES. */}
+                {camposFiscalesFiltrados[0] && (
+                  <RenderCampoFiscal
+                    campo={camposFiscalesFiltrados[0]}
+                    valor={datosFiscales[camposFiscalesFiltrados[0].clave] || ''}
+                    onChange={v => guardarFiscal(camposFiscalesFiltrados[0].clave, v)}
+                    onChangeRaw={v => setDatosFiscales(p => ({ ...p, [camposFiscalesFiltrados[0].clave]: v }))}
+                    seleccionarLabel={t('comun.seleccionar')}
+                  />
+                )}
+                {/* Número de identificación (col der de fila 2) — queda emparejado
+                    con su tipo arriba y con Condición IVA a su izquierda. */}
+                {camposIdentificacion.length > 0 && (
+                  <Fila etiqueta="Número">
+                    <Input variante="plano" value={campos.numero_identificacion || ''}
+                      onChange={e => setCampos(p => ({ ...p, numero_identificacion: e.target.value }))}
+                      onBlur={() => onBlurCampo('numero_identificacion')}
+                      placeholder={camposIdentificacion.find(c => c.clave === campos.tipo_identificacion)?.mascara || camposIdentificacion[0]?.mascara || ''} />
+                  </Fila>
+                )}
+                {/* Resto de campos fiscales (Tipo IIBB, Número IIBB en empresa/
+                    proveedor AR; Uso CFDI en MX, etc.). */}
+                {camposFiscalesFiltrados.slice(1).map(campo => (
+                  <RenderCampoFiscal
+                    key={campo.clave}
+                    campo={campo}
+                    valor={datosFiscales[campo.clave] || ''}
+                    onChange={v => guardarFiscal(campo.clave, v)}
+                    onChangeRaw={v => setDatosFiscales(p => ({ ...p, [campo.clave]: v }))}
+                    seleccionarLabel={t('comun.seleccionar')}
+                  />
                 ))}
               </div>
             </section>
           )}
+
+          {/* Datos comerciales — solo lo que afecta facturación/cobranza:
+              moneda usada con este contacto, límite de crédito y plazos de
+              pago. Título e idioma (que antes vivían acá) se movieron a la
+              strip de identidad debajo del nombre. */}
+          <section className="rounded-card border border-borde-sutil overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-borde-sutil"
+              style={{ backgroundColor: 'var(--superficie-tarjeta)' }}>
+              <Briefcase size={15} className="text-texto-terciario" />
+              <h3 className="text-sm font-semibold text-texto-primario">Datos comerciales</h3>
+            </div>
+            <div className="px-4 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3"
+              style={{ backgroundColor: 'var(--superficie-app)' }}>
+              <Fila etiqueta={t('comun.moneda_label')}>
+                <Select variante="plano" valor={campos.moneda || 'ARS'} onChange={v => guardarSelect('moneda', v)}
+                  opciones={[{ valor: 'ARS', etiqueta: 'Peso argentino (ARS)' }, { valor: 'USD', etiqueta: 'Dólar (USD)' }, { valor: 'EUR', etiqueta: 'Euro (EUR)' }, { valor: 'MXN', etiqueta: 'Peso mexicano (MXN)' }, { valor: 'COP', etiqueta: 'Peso colombiano (COP)' }]} />
+              </Fila>
+              <Fila etiqueta={t('contactos.limite_credito')}>
+                <Input variante="plano" tipo="number" value={campos.limite_credito || ''}
+                  onChange={e => setCampos(p => ({ ...p, limite_credito: e.target.value }))}
+                  onBlur={() => onBlurCampo('limite_credito')} placeholder="0" />
+              </Fila>
+              <Fila etiqueta={t('contactos.plazo_cliente')}>
+                <Select variante="plano" valor={campos.plazo_pago_cliente || ''} onChange={v => guardarSelect('plazo_pago_cliente', v)}
+                  opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
+              </Fila>
+              <Fila etiqueta={t('contactos.plazo_proveedor')}>
+                <Select variante="plano" valor={campos.plazo_pago_proveedor || ''} onChange={v => guardarSelect('plazo_pago_proveedor', v)}
+                  opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
+              </Fila>
+            </div>
+          </section>
 
           {/* Vinculaciones / Relaciones */}
           {esNuevo ? (
@@ -1502,69 +1719,94 @@ function ModalSeleccionarDestinatarios({
   }
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} tamano="md">
-      <div className="p-6 space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-texto-primario">Enviar correo a</h3>
-          <p className="text-xs text-texto-terciario mt-0.5">
-            Elegí uno o más destinatarios. Podés agregar otro correo si no está en la lista.
-          </p>
-        </div>
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo="Enviar correo a"
+      tamano="md"
+      accionPrimaria={{
+        etiqueta: `Continuar${seleccionados.size > 0 ? ` (${seleccionados.size})` : ''}`,
+        onClick: confirmar,
+        disabled: seleccionados.size === 0,
+      }}
+      accionSecundaria={{
+        etiqueta: 'Cancelar',
+        onClick: onCerrar,
+      }}
+    >
+      <div className="space-y-5">
+        <p className="text-xs text-texto-terciario">
+          Elegí uno o más destinatarios. Podés agregar otro correo si no está en la lista.
+        </p>
 
-        <div className="flex flex-col gap-1 max-h-[40vh] overflow-y-auto">
-          {candidatos.map(c => (
-            <label
-              key={c.id + c.correo}
-              className="flex items-center gap-3 px-3 py-2 rounded-card border border-borde-sutil hover:bg-superficie-hover cursor-pointer transition-colors"
-            >
-              <Checkbox
-                marcado={seleccionados.has(c.correo)}
-                onChange={() => toggle(c.correo)}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-texto-primario truncate">{c.nombre}</div>
-                <div className="text-xs text-texto-terciario truncate">{c.correo}</div>
-              </div>
-              {c.relacion && (
-                <span className="text-xs text-texto-terciario shrink-0">{c.relacion}</span>
-              )}
-            </label>
-          ))}
-
-          {extras.map(e => (
-            <label
-              key={e}
-              className="flex items-center gap-3 px-3 py-2 rounded-card border border-borde-sutil hover:bg-superficie-hover cursor-pointer transition-colors"
-            >
-              <Checkbox
-                marcado={seleccionados.has(e)}
-                onChange={() => toggle(e)}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-texto-primario truncate">{e}</div>
-                <div className="text-xs text-texto-terciario">Correo agregado</div>
-              </div>
-              <button
-                type="button"
-                onClick={(ev) => {
-                  ev.preventDefault()
-                  setExtras(prev => prev.filter(x => x !== e))
-                  setSeleccionados(prev => {
-                    const next = new Set(prev)
-                    next.delete(e)
-                    return next
-                  })
-                }}
-                className="text-texto-terciario hover:text-texto-primario text-xs shrink-0"
+        {/* Lista de destinatarios */}
+        <div className="flex flex-col gap-1.5 max-h-[40vh] overflow-y-auto -mx-1 px-1">
+          {candidatos.map(c => {
+            const marcado = seleccionados.has(c.correo)
+            return (
+              <label
+                key={c.id + c.correo}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-card border cursor-pointer transition-colors ${
+                  marcado
+                    ? 'border-texto-marca/40 bg-texto-marca/[0.06]'
+                    : 'border-borde-sutil bg-superficie-app/40 hover:bg-superficie-hover'
+                }`}
               >
-                Quitar
-              </button>
-            </label>
-          ))}
+                <Checkbox marcado={marcado} onChange={() => toggle(c.correo)} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-texto-primario truncate">{c.nombre}</div>
+                  <div className="text-xs text-texto-terciario truncate">{c.correo}</div>
+                </div>
+                {c.relacion && (
+                  <span className="text-xxs font-medium text-texto-terciario uppercase tracking-wider shrink-0">
+                    {c.relacion}
+                  </span>
+                )}
+              </label>
+            )
+          })}
+
+          {extras.map(e => {
+            const marcado = seleccionados.has(e)
+            return (
+              <label
+                key={e}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-card border cursor-pointer transition-colors ${
+                  marcado
+                    ? 'border-texto-marca/40 bg-texto-marca/[0.06]'
+                    : 'border-borde-sutil bg-superficie-app/40 hover:bg-superficie-hover'
+                }`}
+              >
+                <Checkbox marcado={marcado} onChange={() => toggle(e)} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-texto-primario truncate">{e}</div>
+                  <div className="text-xs text-texto-terciario">Correo agregado</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(ev) => {
+                    ev.preventDefault()
+                    setExtras(prev => prev.filter(x => x !== e))
+                    setSeleccionados(prev => {
+                      const next = new Set(prev)
+                      next.delete(e)
+                      return next
+                    })
+                  }}
+                  className="text-xxs font-medium text-texto-terciario uppercase tracking-wider hover:text-texto-primario shrink-0 transition-colors"
+                >
+                  Quitar
+                </button>
+              </label>
+            )
+          })}
         </div>
 
-        <div className="pt-2 border-t border-borde-sutil">
-          <label className="block text-xs text-texto-terciario mb-1">Agregar otro correo</label>
+        {/* Agregar otro correo */}
+        <div className="pt-4 border-t border-white/[0.07]">
+          <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5">
+            Agregar otro correo
+          </label>
           <div className="flex gap-2">
             <Input
               value={inputLibre}
@@ -1577,19 +1819,9 @@ function ModalSeleccionarDestinatarios({
               Agregar
             </Boton>
           </div>
-          {errorLibre && <div className="text-xs text-[var(--insignia-peligro)] mt-1">{errorLibre}</div>}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-borde-sutil">
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
-          <Boton
-            variante="primario"
-            tamano="sm"
-            onClick={confirmar}
-            disabled={seleccionados.size === 0}
-          >
-            Continuar ({seleccionados.size})
-          </Boton>
+          {errorLibre && (
+            <div className="text-xs text-[var(--insignia-peligro)] mt-1.5">{errorLibre}</div>
+          )}
         </div>
       </div>
     </Modal>
@@ -1665,6 +1897,71 @@ function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactN
   )
 }
 
+/**
+ * CampoEditorial — Patrón unificado para los campos de contacto/clasificación.
+ *
+ * Renderiza un ícono + label en uppercase tracking-wider arriba, y el control
+ * (input, select, lista) debajo. Reemplaza la mezcla anterior de Inputs con
+ * íconos internos, headers ad-hoc (Teléfonos) y selectores con sus propios
+ * labels — todo el bloque de comunicación + clasificación habla el mismo
+ * idioma visual ahora, así el ojo encuentra rápido qué es cada cosa.
+ *
+ * Usar en EditorContacto envolviendo Inputs, TelefonosContacto,
+ * SelectorConSugerencias y SelectorEtiquetas — todos esos componentes
+ * aceptan ahora suprimir su label/cabecera interno para no duplicar.
+ */
+function CampoEditorial({
+  icono, etiqueta, children, accionDerecha,
+}: {
+  icono: React.ReactNode
+  etiqueta: string
+  children: React.ReactNode
+  /** Opcional: acción flotante a la derecha del label (ej. "Editar en Usuarios →"). */
+  accionDerecha?: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 text-texto-terciario">
+          <span className="shrink-0 flex items-center">{icono}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider">{etiqueta}</span>
+        </div>
+        {accionDerecha && <div className="shrink-0">{accionDerecha}</div>}
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * RenderCampoFiscal — Renderiza un campo dinámico (select u texto) con su Fila.
+ * Extraído para poder ubicar el primer campo fiscal entre los campos de
+ * identificación en la grilla (columna izquierda) sin duplicar código.
+ */
+function RenderCampoFiscal({
+  campo, valor, onChange, onChangeRaw, seleccionarLabel,
+}: {
+  campo: CampoFiscalPais
+  valor: string
+  onChange: (v: string) => void
+  onChangeRaw: (v: string) => void
+  seleccionarLabel: string
+}) {
+  return (
+    <Fila etiqueta={campo.etiqueta}>
+      {campo.tipo_campo === 'select' && campo.opciones ? (
+        <Select variante="plano" valor={valor} onChange={onChange}
+          opciones={[{ valor: '', etiqueta: `${seleccionarLabel}...` }, ...(campo.opciones as { valor: string; etiqueta: string }[])]} />
+      ) : (
+        <Input variante="plano" value={valor}
+          onChange={e => onChangeRaw(e.target.value)}
+          onBlur={() => onChange(valor)}
+          placeholder={campo.mascara || campo.etiqueta} />
+      )}
+    </Fila>
+  )
+}
+
 // ─── Selector con sugerencias (para puesto y rubro) ───
 
 const COLORES_ETIQUETA = [
@@ -1688,7 +1985,8 @@ function SelectorConSugerencias({
   onChange,
   placeholder,
 }: {
-  etiqueta: string
+  /** Vacío → no renderiza label interno (el wrapper CampoEditorial ya lo provee). */
+  etiqueta?: string
   valor: string
   opciones: string[]
   tipoConfig?: string
@@ -1742,7 +2040,9 @@ function SelectorConSugerencias({
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
+      {etiqueta && (
+        <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
+      )}
       <input
         type="text"
         value={texto}
@@ -1793,11 +2093,15 @@ function SelectorEtiquetas({
   etiquetasConfig,
   onAgregar,
   onQuitar,
+  mostrarLabel = true,
 }: {
   etiquetas: string[]
   etiquetasConfig: { nombre: string; color: string }[]
   onAgregar: (nombre: string, color: string) => void
   onQuitar: (nombre: string) => void
+  /** Si false, no renderiza su label "Etiquetas" interno — pensado para
+   *  cuando va envuelto en CampoEditorial que ya provee label uniforme. */
+  mostrarLabel?: boolean
 }) {
   const { t } = useTraduccion()
   const [abierto, setAbierto] = useState(false)
@@ -1850,7 +2154,9 @@ function SelectorEtiquetas({
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1.5 block">Etiquetas</label>
+      {mostrarLabel && (
+        <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1.5 block">Etiquetas</label>
+      )}
 
       <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
         {asignadas.map(e => (

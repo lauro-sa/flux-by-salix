@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Boton } from '@/componentes/ui/Boton'
-import { ArrowLeft, PanelLeftOpen, PanelLeftClose, Columns2, Rows2, Pen } from 'lucide-react'
+import { ArrowLeft, PanelLeftOpen, PanelLeftClose, Pen } from 'lucide-react'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { ListaConversaciones } from '@/componentes/mensajeria/ListaConversaciones'
 import { PanelCorreo } from './PanelCorreo'
@@ -66,7 +66,6 @@ interface PropsLayoutCorreo {
 
   // Layout desktop
   modoVista: ModoVista
-  onCambiarModoVista: (modo: ModoVista) => void
   sidebarColapsado: boolean
   onToggleSidebar: () => void
   listaColapsada: boolean
@@ -79,6 +78,9 @@ interface PropsLayoutCorreo {
 
   // Limpiar estado al volver
   onLimpiarSeleccion: () => void
+
+  // Menú contextual de conversación (3 puntitos)
+  onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
 
   // Pull to refresh
   onRefresh?: () => Promise<void>
@@ -125,7 +127,6 @@ export function LayoutCorreo({
   onCancelarRedaccion,
   paraRedactarNuevo,
   modoVista,
-  onCambiarModoVista,
   sidebarColapsado,
   onToggleSidebar,
   listaColapsada,
@@ -134,6 +135,7 @@ export function LayoutCorreo({
   vistaMovil,
   onCambiarVistaMovil,
   onLimpiarSeleccion,
+  onAccionMenu,
   onRefresh,
   t,
 }: PropsLayoutCorreo) {
@@ -242,6 +244,7 @@ export function LayoutCorreo({
                 onEliminarSeleccion={onEliminarSeleccion}
                 soloNoLeidos={soloNoLeidos}
                 onToggleNoLeidos={onToggleNoLeidos}
+                onAccionMenu={onAccionMenu}
                 onRefresh={onRefresh}
               />
             </div>
@@ -304,7 +307,10 @@ export function LayoutCorreo({
           background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
         }}
       >
-        <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+        <div
+          className={`flex items-center ${sidebarColapsado ? 'justify-center' : 'justify-end px-2'} h-9 flex-shrink-0`}
+          style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+        >
           <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar panel" icono={sidebarColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={onToggleSidebar} />
         </div>
         <div className="flex-1 overflow-hidden">
@@ -356,8 +362,7 @@ export function LayoutCorreo({
           propsPanelCorreo={propsPanelCorreo}
           listaColapsada={listaColapsada}
           onToggleLista={onToggleLista}
-          modoVista={modoVista}
-          onCambiarModoVista={onCambiarModoVista}
+          onAccionMenu={onAccionMenu}
         />
       ) : (
         <VistaFilaCorreo
@@ -378,8 +383,7 @@ export function LayoutCorreo({
           onLimpiarSeleccion={onLimpiarSeleccion}
           propsCompositor={propsCompositor}
           propsPanelCorreo={propsPanelCorreo}
-          modoVista={modoVista}
-          onCambiarModoVista={onCambiarModoVista}
+          onAccionMenu={onAccionMenu}
           t={t}
         />
       )}
@@ -408,8 +412,7 @@ interface PropsVistaColumna {
   propsPanelCorreo: React.ComponentProps<typeof PanelCorreo>
   listaColapsada: boolean
   onToggleLista: () => void
-  modoVista: ModoVista
-  onCambiarModoVista: (modo: ModoVista) => void
+  onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
 }
 
 function VistaColumnaCorreo({
@@ -431,8 +434,7 @@ function VistaColumnaCorreo({
   propsPanelCorreo,
   listaColapsada,
   onToggleLista,
-  modoVista,
-  onCambiarModoVista,
+  onAccionMenu,
 }: PropsVistaColumna) {
   return (
     <>
@@ -460,11 +462,9 @@ function VistaColumnaCorreo({
               onEliminarSeleccion={onEliminarSeleccion}
               soloNoLeidos={soloNoLeidos}
               onToggleNoLeidos={onToggleNoLeidos}
+              onAccionMenu={onAccionMenu}
               accionesHeader={
-                <div className="flex items-center gap-0.5">
-                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Ocultar lista" icono={<PanelLeftClose size={14} />} onClick={onToggleLista} />
-                  <ToggleModoVista modoVista={modoVista} onCambiar={onCambiarModoVista} />
-                </div>
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Ocultar lista" icono={<PanelLeftClose size={14} />} onClick={onToggleLista} />
               }
             />
           </div>
@@ -508,8 +508,7 @@ interface PropsVistaFila {
   onLimpiarSeleccion: () => void
   propsCompositor: React.ComponentProps<typeof CompositorCorreo>
   propsPanelCorreo: React.ComponentProps<typeof PanelCorreo>
-  modoVista: ModoVista
-  onCambiarModoVista: (modo: ModoVista) => void
+  onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
   t: (clave: string) => string
 }
 
@@ -531,18 +530,16 @@ function VistaFilaCorreo({
   onLimpiarSeleccion,
   propsCompositor,
   propsPanelCorreo,
-  modoVista,
-  onCambiarModoVista,
+  onAccionMenu,
   t,
 }: PropsVistaFila) {
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
       {(conversacionSeleccionada || redactandoNuevo) && (
-        <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+        <div className="flex items-center px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
           <Boton variante="fantasma" tamano="xs" icono={<ArrowLeft size={14} />} onClick={() => { onLimpiarSeleccion(); onCancelarRedaccion() }}>
             {t('comun.volver')}
           </Boton>
-          <ToggleModoVista modoVista={modoVista} onCambiar={onCambiarModoVista} invertido />
         </div>
       )}
       {redactandoNuevo ? (
@@ -572,9 +569,7 @@ function VistaFilaCorreo({
             onEliminarSeleccion={onEliminarSeleccion}
             soloNoLeidos={soloNoLeidos}
             onToggleNoLeidos={onToggleNoLeidos}
-            accionesHeader={
-              <ToggleModoVista modoVista={modoVista} onCambiar={onCambiarModoVista} />
-            }
+            onAccionMenu={onAccionMenu}
           />
         </div>
       )}
@@ -582,36 +577,3 @@ function VistaFilaCorreo({
   )
 }
 
-// ─── Componente auxiliar: toggle columna/fila ───
-
-function ToggleModoVista({ modoVista, onCambiar, invertido }: { modoVista: ModoVista; onCambiar: (modo: ModoVista) => void; invertido?: boolean }) {
-  const columnaActiva = modoVista === 'columna'
-  return (
-    <div className="flex items-center gap-0 rounded-boton p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-      <Boton
-        variante="fantasma"
-        tamano="xs"
-        soloIcono
-        icono={<Columns2 size={12} />}
-        onClick={() => onCambiar('columna')}
-        titulo="Vista columna"
-        style={{
-          color: (invertido ? !columnaActiva : columnaActiva) ? 'var(--texto-marca)' : 'var(--texto-terciario)',
-          background: (invertido ? !columnaActiva : columnaActiva) ? 'var(--superficie-seleccionada)' : undefined,
-        }}
-      />
-      <Boton
-        variante="fantasma"
-        tamano="xs"
-        soloIcono
-        icono={<Rows2 size={12} />}
-        onClick={() => onCambiar('fila')}
-        titulo="Vista fila"
-        style={{
-          color: (invertido ? columnaActiva : !columnaActiva) ? 'var(--texto-marca)' : 'var(--texto-terciario)',
-          background: (invertido ? columnaActiva : !columnaActiva) ? 'var(--superficie-seleccionada)' : undefined,
-        }}
-      />
-    </div>
-  )
-}

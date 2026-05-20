@@ -12,7 +12,7 @@ import { enriquecerContactos } from '@/lib/enriquecer-contactos'
  *
  * Sin Suspense fallback ni loading.tsx: durante la navegación la página
  * anterior persiste hasta que termina el fetch del Server Component. El
- * feedback visual de carga lo da la BarraProgresoGlobal (barra fina arriba)
+ * feedback visual de carga lo da la CargaBarra (barra fina arriba)
  * que vive en PlantillaApp y se activa con cambios de ruta + actividad de
  * React Query.
  */

@@ -372,6 +372,7 @@ export const tipos_relacion = pgTable('tipos_relacion', {
   etiqueta_inversa: text('etiqueta_inversa').notNull(),
   es_predefinido: boolean('es_predefinido').notNull().default(false),
   activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   uniqueIndex('tipos_relacion_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),

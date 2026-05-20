@@ -95,6 +95,12 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
 
     // Texto de tooltip: explícito > titulo (solo en soloIcono)
     const textoTooltip = tooltip || (soloIcono && titulo ? titulo : '')
+    // Cuándo envolver con Tooltip: depende de algo estructural (soloIcono o
+    // prop `tooltip` explícita), no del valor de runtime de `textoTooltip`.
+    // Si dependiera del valor, props que cambian post-mount (ej. `titulo`
+    // dependiente de datos que llegan después de hidratar) generarían
+    // hydration mismatch porque el árbol DOM cambia de envuelto ↔ sin envolver.
+    const envolverConTooltip = tooltip !== undefined || soloIcono
 
     const boton = (
       <motion.button
@@ -117,7 +123,7 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
       </motion.button>
     )
 
-    if (textoTooltip) {
+    if (envolverConTooltip) {
       return <Tooltip contenido={textoTooltip}>{boton}</Tooltip>
     }
 

@@ -6,5 +6,3 @@ export { EstadoVacio } from './EstadoVacio'
 export type { PropiedadesEstadoVacio } from './EstadoVacio'
 
 export { ContenedorConEstado } from './ContenedorConEstado'
-
-export { FallbackListado } from './FallbackListado'

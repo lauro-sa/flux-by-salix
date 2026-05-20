@@ -12,7 +12,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { formatearParaMostrar } from '@/componentes/ui/TextoTelefono'
 import { useTema } from '@/hooks/useTema'
-import type { ConversacionConDetalles } from '@/tipos/inbox'
+import type { ConversacionConDetalles, TipoCanal } from '@/tipos/inbox'
 
 /**
  * MenuConversacion — Menú contextual para acciones sobre una conversación.
@@ -30,6 +30,10 @@ interface PropiedadesMenuConversacion {
   esAdmin: boolean
   estaFijada: boolean
   estaSilenciada: boolean
+  /** Canal de la conversación. Algunas opciones del menú son específicas
+   *  de WhatsApp (asignar usuario, silenciar, pipeline, bloquear número) y
+   *  no aplican a correo. Default: 'whatsapp' para mantener compatibilidad. */
+  tipoCanal?: TipoCanal
 }
 
 /** Miembro del equipo para el sub-modal de fijar para usuario */
@@ -55,49 +59,74 @@ function obtenerItems(
   conv: ConversacionConDetalles,
   estaFijada: boolean,
   estaSilenciada: boolean,
+  tipoCanal: TipoCanal,
 ): ItemMenu[] {
-  return [
-    {
-      clave: 'fijar',
-      etiqueta: estaFijada ? 'Desfijar' : 'Fijar para mí',
-      icono: estaFijada ? <PinOff size={16} /> : <Pin size={16} />,
-    },
-    {
+  const esWhatsApp = tipoCanal === 'whatsapp'
+  const esInterno = tipoCanal === 'interno'
+
+  const items: ItemMenu[] = []
+
+  // Fijar para mí — aplica a todos los canales.
+  items.push({
+    clave: 'fijar',
+    etiqueta: estaFijada ? 'Desfijar' : 'Fijar para mí',
+    icono: estaFijada ? <PinOff size={16} /> : <Pin size={16} />,
+  })
+
+  // Fijar para otro usuario — solo WhatsApp (flujo comercial con asignación).
+  if (esWhatsApp) {
+    items.push({
       clave: 'fijar_para_usuario',
       etiqueta: 'Fijar para un usuario...',
       icono: <UserRoundPlus size={16} />,
-    },
-    {
+    })
+  }
+
+  // Silenciar — aplica a WhatsApp y canales internos. Correo no se silencia
+  // (las notificaciones de correo se manejan por carpeta y reglas).
+  if (esWhatsApp || esInterno) {
+    items.push({
       clave: 'silenciar',
       etiqueta: estaSilenciada ? 'Desilenciar' : 'Silenciar',
       icono: estaSilenciada ? <Bell size={16} /> : <BellOff size={16} />,
-    },
-    {
-      clave: 'marcar_lectura',
-      etiqueta: conv.mensajes_sin_leer > 0 ? 'Marcar como leído' : 'Marcar como no leído',
-      icono: conv.mensajes_sin_leer > 0 ? <Eye size={16} /> : <EyeOff size={16} />,
-    },
-    {
+    })
+  }
+
+  // Marcar como leído/no leído — aplica a todos.
+  items.push({
+    clave: 'marcar_lectura',
+    etiqueta: conv.mensajes_sin_leer > 0 ? 'Marcar como leído' : 'Marcar como no leído',
+    icono: conv.mensajes_sin_leer > 0 ? <Eye size={16} /> : <EyeOff size={16} />,
+  })
+
+  // Pipeline y bloquear número — exclusivos de WhatsApp.
+  if (esWhatsApp) {
+    items.push({
       clave: 'pipeline',
       etiqueta: conv.en_pipeline ? 'Quitar del pipeline' : 'Seguir en pipeline',
       icono: <KanbanSquare size={16} />,
-    },
-    {
+    })
+    items.push({
       clave: 'bloquear',
       etiqueta: 'Bloquear número',
       icono: <Ban size={16} />,
       peligro: true,
       soloAdmin: true,
       separadorAntes: true,
-    },
-    {
-      clave: 'papelera',
-      etiqueta: 'Mover a papelera',
-      icono: <Trash2 size={16} />,
-      peligro: true,
-      soloAdmin: true,
-    },
-  ]
+    })
+  }
+
+  // Mover a papelera — aplica a todos.
+  items.push({
+    clave: 'papelera',
+    etiqueta: 'Mover a papelera',
+    icono: <Trash2 size={16} />,
+    peligro: true,
+    soloAdmin: true,
+    separadorAntes: !esWhatsApp,
+  })
+
+  return items
 }
 
 // ─── Componente principal ───
@@ -111,6 +140,7 @@ function MenuConversacion({
   esAdmin,
   estaFijada,
   estaSilenciada,
+  tipoCanal = 'whatsapp',
 }: PropiedadesMenuConversacion) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
@@ -127,7 +157,7 @@ function MenuConversacion({
   const [busquedaMiembros, setBusquedaMiembros] = useState('')
   const [miembrosSeleccionados, setMiembrosSeleccionados] = useState<Set<string>>(new Set())
 
-  const items = obtenerItems(conversacion, estaFijada, estaSilenciada)
+  const items = obtenerItems(conversacion, estaFijada, estaSilenciada, tipoCanal)
 
   // Cerrar con Escape
   useEffect(() => {

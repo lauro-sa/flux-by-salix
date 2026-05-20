@@ -19,7 +19,7 @@ import { useRol } from '@/hooks/useRol'
 import type { Modulo, Accion } from '@/tipos'
 import { useTraduccion } from '@/lib/i18n'
 import { Insignia } from '@/componentes/ui/Insignia'
-import { FallbackListado } from '@/componentes/feedback/FallbackListado'
+import { CargaIcono } from '@/componentes/carga'
 import { Boton } from '@/componentes/ui/Boton'
 
 // Widgets del dashboard
@@ -307,7 +307,7 @@ export default function ContenidoDashboard() {
   }, [empresa])
 
   if (cargando) {
-    return <FallbackListado icono={<LayoutDashboard size={52} strokeWidth={1} />} />
+    return <CargaIcono icono={<LayoutDashboard size={52} strokeWidth={1} />} />
   }
 
   // Fichaje del usuario actual (si existe) para mostrar estado arriba

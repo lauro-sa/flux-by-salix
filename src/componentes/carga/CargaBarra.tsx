@@ -6,9 +6,13 @@ import { useIsFetching } from '@tanstack/react-query'
 import { useCargaGlobal } from '@/hooks/useCargaGlobal'
 
 /**
- * BarraProgresoGlobal — Barra de progreso fina que aparece en el borde
- * inferior del Header (sobre el contenido del módulo) cuando hay actividad
- * de carga.
+ * CargaBarra — Barra de progreso fina que aparece en el borde inferior del
+ * Header (sobre el contenido del módulo) cuando hay actividad de carga.
+ *
+ * Es uno de los TRES patrones canónicos de carga de Flux:
+ *   • CargaBarra  — barra fina (este componente, modales/listas/secciones)
+ *   • CargaIcono  — ícono dibujándose + barra (módulos enteros)
+ *   • CargaMarca  — logo Salix + byline + barra (splash app, login)
  *
  * Se activa por tres disparadores:
  * 1. Navegación entre rutas: usePathname cambia (no searchParams para evitar
@@ -25,7 +29,7 @@ import { useCargaGlobal } from '@/hooks/useCargaGlobal'
  * Vive en PlantillaApp justo después del Header — su ancho respeta el del
  * contenedor padre (`contenido-principal`), que ya excluye el sidebar.
  */
-export function BarraProgresoGlobal() {
+export function CargaBarra() {
   const pathname = usePathname()
   const fetching = useIsFetching()
   const { activos: cargasExternas } = useCargaGlobal()

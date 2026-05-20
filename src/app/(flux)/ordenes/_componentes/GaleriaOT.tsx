@@ -36,6 +36,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import type { AdjuntoChatter, EntradaChatter, SubtipoChatter } from '@/tipos/chatter'
 
 type EntradaGaleria = EntradaChatter
@@ -92,6 +93,10 @@ export default function GaleriaOT({
   const [editorGuardando, setEditorGuardando] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const inputArchivoRef = useRef<HTMLInputElement>(null)
+
+  // Subir adjuntos a la galería (fotos/documentos) puede tardar varios
+  // segundos según tamaño y red — marca la BarraProgresoGlobal del header.
+  useReportarCarga(subiendo, `galeria-ot-${ordenId}-${tipo}`)
 
   const cargar = useCallback(async () => {
     setCargando(true)

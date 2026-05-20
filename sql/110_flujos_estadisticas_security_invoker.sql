@@ -1,0 +1,21 @@
+-- 110_flujos_estadisticas_security_invoker.sql
+--
+-- Convierte la vista `public.flujos_con_estadisticas` a `security_invoker`.
+--
+-- Contexto: Supabase Advisor reportó SECURITY DEFINER en esta vista
+-- (severidad CRITICAL). Por defecto, las views en Postgres se ejecutan con
+-- los permisos del CREATOR de la vista, ignorando RLS del usuario que
+-- consulta. En multi-tenant es un bypass: un usuario authenticated podría
+-- ver flujos de otras empresas si consulta directo la vista.
+--
+-- Hoy la vista solo se consulta desde service_role (crearClienteAdmin())
+-- y el código filtra explícitamente por empresa_id, así que no hay impacto
+-- funcional. Pero conviene cerrar el agujero por defensa en profundidad:
+-- si en el futuro se consulta desde authenticated, RLS de las tablas base
+-- (flujos, ejecuciones_flujo, ambas filtradas por empresa_actual()) ya
+-- garantiza el filtrado correcto.
+--
+-- security_invoker = true → la vista se ejecuta con permisos y RLS del
+-- usuario que la consulta. Es el default recomendado por Supabase desde
+-- Postgres 15+.
+ALTER VIEW public.flujos_con_estadisticas SET (security_invoker = true);

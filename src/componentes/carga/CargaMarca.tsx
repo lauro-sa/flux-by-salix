@@ -1,18 +1,26 @@
 'use client'
 
 /**
- * SplashSalix — Pantalla de carga animada con el logo.
- * Ideal para login, portal del cliente, o loading entre secciones.
+ * CargaMarca — Pantalla de carga animada con el logo Salix.
+ *
+ * Es uno de los TRES patrones canónicos de carga de Flux:
+ *   • CargaBarra  — barra fina (modales/listas/secciones)
+ *   • CargaIcono  — ícono dibujándose + barra (módulos enteros)
+ *   • CargaMarca  — logo Salix + byline + barra (este componente, splash app)
+ *
+ * Ideal para login, portal del cliente, o loading entre secciones grandes —
+ * cualquier pantalla donde el usuario está "entrando" a algo, no esperando
+ * que se cargue una vista interna.
  *
  * Uso:
- *   <SplashSalix />                          → splash a pantalla completa
- *   <SplashSalix producto="flux" inline />   → splash inline (sin fondo completo)
+ *   <CargaMarca />                          → splash a pantalla completa
+ *   <CargaMarca producto="flux" inline />   → splash inline (sin fondo completo)
  */
 
 import { motion } from 'framer-motion'
-import LogoSalix from './LogoSalix'
+import LogoSalix from '@/componentes/marca/LogoSalix'
 
-interface SplashSalixProps {
+interface PropiedadesCargaMarca {
   /** Nombre del producto */
   producto?: string
   /** Si true, no ocupa toda la pantalla — se adapta al contenedor */
@@ -25,13 +33,13 @@ interface SplashSalixProps {
   tamano?: number
 }
 
-export default function SplashSalix({
+export default function CargaMarca({
   producto = 'flux',
   inline = false,
   mostrarByline = true,
   className = '',
   tamano = 48,
-}: SplashSalixProps) {
+}: PropiedadesCargaMarca) {
   const contenedorVariantes = {
     oculto: { opacity: 0 },
     visible: {
