@@ -6,7 +6,7 @@
  * Se usa en: PanelChatter cuando el usuario hace clic en "Registrar nota".
  */
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Paperclip, X, FileText, Loader2, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
@@ -25,6 +25,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
   const [error, setError] = useState('')
   const inputArchivoRef = useRef<HTMLInputElement>(null)
+  const contenedorRef = useRef<HTMLDivElement>(null)
 
   const tieneContenido = textoPlano.trim().length > 0
 
@@ -36,14 +37,13 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
     setTextoPlano(div.textContent || '')
   }
 
-  // Adjuntar archivo
-  const handleArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const archivos = e.target.files
-    if (!archivos?.length) return
-
+  // Subir archivos al storage y agregarlos como adjuntos
+  const subirArchivos = useCallback(async (archivos: File[]) => {
+    if (!archivos.length) return
     setSubiendoArchivo(true)
+    setError('')
     try {
-      for (const archivo of Array.from(archivos)) {
+      for (const archivo of archivos) {
         const formData = new FormData()
         formData.append('archivo', archivo)
         formData.append('carpeta', `chatter/${entidadTipo}/${entidadId}`)
@@ -69,9 +69,41 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
       setError('Error al subir archivo')
     }
     setSubiendoArchivo(false)
-    // Limpiar input para permitir re-seleccionar el mismo archivo
+  }, [entidadTipo, entidadId])
+
+  // Adjuntar archivo desde el input nativo
+  const handleArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivos = e.target.files
+    if (!archivos?.length) return
+    await subirArchivos(Array.from(archivos))
     if (inputArchivoRef.current) inputArchivoRef.current.value = ''
   }
+
+  // Pegar imagen/PDF desde el portapapeles (solo si el paste se hizo dentro del editor)
+  // Mismo patrón que ModalRegistrarPago para comprobantes.
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      const target = e.target as Node | null
+      if (!target || !contenedorRef.current?.contains(target)) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      const archivos: File[] = []
+      for (const item of Array.from(items)) {
+        if (item.kind !== 'file') continue
+        const f = item.getAsFile()
+        if (!f) continue
+        if (f.type.startsWith('image/') || f.type === 'application/pdf') {
+          archivos.push(f)
+        }
+      }
+      if (archivos.length) {
+        e.preventDefault()
+        subirArchivos(archivos)
+      }
+    }
+    window.addEventListener('paste', handler)
+    return () => window.removeEventListener('paste', handler)
+  }, [subirArchivos])
 
   // Quitar adjunto
   const quitarAdjunto = (indice: number) => {
@@ -130,7 +162,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className="overflow-hidden"
     >
-      <div className="border border-insignia-advertencia/30 rounded-card bg-insignia-advertencia/5 overflow-hidden">
+      <div ref={contenedorRef} className="border border-insignia-advertencia/30 rounded-card bg-insignia-advertencia/5 overflow-hidden">
         {/* Etiqueta */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-insignia-advertencia/20">
           <span className="text-xs font-medium text-insignia-advertencia">

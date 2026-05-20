@@ -367,6 +367,35 @@ export function useEnvioDocumento({
     if (archivos.length > 0) subirArchivos(archivos)
   }, [subirArchivos])
 
+  // ─── Pegar imagen/PDF desde el portapapeles ───
+  // Solo intercepta si el paste ocurre dentro del modal y los items son archivos
+  // (image/* o application/pdf). Pastes de texto pasan limpios al editor.
+  // Mismo patrón que ModalRegistrarPago para comprobantes.
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: ClipboardEvent) => {
+      const target = e.target as Node | null
+      if (!target || !dropRef.current?.contains(target)) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      const archivos: File[] = []
+      for (const item of Array.from(items)) {
+        if (item.kind !== 'file') continue
+        const f = item.getAsFile()
+        if (!f) continue
+        if (f.type.startsWith('image/') || f.type === 'application/pdf') {
+          archivos.push(f)
+        }
+      }
+      if (archivos.length) {
+        e.preventDefault()
+        subirArchivos(archivos)
+      }
+    }
+    window.addEventListener('paste', handler)
+    return () => window.removeEventListener('paste', handler)
+  }, [abierto, subirArchivos])
+
   // ─── Rastrear posición del cursor en el editor TipTap ───
   const actualizarCursorEditor = useCallback(() => {
     const editor = editorRef.current
