@@ -1552,7 +1552,9 @@ export const pt: Traducciones = {
       'tiempo.cron': 'Cron periódico',
       'tiempo.relativo_a_campo': 'Relativo à data',
       'webhook.entrante': 'Webhook recebido',
-      'inbox.mensaje_recibido': 'Mensagem recebida',
+      'inbox.correo_recibido': 'Email recebido',
+      'inbox.whatsapp_recibido': 'WhatsApp recebido',
+      'inbox.interno_recibido': 'Mensagem interna recebida',
       'inbox.conversacion_sin_respuesta': 'Conversa sem resposta',
       sin_disparador: 'Sem gatilho',
     },
@@ -1564,7 +1566,9 @@ export const pt: Traducciones = {
       'tiempo.cron': 'Em horários definidos por uma expressão cron.',
       'tiempo.relativo_a_campo': 'Certa quantidade de dias antes ou depois de uma data do registro.',
       'webhook.entrante': 'Quando chega um POST a uma URL de webhook.',
-      'inbox.mensaje_recibido': 'Quando chega uma mensagem ao inbox.',
+      'inbox.correo_recibido': 'Quando chega um email ao inbox.',
+      'inbox.whatsapp_recibido': 'Quando chega uma mensagem de WhatsApp ao inbox. (Em breve)',
+      'inbox.interno_recibido': 'Quando chega uma mensagem interna ao inbox. (Em breve)',
       'inbox.conversacion_sin_respuesta': 'Quando uma conversa está sem resposta há um tempo.',
     },
 
@@ -2050,13 +2054,16 @@ export const pt: Traducciones = {
           preview_ayuda: 'Variáveis como {{contacto.nombre}} são substituídas automaticamente ao enviar.',
         },
 
-        inbox_mensaje_recibido: {
-          tipo_canal_label: 'Tipo de canal',
-          tipo_canal_correo: 'Email',
-          tipo_canal_ayuda: 'O suporte para WhatsApp chega em uma próxima entrega.',
+        inbox_correo_recibido: {
           canales_label: 'Contas que disparam o fluxo',
           canales_ayuda_todas: 'Sem filtro: dispara com qualquer conta de email ativa da empresa.',
           canales_ayuda_filtradas: 'Só dispara com as contas selecionadas.',
+        },
+
+        proximamente: {
+          titulo: 'Gatilho em breve',
+          whatsapp: 'O motor ainda não processa mensagens recebidas de WhatsApp. Você pode deixar o fluxo como rascunho e ativá-lo assim que for liberado.',
+          interno: 'O motor ainda não processa mensagens internas do inbox. Você pode deixar o fluxo como rascunho e ativá-lo assim que for liberado.',
         },
 
         generico_json: {
@@ -2292,7 +2299,9 @@ export const pt: Traducciones = {
       'tiempo.cron': { titulo: 'Horário periódico', descripcion: 'Em horários definidos por uma expressão cron.' },
       'tiempo.relativo_a_campo': { titulo: 'Relativo a uma data', descripcion: 'Antes ou depois de uma data do registro.' },
       'webhook.entrante': { titulo: 'Webhook recebido', descripcion: 'Quando chega um POST a uma URL de webhook.' },
-      'inbox.mensaje_recibido': { titulo: 'Mensagem recebida', descripcion: 'Quando chega uma mensagem na caixa de entrada.' },
+      'inbox.correo_recibido': { titulo: 'Email recebido', descripcion: 'Quando chega um email ao inbox.' },
+      'inbox.whatsapp_recibido': { titulo: 'WhatsApp recebido', descripcion: 'Quando chega uma mensagem de WhatsApp ao inbox. (Em breve)' },
+      'inbox.interno_recibido': { titulo: 'Mensagem interna recebida', descripcion: 'Quando chega uma mensagem interna ao inbox. (Em breve)' },
       'inbox.conversacion_sin_respuesta': { titulo: 'Conversa sem resposta', descripcion: 'Quando uma conversa está esperando há muito tempo.' },
 
       enviar_whatsapp_plantilla: { titulo: 'Enviar WhatsApp', descripcion: 'Enviar uma plantilla aprovada pela Meta a um contato.' },

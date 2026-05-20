@@ -1607,7 +1607,9 @@ export interface Traducciones {
       'tiempo.cron': string
       'tiempo.relativo_a_campo': string
       'webhook.entrante': string
-      'inbox.mensaje_recibido': string
+      'inbox.correo_recibido': string
+      'inbox.whatsapp_recibido': string
+      'inbox.interno_recibido': string
       'inbox.conversacion_sin_respuesta': string
       sin_disparador: string
     }
@@ -1619,7 +1621,9 @@ export interface Traducciones {
       'tiempo.cron': string
       'tiempo.relativo_a_campo': string
       'webhook.entrante': string
-      'inbox.mensaje_recibido': string
+      'inbox.correo_recibido': string
+      'inbox.whatsapp_recibido': string
+      'inbox.interno_recibido': string
       'inbox.conversacion_sin_respuesta': string
     }
 
@@ -2106,13 +2110,16 @@ export interface Traducciones {
           preview_ayuda: string
         }
 
-        inbox_mensaje_recibido: {
-          tipo_canal_label: string
-          tipo_canal_correo: string
-          tipo_canal_ayuda: string
+        inbox_correo_recibido: {
           canales_label: string
           canales_ayuda_todas: string
           canales_ayuda_filtradas: string
+        }
+
+        proximamente: {
+          titulo: string
+          whatsapp: string
+          interno: string
         }
 
         generico_json: {
@@ -2352,7 +2359,9 @@ export interface Traducciones {
       'tiempo.cron': { titulo: string; descripcion: string }
       'tiempo.relativo_a_campo': { titulo: string; descripcion: string }
       'webhook.entrante': { titulo: string; descripcion: string }
-      'inbox.mensaje_recibido': { titulo: string; descripcion: string }
+      'inbox.correo_recibido': { titulo: string; descripcion: string }
+      'inbox.whatsapp_recibido': { titulo: string; descripcion: string }
+      'inbox.interno_recibido': { titulo: string; descripcion: string }
       'inbox.conversacion_sin_respuesta': { titulo: string; descripcion: string }
       // Acciones
       enviar_whatsapp_plantilla: { titulo: string; descripcion: string }

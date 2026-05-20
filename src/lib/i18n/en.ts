@@ -1552,7 +1552,9 @@ export const en: Traducciones = {
       'tiempo.cron': 'Periodic cron',
       'tiempo.relativo_a_campo': 'Relative to date',
       'webhook.entrante': 'Incoming webhook',
-      'inbox.mensaje_recibido': 'Message received',
+      'inbox.correo_recibido': 'Email received',
+      'inbox.whatsapp_recibido': 'WhatsApp received',
+      'inbox.interno_recibido': 'Internal message received',
       'inbox.conversacion_sin_respuesta': 'Unanswered conversation',
       sin_disparador: 'No trigger',
     },
@@ -1564,7 +1566,9 @@ export const en: Traducciones = {
       'tiempo.cron': 'On schedules defined by a cron expression.',
       'tiempo.relativo_a_campo': 'A given number of days before or after a record date.',
       'webhook.entrante': 'When a POST hits a webhook URL.',
-      'inbox.mensaje_recibido': 'When a message arrives in the inbox.',
+      'inbox.correo_recibido': 'When an email arrives in the inbox.',
+      'inbox.whatsapp_recibido': 'When a WhatsApp message arrives in the inbox. (Coming soon)',
+      'inbox.interno_recibido': 'When an internal message arrives in the inbox. (Coming soon)',
       'inbox.conversacion_sin_respuesta': 'When a conversation has been silent for a while.',
     },
 
@@ -2050,13 +2054,16 @@ export const en: Traducciones = {
           preview_ayuda: 'Variables like {{contacto.nombre}} are replaced automatically when sending.',
         },
 
-        inbox_mensaje_recibido: {
-          tipo_canal_label: 'Channel type',
-          tipo_canal_correo: 'Email',
-          tipo_canal_ayuda: 'WhatsApp support is coming in a future release.',
+        inbox_correo_recibido: {
           canales_label: 'Accounts that trigger the flow',
           canales_ayuda_todas: 'No filter: triggers for any active email account of the company.',
           canales_ayuda_filtradas: 'Only triggers for the selected accounts.',
+        },
+
+        proximamente: {
+          titulo: 'Trigger coming soon',
+          whatsapp: 'The engine does not yet process incoming WhatsApp messages. You can leave the flow as a draft and activate it as soon as it is released.',
+          interno: 'The engine does not yet process internal inbox messages. You can leave the flow as a draft and activate it as soon as it is released.',
         },
 
         generico_json: {
@@ -2292,7 +2299,9 @@ export const en: Traducciones = {
       'tiempo.cron': { titulo: 'Periodic schedule', descripcion: 'On schedules defined by a cron expression.' },
       'tiempo.relativo_a_campo': { titulo: 'Relative to a date', descripcion: 'Before or after a date on the record.' },
       'webhook.entrante': { titulo: 'Incoming webhook', descripcion: 'When a POST arrives at a webhook URL.' },
-      'inbox.mensaje_recibido': { titulo: 'Message received', descripcion: 'When a message arrives at the inbox.' },
+      'inbox.correo_recibido': { titulo: 'Email received', descripcion: 'When an email arrives in the inbox.' },
+      'inbox.whatsapp_recibido': { titulo: 'WhatsApp received', descripcion: 'When a WhatsApp message arrives in the inbox. (Coming soon)' },
+      'inbox.interno_recibido': { titulo: 'Internal message received', descripcion: 'When an internal message arrives in the inbox. (Coming soon)' },
       'inbox.conversacion_sin_respuesta': { titulo: 'Unanswered conversation', descripcion: 'When a conversation has been waiting too long.' },
 
       enviar_whatsapp_plantilla: { titulo: 'Send WhatsApp', descripcion: 'Send a Meta-approved template to a contact.' },
