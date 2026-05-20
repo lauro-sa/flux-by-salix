@@ -132,6 +132,7 @@ const ICONO_POR_ACCION: Record<TipoAccion, string> = {
   enviar_whatsapp_texto: 'MessageSquareText',
   enviar_correo_plantilla: 'MailCheck',
   enviar_correo_texto: 'Mail',
+  enviar_respuesta_rapida_correo: 'Reply',
   crear_actividad: 'PenLine',
   completar_actividad: 'CheckCircle2',
   cambiar_estado_entidad: 'Repeat',

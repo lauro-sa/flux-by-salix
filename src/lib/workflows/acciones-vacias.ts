@@ -88,7 +88,7 @@ export function crearDisparadorVacio(tipo: TipoDisparador): DisparadorWorkflow {
     case 'inbox.mensaje_recibido':
       return {
         tipo: 'inbox.mensaje_recibido',
-        configuracion: {},
+        configuracion: { tipo_canal: 'correo' },
       }
     case 'inbox.conversacion_sin_respuesta':
       return {
@@ -165,13 +165,23 @@ export function crearAccionVacia(tipo: TipoAccion): AccionWorkflow {
         tipo: 'terminar_flujo',
       }
 
+    case 'enviar_correo_plantilla':
+      return {
+        tipo: 'enviar_correo_plantilla',
+        plantilla_id: '',
+      }
+    case 'enviar_respuesta_rapida_correo':
+      return {
+        tipo: 'enviar_respuesta_rapida_correo',
+        respuesta_rapida_id: '',
+      }
+
     // ─── Acciones genéricas (shape `parametros`) ────────────────
     // Son las del catálogo todavía sin shape específico (sub-PR 15.3+).
     // Las exhaustimos individualmente en lugar de usar `default` para
     // que TS pinte un error si se agrega un `TipoAccion` nuevo y se
     // olvidan de mapearlo acá.
     case 'enviar_whatsapp_texto':
-    case 'enviar_correo_plantilla':
     case 'enviar_correo_texto':
     case 'asignar_usuario':
     case 'agregar_etiqueta':

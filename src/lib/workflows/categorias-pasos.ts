@@ -75,6 +75,7 @@ export const MAPA_ACCION: Record<TipoAccion, CategoriaAccion> = {
   enviar_whatsapp_texto: 'envios',
   enviar_correo_plantilla: 'envios',
   enviar_correo_texto: 'envios',
+  enviar_respuesta_rapida_correo: 'envios',
   // Creaciones: nuevas entidades en otros módulos.
   crear_actividad: 'creaciones',
   // completar_actividad va en `creaciones` por proximidad semántica con

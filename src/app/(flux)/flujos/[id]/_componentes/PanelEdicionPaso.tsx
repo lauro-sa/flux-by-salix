@@ -31,7 +31,6 @@ import PanelEtiqueta from './_panel/secciones/PanelEtiqueta'
 import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
 import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
 import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
-import PanelEnviarCorreoPlantilla from './_panel/secciones/PanelEnviarCorreoPlantilla'
 import PanelGenericoParametros from './_panel/secciones/PanelGenericoParametros'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
@@ -595,17 +594,11 @@ function renderPaso(args: RenderPasoArgs) {
     )
   }
 
-  if (paso.tipo === 'enviar_correo_plantilla') {
-    return (
-      <PanelEnviarCorreoPlantilla
-        paso={paso as AccionGenerica}
-        soloLectura={soloLectura}
-        onCambiar={onCambiar}
-        fuentes={fuentes}
-        contexto={contexto}
-      />
-    )
-  }
+  // enviar_correo_plantilla: el panel viejo asumía shape genérico
+  // `{ tipo, parametros }`. Como ahora la acción tiene shape específico
+  // (`plantilla_id`, `destinatario_override?`), el panel necesita
+  // reescribirse — hasta entonces el paso cae en `PanelTipoPendiente`.
+  // El refactor del panel se hace en la fase UI de este PR.
 
   // Tipos sin UI dedicada todavía → JSON crudo + cartel honesto.
   // Cuando alguno de estos tenga shape específico en el motor, se
