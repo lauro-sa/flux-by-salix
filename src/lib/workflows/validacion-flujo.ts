@@ -21,8 +21,11 @@ import {
   esDisparadorEntidadEstadoCambio,
   esDisparadorTiempoCron,
   esDisparadorTiempoRelativoACampo,
+  esDisparadorInboxMensajeRecibido,
   esAccionConocida,
   esAccionEnviarWhatsappPlantilla,
+  esAccionEnviarCorreoPlantilla,
+  esAccionEnviarRespuestaRapidaCorreo,
   esAccionCrearActividad,
   esAccionCompletarActividad,
   esAccionCambiarEstadoEntidad,
@@ -74,6 +77,7 @@ const DISPARADORES_SOPORTADOS = new Set<string>([
   'entidad.estado_cambio',
   'tiempo.cron',
   'tiempo.relativo_a_campo',
+  'inbox.mensaje_recibido',
 ])
 
 /**
@@ -84,6 +88,8 @@ const DISPARADORES_SOPORTADOS = new Set<string>([
  */
 const ACCIONES_SOPORTADAS = new Set<string>([
   'enviar_whatsapp_plantilla',
+  'enviar_correo_plantilla',
+  'enviar_respuesta_rapida_correo',
   'crear_actividad',
   'completar_actividad',
   'cambiar_estado_entidad',
@@ -141,6 +147,11 @@ function validarDisparador(d: unknown): string[] {
       ? []
       : ['El disparador relativo a campo requiere entidad, campo de fecha y desplazamiento en días.']
   }
+  if (r.tipo === 'inbox.mensaje_recibido') {
+    return esDisparadorInboxMensajeRecibido(d)
+      ? []
+      : ['El disparador de mensaje recibido requiere tipo de canal (hoy solo "correo") y, opcionalmente, cuentas filtradas.']
+  }
   return [`El disparador "${r.tipo}" no se puede validar todavía.`]
 }
 
@@ -184,6 +195,14 @@ function validarAccion(a: unknown, ruta: string): string[] {
       return esAccionEnviarWhatsappPlantilla(a)
         ? []
         : [`${ruta}: WhatsApp con plantilla requiere canal, teléfono, plantilla e idioma.`]
+    case 'enviar_correo_plantilla':
+      return esAccionEnviarCorreoPlantilla(a)
+        ? []
+        : [`${ruta}: enviar correo con plantilla requiere plantilla_id (uuid de plantillas_correo).`]
+    case 'enviar_respuesta_rapida_correo':
+      return esAccionEnviarRespuestaRapidaCorreo(a)
+        ? []
+        : [`${ruta}: enviar respuesta rápida requiere respuesta_rapida_id (uuid de respuestas_rapidas_correo).`]
     case 'crear_actividad':
       return esAccionCrearActividad(a)
         ? []

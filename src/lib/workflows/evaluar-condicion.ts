@@ -27,6 +27,8 @@ import type {
   CondicionWorkflow,
   CondicionHoja,
   CondicionCompuesta,
+  CondicionHorario,
+  DiaSemana,
   OperadorComparacion,
 } from '@/tipos/workflow'
 
@@ -35,27 +37,40 @@ const PROFUNDIDAD_MAX = 5
 /**
  * Evalúa una condición contra el contexto. Devuelve true/false.
  * Falla cerrada (false) si la estructura está rota.
+ *
+ * `ahora` opcional: permite inyectar un Date determinístico para tests.
+ * En producción se usa Date.now() (default).
  */
 export function evaluarCondicion(
   condicion: CondicionWorkflow,
   contexto: Record<string, unknown>,
+  ahora: Date = new Date(),
 ): boolean {
-  return evaluarRecursivo(condicion, contexto, 0)
+  return evaluarRecursivo(condicion, contexto, 0, ahora)
 }
 
 function evaluarRecursivo(
   condicion: CondicionWorkflow,
   contexto: Record<string, unknown>,
   profundidad: number,
+  ahora: Date,
 ): boolean {
   if (profundidad > PROFUNDIDAD_MAX) {
     console.warn(`evaluar-condicion: profundidad ${profundidad} excede el máximo ${PROFUNDIDAD_MAX}`)
     return false
   }
 
+  // Horaria: discriminada por `tipo === 'horario'`.
+  if (
+    'tipo' in condicion &&
+    (condicion as { tipo?: unknown }).tipo === 'horario'
+  ) {
+    return evaluarHorario(condicion as CondicionHorario, ahora)
+  }
+
   // Compuesta: si tiene `condiciones` array.
   if ('condiciones' in condicion && Array.isArray(condicion.condiciones)) {
-    return evaluarCompuesta(condicion as CondicionCompuesta, contexto, profundidad)
+    return evaluarCompuesta(condicion as CondicionCompuesta, contexto, profundidad, ahora)
   }
 
   // Hoja: tiene `campo`.
@@ -71,6 +86,7 @@ function evaluarCompuesta(
   c: CondicionCompuesta,
   contexto: Record<string, unknown>,
   profundidad: number,
+  ahora: Date,
 ): boolean {
   if (c.condiciones.length === 0) {
     // Sin sub-condiciones: 'y' (vacuously true) vs 'o' (vacuously false).
@@ -78,16 +94,109 @@ function evaluarCompuesta(
   }
   if (c.operador === 'y') {
     return c.condiciones.every((sub) =>
-      evaluarRecursivo(sub, contexto, profundidad + 1),
+      evaluarRecursivo(sub, contexto, profundidad + 1, ahora),
     )
   }
   if (c.operador === 'o') {
     return c.condiciones.some((sub) =>
-      evaluarRecursivo(sub, contexto, profundidad + 1),
+      evaluarRecursivo(sub, contexto, profundidad + 1, ahora),
     )
   }
   console.warn(`evaluar-condicion: operador compuesto desconocido "${c.operador}"`)
   return false
+}
+
+/**
+ * Mapeo del `weekday` corto en inglés (lo único que `Intl.DateTimeFormat`
+ * devuelve de forma estable cross-engine) al código interno de Flux.
+ *
+ * NO usamos `getDay()` porque devuelve el día en la zona horaria LOCAL
+ * del servidor, no la zona horaria del flujo. En Vercel el server corre
+ * en UTC (memoria feedback_timezone_server.md), así que `getDay()` para
+ * un correo recibido a las 23:30 hora argentina devolvería el día
+ * SIGUIENTE en UTC (02:30 UTC). `Intl.DateTimeFormat` con timeZone
+ * explícito resuelve esto correctamente.
+ */
+const WEEKDAY_EN_A_DIA: Readonly<Record<string, DiaSemana>> = {
+  Mon: 'lun',
+  Tue: 'mar',
+  Wed: 'mie',
+  Thu: 'jue',
+  Fri: 'vie',
+  Sat: 'sab',
+  Sun: 'dom',
+}
+
+function partesFechaEnZona(
+  ahora: Date,
+  zonaHoraria: string,
+): { dia: DiaSemana; horaMinutos: number } | null {
+  try {
+    const partes = new Intl.DateTimeFormat('en-US', {
+      timeZone: zonaHoraria,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(ahora)
+    const get = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? ''
+    const dia = WEEKDAY_EN_A_DIA[get('weekday')]
+    const hh = Number(get('hour'))
+    const mm = Number(get('minute'))
+    if (!dia || Number.isNaN(hh) || Number.isNaN(mm)) return null
+    // Intl.DateTimeFormat con hour12:false devuelve "24" para medianoche
+    // en algunos engines; normalizamos a 0 para consistencia.
+    const horaNormalizada = hh === 24 ? 0 : hh
+    return { dia, horaMinutos: horaNormalizada * 60 + mm }
+  } catch (e) {
+    // Zona horaria inválida (IANA desconocida). Loggeamos y fallamos
+    // cerrada — el evaluador devuelve false, lo que para una condición
+    // "modo: fuera" se traduce en "no está fuera de horario" → flujo
+    // no actúa. Más conservador que asumir cualquier cosa.
+    console.warn(`evaluar-condicion: zona_horaria inválida "${zonaHoraria}"`, e)
+    return null
+  }
+}
+
+function aMinutos(hhmm: string): number | null {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+function evaluarHorario(c: CondicionHorario, ahora: Date): boolean {
+  // Días vacíos = ningún día matchea = nunca está dentro del rango.
+  // Si modo='fuera', siempre es true; si modo='dentro', siempre false.
+  // Esto es semánticamente correcto pero el validador pre-publicar
+  // rechaza este caso (CondicionHorario exige al menos un día) — el
+  // chequeo acá es defensa.
+  if (!Array.isArray(c.dias) || c.dias.length === 0) {
+    return c.modo === 'fuera'
+  }
+
+  const partes = partesFechaEnZona(ahora, c.zona_horaria)
+  if (partes === null) return false
+
+  const desde = aMinutos(c.hora_desde)
+  const hasta = aMinutos(c.hora_hasta)
+  if (desde === null || hasta === null) return false
+
+  const diaMatchea = c.dias.includes(partes.dia)
+
+  // Rango cross-medianoche (ej: 22:00 → 06:00). Si desde > hasta, el
+  // intervalo "dentro" abarca [desde, 1440) ∪ [0, hasta).
+  let horaDentroDeRango: boolean
+  if (desde <= hasta) {
+    // Rango normal: [desde, hasta). Hasta es exclusivo (08:00-18:00
+    // significa "hasta las 18:00 sin incluirlas", que es lo intuitivo
+    // para "horario laboral hasta las 18hs").
+    horaDentroDeRango = partes.horaMinutos >= desde && partes.horaMinutos < hasta
+  } else {
+    horaDentroDeRango = partes.horaMinutos >= desde || partes.horaMinutos < hasta
+  }
+
+  const dentro = diaMatchea && horaDentroDeRango
+  return c.modo === 'dentro' ? dentro : !dentro
 }
 
 function evaluarHoja(

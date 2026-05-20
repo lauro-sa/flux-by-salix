@@ -115,13 +115,38 @@ describe('validarPublicable — acciones', () => {
     expect(r.errores[0]).toMatch(/no reconocido/)
   })
 
-  it('rechaza acción reservada pero no soportada (enviar_correo_plantilla)', () => {
+  it('rechaza acción reservada pero no soportada (enviar_whatsapp_texto)', () => {
     const r = validarPublicable(
       dispEstadoOk,
-      [{ tipo: 'enviar_correo_plantilla', parametros: {} }],
+      [{ tipo: 'enviar_whatsapp_texto', parametros: {} }],
     )
     expect(r.ok).toBe(false)
     expect(r.errores[0]).toMatch(/todavía no la ejecuta el motor/)
+  })
+
+  it('acepta enviar_correo_plantilla con shape correcto', () => {
+    const r = validarPublicable(
+      dispEstadoOk,
+      [{ tipo: 'enviar_correo_plantilla', plantilla_id: 'uuid-plantilla-1' }],
+    )
+    expect(r.ok).toBe(true)
+  })
+
+  it('rechaza enviar_correo_plantilla sin plantilla_id', () => {
+    const r = validarPublicable(
+      dispEstadoOk,
+      [{ tipo: 'enviar_correo_plantilla' }],
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errores[0]).toMatch(/plantilla_id/)
+  })
+
+  it('acepta enviar_respuesta_rapida_correo con shape correcto', () => {
+    const r = validarPublicable(
+      dispEstadoOk,
+      [{ tipo: 'enviar_respuesta_rapida_correo', respuesta_rapida_id: 'uuid-rapida-1' }],
+    )
+    expect(r.ok).toBe(true)
   })
 
   it('rechaza shape incompleto de WhatsApp (sin telefono)', () => {
