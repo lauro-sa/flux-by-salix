@@ -116,8 +116,17 @@ export function MenuFilaFlujo({
     >
       <button
         type="button"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          // stopPropagation: evita que el click burbujee al row clickeable
+          // del listado (que navegaría al detalle). El toggle del Popover
+          // está enganchado al wrapper padre del trigger, pero quedaba
+          // anulado por el stopPropagation — por eso accionamos el toggle
+          // manualmente con el state controlado.
+          e.stopPropagation()
+          setAbierto((a) => !a)
+        }}
         aria-label={t('comun.acciones')}
+        aria-expanded={abierto}
         className="flex items-center justify-center size-7 rounded-boton border border-transparent bg-transparent text-texto-terciario cursor-pointer hover:bg-superficie-hover hover:text-texto-secundario transition-colors"
       >
         <MoreVertical size={16} />

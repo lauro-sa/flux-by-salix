@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Modal } from '@/componentes/ui/Modal'
@@ -76,6 +77,17 @@ export default function EditorFlujo({ flujoInicial }: Props) {
     setearFlujoCompleto,
     flush,
   } = useEditorFlujo({ flujoInicial, soloLectura })
+
+  // Migaja dinámica: reemplaza el genérico "Detalle" del segmento UUID
+  // por el nombre del flujo (queda como "Flujos > Respuesta automática
+  // fuera de horario"). Se re-registra cada vez que el usuario edita el
+  // nombre inline en el header.
+  const nav = useNavegacion()
+  useEffect(() => {
+    if (flujo.nombre?.trim()) {
+      nav.setMigajaDinamica(`/flujos/${flujo.id}`, flujo.nombre)
+    }
+  }, [flujo.id, flujo.nombre, nav])
 
   // ─── Versión a pintar (publicado vs borrador interno) ────────────
   const version = useMemo(() => obtenerVersionEditable(flujo), [flujo])
