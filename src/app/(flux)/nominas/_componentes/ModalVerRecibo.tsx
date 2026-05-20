@@ -30,6 +30,7 @@ import {
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 
 interface Props {
   abierto: boolean
@@ -62,6 +63,10 @@ export function ModalVerRecibo({
    * firmada coincida.
    */
   const [versionVista, setVersionVista] = useState(0)
+
+  // Generación/regeneración del PDF de recibo. El backend recalcula valores
+  // y arma el PDF — visible en la BarraProgresoGlobal del header.
+  useReportarCarga(cargando && abierto, `nomina-recibo-${pagoId ?? `${miembroId}-${periodoInicio}`}`)
 
   const cargar = async () => {
     setCargando(true)

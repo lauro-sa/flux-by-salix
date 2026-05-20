@@ -8,7 +8,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, AlertTriangle } from 'lucide-react'
+import { Sparkles, AlertTriangle, FileText } from 'lucide-react'
+import { CargaIcono } from '@/componentes/carga'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
 import { TablaLineas, type OriginalCatalogo } from './TablaLineas'
 import dynamic from 'next/dynamic'
@@ -16,6 +17,7 @@ import type { LineaPropuestaIA } from './PanelAsistenteIA'
 const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.PanelAsistenteIA), { ssr: false })
 import { registrarArmador } from '@/lib/salix-ia/armador-presupuesto-bus'
 import { useMinimizable } from '@/hooks/useMinimizable'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import { useRol } from '@/hooks/useRol'
 import { Boton } from '@/componentes/ui/Boton'
@@ -75,6 +77,9 @@ interface PropsEditorPresupuesto {
   onDescartado?: () => void
   /** Callback cuando se carga el título (número del presupuesto) */
   onTituloCargado?: (titulo: string) => void
+  /** Número precargado server-side (P-0042). Se usa para mostrar el nombre
+   *  real del documento en el cargador mientras se hidrata el cliente. */
+  numeroInicial?: string | null
 }
 
 export default function EditorPresupuesto({
@@ -85,6 +90,7 @@ export default function EditorPresupuesto({
   onCreado,
   onDescartado,
   onTituloCargado,
+  numeroInicial,
 }: PropsEditorPresupuesto) {
   const router = useRouter()
   const { obtenerRutaModulo } = useNavegacion()
@@ -1541,6 +1547,10 @@ export default function EditorPresupuesto({
 
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   const [generandoPdf, setGenerandoPdf] = useState(false)
+
+  // Generar/regenerar PDF puede tardar varios segundos: marca actividad en
+  // la BarraProgresoGlobal del header desde el primer momento.
+  useReportarCarga(generandoPdf, `presupuesto-pdf-${idPresupuesto ?? ''}`)
   const [deshacerReEmision, setDeshacerReEmision] = useState<(() => Promise<void>) | null>(null)
   const [confirmarReEmision, setConfirmarReEmision] = useState(false)
   const [cantidadReEmisiones, setCantidadReEmisiones] = useState(0)
@@ -1903,20 +1913,13 @@ export default function EditorPresupuesto({
   // ─── Loading state (solo modo editar) ───────────────────────────────────
 
   if (cargando || (modo === 'editar' && (!presupuesto || !config))) {
-    return (
-      <div className="w-full max-w-[1200px] mx-auto px-4 py-6">
-        <div className="bg-superficie-tarjeta rounded-card border border-borde-sutil overflow-hidden">
-          <div className="px-6 pt-5 pb-4 border-b border-borde-sutil animate-pulse">
-            <div className="h-8 w-48 bg-superficie-app rounded-card mb-3" />
-            <div className="h-5 w-32 bg-superficie-app rounded-card" />
-          </div>
-          <div className="px-6 py-8 space-y-4 animate-pulse">
-            <div className="h-4 w-64 bg-superficie-app rounded" />
-            <div className="h-4 w-40 bg-superficie-app rounded" />
-          </div>
-        </div>
-      </div>
-    )
+    // Si ya tenemos el número (precargado server-side o llegado del fetch),
+    // se muestra debajo del ícono dibujándose. En modo "crear" no hay
+    // documento aún, pasamos un nombre genérico.
+    const nombreLoader = modo === 'crear'
+      ? 'Nuevo presupuesto'
+      : (presupuesto?.numero || numeroInicial || undefined)
+    return <CargaIcono icono={<FileText size={52} strokeWidth={1} />} nombre={nombreLoader} />
   }
 
   // ─── Título ─────────────────────────────────────────────────────────────

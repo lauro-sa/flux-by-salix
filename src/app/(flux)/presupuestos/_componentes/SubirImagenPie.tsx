@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { Upload, Trash2, Image as ImageIcon } from 'lucide-react'
 import NextImage from 'next/image'
 import { Boton } from '@/componentes/ui/Boton'
+import { useReportarCarga } from '@/hooks/useCargaGlobal'
 
 /**
  * Componente simple para subir una imagen al pie de página del PDF.
@@ -45,6 +46,7 @@ export default function SubirImagenPie({ urlActual, onSubir, onEliminar }: Propi
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  useReportarCarga(subiendo, 'presupuesto-subir-imagen-pie')
 
   const manejarArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0]

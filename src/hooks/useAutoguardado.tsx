@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { TIMEOUT_AUTOGUARDADO } from '@/lib/constantes/timeouts'
+import { useReportarCarga } from './useCargaGlobal'
 
 /**
  * Hook para autoguardado inteligente.
@@ -26,6 +27,11 @@ interface UltimoGuardado {
 function useAutoguardado({ onGuardar, debounce = 800 }: OpcionesAutoguardado) {
   const [estado, setEstado] = useState<EstadoGuardado>('idle')
   const [puedeDeshacer, setPuedeDeshacer] = useState(false)
+
+  // Reporta la actividad a la BarraProgresoGlobal del header solo si el
+  // guardado dura más de 300 ms — la mayoría termina en 50–200 ms y no
+  // amerita feedback global (ya lo cubre el IndicadorGuardado inline).
+  useReportarCarga(estado === 'guardando', undefined, 300)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ocultarRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const datosAcumulados = useRef<Record<string, unknown>>({})
