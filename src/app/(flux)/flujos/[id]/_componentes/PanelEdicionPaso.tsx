@@ -31,11 +31,14 @@ import PanelEtiqueta from './_panel/secciones/PanelEtiqueta'
 import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
 import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
 import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
+import PanelEnviarCorreoPlantilla from './_panel/secciones/PanelEnviarCorreoPlantilla'
+import PanelEnviarRespuestaRapidaCorreo from './_panel/secciones/PanelEnviarRespuestaRapidaCorreo'
 import PanelGenericoParametros from './_panel/secciones/PanelGenericoParametros'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
 import PanelDisparadorEntidadCampoCambia from './_panel/secciones/PanelDisparadorEntidadCampoCambia'
 import PanelDisparadorRelativoACampo from './_panel/secciones/PanelDisparadorRelativoACampo'
+import PanelDisparadorInboxMensajeRecibido from './_panel/secciones/PanelDisparadorInboxMensajeRecibido'
 import PanelTipoPendiente from './_panel/secciones/PanelTipoPendiente'
 import { usePreviewContexto } from './_picker/usePreviewContexto'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
@@ -56,6 +59,7 @@ import type {
   DisparadorEntidadEstadoCambio,
   DisparadorTiempoCron,
   DisparadorTiempoRelativoACampo,
+  DisparadorInboxMensajeRecibido,
   DisparadorWorkflow,
   TipoAccion,
   TipoDisparador,
@@ -422,6 +426,27 @@ function renderDisparador(args: RenderDisparadorArgs) {
     )
   }
 
+  if (tipo === 'inbox.mensaje_recibido') {
+    const canalIdsRaw = cfg.canal_ids
+    const canalIds = Array.isArray(canalIdsRaw)
+      ? canalIdsRaw.filter((s): s is string => typeof s === 'string' && s.length > 0)
+      : []
+    const disparador: DisparadorInboxMensajeRecibido = {
+      tipo: 'inbox.mensaje_recibido',
+      configuracion: {
+        tipo_canal: 'correo',
+        ...(canalIds.length > 0 ? { canal_ids: canalIds } : {}),
+      },
+    }
+    return (
+      <PanelDisparadorInboxMensajeRecibido
+        disparador={disparador}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+      />
+    )
+  }
+
   return <PanelTipoPendiente tipoLegible={fallbackTitulo} />
 }
 
@@ -594,11 +619,29 @@ function renderPaso(args: RenderPasoArgs) {
     )
   }
 
-  // enviar_correo_plantilla: el panel viejo asumía shape genérico
-  // `{ tipo, parametros }`. Como ahora la acción tiene shape específico
-  // (`plantilla_id`, `destinatario_override?`), el panel necesita
-  // reescribirse — hasta entonces el paso cae en `PanelTipoPendiente`.
-  // El refactor del panel se hace en la fase UI de este PR.
+  if (paso.tipo === 'enviar_correo_plantilla') {
+    return (
+      <PanelEnviarCorreoPlantilla
+        paso={paso as React.ComponentProps<typeof PanelEnviarCorreoPlantilla>['paso']}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'enviar_respuesta_rapida_correo') {
+    return (
+      <PanelEnviarRespuestaRapidaCorreo
+        paso={paso as React.ComponentProps<typeof PanelEnviarRespuestaRapidaCorreo>['paso']}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
 
   // Tipos sin UI dedicada todavía → JSON crudo + cartel honesto.
   // Cuando alguno de estos tenga shape específico en el motor, se

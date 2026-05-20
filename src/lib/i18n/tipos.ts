@@ -2069,10 +2069,32 @@ export interface Traducciones {
           plantilla_label: string
           plantilla_ayuda: string
           destinatario_label: string
+          destinatario_ayuda: string
           preview_titulo: string
           preview_asunto_label: string
           preview_cuerpo_label: string
           preview_ayuda: string
+        }
+
+        respuesta_rapida_correo: {
+          respuesta_label: string
+          respuesta_ayuda: string
+          destinatario_label: string
+          destinatario_placeholder: string
+          destinatario_ayuda: string
+          preview_titulo: string
+          preview_asunto_label: string
+          preview_cuerpo_label: string
+          preview_ayuda: string
+        }
+
+        inbox_mensaje_recibido: {
+          tipo_canal_label: string
+          tipo_canal_correo: string
+          tipo_canal_ayuda: string
+          canales_label: string
+          canales_ayuda_todas: string
+          canales_ayuda_filtradas: string
         }
 
         generico_json: {
@@ -2172,6 +2194,16 @@ export interface Traducciones {
       estado: { placeholder: string }
       etiqueta: { placeholder: string }
       plantilla_correo: { placeholder: string }
+      respuesta_rapida_correo: { placeholder: string }
+      canales_correo: {
+        todas: string
+        placeholder: string
+        cargando: string
+        error: string
+        sin_canales: string
+        desconectado: string
+        quitar: string
+      }
     }
 
     // Picker de variables (sub-PR 19.3b)

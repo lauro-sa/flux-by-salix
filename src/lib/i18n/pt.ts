@@ -2013,10 +2013,32 @@ export const pt: Traducciones = {
           plantilla_label: 'Modelo de email',
           plantilla_ayuda: 'Os modelos são editados em Configuração → Modelos de email. O motor os resolve com os dados do contato e da entidade ao executar.',
           destinatario_label: 'Destinatário',
+          destinatario_ayuda: 'Deixe vazio para responder ao remetente do email recebido. Para enviar a outro destinatário, escreva-o ou use variáveis como {{contacto.email}}.',
           preview_titulo: 'Pré-visualização',
           preview_asunto_label: 'Assunto',
           preview_cuerpo_label: 'Corpo',
           preview_ayuda: 'Variáveis como {{contacto.nombre}} são substituídas automaticamente ao enviar.',
+        },
+
+        respuesta_rapida_correo: {
+          respuesta_label: 'Resposta rápida',
+          respuesta_ayuda: 'As respostas rápidas são editadas em Inbox → Respostas rápidas. São atalhos do operador, mas um fluxo também pode enviá-las.',
+          destinatario_label: 'Destinatário',
+          destinatario_placeholder: 'Padrão: remetente do email original',
+          destinatario_ayuda: 'Deixe vazio para responder ao remetente do email recebido. Suporta {{variáveis}}.',
+          preview_titulo: 'Pré-visualização',
+          preview_asunto_label: 'Assunto',
+          preview_cuerpo_label: 'Corpo',
+          preview_ayuda: 'Variáveis como {{contacto.nombre}} são substituídas automaticamente ao enviar.',
+        },
+
+        inbox_mensaje_recibido: {
+          tipo_canal_label: 'Tipo de canal',
+          tipo_canal_correo: 'Email',
+          tipo_canal_ayuda: 'O suporte para WhatsApp chega em uma próxima entrega.',
+          canales_label: 'Contas que disparam o fluxo',
+          canales_ayuda_todas: 'Sem filtro: dispara com qualquer conta de email ativa da empresa.',
+          canales_ayuda_filtradas: 'Só dispara com as contas selecionadas.',
         },
 
         generico_json: {
@@ -2117,6 +2139,16 @@ export const pt: Traducciones = {
       estado: { placeholder: 'Escolha um estado' },
       etiqueta: { placeholder: 'Escolha uma tag' },
       plantilla_correo: { placeholder: 'Escolha um modelo' },
+      respuesta_rapida_correo: { placeholder: 'Escolha uma resposta rápida' },
+      canales_correo: {
+        todas: 'Todas as contas',
+        placeholder: 'Contas selecionadas',
+        cargando: 'Carregando contas...',
+        error: 'Erro ao carregar contas',
+        sin_canales: 'Sem contas de email configuradas',
+        desconectado: 'Desconectada',
+        quitar: 'Remover',
+      },
     },
 
     picker: {

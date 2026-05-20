@@ -2052,10 +2052,32 @@ export const es: Traducciones = {
           plantilla_label: 'Plantilla de correo',
           plantilla_ayuda: 'Las plantillas se editan desde Configuración → Plantillas de correo. El motor las resuelve con los datos del contacto y la entidad al ejecutar.',
           destinatario_label: 'Destinatario',
+          destinatario_ayuda: 'Dejá vacío para responder al remitente del correo entrante. Si querés otro destinatario, escribilo o usá variables como {{contacto.email}}.',
           preview_titulo: 'Vista previa',
           preview_asunto_label: 'Asunto',
           preview_cuerpo_label: 'Cuerpo',
           preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        respuesta_rapida_correo: {
+          respuesta_label: 'Respuesta rápida',
+          respuesta_ayuda: 'Las respuestas rápidas se editan desde Inbox → Respuestas rápidas. Son atajos del operador, pero un flujo también las puede mandar.',
+          destinatario_label: 'Destinatario',
+          destinatario_placeholder: 'Por defecto: remitente del correo original',
+          destinatario_ayuda: 'Dejá vacío si querés responder al remitente del correo entrante. Soporta {{variables}}.',
+          preview_titulo: 'Vista previa',
+          preview_asunto_label: 'Asunto',
+          preview_cuerpo_label: 'Cuerpo',
+          preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        inbox_mensaje_recibido: {
+          tipo_canal_label: 'Tipo de canal',
+          tipo_canal_correo: 'Correo electrónico',
+          tipo_canal_ayuda: 'El soporte para WhatsApp llega en una próxima entrega.',
+          canales_label: 'Cuentas que disparan el flujo',
+          canales_ayuda_todas: 'Sin filtro: dispara con cualquier cuenta de correo activa de la empresa.',
+          canales_ayuda_filtradas: 'Solo dispara con las cuentas seleccionadas.',
         },
 
         generico_json: {
@@ -2156,6 +2178,16 @@ export const es: Traducciones = {
       estado: { placeholder: 'Elegí un estado' },
       etiqueta: { placeholder: 'Elegí una etiqueta' },
       plantilla_correo: { placeholder: 'Elegí una plantilla' },
+      respuesta_rapida_correo: { placeholder: 'Elegí una respuesta rápida' },
+      canales_correo: {
+        todas: 'Todas las cuentas',
+        placeholder: 'Cuentas seleccionadas',
+        cargando: 'Cargando cuentas...',
+        error: 'Error cargando cuentas',
+        sin_canales: 'Sin cuentas de correo configuradas',
+        desconectado: 'Desconectada',
+        quitar: 'Quitar',
+      },
     },
 
     picker: {

@@ -2013,10 +2013,32 @@ export const en: Traducciones = {
           plantilla_label: 'Email template',
           plantilla_ayuda: 'Templates are managed in Settings → Email templates. The engine resolves them with contact and entity data at runtime.',
           destinatario_label: 'Recipient',
+          destinatario_ayuda: 'Leave empty to reply to the sender of the incoming email. To send to a different address, type it here or use variables like {{contacto.email}}.',
           preview_titulo: 'Preview',
           preview_asunto_label: 'Subject',
           preview_cuerpo_label: 'Body',
           preview_ayuda: 'Variables like {{contacto.nombre}} are replaced automatically when sending.',
+        },
+
+        respuesta_rapida_correo: {
+          respuesta_label: 'Quick reply',
+          respuesta_ayuda: 'Quick replies are managed in Inbox → Quick replies. They are operator shortcuts, but a flow can send them too.',
+          destinatario_label: 'Recipient',
+          destinatario_placeholder: 'Default: sender of the original email',
+          destinatario_ayuda: 'Leave empty to reply to the sender of the incoming email. Supports {{variables}}.',
+          preview_titulo: 'Preview',
+          preview_asunto_label: 'Subject',
+          preview_cuerpo_label: 'Body',
+          preview_ayuda: 'Variables like {{contacto.nombre}} are replaced automatically when sending.',
+        },
+
+        inbox_mensaje_recibido: {
+          tipo_canal_label: 'Channel type',
+          tipo_canal_correo: 'Email',
+          tipo_canal_ayuda: 'WhatsApp support is coming in a future release.',
+          canales_label: 'Accounts that trigger the flow',
+          canales_ayuda_todas: 'No filter: triggers for any active email account of the company.',
+          canales_ayuda_filtradas: 'Only triggers for the selected accounts.',
         },
 
         generico_json: {
@@ -2117,6 +2139,16 @@ export const en: Traducciones = {
       estado: { placeholder: 'Pick a state' },
       etiqueta: { placeholder: 'Pick a tag' },
       plantilla_correo: { placeholder: 'Pick a template' },
+      respuesta_rapida_correo: { placeholder: 'Pick a quick reply' },
+      canales_correo: {
+        todas: 'All accounts',
+        placeholder: 'Selected accounts',
+        cargando: 'Loading accounts...',
+        error: 'Error loading accounts',
+        sin_canales: 'No email accounts configured',
+        desconectado: 'Disconnected',
+        quitar: 'Remove',
+      },
     },
 
     picker: {
