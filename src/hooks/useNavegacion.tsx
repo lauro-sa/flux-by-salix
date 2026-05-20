@@ -222,7 +222,15 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
   // sin query) para mapearlo a MIGAJAS_MODULOS.
   const origenRaw = searchParams.get('origen') || searchParams.get('desde') || null
   const origenPath = origenRaw ? origenRaw.split('?')[0] : null
-  const origenActual = origenPath
+  // Si `desde` viene como ID puro (ej: `?desde={uuid}` al navegar entre
+  // contactos vinculados) lo normalizamos al path completo del módulo
+  // actual. Sin esto, la migaja dinámica del origen se guarda como
+  // `/contactos/{uuid}` pero el filtro busca `{uuid}` y no matchea — el
+  // contacto de origen se pierde de la migaja.
+  const moduloActualSegmento = pathname.split('/').filter(Boolean)[0] || ''
+  const origenActual = origenPath && !origenPath.startsWith('/') && moduloActualSegmento
+    ? `/${moduloActualSegmento}/${origenPath}`
+    : origenPath
 
   // Agregar al historial cuando cambia la ruta
   if (

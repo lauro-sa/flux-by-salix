@@ -47,6 +47,10 @@ interface PropiedadesModalAdaptable {
   accionesEncabezado?: ReactNode
   /** Modo pantalla completa */
   expandido?: boolean
+  /** Desbloquea el max-h grande (90dvh) sin tener que subir a tamano="3xl".
+   *  Útil para mantener el modal angosto pero alto. Ignorado en mobile
+   *  (BottomSheet ya tiene su propio sistema de altura). */
+  altoExtendido?: boolean
 }
 
 function ModalAdaptable({
@@ -65,6 +69,7 @@ function ModalAdaptable({
   forzarModal = false,
   accionesEncabezado,
   expandido,
+  altoExtendido,
 }: PropiedadesModalAdaptable) {
   const esMovil = useEsMovil()
 
@@ -101,6 +106,7 @@ function ModalAdaptable({
       sinPadding={sinPadding}
       accionesEncabezado={accionesEncabezado}
       expandido={expandido}
+      altoExtendido={altoExtendido}
     >
       {children}
     </Modal>
