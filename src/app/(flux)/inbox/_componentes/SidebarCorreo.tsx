@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { Fragment, useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import {
@@ -304,14 +304,15 @@ export function SidebarCorreo({
 
               return (
                 <Reorder.Item key={canal.id} value={canal.id} className={`${esMovil ? 'mb-2' : 'mb-1'} list-none`}>
+                  {/* Header del canal: tap solo expande/colapsa, no navega.
+                      Para navegar, el usuario toca una carpeta (Bandeja,
+                      Enviados, Spam, Archivar). */}
                   <Boton
                     variante="fantasma"
                     tamano={tamanoBtn}
                     anchoCompleto
-                    onClick={() => {
-                      toggleCuenta(canal.id)
-                      onSeleccionarCanal(canal.id)
-                    }}
+                    onClick={() => toggleCuenta(canal.id)}
+                    aria-expanded={expandida}
                     className={`${claseTexto} group`}
                   >
                     <span className={`flex items-center ${esMovil ? 'gap-2.5' : 'gap-1.5'} w-full`}>
@@ -333,52 +334,86 @@ export function SidebarCorreo({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
+                        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                        className={`overflow-hidden ${esMovil ? 'mt-1.5 mb-1 rounded-xl' : ''}`}
+                        style={esMovil ? { background: 'var(--superficie-tarjeta)' } : undefined}
                       >
-                        {CARPETAS.map((carpeta) => {
+                        {CARPETAS.map((carpeta, idx) => {
                           const activa = estaActiva && carpetaActiva === carpeta.clave
                           const { sinLeer, total } = contarCarpeta(canal.id, carpeta.clave)
 
                           return (
-                            <Boton
-                              key={carpeta.clave}
-                              variante="fantasma"
-                              tamano={tamanoBtn}
-                              anchoCompleto
-                              onClick={() => {
-                                onSeleccionarCanal(canal.id)
-                                onSeleccionarCarpeta(carpeta.clave)
-                              }}
-                              className={`${esMovil ? 'pl-8 pr-3' : 'pl-6 pr-2.5'} ${claseTexto}`}
-                              style={{
-                                color: activa ? 'var(--texto-marca)' : 'var(--texto-secundario)',
-                                background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
-                                fontWeight: activa ? 600 : 400,
-                              }}
-                            >
-                              <span className="flex items-center gap-2 w-full">
-                                <span style={{ color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
-                                  {carpeta.icono}
-                                </span>
-                                <span className="flex-1 text-left">{t(carpeta.claveI18n)}</span>
-                                {/* Mostrar total de la carpeta + sin leer si hay */}
-                                {total > 0 && (
-                                  <span
-                                    className={`${claseTextoChico} px-1.5 py-0.5 rounded-full font-medium`}
-                                    style={{
-                                      background: sinLeer > 0
-                                        ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')
-                                        : 'var(--superficie-hover)',
-                                      color: sinLeer > 0
-                                        ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-inverso)')
-                                        : 'var(--texto-terciario)',
-                                    }}
-                                  >
-                                    {sinLeer > 0 ? sinLeer : total}
+                            <Fragment key={carpeta.clave}>
+                              {/* Separador inset estilo iOS: empieza donde
+                                  empieza el texto (después del ícono) y
+                                  termina donde termina el chevron. ml-[42px]
+                                  = pl-4 (16px) + ícono 14px + gap-3 (12px).
+                                  mr-3 = pr-3 del botón. */}
+                              {esMovil && idx > 0 && (
+                                <div
+                                  className="h-px ml-[42px] mr-3"
+                                  style={{ background: 'var(--borde-sutil)' }}
+                                />
+                              )}
+                              <Boton
+                                variante="fantasma"
+                                tamano={tamanoBtn}
+                                anchoCompleto
+                                onClick={() => {
+                                  onSeleccionarCanal(canal.id)
+                                  onSeleccionarCarpeta(carpeta.clave)
+                                }}
+                                className={`${esMovil ? 'pl-4 pr-3 py-3 rounded-none min-h-[48px]' : 'pl-6 pr-2.5'} ${claseTexto}`}
+                                style={{
+                                  color: activa ? 'var(--texto-marca)' : 'var(--texto-secundario)',
+                                  background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
+                                  fontWeight: activa ? 600 : 400,
+                                }}
+                              >
+                                <span className={`flex items-center ${esMovil ? 'gap-3' : 'gap-2'} w-full`}>
+                                  <span style={{ color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
+                                    {carpeta.icono}
                                   </span>
-                                )}
-                              </span>
-                            </Boton>
+                                  <span className="flex-1 text-left">{t(carpeta.claveI18n)}</span>
+                                  {/* Conteo: pill en desktop, número plano estilo iOS en móvil */}
+                                  {total > 0 && (
+                                    esMovil ? (
+                                      <span
+                                        className="text-xs font-medium"
+                                        style={{
+                                          color: sinLeer > 0
+                                            ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-marca)')
+                                            : 'var(--texto-terciario)',
+                                        }}
+                                      >
+                                        {sinLeer > 0 ? sinLeer : total}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className={`${claseTextoChico} px-1.5 py-0.5 rounded-full font-medium`}
+                                        style={{
+                                          background: sinLeer > 0
+                                            ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')
+                                            : 'var(--superficie-hover)',
+                                          color: sinLeer > 0
+                                            ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-inverso)')
+                                            : 'var(--texto-terciario)',
+                                        }}
+                                      >
+                                        {sinLeer > 0 ? sinLeer : total}
+                                      </span>
+                                    )
+                                  )}
+                                  {/* Chevron de "ir a la carpeta" solo en móvil */}
+                                  {esMovil && (
+                                    <ChevronRight
+                                      size={16}
+                                      style={{ color: 'var(--texto-terciario)' }}
+                                    />
+                                  )}
+                                </span>
+                              </Boton>
+                            </Fragment>
                           )
                         })}
                       </motion.div>

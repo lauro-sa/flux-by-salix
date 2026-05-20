@@ -109,6 +109,8 @@ function PaginaInbox() {
         onSincronizarCorreos={estado.sincronizarCorreos}
         onIrConfiguracion={() => router.push('/inbox/configuracion')}
         esMovil={estado.esMovil}
+        modoVista={estado.modoVista}
+        onCambiarModoVista={estado.cambiarModoVista}
       />
 
       {/* Contenido principal */}
@@ -153,7 +155,6 @@ function PaginaInbox() {
             onCancelarRedaccion={() => { estado.setRedactandoNuevo(false); estado.setParaRedactarNuevo([]) }}
             paraRedactarNuevo={estado.paraRedactarNuevo}
             modoVista={estado.modoVista}
-            onCambiarModoVista={estado.cambiarModoVista}
             sidebarColapsado={estado.sidebarCorreoColapsado}
             onToggleSidebar={estado.toggleSidebarCorreo}
             listaColapsada={estado.listaCorreoColapsada}
