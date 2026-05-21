@@ -1,9 +1,12 @@
 'use client'
 
 import { useTraduccion } from '@/lib/i18n'
-import { Plus, ChevronRight } from 'lucide-react'
+import { Plus, ChevronRight, RefreshCcw } from 'lucide-react'
 import { etiquetaDisparador, descripcionDisparador } from '@/lib/workflows/etiquetas-disparador'
 import { iconoDefaultDisparador, iconoLucideFlujo } from '@/lib/workflows/iconos-flujo'
+import { resumirDisparador } from '@/lib/workflows/resumen-disparador'
+import { useAutocompleteRemoto } from './_panel/selectores/useAutocompleteRemoto'
+import type { CanalCorreoItem } from './_panel/selectores/SelectorCanalesCorreo'
 import type { TipoDisparador } from '@/tipos/workflow'
 
 /**
@@ -24,6 +27,14 @@ import type { TipoDisparador } from '@/tipos/workflow'
  * `CatalogoPasos` en modo `disparador`).
  *
  * El disparador NO es draggable (siempre primero — §1.6.6 del plan).
+ *
+ * Cuando ya hay un disparador configurado:
+ *   • 3ra línea con resumen de la config (ej: nombres de cuentas
+ *     seleccionadas para `inbox.correo_recibido`).
+ *   • Botón "Cambiar" en la esquina superior derecha que reabre el
+ *     catálogo. Para los disparadores que requieren resolver IDs a
+ *     nombres (canales de correo), refetchamos via el hook cacheado
+ *     `useAutocompleteRemoto` — comparte cache con el panel.
  */
 
 interface DisparadorRaw {
@@ -62,6 +73,18 @@ export default function TarjetaDisparador({
   const tipo = disparador?.tipo ?? null
   const sinDisparador = !tipo
 
+  // Cargamos canales de correo solo si el disparador los necesita.
+  // El hook reusa la cache module-level que también consume
+  // SelectorCanalesCorreo en el panel: típicamente 0 fetches extra.
+  const urlCanales = tipo === 'inbox.correo_recibido' ? '/api/correo/canales' : null
+  const { opciones: canalesCorreo } = useAutocompleteRemoto<CanalCorreoItem>({
+    url: urlCanales,
+    extraer: (raw) =>
+      raw && typeof raw === 'object' && Array.isArray((raw as { canales?: unknown }).canales)
+        ? ((raw as { canales: CanalCorreoItem[] }).canales)
+        : [],
+  })
+
   const Icono = (() => {
     if (iconoCustom) return iconoLucideFlujo(iconoCustom)
     if (tipo) return iconoDefaultDisparador(tipo)
@@ -74,6 +97,9 @@ export default function TarjetaDisparador({
   const subtitulo = sinDisparador
     ? t('flujos.editor.disparador.placeholder_desc')
     : descripcionDisparador(t, tipo)
+  const resumen = sinDisparador
+    ? null
+    : resumirDisparador(t, disparador, { canalesCorreo })
 
   const onClick = sinDisparador && !soloLectura ? onElegirDisparador : onSeleccionar
 
@@ -87,14 +113,18 @@ export default function TarjetaDisparador({
       // `id` HTML para el scroll-to-disparador del banner rojo (19.4).
       id="flujo-disparador"
       title={tieneError ? mensajeError : undefined}
+      // Diferenciación sutil del disparador (raíz del árbol):
+      //   • Borde marca completo a baja opacidad (no solo top).
+      //   • Fondo levemente teñido en el color de marca.
+      //   • Glow muy sutil para reforzar la jerarquía sin gritar.
+      // Cuando está seleccionado, sube el peso del borde y del glow.
       className={`relative rounded-card border bg-superficie-tarjeta transition-colors ${
         sinDisparador
           ? 'border-dashed border-texto-marca/40 hover:border-texto-marca hover:bg-texto-marca/[0.04]'
-          : 'border-t-2 ' + (seleccionado
-              ? 'border-texto-marca shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]'
-              : 'border-borde-sutil')
+          : seleccionado
+              ? 'border-texto-marca bg-texto-marca/[0.04] shadow-[0_0_0_3px_rgba(124,75,255,0.08)]'
+              : 'border-texto-marca/30 bg-texto-marca/[0.025]'
       } ${tieneError ? 'border-l-2 border-l-insignia-peligro-texto' : ''}`}
-      style={sinDisparador ? undefined : { borderTopColor: 'var(--texto-marca)' }}
     >
       {/* Etiqueta uppercase del plan UX */}
       <div className="absolute -top-2.5 left-3 px-1.5 bg-superficie-app">
@@ -102,6 +132,26 @@ export default function TarjetaDisparador({
           {t('flujos.editor.disparador.etiqueta')}
         </span>
       </div>
+
+      {/* Botón "Cambiar" — solo visible cuando ya hay disparador
+          configurado y el usuario puede editar. Se posiciona absoluto
+          en la esquina superior derecha para no robar protagonismo al
+          contenido principal. stopPropagation para no disparar el
+          onClick del cuerpo (que abriría el panel). */}
+      {!sinDisparador && !soloLectura && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onElegirDisparador()
+          }}
+          className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-texto-terciario hover:text-texto-secundario hover:bg-white/[0.04] cursor-pointer"
+          aria-label={t('flujos.editor.disparador.cta_cambiar')}
+        >
+          <RefreshCcw size={11} strokeWidth={2} />
+          {t('flujos.editor.disparador.cta_cambiar')}
+        </button>
+      )}
 
       {/* Marker rojo (19.4): mismo patrón que TarjetaPaso. Visible solo
           tras intento fallido de Publicar/Activar. */}
@@ -133,6 +183,16 @@ export default function TarjetaDisparador({
           {subtitulo && (
             <p className="text-xs text-texto-terciario mt-0.5 leading-relaxed line-clamp-2">
               {subtitulo}
+            </p>
+          )}
+          {/* Resumen de configuración (3ra línea). Se trunca a 1 línea:
+              si hay muchas cuentas el usuario abre el panel para ver
+              todas. La distinción visual con `text-texto-secundario`
+              (un tono más fuerte que el subtitulo terciario) ayuda a
+              que se lea como "info concreta" y no como microcopy. */}
+          {resumen && (
+            <p className="text-xs text-texto-secundario mt-1 truncate font-medium">
+              {resumen}
             </p>
           )}
         </div>

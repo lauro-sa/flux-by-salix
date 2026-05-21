@@ -274,7 +274,7 @@ function DetallePaso({
   }
   if (!resuelto) return <p className="text-xs text-texto-terciario">—</p>
   return (
-    <pre className="text-[11px] font-mono whitespace-pre-wrap break-words text-texto-secundario bg-superficie-app rounded p-2 max-h-48 overflow-auto">
+    <pre className="text-[11px] font-mono whitespace-pre-wrap break-words text-texto-secundario bg-superficie-app rounded p-2">
       {JSON.stringify(resuelto, null, 2)}
     </pre>
   )

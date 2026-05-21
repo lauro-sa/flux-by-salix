@@ -144,6 +144,11 @@ export default function SelectorPopoverBase({
             {abierto && (
               <motion.div
                 ref={refPopover}
+                // `data-selector-portal` marca el popover como
+                // "no cerrar panel lateral al clickear acá". Sin esto
+                // el click-outside del panel de edición cerraba todo
+                // al primer click en el selector.
+                data-selector-portal="true"
                 initial={{ opacity: 0, y: -4, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.98 }}

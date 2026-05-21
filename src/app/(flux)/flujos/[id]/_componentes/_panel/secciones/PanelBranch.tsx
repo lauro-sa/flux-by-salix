@@ -89,9 +89,31 @@ function esCondicionHorarioShape(c: unknown): c is CondicionHorario {
   )
 }
 
+/**
+ * Detecta si la condición es "modo horario" en sentido amplio:
+ *   - Es un `CondicionHorario` directo, o
+ *   - Es una `CondicionCompuesta` cuyas sub-condiciones son TODAS
+ *     `CondicionHorario` (caso de rangos múltiples).
+ *
+ * Esta heurística se usa para decidir qué editor mostrar en el panel:
+ * la version de horarios o la de campos.
+ */
+function esModoHorario(c: unknown): boolean {
+  if (esCondicionHorarioShape(c)) return true
+  if (
+    typeof c === 'object' &&
+    c !== null &&
+    Array.isArray((c as CondicionCompuesta).condiciones) &&
+    (c as CondicionCompuesta).condiciones.length > 0
+  ) {
+    return (c as CondicionCompuesta).condiciones.every(esCondicionHorarioShape)
+  }
+  return false
+}
+
 export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, contexto }: Props) {
   const { t } = useTraduccion()
-  const esHorario = esCondicionHorarioShape(paso.condicion)
+  const esHorario = esModoHorario(paso.condicion)
 
   // Toggle modo: "Por horario" vs "Por campo". Cambia el shape raíz
   // de paso.condicion. Al cambiar de campo → horario o viceversa, NO
@@ -110,9 +132,9 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
     } as Partial<AccionWorkflow>)
   }
 
-  // ─── Modo horario ──────────────────────────────────────────
+  // ─── Modo horario (1 rango o N) ─────────────────────────────
   if (esHorario) {
-    const horario = paso.condicion as CondicionHorario
+    const horario = paso.condicion as CondicionHorario | CondicionCompuesta
     return (
       <>
         <SeccionPanel titulo={t('flujos.editor.panel.seccion.condiciones')}>
@@ -165,18 +187,20 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
           onCampo={cambiarACampo}
           onHorario={cambiarAHorario}
         />
-        {/* Operador uniforme Y / O */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-texto-secundario shrink-0">
-            {t('flujos.editor.panel.branch.operador_label')}
-          </span>
+
+        {/* Operador "todas / alguna" reformateado como una sola
+            oración legible — antes había 2 labels + 1 ayuda larga
+            diciendo lo mismo en 3 lados. Ahora: "Pasa a 'Sí' cuando
+            [todas|alguna] se cumpla(n)." con los toggles inline. */}
+        <div className="flex items-center flex-wrap gap-1.5 text-sm text-texto-secundario">
+          <span className="shrink-0">{t('flujos.editor.panel.branch.operador_label')}</span>
           <div className="inline-flex rounded-md border border-borde-sutil overflow-hidden">
             <button
               type="button"
               onClick={() => !soloLectura && escribir({ ...compuesta, operador: 'y' })}
               disabled={soloLectura}
               className={[
-                'px-3 py-1 text-xs font-medium transition-colors',
+                'px-2.5 py-0.5 text-xs font-medium transition-colors',
                 compuesta.operador === 'y'
                   ? 'bg-texto-marca/15 text-texto-marca'
                   : 'text-texto-secundario hover:bg-superficie-hover',
@@ -190,7 +214,7 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
               onClick={() => !soloLectura && escribir({ ...compuesta, operador: 'o' })}
               disabled={soloLectura}
               className={[
-                'px-3 py-1 text-xs font-medium transition-colors border-l border-borde-sutil',
+                'px-2.5 py-0.5 text-xs font-medium transition-colors border-l border-borde-sutil',
                 compuesta.operador === 'o'
                   ? 'bg-texto-marca/15 text-texto-marca'
                   : 'text-texto-secundario hover:bg-superficie-hover',
@@ -200,13 +224,8 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
               {t('flujos.editor.panel.branch.operador_o')}
             </button>
           </div>
+          <span className="shrink-0">{t('flujos.editor.panel.branch.operador_sufijo')}</span>
         </div>
-
-        <p className="text-xs text-texto-terciario leading-relaxed">
-          {compuesta.operador === 'y'
-            ? t('flujos.editor.panel.branch.ayuda_y')
-            : t('flujos.editor.panel.branch.ayuda_o')}
-        </p>
 
         {/* Filas */}
         {compuesta.condiciones.length === 0 ? (
@@ -214,7 +233,7 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
             {t('flujos.editor.panel.branch.sin_condiciones')}
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {compuesta.condiciones.map((c, idx) => {
               // Solo soportamos hojas en el builder. Si una condición es
               // compuesta (anidada), la mostramos en read-only para no
@@ -270,6 +289,10 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
  * Toggle "Por campo" / "Por horario" arriba del builder. Sub-componente
  * local porque el render del editor difiere demasiado entre los dos
  * modos para hacer un solo componente.
+ *
+ * Antes tenía un header "Tipo de condición" + el toggle + un párrafo
+ * de ayuda — 3 elementos diciendo casi lo mismo. Ahora es solo el
+ * toggle (auto-explicativo por las etiquetas).
  */
 function ToggleTipoCondicion({
   esHorario,
@@ -283,43 +306,35 @@ function ToggleTipoCondicion({
   onHorario: () => void
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-texto-secundario">Tipo de condición</span>
-      <div className="inline-flex rounded-md border border-borde-sutil overflow-hidden self-start">
-        <button
-          type="button"
-          onClick={onCampo}
-          disabled={soloLectura}
-          className={[
-            'px-3 py-1.5 text-xs font-medium transition-colors',
-            !esHorario
-              ? 'bg-texto-marca/15 text-texto-marca'
-              : 'text-texto-secundario hover:bg-superficie-hover',
-            soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
-          ].join(' ')}
-        >
-          Por campo
-        </button>
-        <button
-          type="button"
-          onClick={onHorario}
-          disabled={soloLectura}
-          className={[
-            'px-3 py-1.5 text-xs font-medium transition-colors border-l border-borde-sutil',
-            esHorario
-              ? 'bg-texto-marca/15 text-texto-marca'
-              : 'text-texto-secundario hover:bg-superficie-hover',
-            soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
-          ].join(' ')}
-        >
-          Por horario
-        </button>
-      </div>
-      <span className="text-xs text-texto-terciario leading-relaxed">
-        {esHorario
-          ? 'Evalúa el día y hora actual contra el rango configurado.'
-          : 'Evalúa datos del contexto (ej: monto, asunto, contacto).'}
-      </span>
+    <div className="inline-flex rounded-md border border-borde-sutil overflow-hidden self-start">
+      <button
+        type="button"
+        onClick={onCampo}
+        disabled={soloLectura}
+        className={[
+          'px-3 py-1.5 text-xs font-medium transition-colors',
+          !esHorario
+            ? 'bg-texto-marca/15 text-texto-marca'
+            : 'text-texto-secundario hover:bg-superficie-hover',
+          soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+        ].join(' ')}
+      >
+        Por campo
+      </button>
+      <button
+        type="button"
+        onClick={onHorario}
+        disabled={soloLectura}
+        className={[
+          'px-3 py-1.5 text-xs font-medium transition-colors border-l border-borde-sutil',
+          esHorario
+            ? 'bg-texto-marca/15 text-texto-marca'
+            : 'text-texto-secundario hover:bg-superficie-hover',
+          soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+        ].join(' ')}
+      >
+        Por horario
+      </button>
     </div>
   )
 }

@@ -128,9 +128,11 @@ describe('validarFlujoConPasos', () => {
     expect(err).toBeDefined()
   })
 
-  it('rama vacía de branch → pasoId apunta al branch padre', () => {
-    // No hay paso interno, así que el error de "rama vacía" cae al
-    // branch (mejor lugar para abrir el panel y entender el problema).
+  it('rama vacía de branch → ahora es válido (semántica 2026-05-20)', () => {
+    // Las ramas de branch pueden estar vacías intencionalmente —
+    // significa "no hacer nada en este caso". Caso de uso real:
+    // respuesta automática fuera de horario tiene la rama "No" vacía
+    // porque cuando estamos en horario, el humano responde.
     const r = validarFlujoConPasos(DISPARADOR_OK, [
       {
         id: 'branch-3',
@@ -140,11 +142,7 @@ describe('validarFlujoConPasos', () => {
         acciones_no: [pasoTerminarOk('ok')],
       },
     ])
-    expect(r.ok).toBe(false)
-    const err = r.errores.find(
-      (e) => e.ruta.tipo === 'paso' && e.ruta.pasoId === 'branch-3',
-    )
-    expect(err).toBeDefined()
+    expect(r.ok).toBe(true)
   })
 
   it('errores múltiples se acumulan en el array', () => {

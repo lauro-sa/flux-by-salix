@@ -181,7 +181,13 @@ function validarListaAcciones(lista: unknown, ruta: string): string[] {
   if (!Array.isArray(lista)) {
     return [`${ruta}: debe ser una lista de acciones.`]
   }
-  if (lista.length === 0) {
+  // Las ramas de branch (acciones_si / acciones_no) pueden estar
+  // vacías intencionalmente — significa "no hacer nada en este caso".
+  // Solo la lista raíz exige al menos una acción. Validado por Sal
+  // el 2026-05-20. Detección por la ruta: si termina en
+  // `.acciones_si` o `.acciones_no`, es una rama del branch.
+  const esRamaBranch = ruta.endsWith('.acciones_si') || ruta.endsWith('.acciones_no')
+  if (lista.length === 0 && !esRamaBranch) {
     return [`${ruta}: el flujo debe tener al menos una acción.`]
   }
   const errores: string[] = []
@@ -331,11 +337,15 @@ function validarListaConPasos(
         : { ruta: { tipo: 'disparador' }, mensaje: 'El flujo no tiene una lista de acciones válida.' },
     ]
   }
-  if (lista.length === 0) {
+  // Sólo la lista raíz exige al menos un paso. Las ramas del branch
+  // pueden estar vacías intencionalmente — semántica: "no hacer nada
+  // en este caso, dejá que siga la conversación normalmente".
+  // Caso de uso real: respuesta automática fuera de horario tiene la
+  // rama "No" vacía porque cuando estamos en horario, el humano
+  // responde. Sal validó este cambio el 2026-05-20.
+  if (lista.length === 0 && !branchPadreId) {
     return [
-      branchPadreId
-        ? { ruta: { tipo: 'paso', pasoId: branchPadreId }, mensaje: 'Una rama del branch está vacía. Agregá al menos una acción.' }
-        : { ruta: { tipo: 'disparador' }, mensaje: 'El flujo debe tener al menos una acción.' },
+      { ruta: { tipo: 'disparador' }, mensaje: 'El flujo debe tener al menos una acción.' },
     ]
   }
 

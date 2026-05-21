@@ -110,7 +110,10 @@ export default function CanvasFlujo({
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-none md:max-w-[720px] px-3 sm:px-6 py-6 group/canvas">
-        <div className="flex flex-col gap-1.5">
+        {/* gap-0: las tarjetas se conectan visualmente con líneas
+            verticales (ConectorArbol) en lugar de espacio en blanco.
+            Esto da la metáfora de "árbol genealógico" pedida por Sal. */}
+        <div className="flex flex-col gap-0">
           {/* Disparador siempre primero, no draggable */}
           <TarjetaDisparador
             disparador={disparador as DisparadorRaw | null}
@@ -123,18 +126,25 @@ export default function CanvasFlujo({
             mensajeError={errorDisparador?.mensaje}
           />
 
+          {/* Conector visual disparador → primer paso (o → "Agregar paso"
+              si todavía no hay pasos). */}
+          <ConectorArbol />
+
           {/* Pasos raíz con dnd */}
           <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={handleDragEndRaiz}>
             <SortableContext items={pasosRaiz.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-0">
                 {pasosRaiz.map((p, idx) => (
                   <div key={p.id}>
-                    {/* "+" intermedio antes de cada paso (excepto del primero,
-                        cuya posición de inserción "0" se cubre con el botón
-                        intermedio entre disparador y primer paso solo si
-                        idx >= 1). Diseño consistente con plan §1.6.5. */}
-                    {!soloLectura && idx > 0 && (
-                      <BotonAgregarPasoIntermedio onClick={() => onAgregarRaiz(idx)} posicion={idx} />
+                    {/* Entre paso N y paso N+1: botón "+" intermedio
+                        flotando sobre la línea conectora. Para el primer
+                        paso (idx=0) el conector ya viene del disparador. */}
+                    {idx > 0 && (
+                      !soloLectura ? (
+                        <BotonAgregarPasoIntermedio onClick={() => onAgregarRaiz(idx)} posicion={idx} />
+                      ) : (
+                        <ConectorArbol />
+                      )
                     )}
                     {p.tipo === 'condicion_branch' ? (
                       <TarjetaCondicionBranch
@@ -171,12 +181,46 @@ export default function CanvasFlujo({
             </SortableContext>
           </DndContext>
 
+          {/* Conector visual antes del botón "Agregar paso" final. */}
+          {!soloLectura && <ConectorArbol />}
+
           {/* Botón final */}
           {!soloLectura && (
             <BotonAgregarPasoFinal onClick={() => onAgregarRaiz(pasosRaiz.length)} />
           )}
+
+          {/* Indicador "Fin del flujo" — sólo visible cuando hay
+              pasos. Aclara visualmente que llegar acá significa que
+              el flujo termina (en Flux no hace falta un paso "Detener"
+              explícito; el fin de la lista YA es el fin del flujo).
+              Útil para usuarios que vienen de iOS Atajos / Zapier
+              donde el "stop" es explícito. */}
+          {pasosRaiz.length > 0 && (
+            <>
+              <ConectorArbol />
+              <div className="flex justify-center" aria-hidden="true">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider uppercase text-texto-terciario bg-superficie-tarjeta/60 border border-borde-sutil">
+                  Fin del flujo
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Línea vertical fina centrada que une dos tarjetas del canvas. Es la
+ * pieza visual que da la metáfora de "árbol genealógico" — cada paso
+ * está conectado con el anterior por un hilo continuo, no por espacio
+ * en blanco.
+ */
+function ConectorArbol() {
+  return (
+    <div className="flex justify-center py-1" aria-hidden="true">
+      <div className="w-px h-4 bg-borde-sutil" />
     </div>
   )
 }

@@ -33,6 +33,11 @@ export default function SubHeaderPanel(props: Props) {
     if (props.modo === 'disparador') return null
     const p = props.posicion
     if (!p) return null
+    // "Paso 1 de 1" en la raíz es ruido: cuando solo hay un paso, el
+    // chip no aporta información — el usuario ya sabe que está mirando
+    // el único paso del flujo. Dentro de una rama (si/no), sí lo
+    // mantenemos porque ahí el contexto importa.
+    if (p.contexto === 'raiz' && p.total <= 1) return null
     const base = t('flujos.editor.panel.subheader.posicion')
       .replace('{{n}}', String(p.indice))
       .replace('{{total}}', String(p.total))

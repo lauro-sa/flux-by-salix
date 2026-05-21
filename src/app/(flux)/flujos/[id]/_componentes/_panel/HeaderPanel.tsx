@@ -54,13 +54,16 @@ export default function HeaderPanel({
   const { t } = useTraduccion()
 
   return (
-    <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-borde-sutil">
+    // min-h-[4.25rem] (68px) matchea la altura natural del
+    // HeaderEditorFlujo, cuyo MiniSelectorIcono es size-11 (44px)
+    // + py-3 (24px). Sin esto, el panel quedaba 12px más bajo.
+    <div className="shrink-0 flex items-center gap-3 px-4 py-3 min-h-[4.25rem] border-b border-borde-sutil">
       {Icono && (
         <span
-          className="shrink-0 inline-flex items-center justify-center size-9 rounded-md bg-texto-marca/10 text-texto-marca"
+          className="shrink-0 inline-flex items-center justify-center size-11 rounded-card bg-texto-marca/10 text-texto-marca"
           aria-hidden="true"
         >
-          <Icono size={18} strokeWidth={1.7} />
+          <Icono size={20} strokeWidth={1.7} />
         </span>
       )}
       <NombrePasoEditable

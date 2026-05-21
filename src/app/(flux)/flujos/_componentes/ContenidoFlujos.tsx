@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { Workflow, Filter, Activity, Tag, Copy, Play, Pause, Trash2 } from 'lucide-react'
+import { Workflow, Zap, Filter, Activity, Tag } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { useRol } from '@/hooks/useRol'
 import { useFiltrosUrl } from '@/hooks/useFiltrosUrl'
@@ -22,8 +22,6 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
-import { LineaInfoTarjeta } from '@/componentes/tablas/LineaInfoTarjeta'
-import { PieAccionesTarjeta, type AccionTarjeta } from '@/componentes/tablas/PieAccionesTarjeta'
 import {
   ENTIDADES_CON_ESTADO,
   ETIQUETAS_ENTIDAD,
@@ -36,6 +34,11 @@ import {
 import {
   etiquetaDisparador,
 } from '@/lib/workflows/etiquetas-disparador'
+import {
+  iconoDefaultDisparador,
+  iconoLucideFlujo,
+  resolverEstiloColorFlujo,
+} from '@/lib/workflows/iconos-flujo'
 import type { PlantillaSugerida } from '@/lib/workflows/plantillas-sugeridas'
 import { iconoLucide } from './iconos-plantilla'
 import EstadoVacioFlujos from './EstadoVacioFlujos'
@@ -473,85 +476,107 @@ function ContenidoFlujosInterno({ datosInicialesJson }: Props) {
   ], [t])
 
   // -----------------------------------------------------------------
-  // Render: tarjeta para mobile
+  // Render: tarjeta del grid + mobile
   // -----------------------------------------------------------------
   const renderTarjeta = useCallback((fila: FilaFlujo) => {
-    const accionesTarjeta: AccionTarjeta[] = []
-    if (puedeCrear) {
-      accionesTarjeta.push({
-        id: 'duplicar',
-        etiqueta: t('flujos.accion.duplicar'),
-        icono: <Copy size={14} />,
-        onClick: () => abrirModalDuplicar(fila),
-      })
-    }
-    if (puedeActivar && fila.estado !== 'activo') {
-      accionesTarjeta.push({
-        id: 'activar',
-        etiqueta: t('flujos.accion.activar'),
-        icono: <Play size={14} />,
-        onClick: () => activarFlujo(fila.id),
-      })
-    }
-    if (puedeActivar && fila.estado === 'activo') {
-      accionesTarjeta.push({
-        id: 'pausar',
-        etiqueta: t('flujos.accion.pausar'),
-        icono: <Pause size={14} />,
-        onClick: () => pausarFlujo(fila.id),
-      })
-    }
-    if (puedeEliminar) {
-      accionesTarjeta.push({
-        id: 'eliminar',
-        etiqueta: t('flujos.accion.eliminar'),
-        icono: <Trash2 size={14} />,
-        onClick: () => setEliminarPendiente(fila),
-        color: 'var(--insignia-peligro-texto)',
-      })
-    }
+    // Icono e color del flujo (custom o derivado del disparador).
+    const IconoFlujo = fila.icono
+      ? iconoLucideFlujo(fila.icono)
+      : fila.disparador?.tipo
+        ? iconoDefaultDisparador(fila.disparador.tipo)
+        : Workflow
+    const colorCss = resolverEstiloColorFlujo(fila.color)
+    const IconoDisparador = fila.disparador?.tipo
+      ? iconoDefaultDisparador(fila.disparador.tipo)
+      : Workflow
+
+    const conBorrador = tieneBorradorPendiente(fila)
+    const ejecuciones = fila.total_ejecuciones_30d ?? 0
+    const ultima = fila.ultima_ejecucion_en
+      ? formato.fechaRelativa(fila.ultima_ejecucion_en)
+      : t('flujos.tooltip_sin_ejecutar')
+
+    // Stop propagation en el área del menú para que el click no abra
+    // el editor cuando el usuario interactúa con las opciones.
+    const onClickMenu = (e: React.MouseEvent) => e.stopPropagation()
 
     return (
-      <div className="flex flex-col gap-3 p-4 rounded-popover border border-borde-sutil bg-superficie-tarjeta">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div
+        onClick={() => router.push(`/flujos/${fila.id}`)}
+        className="group flex flex-col p-4 rounded-card border border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte hover:bg-superficie-elevada/40 transition-colors cursor-pointer"
+      >
+        {/* Header: ícono + estado + menú */}
+        <div className="flex items-start gap-3 mb-3">
+          <span
+            className="shrink-0 inline-flex items-center justify-center size-10 rounded-card"
+            style={{ backgroundColor: `${colorCss}1A`, color: colorCss }}
+            aria-hidden="true"
+          >
+            <IconoFlujo size={20} strokeWidth={1.7} />
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto" onClick={onClickMenu}>
             <PillEstado estado={fila.estado} />
-            <h3 className="text-sm font-semibold text-texto-primario truncate flex-1">
-              {fila.nombre}
-            </h3>
-            {tieneBorradorPendiente(fila) && (
+            {conBorrador && (
               <span
                 className="size-2 shrink-0 rounded-full bg-insignia-advertencia-texto"
                 title={t('flujos.tooltip_borrador_pendiente')}
               />
             )}
+            <MenuFilaFlujo
+              estado={fila.estado}
+              permisos={{
+                editar: puedeEditar,
+                eliminar: puedeEliminar,
+                activar: puedeActivar,
+                crear: puedeCrear,
+              }}
+              onEditar={() => router.push(`/flujos/${fila.id}`)}
+              onDuplicar={() => abrirModalDuplicar(fila)}
+              onActivar={() => activarFlujo(fila.id)}
+              onPausar={() => pausarFlujo(fila.id)}
+              onEliminar={() => setEliminarPendiente(fila)}
+            />
           </div>
         </div>
-        <LineaInfoTarjeta icono={<Tag size={12} />}>
-          {fila.disparador?.configuracion?.entidad_tipo
-            ? ETIQUETAS_ENTIDAD[fila.disparador.configuracion.entidad_tipo as keyof typeof ETIQUETAS_ENTIDAD] ?? '—'
-            : '—'}
-        </LineaInfoTarjeta>
-        <LineaInfoTarjeta icono={<Filter size={12} />}>
-          {etiquetaDisparador(t, fila.disparador?.tipo)}
-        </LineaInfoTarjeta>
-        <LineaInfoTarjeta icono={<Activity size={12} />}>
-          {fila.ultima_ejecucion_en
-            ? formato.fechaRelativa(fila.ultima_ejecucion_en)
-            : t('flujos.tooltip_sin_ejecutar')}
-        </LineaInfoTarjeta>
-        <div
-          className="flex items-center justify-between gap-2 cursor-pointer"
-          onClick={() => router.push(`/flujos/${fila.id}`)}
-        >
-          <span className="text-xs text-texto-terciario">
-            {fila.total_ejecuciones_30d ?? 0} {t('flujos.columna_ejecuciones')}
-          </span>
+
+        {/* Nombre del flujo */}
+        <h3 className="text-base font-semibold text-texto-primario line-clamp-2 leading-snug">
+          {fila.nombre}
+        </h3>
+
+        {/* Disparador con su icono */}
+        <div className="flex items-center gap-1.5 mt-2 text-xs text-texto-secundario">
+          <IconoDisparador size={12} strokeWidth={1.7} className="shrink-0 text-texto-terciario" />
+          <span className="truncate">{etiquetaDisparador(t, fila.disparador?.tipo)}</span>
         </div>
-        <PieAccionesTarjeta acciones={accionesTarjeta} />
+
+        {/* Footer: métrica grande + última ejecución */}
+        <div className="mt-4 pt-3 border-t border-borde-sutil flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-semibold text-texto-primario tabular-nums leading-none">
+                {ejecuciones}
+              </span>
+              <span className="text-[11px] text-texto-terciario uppercase tracking-wider">
+                {t('flujos.columna_ejecuciones')}
+              </span>
+            </div>
+            <p className="text-[11px] text-texto-terciario mt-1 truncate">
+              {fila.ultima_ejecucion_en
+                ? t('flujos.ultima_ejecucion_label').replace('{{fecha}}', ultima)
+                : ultima}
+            </p>
+          </div>
+          {/* Mini indicador visual: ráfaga si hubo ejecuciones recientes. */}
+          {ejecuciones > 0 && (
+            <span className="shrink-0 inline-flex items-center justify-center size-7 rounded-full bg-insignia-exito/15 text-insignia-exito-texto">
+              <Zap size={12} strokeWidth={2} />
+            </span>
+          )}
+        </div>
       </div>
     )
-  }, [puedeCrear, puedeActivar, puedeEliminar, t, formato, activarFlujo, pausarFlujo, router])
+  }, [puedeCrear, puedeEditar, puedeEliminar, puedeActivar, t, formato, activarFlujo, pausarFlujo, router])
 
   const onLimpiarFiltros = useCallback(() => {
     filtros.setMultiple({

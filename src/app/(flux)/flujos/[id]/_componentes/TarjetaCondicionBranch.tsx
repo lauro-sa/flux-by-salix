@@ -15,7 +15,8 @@ import { ChevronDown, ChevronRight, GitBranch, GripVertical } from 'lucide-react
 import { useTraduccion } from '@/lib/i18n'
 import TarjetaPaso from './TarjetaPaso'
 import { BotonAgregarPasoIntermedio, BotonAgregarPasoFinal } from './BotonAgregarPaso'
-import type { AccionWorkflow } from '@/tipos/workflow'
+import { resumirCondicion } from '@/lib/workflows/resumen-condicion'
+import type { AccionCondicionBranch, AccionWorkflow } from '@/tipos/workflow'
 import type { ErrorValidacion } from '@/lib/workflows/validacion-flujo'
 
 /**
@@ -149,6 +150,20 @@ export default function TarjetaCondicionBranch({
               {(paso as { etiqueta?: string | null }).etiqueta?.trim() ||
                 t('flujos.paso.condicion_branch.titulo')}
             </p>
+            {/* Resumen de la condición configurada (horario, campo,
+                compuesta). Si no hay condición lo omitimos. Debajo va
+                el resumen de pasos por rama. */}
+            {(() => {
+              const resumen = resumirCondicion(
+                (paso as AccionCondicionBranch).condicion,
+                t,
+              )
+              return resumen ? (
+                <p className="text-xs text-texto-secundario truncate mt-0.5 font-medium">
+                  {resumen}
+                </p>
+              ) : null
+            })()}
             <p className="text-xs text-texto-terciario truncate mt-0.5">
               {t('flujos.editor.branch.resumen')
                 .replace('{{si}}', String(pasosSiConId.length))
@@ -160,6 +175,7 @@ export default function TarjetaCondicionBranch({
           <div
             {...attributes}
             {...listeners}
+            suppressHydrationWarning
             aria-label={t('flujos.editor.drag_handle')}
             className="shrink-0 flex items-center justify-center w-9 sm:w-7 cursor-grab active:cursor-grabbing text-texto-terciario hover:text-texto-secundario rounded-tr-card touch-target select-none"
           >

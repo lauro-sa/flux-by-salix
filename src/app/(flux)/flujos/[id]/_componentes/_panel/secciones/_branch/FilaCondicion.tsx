@@ -55,58 +55,63 @@ export default function FilaCondicion({
     return String(condicion.valor)
   })()
 
+  // Layout 2-líneas: variable arriba a todo el ancho (los placeholders
+  // `{{...}}` son largos y rompían en múltiples líneas dentro de un
+  // input apretado en una sola fila); operador + valor + eliminar
+  // abajo. Esto vale el doble de alto pero queda legible dentro del
+  // panel lateral de 480px.
   return (
-    <div className="flex flex-col md:flex-row md:items-start gap-2">
-      <div className="flex-1 min-w-0">
-        <InputConVariables
-          valor={condicion.campo}
-          onChange={(v) => onCambiar({ ...condicion, campo: v })}
-          placeholder={t('flujos.editor.panel.branch.fila.variable_placeholder')}
-          contexto={contexto}
-          fuentes={fuentes}
-          soloLectura={soloLectura}
-          ariaLabel={t('flujos.editor.panel.branch.fila.variable_label')}
-        />
-      </div>
+    <div className="flex flex-col gap-2 rounded-md border border-borde-sutil bg-superficie-tarjeta/40 p-2">
+      <InputConVariables
+        valor={condicion.campo}
+        onChange={(v) => onCambiar({ ...condicion, campo: v })}
+        placeholder={t('flujos.editor.panel.branch.fila.variable_placeholder')}
+        contexto={contexto}
+        fuentes={fuentes}
+        soloLectura={soloLectura}
+        ariaLabel={t('flujos.editor.panel.branch.fila.variable_label')}
+      />
 
-      <div className="md:w-[150px] shrink-0">
-        {soloLectura ? (
-          <div className="text-sm text-texto-secundario py-2 px-3">
-            {definicion.simbolo}
+      <div className="flex items-start gap-2">
+        <div className="w-[140px] shrink-0">
+          {soloLectura ? (
+            <div className="text-sm text-texto-secundario py-2 px-3">
+              {definicion.simbolo}
+            </div>
+          ) : (
+            <Select
+              opciones={opcionesOperador}
+              valor={condicion.operador}
+              onChange={(v) => onCambiar({ ...condicion, operador: v as OperadorComparacion })}
+            />
+          )}
+        </div>
+
+        {definicion.requiereValor && (
+          <div className="flex-1 min-w-0">
+            <InputConVariables
+              valor={valorComoString}
+              onChange={(v) => onCambiar({ ...condicion, valor: v })}
+              placeholder={t('flujos.editor.panel.branch.fila.valor_placeholder')}
+              contexto={contexto}
+              fuentes={fuentes}
+              soloLectura={soloLectura}
+              ariaLabel={t('flujos.editor.panel.branch.fila.valor_label')}
+            />
           </div>
-        ) : (
-          <Select
-            opciones={opcionesOperador}
-            valor={condicion.operador}
-            onChange={(v) => onCambiar({ ...condicion, operador: v as OperadorComparacion })}
-          />
+        )}
+
+        {!soloLectura && (
+          <button
+            type="button"
+            onClick={onEliminar}
+            aria-label={t('flujos.editor.panel.branch.fila.eliminar')}
+            className="shrink-0 inline-flex items-center justify-center size-8 rounded-md text-texto-terciario hover:bg-insignia-peligro-fondo/50 hover:text-insignia-peligro-texto transition-colors cursor-pointer self-start mt-0.5"
+          >
+            <Trash2 size={14} strokeWidth={1.8} />
+          </button>
         )}
       </div>
-
-      {definicion.requiereValor && (
-        <div className="flex-1 min-w-0">
-          <InputConVariables
-            valor={valorComoString}
-            onChange={(v) => onCambiar({ ...condicion, valor: v })}
-            placeholder={t('flujos.editor.panel.branch.fila.valor_placeholder')}
-            contexto={contexto}
-            fuentes={fuentes}
-            soloLectura={soloLectura}
-            ariaLabel={t('flujos.editor.panel.branch.fila.valor_label')}
-          />
-        </div>
-      )}
-
-      {!soloLectura && (
-        <button
-          type="button"
-          onClick={onEliminar}
-          aria-label={t('flujos.editor.panel.branch.fila.eliminar')}
-          className="shrink-0 inline-flex items-center justify-center size-8 rounded-md text-texto-terciario hover:bg-insignia-peligro-fondo/50 hover:text-insignia-peligro-texto transition-colors cursor-pointer self-start mt-0.5"
-        >
-          <Trash2 size={14} strokeWidth={1.8} />
-        </button>
-      )}
     </div>
   )
 }

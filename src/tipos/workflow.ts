@@ -641,6 +641,14 @@ export interface CondicionHorario {
   hora_desde: string
   /** Hora hasta en formato HH:MM (24h). Exclusivo del límite superior. */
   hora_hasta: string
+  /**
+   * Si true, el rango cubre las 24 horas completas: el motor matchea
+   * cuando el día actual está en `dias` sin importar `hora_desde` ni
+   * `hora_hasta` ni `modo`. Útil para "Sábados y Domingos cuentan como
+   * fuera de horario todo el día" combinado con OR de múltiples
+   * rangos. Opcional para retro-compat: ausente == false.
+   */
+  todo_el_dia?: boolean
 }
 
 export type CondicionWorkflow = CondicionHoja | CondicionCompuesta | CondicionHorario

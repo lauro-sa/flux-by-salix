@@ -85,24 +85,28 @@ describe('evaluarCondicion - CondicionHorario', () => {
       expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(true)
     })
 
-    it('sábado 14:00 BUE → true (sábado no es día laboral)', () => {
+    it('sábado 14:00 BUE → false (sábado no está en días marcados, no aplica)', () => {
+      // Semántica 2026-05-20: días no marcados nunca matchean. Para
+      // disparar también en Sáb/Dom, el usuario debe marcarlos
+      // explícitamente o agregar otro rango.
       const ahora = dateEnBuenosAires(2026, 5, 9, 14, 0)
-      expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(true)
+      expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(false)
     })
 
-    it('domingo 03:00 BUE → true', () => {
+    it('domingo 03:00 BUE → false (domingo no está en días marcados)', () => {
       // Domingo 10 de mayo 2026.
       const ahora = dateEnBuenosAires(2026, 5, 10, 3, 0)
-      expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(true)
+      expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(false)
     })
   })
 
   describe('cruce de zona horaria server → BUE', () => {
-    it('lunes 03:00 UTC = domingo 00:00 BUE → fuera de horario laboral', () => {
-      // El servidor está en UTC. Si usáramos new Date().getDay() acá,
-      // devolvería "lunes" — lo que sería un BUG (en BUE todavía es
-      // domingo). Este test garantiza que evaluamos en la zona del flujo.
-      const ahora = new Date(Date.UTC(2026, 4, 4, 3, 0)) // 4 de mayo 03:00 UTC
+    it('lunes 03:00 UTC = lunes 00:00 BUE → fuera de horario laboral', () => {
+      // El servidor está en UTC. Si usáramos new Date().getHours() acá
+      // sería 03:00 UTC; en BUE (UTC-3) son las 00:00 del mismo lunes.
+      // El motor debe evaluar la hora local (00:00 está fuera de 9-18),
+      // no la UTC.
+      const ahora = new Date(Date.UTC(2026, 4, 4, 3, 0)) // lunes 4 de mayo 03:00 UTC
       const fueraHorario: CondicionHorario = { ...horarioLaboralBUE, modo: 'fuera' }
       expect(evaluarCondicion(fueraHorario, {}, ahora)).toBe(true)
       expect(evaluarCondicion(horarioLaboralBUE, {}, ahora)).toBe(false)
@@ -161,10 +165,13 @@ describe('evaluarCondicion - CondicionHorario', () => {
       expect(evaluarCondicion(cond, {}, ahora)).toBe(false)
     })
 
-    it('días vacíos + modo fuera → true (defensa: si no hay horario, todo es "fuera")', () => {
+    it('días vacíos + modo fuera → false (semántica 2026-05-20: días vacíos nunca matchean)', () => {
+      // Antes esto retornaba true porque "fuera de ningún horario = todo
+      // el tiempo fuera". El nuevo motor es estricto: sin días marcados,
+      // la condición no aplica nunca, independiente del modo.
       const cond = { ...horarioLaboralBUE, dias: [], modo: 'fuera' as const }
       const ahora = dateEnBuenosAires(2026, 5, 4, 14, 30)
-      expect(evaluarCondicion(cond, {}, ahora)).toBe(true)
+      expect(evaluarCondicion(cond, {}, ahora)).toBe(false)
     })
 
     it('hora_desde mal formada → false', () => {

@@ -129,7 +129,7 @@ export default function HeaderEditorFlujo({
 
   return (
     <header
-      className="sticky top-0 z-20 shrink-0 flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 border-b border-borde-sutil bg-superficie-app/95 backdrop-blur-sm"
+      className="sticky top-0 z-20 shrink-0 flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 min-h-[4.25rem] border-b border-borde-sutil bg-superficie-app/95 backdrop-blur-sm"
     >
       {/* Volver */}
       <Boton

@@ -165,23 +165,34 @@ function aMinutos(hhmm: string): number | null {
 }
 
 function evaluarHorario(c: CondicionHorario, ahora: Date): boolean {
-  // Días vacíos = ningún día matchea = nunca está dentro del rango.
-  // Si modo='fuera', siempre es true; si modo='dentro', siempre false.
-  // Esto es semánticamente correcto pero el validador pre-publicar
-  // rechaza este caso (CondicionHorario exige al menos un día) — el
-  // chequeo acá es defensa.
+  // Semántica: la condición SÓLO aplica los días marcados. Si el día
+  // de hoy no está en `dias`, la condición evalúa false (no matchea)
+  // independientemente del modo. Esto le da control explícito al
+  // usuario: lo que marca es lo que cuenta. Si quiere cubrir más días,
+  // los marca o agrega otro rango. Versión previa hacía "días no
+  // marcados = fuera de horario automático", confuso e impredecible
+  // (modificado 2026-05-20 a pedido de Sal).
   if (!Array.isArray(c.dias) || c.dias.length === 0) {
-    return c.modo === 'fuera'
+    return false
   }
 
   const partes = partesFechaEnZona(ahora, c.zona_horaria)
   if (partes === null) return false
 
+  // Día no marcado → no aplica.
+  if (!c.dias.includes(partes.dia)) return false
+
+  // Rango "todo el día": el día completo cuenta como matcheado para
+  // este rango. El modo del rango se ignora porque "fuera de las 24
+  // horas" no tiene sentido lógico. Útil para "Sáb-Dom son fuera de
+  // horario todo el día" combinado con OR de varios rangos.
+  if (c.todo_el_dia === true) {
+    return true
+  }
+
   const desde = aMinutos(c.hora_desde)
   const hasta = aMinutos(c.hora_hasta)
   if (desde === null || hasta === null) return false
-
-  const diaMatchea = c.dias.includes(partes.dia)
 
   // Rango cross-medianoche (ej: 22:00 → 06:00). Si desde > hasta, el
   // intervalo "dentro" abarca [desde, 1440) ∪ [0, hasta).
@@ -195,8 +206,7 @@ function evaluarHorario(c: CondicionHorario, ahora: Date): boolean {
     horaDentroDeRango = partes.horaMinutos >= desde || partes.horaMinutos < hasta
   }
 
-  const dentro = diaMatchea && horaDentroDeRango
-  return c.modo === 'dentro' ? dentro : !dentro
+  return c.modo === 'dentro' ? horaDentroDeRango : !horaDentroDeRango
 }
 
 function evaluarHoja(
