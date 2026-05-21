@@ -159,5 +159,8 @@ Todos los listados principales (contactos, actividades, visitas, productos, pres
 --estado-borrador, --estado-pendiente, --estado-completado, --estado-error
 ```
 
+## Módulo Flujos (automatizaciones)
+Antes de tocar cualquier cosa del módulo `/flujos` (motor, editor visual, disparadores, acciones), leer **`docs/GUIA_CHAT_FLUJOS.md`**. Es el manual operativo: catálogo actualizado de disparadores y acciones, patrones UX establecidos, errores ya cometidos para no repetir, y reglas duras. Si aprendés algo nuevo durante el trabajo, agregalo a la sección correspondiente (§7 lecciones, §8 pendientes).
+
 ## Referencia completa
 Ver `CONTEXTO_REBUILD.md` para la especificación detallada de todos los módulos, campos, hooks, componentes y funcionalidad.
