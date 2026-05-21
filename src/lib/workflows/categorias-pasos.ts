@@ -50,6 +50,38 @@ export const CATEGORIAS_ACCION: readonly CategoriaAccion[] = [
   'terminar',
 ] as const
 
+/**
+ * Acciones "destacadas" que el catálogo renderiza en una sección
+ * adicional al tope, fuera del agrupamiento por categoría. Son los
+ * pasos que se usan en casi todos los flujos (condición + esperar) y
+ * que el usuario quiere encontrar sin tener que scrollear hasta el
+ * final de la lista.
+ *
+ * Importante: estas entradas NO son una categoría más en `MAPA_ACCION`
+ * — cada `TipoAccion` mantiene su categoría canónica única, y los
+ * tests "claves alcanzables" siguen pasando. Esta es una lista de
+ * shortcuts que el catálogo dibuja en paralelo a las categorías.
+ */
+export const ACCIONES_DESTACADAS: readonly TipoAccion[] = [
+  'condicion_branch',
+  'esperar',
+] as const
+
+/**
+ * Acciones que NO se muestran en el catálogo aunque existan en el
+ * motor. Útil cuando varias acciones representan modos de una misma
+ * intención y unificamos la UI en un toggle interno (caso correo
+ * unificado 2026-05-20). Los tipos siguen siendo válidos en el motor
+ * y en flujos guardados — solo se ocultan del listado de "Agregar
+ * paso" para no duplicar opciones.
+ */
+export const ACCIONES_OCULTAS_EN_CATALOGO: ReadonlySet<TipoAccion> = new Set([
+  // Correo: representamos las 3 variantes con `enviar_correo_texto`
+  // como entrada única "Enviar correo"; dentro del panel se elige modo.
+  'enviar_correo_plantilla',
+  'enviar_respuesta_rapida_correo',
+])
+
 // =============================================================
 // Mapas raw → categoría
 // =============================================================

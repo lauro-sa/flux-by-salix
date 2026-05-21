@@ -1689,6 +1689,7 @@ export const es: Traducciones = {
 
     tooltip_borrador_pendiente: 'Tiene cambios sin publicar',
     tooltip_sin_ejecutar: 'Sin ejecutar',
+    ultima_ejecucion_label: 'Última: {{fecha}}',
 
     toast: {
       creado: 'Flujo creado',
@@ -1756,12 +1757,16 @@ export const es: Traducciones = {
         placeholder_titulo: 'Configurá el disparador',
         placeholder_desc: 'Elegí el evento o el momento que va a iniciar este flujo.',
         cta_elegir: 'Elegir',
+        cta_cambiar: 'Cambiar',
+        resumen: {
+          todas_cuentas: 'Todas las cuentas',
+        },
       },
 
       branch: {
-        resumen: '{{si}} acción(es) si SÍ · {{no}} acción(es) si NO',
-        rama_si: 'Si SÍ',
-        rama_no: 'Si NO',
+        resumen: 'Sí: {{si}} acción(es) · No: {{no}} acción(es)',
+        rama_si: 'Sí',
+        rama_no: 'No',
         rama_count: '{{n}} acción(es)',
         rama_vacia: 'Sin acciones',
       },
@@ -1999,20 +2004,19 @@ export const es: Traducciones = {
         },
 
         branch: {
-          operador_label: 'Cuando se cumple:',
-          operador_y: 'Todas',
-          operador_o: 'Alguna',
-          ayuda_y: 'El flujo toma la rama "Sí" cuando TODAS las condiciones de abajo son verdaderas.',
-          ayuda_o: 'El flujo toma la rama "Sí" cuando AL MENOS UNA condición de abajo es verdadera.',
-          sin_condiciones: 'Sin condiciones todavía. Agregá la primera para que el branch tenga lógica.',
+          operador_label: 'Pasa a "Sí" cuando',
+          operador_y: 'todas',
+          operador_o: 'alguna',
+          operador_sufijo: 'se cumpla(n)',
+          sin_condiciones: 'Agregá la primera condición para definir cuándo el flujo toma la rama "Sí".',
           agregar_condicion: 'Agregar condición',
           fila_anidada_no_editable: 'Esta condición tiene anidamiento avanzado. La edición de sub-grupos llega más adelante; por ahora el motor la evalúa intacta.',
           ayuda_avanzado: 'Operadores adicionales (entre rangos, días desde, listas) y sub-grupos anidados llegan en una próxima entrega.',
           fila: {
             variable_label: 'Variable o campo',
-            variable_placeholder: '{{entidad.total}}',
+            variable_placeholder: 'Variable o campo',
             valor_label: 'Valor',
-            valor_placeholder: '100000 o {{otra.variable}}',
+            valor_placeholder: 'Valor a comparar',
             eliminar: 'Eliminar condición',
           },
           op: {
@@ -2097,6 +2101,12 @@ export const es: Traducciones = {
           canales_label: 'Cuentas que disparan el flujo',
           canales_ayuda_todas: 'Sin filtro: dispara con cualquier cuenta de correo activa de la empresa.',
           canales_ayuda_filtradas: 'Solo dispara con las cuentas seleccionadas.',
+        },
+
+        correo_unificado: {
+          modo_texto: 'Texto libre',
+          modo_plantilla: 'Plantilla',
+          modo_respuesta: 'Respuesta rápida',
         },
 
         proximamente: {
@@ -2311,6 +2321,8 @@ export const es: Traducciones = {
       sin_categorias: 'No hay opciones disponibles.',
 
       categoria: {
+        destacados: 'Destacados',
+        destacados_desc: 'Los pasos que vas a usar más seguido para armar lógica.',
         eventos: 'Eventos',
         eventos_desc: 'Disparadores que reaccionan a algo que pasa en tu Flux.',
         tiempo: 'Tiempo',
@@ -2392,7 +2404,7 @@ export const es: Traducciones = {
       },
       enviar_correo_texto: {
         titulo: 'Enviar correo',
-        descripcion: 'Mandar un correo de texto libre.',
+        descripcion: 'Texto libre, plantilla o respuesta rápida — se elige adentro.',
       },
       enviar_respuesta_rapida_correo: {
         titulo: 'Enviar respuesta rápida',
@@ -2451,8 +2463,8 @@ export const es: Traducciones = {
         descripcion: 'Pausar el flujo hasta que ocurra un evento.',
       },
       condicion_branch: {
-        titulo: 'Si / Sino',
-        descripcion: 'Tomar caminos distintos según se cumpla una condición.',
+        titulo: 'Si',
+        descripcion: 'Tomar un camino o el otro según se cumpla una condición.',
       },
       terminar_flujo: {
         titulo: 'Terminar flujo',

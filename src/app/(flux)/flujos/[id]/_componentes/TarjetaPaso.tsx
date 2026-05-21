@@ -6,6 +6,7 @@ import { GripVertical } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { iconoDefaultAccion } from '@/lib/workflows/iconos-flujo'
 import { nombreMostrablePaso } from '@/lib/workflows/etiquetas-accion'
+import { useAutocompleteRemoto } from './_panel/selectores/useAutocompleteRemoto'
 import type { AccionWorkflow, TipoAccion } from '@/tipos/workflow'
 
 /**
@@ -42,6 +43,11 @@ interface Props {
   mensajeError?: string
 }
 
+interface ItemNombrado {
+  id: string
+  nombre: string
+}
+
 export default function TarjetaPaso({
   paso,
   seleccionada,
@@ -57,6 +63,29 @@ export default function TarjetaPaso({
   // traducción i18n del tipo (ej: "Enviar respuesta rápida").
   const titulo = nombreMostrablePaso(t, paso as { etiqueta?: string | null; tipo?: string | null })
 
+  // Resolución de IDs a nombres para el resumen (plantillas y respuestas
+  // rápidas). Reusamos la cache module-level del `useAutocompleteRemoto`
+  // — si el panel ya cargó la lista, acá vamos directo al cache sin
+  // fetch adicional. Si el paso no requiere fetch, pasamos url=null.
+  const urlPlantillasCorreo =
+    paso.tipo === 'enviar_correo_plantilla' ? '/api/correo/plantillas' : null
+  const { opciones: plantillasCorreo } = useAutocompleteRemoto<ItemNombrado>({
+    url: urlPlantillasCorreo,
+    extraer: (raw) =>
+      raw && typeof raw === 'object' && Array.isArray((raw as { plantillas?: unknown }).plantillas)
+        ? ((raw as { plantillas: ItemNombrado[] }).plantillas)
+        : [],
+  })
+  const urlRespuestasRapidas =
+    paso.tipo === 'enviar_respuesta_rapida_correo' ? '/api/correo/respuestas-rapidas' : null
+  const { opciones: respuestasRapidas } = useAutocompleteRemoto<ItemNombrado>({
+    url: urlRespuestasRapidas,
+    extraer: (raw) =>
+      raw && typeof raw === 'object' && Array.isArray((raw as { plantillas?: unknown }).plantillas)
+        ? ((raw as { plantillas: ItemNombrado[] }).plantillas)
+        : [],
+  })
+
   // dnd-kit sortable. El ID viene del paso.
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: paso.id,
@@ -69,7 +98,7 @@ export default function TarjetaPaso({
     opacity: isDragging ? 0.5 : 1,
   }
 
-  const resumen = resumirPaso(paso)
+  const resumen = resumirPaso(paso, { plantillasCorreo, respuestasRapidas })
 
   return (
     <div
@@ -109,17 +138,23 @@ export default function TarjetaPaso({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-texto-primario truncate">{titulo}</p>
           {resumen && (
-            <p className="text-xs text-texto-terciario truncate mt-0.5">{resumen}</p>
+            <p className="text-xs text-texto-secundario truncate mt-0.5 font-medium">{resumen}</p>
           )}
         </div>
       </button>
 
       {/* Drag handle siempre visible. Mobile: área tocable 44x44 (memoria
-          patrón Linear). En modo solo lectura no se renderiza. */}
+          patrón Linear). En modo solo lectura no se renderiza.
+          `suppressHydrationWarning`: dnd-kit asigna IDs incrementales
+          (`aria-describedby="DndDescribedBy-N"`) que pueden diferir
+          entre SSR y client cuando hay múltiples instancias montadas
+          en distinto orden. Es esperado y la library lo cura sola
+          después de la hidratación — silenciamos el warning ahí. */}
       {!soloLectura && (
         <div
           {...attributes}
           {...listeners}
+          suppressHydrationWarning
           aria-label={t('flujos.editor.drag_handle')}
           className="shrink-0 flex items-center justify-center w-9 sm:w-7 cursor-grab active:cursor-grabbing text-texto-terciario hover:text-texto-secundario rounded-r-card touch-target select-none"
         >
@@ -130,18 +165,43 @@ export default function TarjetaPaso({
   )
 }
 
+interface OpcionesResumenPaso {
+  plantillasCorreo: ItemNombrado[]
+  respuestasRapidas: ItemNombrado[]
+}
+
 /**
  * Resumen mínimo de 1 línea por tipo de paso. Se trunca agresivamente
  * (§5.1 del plan UX): solo lo esencial, los detalles van al panel.
  *
- * Cuando 19.3 aterrice el panel lateral con campos editados, este
- * resumen va a tomar valores reales. En 19.2 muchos pasos están
- * "incompletos" (campos vacíos) y el resumen cae al fallback genérico.
+ * Para tipos que tienen `*_id` (plantillas, respuestas rápidas), el
+ * caller pasa las listas cargadas para que el resumen muestre el
+ * nombre legible en lugar del UUID.
  */
-function resumirPaso(paso: AccionWorkflow): string | null {
+function resumirPaso(
+  paso: AccionWorkflow,
+  opciones: OpcionesResumenPaso,
+): string | null {
   switch (paso.tipo) {
     case 'enviar_whatsapp_plantilla':
       return paso.plantilla_nombre || null
+    case 'enviar_correo_plantilla': {
+      const id = (paso as { plantilla_id?: string }).plantilla_id
+      if (!id) return null
+      const nombre = opciones.plantillasCorreo.find((p) => p.id === id)?.nombre
+      return nombre || null
+    }
+    case 'enviar_respuesta_rapida_correo': {
+      const id = (paso as { respuesta_rapida_id?: string }).respuesta_rapida_id
+      if (!id) return null
+      const nombre = opciones.respuestasRapidas.find((p) => p.id === id)?.nombre
+      return nombre || null
+    }
+    case 'enviar_correo_texto': {
+      const params = (paso as { parametros?: Record<string, unknown> }).parametros
+      const asunto = typeof params?.asunto === 'string' ? params.asunto.trim() : ''
+      return asunto.length > 0 ? asunto : null
+    }
     case 'crear_actividad':
       return paso.titulo || null
     case 'cambiar_estado_entidad':
@@ -153,9 +213,9 @@ function resumirPaso(paso: AccionWorkflow): string | null {
         return formatearDuracion(paso.duracion_ms)
       }
       return paso.hasta_fecha ?? null
-    case 'condicion_branch':
-      return null
     case 'terminar_flujo':
+      return null
+    case 'condicion_branch':
       return null
     default:
       return null

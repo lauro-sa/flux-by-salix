@@ -1651,6 +1651,7 @@ export const en: Traducciones = {
 
     tooltip_borrador_pendiente: 'Has unpublished changes',
     tooltip_sin_ejecutar: 'Never run',
+    ultima_ejecucion_label: 'Last: {{fecha}}',
 
     toast: {
       creado: 'Flow created',
@@ -1717,12 +1718,16 @@ export const en: Traducciones = {
         placeholder_titulo: 'Configure the trigger',
         placeholder_desc: 'Pick the event or moment that will start this flow.',
         cta_elegir: 'Choose',
+        cta_cambiar: 'Change',
+        resumen: {
+          todas_cuentas: 'All accounts',
+        },
       },
 
       branch: {
-        resumen: '{{si}} action(s) if YES · {{no}} action(s) if NO',
-        rama_si: 'If YES',
-        rama_no: 'If NO',
+        resumen: 'Yes: {{si}} action(s) · No: {{no}} action(s)',
+        rama_si: 'Yes',
+        rama_no: 'No',
         rama_count: '{{n}} action(s)',
         rama_vacia: 'No actions',
       },
@@ -1960,20 +1965,19 @@ export const en: Traducciones = {
         },
 
         branch: {
-          operador_label: 'When met:',
-          operador_y: 'All',
-          operador_o: 'Any',
-          ayuda_y: 'The flow takes the "Yes" branch when ALL conditions below are true.',
-          ayuda_o: 'The flow takes the "Yes" branch when AT LEAST ONE condition below is true.',
-          sin_condiciones: 'No conditions yet. Add the first one so the branch has logic.',
+          operador_label: 'Goes to "Yes" when',
+          operador_y: 'all',
+          operador_o: 'any',
+          operador_sufijo: 'is met',
+          sin_condiciones: 'Add the first condition to define when the flow takes the "Yes" branch.',
           agregar_condicion: 'Add condition',
           fila_anidada_no_editable: 'This condition has nested groups. Editing nested groups will arrive later; the engine evaluates it intact for now.',
           ayuda_avanzado: 'Additional operators (between, days since, lists) and nested groups are coming in a future release.',
           fila: {
             variable_label: 'Variable or field',
-            variable_placeholder: '{{entidad.total}}',
+            variable_placeholder: 'Variable or field',
             valor_label: 'Value',
-            valor_placeholder: '100000 or {{another.variable}}',
+            valor_placeholder: 'Value to compare',
             eliminar: 'Remove condition',
           },
           op: {
@@ -2058,6 +2062,12 @@ export const en: Traducciones = {
           canales_label: 'Accounts that trigger the flow',
           canales_ayuda_todas: 'No filter: triggers for any active email account of the company.',
           canales_ayuda_filtradas: 'Only triggers for the selected accounts.',
+        },
+
+        correo_unificado: {
+          modo_texto: 'Free text',
+          modo_plantilla: 'Template',
+          modo_respuesta: 'Quick reply',
         },
 
         proximamente: {
@@ -2272,6 +2282,8 @@ export const en: Traducciones = {
       sin_categorias: 'No options available.',
 
       categoria: {
+        destacados: 'Highlighted',
+        destacados_desc: 'Steps you will use most often to build logic.',
         eventos: 'Events',
         eventos_desc: 'Triggers that react to something happening in your Flux.',
         tiempo: 'Time',
@@ -2308,7 +2320,7 @@ export const en: Traducciones = {
       enviar_whatsapp_texto: { titulo: 'Send WhatsApp (free text)', descripcion: 'Send a text message within the 24-hour window.' },
       enviar_correo_plantilla: { titulo: 'Send email (template)', descripcion: 'Send an email based on a saved template.' },
       enviar_respuesta_rapida_correo: { titulo: 'Send quick reply', descripcion: 'Send a saved quick reply from the email inbox.' },
-      enviar_correo_texto: { titulo: 'Send email', descripcion: 'Send a free-form email.' },
+      enviar_correo_texto: { titulo: 'Send email', descripcion: 'Free text, template or quick reply — choose inside.' },
       crear_actividad: { titulo: 'Create activity', descripcion: 'Generate an activity assigned to a user.' },
       completar_actividad: { titulo: 'Complete activity', descripcion: 'Close a pending activity that matches a criterion.' },
       cambiar_estado_entidad: { titulo: 'Change state', descripcion: 'Move an entity to another configured state.' },
@@ -2322,7 +2334,7 @@ export const en: Traducciones = {
       webhook_saliente: { titulo: 'Call a webhook', descripcion: 'POST to an external URL with flow data.' },
       esperar: { titulo: 'Wait', descripcion: 'Pause the flow for a duration or until a date.' },
       esperar_evento: { titulo: 'Wait for event', descripcion: 'Pause the flow until an event occurs.' },
-      condicion_branch: { titulo: 'If / Else', descripcion: 'Take different paths depending on a condition.' },
+      condicion_branch: { titulo: 'If', descripcion: 'Take one path or the other depending on a condition.' },
       terminar_flujo: { titulo: 'End flow', descripcion: 'Explicitly close the flow.' },
     },
 

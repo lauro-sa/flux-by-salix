@@ -1651,6 +1651,7 @@ export const pt: Traducciones = {
 
     tooltip_borrador_pendiente: 'Tem mudanças não publicadas',
     tooltip_sin_ejecutar: 'Nunca executado',
+    ultima_ejecucion_label: 'Última: {{fecha}}',
 
     toast: {
       creado: 'Fluxo criado',
@@ -1717,12 +1718,16 @@ export const pt: Traducciones = {
         placeholder_titulo: 'Configure o gatilho',
         placeholder_desc: 'Escolha o evento ou momento que vai iniciar este fluxo.',
         cta_elegir: 'Escolher',
+        cta_cambiar: 'Trocar',
+        resumen: {
+          todas_cuentas: 'Todas as contas',
+        },
       },
 
       branch: {
-        resumen: '{{si}} ação(ões) se SIM · {{no}} ação(ões) se NÃO',
-        rama_si: 'Se SIM',
-        rama_no: 'Se NÃO',
+        resumen: 'Sim: {{si}} ação(ões) · Não: {{no}} ação(ões)',
+        rama_si: 'Sim',
+        rama_no: 'Não',
         rama_count: '{{n}} ação(ões)',
         rama_vacia: 'Sem ações',
       },
@@ -1960,20 +1965,19 @@ export const pt: Traducciones = {
         },
 
         branch: {
-          operador_label: 'Quando atendido:',
-          operador_y: 'Todas',
-          operador_o: 'Alguma',
-          ayuda_y: 'O fluxo segue pelo ramo "Sim" quando TODAS as condições abaixo são verdadeiras.',
-          ayuda_o: 'O fluxo segue pelo ramo "Sim" quando AO MENOS UMA condição abaixo é verdadeira.',
-          sin_condiciones: 'Sem condições ainda. Adicione a primeira para que o branch tenha lógica.',
+          operador_label: 'Vai para "Sim" quando',
+          operador_y: 'todas',
+          operador_o: 'alguma',
+          operador_sufijo: 'sejam atendidas',
+          sin_condiciones: 'Adicione a primeira condição para definir quando o fluxo toma o ramo "Sim".',
           agregar_condicion: 'Adicionar condição',
           fila_anidada_no_editable: 'Esta condição tem grupos aninhados. A edição de subgrupos chega mais tarde; por enquanto o motor a avalia intacta.',
           ayuda_avanzado: 'Operadores adicionais (entre, dias desde, listas) e subgrupos aninhados chegam em uma próxima entrega.',
           fila: {
             variable_label: 'Variável ou campo',
-            variable_placeholder: '{{entidad.total}}',
+            variable_placeholder: 'Variável ou campo',
             valor_label: 'Valor',
-            valor_placeholder: '100000 ou {{outra.variavel}}',
+            valor_placeholder: 'Valor a comparar',
             eliminar: 'Remover condição',
           },
           op: {
@@ -2058,6 +2062,12 @@ export const pt: Traducciones = {
           canales_label: 'Contas que disparam o fluxo',
           canales_ayuda_todas: 'Sem filtro: dispara com qualquer conta de email ativa da empresa.',
           canales_ayuda_filtradas: 'Só dispara com as contas selecionadas.',
+        },
+
+        correo_unificado: {
+          modo_texto: 'Texto livre',
+          modo_plantilla: 'Modelo',
+          modo_respuesta: 'Resposta rápida',
         },
 
         proximamente: {
@@ -2272,6 +2282,8 @@ export const pt: Traducciones = {
       sin_categorias: 'Sem opções disponíveis.',
 
       categoria: {
+        destacados: 'Destacados',
+        destacados_desc: 'Os passos que você vai usar com mais frequência para montar lógica.',
         eventos: 'Eventos',
         eventos_desc: 'Gatilhos que reagem a algo que acontece no seu Flux.',
         tiempo: 'Tempo',
@@ -2308,7 +2320,7 @@ export const pt: Traducciones = {
       enviar_whatsapp_texto: { titulo: 'Enviar WhatsApp (texto livre)', descripcion: 'Enviar uma mensagem dentro da janela de 24 hs.' },
       enviar_correo_plantilla: { titulo: 'Enviar e-mail (plantilla)', descripcion: 'Enviar um e-mail baseado em uma plantilla salva.' },
       enviar_respuesta_rapida_correo: { titulo: 'Enviar resposta rápida', descripcion: 'Enviar uma resposta rápida salva da inbox de e-mail.' },
-      enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Enviar um e-mail de texto livre.' },
+      enviar_correo_texto: { titulo: 'Enviar e-mail', descripcion: 'Texto livre, modelo ou resposta rápida — escolha dentro.' },
       crear_actividad: { titulo: 'Criar atividade', descripcion: 'Gerar uma atividade atribuída a um usuário.' },
       completar_actividad: { titulo: 'Concluir atividade', descripcion: 'Fechar uma atividade pendente que corresponda a um critério.' },
       cambiar_estado_entidad: { titulo: 'Mudar estado', descripcion: 'Mover uma entidade para outro estado configurado.' },
@@ -2322,7 +2334,7 @@ export const pt: Traducciones = {
       webhook_saliente: { titulo: 'Chamar um webhook', descripcion: 'Fazer um POST a uma URL externa com dados do fluxo.' },
       esperar: { titulo: 'Esperar', descripcion: 'Pausar o fluxo por um tempo ou até uma data.' },
       esperar_evento: { titulo: 'Esperar evento', descripcion: 'Pausar o fluxo até que ocorra um evento.' },
-      condicion_branch: { titulo: 'Se / Senão', descripcion: 'Tomar caminhos diferentes segundo uma condição.' },
+      condicion_branch: { titulo: 'Se', descripcion: 'Tomar um caminho ou o outro segundo uma condição.' },
       terminar_flujo: { titulo: 'Terminar fluxo', descripcion: 'Fechar o fluxo explicitamente.' },
     },
 

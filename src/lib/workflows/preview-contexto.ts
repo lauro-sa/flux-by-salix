@@ -181,6 +181,25 @@ export async function armarContextoPreview(
     }
   }
 
+  // Para disparadores de inbox.correo_recibido, inyectamos un
+  // `mensaje_disparador` SINTÉTICO con un canal real de la empresa.
+  // Esto le permite al dry-run del envío de correo resolver el
+  // destinatario (`correo_de`) y la cuenta origen (`canal_id`) sin
+  // que el usuario haya configurado `destinatario_override` — que es
+  // lo natural cuando el flujo va a usarse en producción con correos
+  // entrantes reales. Sin esto, todos los flujos disparados por
+  // correo fallan el dry-run con "DestinatarioFaltante".
+  if (disparador?.tipo === 'inbox.correo_recibido') {
+    const md = await armarMensajeDisparadorCorreoSintetico(
+      disparador.configuracion,
+      flujo.empresa_id,
+      admin,
+    )
+    if (md) {
+      contextoInicial = { ...contextoInicial, mensaje_disparador: md }
+    }
+  }
+
   const ejecucion: EjecucionEnriquecible = {
     empresa_id: flujo.empresa_id,
     contexto_inicial: contextoInicial,
@@ -188,6 +207,54 @@ export async function armarContextoPreview(
   }
 
   return enriquecerContexto(ejecucion, admin)
+}
+
+/**
+ * Arma un objeto `mensaje_disparador` con datos plausibles para el
+ * dry-run. El `canal_id` lo resolvemos a un canal real de la empresa
+ * (el primero del filtro del disparador, o el primero activo de la
+ * empresa) para que el envío simulado pueda encontrar credenciales.
+ * El resto (correo_de, message-id) son strings de ejemplo.
+ */
+async function armarMensajeDisparadorCorreoSintetico(
+  configuracion: Record<string, unknown> | undefined,
+  empresaId: string,
+  admin: SupabaseClient,
+): Promise<Record<string, unknown> | null> {
+  // 1) Si el disparador filtra por canales, usamos el primero de la
+  //    lista (asumimos que es un canal válido del empresa_id).
+  const canalIdsRaw = (configuracion ?? {}).canal_ids
+  const canalIds = Array.isArray(canalIdsRaw)
+    ? canalIdsRaw.filter((s): s is string => typeof s === 'string' && s.length > 0)
+    : []
+  let canalId: string | null = canalIds[0] ?? null
+
+  // 2) Si no hay filtro, buscamos el primer canal de correo de la
+  //    empresa (orden por updated_at descendente para usar el más
+  //    reciente). Si tampoco hay, devolvemos null y el dry-run sigue
+  //    sin mensaje_disparador (cae en error como antes — mejor que
+  //    inventar un UUID inválido).
+  if (!canalId) {
+    const { data } = await admin
+      .from('canales_correo')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .order('actualizado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data && typeof data.id === 'string') canalId = data.id
+  }
+
+  if (!canalId) return null
+
+  return {
+    id: 'dry-run-mensaje',
+    conversacion_id: null,
+    canal_id: canalId,
+    correo_de: 'Cliente de prueba <cliente@ejemplo.com>',
+    correo_message_id: '<dry-run-message-id@flux>',
+    correo_references: null,
+  }
 }
 
 /**

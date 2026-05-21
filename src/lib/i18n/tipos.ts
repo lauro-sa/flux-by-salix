@@ -1715,6 +1715,7 @@ export interface Traducciones {
     // Tooltips e indicadores
     tooltip_borrador_pendiente: string
     tooltip_sin_ejecutar: string
+    ultima_ejecucion_label: string
 
     // Toasts de feedback de las acciones
     toast: {
@@ -1783,6 +1784,10 @@ export interface Traducciones {
         placeholder_titulo: string
         placeholder_desc: string
         cta_elegir: string
+        cta_cambiar: string
+        resumen: {
+          todas_cuentas: string
+        }
       }
 
       branch: {
@@ -2019,8 +2024,7 @@ export interface Traducciones {
           operador_label: string
           operador_y: string
           operador_o: string
-          ayuda_y: string
-          ayuda_o: string
+          operador_sufijo: string
           sin_condiciones: string
           agregar_condicion: string
           fila_anidada_no_editable: string
@@ -2114,6 +2118,12 @@ export interface Traducciones {
           canales_label: string
           canales_ayuda_todas: string
           canales_ayuda_filtradas: string
+        }
+
+        correo_unificado: {
+          modo_texto: string
+          modo_plantilla: string
+          modo_respuesta: string
         }
 
         proximamente: {
@@ -2330,6 +2340,8 @@ export interface Traducciones {
       sin_categorias: string
 
       categoria: {
+        destacados: string
+        destacados_desc: string
         eventos: string
         eventos_desc: string
         tiempo: string

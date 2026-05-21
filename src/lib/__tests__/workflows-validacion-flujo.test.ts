@@ -198,7 +198,11 @@ describe('validarPublicable — condicion_branch', () => {
     expect(r.ok).toBe(true)
   })
 
-  it('rechaza branch con acciones_si vacío', () => {
+  it('acepta branch con acciones_si vacío (semántica 2026-05-20)', () => {
+    // Ramas vacías son válidas: significan "no hacer nada en este
+    // caso". Caso de uso real: respuesta automática fuera de horario
+    // con rama "No" vacía porque cuando estamos en horario el humano
+    // responde manualmente. Validado por Sal el 2026-05-20.
     const r = validarPublicable(dispEstadoOk, [
       {
         tipo: 'condicion_branch',
@@ -207,8 +211,7 @@ describe('validarPublicable — condicion_branch', () => {
         acciones_no: [{ tipo: 'terminar_flujo' }],
       },
     ])
-    expect(r.ok).toBe(false)
-    expect(r.errores.some((e) => /acciones_si.*al menos una/.test(e))).toBe(true)
+    expect(r.ok).toBe(true)
   })
 
   it('rechaza branch con acción inválida en sub-lista anidada', () => {

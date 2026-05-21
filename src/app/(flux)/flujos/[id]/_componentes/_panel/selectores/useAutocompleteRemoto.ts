@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Hook compartido por los 5 selectores autocomplete del editor de
@@ -76,6 +76,18 @@ export function useAutocompleteRemoto<T>({
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Estabilizamos `extraer` en un ref: callers que pasen una función
+  // inline (re-creada en cada render) NO disparan loops infinitos en
+  // `fetchear`. Sin esto, componentes que se re-renderean seguido
+  // (TarjetaPaso bajo validación tiempo real) entraban en
+  // "Maximum update depth exceeded" porque la dep `extraer` cambiaba
+  // cada render → `fetchear` cambiaba → useEffect disparaba → setState
+  // → re-render → loop.
+  const extraerRef = useRef(extraer)
+  useEffect(() => {
+    extraerRef.current = extraer
+  }, [extraer])
+
   const fetchear = useCallback(async () => {
     if (!url) return
     setCargando(true)
@@ -84,7 +96,7 @@ export function useAutocompleteRemoto<T>({
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const raw = (await res.json()) as unknown
-      const datos = extraer(raw)
+      const datos = extraerRef.current(raw)
       cache.set(url, { guardadoEn: Date.now(), datos: datos as unknown[] })
       setOpciones(datos)
     } catch (e) {
@@ -93,7 +105,7 @@ export function useAutocompleteRemoto<T>({
     } finally {
       setCargando(false)
     }
-  }, [url, extraer])
+  }, [url])
 
   useEffect(() => {
     if (!url) {

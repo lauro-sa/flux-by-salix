@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calendar } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
@@ -70,6 +70,48 @@ export default function ConsolaSandbox(props: PropsConsolaSandbox) {
 // =============================================================
 
 function ConsolaDesktop(props: PropsConsolaSandbox) {
+  // Altura redimensionable persistida en localStorage. Default 40%
+  // del viewport; cap entre 20% y 85% para no romper layout (sin
+  // tapar el header global ni dejar tira inutilizable).
+  const ALTURA_KEY = 'flujos.consola.altura_pct'
+  const [alturaPct, setAlturaPct] = useState<number>(() => {
+    if (typeof window === 'undefined') return 40
+    const v = Number(window.localStorage.getItem(ALTURA_KEY))
+    return Number.isFinite(v) && v >= 20 && v <= 85 ? v : 40
+  })
+  const alturaPctRef = useRef(alturaPct)
+  alturaPctRef.current = alturaPct
+  const [redimensionando, setRedimensionando] = useState(false)
+
+  const onPointerDownHandle = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    setRedimensionando(true)
+  }, [])
+
+  useEffect(() => {
+    if (!redimensionando) return
+    const onMove = (e: PointerEvent) => {
+      const h = window.innerHeight
+      const desdeAbajo = h - e.clientY
+      const pct = Math.max(20, Math.min(85, (desdeAbajo / h) * 100))
+      setAlturaPct(pct)
+    }
+    const onUp = () => {
+      setRedimensionando(false)
+      try {
+        window.localStorage.setItem(ALTURA_KEY, String(Math.round(alturaPctRef.current)))
+      } catch {
+        /* ignorar — privacidad / cuota */
+      }
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+    return () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+  }, [redimensionando])
+
   return (
     <AnimatePresence>
       {props.abierta && (
@@ -78,8 +120,26 @@ function ConsolaDesktop(props: PropsConsolaSandbox) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-          className="absolute inset-x-0 bottom-0 z-30 h-[40dvh] border-t border-borde-sutil bg-superficie-app shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.4)] flex flex-col"
+          // Altura controlada por state; cuando el usuario está
+          // redimensionando deshabilitamos la transición animada del
+          // estilo inline (sino se ve "saltón" al arrastrar).
+          style={{
+            height: `${alturaPct}dvh`,
+            userSelect: redimensionando ? 'none' : undefined,
+          }}
+          className="absolute inset-x-0 bottom-0 z-30 border-t border-borde-sutil bg-superficie-app shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.4)] flex flex-col"
         >
+          {/* Drag handle de resize en el borde superior. Visualmente:
+              una franja delgada con un "tirador" centrado. Cursor
+              vertical-resize para indicar el affordance. */}
+          <div
+            onPointerDown={onPointerDownHandle}
+            className="absolute top-0 left-0 right-0 h-3 -translate-y-1.5 cursor-ns-resize flex items-center justify-center group"
+            aria-label="Redimensionar consola"
+            role="separator"
+          >
+            <div className="w-12 h-1 rounded-full bg-borde-fuerte/60 group-hover:bg-texto-marca/60 transition-colors" />
+          </div>
           <CabeceraConsola
             tab={props.tab}
             onCambiarTab={props.onCambiarTab}
@@ -259,13 +319,21 @@ function CuerpoConsola(props: PropsConsolaSandbox) {
   // Cuando se abre la consola en tab "dryrun" sin haber corrido nunca,
   // dejamos el estado idle — el usuario decide cuándo correr. Si abre
   // en "preview", no se llama al endpoint todavía (solo resolver client-side).
+  //
+  // El cuerpo es `flex flex-col` SIN overflow propio: el scroll lo
+  // gestiona cada tab adentro (TimelineDryRun separa log scrolleable +
+  // footer sticky; VistaPreviaEstatica scrollea entera). Sin esto, el
+  // footer "Volver a ejecutar" quedaba pegado al final del log y al
+  // agrandar la consola flotaba en el medio del espacio vacío.
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="flex-1 min-h-0 flex flex-col">
       {props.tab === 'preview' ? (
-        <VistaPreviaEstatica acciones={props.acciones} contexto={props.contexto} />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <VistaPreviaEstatica acciones={props.acciones} contexto={props.contexto} />
+        </div>
       ) : (
-        <TimelineDryRun estado={estado} onCorrer={correr} />
+        <TimelineDryRun estado={estado} onCorrer={correr} acciones={props.acciones} />
       )}
     </div>
   )

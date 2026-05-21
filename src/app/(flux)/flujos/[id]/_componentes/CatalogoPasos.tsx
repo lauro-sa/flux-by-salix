@@ -5,6 +5,8 @@ import { Search } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
 import { useTraduccion } from '@/lib/i18n'
 import {
+  ACCIONES_DESTACADAS,
+  ACCIONES_OCULTAS_EN_CATALOGO,
   CATEGORIAS_DISPARADOR,
   CATEGORIAS_ACCION,
   disparadoresPorCategoria,
@@ -85,12 +87,32 @@ export default function CatalogoPasos(props: Props) {
     if (modo !== 'accion') return []
     return accionesPorCategoria().map((g) => ({
       categoria: g.categoria,
-      items: g.tipos.map<ItemAccion>((tipo) => ({
-        tipo,
-        titulo: tCaida(t, claveI18nTituloPaso(tipo), tipo),
-        descripcion: tCaida(t, claveI18nDescripcionPaso(tipo), ''),
-        Icono: iconoDefaultAccion(tipo),
-      })),
+      items: g.tipos
+        // Ocultar tipos representados por otro item en la UI (correo
+        // unificado 2026-05-20: las 3 variantes se ofrecen desde el
+        // toggle interno de `enviar_correo_texto`).
+        .filter((tipo) => !ACCIONES_OCULTAS_EN_CATALOGO.has(tipo))
+        .map<ItemAccion>((tipo) => ({
+          tipo,
+          titulo: tCaida(t, claveI18nTituloPaso(tipo), tipo),
+          descripcion: tCaida(t, claveI18nDescripcionPaso(tipo), ''),
+          Icono: iconoDefaultAccion(tipo),
+        })),
+    }))
+  }, [modo, t])
+
+  // Pseudo-sección "destacados" al tope: shortcuts a los pasos más
+  // usados (condición + esperar) — están duplicados visualmente respecto
+  // a su categoría canónica, pero la fuente de verdad sigue siendo
+  // `MAPA_ACCION` (los tests "claves alcanzables" verifican esa
+  // single-source). Si no estamos en modo `accion`, queda vacía.
+  const itemsDestacados = useMemo<ItemAccion[]>(() => {
+    if (modo !== 'accion') return []
+    return ACCIONES_DESTACADAS.map((tipo) => ({
+      tipo,
+      titulo: tCaida(t, claveI18nTituloPaso(tipo), tipo),
+      descripcion: tCaida(t, claveI18nDescripcionPaso(tipo), ''),
+      Icono: iconoDefaultAccion(tipo),
     }))
   }, [modo, t])
 
@@ -119,18 +141,22 @@ export default function CatalogoPasos(props: Props) {
       abierto={abierto}
       onCerrar={onCerrar}
       tamano="lg"
+      sinPadding
       titulo={t(
         modo === 'disparador'
           ? 'flujos.catalogo.titulo_disparador'
           : 'flujos.catalogo.titulo_accion',
       )}
     >
-      <div className="flex flex-col gap-4">
-        {/* Search — sticky para que quede fijo al tope mientras el
-            cuerpo del modal scrollea. El offset top compensa el padding
-            interno del Modal; `-mx-6 px-6` extiende el fondo al borde
-            del modal así no se ve "flotando". */}
-        <div className="sticky top-0 z-10 bg-superficie-elevada -mx-6 px-6 pb-2 -mt-2 pt-2">
+      {/* Layout 2 zonas: buscador en header fijo + body scrolleable.
+          Antes intentábamos `sticky` dentro del body con padding del
+          Modal, pero el padding superior del Modal + el gap-4 entre
+          children dejaba que las tarjetas se vieran por encima del
+          buscador. Separar las dos zonas con `sinPadding` lo elimina
+          de raíz: el buscador queda fuera del contenedor que scrollea. */}
+      <div className="flex flex-col h-full min-h-0">
+        {/* Header con buscador — no scrollea */}
+        <div className="px-6 pt-4 pb-3 shrink-0 border-b border-white/[0.05]">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-texto-terciario">
               <Search size={14} aria-hidden="true" />
@@ -146,44 +172,54 @@ export default function CatalogoPasos(props: Props) {
           </div>
         </div>
 
-        {/* Secciones — el scroll lo maneja el contenedor del Modal,
-            por eso acá NO ponemos `max-h + overflow-y-auto` (haría
-            doble scroll y el sticky se rompería). */}
-        <div className="flex flex-col gap-5">
-          {modo === 'disparador'
-            ? seccionesDisparador.map((s) => (
-                <SeccionCatalogo
-                  key={s.categoria}
-                  titulo={t(claveI18nCategoriaDisparador(s.categoria as CategoriaDisparador))}
-                  descripcion={t(`flujos.catalogo.categoria.${s.categoria}_desc`)}
-                  items={s.items.filter(pasaFiltro)}
-                  onElegir={elegir}
-                />
-              ))
-            : seccionesAccion.map((s) => (
-                <SeccionCatalogo
-                  key={s.categoria}
-                  titulo={t(claveI18nCategoriaAccion(s.categoria as CategoriaAccion))}
-                  descripcion={t(`flujos.catalogo.categoria.${s.categoria}_desc`)}
-                  items={s.items.filter(pasaFiltro)}
-                  onElegir={elegir}
-                />
-              ))}
+        {/* Body scrolleable con las secciones */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+          <div className="flex flex-col gap-5">
+            {modo === 'disparador'
+              ? seccionesDisparador.map((s) => (
+                  <SeccionCatalogo
+                    key={s.categoria}
+                    titulo={t(claveI18nCategoriaDisparador(s.categoria as CategoriaDisparador))}
+                    descripcion={t(`flujos.catalogo.categoria.${s.categoria}_desc`)}
+                    items={s.items.filter(pasaFiltro)}
+                    onElegir={elegir}
+                  />
+                ))
+              : (
+                <>
+                  <SeccionCatalogo
+                    titulo={t('flujos.catalogo.categoria.destacados')}
+                    descripcion={t('flujos.catalogo.categoria.destacados_desc')}
+                    items={itemsDestacados.filter(pasaFiltro)}
+                    onElegir={elegir}
+                  />
+                  {seccionesAccion.map((s) => (
+                    <SeccionCatalogo
+                      key={s.categoria}
+                      titulo={t(claveI18nCategoriaAccion(s.categoria as CategoriaAccion))}
+                      descripcion={t(`flujos.catalogo.categoria.${s.categoria}_desc`)}
+                      items={s.items.filter(pasaFiltro)}
+                      onElegir={elegir}
+                    />
+                  ))}
+                </>
+              )}
 
-          {/* Empty state si la búsqueda no matchea */}
-          {q && seccionesEmpty(modo === 'disparador' ? seccionesDisparador : seccionesAccion, q) && (
-            <p className="text-sm text-texto-terciario text-center py-6">
-              {t('flujos.catalogo.sin_resultados')}
-            </p>
-          )}
+            {/* Empty state si la búsqueda no matchea */}
+            {q && seccionesEmpty(modo === 'disparador' ? seccionesDisparador : seccionesAccion, q) && (
+              <p className="text-sm text-texto-terciario text-center py-6">
+                {t('flujos.catalogo.sin_resultados')}
+              </p>
+            )}
 
-          {/* Mensaje de protección por si las constantes vienen vacías
-              (no debería pasar — los tests "claves alcanzables" lo cubren). */}
-          {!q && (modo === 'disparador' ? CATEGORIAS_DISPARADOR : CATEGORIAS_ACCION).length === 0 && (
-            <p className="text-sm text-texto-terciario text-center py-6">
-              {t('flujos.catalogo.sin_categorias')}
-            </p>
-          )}
+            {/* Mensaje de protección por si las constantes vienen vacías
+                (no debería pasar — los tests "claves alcanzables" lo cubren). */}
+            {!q && (modo === 'disparador' ? CATEGORIAS_DISPARADOR : CATEGORIAS_ACCION).length === 0 && (
+              <p className="text-sm text-texto-terciario text-center py-6">
+                {t('flujos.catalogo.sin_categorias')}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </Modal>

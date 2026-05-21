@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
@@ -30,9 +31,7 @@ import PanelAsignarUsuario from './_panel/secciones/PanelAsignarUsuario'
 import PanelEtiqueta from './_panel/secciones/PanelEtiqueta'
 import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
 import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
-import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
-import PanelEnviarCorreoPlantilla from './_panel/secciones/PanelEnviarCorreoPlantilla'
-import PanelEnviarRespuestaRapidaCorreo from './_panel/secciones/PanelEnviarRespuestaRapidaCorreo'
+import PanelEnviarCorreoUnificado from './_panel/secciones/PanelEnviarCorreoUnificado'
 import PanelGenericoParametros from './_panel/secciones/PanelGenericoParametros'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
@@ -196,6 +195,55 @@ export default function PanelEdicionPaso({
 
   const esMovil = useEsMovil()
 
+  // Click-outside: cerrar el panel al clickear fuera. No usamos un
+  // overlay/backdrop porque rompe la metáfora del editor (el canvas
+  // debe seguir visible y operable). En su lugar escuchamos pointerdown
+  // a nivel document y filtramos:
+  //   • Click dentro del propio panel → ignoramos.
+  //   • Click sobre una tarjeta de paso/disparador (o sus controles
+  //     "+" intermedios) → ignoramos; el onClick de la card va a
+  //     switchear la selección sin pasar por el cierre.
+  //   • Click sobre cualquier popover/modal flotante (selectores,
+  //     pickers de variable, modales de confirmación) → ignoramos
+  //     mirando `data-flujo-panel-keepalive`.
+  //   • Cualquier otro click (canvas vacío, header, sidebar) → cerrar.
+  //
+  // Sólo activamos el listener en desktop: en mobile el BottomSheet ya
+  // trae su propio click-outside / swipe-to-dismiss.
+  const panelRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (esMovil || !abierto) return
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null
+      if (!target) return
+      if (panelRef.current?.contains(target)) return
+      const targetEl = target as Element
+      if (typeof targetEl.closest !== 'function') return
+      // Tarjetas del canvas: paso e disparador (ids estables del DOM).
+      if (targetEl.closest('[id^="flujo-paso-"], #flujo-disparador')) return
+      // Slots flotantes que viven fuera del aside (Portales). Mantenemos
+      // vivo el panel cuando el click cae sobre:
+      //   • `[data-selector-portal="true"]` — convención estándar del
+      //     proyecto para popovers de selectores (SelectorHora,
+      //     SelectorFecha, etc.).
+      //   • `[data-flujo-panel-keepalive="true"]` — escape hatch para
+      //     componentes propios del editor de flujos que necesiten
+      //     marcarse explícito.
+      //   • `[role="dialog"]` y `[data-radix-popper-content-wrapper]` —
+      //     heurística para modales/popovers conocidos.
+      if (
+        targetEl.closest(
+          '[data-selector-portal="true"], [data-flujo-panel-keepalive="true"], [role="dialog"], [data-radix-popper-content-wrapper]',
+        )
+      ) {
+        return
+      }
+      onCerrar()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [abierto, esMovil, onCerrar])
+
   // Render compartido entre mobile (BottomSheet) y desktop (slide-in).
   // En mobile, el header del BottomSheet ya provee el botón cerrar
   // (drag-handle + tap fuera + swipe-to-dismiss), así que el
@@ -292,6 +340,7 @@ export default function PanelEdicionPaso({
     <AnimatePresence>
       {abierto && datos && (
         <motion.aside
+          ref={panelRef}
           initial={{ x: '100%', opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: '100%', opacity: 0 }}
@@ -622,34 +671,17 @@ function renderPaso(args: RenderPasoArgs) {
     )
   }
 
-  if (paso.tipo === 'enviar_correo_texto') {
+  // Los 3 tipos de envío de correo (texto libre, plantilla, respuesta
+  // rápida) caen al panel unificado con toggle interno. Antes eran
+  // 3 entradas separadas en el catálogo; ahora se eligen acá adentro.
+  if (
+    paso.tipo === 'enviar_correo_texto' ||
+    paso.tipo === 'enviar_correo_plantilla' ||
+    paso.tipo === 'enviar_respuesta_rapida_correo'
+  ) {
     return (
-      <PanelEnviarCorreoTexto
-        paso={paso as AccionGenerica}
-        soloLectura={soloLectura}
-        onCambiar={onCambiar}
-        fuentes={fuentes}
-        contexto={contexto}
-      />
-    )
-  }
-
-  if (paso.tipo === 'enviar_correo_plantilla') {
-    return (
-      <PanelEnviarCorreoPlantilla
-        paso={paso as React.ComponentProps<typeof PanelEnviarCorreoPlantilla>['paso']}
-        soloLectura={soloLectura}
-        onCambiar={onCambiar}
-        fuentes={fuentes}
-        contexto={contexto}
-      />
-    )
-  }
-
-  if (paso.tipo === 'enviar_respuesta_rapida_correo') {
-    return (
-      <PanelEnviarRespuestaRapidaCorreo
-        paso={paso as React.ComponentProps<typeof PanelEnviarRespuestaRapidaCorreo>['paso']}
+      <PanelEnviarCorreoUnificado
+        paso={paso as React.ComponentProps<typeof PanelEnviarCorreoUnificado>['paso']}
         soloLectura={soloLectura}
         onCambiar={onCambiar}
         fuentes={fuentes}

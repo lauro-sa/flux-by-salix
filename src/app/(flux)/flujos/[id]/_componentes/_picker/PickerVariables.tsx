@@ -160,6 +160,18 @@ export default function PickerVariables({
 
   if (!abierto || !ancla) return null
 
+  // Flip horizontal: si el popover de 360px se sale del viewport por
+  // la derecha (ej: input cerca del borde derecho del panel lateral
+  // de 480px), alineamos a la derecha del ancla en lugar de la
+  // izquierda. Sin esto, el popover quedaba cropped.
+  const POPOVER_WIDTH = 360
+  const MARGEN = 16
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const desbordaDerecha = ancla.left + POPOVER_WIDTH + MARGEN > viewportW
+  const leftFinal = desbordaDerecha
+    ? Math.max(MARGEN, viewportW - POPOVER_WIDTH - MARGEN)
+    : ancla.left
+
   return createPortal(
     <AnimatePresence>
       <motion.div
@@ -171,8 +183,8 @@ export default function PickerVariables({
         className="fixed rounded-popover border border-borde-sutil bg-superficie-elevada shadow-elevada overflow-hidden z-50"
         style={{
           top: ancla.top + 4,
-          left: ancla.left,
-          width: 360,
+          left: leftFinal,
+          width: POPOVER_WIDTH,
         }}
         role="dialog"
         aria-label={t('flujos.picker.titulo')}
