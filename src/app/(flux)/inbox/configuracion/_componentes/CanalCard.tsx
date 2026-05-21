@@ -12,6 +12,7 @@ import { ModalAgregarCanal } from '@/componentes/mensajeria/ModalAgregarCanal'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorAgentesCanal } from './SelectorAgentesCanal'
+import { EditorAliasesCanal } from './EditorAliasesCanal'
 
 /**
  * Card visual de canal conectado — muestra todos los datos de la cuenta.
@@ -331,6 +332,18 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                     />
                   </div>
                 </div>
+              )}
+
+              {/* Aliases del canal (solo correo): direcciones adicionales que
+                  pertenecen a la misma cuenta. Permite que el sincronizador
+                  reconozca como propios los correos enviados entre las
+                  identidades del canal en vez de marcarlos como entrantes. */}
+              {!esWhatsApp && (
+                <EditorAliasesCanal
+                  canalId={canal.id}
+                  configActual={config}
+                  onActualizado={onRecargar}
+                />
               )}
 
               {/* Agentes asignados: solo para bandejas compartidas de correo.
