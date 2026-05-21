@@ -2410,6 +2410,10 @@ export const es: Traducciones = {
         titulo: 'Enviar respuesta rápida',
         descripcion: 'Mandar una respuesta rápida guardada del inbox de correo.',
       },
+      enviar_respuesta_rapida_correo: {
+        titulo: 'Enviar respuesta rápida',
+        descripcion: 'Mandar una respuesta rápida guardada del inbox de correo.',
+      },
       crear_actividad: {
         titulo: 'Crear actividad',
         descripcion: 'Generar una actividad asignada a un usuario.',

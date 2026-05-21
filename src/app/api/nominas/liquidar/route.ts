@@ -21,6 +21,7 @@ import { requerirPermisoAPI } from '@/lib/permisos-servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { calcularReciboDesdeBD } from '@/lib/nominas/motor-calculo'
 import { transicionarLiquidacionEmpleado } from '@/lib/nominas/transicion-liquidacion'
+import { obtenerFilaListadoParaSnapshot } from '@/lib/nominas/obtener-fila-listado'
 
 interface Payload {
   periodo_inicio: string
@@ -48,20 +49,70 @@ export async function POST(request: NextRequest) {
     .from('perfiles').select('nombre, apellido').eq('id', user.id).single()
   const nombreActor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Sistema'
 
-  // Por cada miembro: calcular snapshot + transicionar.
+  // Por cada miembro: validar solapamiento + calcular snapshot + transicionar.
   const resultados = await Promise.all(miembros_ids.map(async miembroId => {
     try {
+      // ─── Validación de solapamiento ───
+      //
+      // Rechazamos si el miembro ya tiene una liquidación cuyo rango
+      // de fechas se solapa con el que se está pidiendo. Esto evita
+      // generar liquidaciones huérfanas en distintas granularidades
+      // (típico: clickear "Liquidar" desde vista Mes y después desde
+      // vista Quincena del mismo período).
+      //
+      // Solape = NOT (existente.fin < pedido.inicio OR existente.inicio > pedido.fin).
+      //
+      // Excluye:
+      //   - La fila exacta (mismo inicio y fin), por idempotencia: si el
+      //     operador re-liquida el mismo período, dejamos pasar y la
+      //     transición decide si lo permite (estado != borrador → ilegal).
+      //   - Filas que NO tengan snapshot todavía y estén en 'borrador'.
+      //     Los borradores virtuales no consumen período.
+      const { data: solapadas } = await admin
+        .from('liquidaciones_empleado_periodo')
+        .select('periodo_inicio, periodo_fin, estado_clave')
+        .eq('empresa_id', empresaId)
+        .eq('miembro_id', miembroId)
+        .neq('estado_clave', 'borrador')
+        .lte('periodo_inicio', periodo_fin)
+        .gte('periodo_fin', periodo_inicio)
+      const conflictos = (solapadas ?? []).filter(s =>
+        !(s.periodo_inicio === periodo_inicio && s.periodo_fin === periodo_fin),
+      )
+      if (conflictos.length > 0) {
+        const c = conflictos[0]
+        return {
+          miembro_id: miembroId,
+          ok: false,
+          code: 'solapamiento',
+          mensaje: `Ya existe una liquidación ${c.estado_clave} para el período ${c.periodo_inicio} → ${c.periodo_fin} que se solapa. Cancelá esa primero si querés liquidar con otra granularidad.`,
+        }
+      }
+
       const recibo = await calcularReciboDesdeBD(admin, {
         empresaId,
         miembroId,
         periodoInicio: periodo_inicio,
         periodoFin: periodo_fin,
       })
+      // Antes de transicionar pedimos al endpoint /api/nominas la fila
+      // completa para este miembro (todavía en estado 'borrador'). Esto
+      // captura las métricas detalladas del listado (horas brutas, días
+      // jornada, etc.) que el motor base no produce. Una vez liquidado,
+      // el endpoint leerá del snapshot sin recalcular.
+      const filaListado = await obtenerFilaListadoParaSnapshot(
+        request, miembroId, periodo_inicio, periodo_fin,
+      )
       const snapshot = {
-        version_motor: 'v3.0',
+        version_motor: 'v3.1',
         calculado_en: new Date().toISOString(),
-        ...recibo,
-      } as unknown as Record<string, unknown>
+        // `detalle` con shape estable lo consume calcular-con-snapshot.ts
+        // y generar-pdf-recibo.ts (ambos esperan snapshot.detalle).
+        detalle: recibo,
+        // `fila_listado` permite a /api/nominas GET reconstruir la card
+        // sin pasar por el motor.
+        fila_listado: filaListado,
+      } as Record<string, unknown>
 
       const r = await transicionarLiquidacionEmpleado(admin, {
         empresaId,

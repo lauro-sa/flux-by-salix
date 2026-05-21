@@ -257,6 +257,50 @@ function tipoPeriodoPorFrecuencia(freq?: string): TipoPeriodo {
   return 'mes' // 'mensual', 'eventual' o default
 }
 
+/**
+ * Devuelve la fila del empleado con todos los campos de cálculo en cero,
+ * preservando identidad (nombre, correo, contrato base). Se usa cuando
+ * el endpoint /api/nominas no devuelve fila para el empleado en el
+ * período consultado — típicamente porque el contrato del miembro no
+ * cubre ese rango. Sin esto, la UI quedaría mostrando los montos del
+ * período anterior aunque no correspondan.
+ */
+function limpiarCalculoEmpleado(prev: ResultadoNomina): ResultadoNomina {
+  return {
+    ...prev,
+    dias_laborales: 0,
+    dias_trabajados: 0,
+    dias_ausentes: 0,
+    dias_tardanza: 0,
+    dias_feriados: 0,
+    dias_trabajados_feriado: 0,
+    dias_jornada_completa: 0,
+    dias_media_jornada: 0,
+    dias_presente_parcial: 0,
+    jornales_equivalentes: 0,
+    dias_con_almuerzo: 0,
+    dias_con_salida_particular: 0,
+    horas_brutas: 0,
+    horas_netas: 0,
+    horas_almuerzo: 0,
+    horas_particular: 0,
+    horas_totales: 0,
+    promedio_horas_diario: 0,
+    monto_pagar: 0,
+    monto_detalle: 'Sin contrato vigente en este período',
+    conceptos_aplicados: [],
+    total_haberes: 0,
+    total_descuentos_conceptos: 0,
+    descuento_adelanto: 0,
+    cuotas_adelanto: 0,
+    bonos_periodo: 0,
+    cuotas_bonos: 0,
+    saldo_anterior: 0,
+    monto_neto: 0,
+    dias_detalle: [],
+  }
+}
+
 /** Deriva el tipo de período a partir de un rango de fechas */
 function inferirTipoPeriodo(desde: string, hasta: string): TipoPeriodo {
   const d = new Date(desde + 'T12:00:00')
@@ -502,7 +546,16 @@ export function PaginaEditorNominaEmpleado({
       const res = await fetch(`/api/nominas?desde=${nuevo.desde}&hasta=${nuevo.hasta}&empleados=${datosEmpleado.miembro_id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
-      if (resultado) setDatosEmpleado(resultado)
+      if (resultado) {
+        setDatosEmpleado(resultado)
+      } else {
+        // Edge case: el endpoint no devolvió fila para el empleado en
+        // este período (puede pasar si el contrato no cubre el período
+        // y el backend lo filtra por vigencia). Si no limpiamos los
+        // campos de cálculo, queda visible la liquidación del período
+        // anterior — el usuario ve montos que no corresponden.
+        setDatosEmpleado(prev => limpiarCalculoEmpleado(prev))
+      }
     } catch { /* silenciar */ }
     finally { setRecalculando(false) }
 
@@ -581,7 +634,14 @@ export function PaginaEditorNominaEmpleado({
       const res = await fetch(`/api/nominas?desde=${periodoActual.desde}&hasta=${periodoActual.hasta}&empleados=${datosEmpleado.miembro_id}`)
       const data = await res.json()
       const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === datosEmpleado.miembro_id)
-      if (resultado) setDatosEmpleado(resultado)
+      if (resultado) {
+        setDatosEmpleado(resultado)
+      } else {
+        // Mismo edge case que en cambiarPeriodo: si el backend filtra al
+        // empleado por vigencia, limpiamos cálculo para no mostrar datos
+        // stale de la consulta anterior.
+        setDatosEmpleado(prev => limpiarCalculoEmpleado(prev))
+      }
     } catch { /* silenciar */ }
     finally { setRecalculando(false) }
     await Promise.all([
