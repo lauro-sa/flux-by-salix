@@ -166,14 +166,16 @@ export function SidebarCorreo({
   }, [canales])
 
   const toggleCuenta = useCallback((id: string) => {
-    setCuentasExpandidas(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      guardarConfigInbox({ cuentas_expandidas: [...next] })
-      return next
-    })
-  }, [guardarConfigInbox])
+    // Calculamos el next afuera del updater para no llamar a `setPreferencias`
+    // (vía guardarConfigInbox) dentro de la fase de actualización de otro
+    // componente — React tira "Cannot update a component while rendering" si
+    // el updater de setState dispara setState en un componente distinto.
+    const next = new Set(cuentasExpandidas)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setCuentasExpandidas(next)
+    guardarConfigInbox({ cuentas_expandidas: [...next] })
+  }, [cuentasExpandidas, guardarConfigInbox])
 
   // Totales
   const totales = useMemo(() => {
