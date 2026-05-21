@@ -24,11 +24,13 @@ y dejar fecha en formato ISO al margen.
   ejecuciones existentes. Probar siempre con dry-run antes de
   activar y nunca asumir que un campo nuevo es opcional sin un
   default seguro.
-- **Flujo de trabajo recomendado para un chat:** entender lo que el
-  usuario quiere → ver el catálogo de §3 → armar el flujo en el
-  editor visual paso a paso → dry-run → activar. Si falta un
-  disparador o acción que no está en §3, NO inventar — agregar a la
-  lista de "pendientes" de §8.
+- **Modelo de trabajo (importante):** el chat **valida factibilidad
+  y guía** — no arma el flujo por su cuenta. El usuario lo arma
+  manualmente en `/flujos` como cualquier usuario de Flux,
+  mandando capturas si algo se ve mal o no funciona. El chat
+  arregla código/copy cuando hace falta y todo lo que se mergea
+  vale para todas las empresas (multi-tenant). Ver §4 para el
+  protocolo completo.
 - **Regla durable:** "nada de parches, todo bien solucionado". Si
   un cambio toca el motor, mirar primero las consecuencias en
   flujos ya guardados (backwards compat) antes de migrar.
@@ -118,24 +120,77 @@ Mapeo a categorías UI: [`src/lib/workflows/categorias-pasos.ts`](../src/lib/wor
 
 ## 4. Cómo encarar un pedido del usuario
 
-Pasos que tiene que seguir el chat al recibir *"quiero hacer una automatización que..."*:
+> **Modelo de trabajo:** el chat **no** arma el flujo por su cuenta.
+> Valida si se puede hacer y guía al usuario para que lo arme **él**
+> desde la UI, como cualquier otro usuario de Flux. El usuario manda
+> capturas si algo no funciona o no se ve bien, y entre los dos
+> arreglan el código o el copy. Lo que queda fixed, queda fixed para
+> todas las empresas — es multi-tenant.
+
+### 4.1 Fase 1 — Validar factibilidad (sin tocar código)
 
 1. **Entender el "cuando" y el "qué hacer"**. Reformularlo en una
    frase: *"Cuando pase X, hacer Y"*. Si no se puede, el flujo no
    está bien definido todavía — preguntar.
 2. **Mapear el "cuando" a un disparador del catálogo §3.1**. Si no
-   matchea ninguno, no inventar uno nuevo; preguntar al usuario si
-   acepta el más cercano o anotar en §8 como pendiente.
+   matchea ninguno, *decírselo claro al usuario*: "esto no se puede
+   hacer hoy porque no existe el disparador X". No inventar.
+   Anotar en §8 como pendiente si parece útil.
 3. **Mapear el "qué hacer" a una secuencia de acciones del §3.2**.
-   Si necesita ramas, usar `condicion_branch`. Si necesita esperar
-   un tiempo, usar `esperar`.
+   Idem: si falta una acción, decírselo y anotar. Si hace falta
+   `condicion_branch` (ramas) o `esperar` (delay), mencionarlo.
 4. **Verificar que el flujo sirva para cualquier empresa** — no
-   hardcodear nombres de canal, IDs de plantilla, ni emails. Todo
-   debe seleccionarse desde la UI del editor.
-5. **Probar con dry-run** antes de activar. Si el dry-run requiere
-   un mensaje sintético (ej: correo), ver §6.4.
-6. **Activar y dejarlo corriendo**. Anotar en `CHANGELOG_FLUJOS.md`
-   si fue un flujo de sistema (no si es de un usuario puntual).
+   debería depender de IDs/emails/canales hardcodeados. Si el
+   usuario tiene un caso muy específico, decirle qué selectores
+   va a tener que llenar en el panel.
+5. **Resumir el plan en 3-6 líneas** antes de mandarlo a la UI:
+   ```
+   Disparador: <tipo> con <filtros>
+   Acción 1: <tipo> — <qué hace>
+   Acción 2: ...
+   ```
+   Esperar el OK del usuario. Si dice "dale", pasar a fase 2.
+
+### 4.2 Fase 2 — Guiar paso a paso al usuario en la UI
+
+El chat **no entra al editor** — el usuario sí. El chat le dicta
+los pasos, el usuario los ejecuta y devuelve captura o "ok hecho".
+
+1. *"Andá a `/flujos` y tocá `+ Nuevo flujo` → pestaña 'Desde cero'.
+   Ponele de nombre `<nombre sugerido>`."*
+2. *"En el disparador, elegí `<tipo>`. En `<campo>` seleccioná
+   `<valor>`."* — Pedir captura si es la primera vez que armás
+   ese tipo de disparador para confirmar que la UI lo muestra bien.
+3. *"Agregá un paso → categoría `<x>` → `<acción>`. Configurá así:
+   ..."*. Repetir por acción.
+4. *"Probalo con el botón **Probar** (dry-run). Mandame la captura
+   del resultado."*
+5. *"Si se ve bien, tocá **Activar**. Mandame captura del listado
+   con el chip 'Activo'."*
+
+### 4.3 Fase 3 — Iteración con capturas
+
+Si en cualquier paso algo no se ve bien, falla, o el resultado no
+coincide con lo esperado:
+
+1. El usuario manda **captura + descripción corta** de lo que pasó.
+2. El chat:
+   - Reproduce el caso en el código (lee el componente / endpoint
+     involucrado).
+   - Si es bug → arregla, commitea, PR, merge (`gh pr merge --squash`).
+   - Si es decisión de UX → propone cambio y espera OK antes de tocar.
+3. Una vez mergeado, **avisar al usuario que recargue** para verlo
+   con el fix.
+4. Si la lección aplica a futuros flujos, agregarla a §7.
+
+### 4.4 Fase 4 — Cierre
+
+- Confirmar con el usuario que la automatización corre end-to-end
+  (no solo dry-run — un disparo real, si se puede).
+- Si el flujo es **de sistema** (sembrado en todas las empresas),
+  anotar en [`docs/CHANGELOG_FLUJOS.md`](CHANGELOG_FLUJOS.md).
+  Si es **del usuario** (caso puntual de su empresa), no hace
+  falta anotarlo — vive en su BD nomás.
 
 ---
 
