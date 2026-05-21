@@ -146,7 +146,8 @@ export default function TarjetaCondicionBranch({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-texto-primario truncate">
-              {t('flujos.paso.condicion_branch.titulo')}
+              {(paso as { etiqueta?: string | null }).etiqueta?.trim() ||
+                t('flujos.paso.condicion_branch.titulo')}
             </p>
             <p className="text-xs text-texto-terciario truncate mt-0.5">
               {t('flujos.editor.branch.resumen')

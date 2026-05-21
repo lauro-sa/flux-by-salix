@@ -4,11 +4,13 @@ import { Plus } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import FilaCondicion from './_branch/FilaCondicion'
+import EditorCondicionHorario from './_branch/EditorCondicionHorario'
 import type {
   AccionCondicionBranch,
   AccionWorkflow,
   CondicionCompuesta,
   CondicionHoja,
+  CondicionHorario,
   CondicionWorkflow,
 } from '@/tipos/workflow'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
@@ -46,6 +48,9 @@ interface Props {
  * `CondicionHoja` (compatibilidad hacia atrás con builds que guardaron
  * un solo nivel directo), la envolvemos. Si está vacía / inválida,
  * arrancamos con una compuesta vacía.
+ *
+ * NO toca `CondicionHorario` — esa se detecta antes y se rutea al
+ * editor dedicado.
  */
 function asegurarCompuesta(c: CondicionWorkflow): CondicionCompuesta {
   if (typeof c === 'object' && c !== null && Array.isArray((c as CondicionCompuesta).condiciones)) {
@@ -62,8 +67,72 @@ function condicionVacia(): CondicionHoja {
   return { campo: '', operador: 'igual', valor: '' }
 }
 
+function condicionHorarioVacia(): CondicionHorario {
+  const zona = typeof Intl !== 'undefined'
+    ? new Intl.DateTimeFormat().resolvedOptions().timeZone
+    : 'America/Argentina/Buenos_Aires'
+  return {
+    tipo: 'horario',
+    modo: 'fuera',
+    zona_horaria: zona || 'America/Argentina/Buenos_Aires',
+    dias: ['lun', 'mar', 'mie', 'jue', 'vie'],
+    hora_desde: '09:00',
+    hora_hasta: '18:00',
+  }
+}
+
+function esCondicionHorarioShape(c: unknown): c is CondicionHorario {
+  return (
+    typeof c === 'object' &&
+    c !== null &&
+    (c as { tipo?: unknown }).tipo === 'horario'
+  )
+}
+
 export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, contexto }: Props) {
   const { t } = useTraduccion()
+  const esHorario = esCondicionHorarioShape(paso.condicion)
+
+  // Toggle modo: "Por horario" vs "Por campo". Cambia el shape raíz
+  // de paso.condicion. Al cambiar de campo → horario o viceversa, NO
+  // mezclamos: la condición previa se reemplaza por una vacía del
+  // nuevo tipo. Esto es deliberado — mezclar shapes diferentes en una
+  // sola UI confunde más que ayuda.
+  const cambiarAHorario = () => {
+    if (soloLectura || esHorario) return
+    onCambiar({ condicion: condicionHorarioVacia() } as Partial<AccionWorkflow>)
+  }
+
+  const cambiarACampo = () => {
+    if (soloLectura || !esHorario) return
+    onCambiar({
+      condicion: { operador: 'y', condiciones: [condicionVacia()] },
+    } as Partial<AccionWorkflow>)
+  }
+
+  // ─── Modo horario ──────────────────────────────────────────
+  if (esHorario) {
+    const horario = paso.condicion as CondicionHorario
+    return (
+      <>
+        <SeccionPanel titulo={t('flujos.editor.panel.seccion.condiciones')}>
+          <ToggleTipoCondicion
+            esHorario={true}
+            soloLectura={soloLectura}
+            onCampo={cambiarACampo}
+            onHorario={cambiarAHorario}
+          />
+          <EditorCondicionHorario
+            condicion={horario}
+            soloLectura={soloLectura}
+            onCambiar={(nueva) => onCambiar({ condicion: nueva } as Partial<AccionWorkflow>)}
+          />
+        </SeccionPanel>
+      </>
+    )
+  }
+
+  // ─── Modo campo (CondicionCompuesta de hojas) ──────────────
   const compuesta = asegurarCompuesta(paso.condicion)
 
   const escribir = (nueva: CondicionCompuesta) => {
@@ -90,6 +159,12 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
   return (
     <>
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.condiciones')}>
+        <ToggleTipoCondicion
+          esHorario={false}
+          soloLectura={soloLectura}
+          onCampo={cambiarACampo}
+          onHorario={cambiarAHorario}
+        />
         {/* Operador uniforme Y / O */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-texto-secundario shrink-0">
@@ -188,5 +263,63 @@ export default function PanelBranch({ paso, soloLectura, onCambiar, fuentes, con
         </p>
       </SeccionPanel>
     </>
+  )
+}
+
+/**
+ * Toggle "Por campo" / "Por horario" arriba del builder. Sub-componente
+ * local porque el render del editor difiere demasiado entre los dos
+ * modos para hacer un solo componente.
+ */
+function ToggleTipoCondicion({
+  esHorario,
+  soloLectura,
+  onCampo,
+  onHorario,
+}: {
+  esHorario: boolean
+  soloLectura: boolean
+  onCampo: () => void
+  onHorario: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium text-texto-secundario">Tipo de condición</span>
+      <div className="inline-flex rounded-md border border-borde-sutil overflow-hidden self-start">
+        <button
+          type="button"
+          onClick={onCampo}
+          disabled={soloLectura}
+          className={[
+            'px-3 py-1.5 text-xs font-medium transition-colors',
+            !esHorario
+              ? 'bg-texto-marca/15 text-texto-marca'
+              : 'text-texto-secundario hover:bg-superficie-hover',
+            soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+          ].join(' ')}
+        >
+          Por campo
+        </button>
+        <button
+          type="button"
+          onClick={onHorario}
+          disabled={soloLectura}
+          className={[
+            'px-3 py-1.5 text-xs font-medium transition-colors border-l border-borde-sutil',
+            esHorario
+              ? 'bg-texto-marca/15 text-texto-marca'
+              : 'text-texto-secundario hover:bg-superficie-hover',
+            soloLectura ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+          ].join(' ')}
+        >
+          Por horario
+        </button>
+      </div>
+      <span className="text-xs text-texto-terciario leading-relaxed">
+        {esHorario
+          ? 'Evalúa el día y hora actual contra el rango configurado.'
+          : 'Evalúa datos del contexto (ej: monto, asunto, contacto).'}
+      </span>
+    </div>
   )
 }

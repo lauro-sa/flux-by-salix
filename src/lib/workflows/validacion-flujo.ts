@@ -21,8 +21,11 @@ import {
   esDisparadorEntidadEstadoCambio,
   esDisparadorTiempoCron,
   esDisparadorTiempoRelativoACampo,
+  esDisparadorInboxCorreoRecibido,
   esAccionConocida,
   esAccionEnviarWhatsappPlantilla,
+  esAccionEnviarCorreoPlantilla,
+  esAccionEnviarRespuestaRapidaCorreo,
   esAccionCrearActividad,
   esAccionCompletarActividad,
   esAccionCambiarEstadoEntidad,
@@ -74,6 +77,12 @@ const DISPARADORES_SOPORTADOS = new Set<string>([
   'entidad.estado_cambio',
   'tiempo.cron',
   'tiempo.relativo_a_campo',
+  'inbox.correo_recibido',
+  // inbox.whatsapp_recibido e inbox.interno_recibido están en el
+  // catálogo TS y la UI los muestra como tarjetas con cartel
+  // "Próximamente", pero la validación los rechaza al publicar:
+  // todavía no hay motor que los ejecute. Se agregan acá cuando
+  // el dispatcher los soporte.
 ])
 
 /**
@@ -84,6 +93,8 @@ const DISPARADORES_SOPORTADOS = new Set<string>([
  */
 const ACCIONES_SOPORTADAS = new Set<string>([
   'enviar_whatsapp_plantilla',
+  'enviar_correo_plantilla',
+  'enviar_respuesta_rapida_correo',
   'crear_actividad',
   'completar_actividad',
   'cambiar_estado_entidad',
@@ -120,9 +131,18 @@ function validarDisparador(d: unknown): string[] {
     return [`El disparador "${r.tipo}" no existe en el catálogo.`]
   }
   if (!DISPARADORES_SOPORTADOS.has(r.tipo)) {
+    // Mensajes específicos para los disparadores de inbox que están
+    // en el catálogo pero todavía no se ejecutan, para que el usuario
+    // entienda que la tarjeta existe pero no es publicable hoy.
+    if (r.tipo === 'inbox.whatsapp_recibido') {
+      return ['El disparador "WhatsApp recibido" todavía no se ejecuta. Por ahora solo "Correo recibido" está disponible en el inbox.']
+    }
+    if (r.tipo === 'inbox.interno_recibido') {
+      return ['El disparador "Mensaje interno recibido" todavía no se ejecuta. Por ahora solo "Correo recibido" está disponible en el inbox.']
+    }
     return [
       `El disparador "${r.tipo}" todavía no lo ejecuta el motor. ` +
-      'Disponibles: cambio de estado de entidad, tiempo (cron) y tiempo (relativo a un campo).',
+      'Disponibles: cambio de estado de entidad, tiempo (cron), tiempo (relativo a un campo) y correo recibido.',
     ]
   }
   // Shape específico por tipo.
@@ -140,6 +160,11 @@ function validarDisparador(d: unknown): string[] {
     return esDisparadorTiempoRelativoACampo(d)
       ? []
       : ['El disparador relativo a campo requiere entidad, campo de fecha y desplazamiento en días.']
+  }
+  if (r.tipo === 'inbox.correo_recibido') {
+    return esDisparadorInboxCorreoRecibido(d)
+      ? []
+      : ['El disparador de correo recibido tiene una configuración inválida. Revisá las cuentas seleccionadas.']
   }
   return [`El disparador "${r.tipo}" no se puede validar todavía.`]
 }
@@ -184,6 +209,14 @@ function validarAccion(a: unknown, ruta: string): string[] {
       return esAccionEnviarWhatsappPlantilla(a)
         ? []
         : [`${ruta}: WhatsApp con plantilla requiere canal, teléfono, plantilla e idioma.`]
+    case 'enviar_correo_plantilla':
+      return esAccionEnviarCorreoPlantilla(a)
+        ? []
+        : [`${ruta}: enviar correo con plantilla requiere plantilla_id (uuid de plantillas_correo).`]
+    case 'enviar_respuesta_rapida_correo':
+      return esAccionEnviarRespuestaRapidaCorreo(a)
+        ? []
+        : [`${ruta}: enviar respuesta rápida requiere respuesta_rapida_id (uuid de respuestas_rapidas_correo).`]
     case 'crear_actividad':
       return esAccionCrearActividad(a)
         ? []

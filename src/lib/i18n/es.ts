@@ -1590,7 +1590,9 @@ export const es: Traducciones = {
       'tiempo.cron': 'Cron periódico',
       'tiempo.relativo_a_campo': 'Relativo a fecha',
       'webhook.entrante': 'Webhook entrante',
-      'inbox.mensaje_recibido': 'Mensaje recibido',
+      'inbox.correo_recibido': 'Correo recibido',
+      'inbox.whatsapp_recibido': 'WhatsApp recibido',
+      'inbox.interno_recibido': 'Mensaje interno recibido',
       'inbox.conversacion_sin_respuesta': 'Conversación sin respuesta',
       sin_disparador: 'Sin disparador',
     },
@@ -1602,7 +1604,9 @@ export const es: Traducciones = {
       'tiempo.cron': 'En horarios definidos por una expresión cron.',
       'tiempo.relativo_a_campo': 'Cierta cantidad de días antes o después de una fecha del registro.',
       'webhook.entrante': 'Cuando llega un POST a una URL de webhook.',
-      'inbox.mensaje_recibido': 'Cuando llega un mensaje al inbox.',
+      'inbox.correo_recibido': 'Cuando llega un correo electrónico al inbox.',
+      'inbox.whatsapp_recibido': 'Cuando llega un mensaje de WhatsApp al inbox. (Próximamente)',
+      'inbox.interno_recibido': 'Cuando llega un mensaje interno al inbox. (Próximamente)',
       'inbox.conversacion_sin_respuesta': 'Cuando una conversación lleva tiempo sin respuesta.',
     },
 
@@ -1619,6 +1623,23 @@ export const es: Traducciones = {
       modulo_label: 'Módulo (opcional)',
       modulo_placeholder: 'Elegí un módulo',
       crear_y_editar: 'Crear y editar',
+      elegir_icono: 'Elegir ícono',
+      icono_label: 'Ícono',
+      sugerencia_hint: 'Te sugerimos un ícono y color según el nombre; podés cambiarlos.',
+      color_label: 'Color',
+      color_custom: 'Color personalizado',
+      color: {
+        violeta: 'Violeta',
+        primario: 'Primario',
+        info: 'Azul',
+        cyan: 'Celeste',
+        exito: 'Verde',
+        advertencia: 'Amarillo',
+        naranja: 'Naranja',
+        peligro: 'Rojo',
+        rosa: 'Rosa',
+        neutro: 'Gris',
+      },
       sin_plantillas: 'No hay plantillas disponibles para los módulos instalados.',
       sin_plantillas_busqueda: 'Ninguna plantilla coincide con tu búsqueda.',
       plantilla_disparador: 'Se dispara: ',
@@ -1734,6 +1755,7 @@ export const es: Traducciones = {
         etiqueta: 'Disparador',
         placeholder_titulo: 'Configurá el disparador',
         placeholder_desc: 'Elegí el evento o el momento que va a iniciar este flujo.',
+        cta_elegir: 'Elegir',
       },
 
       branch: {
@@ -2052,10 +2074,35 @@ export const es: Traducciones = {
           plantilla_label: 'Plantilla de correo',
           plantilla_ayuda: 'Las plantillas se editan desde Configuración → Plantillas de correo. El motor las resuelve con los datos del contacto y la entidad al ejecutar.',
           destinatario_label: 'Destinatario',
+          destinatario_ayuda: 'Dejá vacío para responder al remitente del correo entrante. Si querés otro destinatario, escribilo o usá variables como {{contacto.email}}.',
           preview_titulo: 'Vista previa',
           preview_asunto_label: 'Asunto',
           preview_cuerpo_label: 'Cuerpo',
           preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        respuesta_rapida_correo: {
+          respuesta_label: 'Respuesta rápida',
+          respuesta_ayuda: 'Las respuestas rápidas se editan desde Inbox → Respuestas rápidas. Son atajos del operador, pero un flujo también las puede mandar.',
+          destinatario_label: 'Destinatario',
+          destinatario_placeholder: 'Por defecto: remitente del correo original',
+          destinatario_ayuda: 'Dejá vacío si querés responder al remitente del correo entrante. Soporta {{variables}}.',
+          preview_titulo: 'Vista previa',
+          preview_asunto_label: 'Asunto',
+          preview_cuerpo_label: 'Cuerpo',
+          preview_ayuda: 'Las variables como {{contacto.nombre}} se reemplazan automáticamente al enviar.',
+        },
+
+        inbox_correo_recibido: {
+          canales_label: 'Cuentas que disparan el flujo',
+          canales_ayuda_todas: 'Sin filtro: dispara con cualquier cuenta de correo activa de la empresa.',
+          canales_ayuda_filtradas: 'Solo dispara con las cuentas seleccionadas.',
+        },
+
+        proximamente: {
+          titulo: 'Disparador próximamente disponible',
+          whatsapp: 'El motor todavía no procesa mensajes entrantes de WhatsApp. Podés dejar el flujo en borrador para activarlo apenas se libere.',
+          interno: 'El motor todavía no procesa mensajes internos del inbox. Podés dejar el flujo en borrador para activarlo apenas se libere.',
         },
 
         generico_json: {
@@ -2156,6 +2203,16 @@ export const es: Traducciones = {
       estado: { placeholder: 'Elegí un estado' },
       etiqueta: { placeholder: 'Elegí una etiqueta' },
       plantilla_correo: { placeholder: 'Elegí una plantilla' },
+      respuesta_rapida_correo: { placeholder: 'Elegí una respuesta rápida' },
+      canales_correo: {
+        todas: 'Todas las cuentas',
+        placeholder: 'Cuentas seleccionadas',
+        cargando: 'Cargando cuentas...',
+        error: 'Error cargando cuentas',
+        sin_canales: 'Sin cuentas de correo configuradas',
+        desconectado: 'Desconectada',
+        quitar: 'Quitar',
+      },
     },
 
     picker: {
@@ -2303,9 +2360,17 @@ export const es: Traducciones = {
         titulo: 'Webhook entrante',
         descripcion: 'Cuando llega un POST a una URL de webhook.',
       },
-      'inbox.mensaje_recibido': {
-        titulo: 'Mensaje recibido',
-        descripcion: 'Cuando llega un mensaje al inbox.',
+      'inbox.correo_recibido': {
+        titulo: 'Correo recibido',
+        descripcion: 'Cuando llega un correo electrónico al inbox.',
+      },
+      'inbox.whatsapp_recibido': {
+        titulo: 'WhatsApp recibido',
+        descripcion: 'Cuando llega un mensaje de WhatsApp al inbox. (Próximamente)',
+      },
+      'inbox.interno_recibido': {
+        titulo: 'Mensaje interno recibido',
+        descripcion: 'Cuando llega un mensaje interno al inbox. (Próximamente)',
       },
       'inbox.conversacion_sin_respuesta': {
         titulo: 'Conversación sin respuesta',
@@ -2328,6 +2393,10 @@ export const es: Traducciones = {
       enviar_correo_texto: {
         titulo: 'Enviar correo',
         descripcion: 'Mandar un correo de texto libre.',
+      },
+      enviar_respuesta_rapida_correo: {
+        titulo: 'Enviar respuesta rápida',
+        descripcion: 'Mandar una respuesta rápida guardada del inbox de correo.',
       },
       crear_actividad: {
         titulo: 'Crear actividad',

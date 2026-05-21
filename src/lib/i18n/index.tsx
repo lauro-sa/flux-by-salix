@@ -46,16 +46,43 @@ type ClavePlana = string
 /**
  * Accede a un valor anidado en un objeto usando dot notation.
  * Ejemplo: obtenerValor(traducciones.es, 'contactos.titulo') → 'Contactos'
+ *
+ * Match greedy: si una parte del path no existe como key suelta,
+ * intenta concatenar partes adyacentes con dots y buscar como key
+ * compuesta. Esto permite mantener claves como `'inbox.mensaje_recibido'`
+ * (con dots literales) anidadas dentro de objetos como `flujos.paso.*`:
+ *
+ *   flujos: { paso: { 'inbox.mensaje_recibido': { titulo: '...' } } }
+ *
+ * `t('flujos.paso.inbox.mensaje_recibido.titulo')` → split en
+ * ['flujos','paso','inbox','mensaje_recibido','titulo']. En el nivel
+ * `flujos.paso` intentamos primero `inbox.mensaje_recibido.titulo`
+ * (no existe), después `inbox.mensaje_recibido` (sí existe) y avanzamos
+ * con el resto `['titulo']`.
  */
 function obtenerValor(obj: Record<string, unknown>, clave: ClavePlana): string {
   const partes = clave.split('.')
   let actual: unknown = obj
+  let i = 0
 
-  for (const parte of partes) {
+  while (i < partes.length) {
     if (actual === null || actual === undefined || typeof actual !== 'object') {
-      return clave // Fallback: devuelve la clave si no se encuentra
+      return clave
     }
-    actual = (actual as Record<string, unknown>)[parte]
+    const objActual = actual as Record<string, unknown>
+
+    // Match greedy: probar key combinada de longitud decreciente.
+    let matched = false
+    for (let n = partes.length - i; n >= 1; n--) {
+      const key = partes.slice(i, i + n).join('.')
+      if (key in objActual) {
+        actual = objActual[key]
+        i += n
+        matched = true
+        break
+      }
+    }
+    if (!matched) return clave
   }
 
   return typeof actual === 'string' ? actual : clave

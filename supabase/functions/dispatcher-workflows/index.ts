@@ -134,6 +134,33 @@ interface DisparadorEntidadEstadoCambio {
   }
 }
 
+/**
+ * Disparadores de inbox — uno por canal. Mirror del split en
+ * src/tipos/workflow.ts → DisparadorInbox{Correo,Whatsapp,Interno}Recibido.
+ *
+ * Hoy `inbox.correo_recibido` es el único soportado por el motor; los
+ * otros dos existen como tipos para que el dispatcher matchee
+ * explícitamente como "no" si un flujo draft tiene ese disparador.
+ */
+interface DisparadorInboxCorreoRecibido {
+  tipo: 'inbox.correo_recibido'
+  configuracion: {
+    canal_ids?: string[]
+  }
+}
+interface DisparadorInboxWhatsappRecibido {
+  tipo: 'inbox.whatsapp_recibido'
+  configuracion: {
+    linea_ids?: string[]
+  }
+}
+interface DisparadorInboxInternoRecibido {
+  tipo: 'inbox.interno_recibido'
+  configuracion: {
+    equipo_ids?: string[]
+  }
+}
+
 interface WebhookPayloadCambiosEstado {
   type: 'INSERT'
   table: 'cambios_estado'
@@ -181,6 +208,36 @@ function esDisparadorEntidadEstadoCambio(d: unknown): d is DisparadorEntidadEsta
   return true
 }
 
+function esArrayIdsOpcionalEdge(v: unknown): boolean {
+  if (v === undefined) return true
+  if (!Array.isArray(v)) return false
+  return v.every((id) => typeof id === 'string' && id.length > 0)
+}
+
+function esDisparadorInboxCorreoRecibido(d: unknown): d is DisparadorInboxCorreoRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.correo_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcionalEdge((r.configuracion as Record<string, unknown>).canal_ids)
+}
+
+function esDisparadorInboxWhatsappRecibido(d: unknown): d is DisparadorInboxWhatsappRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.whatsapp_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcionalEdge((r.configuracion as Record<string, unknown>).linea_ids)
+}
+
+function esDisparadorInboxInternoRecibido(d: unknown): d is DisparadorInboxInternoRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.interno_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcionalEdge((r.configuracion as Record<string, unknown>).equipo_ids)
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 function armarClaveIdempotencia(flujoId: string, cambiosEstadoId: string): string {
@@ -188,14 +245,67 @@ function armarClaveIdempotencia(flujoId: string, cambiosEstadoId: string): strin
 }
 
 // Mirror de matchearFlujos en src/lib/workflows/dispatcher.ts.
-// Reglas: activo + misma empresa + tipo entidad.estado_cambio +
-// entidad_tipo y hasta_clave coinciden + (solo_creacion exige
-// estado_anterior IS NULL si está en true) + (desde_clave coincide
-// si está seteado).
+// Reglas:
+//   - activo + misma empresa.
+//   - Si entidad_tipo='mensaje' y estado_nuevo='recibido' → matchear
+//     contra el disparador de inbox correspondiente al `canal_tipo`
+//     del evento (correo → inbox.correo_recibido, whatsapp →
+//     inbox.whatsapp_recibido, interno → inbox.interno_recibido).
+//     Filtro adicional por IDs específicos si el flujo los configuró.
+//   - Caso default (presupuesto, visita, cuota, etc.) → matchear
+//     contra disparadores `entidad.estado_cambio`.
 function matchearFlujos(evento: CambioEstado, flujosActivos: Flujo[]): Flujo[] {
   return flujosActivos.filter((flujo) => {
     if (!flujo.activo) return false
     if (flujo.empresa_id !== evento.empresa_id) return false
+
+    // Rama mensaje recibido (sql/113): mismo carril cambios_estado
+    // pero matchea contra el disparador de inbox del canal correcto.
+    if (evento.entidad_tipo === 'mensaje' && evento.estado_nuevo === 'recibido') {
+      const canalTipo = evento.metadatos?.canal_tipo
+      if (typeof canalTipo !== 'string') return false
+
+      // Correo: único canal con motor implementado hoy.
+      if (canalTipo === 'correo') {
+        if (!esDisparadorInboxCorreoRecibido(flujo.disparador)) return false
+        const cfg = flujo.disparador.configuracion
+        if (cfg.canal_ids && cfg.canal_ids.length > 0) {
+          const eventoCanalId = evento.metadatos?.canal_id
+          if (typeof eventoCanalId !== 'string') return false
+          if (!cfg.canal_ids.includes(eventoCanalId)) return false
+        }
+        return true
+      }
+
+      // WhatsApp e interno: el trigger SQL todavía no emite estos
+      // canales. Si en el futuro el trigger empieza a hacerlo, este
+      // código los matchea por linea_ids / equipo_ids. Hasta entonces,
+      // validacion-flujo.ts rechaza activar el flujo con estos tipos.
+      if (canalTipo === 'whatsapp') {
+        if (!esDisparadorInboxWhatsappRecibido(flujo.disparador)) return false
+        const cfg = flujo.disparador.configuracion
+        if (cfg.linea_ids && cfg.linea_ids.length > 0) {
+          const eventoLineaId = evento.metadatos?.linea_id ?? evento.metadatos?.canal_id
+          if (typeof eventoLineaId !== 'string') return false
+          if (!cfg.linea_ids.includes(eventoLineaId)) return false
+        }
+        return true
+      }
+      if (canalTipo === 'interno') {
+        if (!esDisparadorInboxInternoRecibido(flujo.disparador)) return false
+        const cfg = flujo.disparador.configuracion
+        if (cfg.equipo_ids && cfg.equipo_ids.length > 0) {
+          const eventoEquipoId = evento.metadatos?.equipo_id
+          if (typeof eventoEquipoId !== 'string') return false
+          if (!cfg.equipo_ids.includes(eventoEquipoId)) return false
+        }
+        return true
+      }
+
+      return false
+    }
+
+    // Rama default: entidad.estado_cambio.
     if (!esDisparadorEntidadEstadoCambio(flujo.disparador)) return false
     const cfg = flujo.disparador.configuracion
     if (cfg.entidad_tipo !== evento.entidad_tipo) return false
@@ -305,11 +415,26 @@ Deno.serve(async (req: Request) => {
   for (const flujo of matched) {
     const clave = armarClaveIdempotencia(flujo.id, evento.id)
 
-    // Contexto inicial mínimo. PR 16 lo enriquece con datos de la
-    // entidad disparadora, actor, empresa, etc.
-    const contextoInicial = {
+    // Contexto inicial. Para los disparadores de inbox el trigger SQL
+    // ya armó `mensaje_disparador` en evento.contexto — lo propagamos
+    // al contexto_inicial para que el executor lo lea sin queries
+    // adicionales. El `trigger.tipo` se calcula a partir del
+    // `canal_tipo` del evento (mismo criterio que matchearFlujos).
+    const esInboxMensaje =
+      evento.entidad_tipo === 'mensaje' && evento.estado_nuevo === 'recibido'
+    const canalTipoEvento = esInboxMensaje
+      ? evento.metadatos?.canal_tipo
+      : undefined
+    const tipoTrigger = esInboxMensaje
+      ? canalTipoEvento === 'whatsapp'
+        ? 'inbox.whatsapp_recibido'
+        : canalTipoEvento === 'interno'
+          ? 'inbox.interno_recibido'
+          : 'inbox.correo_recibido'
+      : 'entidad.estado_cambio'
+    const contextoInicial: Record<string, unknown> = {
       trigger: {
-        tipo: 'entidad.estado_cambio',
+        tipo: tipoTrigger,
         cambios_estado_id: evento.id,
         fecha: evento.creado_en,
       },
@@ -321,6 +446,12 @@ Deno.serve(async (req: Request) => {
         estado_anterior: evento.estado_anterior,
         estado_nuevo: evento.estado_nuevo,
       },
+    }
+    if (esInboxMensaje && evento.contexto && typeof evento.contexto === 'object') {
+      const md = (evento.contexto as Record<string, unknown>).mensaje_disparador
+      if (md && typeof md === 'object') {
+        contextoInicial.mensaje_disparador = md
+      }
     }
 
     const { data: ejInsertada, error: errIns } = await sb

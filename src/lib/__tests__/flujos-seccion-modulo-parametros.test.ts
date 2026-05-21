@@ -40,10 +40,10 @@ describe('construirParametrosListado', () => {
 
   it('serializa tiposDisparador (caso inbox sin entidad_tipo)', () => {
     const params = construirParametrosListado({
-      tiposDisparador: ['inbox.mensaje_recibido', 'inbox.conversacion_sin_respuesta'],
+      tiposDisparador: ['inbox.correo_recibido', 'inbox.conversacion_sin_respuesta'],
     })
     expect(params.tipo_disparador).toBe(
-      'inbox.mensaje_recibido,inbox.conversacion_sin_respuesta',
+      'inbox.correo_recibido,inbox.conversacion_sin_respuesta',
     )
     expect(params.modulo).toBeUndefined()
   })

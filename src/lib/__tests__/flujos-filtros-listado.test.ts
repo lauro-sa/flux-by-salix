@@ -64,11 +64,11 @@ describe('expresionORJsonPath', () => {
     // Este helper no es específico de entidad_tipo. Si más adelante
     // alguien lo reusa con otro path JSON, debe seguir funcionando.
     const expr = expresionORJsonPath(
-      ['inbox.mensaje_recibido', 'inbox.conversacion_sin_respuesta'],
+      ['inbox.correo_recibido', 'inbox.conversacion_sin_respuesta'],
       'disparador->>tipo',
     )
     expect(expr).toBe(
-      'disparador->>tipo.eq.inbox.mensaje_recibido,disparador->>tipo.eq.inbox.conversacion_sin_respuesta',
+      'disparador->>tipo.eq.inbox.correo_recibido,disparador->>tipo.eq.inbox.conversacion_sin_respuesta',
     )
   })
 })

@@ -31,6 +31,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AccionWorkflow,
   AccionEnviarWhatsappPlantilla,
+  AccionEnviarCorreoPlantilla,
+  AccionEnviarRespuestaRapidaCorreo,
   AccionCrearActividad,
   AccionCompletarActividad,
   AccionCambiarEstadoEntidad,
@@ -41,6 +43,8 @@ import type {
 } from '@/tipos/workflow'
 import {
   esAccionEnviarWhatsappPlantilla,
+  esAccionEnviarCorreoPlantilla,
+  esAccionEnviarRespuestaRapidaCorreo,
   esAccionCrearActividad,
   esAccionCompletarActividad,
   esAccionCambiarEstadoEntidad,
@@ -65,6 +69,14 @@ import { registrarChatter } from '@/lib/chatter'
 import { esEntidadRelacionable } from '@/tipos/actividades-relaciones'
 import { insertarVinculosActividad } from '@/lib/actividades-relaciones-helpers'
 import { evaluarCondicion } from './evaluar-condicion'
+import { resolverPlantilla, type ContextoVariables } from './resolver-variables'
+import {
+  enviarCorreoGmail,
+  generarMessageId,
+  type OpcionesMensajeRFC2822,
+} from '@/lib/gmail'
+import { enviarCorreoSMTP } from '@/lib/correo-imap'
+import type { ConfigIMAP } from '@/tipos/inbox'
 
 // =============================================================
 // Contrato del resultado
@@ -147,6 +159,12 @@ export async function ejecutarAccion(
 ): Promise<ResultadoAccion> {
   if (esAccionEnviarWhatsappPlantilla(accion)) {
     return ejecutarEnviarWhatsappPlantilla(accion, contexto, admin)
+  }
+  if (esAccionEnviarCorreoPlantilla(accion)) {
+    return ejecutarEnviarCorreoPlantilla(accion, contexto, admin)
+  }
+  if (esAccionEnviarRespuestaRapidaCorreo(accion)) {
+    return ejecutarEnviarRespuestaRapidaCorreo(accion, contexto, admin)
   }
   if (esAccionCrearActividad(accion)) {
     return ejecutarCrearActividad(accion, contexto, admin)
@@ -325,6 +343,477 @@ function clasificarErrorMetaApi(e: unknown): ResultadoAccion {
     ok: false,
     error: { mensaje, status: metaCode, transitorio, raw_class },
   }
+}
+
+// =============================================================
+// 1.bis) enviar_correo_plantilla / enviar_respuesta_rapida_correo
+// =============================================================
+// Dos handlers casi gemelos: leen su registro (de plantillas_correo o
+// respuestas_rapidas_correo), y delegan al helper compartido
+// `enviarCorreoDesdeFlujo` que resuelve cuenta origen, destinatario,
+// variables, threading, envío real y registro del mensaje saliente
+// en `mensajes`.
+
+async function ejecutarEnviarCorreoPlantilla(
+  accion: AccionEnviarCorreoPlantilla,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  const { data: plantilla, error: errPlantilla } = await admin
+    .from('plantillas_correo')
+    .select('id, nombre, asunto, contenido, contenido_html, activo')
+    .eq('id', accion.plantilla_id)
+    .eq('empresa_id', contexto.empresa_id)
+    .maybeSingle()
+
+  if (errPlantilla) return errSupabase(errPlantilla, 'cargar plantilla de correo')
+  if (!plantilla) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Plantilla de correo ${accion.plantilla_id} no encontrada para empresa ${contexto.empresa_id}`,
+        transitorio: false,
+        raw_class: 'PlantillaNoEncontrada',
+      },
+    }
+  }
+  if (!plantilla.activo) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Plantilla "${plantilla.nombre}" está inactiva`,
+        transitorio: false,
+        raw_class: 'PlantillaInactiva',
+      },
+    }
+  }
+
+  return enviarCorreoDesdeFlujo(
+    {
+      origen: 'plantilla',
+      origenId: plantilla.id,
+      nombreLegible: plantilla.nombre,
+      asunto: plantilla.asunto,
+      contenidoTexto: plantilla.contenido,
+      contenidoHtml: plantilla.contenido_html,
+    },
+    accion.destinatario_override,
+    contexto,
+    admin,
+  )
+}
+
+async function ejecutarEnviarRespuestaRapidaCorreo(
+  accion: AccionEnviarRespuestaRapidaCorreo,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  const { data: rapida, error: errRapida } = await admin
+    .from('respuestas_rapidas_correo')
+    .select('id, nombre, asunto, contenido, contenido_html, activo')
+    .eq('id', accion.respuesta_rapida_id)
+    .eq('empresa_id', contexto.empresa_id)
+    .maybeSingle()
+
+  if (errRapida) return errSupabase(errRapida, 'cargar respuesta rápida de correo')
+  if (!rapida) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Respuesta rápida ${accion.respuesta_rapida_id} no encontrada para empresa ${contexto.empresa_id}`,
+        transitorio: false,
+        raw_class: 'RespuestaRapidaNoEncontrada',
+      },
+    }
+  }
+  if (!rapida.activo) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Respuesta rápida "${rapida.nombre}" está inactiva`,
+        transitorio: false,
+        raw_class: 'RespuestaRapidaInactiva',
+      },
+    }
+  }
+
+  return enviarCorreoDesdeFlujo(
+    {
+      origen: 'respuesta_rapida',
+      origenId: rapida.id,
+      nombreLegible: rapida.nombre,
+      asunto: rapida.asunto,
+      contenidoTexto: rapida.contenido,
+      contenidoHtml: rapida.contenido_html,
+    },
+    accion.destinatario_override,
+    contexto,
+    admin,
+  )
+}
+
+interface RegistroCorreoOrigen {
+  origen: 'plantilla' | 'respuesta_rapida'
+  origenId: string
+  nombreLegible: string
+  asunto: string | null
+  contenidoTexto: string | null
+  contenidoHtml: string | null
+}
+
+/**
+ * Núcleo compartido para enviar correo desde el motor de flujos.
+ *
+ * Resolución de destinatario:
+ *   - Si `destinatarioOverride` viene → resolver `{{vars}}` y usarlo.
+ *   - Sino: del contexto del mensaje disparador (`mensaje_disparador.correo_de`).
+ *
+ * Resolución de cuenta origen:
+ *   - Del contexto del mensaje disparador (`mensaje_disparador.canal_id`).
+ *   - Si no hay mensaje disparador y no se ofrece override, FALLA con
+ *     `CuentaOrigenFaltante`. Hoy no exponemos override de cuenta; cuando
+ *     se exponga (PR futuro), agregar campo `cuenta_origen_id?` a las
+ *     acciones y resolver acá antes del fallback.
+ *
+ * Threading: si hay mensaje disparador, se inyectan In-Reply-To y
+ * References para que el correo aparezca como respuesta del hilo.
+ *
+ * Registro: tras el envío, se inserta una fila en `mensajes` con
+ * `es_entrante=false`, `metadata` con linaje del flujo, y el threading
+ * apropiado para que la conversación del inbox muestre el envío.
+ */
+async function enviarCorreoDesdeFlujo(
+  registro: RegistroCorreoOrigen,
+  destinatarioOverride: string | undefined,
+  contexto: ContextoEjecucion,
+  admin: SupabaseClient,
+): Promise<ResultadoAccion> {
+  const ctxVars = (contexto.contexto_inicial ?? {}) as ContextoVariables
+  const mensajeDisparador = leerMensajeDisparador(contexto.contexto_inicial)
+
+  // ─── Destinatario ──────────────────────────────────────────
+  let destinatario: string | null = null
+  if (destinatarioOverride && destinatarioOverride.trim() !== '') {
+    try {
+      destinatario = resolverPlantilla(destinatarioOverride, ctxVars).trim()
+    } catch (e) {
+      return {
+        ok: false,
+        error: {
+          mensaje: `No se pudo resolver destinatario_override: ${e instanceof Error ? e.message : String(e)}`,
+          transitorio: false,
+          raw_class: 'DestinatarioOverrideInvalido',
+        },
+      }
+    }
+  } else if (mensajeDisparador?.correo_de) {
+    destinatario = extraerEmail(mensajeDisparador.correo_de)
+  }
+  if (!destinatario) {
+    return {
+      ok: false,
+      error: {
+        mensaje:
+          'No se pudo determinar destinatario: el flujo no viene de un mensaje entrante y no se configuró destinatario_override.',
+        transitorio: false,
+        raw_class: 'DestinatarioFaltante',
+      },
+    }
+  }
+
+  // ─── Cuenta origen ─────────────────────────────────────────
+  const canalId = mensajeDisparador?.canal_id ?? null
+  if (!canalId) {
+    return {
+      ok: false,
+      error: {
+        mensaje:
+          'No se pudo determinar la cuenta de correo origen: el flujo no viene de un mensaje entrante.',
+        transitorio: false,
+        raw_class: 'CuentaOrigenFaltante',
+      },
+    }
+  }
+
+  const { data: canal, error: errCanal } = await admin
+    .from('canales_correo')
+    .select('id, nombre, proveedor, config_conexion, estado_conexion')
+    .eq('id', canalId)
+    .eq('empresa_id', contexto.empresa_id)
+    .maybeSingle()
+  if (errCanal) return errSupabase(errCanal, 'cargar canal de correo')
+  if (!canal) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Canal de correo ${canalId} no encontrado para empresa ${contexto.empresa_id}`,
+        transitorio: false,
+        raw_class: 'CanalNoEncontrado',
+      },
+    }
+  }
+  if (canal.estado_conexion !== 'conectado' && !contexto.dry_run) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Canal "${canal.nombre}" no está conectado (estado: ${canal.estado_conexion})`,
+        transitorio: true, // puede haberse recuperado al próximo intento
+        raw_class: 'CanalDesconectado',
+      },
+    }
+  }
+
+  // ─── Resolver variables en asunto/contenido ────────────────
+  let asuntoResuelto: string
+  let textoResuelto: string
+  let htmlResuelto: string | null
+  try {
+    asuntoResuelto = resolverPlantilla(registro.asunto ?? '(Sin asunto)', ctxVars)
+    textoResuelto = resolverPlantilla(registro.contenidoTexto ?? '', ctxVars)
+    htmlResuelto = registro.contenidoHtml
+      ? resolverPlantilla(registro.contenidoHtml, ctxVars)
+      : null
+  } catch (e) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Error resolviendo variables de la plantilla: ${e instanceof Error ? e.message : String(e)}`,
+        transitorio: false,
+        raw_class: e instanceof Error ? e.constructor.name : 'VariableError',
+      },
+    }
+  }
+
+  // ─── Threading ─────────────────────────────────────────────
+  const inReplyTo = mensajeDisparador?.correo_message_id ?? undefined
+  const refsPrevias = mensajeDisparador?.correo_references ?? []
+  const references = inReplyTo
+    ? [...refsPrevias, inReplyTo].filter((v, i, a) => a.indexOf(v) === i)
+    : undefined
+
+  // ─── Dry-run: no envía ni registra ─────────────────────────
+  if (contexto.dry_run) {
+    return {
+      ok: true,
+      resultado: {
+        simulado: true,
+        accion_simulada: registro.origen === 'plantilla'
+          ? 'enviar_correo_plantilla'
+          : 'enviar_respuesta_rapida_correo',
+        canal_id: canal.id,
+        canal_nombre: canal.nombre,
+        proveedor: canal.proveedor,
+        destinatario,
+        asunto: asuntoResuelto,
+        texto: textoResuelto,
+        html: htmlResuelto,
+        in_reply_to: inReplyTo ?? null,
+        references: references ?? null,
+        origen: registro.origen,
+        origen_id: registro.origenId,
+        nombre_legible: registro.nombreLegible,
+      },
+    }
+  }
+
+  // ─── Determinar email remitente desde config_conexion ──────
+  const cfg = canal.config_conexion as Record<string, unknown> | null
+  let emailRemitente = ''
+  if (canal.proveedor === 'gmail_oauth') {
+    emailRemitente = typeof cfg?.email === 'string' ? cfg.email : ''
+  } else if (canal.proveedor === 'imap') {
+    emailRemitente = typeof cfg?.usuario === 'string' ? cfg.usuario : ''
+  }
+  if (!emailRemitente) {
+    return {
+      ok: false,
+      error: {
+        mensaje: `Canal "${canal.nombre}" no tiene email remitente configurado en config_conexion`,
+        transitorio: false,
+        raw_class: 'CredencialesIncompletas',
+      },
+    }
+  }
+  const de = `Automatización <${emailRemitente}>`
+
+  // ─── Envío real ────────────────────────────────────────────
+  const opciones: OpcionesMensajeRFC2822 = {
+    de,
+    para: [destinatario],
+    asunto: asuntoResuelto || '(Sin asunto)',
+    textoPlano: textoResuelto,
+    html: htmlResuelto ?? undefined,
+    inReplyTo,
+    references,
+  }
+
+  let messageIdRfc5322: string
+  let proveedorIdInfo: Record<string, unknown> = {}
+  try {
+    if (canal.proveedor === 'gmail_oauth') {
+      const refreshToken = typeof cfg?.refresh_token === 'string' ? cfg.refresh_token : ''
+      if (!refreshToken) {
+        return {
+          ok: false,
+          error: {
+            mensaje: `Canal Gmail "${canal.nombre}" sin refresh_token`,
+            transitorio: false,
+            raw_class: 'CredencialesIncompletas',
+          },
+        }
+      }
+      const respuesta = await enviarCorreoGmail(refreshToken, opciones, undefined)
+      messageIdRfc5322 = respuesta.messageId
+      proveedorIdInfo = { gmail_id: respuesta.id, gmail_thread_id: respuesta.threadId }
+    } else if (canal.proveedor === 'imap') {
+      const configImap = cfg as unknown as ConfigIMAP
+      const respuesta = await enviarCorreoSMTP(configImap, {
+        de,
+        para: [destinatario],
+        asunto: asuntoResuelto || '(Sin asunto)',
+        textoPlano: textoResuelto,
+        html: htmlResuelto ?? undefined,
+        inReplyTo,
+        references,
+      })
+      messageIdRfc5322 = respuesta.messageId || generarMessageId(extraerDominio(emailRemitente))
+    } else {
+      return {
+        ok: false,
+        error: {
+          mensaje: `Proveedor de correo desconocido: ${canal.proveedor}`,
+          transitorio: false,
+          raw_class: 'ProveedorDesconocido',
+        },
+      }
+    }
+  } catch (e) {
+    const mensaje = e instanceof Error ? e.message : String(e)
+    const transitorio = /timeout|ECONN|ETIMEDOUT|fetch failed|ENOTFOUND|EAI_AGAIN|TLSV1/i.test(mensaje)
+    return {
+      ok: false,
+      error: {
+        mensaje,
+        transitorio,
+        raw_class: e instanceof Error ? e.constructor.name : 'EnvioCorreoError',
+      },
+    }
+  }
+
+  // ─── Registrar el mensaje saliente en `mensajes` ───────────
+  // Si hay mensaje disparador, usamos su conversación. Si no, no podemos
+  // registrar — quedaría suelto. Por ahora ese caso solo aparece cuando
+  // un flujo cron envía un correo sin contexto de inbox; lo registramos
+  // sin conversacion_id no se puede (NOT NULL). Decisión: log warning y
+  // dejar sin registro (el correo igualmente se envió bien).
+  if (mensajeDisparador?.conversacion_id) {
+    const { error: errIns } = await admin
+      .from('mensajes')
+      .insert({
+        empresa_id: contexto.empresa_id,
+        conversacion_id: mensajeDisparador.conversacion_id,
+        es_entrante: false,
+        remitente_tipo: 'agente',
+        remitente_nombre: 'Automatización',
+        tipo_contenido: htmlResuelto ? 'email_html' : 'email_text',
+        texto: textoResuelto,
+        html: htmlResuelto,
+        correo_de: de,
+        correo_para: [destinatario],
+        correo_asunto: asuntoResuelto || '(Sin asunto)',
+        correo_message_id: messageIdRfc5322,
+        correo_in_reply_to: inReplyTo ?? null,
+        correo_references: references ?? null,
+        estado: 'entregado',
+        metadata: {
+          origen_flujo: true,
+          flujo_id: contexto.flujo_id,
+          ejecucion_id: contexto.ejecucion_id,
+          origen: registro.origen,
+          origen_id: registro.origenId,
+          nombre_legible: registro.nombreLegible,
+          ...proveedorIdInfo,
+        },
+      })
+    if (errIns) {
+      // El correo se envió OK pero no pudimos registrarlo. Loggeamos
+      // como warn — no fallamos la acción para no provocar reintento
+      // del envío real (esto duplicaría el correo en el destinatario).
+      console.warn(
+        JSON.stringify({
+          nivel: 'warn',
+          mensaje: 'envio_correo_registro_mensaje_fallo',
+          flujo_id: contexto.flujo_id,
+          ejecucion_id: contexto.ejecucion_id,
+          conversacion_id: mensajeDisparador.conversacion_id,
+          error_message: errIns.message,
+          error_code: errIns.code ?? null,
+        }),
+      )
+    }
+  }
+
+  return {
+    ok: true,
+    resultado: {
+      destinatario,
+      asunto: asuntoResuelto,
+      proveedor: canal.proveedor,
+      message_id: messageIdRfc5322,
+      ...proveedorIdInfo,
+    },
+  }
+}
+
+interface MensajeDisparador {
+  id: string
+  conversacion_id: string | null
+  canal_id: string | null
+  correo_de: string | null
+  correo_message_id: string | null
+  correo_references: string[] | null
+}
+
+/**
+ * Lee del `contexto_inicial` los campos del mensaje que disparó el flujo,
+ * si el disparador fue uno de los `inbox.*_recibido`. El dispatcher es el
+ * responsable de poblar `contexto_inicial.mensaje_disparador` con esa
+ * estructura. Para flujos disparados por cron u otra cosa, devuelve null.
+ */
+function leerMensajeDisparador(
+  contextoInicial: Record<string, unknown> | undefined,
+): MensajeDisparador | null {
+  if (!contextoInicial) return null
+  const md = contextoInicial.mensaje_disparador
+  if (typeof md !== 'object' || md === null) return null
+  const r = md as Record<string, unknown>
+  if (typeof r.id !== 'string') return null
+  return {
+    id: r.id,
+    conversacion_id: typeof r.conversacion_id === 'string' ? r.conversacion_id : null,
+    canal_id: typeof r.canal_id === 'string' ? r.canal_id : null,
+    correo_de: typeof r.correo_de === 'string' ? r.correo_de : null,
+    correo_message_id:
+      typeof r.correo_message_id === 'string' ? r.correo_message_id : null,
+    correo_references: Array.isArray(r.correo_references)
+      ? (r.correo_references as unknown[]).filter(
+          (s): s is string => typeof s === 'string',
+        )
+      : null,
+  }
+}
+
+/** Extrae el email de un string tipo `"Juan Pérez" <juan@x.com>` o `juan@x.com`. */
+function extraerEmail(s: string): string | null {
+  const m = /<([^>]+)>/.exec(s)
+  if (m) return m[1].trim()
+  const t = s.trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : null
+}
+
+function extraerDominio(email: string): string {
+  const i = email.indexOf('@')
+  return i >= 0 ? email.slice(i + 1) : 'flux.app'
 }
 
 // =============================================================

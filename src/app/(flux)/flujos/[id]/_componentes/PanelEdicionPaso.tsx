@@ -32,11 +32,14 @@ import PanelNotificarGrupo from './_panel/secciones/PanelNotificarGrupo'
 import PanelEnviarWhatsAppTexto from './_panel/secciones/PanelEnviarWhatsAppTexto'
 import PanelEnviarCorreoTexto from './_panel/secciones/PanelEnviarCorreoTexto'
 import PanelEnviarCorreoPlantilla from './_panel/secciones/PanelEnviarCorreoPlantilla'
+import PanelEnviarRespuestaRapidaCorreo from './_panel/secciones/PanelEnviarRespuestaRapidaCorreo'
 import PanelGenericoParametros from './_panel/secciones/PanelGenericoParametros'
 import PanelDisparadorEntidadEstadoCambio from './_panel/secciones/PanelDisparadorEntidadEstadoCambio'
 import PanelDisparadorEntidadCreada from './_panel/secciones/PanelDisparadorEntidadCreada'
 import PanelDisparadorEntidadCampoCambia from './_panel/secciones/PanelDisparadorEntidadCampoCambia'
 import PanelDisparadorRelativoACampo from './_panel/secciones/PanelDisparadorRelativoACampo'
+import PanelDisparadorInboxCorreoRecibido from './_panel/secciones/PanelDisparadorInboxCorreoRecibido'
+import PanelDisparadorProximamente from './_panel/secciones/PanelDisparadorProximamente'
 import PanelTipoPendiente from './_panel/secciones/PanelTipoPendiente'
 import { usePreviewContexto } from './_picker/usePreviewContexto'
 import type { AccionConId } from '@/lib/workflows/ids-pasos'
@@ -57,6 +60,7 @@ import type {
   DisparadorEntidadEstadoCambio,
   DisparadorTiempoCron,
   DisparadorTiempoRelativoACampo,
+  DisparadorInboxCorreoRecibido,
   DisparadorWorkflow,
   TipoAccion,
   TipoDisparador,
@@ -292,7 +296,7 @@ export default function PanelEdicionPaso({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: '100%', opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="fixed inset-y-0 right-0 z-30 w-full md:w-[480px] bg-superficie-app border-l border-borde-sutil flex flex-col shadow-2xl"
+          className="fixed right-0 bottom-0 top-[var(--header-alto)] z-30 w-full md:w-[480px] bg-superficie-app border-l border-borde-sutil flex flex-col shadow-2xl"
           role="dialog"
           aria-label={datos.fallbackTitulo}
         >
@@ -419,6 +423,41 @@ function renderDisparador(args: RenderDisparadorArgs) {
         disparador={disparador}
         soloLectura={soloLectura}
         onCambiar={onCambiar}
+      />
+    )
+  }
+
+  if (tipo === 'inbox.correo_recibido') {
+    const canalIdsRaw = cfg.canal_ids
+    const canalIds = Array.isArray(canalIdsRaw)
+      ? canalIdsRaw.filter((s): s is string => typeof s === 'string' && s.length > 0)
+      : []
+    const disparador: DisparadorInboxCorreoRecibido = {
+      tipo: 'inbox.correo_recibido',
+      configuracion: canalIds.length > 0 ? { canal_ids: canalIds } : {},
+    }
+    return (
+      <PanelDisparadorInboxCorreoRecibido
+        disparador={disparador}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+      />
+    )
+  }
+
+  // WhatsApp e interno: tarjeta en el catálogo + panel "Próximamente".
+  // `validarPublicable` rechaza activar el flujo con estos disparadores.
+  if (tipo === 'inbox.whatsapp_recibido') {
+    return (
+      <PanelDisparadorProximamente
+        claveI18nMensaje="flujos.editor.panel.proximamente.whatsapp"
+      />
+    )
+  }
+  if (tipo === 'inbox.interno_recibido') {
+    return (
+      <PanelDisparadorProximamente
+        claveI18nMensaje="flujos.editor.panel.proximamente.interno"
       />
     )
   }
@@ -598,7 +637,19 @@ function renderPaso(args: RenderPasoArgs) {
   if (paso.tipo === 'enviar_correo_plantilla') {
     return (
       <PanelEnviarCorreoPlantilla
-        paso={paso as AccionGenerica}
+        paso={paso as React.ComponentProps<typeof PanelEnviarCorreoPlantilla>['paso']}
+        soloLectura={soloLectura}
+        onCambiar={onCambiar}
+        fuentes={fuentes}
+        contexto={contexto}
+      />
+    )
+  }
+
+  if (paso.tipo === 'enviar_respuesta_rapida_correo') {
+    return (
+      <PanelEnviarRespuestaRapidaCorreo
+        paso={paso as React.ComponentProps<typeof PanelEnviarRespuestaRapidaCorreo>['paso']}
         soloLectura={soloLectura}
         onCambiar={onCambiar}
         fuentes={fuentes}

@@ -1607,7 +1607,9 @@ export interface Traducciones {
       'tiempo.cron': string
       'tiempo.relativo_a_campo': string
       'webhook.entrante': string
-      'inbox.mensaje_recibido': string
+      'inbox.correo_recibido': string
+      'inbox.whatsapp_recibido': string
+      'inbox.interno_recibido': string
       'inbox.conversacion_sin_respuesta': string
       sin_disparador: string
     }
@@ -1619,7 +1621,9 @@ export interface Traducciones {
       'tiempo.cron': string
       'tiempo.relativo_a_campo': string
       'webhook.entrante': string
-      'inbox.mensaje_recibido': string
+      'inbox.correo_recibido': string
+      'inbox.whatsapp_recibido': string
+      'inbox.interno_recibido': string
       'inbox.conversacion_sin_respuesta': string
     }
 
@@ -1637,6 +1641,23 @@ export interface Traducciones {
       modulo_label: string
       modulo_placeholder: string
       crear_y_editar: string
+      elegir_icono: string
+      icono_label: string
+      sugerencia_hint: string
+      color_label: string
+      color_custom: string
+      color: {
+        violeta: string
+        primario: string
+        info: string
+        cyan: string
+        exito: string
+        advertencia: string
+        naranja: string
+        peligro: string
+        rosa: string
+        neutro: string
+      }
       sin_plantillas: string
       sin_plantillas_busqueda: string
       plantilla_disparador: string
@@ -1761,6 +1782,7 @@ export interface Traducciones {
         etiqueta: string
         placeholder_titulo: string
         placeholder_desc: string
+        cta_elegir: string
       }
 
       branch: {
@@ -2069,10 +2091,35 @@ export interface Traducciones {
           plantilla_label: string
           plantilla_ayuda: string
           destinatario_label: string
+          destinatario_ayuda: string
           preview_titulo: string
           preview_asunto_label: string
           preview_cuerpo_label: string
           preview_ayuda: string
+        }
+
+        respuesta_rapida_correo: {
+          respuesta_label: string
+          respuesta_ayuda: string
+          destinatario_label: string
+          destinatario_placeholder: string
+          destinatario_ayuda: string
+          preview_titulo: string
+          preview_asunto_label: string
+          preview_cuerpo_label: string
+          preview_ayuda: string
+        }
+
+        inbox_correo_recibido: {
+          canales_label: string
+          canales_ayuda_todas: string
+          canales_ayuda_filtradas: string
+        }
+
+        proximamente: {
+          titulo: string
+          whatsapp: string
+          interno: string
         }
 
         generico_json: {
@@ -2172,6 +2219,16 @@ export interface Traducciones {
       estado: { placeholder: string }
       etiqueta: { placeholder: string }
       plantilla_correo: { placeholder: string }
+      respuesta_rapida_correo: { placeholder: string }
+      canales_correo: {
+        todas: string
+        placeholder: string
+        cargando: string
+        error: string
+        sin_canales: string
+        desconectado: string
+        quitar: string
+      }
     }
 
     // Picker de variables (sub-PR 19.3b)
@@ -2302,13 +2359,16 @@ export interface Traducciones {
       'tiempo.cron': { titulo: string; descripcion: string }
       'tiempo.relativo_a_campo': { titulo: string; descripcion: string }
       'webhook.entrante': { titulo: string; descripcion: string }
-      'inbox.mensaje_recibido': { titulo: string; descripcion: string }
+      'inbox.correo_recibido': { titulo: string; descripcion: string }
+      'inbox.whatsapp_recibido': { titulo: string; descripcion: string }
+      'inbox.interno_recibido': { titulo: string; descripcion: string }
       'inbox.conversacion_sin_respuesta': { titulo: string; descripcion: string }
       // Acciones
       enviar_whatsapp_plantilla: { titulo: string; descripcion: string }
       enviar_whatsapp_texto: { titulo: string; descripcion: string }
       enviar_correo_plantilla: { titulo: string; descripcion: string }
       enviar_correo_texto: { titulo: string; descripcion: string }
+      enviar_respuesta_rapida_correo: { titulo: string; descripcion: string }
       crear_actividad: { titulo: string; descripcion: string }
       completar_actividad: { titulo: string; descripcion: string }
       cambiar_estado_entidad: { titulo: string; descripcion: string }

@@ -62,7 +62,9 @@ export const MAPA_DISPARADOR: Record<TipoDisparador, CategoriaDisparador> = {
   'entidad.creada': 'eventos',
   'entidad.campo_cambia': 'eventos',
   'actividad.completada': 'eventos',
-  'inbox.mensaje_recibido': 'eventos',
+  'inbox.correo_recibido': 'eventos',
+  'inbox.whatsapp_recibido': 'eventos',
+  'inbox.interno_recibido': 'eventos',
   'inbox.conversacion_sin_respuesta': 'eventos',
   'webhook.entrante': 'eventos',
   'tiempo.cron': 'tiempo',
@@ -75,6 +77,7 @@ export const MAPA_ACCION: Record<TipoAccion, CategoriaAccion> = {
   enviar_whatsapp_texto: 'envios',
   enviar_correo_plantilla: 'envios',
   enviar_correo_texto: 'envios',
+  enviar_respuesta_rapida_correo: 'envios',
   // Creaciones: nuevas entidades en otros módulos.
   crear_actividad: 'creaciones',
   // completar_actividad va en `creaciones` por proximidad semántica con

@@ -106,7 +106,6 @@ describe('crearAccionVacia', () => {
   it('acciones genéricas devuelven shape { tipo, parametros: {} }', () => {
     const tiposGenericos = [
       'enviar_whatsapp_texto',
-      'enviar_correo_plantilla',
       'enviar_correo_texto',
       'asignar_usuario',
       'agregar_etiqueta',
@@ -122,5 +121,15 @@ describe('crearAccionVacia', () => {
       expect(a.tipo).toBe(tipo)
       expect(a).toHaveProperty('parametros')
     }
+  })
+
+  it('enviar_correo_plantilla devuelve shape específico con plantilla_id vacío', () => {
+    const a = crearAccionVacia('enviar_correo_plantilla')
+    expect(a).toEqual({ tipo: 'enviar_correo_plantilla', plantilla_id: '' })
+  })
+
+  it('enviar_respuesta_rapida_correo devuelve shape específico con respuesta_rapida_id vacío', () => {
+    const a = crearAccionVacia('enviar_respuesta_rapida_correo')
+    expect(a).toEqual({ tipo: 'enviar_respuesta_rapida_correo', respuesta_rapida_id: '' })
   })
 })

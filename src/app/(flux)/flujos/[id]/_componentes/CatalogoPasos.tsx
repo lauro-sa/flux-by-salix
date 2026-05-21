@@ -126,23 +126,30 @@ export default function CatalogoPasos(props: Props) {
       )}
     >
       <div className="flex flex-col gap-4">
-        {/* Search */}
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-texto-terciario">
-            <Search size={14} aria-hidden="true" />
-          </span>
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder={t('flujos.catalogo.buscar_placeholder')}
-            autoFocus
-            className="w-full pl-9 pr-3 h-9 text-sm rounded-md bg-superficie-tarjeta border border-borde-sutil text-texto-primario placeholder:text-texto-terciario focus:border-texto-marca focus:outline-none transition-colors"
-          />
+        {/* Search — sticky para que quede fijo al tope mientras el
+            cuerpo del modal scrollea. El offset top compensa el padding
+            interno del Modal; `-mx-6 px-6` extiende el fondo al borde
+            del modal así no se ve "flotando". */}
+        <div className="sticky top-0 z-10 bg-superficie-elevada -mx-6 px-6 pb-2 -mt-2 pt-2">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-texto-terciario">
+              <Search size={14} aria-hidden="true" />
+            </span>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder={t('flujos.catalogo.buscar_placeholder')}
+              autoFocus
+              className="w-full pl-9 pr-3 h-9 text-sm rounded-md bg-superficie-tarjeta border border-borde-sutil text-texto-primario placeholder:text-texto-terciario focus:border-texto-marca focus:outline-none transition-colors"
+            />
+          </div>
         </div>
 
-        {/* Secciones */}
-        <div className="flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-1">
+        {/* Secciones — el scroll lo maneja el contenedor del Modal,
+            por eso acá NO ponemos `max-h + overflow-y-auto` (haría
+            doble scroll y el sticky se rompería). */}
+        <div className="flex flex-col gap-5">
           {modo === 'disparador'
             ? seccionesDisparador.map((s) => (
                 <SeccionCatalogo

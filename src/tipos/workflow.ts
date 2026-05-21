@@ -51,7 +51,9 @@ export type TipoDisparador =
   | 'tiempo.cron'
   | 'tiempo.relativo_a_campo'
   | 'webhook.entrante'
-  | 'inbox.mensaje_recibido'
+  | 'inbox.correo_recibido'
+  | 'inbox.whatsapp_recibido'
+  | 'inbox.interno_recibido'
   | 'inbox.conversacion_sin_respuesta'
 
 export const TIPOS_DISPARADOR: readonly TipoDisparador[] = [
@@ -62,7 +64,9 @@ export const TIPOS_DISPARADOR: readonly TipoDisparador[] = [
   'tiempo.cron',
   'tiempo.relativo_a_campo',
   'webhook.entrante',
-  'inbox.mensaje_recibido',
+  'inbox.correo_recibido',
+  'inbox.whatsapp_recibido',
+  'inbox.interno_recibido',
   'inbox.conversacion_sin_respuesta',
 ] as const
 
@@ -174,11 +178,57 @@ export interface DisparadorWebhookEntrante {
   }
 }
 
-export interface DisparadorInboxMensajeRecibido {
-  tipo: 'inbox.mensaje_recibido'
+/**
+ * Disparadores de inbox — uno por canal entrante.
+ *
+ * Separados por tipo (correo, whatsapp, interno) en lugar de un único
+ * `inbox.correo_recibido` con `tipo_canal` discriminador. El catálogo
+ * del editor lista una tarjeta por canal y las acciones específicas
+ * del canal quedan naturalmente acopladas al disparador correcto.
+ *
+ * Hoy solo `inbox.correo_recibido` está implementado en el motor;
+ * `inbox.whatsapp_recibido` e `inbox.interno_recibido` existen como
+ * tipos válidos para que la UI los muestre, pero `validacion-flujo.ts`
+ * los rechaza al publicar con error explícito hasta que el motor los
+ * soporte.
+ *
+ * El enganche real ocurre via trigger SQL `AFTER INSERT ON mensajes
+ * WHERE es_entrante` (sql/113) que escribe a `cambios_estado` con
+ * `entidad_tipo='mensaje'`, `estado_nuevo='recibido'` y el
+ * `canal_tipo` en metadatos. El dispatcher decide qué tipo de
+ * disparador matchea según ese `canal_tipo`.
+ */
+export interface DisparadorInboxCorreoRecibido {
+  tipo: 'inbox.correo_recibido'
   configuracion: {
-    canal_id?: string
-    filtros?: Record<string, unknown>
+    /**
+     * IDs de canales (`canales_correo.id`) que disparan el flujo.
+     * Vacío/ausente = todos los canales de correo de la empresa.
+     */
+    canal_ids?: string[]
+  }
+}
+
+export interface DisparadorInboxWhatsappRecibido {
+  tipo: 'inbox.whatsapp_recibido'
+  configuracion: {
+    /**
+     * IDs de líneas de WhatsApp que disparan el flujo. NO IMPLEMENTADO
+     * en motor: la validación rechaza activar el flujo con este
+     * disparador hasta que el dispatcher lo soporte.
+     */
+    linea_ids?: string[]
+  }
+}
+
+export interface DisparadorInboxInternoRecibido {
+  tipo: 'inbox.interno_recibido'
+  configuracion: {
+    /**
+     * IDs de equipos cuyos mensajes internos disparan el flujo. NO
+     * IMPLEMENTADO en motor.
+     */
+    equipo_ids?: string[]
   }
 }
 
@@ -203,7 +253,9 @@ export type DisparadorWorkflow = (
   | DisparadorTiempoCron
   | DisparadorTiempoRelativoACampo
   | DisparadorWebhookEntrante
-  | DisparadorInboxMensajeRecibido
+  | DisparadorInboxCorreoRecibido
+  | DisparadorInboxWhatsappRecibido
+  | DisparadorInboxInternoRecibido
   | DisparadorInboxConversacionSinRespuesta
 ) & MetadataUiDisparador
 
@@ -224,6 +276,7 @@ export type TipoAccion =
   | 'enviar_whatsapp_texto'
   | 'enviar_correo_plantilla'
   | 'enviar_correo_texto'
+  | 'enviar_respuesta_rapida_correo'
   | 'crear_actividad'
   | 'completar_actividad'
   | 'cambiar_estado_entidad'
@@ -245,6 +298,7 @@ export const TIPOS_ACCION: readonly TipoAccion[] = [
   'enviar_whatsapp_texto',
   'enviar_correo_plantilla',
   'enviar_correo_texto',
+  'enviar_respuesta_rapida_correo',
   'crear_actividad',
   'completar_actividad',
   'cambiar_estado_entidad',
@@ -398,6 +452,53 @@ export interface AccionNotificarUsuario extends AccionBase {
   notificacion_tipo?: string
 }
 
+/**
+ * Envía un correo usando una plantilla de `plantillas_correo` resuelta
+ * en backend con `resolverVariablesPlantilla`.
+ *
+ * Cuando el flujo se dispara como respuesta a un mensaje entrante
+ * (disparador `inbox.correo_recibido`), el destinatario y la cuenta
+ * origen se derivan automáticamente del mensaje original — sin
+ * configuración manual:
+ *   - destinatario = `correo_de` del mensaje entrante
+ *   - cuenta origen = canal de la conversación del mensaje
+ *   - threading = se inyecta `In-Reply-To` + `References` para que
+ *     quede como respuesta del hilo
+ *
+ * Para flujos no disparados por mensaje, el destinatario tiene que
+ * venir explícito en `destinatario_override` (string con `{{vars}}`
+ * permitido) o el handler falla con `DestinatarioFaltante`.
+ */
+export interface AccionEnviarCorreoPlantilla extends AccionBase {
+  tipo: 'enviar_correo_plantilla'
+  /** UUID de la plantilla en `plantillas_correo`. */
+  plantilla_id: string
+  /**
+   * Destinatario manual. Si está vacío y el flujo viene de un mensaje
+   * entrante, se usa el remitente del mensaje original. Soporta
+   * `{{vars}}` (ej: `{{contacto.email}}`).
+   */
+  destinatario_override?: string
+}
+
+/**
+ * Envía una respuesta rápida de `respuestas_rapidas_correo` —
+ * espejo de `enviar_correo_plantilla` con otra tabla origen. Se
+ * mantiene como acción separada porque plantillas y respuestas
+ * rápidas son entidades distintas en BD y en la UX del inbox
+ * (las respuestas rápidas son atajos manuales del operador, las
+ * plantillas son documentos formales).
+ */
+export interface AccionEnviarRespuestaRapidaCorreo extends AccionBase {
+  tipo: 'enviar_respuesta_rapida_correo'
+  /** UUID de la respuesta rápida en `respuestas_rapidas_correo`. */
+  respuesta_rapida_id: string
+  /**
+   * Destinatario manual. Mismo criterio que en `enviar_correo_plantilla`.
+   */
+  destinatario_override?: string
+}
+
 // ─── Acciones de control de flujo (sub-PR 15.2) ───────────────
 
 export interface AccionEsperar extends AccionBase {
@@ -437,6 +538,8 @@ export interface AccionGenerica extends AccionBase {
   tipo: Exclude<
     TipoAccion,
     | 'enviar_whatsapp_plantilla'
+    | 'enviar_correo_plantilla'
+    | 'enviar_respuesta_rapida_correo'
     | 'crear_actividad'
     | 'completar_actividad'
     | 'cambiar_estado_entidad'
@@ -450,6 +553,8 @@ export interface AccionGenerica extends AccionBase {
 
 export type AccionWorkflow =
   | AccionEnviarWhatsappPlantilla
+  | AccionEnviarCorreoPlantilla
+  | AccionEnviarRespuestaRapidaCorreo
   | AccionCrearActividad
   | AccionCompletarActividad
   | AccionCambiarEstadoEntidad
@@ -499,7 +604,46 @@ export interface CondicionCompuesta {
   condiciones: CondicionWorkflow[]
 }
 
-export type CondicionWorkflow = CondicionHoja | CondicionCompuesta
+export type DiaSemana = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom'
+
+export const DIAS_SEMANA: readonly DiaSemana[] = [
+  'lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom',
+] as const
+
+/**
+ * Condición temporal evaluada contra "ahora" en una zona horaria.
+ *
+ * Se discrimina de `CondicionHoja` y `CondicionCompuesta` por el
+ * campo `tipo: 'horario'`. Útil para flujos tipo "responder solo
+ * fuera de horario laboral" sin necesidad de variables del contexto.
+ *
+ * El evaluador (src/lib/workflows/evaluar-condicion.ts) calcula:
+ *   - El día de la semana de "ahora" en la `zona_horaria` indicada.
+ *   - La hora actual (HH:MM) en esa misma zona horaria.
+ *   - Si día ∈ `dias` AND hora ∈ [`hora_desde`, `hora_hasta`) →
+ *     "dentro del rango". Sino → "fuera".
+ *   - Si `modo === 'dentro'` devuelve "dentro del rango"; si
+ *     `modo === 'fuera'` devuelve la negación.
+ *
+ * El rango cruzando medianoche (ej: 22:00 → 06:00) está soportado:
+ * si `hora_desde > hora_hasta`, se interpreta como "desde hora_desde
+ * hasta medianoche, ó desde 00:00 hasta hora_hasta".
+ */
+export interface CondicionHorario {
+  tipo: 'horario'
+  /** 'dentro' = true si ahora está en el rango. 'fuera' = inverso. */
+  modo: 'dentro' | 'fuera'
+  /** Zona horaria IANA (ej: 'America/Argentina/Buenos_Aires'). */
+  zona_horaria: string
+  /** Días de la semana que cuentan. Vacío = falla cerrada (siempre fuera). */
+  dias: DiaSemana[]
+  /** Hora desde en formato HH:MM (24h). */
+  hora_desde: string
+  /** Hora hasta en formato HH:MM (24h). Exclusivo del límite superior. */
+  hora_hasta: string
+}
+
+export type CondicionWorkflow = CondicionHoja | CondicionCompuesta | CondicionHorario
 
 // =============================================================
 // Estados de la máquina interna del motor
@@ -636,6 +780,14 @@ export interface BodyCrearFlujo {
   nombre: string
   descripcion?: string | null
   basado_en_flujo_id?: string
+  /** Icono Lucide opcional (ej: "Mail"). Si viene, el flujo lo persiste
+   *  en `flujos.icono` ya desde la creación, evitando el segundo PATCH
+   *  desde el editor. Si `basado_en_flujo_id` también está, el icono
+   *  explícito gana sobre el heredado. */
+  icono?: string | null
+  /** Color de la paleta Insignia (ej: "violeta", "exito"). Mismo
+   *  criterio que `icono`: si viene, persiste de entrada. */
+  color?: string | null
 }
 
 export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
@@ -653,6 +805,14 @@ export function esBodyCrearFlujo(b: unknown): b is BodyCrearFlujo {
     // existe (mismo criterio que el resto de Flux). Solo evitamos
     // strings vacíos o absurdamente largos.
     if (id.length === 0 || id.length > 100) return false
+  }
+  if (r.icono !== undefined && r.icono !== null) {
+    if (typeof r.icono !== 'string') return false
+    if (r.icono.length === 0 || r.icono.length > 64) return false
+  }
+  if (r.color !== undefined && r.color !== null) {
+    if (typeof r.color !== 'string') return false
+    if (r.color.length === 0 || r.color.length > 32) return false
   }
   return true
 }
@@ -910,6 +1070,61 @@ export function esDisparadorTiempoRelativoACampo(
   return true
 }
 
+// ─── Type guards de los disparadores de inbox ────────────────
+// Uno por canal — refactor 2026-05-20 para que el catálogo del editor
+// liste cada canal explícitamente en lugar de un genérico
+// "mensaje_recibido" con tipo_canal discriminador.
+
+function esArrayIdsOpcional(v: unknown): boolean {
+  if (v === undefined) return true
+  if (!Array.isArray(v)) return false
+  return v.every((id) => typeof id === 'string' && id.length > 0)
+}
+
+export function esDisparadorInboxCorreoRecibido(
+  d: unknown,
+): d is DisparadorInboxCorreoRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.correo_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).canal_ids)
+}
+
+export function esDisparadorInboxWhatsappRecibido(
+  d: unknown,
+): d is DisparadorInboxWhatsappRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.whatsapp_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).linea_ids)
+}
+
+export function esDisparadorInboxInternoRecibido(
+  d: unknown,
+): d is DisparadorInboxInternoRecibido {
+  if (typeof d !== 'object' || d === null) return false
+  const r = d as Record<string, unknown>
+  if (r.tipo !== 'inbox.interno_recibido') return false
+  if (typeof r.configuracion !== 'object' || r.configuracion === null) return false
+  return esArrayIdsOpcional((r.configuracion as Record<string, unknown>).equipo_ids)
+}
+
+/**
+ * Helper para los lugares que necesitan "es un disparador de inbox"
+ * sin importar el canal específico (panel routing, variables disponibles).
+ */
+export function esDisparadorInbox(
+  d: unknown,
+): d is DisparadorInboxCorreoRecibido | DisparadorInboxWhatsappRecibido | DisparadorInboxInternoRecibido {
+  return (
+    esDisparadorInboxCorreoRecibido(d) ||
+    esDisparadorInboxWhatsappRecibido(d) ||
+    esDisparadorInboxInternoRecibido(d)
+  )
+}
+
 // ─── Type guards de acciones (sub-PR 15.1) ────────────────────
 // El executor del worker usa estos guards para narrowing seguro al
 // leer `flujo.acciones[]` (que viene como jsonb crudo de la BD).
@@ -929,6 +1144,28 @@ export function esAccionEnviarWhatsappPlantilla(
   if (!esStringNoVacio(r.plantilla_nombre)) return false
   if (!esStringNoVacio(r.idioma)) return false
   if (r.componentes !== undefined && !Array.isArray(r.componentes)) return false
+  return true
+}
+
+export function esAccionEnviarCorreoPlantilla(
+  a: unknown,
+): a is AccionEnviarCorreoPlantilla {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'enviar_correo_plantilla') return false
+  if (!esStringNoVacio(r.plantilla_id)) return false
+  if (r.destinatario_override !== undefined && typeof r.destinatario_override !== 'string') return false
+  return true
+}
+
+export function esAccionEnviarRespuestaRapidaCorreo(
+  a: unknown,
+): a is AccionEnviarRespuestaRapidaCorreo {
+  if (typeof a !== 'object' || a === null) return false
+  const r = a as Record<string, unknown>
+  if (r.tipo !== 'enviar_respuesta_rapida_correo') return false
+  if (!esStringNoVacio(r.respuesta_rapida_id)) return false
+  if (r.destinatario_override !== undefined && typeof r.destinatario_override !== 'string') return false
   return true
 }
 
@@ -1056,15 +1293,35 @@ const OPERADORES_COMPARACION = new Set<string>([
   'dias_desde', 'dias_hasta',
 ])
 
+const HORA_HH_MM_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
+const DIAS_SEMANA_SET = new Set<string>(DIAS_SEMANA)
+
+export function esCondicionHorario(c: unknown): c is CondicionHorario {
+  if (typeof c !== 'object' || c === null) return false
+  const r = c as Record<string, unknown>
+  if (r.tipo !== 'horario') return false
+  if (r.modo !== 'dentro' && r.modo !== 'fuera') return false
+  if (typeof r.zona_horaria !== 'string' || r.zona_horaria.length === 0) return false
+  if (!Array.isArray(r.dias) || r.dias.length === 0) return false
+  if (!r.dias.every((d) => typeof d === 'string' && DIAS_SEMANA_SET.has(d))) return false
+  if (typeof r.hora_desde !== 'string' || !HORA_HH_MM_REGEX.test(r.hora_desde)) return false
+  if (typeof r.hora_hasta !== 'string' || !HORA_HH_MM_REGEX.test(r.hora_hasta)) return false
+  return true
+}
+
 /**
- * Valida una condición (hoja o compuesta). Recursivo para compuestas,
- * con tope de profundidad razonable. La profundidad efectiva de
- * ejecución se valida en `evaluar-condicion.ts` (3 niveles por defecto).
+ * Valida una condición (hoja, compuesta u horaria). Recursivo para
+ * compuestas, con tope de profundidad razonable. La profundidad
+ * efectiva de ejecución se valida en `evaluar-condicion.ts`.
  */
 export function esCondicionWorkflow(c: unknown, profundidad = 0): c is CondicionWorkflow {
   if (typeof c !== 'object' || c === null) return false
   if (profundidad > 10) return false // tope estructural duro
   const r = c as Record<string, unknown>
+  // Horaria: discriminador explícito.
+  if (r.tipo === 'horario') {
+    return esCondicionHorario(c)
+  }
   // Compuesta: tiene `condiciones` array.
   if (Array.isArray(r.condiciones)) {
     if (r.operador !== 'y' && r.operador !== 'o') return false

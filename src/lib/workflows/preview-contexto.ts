@@ -138,7 +138,9 @@ export function decidirEntidadAPrevisar(
     }
     case 'tiempo.cron':
     case 'webhook.entrante':
-    case 'inbox.mensaje_recibido':
+    case 'inbox.correo_recibido':
+    case 'inbox.whatsapp_recibido':
+    case 'inbox.interno_recibido':
     case 'inbox.conversacion_sin_respuesta':
       return null
   }

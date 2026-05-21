@@ -3,48 +3,39 @@
 import { useTraduccion } from '@/lib/i18n'
 import SeccionPanel from '../SeccionPanel'
 import InputConVariables from '../../_picker/InputConVariables'
-import SelectorPlantillaCorreo, {
-  type PlantillaCorreoItem,
-} from '../selectores/SelectorPlantillaCorreo'
+import SelectorRespuestaRapidaCorreo, {
+  type RespuestaRapidaCorreoItem,
+} from '../selectores/SelectorRespuestaRapidaCorreo'
 import type {
-  AccionEnviarCorreoPlantilla,
+  AccionEnviarRespuestaRapidaCorreo,
   AccionWorkflow,
 } from '@/tipos/workflow'
 import type { ContextoVariables } from '@/lib/workflows/resolver-variables'
 import type { FuenteVariables } from '@/lib/workflows/variables-disponibles'
 
 /**
- * Panel para `accion: enviar_correo_plantilla`.
+ * Panel para `accion: enviar_respuesta_rapida_correo`.
  *
- * Refactor sobre shape específico (antes asumía `AccionGenerica` con
- * `parametros: { plantilla_id, destinatario }`). Ahora el shape es:
- *
- *   { tipo: 'enviar_correo_plantilla', plantilla_id, destinatario_override? }
- *
- * Las plantillas de correo de Flux usan `{{entidad.campo}}` (dot
- * notation). El motor las resuelve en runtime con `resolverPlantilla`
- * + contexto enriquecido. El panel solo elige la plantilla, permite
- * override del destinatario y muestra preview read-only del asunto y
- * cuerpo.
+ * Espejo de PanelEnviarCorreoPlantilla pero leyendo de
+ * `respuestas_rapidas_correo`. Cambia solo el selector — el resto del
+ * patrón es idéntico (override opcional de destinatario, preview).
  *
  * Cuando el flujo se dispara como respuesta a un mensaje entrante
  * (inbox.mensaje_recibido), el destinatario y la cuenta origen se
- * derivan automáticamente del mensaje original; el
- * `destinatario_override` solo aplica si se quiere forzar otro.
- *
- * Para editar el cuerpo de la plantilla, ir a la página de configuración
- * de plantillas — un único lugar donde se editan.
+ * derivan automáticamente del mensaje original; el `destinatario_override`
+ * solo aplica si el flujo viene de otro disparador (cron, etc.) o si
+ * se quiere forzar otro destinatario.
  */
 
 interface Props {
-  paso: AccionEnviarCorreoPlantilla & { _preview_asunto?: string | null; _preview_cuerpo?: string | null }
+  paso: AccionEnviarRespuestaRapidaCorreo & { _preview_asunto?: string | null; _preview_cuerpo?: string | null }
   soloLectura: boolean
   onCambiar: (parche: Partial<AccionWorkflow>) => void
   fuentes: FuenteVariables[]
   contexto: ContextoVariables
 }
 
-export default function PanelEnviarCorreoPlantilla({
+export default function PanelEnviarRespuestaRapidaCorreo({
   paso,
   soloLectura,
   onCambiar,
@@ -52,14 +43,14 @@ export default function PanelEnviarCorreoPlantilla({
   contexto,
 }: Props) {
   const { t } = useTraduccion()
-  const plantillaId = paso.plantilla_id || null
+  const respuestaId = paso.respuesta_rapida_id || null
   const destinatario = paso.destinatario_override ?? ''
   const previewAsunto = paso._preview_asunto ?? null
   const previewCuerpo = paso._preview_cuerpo ?? null
 
-  const onSeleccionarPlantilla = (id: string, item: PlantillaCorreoItem | null) => {
+  const onSeleccionarRespuesta = (id: string, item: RespuestaRapidaCorreoItem | null) => {
     onCambiar({
-      plantilla_id: id,
+      respuesta_rapida_id: id,
       _preview_asunto: item?.asunto ?? null,
       _preview_cuerpo: item?.contenido ?? null,
     } as Partial<AccionWorkflow>)
@@ -70,21 +61,21 @@ export default function PanelEnviarCorreoPlantilla({
       <SeccionPanel titulo={t('flujos.editor.panel.seccion.basicos')}>
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">
-            {t('flujos.editor.panel.correo_plantilla.plantilla_label')}
+            {t('flujos.editor.panel.respuesta_rapida_correo.respuesta_label')}
           </span>
-          <SelectorPlantillaCorreo
-            valor={plantillaId}
-            onChange={onSeleccionarPlantilla}
+          <SelectorRespuestaRapidaCorreo
+            valor={respuestaId}
+            onChange={onSeleccionarRespuesta}
             disabled={soloLectura}
           />
           <span className="text-xs text-texto-terciario leading-relaxed">
-            {t('flujos.editor.panel.correo_plantilla.plantilla_ayuda')}
+            {t('flujos.editor.panel.respuesta_rapida_correo.respuesta_ayuda')}
           </span>
         </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-texto-secundario">
-            {t('flujos.editor.panel.correo_plantilla.destinatario_label')}
+            {t('flujos.editor.panel.respuesta_rapida_correo.destinatario_label')}
           </span>
           <InputConVariables
             valor={destinatario}
@@ -93,23 +84,23 @@ export default function PanelEnviarCorreoPlantilla({
                 destinatario_override: v || undefined,
               } as Partial<AccionWorkflow>)
             }
-            placeholder="{{contacto.email}}"
+            placeholder={t('flujos.editor.panel.respuesta_rapida_correo.destinatario_placeholder')}
             contexto={contexto}
             fuentes={fuentes}
             soloLectura={soloLectura}
           />
           <span className="text-xs text-texto-terciario leading-relaxed">
-            {t('flujos.editor.panel.correo_plantilla.destinatario_ayuda')}
+            {t('flujos.editor.panel.respuesta_rapida_correo.destinatario_ayuda')}
           </span>
         </div>
       </SeccionPanel>
 
-      {plantillaId && (previewAsunto || previewCuerpo) && (
-        <SeccionPanel titulo={t('flujos.editor.panel.correo_plantilla.preview_titulo')}>
+      {respuestaId && (previewAsunto || previewCuerpo) && (
+        <SeccionPanel titulo={t('flujos.editor.panel.respuesta_rapida_correo.preview_titulo')}>
           {previewAsunto && (
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
-                {t('flujos.editor.panel.correo_plantilla.preview_asunto_label')}
+                {t('flujos.editor.panel.respuesta_rapida_correo.preview_asunto_label')}
               </span>
               <div className="text-sm text-texto-primario p-2 rounded border border-borde-sutil bg-superficie-tarjeta whitespace-pre-wrap">
                 {previewAsunto}
@@ -119,7 +110,7 @@ export default function PanelEnviarCorreoPlantilla({
           {previewCuerpo && (
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
-                {t('flujos.editor.panel.correo_plantilla.preview_cuerpo_label')}
+                {t('flujos.editor.panel.respuesta_rapida_correo.preview_cuerpo_label')}
               </span>
               <div className="text-sm text-texto-secundario p-2 rounded border border-borde-sutil bg-superficie-tarjeta whitespace-pre-wrap max-h-40 overflow-y-auto">
                 {previewCuerpo}
@@ -127,7 +118,7 @@ export default function PanelEnviarCorreoPlantilla({
             </div>
           )}
           <p className="text-xs text-texto-terciario leading-relaxed">
-            {t('flujos.editor.panel.correo_plantilla.preview_ayuda')}
+            {t('flujos.editor.panel.respuesta_rapida_correo.preview_ayuda')}
           </p>
         </SeccionPanel>
       )}

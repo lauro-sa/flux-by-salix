@@ -33,6 +33,7 @@ import {
   Inbox,
   Mail,
   MailCheck,
+  MessageCircle,
   MessageSquare,
   MessageSquareText,
   PenLine,
@@ -77,6 +78,7 @@ export const ICONOS_FLUJO: Record<string, LucideIcon> = {
   Inbox,
   Mail,
   MailCheck,
+  MessageCircle,
   MessageSquare,
   MessageSquareText,
   PenLine,
@@ -107,6 +109,26 @@ export function iconoLucideFlujo(nombre: string | null | undefined): LucideIcon 
   return ICONOS_FLUJO[nombre] ?? Workflow
 }
 
+/**
+ * Resuelve el valor que va al CSS para el color del flujo.
+ *
+ * `flujos.color` puede venir en dos formas:
+ *   1. Token de `ColorInsignia` (ej: "violeta", "exito") → se mapea a
+ *      `var(--insignia-${token}-texto, var(--texto-marca))` para que
+ *      respete dark/light + tokens semánticos.
+ *   2. Hex literal (ej: "#7c3aed") → se devuelve tal cual, para soportar
+ *      el gotero del selector de color custom.
+ *
+ * En cualquier otro caso (null, vacío, basura) cae al texto-marca
+ * (índigo Attio). El fallback dentro del `var()` también cubre tokens
+ * inexistentes sin romper el render.
+ */
+export function resolverEstiloColorFlujo(color: string | null | undefined): string {
+  if (!color) return 'var(--texto-marca)'
+  if (color.startsWith('#')) return color
+  return `var(--insignia-${color}-texto, var(--texto-marca))`
+}
+
 // =============================================================
 // Defaults por tipo de disparador / acción
 // =============================================================
@@ -123,7 +145,9 @@ const ICONO_POR_DISPARADOR: Record<TipoDisparador, string> = {
   'tiempo.cron': 'Clock',
   'tiempo.relativo_a_campo': 'Calendar',
   'webhook.entrante': 'Webhook',
-  'inbox.mensaje_recibido': 'Inbox',
+  'inbox.correo_recibido': 'Mail',
+  'inbox.whatsapp_recibido': 'MessageCircle',
+  'inbox.interno_recibido': 'Users',
   'inbox.conversacion_sin_respuesta': 'AlarmClock',
 }
 
@@ -132,6 +156,7 @@ const ICONO_POR_ACCION: Record<TipoAccion, string> = {
   enviar_whatsapp_texto: 'MessageSquareText',
   enviar_correo_plantilla: 'MailCheck',
   enviar_correo_texto: 'Mail',
+  enviar_respuesta_rapida_correo: 'Reply',
   crear_actividad: 'PenLine',
   completar_actividad: 'CheckCircle2',
   cambiar_estado_entidad: 'Repeat',

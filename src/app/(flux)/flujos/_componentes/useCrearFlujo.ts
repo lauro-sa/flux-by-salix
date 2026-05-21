@@ -56,6 +56,12 @@ interface PayloadCrear {
   nombre: string
   descripcion?: string
   plantillaId?: string | null
+  /** Icono Lucide opcional (ej: "Mail"). Si viene, se persiste de una
+   *  en el INSERT — evita un PATCH adicional desde el editor cuando el
+   *  usuario ya eligió ícono en el modal de creación. */
+  icono?: string | null
+  /** Color de la paleta Insignia (ej: "violeta"). */
+  color?: string | null
 }
 
 interface ResultadoUseCrearFlujo {
@@ -94,6 +100,8 @@ export function useCrearFlujo(callbacks?: {
           body: JSON.stringify({
             nombre: payload.nombre,
             ...(payload.descripcion ? { descripcion: payload.descripcion } : {}),
+            ...(payload.icono ? { icono: payload.icono } : {}),
+            ...(payload.color ? { color: payload.color } : {}),
           }),
         })
         if (!res.ok) {

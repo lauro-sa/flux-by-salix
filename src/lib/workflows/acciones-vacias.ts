@@ -85,9 +85,19 @@ export function crearDisparadorVacio(tipo: TipoDisparador): DisparadorWorkflow {
         tipo: 'webhook.entrante',
         configuracion: { slug: '' },
       }
-    case 'inbox.mensaje_recibido':
+    case 'inbox.correo_recibido':
       return {
-        tipo: 'inbox.mensaje_recibido',
+        tipo: 'inbox.correo_recibido',
+        configuracion: {},
+      }
+    case 'inbox.whatsapp_recibido':
+      return {
+        tipo: 'inbox.whatsapp_recibido',
+        configuracion: {},
+      }
+    case 'inbox.interno_recibido':
+      return {
+        tipo: 'inbox.interno_recibido',
         configuracion: {},
       }
     case 'inbox.conversacion_sin_respuesta':
@@ -165,13 +175,23 @@ export function crearAccionVacia(tipo: TipoAccion): AccionWorkflow {
         tipo: 'terminar_flujo',
       }
 
+    case 'enviar_correo_plantilla':
+      return {
+        tipo: 'enviar_correo_plantilla',
+        plantilla_id: '',
+      }
+    case 'enviar_respuesta_rapida_correo':
+      return {
+        tipo: 'enviar_respuesta_rapida_correo',
+        respuesta_rapida_id: '',
+      }
+
     // ─── Acciones genéricas (shape `parametros`) ────────────────
     // Son las del catálogo todavía sin shape específico (sub-PR 15.3+).
     // Las exhaustimos individualmente en lugar de usar `default` para
     // que TS pinte un error si se agrega un `TipoAccion` nuevo y se
     // olvidan de mapearlo acá.
     case 'enviar_whatsapp_texto':
-    case 'enviar_correo_plantilla':
     case 'enviar_correo_texto':
     case 'asignar_usuario':
     case 'agregar_etiqueta':

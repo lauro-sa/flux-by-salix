@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { iconoDefaultAccion } from '@/lib/workflows/iconos-flujo'
-import { claveI18nTituloPaso } from '@/lib/workflows/categorias-pasos'
+import { nombreMostrablePaso } from '@/lib/workflows/etiquetas-accion'
 import type { AccionWorkflow, TipoAccion } from '@/tipos/workflow'
 
 /**
@@ -52,11 +52,10 @@ export default function TarjetaPaso({
 }: Props) {
   const { t } = useTraduccion()
   const Icono = iconoDefaultAccion(paso.tipo as TipoAccion)
-  const titulo = (() => {
-    const clave = claveI18nTituloPaso(paso.tipo as TipoAccion)
-    const traducido = t(clave)
-    return traducido === clave ? paso.tipo : traducido
-  })()
+  // Si el paso tiene `etiqueta` propia (nombre custom del usuario), esa
+  // gana sobre el título genérico del tipo. Si no, fallback a la
+  // traducción i18n del tipo (ej: "Enviar respuesta rápida").
+  const titulo = nombreMostrablePaso(t, paso as { etiqueta?: string | null; tipo?: string | null })
 
   // dnd-kit sortable. El ID viene del paso.
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({

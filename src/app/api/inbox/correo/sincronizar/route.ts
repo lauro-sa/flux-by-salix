@@ -27,6 +27,40 @@ import { registrarCorreoRecibidoEnChatter, obtenerNombreEntidad, type EntidadRel
  * - empresa_id: sincronizar todos los canales de esa empresa
  * - Sin params: requiere CRON_SECRET header (para el cron global)
  */
+
+/**
+ * Devuelve el set de identidades (emails) del canal: dirección pública +
+ * usuario IMAP (si difiere) + aliases configurados. Se usa para detectar
+ * correctamente correos salientes vs entrantes cuando una cuenta tiene
+ * varios identificadores (ej. Gmail con alias `info@empresa.com` apuntando
+ * a `info.empresa@gmail.com`). Sin esto, los correos enviados desde la
+ * cuenta principal hacia su propio alias se interpretaban como entrantes
+ * y aparecían en la bandeja como si fueran de un contacto externo.
+ */
+function obtenerIdentidadesCanal(
+  config: Record<string, unknown> | null | undefined,
+): Set<string> {
+  if (!config) return new Set()
+  const ids = new Set<string>()
+  const sumar = (v: unknown) => {
+    if (typeof v === 'string' && v.includes('@')) {
+      ids.add(extraerEmail(v).toLowerCase())
+    }
+  }
+  sumar(config.email)
+  sumar(config.usuario)
+  const aliases = config.aliases
+  if (Array.isArray(aliases)) {
+    for (const a of aliases) sumar(a)
+  }
+  ids.delete('')
+  return ids
+}
+
+/** True si el remitente coincide con alguna identidad del canal. */
+function esRemitentePropio(remitente: string, identidades: Set<string>): boolean {
+  return identidades.has(extraerEmail(remitente).toLowerCase())
+}
 export async function POST(request: NextRequest) {
   try {
     const admin = crearClienteAdmin()
@@ -143,11 +177,12 @@ async function sincronizarGmail(
   admin: ReturnType<typeof crearClienteAdmin>,
   canal: Record<string, unknown>,
 ): Promise<number> {
-  const config = canal.config_conexion as { refresh_token: string; email: string }
+  const config = canal.config_conexion as { refresh_token: string; email: string; aliases?: string[] }
   const cursor = (canal.sync_cursor || {}) as CursorSincronizacion
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.email
+  const identidades = obtenerIdentidadesCanal(config)
   const canalNombre = (canal.nombre as string) || emailCanal
 
   // Pre-cargar admins una sola vez para toda la sincronización (evita N queries)
@@ -177,7 +212,7 @@ async function sincronizarGmail(
             obtenerMensajeCompleto(config.refresh_token, msgId),
             30000, `obtener mensaje ${msgId}`,
           )
-          const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, false, undefined, canalNombre)
+          const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, identidades, false, undefined, canalNombre)
           if (procesado) mensajesNuevos++
         } catch (err) {
           console.error(`Error procesando mensaje ${msgId}:`, err)
@@ -225,6 +260,7 @@ async function sincronizarGmailCompleto(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.email
+  const identidades = obtenerIdentidadesCanal(config)
   const canalNombre = (canal.nombre as string) || emailCanal
 
   // Obtener historyId actual
@@ -251,7 +287,7 @@ async function sincronizarGmailCompleto(
         obtenerMensajeCompleto(config.refresh_token, msg.id),
         30000, `obtener mensaje ${msg.id}`,
       )
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, identidades, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje ${msg.id}:`, err)
@@ -269,7 +305,7 @@ async function sincronizarGmailCompleto(
         obtenerMensajeCompleto(config.refresh_token, msg.id),
         30000, `obtener mensaje enviado ${msg.id}`,
       )
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, identidades, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje enviado ${msg.id}:`, err)
@@ -307,6 +343,7 @@ async function sincronizarIMAP(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.usuario
+  const identidades = obtenerIdentidadesCanal(config as unknown as Record<string, unknown>)
   const canalNombre = (canal.nombre as string) || emailCanal
   const esSyncInicial = !cursor.ultimoUID || cursor.ultimoUID === 0
 
@@ -361,7 +398,7 @@ async function sincronizarIMAP(
       for (const correo of resultado.mensajes) {
         try {
           const procesado = await procesarCorreoEntrante(
-            admin, correo, empresaId, canalId, emailCanal, esSyncInicial,
+            admin, correo, empresaId, canalId, emailCanal, identidades, esSyncInicial,
             carpeta.estado === 'spam' ? 'spam' : undefined,
             canalNombre, adminsCacheImap || undefined,
           )
@@ -413,6 +450,7 @@ async function procesarCorreoEntrante(
   empresaId: string,
   canalId: string,
   emailCanal: string,
+  identidades: Set<string>,
   syncInicial = false,
   estadoForzado?: 'spam',
   canalNombre?: string,
@@ -439,9 +477,13 @@ async function procesarCorreoEntrante(
 
   if (existente) return false // Ya procesado
 
-  // 2. Determinar dirección (entrante vs saliente)
+  // 2. Determinar dirección (entrante vs saliente).
+  // El canal puede tener varias identidades (email principal + usuario IMAP
+  // + aliases configurados). Solo es entrante si el remitente NO matchea
+  // ninguna de ellas — así un correo enviado desde una identidad propia
+  // del canal hacia otra propia no se interpreta como entrante.
   const emailRemitente = extraerEmail(correo.de)
-  const esEntrante = emailRemitente.toLowerCase() !== emailCanal.toLowerCase()
+  const esEntrante = !esRemitentePropio(emailRemitente, identidades)
 
   // 2.5. Verificar listas de permitidos/bloqueados (solo entrantes)
   let estadoInicial: EstadoConversacion = EstadosConversacion.ABIERTA
